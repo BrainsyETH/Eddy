@@ -462,5 +462,6 @@ more than the content and linking around them can support.
 
 *Added 2026-11-09:* the lake side of the same dams is a different question,
 and `LAKES_AND_LAUNCHES_PLAN_2026-11-09.md` takes it up: lake levels, trends,
-launches and official closure status on the six lakes Eddy already carries,
-sequenced after items 1–3 above.
+launches and official closure status on the lakes Eddy already carries. Its
+feasibility audit runs alongside items 1–3 above; its Table Rock and Truman
+pilot follows them.

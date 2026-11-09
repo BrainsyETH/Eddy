@@ -1,28 +1,36 @@
 # Lakes and launches — the expansion plan
 
-**Status: proposed plan, 2026-11-09.** Turns the "expand dams and lakes"
-research into a sequence Eddy can execute, with every source claim
-re-measured from this environment on the date above. Companions:
-`DAM_PRODUCT_AUDIT_2026-11-09.md` (where the dam product stands and what to
-fix first), `dam-expansion.md` (what adding a USACE dam costs),
-`DAM_EXPANSION_SURVEY_2026-08.md` (TVA, Nashville, Ameren),
-`TAILWATER_PLAN.md` (the audience decision this plan must not displace), and
-`MULTI_STATE_SCALING_PLAN.md` (the timezone, state and URL work a Southeast
-cluster depends on).
+**Status: approved for Phase 0, 2026-11-09.** Turns the "expand dams and
+lakes" research into a sequence Eddy can execute, with every source claim
+re-measured from this environment on the date above. Revised the same day
+after review: the freshness rule, the launch model, the gates, the ramp
+elevation output and the rollout order all changed; §7 records the
+decisions. Companions: `DAM_PRODUCT_AUDIT_2026-11-09.md` (where the dam
+product stands and what to fix first), `dam-expansion.md` (what adding a
+USACE dam costs), `DAM_EXPANSION_SURVEY_2026-08.md` (TVA, Nashville,
+Ameren), `TAILWATER_PLAN.md` (the audience decision this plan must not
+displace), and `MULTI_STATE_SCALING_PLAN.md` (the timezone, state and URL
+work a Southeast cluster depends on).
 
 **Verdict in one line:** the product idea is right and the data is better
 than the registry suggests, but two of the research premises do not survive
 measurement. The three Arkansas hydro dams publish no hourly generation at
 all, so they are lake pages and not thinner generation pages. And the Corps'
 national recreation-status layer carries no update time and has notes that
-are years stale in places, so "Reported open" cannot be shown until Eddy has
-watched the layer long enough to know how often it moves. Everything else in
-the research checks out, and three things are better than it assumed: the
-Kansas City ramp layer carries usable-elevation ranges on 153 of 224 ramps,
-Eddy already holds the Arkansas and Missouri agency ramp inventories for every
-Phase 1 lake in `agency_gis_features`, and the Southeast reservoirs publish
-pool, guide curve, release and tailwater temperature live through the same
-CWMS API the dam layer already reads.
+are years stale in places, so a status from it can be shown only as what it
+is: an agency listing with no known date. Everything else in the research
+checks out, and three things are better than it assumed: the Kansas City
+ramp layer carries ramp-bottom and closure elevations on 153 of 224 ramps,
+Eddy already holds the Arkansas and Missouri agency ramp inventories for
+every first-wave lake in `agency_gis_features`, and the Southeast reservoirs
+publish pool, guide curve, release and tailwater temperature live through
+the same CWMS API the dam layer already reads.
+
+**The quality bar is the river bar.** Accurate, attributable, useful, and
+understandable without a wall of explanatory text. The risk in this plan is
+not architecture; it is telling someone a ramp is usable on the strength of
+government information that is incomplete or years old. Every rule in §5
+exists to prevent that one failure.
 
 ---
 
@@ -66,19 +74,24 @@ The Kansas City District boat-ramp layer
 | Truman | 45 (Corps, MDC, Missouri State Parks, lessees and municipal ramps) |
 | Stockton | 24 |
 | Pomme de Terre | 14 |
-| Layer last edited | 2026-07-22 (service metadata); features edited 2024-12-09 and 2025-01-15 |
+| Layer last edited | 2026-07-22 (service metadata); features carry their own `last_edited_date` (2024-12-09 and 2025-01-15 at Truman) |
 
-The elevation attributes read as a usable pool range in feet, in the lake's
-own datum: Truman's Corps ramps mostly carry 704–724 against a 706 ft
-multipurpose pool, Talley Bend's high-water ramp carries 724–727, and
-Deepwater's lease ramp 704–723. Two traps are already visible in the data.
-Warsaw City Harbor and East Bledsoe Ferry are filed under "Truman Lake" with
-ranges of 645–677: they are on the Lake of the Ozarks arm below the dam, so
-the lake assignment field cannot be trusted without the elevation. And many
-ramps carry no range at all, which must render as "no low-water range
-published", never as "usable".
+The layer documents `elev_low` as the **bottom of the ramp** and `elev_high`
+as the **elevation at which the ramp is closed**, in feet in the lake's own
+datum. They are two different facts, not one usable range: below the low
+value the end of the ramp is out of the water; above the high value the
+Corps closes it (usually because the approach or parking floods). Truman's
+Corps ramps mostly carry 704 and 724 against a 706 ft multipurpose pool.
+Two traps are already visible. Warsaw City Harbor and East Bledsoe Ferry are
+filed under "Truman Lake" with elevations of 645 and 677: they are on the
+Lake of the Ozarks arm below the dam, so the lake assignment field cannot be
+trusted without the elevation. And many ramps carry no elevations at all,
+which must render as "no elevation thresholds published", never as
+"usable". Talley Bend's high-water ramp carries 724 and 727, a three-foot
+band; either that is right and worth saying, or the fields mean something
+else at that ramp, and Phase 0 checks it specifically.
 
-### 1.3 The Corps' national recreation layer: good shape, unknown freshness
+### 1.3 The Corps' national recreation layer: good shape, no dates
 
 `Recreation/Recreation_Site/FeatureServer/0` holds 4,855 recreation areas
 across 414 projects, each with `AreaStatus`, `Boat`, `Beach`, `Camp` and
@@ -95,7 +108,7 @@ each status. Project names are upper case and `LIKE` is case-sensitive
 | Subtypes | `waterAccessPoint`, `dayUseArea`, `campground`, `marinaAndOrResort`, `multipurposeArea`, `landAccessPoint`, `scenicViewingArea` |
 | Timestamp fields | **none** |
 
-Per Phase 1 lake, today:
+Per first-wave lake, today:
 
 | Project | Areas | `Boat` set | Notes that look current | Notes that are stale |
 | --- | --- | --- | --- | --- |
@@ -112,18 +125,21 @@ Per Phase 1 lake, today:
 | Clearwater | 8 | 4 | | "Camping opens 5-20-2020" |
 
 So the layer is maintained, unevenly, by project staff, and it tells a reader
-nothing about when. Eddy can use it two ways without lying: as a discovery
-source for area names, subtypes, managing agency and entrance coordinates
-(which it is designed for), and as a status source **only after** Eddy has
-recorded the layer daily for several weeks and can say "the Corps' reported
-status, last changed on <date Eddy saw it change>". That is the ADR 0013
-discipline applied to a status field, and it is Phase 0 below.
+nothing about when. "Looks current" in the table above is a human reading a
+note, which is exactly what the product cannot rely on. An unchanged value
+observed by Eddy for three weeks is not evidence that the Corps looked at
+the ramp in those three weeks; an area listed open since 2022 would pass
+that test. What the layer can honestly supply is in §2.3 and §5: the
+agency's listing, labelled as a listing with no known date, and the status
+`Partial` preserved as "Limited access" rather than folded into open or
+closed.
 
 The layer's own description says the points are **entrance locations**.
 Seven of Table Rock's 38 areas are `waterAccessPoint`; the rest are
 multipurpose areas and marinas whose ramp is somewhere inside the area. The
-research's qualification stands and becomes a rule in §5: an entrance is
-never a launch pin.
+status is therefore an **area** status, not a ramp status. The research's
+qualification stands and becomes a rule in §5: an entrance is never a launch
+pin, and an area status reaches a launch only through a reviewed link.
 
 ### 1.4 The Southeast reservoirs are live in CWMS today
 
@@ -170,7 +186,7 @@ on 40, which is the better machine source anyway.
 - **NID** serves its national package; it identifies structures and says
   nothing about operations or launches, as the research noted.
 
-### 1.6 Eddy already holds most of the Phase 1 ramp inventory
+### 1.6 Eddy already holds most of the first-wave ramp inventory
 
 The 2026-10-29 agency GIS import (`scripts/ingestion/agency-gis/README.md`)
 stored 3,361 AGFC facilities and 554 MDC boat ramps in
@@ -194,24 +210,25 @@ a spatial join rather than a name match; the name match alone finds six at
 Stockton, four at Truman and four at Norfork. Only 17 of the 3,915 features
 were staged as river access candidates; the lake ramps sit in the inventory
 unpublished because Eddy has no lake to attach them to. That is the single
-cheapest fact in this plan: the first six lakes' launch lists are a model
-and a review away, not an ingestion away.
+cheapest fact in this plan: the first lakes' launch lists are a model and a
+review away, not an ingestion away. It is also why Eddy is not building a
+nationwide ramp directory from scratch.
 
 ### 1.7 What the research got right
 
 Verified today and carried into the plan unchanged: USACE's national
 layer is the right discovery source and the wrong launch-pin source; the
-Kansas City layer's `elev_low` and `elev_high` support lake-level-aware
-ramp guidance; Reclamation's API is official and reachable; TVA is blocked;
-a dam and a lake are different entities; the `/dams/...` URLs and
-generation charts must stay; and the Folsom pattern (one ramp closes, a
-different low-water ramp opens at a different elevation, a third stays open
-for larger boats) is exactly what a per-ramp model with elevation ranges
-can express and a single lake number cannot.
+Kansas City layer's elevations support lake-level-aware ramp cautions;
+Reclamation's API is official and reachable; TVA is blocked; a dam and a
+lake are different entities; the `/dams/...` URLs and generation charts
+must stay; and the Folsom pattern (one ramp closes, a different low-water
+ramp opens at a different elevation, a third stays open for larger boats)
+is exactly what a per-ramp model with elevation thresholds can express and
+a single lake number cannot.
 
 ---
 
-## 2. Product decisions this plan makes
+## 2. Product decisions
 
 1. **A lake is an entity. A dam is not renamed.** The dam page keeps its
    URL, title, schedule and generation surfaces (ADR 0017, the November
@@ -219,73 +236,121 @@ can express and a single lake number cannot.
    relationship, launches, and status provenance. One dam usually controls
    one lake; Taneycomo (Table Rock above, Powersite below) and the Truman to
    Lake of the Ozarks pair are why the relationship is a list, not a field.
-2. **Lakes land on the dam page first, as an "On the lake" section**, below
-   the water-below-the-dam content `TAILWATER_PLAN.md` decided leads. Only
-   when a lake has launches, a trend and at least one official status source
-   does it earn `/lakes/<slug>`, which then links to and from the dam page
-   without duplicating either's primary content. Search Console's one
-   recorded signal (lake-level queries show impressions and few clicks,
-   `dam-page-copy.ts`) says the demand exists and the current page does not
-   answer it.
-3. **Three launch statuses, one separate caution.** `Reported open`,
-   `Reported closed`, `Status unknown`, each with the source and the date
-   Eddy last saw it change. A lake-level calculation produces a separate
-   `Low-water caution` or `High-water caution` line from the ramp's own
-   elevation range. It never upgrades `Status unknown` to open, and it
-   never contradicts a reported closure.
-4. **Trailer and hand launches are distinct.** A `hand_launch` value joins
-   the access-point vocabulary (`packages/eddy-types`, `launch-roles.ts`,
-   iOS `accessLayers.ts`); a kayak can go in where a trailer cannot, and
-   that is half of "where can I launch today" for Eddy's existing audience.
-5. **Official conditions and launch status stay free.** Saved lakes, lake
-   alerts and a lake Read follow the dam model: later, and Premium.
-6. **No bathymetry, no navigation, no proprietary depth product.** Out of
+2. **Two destinations with two intents, linked both ways.** A dam page
+   prioritises generation, releases and the water below. A lake page
+   prioritises elevation, launches, facilities and restrictions. Someone
+   searching "Table Rock Lake boat ramps" and someone searching "Table Rock
+   Dam generation schedule" are not the same visitor, and the lake
+   experience develops its own identity rather than staying an appendix to
+   a dam chart. In the first wave the lake content lands on the dam page as
+   an "On the lake" section; a lake earns `/lakes/<slug>` on content quality
+   and search demand, **not** on whether an official ramp-status source
+   exists for it. Some agencies never publish one, and a lake with a verified
+   level, a chart and three reviewed launches is useful without it. Search
+   Console's one recorded signal (lake-level queries show impressions and
+   few clicks, `dam-page-copy.ts`) says the demand exists and the current
+   page does not answer it.
+3. **Four reported statuses, labelled by their provenance, and two separate
+   cautions.** The reported statuses are `Reported open`, `Limited access`
+   (the source's `Partial`, never folded into open or closed),
+   `Reported closed` and `Status unknown`. Each carries its source and the
+   best date that source gives (§3, three timestamps); when the source gives
+   none, the line reads "Agency lists as open · update date unavailable",
+   in the lower-trust style, and is never presented as a verified real-time
+   condition. Separately, a ramp's published elevation thresholds against
+   the current pool produce a `Low-water caution` or a `High-water caution`,
+   worded as in §5. A caution never upgrades a status, never contradicts a
+   reported closure, and never says "available".
+4. **Launch methods are not amenities.** `trailer` and `hand` describe how
+   a boat enters the water; a courtesy dock, parking, toilets and a fee are
+   facilities and belong in amenities. A `hand_launch` value joins the
+   access-point vocabulary (`packages/eddy-types`, `launch-roles.ts`, iOS
+   `accessLayers.ts`). Existing river gravel bars are **not** reclassified
+   automatically; a gravel bar gets `hand_launch` only when a human says so.
+5. **One physical launch has one identity.** A place used for a river float,
+   a lake launch and a campground is one row with one set of photos,
+   favorites and facility details, however many surfaces show it. The model
+   in §3 enforces that with a link, and the Taneycomo endpoints are the
+   first test of it.
+6. **Official conditions and launch information stay free.** Saved lakes,
+   lake alerts and a lake Read follow the dam model: later, and Premium.
+7. **Tailwater leads on the trout dams; the lake leads on lake-focused
+   destinations.** On Bull Shoals, Norfork and Table Rock the water below the
+   dam keeps the lead `TAILWATER_PLAN.md` gave it, but that is not a
+   requirement to bury every lake feature under every chart; the "On the
+   lake" section is a visible, linked section, not a footnote. On Texoma,
+   Truman and every lake with no Eddy river below it, the lake content can
+   lead.
+8. **No bathymetry, no navigation, no proprietary depth product.** Out of
    scope for the reasons the research gave.
 
 ---
 
-## 3. The data model, kept small
+## 3. The data model, kept to what Eddy does not already have
 
-The registry pattern that carries 24 dams carries lakes too: a code registry
-pinned by tests for identity and wiring, and tables only for things people
-review or that change daily.
+Eddy already has an access-point model with a review workflow, an agency
+GIS feature inventory with refusal rules, favorites and map layers keyed by
+kind and role (ADR 0008), and a provider-and-snapshot pattern for dams.
+This section adds a lake identity, a launch row that links to all of that,
+and a status observation with honest timestamps. Nothing else.
 
-**`src/lib/lakes/registry.ts`** (code, like `usace-registry.ts`):
+**`src/lib/lakes/registry.ts`** (code, pinned by tests, like
+`usace-registry.ts`):
 
 | Field | Why |
 | --- | --- |
-| `slug`, `name`, `states[]`, `timeZone` | identity; two-state lakes (Texoma, Bull Shoals) exist |
+| `slug`, `name`, `states[]`, `timeZone` | identity; two-state lakes (Texoma, Bull Shoals, Table Rock) exist |
 | `controllingDams[]` with a role (`impounds`, `holdsBelow`, `receivesFrom`) | the dam↔lake relationship, replacing the never-used `rivers.controlling_dam_id` |
 | `pool` source: `{ kind: 'dam', damId }` or `{ kind: 'cwms', office, tsId }` or `{ kind: 'rise', itemId }` | reuse the dam's `poolElevation` where the dam is already in the registry; otherwise the lake owns its series |
 | `datum: 'NGVD29' \| 'NAVD88'` and published offset | §5 rule; Buford publishes 0.1124 ft, the Ozark projects are NGVD29 |
-| `operatingRange`: either `{ guideCurveTsId }` or `{ conservationPoolFt, floodPoolFt, source, asOf }` | "normal for the season" comes from an official curve where one exists and from documented pool elevations where it does not |
+| `operatingRange?`: either `{ guideCurveTsId }` or `{ conservationPoolFt, floodPoolFt, source, asOf }` | optional; "normal for the season" comes from an official curve where one exists and from documented pool elevations where it does not, and the page says so when neither exists |
 | `sources`: USACE recreation project name(s), NWK ramp lake name, AGFC/MDC waterbody spellings | the join keys measured in §1 are strings, and they differ per source |
 
 **Tables (migrations under `supabase/`):**
 
-- `lakes` mirror row (slug, name, geometry from 3DHP when wanted) so
-  launches, stars and embeds have a key; populated from the registry the way
-  `gauge_stations` carries dam release stations.
-- `lake_launches`: `lake_slug`, name, point geometry, `launch_kinds[]`
-  (`trailer`, `hand`, `courtesy_dock`), `managing_agency` (the closed
-  vocabulary from migration `20260824183425`, widened as needed), fee,
-  `usable_elev_low_ft`, `usable_elev_high_ft`, `elev_datum`,
-  `elev_source`, `approved`, and the evidence links into
-  `agency_gis_features` the 2026-10-29 import already uses for rivers.
-- `lake_launch_status_observations`: `launch_id` or `lake_slug` + source
-  area id, `source` (`usace_recreation`, `state_agency`, `operator`),
-  `status`, `notes`, `first_seen_at`, `last_seen_at`, `changed_at`. The
-  current status is the newest row; the freshness claim is `changed_at`.
+- `lakes` mirror row (slug, name, geometry from 3DHP when a polygon is
+  wanted) so launches, stars and embeds have a key; populated from the
+  registry the way `gauge_stations` carries dam release stations.
+- `lake_launches`: `lake_slug`, name, point geometry, `launch_methods[]`
+  (`trailer`, `hand`), `amenities[]` (courtesy dock, parking, toilets, fee,
+  using the vocabulary access points already use), `managing_agency` (the
+  closed vocabulary from migration `20260824183425`, widened as needed),
+  `ramp_bottom_elev_ft`, `ramp_closure_elev_ft`, `elev_datum`,
+  `elev_source`, `elev_source_updated_at`, `approved`, the evidence links
+  into `agency_gis_features` the 2026-10-29 import already uses for rivers,
+  and **`access_point_id` (nullable, unique)**: when the same physical place
+  is already an access point, the launch row points at it and takes its
+  name, photos, favorites and facilities from there. The launch table exists
+  only because access points carry river miles, snapping and float-endpoint
+  logic a lake ramp has no use for; the link is what keeps one place one
+  identity. A later unification is possible; a duplicate pin is not.
+- `lake_status_observations`, keyed by **source area**, not by launch:
+  `source` (`usace_recreation`, `state_agency`, `operator`), the source's
+  area identifier (`recreationBoundaryIdpk` for the Corps layer), `status`
+  (`open`, `partial`, `closed`, `unknown`), `notes`, and three timestamps:
+  - `source_updated_at`: when the agency says it updated the record, if it
+    says (the Kansas City layer's `last_edited_date`, AGFC's
+    `last_verified_date`, a date a note states; null for the Corps
+    recreation layer);
+  - `first_observed_at`: when Eddy first saw this status value for this
+    area;
+  - `last_checked_at`: when Eddy last successfully retrieved it.
+  A launch shows an area's status only through a reviewed
+  `lake_launch_areas` link (one launch can sit inside one Corps area; a
+  marina's ramp inside a multipurpose area is the common case). The display
+  date is `source_updated_at` when present and "update date unavailable"
+  when not; `first_observed_at` is never shown as if it were the agency's
+  date.
 - `AgencyProvider` grows `usace_recreation` and `nwk_ramps` so the existing
   snapshot, validate, stage, review loop ingests both layers with the same
-  refusal rules (complete snapshots only, source identity by GUID,
-  curated places never overwritten).
+  refusal rules (complete snapshots only, source identity by GUID or
+  `recreationBoundaryIdpk`, curated places never overwritten).
 
-**Existing seams that take a fourth kind in one entry each:** `StarKind`
-in `packages/eddy-sync`, `EMBED_KINDS` in `src/lib/embed/options.ts`,
-`ConditionsKind` in `conditions/directory.ts`, iOS `KindMarkKind`, and the
-starred-items tables (a `starred_lakes` row keyed by slug and validated
-against the registry, as `starred_dams` is).
+**Existing seams that take a fourth kind in one entry each, when their
+phase arrives and not before:** `StarKind` in `packages/eddy-sync`,
+`EMBED_KINDS` in `src/lib/embed/options.ts`, `ConditionsKind` in
+`conditions/directory.ts`, iOS `KindMarkKind`, and a `starred_lakes` table
+keyed by slug and validated against the registry, as `starred_dams` is.
 
 **Lake trend:** `DamHistoryMetric` is `generationFlow | release` today.
 Adding `poolElevation` to the hourly history cron is what gives every lake
@@ -294,150 +359,201 @@ Kansas City lake (Truman, via Ameren's daily number) gets a trend at all.
 `sync-dam-history`'s expected-stream accounting must grow with it, or the
 monitor goes `partial` on day one.
 
+**Wire contract:** the lake content ships as an optional `lake` block on
+`DamSnapshot` first, so the web can build and change it while iOS ignores
+the unknown field, exactly as `generationForecast` established. The block
+is promoted to its own `/api/lakes/<slug>` response when a lake earns a
+page. iOS draws it only once the shape has stopped moving (§4, step 3).
+
 ---
 
-## 4. Phases
+## 4. The order of work
 
-Estimates are relative to the dam work already shipped. Each phase has a
+Estimates are relative to the dam work already shipped. Each step has a
 gate that can say no.
 
-### Phase 0 — Feasibility audit (two to three weeks of elapsed time, little of it engineering)
+### Step 1 — Phase 0, now, alongside the dam audit's items 1–3
 
-The research asked for this first, and the measurements above say why.
+The research asked for a focused feasibility audit first, and the
+measurements above say why. It runs in parallel with the audit's P1 fixes,
+the `/dams` index and the explainer content; none of it touches a shipped
+page.
 
 1. **Record the Corps recreation layer daily** for all 414 projects with a
    script under `scripts/` (`probe-usace-recreation.ts`), storing each
-   area's status fields and notes by `recreationBoundaryIdpk`. After three
-   weeks, report: how many areas changed status at all, per district and
-   per Phase 1 lake; whether `PrevBoat` moves when `Boat` does; whether
-   notes are ever edited. **Gate:** if the Phase 1 lakes show no movement in
-   three weeks, the layer is a discovery source only and the status feature
-   needs a different source per lake.
-2. **Verify the Kansas City ramp elevations** at Truman and Stockton:
-   compare `elev_low`/`elev_high` against the pool elevations Eddy already
-   holds (Truman from Ameren; Stockton from nothing, which is itself a
-   finding), against the Corps' posted ramp tables where a human can read
-   them, and against the two Lake of the Ozarks ramps misfiled under Truman.
-   Decide the display rule for ramps with no range. **Gate:** the ranges
-   agree with the posted tables on at least 90% of Corps-managed ramps.
-3. **Spatially join `agency_gis_features` to the six Phase 1 lakes** (AGFC
-   by `waterbody`, MDC by proximity to the lake polygon from 3DHP), and
-   produce the review queue: name, agency, type, coordinates, verification
-   date, nearest Corps recreation area. No publication.
+   area's status fields and notes by `recreationBoundaryIdpk` with the three
+   timestamps from §3. What this measures is **which projects maintain the
+   fields at all** (a status that changes was edited; one that never changes
+   may be live or abandoned), whether `PrevBoat` moves when `Boat` does, and
+   whether notes are ever edited. It does **not** establish that an
+   unchanged value is current, and nothing in the product treats it as if
+   it did. The script also parses dates out of `Notes` and marks a record
+   stale mechanically when the note's own date is in the past, so "until 1
+   March 2022" flags itself. **Gate:** per project, the layer is classed as
+   maintained (status edits seen), static (none seen) or stale (dated notes
+   in the past); only maintained projects' statuses render in the pilot, and
+   always with the §2.3 label.
+2. **Verify the Kansas City ramp elevations** at Truman and Stockton against
+   the pool elevations Eddy already holds (Truman from Ameren; Stockton from
+   nothing, which is itself a finding), against the Corps' posted ramp
+   tables where a human can read them, against the two Lake of the Ozarks
+   ramps misfiled under Truman, and against the odd entries (Talley Bend's
+   724–727 band). Confirm per ramp that the low value is the ramp bottom and
+   the high value is the closure elevation, as the layer documents, and
+   decide the display rule for ramps with neither. **Gate:** the documented
+   semantics hold on at least 90% of Corps-managed ramps with values.
+3. **Spatially join `agency_gis_features` to Table Rock and Truman** (AGFC
+   by `waterbody`, MDC by proximity to the lake polygon from 3DHP), match
+   each candidate against existing access points so one place stays one
+   identity, and produce the review queue: name, agency, type, coordinates,
+   verification date, nearest Corps recreation area. No publication.
 4. **Probe `Hartwell.Energy-SCHED` live** and the equivalent at Thurmond.
    If it is a forward hourly schedule, the Savannah chain is a generation
-   product and Phase 3 is larger and better than planned.
-5. **Write the ADR**: lake as entity, status vocabulary, datum rule,
-   entrance-is-not-a-launch rule. Record the decisions in §2 so they are
-   decided rather than drifted into.
+   product and step 4 below is larger and better than planned.
+5. **Write the ADR**: lake as entity, the status vocabulary and its
+   provenance labels, the three timestamps, the datum rule, launch methods
+   versus amenities, the one-identity rule, entrance-is-not-a-launch. Record
+   §7 so it is decided rather than drifted into.
 
-### Phase 1 — Six lakes Eddy already carries (after the audit's items 1–3 in `DAM_PRODUCT_AUDIT_2026-11-09.md` §5 have landed)
+### Step 2 — Pilot on Table Rock and Truman, web first
 
-Table Rock, Bull Shoals, Beaver, Norfork, Texoma, Truman.
+Two lakes, chosen because together they exercise everything the first wave
+will meet. Table Rock has the busiest dam page, strong generation data, and
+ramps that come from three sources at once (MDC on the Missouri side, AGFC
+on the Arkansas side, the Corps layer on both). Truman has the delayed pool
+reading, 45 ramps with elevation thresholds, two misfiled ramps and no CWMS
+at all.
 
-- Registry entries, `lakes` rows, `poolElevation` in the hourly history,
-  the trend line and the operating range on the dam page's new "On the
-  lake" section. Table Rock, Bull Shoals, Beaver and Norfork publish
-  `%-Flood Pool` already; the section shows pool, 24-hour and 7-day change,
-  and where the pool sits against conservation and flood pool.
-- Launches from the Phase 0 review queue, approved one by one with the
+- Registry entries and `lakes` rows; `poolElevation` in the hourly history;
+  the "On the lake" section on both dam pages with the current elevation,
+  the 24-hour and 7-day change, and the operating range where documented
+  (Table Rock publishes `%-Flood Pool`; Truman's conservation and flood
+  pool come from the registry with a source).
+- Launches from the step 1 review queue, approved one by one with the
   existing access-point review workflow, rendered as a list and map layer
-  filtered by `All`, `Trailer`, `Hand launch`. Every launch shows its
-  agency, kinds, fee, and the status line from §2.3 if and only if Phase 0
-  item 1 passed for that lake.
-- Truman is the ramp-elevation pilot: 45 ramps, ranges on most, pool from
-  Ameren a day behind. The caution line must say the pool is as of
-  yesterday; that constraint is a feature of the pilot, not a defect.
+  filtered `All`, `Trailer`, `Hand launch`. Every launch shows its agency,
+  method, amenities and, where a reviewed area link exists and the project
+  is classed maintained, the §2.3 status line with its provenance label.
+- Truman's ramps carry the elevation cautions in §5 wording, with the pool
+  dated "as of yesterday", because that is what Ameren's number is. That
+  constraint is a feature of the pilot, not a defect.
+- Confirm the experience on mobile web before any iOS work. The wire block
+  is optional and iOS ignores it.
+
+**Gate:** each lake has a verified identity, a live pool series with a
+trend from Eddy's own history, and at least one reviewed launch with a
+method. An operating range, an official status source and a target launch
+count are **not** gates; what is missing renders honestly or is omitted.
+
+### Step 3 — The remaining four first-wave lakes, then iOS
+
+Bull Shoals, Beaver, Norfork, Texoma, on the pilot's model.
+
 - Texoma is the breadth test: 121 Corps areas, 105 with no `Boat` status,
   and Texas Parks and Wildlife and Oklahoma ramp lists that are web pages,
   not layers. Expect Texoma to ship with launches and `Status unknown`
   almost everywhere, which is the honest state.
-- iOS: the dam screen gains the same section from the same wire fields
-  (`DamSnapshot` grows an optional `lake` block; old clients ignore it, as
-  `generationForecast` established).
+- Once the wire block has stopped changing, iOS draws the same section on
+  the dam screen from the same fields, and `StarKind` gains `lake`.
+- Evaluate dedicated `/lakes/<slug>` pages on content quality and search
+  demand (export Search Console for lake queries first, as the audit asked
+  for dam queries). Table Rock is the obvious first candidate.
 
-**Gate:** each lake has at least five approved launches with kinds, a trend
-from Eddy's own history, and a documented operating range before its
-section renders.
+**Gate:** the four lakes pass the step 2 gate; iOS parity waits for a
+stable contract, not a date.
 
-### Phase 2 — Nearby lakes without a generation product
+### Step 4 — Geographic expansion
 
-- DeGray, Narrows, Blakely Mountain as **lake-first** entries: a new
-  `UsaceOffice` member `MVK`, the `DCP-rev` hourly pool spelling and
-  daily `Manual` flows marked `dailyMean` in `resolve.ts`, no powerhouse
-  claim (no `nameplate`, no `generationOnCfs`, no pattern strip). Each
-  declares its `tailwaterFishery` (trout at all three) and gets AGFC's
-  launches from the inventory already held. Their dam pages exist because
-  the registry drives them, titled for what they carry: lake level and
-  releases, not a schedule.
-- Oologah, Skiatook, Kaw, Wister only after
+In order, each lake needing a verified live pool series and a defined user
+purpose before it publishes:
+
+- **DeGray, Narrows, Blakely Mountain** as lake-first entries: a new
+  `UsaceOffice` member `MVK`, the `DCP-rev` hourly pool spelling and daily
+  `Manual` flows marked `dailyMean` in `resolve.ts`, no powerhouse claim (no
+  `nameplate`, no `generationOnCfs`, no pattern strip). Each declares its
+  `tailwaterFishery` (trout at all three) and gets AGFC's launches from the
+  inventory already held. Their dam pages exist because the registry drives
+  them, titled for what they carry: lake level and releases, not a schedule.
+- **Oologah, Skiatook, Kaw, Wister** only after
   `scripts/discover-usace-locations.ts` finds their SWT four-letter codes
-  (name probes return nothing, as `dam-expansion.md` predicts) and the
-  recreation layer's status churn at those projects is known. None has a
+  (name probes return nothing, as `dam-expansion.md` predicts). None has a
   river Eddy carries below it; they are lake pages for Tulsa-area boaters
   and the first test of whether a lake without a dam story earns traffic.
+- **Hartwell, J. Strom Thurmond, Lake Lanier (Buford), Allatoona**, in that
+  order: the two SAS projects share one vocabulary and both carry hourly
+  generation; the two SAM projects carry the richest lake data (guide curve,
+  storage, tailwater temperature). Prerequisites, all already priced
+  elsewhere: `timeZone` on the dam and lake registries threaded through
+  `shared/dam-schedule-copy.ts` and the DST anchoring in `DamPatternDay`
+  (survey §2, scaling plan F4); `state` widened to GA and SC; SAS and SAM
+  spellings in `resolve.ts` with `scripts/check-usace-resolver.ts` run before
+  shipping; the datum rule exercised by Buford's published offset. No
+  eastern river is required for a lake page, which is what makes this
+  cluster reachable before the TVA prerequisites are met. **Gate:** the
+  timezone work ships with a test that renders a Hartwell day in Eastern
+  time and a Table Rock day in Central from the same code path.
 
-**Gate:** a verified live pool series and a defined user purpose per lake,
-as the research required.
+### Step 5 — Notifications, embeds, national providers
 
-### Phase 3 — The first Southeast cluster
-
-Hartwell, J. Strom Thurmond, Lake Lanier (Buford), Allatoona, in that
-order: the two SAS projects share one vocabulary and both carry hourly
-generation; the two SAM projects carry the richest lake data (guide curve,
-storage, tailwater temperature).
-
-Prerequisites, all already priced elsewhere: `timeZone` on the dam and lake
-registries threaded through `shared/dam-schedule-copy.ts` and the DST
-anchoring in `DamPatternDay` (survey §2, scaling plan F4); `state` widened
-to GA and SC; SAS and SAM spellings in `resolve.ts` with
-`scripts/check-usace-resolver.ts` run before shipping; the datum rule
-exercised by Buford's published offset. No eastern river is required for a
-lake page, which is what makes this cluster reachable before the TVA
-prerequisites are met.
-
-**Gate:** the timezone work ships with a test that renders a Hartwell day
-in Eastern time and a Table Rock day in Central from the same code path.
-
-### Phase 4 — Alerts, embeds, and the next providers
-
+- **Starred-dam notifications first.** `TAILWATER_PLAN.md` step 6 and the
+  audit's item 4 ("tomorrow's schedule is posted", "generation starts in
+  the next hour") are not delayed by this plan; they share the delivery
+  path every lake alert will use and their audience exists today.
 - Lake-level alerts (pool crosses a level the user sets, or leaves the
-  operating range) and launch-status alerts (a reported status changes) on
-  starred lakes, using the status observation table's `changed_at` as the
-  event. These reuse the dam alert work `TAILWATER_PLAN.md` step 6 asks
-  for and the audit ranks fourth.
+  operating range) and status-change alerts (a maintained source's status
+  changes, using `first_observed_at` of the new value as the event) on
+  starred lakes.
 - A `lake` embed kind: pool, trend, operating range, and the launch
   advisories for one lake, for marinas, campgrounds and tourism sites. The
   dam widgets have no partner installs after a season
   (`DAM_PRODUCT_AUDIT_2026-11-09.md` §1); the lake card is the first one
   with an obvious host.
 - Reclamation through RISE (Mead, Powell, Shasta, Folsom, Flaming Gorge,
-  New Melones, Grand Coulee, Oroville is a state project and is not in
+  New Melones, Grand Coulee; Oroville is a state project and is not in
   RISE), with California State Parks' launch notices as the status source
-  for Folsom. Mountain and Pacific time ride on the Phase 3 timezone work.
+  for Folsom. Mountain and Pacific time ride on the step 4 timezone work.
 - TVA, when it serves.
 
 ---
 
-## 5. Rules that hold across every phase
+## 5. Rules that hold across every step
 
-- **Preserve the source's timestamp.** Every reading, status and note
-  carries the time the source stamped it or, where the source stamps
-  nothing (the recreation layer), the time Eddy first saw the value. The
-  page says which.
+- **Three timestamps, never conflated.** `source_updated_at` is the
+  agency's date and the only one a reader sees as such; `first_observed_at`
+  is Eddy's; `last_checked_at` is the fetch. A status with no agency date
+  renders as "Agency lists as <status> · update date unavailable". Nothing
+  derives currency from how long Eddy has watched a value stay the same.
+- **Preserve the source's timestamp on readings.** Every pool reading
+  carries the time the source stamped it; a day-old Ameren pool says so.
 - **Never mix vertical datums.** A lake's pool, its operating range and its
-  ramps' elevation ranges render in one datum, named on the page. A ramp
-  range whose datum is unknown is not compared with the pool.
+  ramps' elevation thresholds render in one datum, named on the page. A ramp
+  threshold whose datum is unknown is not compared with the pool.
 - **Observed, scheduled and forecast stay apart**, as `dam-types.ts`
   already requires. A guide curve is a target, drawn as one, never as a
   reading. Ameren's anticipated discharge and any `Energy-SCHED` series
   are plans.
-- **An entrance is not a launch.** Recreation-layer points discover areas
-  and carry status for the area; a launch pin comes from a ramp layer, an
-  agency facility layer, or a reviewed placement, and says which.
-- **A computed caution never promotes a status.** The three reported
-  statuses come from a source; the low-water and high-water lines come
-  from arithmetic; they are drawn as two different things.
+- **An entrance is not a launch, and an area status is not a ramp status.**
+  Recreation-layer points discover areas and carry status for the area; a
+  launch pin comes from a ramp layer, an agency facility layer, or a reviewed
+  placement, and says which; an area's status reaches a launch only through
+  a reviewed link.
+- **A computed caution never promotes a status and never says
+  "available".** The wording is fixed:
+  - Low-water caution: *"The latest lake level is below this ramp's
+    published lower elevation. Launching may be difficult or unavailable.
+    Based on published elevation thresholds, not an official closure
+    report."*
+  - High-water caution: *"The latest lake level is above the elevation at
+    which this ramp is closed. Based on published elevation thresholds, not
+    an official closure report."*
+  Slope, sediment, obstructions, dock placement, vehicle clearance and
+  temporary closures are not in the data, and the wording does not pretend
+  they are.
+- **`Partial` is "Limited access".** It is never shown as open, closed or
+  unknown.
+- **One place, one identity.** A lake launch that is also an access point
+  links to it and borrows its identity; no second pin, photo set or
+  favorite.
 - **No "normal" without a published curve or a documented pool.** Where
   neither exists, the page shows the number and the trend and says the
   operating range is not published.
@@ -450,9 +566,12 @@ in Eastern time and a Table Rock day in Central from the same code path.
 ## 6. What this plan deliberately does not do
 
 - Add dams for their own sake. The audit's "not recommended now" stands;
-  every dam entry in Phases 2 and 3 is there because it carries a lake
-  someone boats on, and it ships as what it is.
+  every dam entry in step 4 is there because it carries a lake someone
+  boats on, and it ships as what it is.
 - Replace, rename or redirect any `/dams/...` URL.
+- Start tables, favorites, alerts and new pages simultaneously. Each seam
+  opens in the step that needs it.
+- Reclassify existing river access points by machine.
 - Build a navigation, bathymetry or depth product, or license one.
 - Treat the National Hydrography Dataset as maintained; lake geometry
   comes from 3DHP when a polygon is needed, and only then.
@@ -460,28 +579,19 @@ in Eastern time and a Table Rock day in Central from the same code path.
 
 ---
 
-## 7. Decisions needed before Phase 1 starts
+## 7. Decisions, recorded 2026-11-09
 
-1. **Confirm the entity decision** (§2.1, §2.2): lakes as first-class with
-   `/lakes/<slug>` later, dam pages unchanged.
-2. **Accept the freshness rule for Corps-reported status**: nothing renders
-   as "Reported open" until Phase 0 has measured churn at that lake, and the
-   label always carries the date Eddy saw it change. The alternative, show
-   the field as the Corps publishes it, is cheaper and would have told a
-   DeGray visitor in November 2026 about a closure "until 1 March 2022".
-3. **Order against the audit.** Recommended: Phase 0 runs now in parallel
-   with the audit's items 1 to 3 (the P1 fixes, the `/dams` index, the
-   explainer content), and Phase 1 UI starts after them. The lake section
-   is new reach; the audit items are correctness on pages people already
-   land on.
-4. **Hand launches as a vocabulary change** touch web, iOS and
-   `packages/eddy-types`; confirm the term and whether existing river
-   gravel-bar accesses should carry it.
-5. **Audience precedence.** `TAILWATER_PLAN.md` says the wading angler wins
-   a conflict on the dam page. The "On the lake" section sits below the
-   water-below-the-dam content on the three trout tailwater dams; on a lake
-   with no Eddy river below it (Texoma, Truman, every Phase 2 and 3 entry),
-   the lake section can lead. Confirm that split.
+| Decision | Verdict | Direction |
+| --- | --- | --- |
+| Lakes as first-class entities | Approved | Dams and lakes stay separate; every existing dam URL and chart is preserved. |
+| Corps status freshness | Modified | An unchanged value observed for three weeks is not evidence it is current. Three timestamps (§3); display "Agency lists as <status> · update date unavailable" when the agency gives no date; `Partial` is "Limited access". |
+| Implementation order | Approved | Phase 0 runs now, alongside the dam audit's items 1–3; the pilot follows them. |
+| Hand-launch vocabulary | Approved with changes | Add `hand_launch`; do not reclassify existing gravel bars automatically. |
+| Tailwater versus lake priority | Approved | Tailwater leads on the trout dams; lake leads on lake-focused destinations; neither buries the other, and the two destinations link both ways. |
+| Rollout size | Modified | Table Rock and Truman first, web first; the other four and iOS after the contract is stable; dedicated lake pages on content and demand, not on status-source coverage. |
+| Launch model | Modified | One physical launch, one identity: `lake_launches` links to an existing access point where the place already exists; launch methods (`trailer`, `hand`) are separate from amenities. |
+| Gates | Modified | Required: verified identity, trustworthy measurements, reviewed launches. Optional: operating range, status source, launch count. Missing optional features render honestly or are omitted. |
+| Ramp elevations | Modified | Thresholds produce the two cautions in §5 wording, never "launch available". |
 
 ---
 
@@ -497,7 +607,7 @@ in Eastern time and a Table Rock day in Central from the same code path.
 | CWMS, SAS | Hartwell 129 series, Thurmond 143 | hourly pool, per-unit and total `Flow-Power`, `Flow-Out`, `Energy-SCHED`, `Elev-GC` and percentile family; pool live 13:00Z–14:00Z |
 | CWMS, SAM | Buford 32 series, Allatoona 21, `like=Lanier.*` 0 | 15-minute pool, guide curve, release, tailwater temperature live at Buford; hourly pool and daily guide curve live at Allatoona |
 | USACE Recreation_Site layer | metadata, counts, distinct values, 13 projects by exact name | 4,855 areas, 414 projects, status fields present, no timestamps, notes stale at three projects |
-| USACE NWK_Boat_Ramps layer | metadata, counts, Truman features | 224 ramps, 18 lakes, 153 with `elev_low`, Truman 45, Stockton 24 |
+| USACE NWK_Boat_Ramps layer | metadata, counts, Truman features | 224 ramps, 18 lakes, 153 with `elev_low`, Truman 45, Stockton 24; per-feature `last_edited_date`; `elev_low` documented as ramp bottom, `elev_high` as closure elevation |
 | Reclamation RISE | `location?search=Folsom`, `catalog-item?search=Lake Mead elevation` | 406 with `Accept: application/json`; 200 with `application/vnd.api+json` |
 | TVA | `tva.com/environment/lake-levels/norris` | 403 |
 | RIDB | `facilities?limit=1` without key | 401 (key required, as expected) |
