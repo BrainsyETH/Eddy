@@ -145,6 +145,7 @@ import { gaugeLink, gaugePlaceLabel, gaugeConditionCode, gaugeReadingText } from
 import { formatReading, readingAge } from '@/lib/readingCopy';
 import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import { generatingForNow } from '@eddy/conditions/dam-generation';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
 import { usgsGaugeUrl } from '@/lib/directions';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -1425,7 +1426,8 @@ function MapContent() {
    * colour therefore comes from the layer, which is instrumentation teal.
    *
    * `generating` is NULL for a dam that publishes no turbine flow (Kansas City
-   * district publishes nothing to CWMS at all), and null means the chip is
+   * district publishes nothing to CWMS at all) or whose latest turbine reading
+   * no longer speaks for now (generatingForNow), and null means the chip is
    * omitted rather than shown as "Not generating" — an observation nobody made.
    *
    * Declared BEFORE the search block below, because a dam search result opens
@@ -1439,7 +1441,9 @@ function MapContent() {
         name: dam.name,
         lakeName: dam.lakeName,
         state: dam.state,
-        generating: dam.generating,
+        // On this device's clock: the pin says "Generating" or "Units idle" in
+        // the present tense, so only a fresh turbine reading may set it.
+        generating: generatingForNow(dam),
         value: release
           ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
           : null,

@@ -391,7 +391,14 @@ export interface DamSnapshot {
   infoPhone?: string;
   /** Present metrics only. An absent key means the dam does not publish it. */
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>;
-  /** Generating right now, or NULL when the dam publishes no turbine flow. */
+  /**
+   * Generating right now, or NULL when no turbine reading can say: the dam
+   * publishes no turbine flow, has no generation floor, or its latest reading
+   * is more than two hours old (or implausibly ahead of the clock). Stamped on
+   * the server's clock when served; a client holding a payload should recompute
+   * it with generatingForNow from shared/dam-generation.ts. Null renders no
+   * chip and no pin label, never "Not generating". See generatingForNow.
+   */
   generating: boolean | null;
   /** Hourly forward schedule, today first. Empty when the dam has no SWPA code. */
   schedule: DamScheduleDay[];

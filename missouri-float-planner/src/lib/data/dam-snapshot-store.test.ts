@@ -19,6 +19,7 @@ import {
   carryForwardSchedule,
   CARRY_FORWARD_MAX_HOURS,
   declaresNoSources,
+  refreshStaleness,
   SCHEDULE_CARRY_MAX_HOURS,
 } from './dams';
 import { forecastHistoryRows } from './dam-forecast-history';
@@ -540,3 +541,38 @@ test('the cron records the snapshots it served in forecast history, carried days
 // The dam detail page's own data path is held by dam-page-snapshot.test.ts,
 // which checks the requirement (no cache without an age limit in front of the
 // HTML) rather than which wrapper supplies it.
+
+// ── `generating` only in the present tense ────────────────────────────────
+//
+// The wire flag used to be the last turbine reading against the floor with no
+// age test, and released iOS builds draw it as a "Generating" chip and pin.
+// Stamping it with an age test on the server fixes those builds with no update.
+
+test('a snapshot says generating only while its turbine reading is fresh', () => {
+  assert.equal(tableRock({ generationFlow: reading(9_000, 1) }).generating, null,
+    'buildSnapshot defaults to the real clock, and NOW is long past');
+  const at = (hoursAgo: number) =>
+    buildSnapshot(USACE_DAMS[TABLE_ROCK], { generationFlow: reading(9_000, hoursAgo) }, [], undefined, undefined, NOW);
+  assert.equal(at(1).generating, true);
+  assert.equal(at(5).generating, null, 'five hours behind: no chip, not "Generating"');
+});
+
+test('a stored row is re-judged on the serving clock, including rows stored before the age test', () => {
+  const stored = buildSnapshot(USACE_DAMS[TABLE_ROCK], { generationFlow: reading(9_000, 0.5) }, [], undefined, undefined, NOW);
+  assert.equal(stored.generating, true);
+  assert.equal(refreshStaleness(stored, NOW + HOUR).generating, true);
+  assert.equal(refreshStaleness(stored, NOW + 3 * HOUR).generating, null, 'served three hours later, the units may have stopped');
+  // A row written by the old code says true whatever its age; serving fixes it.
+  const legacy = { ...buildSnapshot(USACE_DAMS[TABLE_ROCK], { generationFlow: reading(9_000, 5) }, [], undefined, undefined, NOW), generating: true };
+  assert.equal(refreshStaleness(legacy, NOW).generating, null);
+});
+
+test('the iOS chip and map pin judge generating on the device clock', () => {
+  // The wire value is stamped when served; the app can hold a payload longer.
+  const card = readFileSync('../eddy-ios/src/components/dam/DamStateCard.tsx', 'utf8');
+  assert.match(card, /const generating = generatingForNow\(dam\);/);
+  assert.doesNotMatch(card, /dam\.generating/);
+  const map = readFileSync('../eddy-ios/app/(tabs)/(map)/index.tsx', 'utf8');
+  assert.match(map, /generating: generatingForNow\(dam\),/);
+  assert.doesNotMatch(map, /generating: dam\.generating/);
+});

@@ -104,7 +104,7 @@ export function damSubtitle(entry: {
  */
 export interface DamLiveState {
   id: string;
-  /** Null where the dam publishes no turbine flow — see the map screen. */
+  /** Null where no fresh turbine reading can say (generatingForNow) — see the map screen. */
   generating?: boolean | null;
   /** Pre-composed release text, e.g. `1,200 cfs`. */
   value?: string | null;
@@ -207,7 +207,8 @@ function pin(
     }),
     coordinates: at ?? { lng: entry.lon, lat: entry.lat },
     // OMITTED, never "Units idle", when nothing has been measured. `generating`
-    // is already null for a dam that publishes no turbine flow, and a pin drawn
+    // is already null for a dam that publishes no turbine flow or whose latest
+    // reading is past the fresh band (generatingForNow), and a pin drawn
     // from the catalog alone has heard nothing at all — the two are the same
     // silence and must read the same way.
     ...(state?.generating != null
