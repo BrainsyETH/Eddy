@@ -43,6 +43,17 @@ reader is shown the agency's date or "update date unavailable"
 | `lake-polygons/*.geojson` | USGS 3DHP waterbody polygons (layer 60) for Table Rock, Truman and Stockton, generalised to 0.0001° |
 | `existing-access-points-near-pilot-lakes.json` | A read-only production query of access points inside the two lakes' bounding boxes, recorded with the query |
 
+## Reviewing launches
+
+Once migration `20261109210000` is applied and `stage-launch-candidates.sql`
+has run, `/admin/lakes` lists every staged place by lake. For each row the
+reviewer checks the location on imagery (link on the row), sets the launch
+method (trailer, hand, or both), the amenities and the agency, pastes the id
+of the access point the place already is when it is one, and publishes. The
+API and the table both refuse to publish a row with no method or no source.
+The dam page shows published launches only, and shows nothing for a lake with
+neither a reading nor a published launch.
+
 ## Reproduce
 
 From `missouri-float-planner/`, with Node 20 (`../bootstrap.sh web`):

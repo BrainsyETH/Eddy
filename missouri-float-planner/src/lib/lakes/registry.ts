@@ -44,6 +44,12 @@ export interface LakeEntry {
   timeZone: 'America/Chicago';
   controllingDams: ReadonlyArray<{ damId: string; role: ControllingDamRole }>;
   pool: LakePoolSource;
+  /**
+   * How often the pool source publishes. Drives the change tolerance, the
+   * "Daily report" label and the caution age limit; never inferred from the
+   * dam snapshot, whose Truman metric carries no cadence of its own.
+   */
+  poolCadence: 'hourly' | 'daily';
   datum: VerticalDatum;
   /** Optional on purpose: a lake without a documented range shows the number and says so. */
   operatingRange?: LakeOperatingRange;
@@ -64,6 +70,7 @@ export const LAKES: Record<string, LakeEntry> = {
     timeZone: 'America/Chicago',
     controllingDams: [{ damId: 'swl-table-rock-dam', role: 'impounds' }],
     pool: { kind: 'dam', damId: 'swl-table-rock-dam' },
+    poolCadence: 'hourly',
     datum: 'NGVD29',
     // Conservation pool 915.0 ft and top of flood-control pool 931.0 ft, the
     // elevations the Little Rock District publishes for the project and the
@@ -90,6 +97,7 @@ export const LAKES: Record<string, LakeEntry> = {
     // Kansas City publishes nothing to CWMS; the pool arrives through Ameren's
     // Osage daily report, about a day in arrears (usace-registry.ts, Truman).
     pool: { kind: 'dam', damId: 'nwk-truman-dam' },
+    poolCadence: 'daily',
     datum: 'NGVD29',
     operatingRange: {
       conservationFt: 706.0,

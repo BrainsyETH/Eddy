@@ -12,6 +12,8 @@ export interface PoolPoint {
   /** Epoch milliseconds UTC of the observation. */
   at: number;
   elevationFt: number;
+  /** True when the source publishes one value a day; stored with the reading. */
+  daily?: boolean;
 }
 
 /**

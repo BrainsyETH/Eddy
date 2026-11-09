@@ -47,14 +47,14 @@ export async function readPoolReadings(lakeSlug: string, options?: { days?: numb
     const supabase = options?.client ?? createAdminClient();
     const { data, error } = await supabase
       .from(POOL_TABLE)
-      .select('observed_at, elevation_ft')
+      .select('observed_at, elevation_ft, daily')
       .eq('lake_slug', lakeSlug)
       .gte('observed_at', new Date(now - days * 86_400_000).toISOString())
       .lte('observed_at', new Date(now + 3_600_000).toISOString())
       .order('observed_at', { ascending: true })
       .limit(1_000);
     if (error) throw new Error(error.message);
-    return (data ?? []).map((row) => ({ at: Date.parse(row.observed_at as string), elevationFt: Number(row.elevation_ft) }));
+    return (data ?? []).map((row) => ({ at: Date.parse(row.observed_at as string), elevationFt: Number(row.elevation_ft), daily: Boolean(row.daily) }));
   } catch (error) {
     logger.warn('lake pool readings unavailable', { lakeSlug, error: error instanceof Error ? error.message : String(error) });
     return [];
@@ -79,7 +79,7 @@ export interface LaunchRow {
   elev_source_updated_at: string | null;
   access_point_id: string | null;
   /** Filled by the join below when the launch is an access point Eddy already carries. */
-  access_point?: { slug: string; river_slug: string } | null;
+  access_point?: { slug: string; river_slug: string; state: string } | null;
 }
 
 /** Approved launches on a lake, with the access point each one is, when it is one. Empty on any failure. */
@@ -99,13 +99,14 @@ export async function readApprovedLaunches(lakeSlug: string, client?: SupabaseCl
     if (linked.length) {
       const { data: points, error: pointsError } = await supabase
         .from('access_points')
-        .select('id, slug, rivers!inner(slug)')
+        .select('id, slug, rivers!inner(slug, state)')
         .in('id', linked.map((r) => r.access_point_id as string));
       if (!pointsError && points) {
-        const bySlug = new Map<string, { slug: string; river_slug: string }>();
-        for (const p of points as unknown as Array<{ id: string; slug: string; rivers: { slug: string } | { slug: string }[] }>) {
+        const bySlug = new Map<string, { slug: string; river_slug: string; state: string }>();
+        for (const p of points as unknown as Array<{ id: string; slug: string; rivers: { slug: string; state: string | null } | { slug: string; state: string | null }[] }>) {
           const river = Array.isArray(p.rivers) ? p.rivers[0] : p.rivers;
-          if (river) bySlug.set(p.id, { slug: p.slug, river_slug: river.slug });
+          // The canonical access route is /rivers/{state}/{river}/access/{slug}; a river without a state has no canonical page to link.
+          if (river?.state) bySlug.set(p.id, { slug: p.slug, river_slug: river.slug, state: river.state });
         }
         for (const r of rows) r.access_point = r.access_point_id ? bySlug.get(r.access_point_id) ?? null : null;
       }

@@ -106,10 +106,17 @@ export default function DamStateCard({
    */
   secondary,
   now = Date.now(),
+  hideLakeLevel,
 }: {
   dam: DamSnapshot;
   secondary?: boolean;
   now?: number;
+  /**
+   * Set when the "On the lake" card carries the level with its chart and
+   * position. Two copies of one number on one screen read as two facts, the
+   * same rule that moved generation out of this card.
+   */
+  hideLakeLevel?: boolean;
 }) {
   const { metrics } = dam;
   const release = metrics.release;
@@ -263,7 +270,7 @@ export default function DamStateCard({
             dim={isStale(tailwaterTemp, now)}
           />
         )}
-        {pool && (
+        {pool && !hideLakeLevel && (
           <Stat
             icon="damGauge"
             label="Lake level"

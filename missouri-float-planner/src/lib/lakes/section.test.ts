@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildLakeSection } from './section';
+import { buildLakeSection, lakeSectionHasContent } from './section';
 import { LAKES } from './registry';
 import type { LaunchRow } from './store';
 
@@ -28,6 +28,7 @@ test('the section carries the pool with a live staleness band, its position, the
   });
   assert.equal(section.pool?.valueFt, 916.4);
   assert.equal(section.pool?.staleness, 'stale', 're-banded on the serving clock, not the frozen wire band');
+  assert.equal(section.pool?.daily, undefined, 'an hourly lake does not say daily');
   assert.equal(section.poolPosition, 'within_operating_range');
   assert.equal(section.change24hFt, 0.12);
   assert.equal(section.change7dFt, 0.84);
@@ -35,9 +36,25 @@ test('the section carries the pool with a live staleness band, its position, the
   assert.equal(section.operatingRange?.conservationFt, 915);
   assert.equal(section.cautionsVerified, false);
   assert.ok(section.sources.includes('Eddy pool record'));
+  assert.equal(lakeSectionHasContent(section), true);
 });
 
-test('a lake with no pool reading and no range still has an honest section', () => {
+test('Truman is daily by the registry, not by anything the dam snapshot says: label and tolerance both follow', () => {
+  const truman = LAKES.truman;
+  // Ameren's Truman metric carries no dailyMean. The readings are stamped at
+  // Central midnight, so the previous one sits 24 h back, and the one before 48 h.
+  const pool = { value: 706.3, unit: 'ft', at: new Date(h(19)).toISOString(), staleness: 'stale' as const };
+  const history = [19, 43, 67, 187].map((n) => ({ at: h(n), elevationFt: 706.3 - (n - 19) * 0.01, daily: true }));
+  const section = buildLakeSection({ lake: truman, pool, history, launches: [], now: NOW });
+  assert.equal(section.pool?.daily, true, 'the label comes from the registry cadence');
+  assert.equal(section.change24hFt, 0.24);
+  assert.equal(section.change7dFt, 1.68, 'a 7-day change over daily readings uses the daily tolerance');
+  // A 39-hour gap between the newest two readings puts the earlier one 15 h from the 24 h target, outside the daily tolerance of 14 h.
+  const gappy = [19, 58, 82].map((n) => ({ at: h(n), elevationFt: 706 + n * 0.01, daily: true }));
+  assert.equal(buildLakeSection({ lake: truman, pool, history: gappy, launches: [], now: NOW }).change24hFt, undefined);
+});
+
+test('a lake with no pool reading and no launches has an honest, empty section that the page does not draw', () => {
   const lake = { ...LAKES.truman, operatingRange: undefined };
   const section = buildLakeSection({ lake, pool: undefined, history: [], launches: [], now: NOW });
   assert.equal(section.pool, undefined);
@@ -45,26 +62,34 @@ test('a lake with no pool reading and no range still has an honest section', () 
   assert.equal(section.poolPosition, undefined);
   assert.equal(section.change24hFt, undefined);
   assert.deepEqual(section.history, []);
+  assert.equal(lakeSectionHasContent(section), false);
+  assert.equal(lakeSectionHasContent(null), false);
 });
 
-test('launches carry methods, amenities and thresholds, and a caution appears only behind the verified gate in one datum', () => {
+test('launches carry methods, amenities and thresholds; a caution needs the verified gate, a young enough pool and one datum', () => {
   const truman = LAKES.truman;
-  const pool = { value: 703.5, unit: 'ft', at: new Date(h(20)).toISOString(), staleness: 'stale' as const, dailyMean: true };
-  const unverified = buildLakeSection({ lake: truman, pool, history: [], launches: [row()], now: NOW });
+  const dayOld = { value: 703.5, unit: 'ft', at: new Date(h(20)).toISOString(), staleness: 'stale' as const };
+  const unverified = buildLakeSection({ lake: truman, pool: dayOld, history: [], launches: [row()], now: NOW });
   const launch = unverified.launches[0];
   assert.deepEqual(launch.launchMethods, ['trailer']);
   assert.deepEqual(launch.amenities, ['courtesy_dock', 'parking']);
   assert.equal(launch.thresholds?.bottomFt, 704);
   assert.equal(launch.thresholds?.closureFt, 724);
   assert.equal(launch.caution, undefined, 'unverified lakes draw no caution even when the arithmetic would');
-  assert.equal(unverified.pool?.daily, true);
 
-  const verified = buildLakeSection({ lake: { ...truman, rampCautionsVerified: true }, pool, history: [], launches: [row(), row({ id: '2', slug: 'avery', name: 'Avery', ramp_bottom_elev_ft: null, ramp_closure_elev_ft: null, elev_datum: null }), row({ id: '3', slug: 'other-datum', name: 'Other', elev_datum: 'NAVD88' })], now: NOW });
-  assert.equal(verified.launches[0].caution, 'low_water');
+  const verifiedTruman = { ...truman, rampCautionsVerified: true };
+  const verified = buildLakeSection({ lake: verifiedTruman, pool: dayOld, history: [], launches: [row(), row({ id: '2', slug: 'avery', name: 'Avery', ramp_bottom_elev_ft: null, ramp_closure_elev_ft: null, elev_datum: null }), row({ id: '3', slug: 'other-datum', name: 'Other', elev_datum: 'NAVD88' })], now: NOW });
+  assert.equal(verified.launches[0].caution, 'low_water', 'a 20-hour-old daily pool is inside the daily age limit');
   assert.equal(verified.launches[1].thresholds, undefined, 'no thresholds published means no thresholds, not fine');
   assert.equal(verified.launches[1].caution, undefined);
   assert.equal(verified.launches[2].caution, undefined, 'a threshold in another datum is never compared with the pool');
 
-  const linked = buildLakeSection({ lake: truman, pool, history: [], launches: [row({ access_point_id: 'ap-1', access_point: { slug: 'romp-hole-access', river_slug: 'kings-river' } })], now: NOW });
-  assert.deepEqual(linked.launches[0].accessPoint, { slug: 'romp-hole-access', riverSlug: 'kings-river' });
+  const twoDaysOld = { ...dayOld, at: new Date(h(40)).toISOString() };
+  assert.equal(buildLakeSection({ lake: verifiedTruman, pool: twoDaysOld, history: [], launches: [row()], now: NOW }).launches[0].caution, undefined, 'past the daily age limit the launch shows thresholds and no caution');
+  const hourlyLake = { ...LAKES['table-rock'], rampCautionsVerified: true };
+  const sevenHoursOld = { value: 913.0, unit: 'ft', at: new Date(h(7)).toISOString(), staleness: 'stale' as const };
+  assert.equal(buildLakeSection({ lake: hourlyLake, pool: sevenHoursOld, history: [], launches: [row({ lake_slug: 'table-rock', ramp_bottom_elev_ft: 914, ramp_closure_elev_ft: 930 })], now: NOW }).launches[0].caution, undefined, 'an hourly source older than six hours is too old for a caution');
+
+  const linked = buildLakeSection({ lake: truman, pool: dayOld, history: [], launches: [row({ access_point_id: 'ap-1', access_point: { slug: 'romp-hole-access', river_slug: 'kings-river', state: 'AR' } })], now: NOW });
+  assert.deepEqual(linked.launches[0].accessPoint, { slug: 'romp-hole-access', riverSlug: 'kings-river', state: 'AR' });
 });

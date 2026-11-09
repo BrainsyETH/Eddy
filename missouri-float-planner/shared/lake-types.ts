@@ -27,7 +27,7 @@ export interface LakePoolReading {
   /** ISO instant of the observation, as the source stamped it. */
   at: string;
   staleness: DamStaleness;
-  /** True when the source publishes one value a day (Truman via Ameren), not a spot reading. */
+  /** True when the source publishes one value a day (Truman via Ameren), not a spot reading. From the registry's cadence. */
   daily?: boolean;
 }
 
@@ -53,7 +53,7 @@ export interface LakeLaunch {
   /** Present only when the lake's cautions are verified AND the pool and thresholds share a datum. */
   caution?: RampCaution;
   /** The access point this launch is, when it is one Eddy already carries. One place, one identity. */
-  accessPoint?: { slug: string; riverSlug: string };
+  accessPoint?: { slug: string; riverSlug: string; state: string };
 }
 
 export interface LakeSection {

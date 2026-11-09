@@ -441,10 +441,17 @@ written hourly by `/api/cron/sync-lake-levels`), the reviewed-launch table
 section builder and the "On the lake" card on the two dam pages, below the
 tailwater content. The 43 queue places are staged as unapproved rows by
 `scripts/ingestion/lakes/2026-11-09/stage-launch-candidates.sql`; nothing
-renders until a reviewer approves a row, sets its methods and links it to an
-existing access point where it is one. Elevation cautions stay off behind
-`rampCautionsVerified: false` until the Phase 0 item 2 check is recorded.
-Agency status lines wait for the status step (areas and links tables).*
+renders until a reviewer approves a row in `/admin/lakes`, which requires a
+method and a source and links the place to an existing access point where
+it is one (the database refuses an approval without a method or a source).
+The card draws a seven-day level chart with the conservation pool as a
+reference, offers directions to each launch, and does not render at all
+without a reading or a reviewed launch. Elevation cautions stay off behind
+`rampCautionsVerified: false` until the Phase 0 item 2 check is recorded,
+and even then require a pool younger than six hours (hourly) or thirty-six
+(daily). The cron calls a lake healthy only with a recent observation and
+takes `?backfillHours=` to fill the chart on its first run. Agency status
+lines wait for the status step (areas and links tables).*
 
 Two lakes, chosen because together they exercise everything the first wave
 will meet. Table Rock has the busiest dam page, strong generation data, and

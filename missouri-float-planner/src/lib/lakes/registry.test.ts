@@ -36,6 +36,8 @@ test('an operating range is ordered and the Kansas City pools agree with the ram
 
 test('cautions stay off until a person has verified the thresholds, and lookups resolve', () => {
   for (const lake of Object.values(LAKES)) assert.equal(lake.rampCautionsVerified, false, `${lake.slug}: flip this only with the Phase 0 item 2 check recorded`);
+  assert.equal(LAKES.truman.poolCadence, 'daily', 'Ameren publishes one Truman value a day; the section must say so');
+  assert.equal(LAKES['table-rock'].poolCadence, 'hourly');
   assert.equal(lakeForDam('swl-table-rock-dam')?.slug, 'table-rock');
   assert.equal(lakeForDam('nwk-truman-dam')?.slug, 'truman');
   assert.equal(lakeForDam('swl-bull-shoals-dam'), undefined);

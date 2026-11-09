@@ -8,6 +8,19 @@
 // district publishes nothing. An overlapping re-read is idempotent on the
 // table's primary key, which is what repairs a skipped run.
 //
+// ── Healthy means a RECENT observation, not a successful write ─────────────
+// A run that re-writes two-day-old rows and nothing newer has written nothing
+// anybody can read as current. Each lake is healthy only when its newest
+// observation is younger than its cadence allows: six hours for an hourly
+// source, forty-eight for the daily one.
+//
+// ── Backfill ───────────────────────────────────────────────────────────────
+// `?backfillHours=N` (capped at 90 days) widens the CWMS window so the 7-day
+// chart is full on the first run rather than a week later. Ameren's report is
+// one day per request, so a backfill asks it one day at a time, capped at 14;
+// that path is unverified from the environment this was written in, which
+// Ameren challenges, and should be watched on its first production run.
+//
 // SCHEDULED AT :40 (vercel.json) — after sync-dam-snapshots at :35 and off
 // the :00/:15/:20/:25 slots the gauge and dam-history jobs hold.
 
@@ -28,37 +41,52 @@ export const maxDuration = 120;
 const JOB = 'sync_lake_levels';
 /** Two days of hourly pool per read: a missed run or two still leaves no hole. */
 const LOOKBACK_HOURS = 48;
+const MAX_BACKFILL_HOURS = 90 * 24;
+const MAX_DAILY_BACKFILL_DAYS = 14;
+/** How old the newest observation may be for the lake to count as healthy. */
+export const HEALTHY_WITHIN_HOURS: Record<LakeEntry['poolCadence'], number> = { hourly: 6, daily: 48 };
 
 interface LakeResult {
   lake: string;
   source: string | null;
   readings: number;
+  newestAt: string | null;
+  healthy: boolean;
   error?: string;
 }
 
-async function readingsFor(lake: LakeEntry, now: Date): Promise<{ source: string | null; readings: PoolReadingWrite[] }> {
+async function readingsFor(lake: LakeEntry, now: Date, backfillHours: number | null): Promise<{ source: string | null; readings: PoolReadingWrite[] }> {
   const dam = poolDamFor(lake);
   if (!dam) return { source: null, readings: [] };
 
   if (dam.amerenMetrics === 'truman') {
-    const daily = await fetchTrumanDaily(now);
-    if (!daily) return { source: 'Ameren Missouri', readings: [] };
-    return {
-      source: 'Ameren Missouri',
-      readings: [{ at: new Date(daily.timestamp).toISOString(), elevationFt: daily.poolElevationFt, datum: lake.datum, source: 'Ameren Missouri', daily: true }],
-    };
+    const days = backfillHours ? Math.min(MAX_DAILY_BACKFILL_DAYS, Math.ceil(backfillHours / 24)) : 1;
+    const readings: PoolReadingWrite[] = [];
+    for (let d = 0; d < days; d++) {
+      const daily = await fetchTrumanDaily(new Date(now.getTime() - d * 86_400_000));
+      if (daily) readings.push({ at: new Date(daily.timestamp).toISOString(), elevationFt: daily.poolElevationFt, datum: lake.datum, source: 'Ameren Missouri', daily: true });
+    }
+    return { source: 'Ameren Missouri', readings };
   }
 
   if (!dam.office) return { source: null, readings: [] };
   const resolved = await seriesFor(dam, ['poolElevation']);
   const series = resolved.poolElevation;
   if (!series) return { source: 'USACE CWMS', readings: [] };
-  const result = await fetchTimeseries(dam.office, series.tsId, 'ft', new Date(now.getTime() - LOOKBACK_HOURS * 3_600_000), now, { skipCache: true });
+  const hours = backfillHours ?? LOOKBACK_HOURS;
+  const result = await fetchTimeseries(dam.office, series.tsId, 'ft', new Date(now.getTime() - hours * 3_600_000), now, { skipCache: true });
   if (!result) return { source: 'USACE CWMS', readings: [] };
   return {
     source: 'USACE CWMS',
     readings: result.points.map((p) => ({ at: new Date(p.timestamp).toISOString(), elevationFt: p.value, datum: lake.datum, source: 'USACE CWMS', daily: false })),
   };
+}
+
+/** Pure so the health rule can be asserted without a network. */
+export function lakeHealth(lake: LakeEntry, readings: Array<{ at: string }>, now: number): { newestAt: string | null; healthy: boolean } {
+  const newest = readings.map((r) => Date.parse(r.at)).filter(Number.isFinite).sort((a, b) => b - a)[0];
+  if (newest === undefined) return { newestAt: null, healthy: false };
+  return { newestAt: new Date(newest).toISOString(), healthy: now - newest <= HEALTHY_WITHIN_HOURS[lake.poolCadence] * 3_600_000 };
 }
 
 async function runSync(request: NextRequest) {
@@ -72,6 +100,9 @@ async function runSync(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const requested = Number(request.nextUrl.searchParams.get('backfillHours'));
+  const backfillHours = Number.isFinite(requested) && requested > 0 ? Math.min(requested, MAX_BACKFILL_HOURS) : null;
+
   const supabase = createAdminClient();
   const locked = await tryCronLock(supabase, JOB, 110);
   if (!locked) {
@@ -83,21 +114,21 @@ async function runSync(request: NextRequest) {
   try {
     for (const lake of Object.values(LAKES)) {
       try {
-        const { source, readings } = await readingsFor(lake, new Date(startedAt));
+        const { source, readings } = await readingsFor(lake, new Date(startedAt), backfillHours);
         const written = await writePoolReadings(supabase, lake.slug, readings);
-        results.push({ lake: lake.slug, source, readings: written });
+        results.push({ lake: lake.slug, source, readings: written, ...lakeHealth(lake, readings, startedAt) });
       } catch (error) {
-        results.push({ lake: lake.slug, source: null, readings: 0, error: error instanceof Error ? error.message : String(error) });
+        results.push({ lake: lake.slug, source: null, readings: 0, newestAt: null, healthy: false, error: error instanceof Error ? error.message : String(error) });
       }
     }
   } finally {
     await releaseCronLock(supabase, JOB);
   }
 
-  const failed = results.filter((r) => r.error || r.readings === 0);
-  const status = failed.length === 0 ? 'ok' : failed.length === results.length ? 'error' : 'partial';
+  const unhealthy = results.filter((r) => !r.healthy);
+  const status = unhealthy.length === 0 ? 'ok' : unhealthy.length === results.length ? 'error' : 'partial';
   if (status !== 'ok') logger.warn('sync-lake-levels: degraded', { results });
-  return NextResponse.json({ ok: status === 'ok', monitoring_status: status, results, durationMs: Date.now() - startedAt });
+  return NextResponse.json({ ok: status === 'ok', monitoring_status: status, results, backfillHours, durationMs: Date.now() - startedAt });
 }
 
 async function handleGET(request: NextRequest) {

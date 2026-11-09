@@ -18,6 +18,15 @@ import { readApprovedLaunches, readPoolReadings, type LaunchRow } from './store'
 
 export const HISTORY_DAYS = 7;
 
+/**
+ * The oldest pool a caution may be computed from. An hourly source past six
+ * hours is stale by the dam page's own rule; a daily source is a day old by
+ * construction, so it gets a day and a half and no more. Past this, the
+ * launch shows its thresholds and no caution: the arithmetic would be
+ * comparing a ramp with where the lake used to be.
+ */
+export const CAUTION_POOL_MAX_AGE_HOURS: Record<LakeEntry['poolCadence'], number> = { hourly: 6, daily: 36 };
+
 export interface LakeSectionInputs {
   lake: LakeEntry;
   /** The controlling dam's pool metric from the page snapshot, when it has one. */
@@ -27,7 +36,7 @@ export interface LakeSectionInputs {
   now: number;
 }
 
-function launchFromRow(row: LaunchRow, lake: LakeEntry, poolFt: number | null): LakeLaunch {
+function launchFromRow(row: LaunchRow, lake: LakeEntry, pool: { valueFt: number; ageHours: number } | null): LakeLaunch {
   const methods = row.launch_methods.filter((m): m is LaunchMethod => m === 'trailer' || m === 'hand');
   const launch: LakeLaunch = {
     id: row.id,
@@ -48,18 +57,20 @@ function launchFromRow(row: LaunchRow, lake: LakeEntry, poolFt: number | null): 
       source: row.elev_source ?? 'managing agency',
       sourceUpdatedAt: row.elev_source_updated_at,
     };
-    // The gate: cautions render only when a person has verified this lake's
-    // thresholds, and only in one datum. Different datums are not compared.
-    if (lake.rampCautionsVerified && poolFt !== null && row.elev_datum === lake.datum) {
-      const caution = rampCaution({ elevationFt: poolFt, datum: lake.datum }, { bottomFt: row.ramp_bottom_elev_ft, closureFt: row.ramp_closure_elev_ft, datum: row.elev_datum });
+    // Three gates, all required: a person has verified this lake's thresholds,
+    // the pool is young enough for its cadence, and both sit in one datum.
+    const poolFresh = pool !== null && pool.ageHours <= CAUTION_POOL_MAX_AGE_HOURS[lake.poolCadence];
+    if (lake.rampCautionsVerified && poolFresh && row.elev_datum === lake.datum) {
+      const caution = rampCaution({ elevationFt: pool.valueFt, datum: lake.datum }, { bottomFt: row.ramp_bottom_elev_ft, closureFt: row.ramp_closure_elev_ft, datum: row.elev_datum });
       if (caution) launch.caution = caution;
     }
   }
-  if (row.access_point) launch.accessPoint = { slug: row.access_point.slug, riverSlug: row.access_point.river_slug };
+  if (row.access_point) launch.accessPoint = { slug: row.access_point.slug, riverSlug: row.access_point.river_slug, state: row.access_point.state };
   return launch;
 }
 
 export function buildLakeSection({ lake, pool, history, launches, now }: LakeSectionInputs): LakeSection {
+  const daily = lake.poolCadence === 'daily';
   const section: LakeSection = {
     slug: lake.slug,
     name: lake.name,
@@ -71,27 +82,32 @@ export function buildLakeSection({ lake, pool, history, launches, now }: LakeSec
     cautionsVerified: lake.rampCautionsVerified,
     sources: [lake.operatingRange?.source ?? '', 'Eddy pool record'].filter(Boolean),
   };
+  let poolForCautions: { valueFt: number; ageHours: number } | null = null;
   if (pool) {
     section.pool = {
       valueFt: pool.value,
       at: pool.at,
       staleness: readingStaleness(pool.at, now) ?? pool.staleness,
-      ...(pool.dailyMean ? { daily: true } : {}),
+      ...(daily ? { daily: true } : {}),
     };
+    poolForCautions = { valueFt: pool.value, ageHours: (now - Date.parse(pool.at)) / 3_600_000 };
     const position = poolPosition(pool.value, lake.operatingRange ? { conservationFt: lake.operatingRange.conservationFt, floodFt: lake.operatingRange.floodFt } : null);
     if (position) section.poolPosition = position;
   }
   if (lake.operatingRange) section.operatingRange = lake.operatingRange;
-  // The change comes from Eddy's own record, which carries whether the source
-  // is daily; the page snapshot's pool can be a day old (Truman) and the
-  // record says so through the tolerance.
-  const daily = Boolean(pool?.dailyMean);
+  // The change comes from Eddy's own record. The tolerance follows the
+  // registry's cadence, not anything the dam snapshot says about itself.
   const h24 = poolChange(history, 24, toleranceFor(daily));
   const d7 = poolChange(history, 24 * 7, toleranceFor(daily));
   if (h24 !== null) section.change24hFt = h24;
   if (d7 !== null) section.change7dFt = d7;
-  section.launches = launches.map((row) => launchFromRow(row, lake, pool?.value ?? null));
+  section.launches = launches.map((row) => launchFromRow(row, lake, poolForCautions));
   return section;
+}
+
+/** Whether the section says anything worth a card on a high-traffic page: a reading, or a reviewed launch. */
+export function lakeSectionHasContent(section: LakeSection | null | undefined): section is LakeSection {
+  return Boolean(section && (section.pool || section.launches.length > 0));
 }
 
 /** The section for a dam, or null when Eddy carries no lake for it. Never throws. */

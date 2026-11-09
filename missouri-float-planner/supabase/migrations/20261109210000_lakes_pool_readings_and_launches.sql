@@ -24,7 +24,8 @@
 -- ── lake_launches ──────────────────────────────────────────────────────────
 -- Reviewed launch places on a lake. Rows arrive unapproved from the Phase 0
 -- review queue (scripts/ingestion/lakes/2026-11-09/) and are approved one by
--- one; nothing renders until `approved`. `access_point_id` is the one-identity
+-- one; nothing renders until `approved`, and the CHECKs below refuse to approve
+-- a row with no launch method or no source. `access_point_id` is the one-identity
 -- rule: a launch that is already an access point links to it and borrows its
 -- name, photos and favorites, and the UNIQUE keeps it one place. Launch
 -- methods (how a boat enters the water) are separate from amenities, and the
@@ -86,6 +87,11 @@ create table public.lake_launches (
   updated_at              timestamptz not null default now(),
   unique (lake_slug, slug),
   check ((approved and approved_at is not null) or (not approved)),
+  -- A published launch has a reviewed method and at least one source behind it
+  -- (ADR 0019 decisions 4 and 6). The queue stages rows with neither; approval
+  -- is where a person supplies them, and the database refuses to publish without.
+  check ((not approved) or cardinality(launch_methods) >= 1),
+  check ((not approved) or jsonb_array_length(sources) >= 1),
   check ((ramp_bottom_elev_ft is null and ramp_closure_elev_ft is null) or elev_datum is not null)
 );
 
