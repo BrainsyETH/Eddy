@@ -87,3 +87,46 @@ test('an empty state produces no heading', () => {
   const groups = groupDamsForIndex([dam('swt-tenkiller-dam', 'OK')]);
   assert.deepEqual(groups.map((g) => g.label), ['Oklahoma']);
 });
+
+
+test('directory preserves the registry and distinguishes readings from unavailable information', async () => {
+  const { buildDamDirectoryGroups } = await import('./dam-directory');
+  const { buildSnapshot } = await import('./dams');
+  const { USACE_DAMS } = await import('@/lib/flow-providers/usace-registry');
+  const now = Date.parse('2026-11-09T16:00:00Z');
+  const measured = {
+    value: 780.25,
+    at: new Date(now - 30 * 60_000).toISOString(),
+    staleness: 'fresh' as const,
+  };
+  const tableRock = buildSnapshot(USACE_DAMS['swl-table-rock-dam'], {
+    poolElevation: measured,
+    release: { ...measured, value: 3_200 },
+    generationFlow: { ...measured, value: 6_400 },
+  }, []);
+  const clearwater = buildSnapshot(USACE_DAMS['swl-clearwater-dam'], {}, []);
+  const groups = buildDamDirectoryGroups([tableRock, clearwater], now);
+  const all = groups.flatMap(group => group.dams);
+  assert.equal(all.length, 2);
+  const rock = all.find(d => d.id === 'swl-table-rock-dam');
+  const gate = all.find(d => d.id === 'swl-clearwater-dam');
+  assert.equal(rock?.lakeLevel?.value, 780.25);
+  assert.equal(rock?.release?.value, 3_200);
+  assert.equal(rock?.generation?.kind, 'generating');
+  assert.equal(rock?.hasHourlySchedule, true);
+  assert.equal(gate?.lakeLevel, null, 'a missing reading never becomes zero');
+  assert.equal(gate?.generation, null, 'a gate-operated dam does not become idle');
+  assert.equal(gate?.hasHourlySchedule, false);
+});
+
+test('directory includes every catalogued dam even when snapshots are missing', async () => {
+  const { conditionsDamCatalogue } = await import('@/lib/conditions/dam-catalogue');
+  const { buildDamDirectoryGroups } = await import('./dam-directory');
+  const { USACE_DAMS } = await import('@/lib/flow-providers/usace-registry');
+  const { dams } = conditionsDamCatalogue([]);
+  const directory = buildDamDirectoryGroups(dams, Date.parse('2026-11-09T16:00:00Z'));
+  const all = directory.flatMap(group => group.dams);
+  assert.equal(all.length, Object.keys(USACE_DAMS).length);
+  assert.equal(new Set(all.map(dam => dam.id)).size, all.length);
+  assert.ok(all.every(dam => dam.lakeLevel === null && dam.release === null));
+});
