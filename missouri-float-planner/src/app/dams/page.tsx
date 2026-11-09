@@ -4,8 +4,8 @@ import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 
 export const revalidate = 300;
 export const metadata: Metadata = publicPageMetadata(
-  'Lake Levels & Dam Releases',
-  'Live USACE lake levels, dam releases and hourly generation schedules across Missouri, Arkansas, Oklahoma, Texas, Kentucky and Tennessee.',
+  'Lake Levels, Dam Releases & Generation Schedules',
+  'Lake levels, releases and hourly generation schedules for Corps of Engineers and Ameren dams in Missouri, Arkansas, Oklahoma, Texas, Kentucky and Tennessee.',
   '/dams',
   SHARE_IMAGES.site,
 );
