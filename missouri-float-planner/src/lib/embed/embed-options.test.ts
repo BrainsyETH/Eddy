@@ -169,7 +169,9 @@ test('the dam card distinguishes dated observations from posted generation and r
   assert.match(dam, /ew-sched-now/, 'the scheduled hours retain a visible current-time marker');
   assert.match(dam, /hour\.minimumFlow \? ' ew-sched-bar-min'/, 'minimum flow is not shown as normal generation');
   assert.match(dam, /ew-sched-bar-missing/, 'unknown scheduled hours are not represented as zero');
-  assert.match(card, /readingStaleness\(downstream\.at, now\) === 'fresh'/, 'movement is suppressed when its own observation ages');
+  assert.match(card, /const downstreamAge = downstream \? readingStaleness\(downstream\.at, now\)/, 'downstream readings use their own clock');
+  assert.match(card, /downstream && downstreamAge === 'fresh'/, 'movement is suppressed once the reading ages');
+  assert.match(card, /downstreamAge === 'stale' \|\| downstreamAge === null/, 'very old or invalid levels are not displayed as current');
   assert.match(card, /tailwaterMovementLabel\(downstream\.trend\)/, 'downstream movement uses shared rounding');
   assert.match(card, /releaseDuplicatesTurbine/, 'equivalent release numbers are collapsed');
   assert.match(card, /!release\.dailyMean && !spillway/, 'daily averages and spillway readings remain visible');
