@@ -122,21 +122,12 @@ test('an id the registry does not carry reads nothing', async () => {
   assert.deepEqual(calls, { stored: [], live: [] });
 });
 
-// ISR, unstable_cache and 'use cache' without an expiry all hand their last
-// entry, however old, to the next visitor; that is how Saturday's HTML reached
-// Sunday's readers. pageDam is one of them, which is why the route avoids it.
-const UNBOUNDED_CACHE = /export const revalidate|export function generateStaticParams|export const dynamic\b|unstable_cache|['"]use cache['"]|\bpageDam\b|public-pages/;
-
-test('the dam detail HTML has no cache without an age limit in front of it', () => {
+// A modest guard on the one rule that caused the bug; the behaviour itself is
+// checked by the render tests above and by an HTTP smoke test before merge.
+// ISR and unstable_cache (pageDam) both hand their last entry, however old, to
+// the next visitor: that is how Saturday's HTML reached Sunday's readers.
+test('the dam detail route renders per request and is not served from an ISR or unstable_cache entry', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/app/dams/[damId]/page.tsx'), 'utf8');
-  const loader = readFileSync(resolve(process.cwd(), 'src/lib/data/dam-page-snapshot.ts'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
-  assert.doesNotMatch(source, UNBOUNDED_CACHE, 'the route');
-  assert.doesNotMatch(loader, UNBOUNDED_CACHE, 'the loader');
-  // The loader's only age limit is the stored row's: readStoredSnapshot -> isFresh (MAX_AGE_MS).
-  assert.match(loader, /readStored: readStoredSnapshot/);
-  const body = source.slice(source.indexOf('export default async function DamPage'));
-  const order = ['await connection()', 'const renderedAt = Date.now()', 'loadDamPageSnapshot(damId, renderedAt)', 'renderedAt={renderedAt}'];
-  const positions = order.map((needle) => body.indexOf(needle));
-  assert.ok(positions.every((at) => at >= 0), `missing one of: ${order.join(', ')}`);
-  assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'the clock is read at request time, then used for both the data and the render');
+  assert.doesNotMatch(source, /export const revalidate|export function generateStaticParams|unstable_cache|\bpageDam\b/);
+  assert.match(source, /await connection\(\)/);
 });

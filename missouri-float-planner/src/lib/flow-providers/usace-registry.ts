@@ -119,6 +119,16 @@ export interface UsaceDam {
    * when a catalog or fetch fails. Confirm real hourly data before adding one.
    */
   resolvedHistoryMetrics?: readonly DamHistoryMetric[];
+  /**
+   * Live (snapshot) metrics that this project serves only through the
+   * resolver, with no explicit series. Like `resolvedHistoryMetrics`, it is a
+   * declaration and not a discovery: copy that promises a reading (a page
+   * title saying "Lake Level") checks it, so the promise follows a verified
+   * capability rather than the bare fact that the dam has an `office`. Each
+   * entry was confirmed against /api/dams/<id> on 2026-11-09. Confirm real
+   * data before adding one, and remove an entry when the series disappears.
+   */
+  resolvedSnapshotMetrics?: readonly UsaceMetric[];
   /** SWPA column code, when the dam has turbines on the federal grid. */
   swpaCode?: string;
   /**
@@ -599,6 +609,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 100,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-fort-gibson-dam': {
@@ -615,6 +626,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 200,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-broken-bow-dam': {
@@ -634,6 +646,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 150,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-eufaula-dam': {
@@ -650,6 +663,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 300,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-keystone-dam': {
@@ -666,6 +680,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 250,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-denison-dam': {
@@ -685,6 +700,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 200,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
 
@@ -707,6 +723,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     suppressMetrics: ['pctFloodPool'],
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-webbers-falls-dam': {
@@ -724,6 +741,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     suppressMetrics: ['pctFloodPool'],
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   // Ozark and Dardanelle are LITTLE ROCK projects, not Tulsa ones, and Little
@@ -750,6 +768,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 1_500,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swl-dardanelle-dam': {
@@ -766,6 +785,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 1_000,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
 

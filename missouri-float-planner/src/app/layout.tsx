@@ -8,6 +8,7 @@ import AnalyticsListener from "@/components/AnalyticsListener";
 import { SOCIAL_SAME_AS } from "@/constants/social";
 import { appBannerMetadata } from '@/lib/app-discovery';
 import { jsonLdString } from '@/lib/json-ld';
+import { TITLE_TEMPLATE } from '@/lib/seo';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
 import { analyticsTrackingId } from '@/lib/analytics';
 
@@ -55,7 +56,7 @@ export const metadata: Metadata = {
   // at 16 and 32 px, served from this deployment rather than blob storage.
   title: {
     default: "Eddy - Your River Guide",
-    template: "%s | Eddy",
+    template: TITLE_TEMPLATE,
   },
   description: "Plan your next float trip with live water conditions, access points, float times & weather. Check river levels before you go.",
   openGraph: {
