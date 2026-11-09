@@ -55,7 +55,8 @@ const QUESTIONS = [
   },
 ] as const;
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ q?: string; state?: string }> }) {
+  const filters = await searchParams;
   // Render at request time: a cached HTML page could otherwise call yesterday
   // 'today' after midnight. The stored full snapshots include lake elevation;
   // the smaller Conditions summaries deliberately do not.
@@ -67,14 +68,14 @@ export default async function Page() {
   ]);
   // The registry keeps all destinations navigable through data outages.
   const { dams } = conditionsDamCatalogue([...stored.values()].map(snapshot => refreshStaleness(snapshot, now)));
-  const groups = buildDamDirectoryGroups(dams, now);
+  const groups = buildDamDirectoryGroups(dams);
   const riverLinks = RELATED_RIVERS.flatMap(related => {
     const river = activeRivers.find(entry => entry.slug === related.slug);
     return river ? [{ href: riverPath(river.state, river.slug), label: related.label }] : [];
   });
 
   return <div className="min-h-screen bg-neutral-50">
-    <main className="mx-auto max-w-7xl px-4 pb-14 pt-7 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 pb-14 pt-7 sm:px-6 lg:px-8">
       <header className="mb-8 max-w-4xl">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary-700">Lakes &amp; dams</p>
         <h1 className="font-heading text-3xl font-bold leading-tight tracking-tight text-primary-900 md:text-4xl">
@@ -102,7 +103,7 @@ export default async function Page() {
         </div>
       </nav>
 
-      <DamDirectory groups={groups} renderedAt={now} />
+      <DamDirectory groups={groups} renderedAt={now} initialQuery={filters.q ?? ''} initialState={filters.state?.toUpperCase() ?? 'all'} />
 
       <section aria-labelledby="schedule-help-heading" className="mt-12 max-w-4xl">
         <h2 id="schedule-help-heading" className="font-heading text-2xl font-bold text-primary-900">Understanding generation schedules</h2>
@@ -130,7 +131,7 @@ export default async function Page() {
       <p className="mt-9 max-w-3xl text-xs leading-5 text-neutral-600">
         Releases can change without notice. Follow warning sirens and posted signs below dams. Check observation times before heading out.
       </p>
-    </main>
+    </div>
     <SiteFooter maxWidth="max-w-7xl" />
   </div>;
 }
