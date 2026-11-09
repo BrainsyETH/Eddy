@@ -40,5 +40,13 @@ export async function loadDamPageSnapshot(
   // Missing, too old, or unreadable. The live read never throws and dates
   // every value it returns; a total outage yields an empty snapshot that the
   // page renders as unavailable, not as a stale one.
+  //
+  // A deliberate trade-off, decided at review (2026-11): availability over a
+  // uniformly fast first load. During a sync-job or database outage, each
+  // request pays an upstream read (cold reads measured up to ~8s; CWMS/SWPA
+  // fetches still share their own fetch cache). The alternative, rendering
+  // the empty state with no upstream call, cannot recover on the client:
+  // useDamPageClock's router.refresh() re-runs this same loader, so the page
+  // would stay empty until the cron wrote a row again.
   return sources.readLive(damId);
 }
