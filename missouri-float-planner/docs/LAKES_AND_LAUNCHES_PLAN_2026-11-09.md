@@ -434,6 +434,18 @@ page.
 
 ### Step 2 — Pilot on Table Rock and Truman, web first
 
+*Foundation implemented 2026-11-09: the lake registry
+(`src/lib/lakes/registry.ts`), Eddy's pool record (`lake_pool_readings`,
+written hourly by `/api/cron/sync-lake-levels`), the reviewed-launch table
+(`lake_launches`, migration `20261109210000`, pending production), the
+section builder and the "On the lake" card on the two dam pages, below the
+tailwater content. The 43 queue places are staged as unapproved rows by
+`scripts/ingestion/lakes/2026-11-09/stage-launch-candidates.sql`; nothing
+renders until a reviewer approves a row, sets its methods and links it to an
+existing access point where it is one. Elevation cautions stay off behind
+`rampCautionsVerified: false` until the Phase 0 item 2 check is recorded.
+Agency status lines wait for the status step (areas and links tables).*
+
 Two lakes, chosen because together they exercise everything the first wave
 will meet. Table Rock has the busiest dam page, strong generation data, and
 ramps that come from three sources at once (MDC on the Missouri side, AGFC

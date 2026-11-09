@@ -25,6 +25,7 @@ import { damAboutSentences, damPageCopy, damStructuredData } from '@/lib/dam-pag
 import { jsonLdString } from '@/lib/json-ld';
 
 import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
+import { loadLakeSection } from '@/lib/lakes/section';
 import { SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
 
 // Rendered per request, deliberately not ISR. The schedule's "Today" is
@@ -60,6 +61,9 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   const renderedAt = Date.now();
   const dam = await loadDamPageSnapshot(damId, renderedAt);
   if (!dam) notFound();
+  // The lake behind the dam, when Eddy carries it as an entity (ADR 0019).
+  // Separate from the snapshot so the stored row and the iOS wire stay as they are.
+  const lake = await loadLakeSection(dam.id, dam.metrics.poolElevation, renderedAt);
 
   const project = getUsaceDam(dam.id);
   const availability = project?.amerenMetrics === 'osage'
@@ -89,7 +93,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           <StationShareButton station={{ provider: 'usace', siteId: damId }} title={dam.name} label="Share" />
         </header>
         <div id="generation" className="scroll-mt-24">
-          <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} />
+          <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} lake={lake} />
         </div>
         <div id="dam-resources" className="dam-resource-links mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
           {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>}

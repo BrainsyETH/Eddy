@@ -2297,6 +2297,119 @@ export type Database = {
         }
         Relationships: []
       }
+      lake_launches: {
+        Row: {
+          access_point_id: string | null
+          amenities: string[]
+          approved: boolean
+          approved_at: string | null
+          created_at: string
+          elev_datum: string | null
+          elev_source: string | null
+          elev_source_updated_at: string | null
+          fee_required: boolean | null
+          id: string
+          lake_slug: string
+          latitude: number
+          launch_methods: string[]
+          longitude: number
+          managing_agency: string | null
+          name: string
+          ramp_bottom_elev_ft: number | null
+          ramp_closure_elev_ft: number | null
+          review_note: string | null
+          slug: string
+          sources: Json
+          updated_at: string
+        }
+        Insert: {
+          access_point_id?: string | null
+          amenities?: string[]
+          approved?: boolean
+          approved_at?: string | null
+          created_at?: string
+          elev_datum?: string | null
+          elev_source?: string | null
+          elev_source_updated_at?: string | null
+          fee_required?: boolean | null
+          id?: string
+          lake_slug: string
+          latitude: number
+          launch_methods?: string[]
+          longitude: number
+          managing_agency?: string | null
+          name: string
+          ramp_bottom_elev_ft?: number | null
+          ramp_closure_elev_ft?: number | null
+          review_note?: string | null
+          slug: string
+          sources?: Json
+          updated_at?: string
+        }
+        Update: {
+          access_point_id?: string | null
+          amenities?: string[]
+          approved?: boolean
+          approved_at?: string | null
+          created_at?: string
+          elev_datum?: string | null
+          elev_source?: string | null
+          elev_source_updated_at?: string | null
+          fee_required?: boolean | null
+          id?: string
+          lake_slug?: string
+          latitude?: number
+          launch_methods?: string[]
+          longitude?: number
+          managing_agency?: string | null
+          name?: string
+          ramp_bottom_elev_ft?: number | null
+          ramp_closure_elev_ft?: number | null
+          review_note?: string | null
+          slug?: string
+          sources?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lake_launches_access_point_id_fkey"
+            columns: ["access_point_id"]
+            isOneToOne: true
+            referencedRelation: "access_points"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lake_pool_readings: {
+        Row: {
+          daily: boolean
+          datum: string
+          elevation_ft: number
+          lake_slug: string
+          observed_at: string
+          recorded_at: string
+          source: string
+        }
+        Insert: {
+          daily?: boolean
+          datum: string
+          elevation_ft: number
+          lake_slug: string
+          observed_at: string
+          recorded_at?: string
+          source: string
+        }
+        Update: {
+          daily?: boolean
+          datum?: string
+          elevation_ft?: number
+          lake_slug?: string
+          observed_at?: string
+          recorded_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       llm_config: {
         Row: {
           gauge_update: string | null

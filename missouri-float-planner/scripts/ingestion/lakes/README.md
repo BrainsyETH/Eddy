@@ -39,6 +39,7 @@ reader is shown the agency's date or "update date unavailable"
 | `nwk-boat-ramps-snapshot.json` | The complete Kansas City District ramp layer as retrieved (224 ramps) |
 | `nwk-ramps-summary.md`, `nwk-ramps-<lake>.md/.json` | Ramp-bottom and closure elevations checked against each lake's documented pools; a flag is a question, not a verdict |
 | `launch-queue-table-rock.*`, `launch-queue-truman.*` | Launch review queues: agency and district ramp features within 500 m of the 3DHP lake polygon, clustered into places, matched to Corps areas and to access points Eddy already carries |
+| `stage-launch-candidates.sql` | The two queues as UNAPPROVED `lake_launches` rows with no launch method (`scripts/lakes/stage-launch-candidates.ts`); approval, methods, amenities and the access-point link are a reviewer's work. Execute only against the confirmed Eddy project, after migration `20261109210000` |
 | `lake-polygons/*.geojson` | USGS 3DHP waterbody polygons (layer 60) for Table Rock, Truman and Stockton, generalised to 0.0001° |
 | `existing-access-points-near-pilot-lakes.json` | A read-only production query of access points inside the two lakes' bounding boxes, recorded with the query |
 

@@ -55,8 +55,10 @@ export interface StatusSnapshot {
   features: StatusFeature[];
 }
 
-/** The Corps' vocabulary, kept distinct. `partial` renders as "Limited access", never as open or closed. */
-export type ReportedStatus = 'open' | 'partial' | 'closed' | 'seasonal_closure' | 'unknown';
+import { REPORTED_STATUS_LABELS, provenanceLine, type ReportedStatus } from '../../shared/lake-status';
+
+/** The Corps' vocabulary and the provenance line live in shared/lake-status.ts, where the page reads them too. */
+export { REPORTED_STATUS_LABELS, provenanceLine, type ReportedStatus };
 
 export interface AreaRecord {
   area_id: string;
@@ -384,17 +386,3 @@ export function classifyProjects(ledger: Ledger, now: string, windowDays = MAINT
   return summaries.sort((a, b) => a.project.localeCompare(b.project));
 }
 
-/** The provenance line a reader sees. The agency's date, or the fact that there is none. */
-export function provenanceLine(record: Pick<AreaRecord, 'source_updated_at'>): string {
-  return record.source_updated_at
-    ? `Corps of Engineers listing, updated ${record.source_updated_at.slice(0, 10)}`
-    : 'Corps of Engineers listing · update date unavailable';
-}
-
-export const REPORTED_STATUS_LABELS: Record<ReportedStatus, string> = {
-  open: 'Reported open',
-  partial: 'Limited access',
-  closed: 'Reported closed',
-  seasonal_closure: 'Seasonal closure',
-  unknown: 'Status unknown',
-};
