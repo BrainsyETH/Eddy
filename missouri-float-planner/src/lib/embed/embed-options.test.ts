@@ -157,12 +157,23 @@ test('the card prints Eddy’s take whole — no sentence splitter, no accordion
   assert.doesNotMatch(data, /Optimal range is/);
 });
 
-test('the dam card states generation once and keeps the stale-schedule notice visible', () => {
+test('the dam card distinguishes dated observations from posted generation and retains stale notices', () => {
   const dam = readFileSync(join(process.cwd(), 'src/components/embed/v2/DamEmbed.tsx'), 'utf8');
   const card = dam.slice(dam.indexOf('function Card('));
-  assert.equal((card.match(/\{moment\.status\}/g) ?? []).length, 1, 'one status line in the card');
+  assert.equal((card.match(/moment\.status/g) ?? []).length, 1, 'observed status has one location');
   assert.doesNotMatch(card, /ew-gen-pill/, 'no second status pill in the header');
-  assert.match(card, /next\.stale \? \(\s*<p role="note"/, 'a stale schedule renders as a visible note');
+  assert.match(card, /Observed turbine flow/, 'the flow is an observation, not the schedule');
+  assert.match(card, /moment\.current \? compactStatus\(moment\) : moment\.status/, 'old observations never borrow a present-tense chip');
+  assert.match(card, /Posted generation schedule/, 'the hourly bars belong to the publisher\'s plan');
+  assert.match(card, /next\.stale \? \(\s*<p role="note"/, 'an old schedule has a visible notice');
+  assert.match(dam, /ew-sched-now/, 'the scheduled hours retain a visible current-time marker');
+  assert.match(dam, /hour\.minimumFlow \? ' ew-sched-bar-min'/, 'minimum flow is not shown as normal generation');
+  assert.match(dam, /ew-sched-bar-missing/, 'unknown scheduled hours are not represented as zero');
+  assert.match(card, /readingStaleness\(downstream\.at, now\) === 'fresh'/, 'movement is suppressed when its own observation ages');
+  assert.match(card, /tailwaterMovementLabel\(downstream\.trend\)/, 'downstream movement uses shared rounding');
+  assert.match(card, /releaseDuplicatesTurbine/, 'equivalent release numbers are collapsed');
+  assert.match(card, /!release\.dailyMean && !spillway/, 'daily averages and spillway readings remain visible');
+  assert.doesNotMatch(card, /Safe to wade|Good for fishing|Safe to float/, 'no unsupported safety verdict');
 });
 
 test('legacy embed routes stay alive as fixed sizes of the family', () => {
