@@ -107,10 +107,13 @@ full (with `days`), `/embed/badge/` → badge. `embed-options.test.ts` pins this
 /embed/img/<river|dam>/<key>/<badge|strip>.<png|svg>?theme=light|dark&bg=transparent&accent=…
 ```
 
-For Substack, Medium, Ghost, GitHub READMEs and email. PNG is drawn by Satori
+For Substack, Medium, GitHub READMEs and email; Ghost website posts can use an
+HTML card for the interactive embed. PNG is drawn by Satori
 with Fredoka + Geist Mono embedded (the OG-image font pipeline); SVG is hand
 built with `textLength`-pinned runs so a fallback font cannot overflow. Both
-share `src/lib/embed/image-model.ts`. Cached five minutes at the CDN.
+share `src/lib/embed/image-model.ts`. Cached five minutes at the CDN. Downloaded
+images are snapshots; email clients and publishing platforms may cache remote
+images, so neither should promise a fresh reading on every open.
 
 ### Script loader
 
@@ -168,7 +171,13 @@ single-purpose embeds (`EmbedFooter`, `EmbedHeaderLogo`, `useEmbedBranding`).
 shortcuts (sidebar, in a post, landing page, email, regional page) as an
 optional "Quick start". On phones the preview sits between the size choice and
 the appearance options. Copy code is the main action; URL parameters are under
-"Advanced", installation steps under the Help tab.
+"Advanced", installation steps under the Help tab. Help shows one platform at
+a time with three short steps and a direct copy action. The website guides
+copy the iframe plus its resize script, independently of the Code tab's format.
+Image guides open the selected river or dam's PNG and full report; card/full
+configurations use a strip image without changing the chosen widget size.
+Tools without an image renderer offer a river/dam choice instead. Troubleshooting
+is collapsed and the partner invitation stays secondary to installation.
 
 ## Measurement
 
