@@ -1,0 +1,4039 @@
+{
+ "url": "https://geospatial.sec.usace.army.mil/server/rest/services/Hosted/NWK_Boat_Ramps/FeatureServer/0",
+ "retrieved_at": "2026-11-09T19:11:23.391Z",
+ "count": 224,
+ "features": [
+  {
+   "attributes": {
+    "elev_low": 1061,
+    "elev_high": 1085,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{44275371-580B-439D-8233-837F5FCA271A}",
+    "agencyid": "USACE",
+    "last_edited_date": 1734554862226,
+    "feat_desc": null,
+    "objectid": 35,
+    "feat_name": "Tuttle Creek Cove"
+   },
+   "geometry": {
+    "x": -96.63500113719536,
+    "y": 39.28072117380677
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1070,
+    "elev_high": 1082,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{4405E11D-815B-436F-A338-628BB5DBD048}",
+    "agencyid": "USACE",
+    "last_edited_date": 1734554950089,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 33,
+    "feat_name": "Stockdale Park"
+   },
+   "geometry": {
+    "x": -96.65092509612984,
+    "y": 39.30549566004062
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1069,
+    "elev_high": 1089,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{28866A4E-EF7B-4B0F-8A0B-A67E43CB1093}",
+    "agencyid": "USACE",
+    "last_edited_date": 1734555041064,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 34,
+    "feat_name": "Stockdale Park"
+   },
+   "geometry": {
+    "x": -96.67300718510171,
+    "y": 39.301078233204116
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{280562AB-AA02-457A-B024-DC254080EA57}",
+    "agencyid": "Lease",
+    "last_edited_date": 1734556689239,
+    "feat_desc": "Highwater Access Only",
+    "objectid": 40,
+    "feat_name": "Timber Creek Marsh"
+   },
+   "geometry": {
+    "x": -96.61980177913199,
+    "y": 39.539284243298624
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1072,
+    "elev_high": 1085,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{564DAEBE-0365-43E7-9FF5-033510B191BC}",
+    "agencyid": "Pottawatomie County",
+    "last_edited_date": 1734557134519,
+    "feat_desc": null,
+    "objectid": 31,
+    "feat_name": "Carnahan Park"
+   },
+   "geometry": {
+    "x": -96.62928030973323,
+    "y": 39.33043695670331
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 723,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{E60CFD54-BB4A-4AEA-8802-07D7D290FBE3}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 99,
+    "feat_name": "Deepwater"
+   },
+   "geometry": {
+    "x": -93.73961124183056,
+    "y": 38.26493637828252
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 843.5,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A6B02C87-9839-4776-9166-D7CADAF2B2CF}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 142,
+    "feat_name": "Ruark Bluff West"
+   },
+   "geometry": {
+    "x": -93.80598701167413,
+    "y": 37.53040151661183
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 860,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{869DCC2B-E991-4E1A-A730-DFB6FDE8ABD2}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 152,
+    "feat_name": "High Point"
+   },
+   "geometry": {
+    "x": -93.59689527729653,
+    "y": 37.566275868997266
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 969,
+    "elev_high": 981,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{AC4D224E-35AA-4B72-845D-C5187EB9E942}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 41,
+    "feat_name": "Carbolyn"
+   },
+   "geometry": {
+    "x": -95.68118907568335,
+    "y": 38.67573178006081
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 969,
+    "elev_high": 979,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7F16E325-2FF0-4395-AB96-2E8E9867D3CF}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 46,
+    "feat_name": "Wolf Creek"
+   },
+   "geometry": {
+    "x": -95.56528509240013,
+    "y": 38.668801334369626
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1139.07,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E9DBC617-71C7-4927-9231-FA3E945082EE}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 157,
+    "feat_name": "Curtis Creek"
+   },
+   "geometry": {
+    "x": -96.9582718837965,
+    "y": 39.089773045382145
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1061,
+    "elev_high": 1089,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FFA4A199-99BB-40C4-9223-0944BD1D9762}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1734557019638,
+    "feat_desc": null,
+    "objectid": 32,
+    "feat_name": "Cedar Ridge"
+   },
+   "geometry": {
+    "x": -96.59223604667909,
+    "y": 39.28038678769137
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1462,
+    "elev_high": 1482,
+    "nwk_lakename_t": "Kanopolis Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E0161186-4B9D-4B0D-9933-A2C056252363}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Horsethief Boat Ramp 1",
+    "objectid": 53,
+    "feat_name": "East Shore"
+   },
+   "geometry": {
+    "x": -97.99314783569908,
+    "y": 38.637178089818434
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A3E6EB65-A35F-431E-895E-CC58210A9A28}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "USACE",
+    "objectid": 7,
+    "feat_name": "Bloomington East Boat Ramp 5"
+   },
+   "geometry": {
+    "x": -95.37203920934135,
+    "y": 38.915610651743215
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{79364404-A0E4-427D-9B85-7B27DE39A2DE}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "on Little Platte River",
+    "objectid": 183,
+    "feat_name": "Public Access 10"
+   },
+   "geometry": {
+    "x": -94.4388753944537,
+    "y": 39.554454291009115
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{010AB50D-CC2C-4904-B3C3-EBC05BA6302F}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 100,
+    "feat_name": "Deepwater Creek"
+   },
+   "geometry": {
+    "x": -93.82365302403177,
+    "y": 38.29360893662937
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{D63E2455-1A52-4823-B706-3FFC9A434191}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "c",
+    "objectid": 136,
+    "feat_name": "Umberview Access"
+   },
+   "geometry": {
+    "x": -93.7967130867519,
+    "y": 37.618976670341205
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{B34E4B4B-6171-4545-B551-7F6B79F5B639}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 150,
+    "feat_name": "Cedar Ridge (east ramp)"
+   },
+   "geometry": {
+    "x": -93.66594021942865,
+    "y": 37.57056091985082
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{5962FB64-C46E-4F87-B872-F29A0E10FE43}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "f",
+    "objectid": 140,
+    "feat_name": "3 Hills Access"
+   },
+   "geometry": {
+    "x": -93.82713895535643,
+    "y": 37.501048516095494
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{D0DDE80B-AB2F-4A8B-AF84-226046A9FCD0}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "e",
+    "objectid": 139,
+    "feat_name": "Lowe Access"
+   },
+   "geometry": {
+    "x": -93.84301050208566,
+    "y": 37.513708804392216
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 906,
+    "elev_high": 923,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{06A6EE94-F561-48DF-8B99-A45069A0B52C}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "high water access",
+    "objectid": 193,
+    "feat_name": "Bridgeview (high water)"
+   },
+   "geometry": {
+    "x": -93.02471074477573,
+    "y": 40.87447654138463
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 904,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{843AAF2C-4B61-45C1-81BC-B3CF66FD0FFB}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp 1",
+    "objectid": 12,
+    "feat_name": "Slough Creek Bridge"
+   },
+   "geometry": {
+    "x": -95.40815026025754,
+    "y": 39.1448834005582
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1511,
+    "elev_high": 1531,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 1",
+    "globalid": "{2C27ED1C-28F8-44D1-B4AF-080D9480925C}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 164,
+    "feat_name": "Elm Creek"
+   },
+   "geometry": {
+    "x": -98.63008273806646,
+    "y": 38.93690733442958
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{28D5899E-97BA-4B90-B460-80E1EC9D26D6}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "d",
+    "objectid": 137,
+    "feat_name": "Cedar Oaks Access"
+   },
+   "geometry": {
+    "x": -93.79556922956128,
+    "y": 37.60618124054999
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 878,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E5B14C8E-E219-4B04-8DA9-B788BDA98A25}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 78,
+    "feat_name": "W HWY Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.54005529403587,
+    "y": 39.44920653443633
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1024,
+    "elev_high": 1049.5,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{3B1C2ABD-5989-4483-9207-DC35D6F71003}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 24,
+    "feat_name": "Turkey Point"
+   },
+   "geometry": {
+    "x": -95.79160989069433,
+    "y": 38.49617201479465
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 878,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A676DB85-785A-43AA-9F64-499F44B58785}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp at Camp Branch Marina",
+    "objectid": 191,
+    "feat_name": "Sailboat Cove"
+   },
+   "geometry": {
+    "x": -94.52498665791431,
+    "y": 39.43100500520806
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{9E128117-CDFE-4E16-A775-2BC3447BD398}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 159,
+    "feat_name": "Rolling Hills"
+   },
+   "geometry": {
+    "x": -96.9145930494311,
+    "y": 39.07271784129243
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{32A29DA7-9828-48A7-89B9-ECEFADB7998F}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 25,
+    "feat_name": "Eisenhour State Park"
+   },
+   "geometry": {
+    "x": -95.75444956800041,
+    "y": 38.52170061583364
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{17FB406B-AADE-4009-8AA7-6674ED8A43C1}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "g",
+    "objectid": 141,
+    "feat_name": "Son's Creek Access"
+   },
+   "geometry": {
+    "x": -93.85816572052924,
+    "y": 37.48368505790223
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1927,
+    "elev_high": 1956,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{344D7721-C520-43A5-A481-FF7838474504}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 122,
+    "feat_name": "Gremlin Cove"
+   },
+   "geometry": {
+    "x": -99.21678858207079,
+    "y": 40.085172041178375
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{2D1872E1-1031-48DD-81EA-BF9D803F64FD}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 94,
+    "feat_name": "Brush Creek"
+   },
+   "geometry": {
+    "x": -93.66548271464097,
+    "y": 38.06134476598818
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 831,
+    "elev_high": 837,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{438C7004-E070-4ACD-A8EF-525FE0D0D679}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 186,
+    "feat_name": "Outlet Channel"
+   },
+   "geometry": {
+    "x": -95.42091379780047,
+    "y": 39.10819985784135
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 828.3,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{41989C1D-271F-475F-8F79-D08D2595254C}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 154,
+    "feat_name": "Crabtree"
+   },
+   "geometry": {
+    "x": -93.7558652813263,
+    "y": 37.671356473771624
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1115,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{585B8F02-EBA8-41CE-824D-337C9CB45F02}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 49,
+    "feat_name": "East Rolling Hills"
+   },
+   "geometry": {
+    "x": -96.90611959080064,
+    "y": 39.07768286675006
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 969,
+    "elev_high": 990,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{EA7F06C7-C4FE-4A52-A29D-A4FE9CED292E}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 47,
+    "feat_name": "110-Mile"
+   },
+   "geometry": {
+    "x": -95.57825458309499,
+    "y": 38.672628958513556
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Blue Springs Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{240CB190-A0BE-4074-BC09-943C6648B630}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 20,
+    "feat_name": "West Dam Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.34362094328404,
+    "y": 39.014278241667995
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 898,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{866DDDB6-4713-44E8-9CFF-A27390EE1E95}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Private",
+    "objectid": 182,
+    "feat_name": "Perry Yacht Club Ramp"
+   },
+   "geometry": {
+    "x": -95.47786974104831,
+    "y": 39.19971883074377
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FEDFB733-C8AC-49EC-A48C-91D4FB177350}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "KDWPT Boat Ramp",
+    "objectid": 1,
+    "feat_name": "Boat Ramp 8"
+   },
+   "geometry": {
+    "x": -95.40759979241436,
+    "y": 38.94134351488124
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{64935C83-F14F-4EB2-A243-2AD5EE6CEF4E}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 76,
+    "feat_name": "Bolivar Landing"
+   },
+   "geometry": {
+    "x": -93.37395940485268,
+    "y": 37.7959866581931
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 902,
+    "elev_high": 908,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{51FB563C-87AA-4685-990A-CDFEB76E36A5}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 106,
+    "feat_name": "Island View Park"
+   },
+   "geometry": {
+    "x": -92.92368519642065,
+    "y": 40.83480461520165
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 898,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{F280FDF5-9692-4F26-9A9C-4A97A726DF2F}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp 2",
+    "objectid": 18,
+    "feat_name": "Perry State Park"
+   },
+   "geometry": {
+    "x": -95.4930544413012,
+    "y": 39.15122096840948
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{02ADD325-BFEB-49CD-86D1-0AC23483D6B8}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 185,
+    "feat_name": "Lakeside Village"
+   },
+   "geometry": {
+    "x": -95.44099322939032,
+    "y": 39.17371279649831
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888,
+    "elev_high": 906,
+    "nwk_lakename_t": "Longview Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7B031A1A-B762-4331-8C0A-52A95242AF7C}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 64,
+    "feat_name": "Mouse Creek"
+   },
+   "geometry": {
+    "x": -94.46758569107135,
+    "y": 38.9014052033137
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 902,
+    "elev_high": 908,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{4169C095-DB62-4D17-B739-FAA14D012852}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 110,
+    "feat_name": "Bridge View (low water)"
+   },
+   "geometry": {
+    "x": -93.02447803620139,
+    "y": 40.873214076495515
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 903,
+    "elev_high": 920,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{8CA07D2E-26F6-4FBF-8C1B-A4A341F7A465}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 178,
+    "feat_name": "Honey Creek Resort"
+   },
+   "geometry": {
+    "x": -92.92779144139844,
+    "y": 40.86954902678
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834.5,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{3535A53B-76DE-4E2C-BE1F-B3037680DDF2}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 145,
+    "feat_name": "Mutton Creek"
+   },
+   "geometry": {
+    "x": -93.78036894892809,
+    "y": 37.547818161766514
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1462,
+    "elev_high": 1481,
+    "nwk_lakename_t": "Kanopolis Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{B4E39A7D-6489-4796-A9B4-A33B7D2F7D19}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Langley west",
+    "objectid": 55,
+    "feat_name": "South Shore"
+   },
+   "geometry": {
+    "x": -97.97707008069638,
+    "y": 38.606928210717996
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{5515E618-1ED1-49CB-AE35-253AAD7ED952}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "h",
+    "objectid": 148,
+    "feat_name": "Taylor Heights Access"
+   },
+   "geometry": {
+    "x": -93.69429614503974,
+    "y": 37.580108432713345
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 904,
+    "elev_high": 925,
+    "nwk_lakename_t": "Hillsdale Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{5CF0ED65-7289-4592-B589-4E04A6F8A346}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 130,
+    "feat_name": "Jayhawker Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.92232222857498,
+    "y": 38.64963085029994
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 904,
+    "elev_high": 928,
+    "nwk_lakename_t": "Hillsdale Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{C0543B05-4193-4F77-8F8F-B24760CD82D9}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 129,
+    "feat_name": "Russell Crites Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.92751987182575,
+    "y": 38.65966379108983
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1024,
+    "elev_high": 1049.5,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FBD1F343-6003-4EF6-AFFC-67D5ACA7C3F7}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 27,
+    "feat_name": "Arrow Rock"
+   },
+   "geometry": {
+    "x": -95.74692630326005,
+    "y": 38.49746826532137
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 645,
+    "elev_high": 677,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{3DCA18FB-F074-4206-BB0A-DCB9DE7F3162}",
+    "agencyid": "Lease",
+    "last_edited_date": 1736952699408,
+    "feat_desc": "",
+    "objectid": 177,
+    "feat_name": "Warsaw City Harbor"
+   },
+   "geometry": {
+    "x": -93.38745738071741,
+    "y": 38.24545655479123
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 860.6,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{6184029B-6996-41F6-AFF6-B0F325A98E29}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 143,
+    "feat_name": "Greenfield"
+   },
+   "geometry": {
+    "x": -93.77785441532751,
+    "y": 37.45151997241916
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A726E1C3-9576-4770-BC30-DF72E0E3BB2B}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 23,
+    "feat_name": "Sundance"
+   },
+   "geometry": {
+    "x": -95.8617521195561,
+    "y": 38.483725720575364
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1115,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FDD8026B-F5DA-4FC5-9EF6-1D6C326AA5E9}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 203,
+    "feat_name": "Milford State Park "
+   },
+   "geometry": {
+    "x": -96.89918104936018,
+    "y": 39.11507684913142
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1511,
+    "elev_high": 1531,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 1",
+    "globalid": "{DF65D56E-4F85-481A-B41C-5D6161C890CC}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 58,
+    "feat_name": "Minooka Park"
+   },
+   "geometry": {
+    "x": -98.55900570525202,
+    "y": 38.93635448376978
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FBB9266A-5D28-4985-90C0-0B3079425D1D}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "USACE",
+    "objectid": 8,
+    "feat_name": "Bloomington East Boat Ramp 7"
+   },
+   "geometry": {
+    "x": -95.36861063993918,
+    "y": 38.910695301454545
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1462,
+    "elev_high": 1476,
+    "nwk_lakename_t": "Kanopolis Lake",
+    "feat_desig": "Access",
+    "globalid": "{15CE8CA6-C802-4507-82FA-70B57F5A3BC5}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Yankee Run Access",
+    "objectid": 184,
+    "feat_name": "Yankee Run Access"
+   },
+   "geometry": {
+    "x": -98.01408056440091,
+    "y": 38.64224978897195
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{62A5128E-C379-4347-B338-CC31F61D1C83}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 116,
+    "feat_name": "South Fork Bridge"
+   },
+   "geometry": {
+    "x": -93.04321792159911,
+    "y": 40.845749542694165
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 645,
+    "elev_high": 677,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{2B0740ED-F8B1-4524-9638-2E9411BDE4B6}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 87,
+    "feat_name": "East Bledsoe Ferry"
+   },
+   "geometry": {
+    "x": -93.3959965573991,
+    "y": 38.26203985787798
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{F43DC878-EC04-4F8F-B63E-1FDABBDA8938}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 71,
+    "feat_name": "Outlet Park"
+   },
+   "geometry": {
+    "x": -93.32555432896166,
+    "y": 37.90496459507419
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 784,
+    "elev_high": 795,
+    "nwk_lakename_t": "Long Branch Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{70FF7A29-93C0-48B3-9F94-C69E3C135B8C}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 68,
+    "feat_name": "Bee Trace Area"
+   },
+   "geometry": {
+    "x": -92.51686844602696,
+    "y": 39.82312557501096
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1137,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{6F8A1277-70D9-47DB-B1DF-6B928A9E5214}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 51,
+    "feat_name": "Clay Clounty"
+   },
+   "geometry": {
+    "x": -97.00525658757773,
+    "y": 39.213243740909355
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 843.6,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E15B14FC-08AF-4A63-A39D-54D207F5A8B3}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 146,
+    "feat_name": "Stockton State Park"
+   },
+   "geometry": {
+    "x": -93.7537334920205,
+    "y": 37.60517043914821
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 875.6,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FB9D0575-7FA6-43A0-B92A-145EDBE4BA60}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 80,
+    "feat_name": "Crows Creek"
+   },
+   "geometry": {
+    "x": -94.51980937318284,
+    "y": 39.39864630703885
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{60902688-45EC-42FE-8AFE-3A84F7FBA2B0}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 70,
+    "feat_name": "Nemo Landing Park"
+   },
+   "geometry": {
+    "x": -93.27271282332701,
+    "y": 37.86035023126097
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1462,
+    "elev_high": 1485,
+    "nwk_lakename_t": "Kanopolis Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{1DDE7A0E-60A4-4DE1-98DE-5133E45ADA22}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Venango",
+    "objectid": 52,
+    "feat_name": "Venango"
+   },
+   "geometry": {
+    "x": -97.99203106630755,
+    "y": 38.6353887126166
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 873.5,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{1F6FAAFC-4A1A-4DAF-966C-2E86859FDCC3}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 190,
+    "feat_name": "Camp Branch"
+   },
+   "geometry": {
+    "x": -94.51610787942766,
+    "y": 39.403996272438505
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 720,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{5068E129-363F-4C99-954F-2B8E09EFE73D}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 162,
+    "feat_name": "Fairfield"
+   },
+   "geometry": {
+    "x": -93.40896846905366,
+    "y": 38.14159191941305
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 837.5,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{472B0BED-1FA1-48A1-8E38-A63C09B0DEFF}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 132,
+    "feat_name": "Orleans Trail Marina"
+   },
+   "geometry": {
+    "x": -93.79248839800557,
+    "y": 37.66644205225615
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{415AEEF1-0A05-48AC-B28F-67EC52DA6A53}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 84,
+    "feat_name": "Tightwad"
+   },
+   "geometry": {
+    "x": -93.54643846905948,
+    "y": 38.27273270613496
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 718,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{1447A580-A89B-4C9E-81C4-C322E8E805B7}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 170,
+    "feat_name": "Long Shoal Marina"
+   },
+   "geometry": {
+    "x": -93.4661086352067,
+    "y": 38.27638001492321
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 969,
+    "elev_high": 982,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{89A62753-AAB3-4630-87B4-3F6CAB4CE717}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 192,
+    "feat_name": null
+   },
+   "geometry": {
+    "x": -95.55276551213554,
+    "y": 38.66191584541458
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 725,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{3EF1BEC6-1FA3-412D-8EB3-8403C32538C6}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 176,
+    "feat_name": "Truman State Park"
+   },
+   "geometry": {
+    "x": -93.45449955407643,
+    "y": 38.29364607805901
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{BF277E70-19BD-4323-927D-C2A5ABA5F218}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 169,
+    "feat_name": "Berry Bend"
+   },
+   "geometry": {
+    "x": -93.50716801993286,
+    "y": 38.20053966967425
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{43AFE55F-D4D9-4503-B16E-2D4008AADD6F}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 92,
+    "feat_name": "Avery"
+   },
+   "geometry": {
+    "x": -93.32712715236171,
+    "y": 38.06168133177886
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{AB36956A-ECBE-4E96-8151-AD1C3D4B5B54}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 101,
+    "feat_name": "Grand River"
+   },
+   "geometry": {
+    "x": -93.81834963919061,
+    "y": 38.34209088402603
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{4EEBBBBA-3182-4A74-B118-20716550DFBE}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 69,
+    "feat_name": "Lightfoot Park"
+   },
+   "geometry": {
+    "x": -93.36336599311862,
+    "y": 37.83306940653857
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{0E59D76C-A789-4879-B8DD-51A899E90640}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp on River",
+    "objectid": 180,
+    "feat_name": "State Boat Ramp"
+   },
+   "geometry": {
+    "x": -95.44697946050987,
+    "y": 39.28818445432769
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Access",
+    "globalid": "{6978DC04-A881-4AD2-9E48-0479DF059C9B}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "small boat access",
+    "objectid": 115,
+    "feat_name": "Small Boat Access"
+   },
+   "geometry": {
+    "x": -93.06925929835482,
+    "y": 40.87575582132849
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Access",
+    "globalid": "{DB2E7B5A-32FE-4181-A77F-7FD9FB022D50}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "small boat access",
+    "objectid": 114,
+    "feat_name": "Small Boat Access"
+   },
+   "geometry": {
+    "x": -93.09797149940086,
+    "y": 40.89801707097153
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1509,
+    "elev_high": 1531,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 3",
+    "globalid": "{CB199F85-F947-4E80-9EDF-2F9ADE7ACA36}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 60,
+    "feat_name": "Minooka Park"
+   },
+   "geometry": {
+    "x": -98.59470319157434,
+    "y": 38.93648388439965
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{B40ED5FF-3835-4D45-83E1-99C1F4F86BAB}",
+    "agencyid": null,
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 97,
+    "feat_name": "Old Timers"
+   },
+   "geometry": {
+    "x": -93.55916785624856,
+    "y": 38.20591167899679
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 903,
+    "elev_high": 920,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp ",
+    "globalid": "{15052DC3-A229-49AC-8D28-9627E25A5DC8}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 112,
+    "feat_name": "Honey Creek State Park east"
+   },
+   "geometry": {
+    "x": -92.92586156102918,
+    "y": 40.86506038684565
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{6AFF961F-37C1-4B84-9836-A4B0DC0A9F4B}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 108,
+    "feat_name": "Rolling Cove"
+   },
+   "geometry": {
+    "x": -92.97681350717608,
+    "y": 40.84736313601066
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1024,
+    "elev_high": 1049.5,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{8237BEB7-254A-4D99-B2A7-923DB5BF7B23}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 22,
+    "feat_name": ""
+   },
+   "geometry": {
+    "x": -95.89533693362019,
+    "y": 38.49327216328795
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{15644A35-2594-4054-8B3D-AE5BB0FB8598}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Park Boat Ramp",
+    "objectid": 156,
+    "feat_name": "Flagstop RV and Resort"
+   },
+   "geometry": {
+    "x": -96.91241236482439,
+    "y": 39.16656742863026
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1510,
+    "elev_high": 1531,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 2",
+    "globalid": "{5E8329B5-EF62-445E-9074-F1B0CF658184}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 59,
+    "feat_name": "Minooka Park"
+   },
+   "geometry": {
+    "x": -98.57470418525357,
+    "y": 38.939497965066096
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{681B0895-AE05-4EF1-B569-E2A2CADFD678}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp",
+    "objectid": 197,
+    "feat_name": "Ouarry Point"
+   },
+   "geometry": {
+    "x": -93.3254035341648,
+    "y": 37.89382406739005
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{87A31357-2A68-476C-9E10-C06CFF47EC77}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "b",
+    "objectid": 135,
+    "feat_name": "Umberland Access"
+   },
+   "geometry": {
+    "x": -93.79523587014923,
+    "y": 37.63002837348802
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888,
+    "elev_high": 906,
+    "nwk_lakename_t": "Longview Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{23947EF4-A07B-4B39-BBC2-BB9E51BD1E0A}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 65,
+    "feat_name": "Longview Lake Marina"
+   },
+   "geometry": {
+    "x": -94.47469842932014,
+    "y": 38.91715876762837
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 914,
+    "elev_high": 923,
+    "nwk_lakename_t": "Hillsdale Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E6A26062-FF52-4E45-8B28-E2B4BDE8E95F}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 127,
+    "feat_name": "Hillsdale Point Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.92173940341527,
+    "y": 38.680641929669214
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1930,
+    "elev_high": 1953,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{24816F2D-D273-4191-A6E4-350E55EB773D}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 124,
+    "feat_name": "Methodist Cove"
+   },
+   "geometry": {
+    "x": -99.32952439778977,
+    "y": 40.084807772903524
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{7171C55D-276D-424A-A832-92DCBFD84B6D}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 98,
+    "feat_name": "Knisely"
+   },
+   "geometry": {
+    "x": -93.6398403309069,
+    "y": 38.26034192725205
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 725,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{B83ABBA0-810C-4B74-B994-C6FB4E936321}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 173,
+    "feat_name": "Sparrowfoot"
+   },
+   "geometry": {
+    "x": -93.73727404914177,
+    "y": 38.30776788302787
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 828.3,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{CE055D46-10AC-4B4D-9559-2EDB6D78A0E1}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 149,
+    "feat_name": "Cedar Ridge"
+   },
+   "geometry": {
+    "x": -93.68582423330821,
+    "y": 37.580482321588235
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 960,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{929F9C7D-E94B-4D27-9C04-87A0AA033C50}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp",
+    "objectid": 200,
+    "feat_name": "Pittsburg Area State Park"
+   },
+   "geometry": {
+    "x": -93.31590864614054,
+    "y": 37.87529307554107
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{EB170C02-FB56-4AE3-8662-2E7B1C6B6411}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 73,
+    "feat_name": "Hermitage Area north"
+   },
+   "geometry": {
+    "x": -93.29880628440289,
+    "y": 37.89175203284796
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{611AA9B3-63A6-4D6B-BDCF-AD2F2B2F5774}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 103,
+    "feat_name": "TT Highway"
+   },
+   "geometry": {
+    "x": -93.50291000728276,
+    "y": 38.345764787211245
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{123E2502-9903-4115-8207-41967F15BEF9}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp ",
+    "objectid": 44,
+    "feat_name": "Pomona State Park"
+   },
+   "geometry": {
+    "x": -95.57679243034131,
+    "y": 38.65427176078962
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{4113B775-C3E2-4DE5-BD41-CD197CC56AB8}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "KDWPT Boat Ramp",
+    "objectid": 11,
+    "feat_name": "Boat Ramp 3 South"
+   },
+   "geometry": {
+    "x": -95.38851308096015,
+    "y": 38.93619774077514
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{F1C926BF-6CF9-4D6B-A8FF-3AB9F35F760A}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 42,
+    "feat_name": null
+   },
+   "geometry": {
+    "x": -95.6190716679345,
+    "y": 38.66953553060059
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 872.8,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{80535B87-BC33-4F8F-AF49-FCDE179FF348}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 189,
+    "feat_name": "Crows Creek"
+   },
+   "geometry": {
+    "x": -94.5207916557932,
+    "y": 39.398581474134566
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{035895CD-A284-49D9-9B66-BBB2F9F2501F}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 161,
+    "feat_name": "West Rolling Hills"
+   },
+   "geometry": {
+    "x": -96.93141395910878,
+    "y": 39.074974519593454
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1920,
+    "elev_high": 1948,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{38B5031F-1F07-4886-90AA-81A8421530EA}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp",
+    "objectid": 121,
+    "feat_name": "North Shore Marina"
+   },
+   "geometry": {
+    "x": -99.2177740941246,
+    "y": 40.08464942843236
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Access",
+    "globalid": "{141A46E1-EFE7-42A5-88E8-8CB9EB010204}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "small boat access",
+    "objectid": 117,
+    "feat_name": "Small Boat Access"
+   },
+   "geometry": {
+    "x": -93.04536611234538,
+    "y": 40.88685988462758
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 872,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{32B392DA-A389-456E-BC3F-B743C6C21C93}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 82,
+    "feat_name": "Camp Branch"
+   },
+   "geometry": {
+    "x": -94.51537648998797,
+    "y": 39.4032948551164
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 872,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{AA7369C1-C995-4F1C-83B2-40A7F6C8144E}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 188,
+    "feat_name": "Little Platte"
+   },
+   "geometry": {
+    "x": -94.54308827053974,
+    "y": 39.416145186981105
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1942,
+    "elev_high": 1955,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{DD192496-61EC-4FAF-880C-A5AB1D6BA59F}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 125,
+    "feat_name": " Alma City"
+   },
+   "geometry": {
+    "x": -99.36317145881482,
+    "y": 40.09573878643955
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Access",
+    "globalid": "{A4A44980-4919-4DCE-BE17-4529078145E9}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "small boat access",
+    "objectid": 119,
+    "feat_name": "Small Boat Access"
+   },
+   "geometry": {
+    "x": -93.0974317286961,
+    "y": 40.88922681131344
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 903,
+    "elev_high": 921,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{09474330-3D71-4902-833C-284BEEE1A6E7}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 3",
+    "objectid": 113,
+    "feat_name": "Island View Park"
+   },
+   "geometry": {
+    "x": -92.8972501743142,
+    "y": 40.828111470772924
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 842.5,
+    "elev_high": 869.98,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{813D598B-F80B-48AE-ACD3-6F769F5CC323}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 153,
+    "feat_name": "Masters"
+   },
+   "geometry": {
+    "x": -93.68571529730866,
+    "y": 37.6026954584952
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{67A0B216-AA7F-4C63-9A88-4B963BBF3BB2}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 43,
+    "feat_name": "Pomona State Park"
+   },
+   "geometry": {
+    "x": -95.58978524758916,
+    "y": 38.65713863926142
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 843.6,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{B9BCB1CC-D14C-414F-9D32-725720A3E3CF}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 147,
+    "feat_name": "State Park Marina"
+   },
+   "geometry": {
+    "x": -93.73619486436341,
+    "y": 37.603560305036424
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{21445A07-8594-42E9-ACAF-E9F1CBD5E2F5}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 202,
+    "feat_name": "Thunderbird Marina"
+   },
+   "geometry": {
+    "x": -96.91825467146239,
+    "y": 39.06911151820356
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{0C8B9889-21A2-4F98-8382-5CDC6F7ED7AB}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "KDWPT Boat Ramp",
+    "objectid": 9,
+    "feat_name": "Boat Ramp 9"
+   },
+   "geometry": {
+    "x": -95.48154874817529,
+    "y": 38.891218070801735
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": null,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Access",
+    "globalid": "{A8275DC7-FE6B-4750-89B0-909B19491720}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "small boat access",
+    "objectid": 196,
+    "feat_name": "Pomona State Park "
+   },
+   "geometry": {
+    "x": -95.57655991490476,
+    "y": 38.65197597255353
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 902,
+    "elev_high": 913,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7CB67D5A-6677-40F1-94F3-3A0FA3D1C7E9}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 120,
+    "feat_name": "Buck Creek Marina north"
+   },
+   "geometry": {
+    "x": -92.8769570074671,
+    "y": 40.84877145414923
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{1C5B2D9D-D205-4D8E-A9E5-4B8A489D5AC1}",
+    "agencyid": "Lease",
+    "last_edited_date": 1736952699408,
+    "feat_desc": null,
+    "objectid": 88,
+    "feat_name": "Drake Harbor"
+   },
+   "geometry": {
+    "x": -93.38193307679167,
+    "y": 38.240001381043236
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 900,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{95E34BAD-787E-42E5-A52F-B33DBE63FE19}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 15,
+    "feat_name": "Longview"
+   },
+   "geometry": {
+    "x": -95.44294523167177,
+    "y": 39.17979122225396
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 872,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{6ED8D4B8-BC68-4922-B4F5-067E67C14E9B}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 1",
+    "objectid": 79,
+    "feat_name": "Little Platte"
+   },
+   "geometry": {
+    "x": -94.5442787556835,
+    "y": 39.41653322082437
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{0D2A6334-AA8E-420F-880D-D25A87C25E18}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 26,
+    "feat_name": "Eisenhower State Park"
+   },
+   "geometry": {
+    "x": -95.73264705810116,
+    "y": 38.517739161635944
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 859,
+    "elev_high": 878,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp ",
+    "globalid": "{2598AB12-D47A-418C-A593-8039F76241DD}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 187,
+    "feat_name": "W HWY Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.53986864747603,
+    "y": 39.44827013818036
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{16BBE831-2C4C-4A40-8FC1-485C86109070}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 85,
+    "feat_name": "Finey"
+   },
+   "geometry": {
+    "x": -93.5311095712372,
+    "y": 38.27548687440577
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{D712133A-76D6-41C8-9D98-66FFA8418DB8}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 72,
+    "feat_name": "Wheatland Park"
+   },
+   "geometry": {
+    "x": -93.37078830878062,
+    "y": 37.87913664620355
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{0B41B99D-1E01-4EEE-B1EC-BC0665605DC0}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 95,
+    "feat_name": "Fox Run"
+   },
+   "geometry": {
+    "x": -93.57332723650416,
+    "y": 38.17402088540233
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1511,
+    "elev_high": 1531,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 1",
+    "globalid": "{7C0DFAB4-F20F-47A4-B4AF-6945DAB367A3}",
+    "agencyid": "KDWPT",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 57,
+    "feat_name": "Cedar Creek"
+   },
+   "geometry": {
+    "x": -98.68294741933714,
+    "y": 38.96240979372081
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Smithville Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A8DEB4DA-AF54-4191-BFBF-7856E5E9F402}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 81,
+    "feat_name": "Public Access 8"
+   },
+   "geometry": {
+    "x": -94.4862679198992,
+    "y": 39.52956631976671
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1509,
+    "elev_high": 1546,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 1",
+    "globalid": "{C146F18C-34F0-4B56-9A17-41A1CDD942BA}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 61,
+    "feat_name": "Lucas Park"
+   },
+   "geometry": {
+    "x": -98.52775510146998,
+    "y": 38.93611086009536
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Blue Springs Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{27B3B4B5-48A2-4881-903A-382334611C34}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 19,
+    "feat_name": "Marina Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.33688380053702,
+    "y": 39.00201147004066
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{C88AF71D-D435-486C-AFB1-053F5E7B4B0E}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 160,
+    "feat_name": "School Creek"
+   },
+   "geometry": {
+    "x": -96.93122701161333,
+    "y": 39.137187634696666
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{31978DC8-717E-4DDD-A115-5060BCA3C6B4}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 77,
+    "feat_name": "Pittsburg Park"
+   },
+   "geometry": {
+    "x": -93.26283526466979,
+    "y": 37.83626408052123
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{BAAAC46D-E0C9-414A-A401-FADB54FAFEBD}",
+    "agencyid": null,
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 172,
+    "feat_name": "Shawnee Bend"
+   },
+   "geometry": {
+    "x": -93.41984819991993,
+    "y": 38.26575896461869
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Blue Springs Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{8B483A42-6E6E-4E0C-B7FC-BECBDD84FB63}",
+    "agencyid": "County",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 21,
+    "feat_name": "Chapel Road Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.31031946504709,
+    "y": 39.001405439298864
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 843.5,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{21EC6147-73F7-473F-9E0A-695FDF40CDC4}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 131,
+    "feat_name": "Stockton"
+   },
+   "geometry": {
+    "x": -93.78481226336005,
+    "y": 37.68364743134845
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{951D514F-3B8D-4C99-B312-E427AEE8C5E7}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "KDWPT Boat Ramp",
+    "objectid": 3,
+    "feat_name": "Boat Ramp 2"
+   },
+   "geometry": {
+    "x": -95.34998519362043,
+    "y": 38.9331035534011
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{82E3C752-7E36-4C6E-A072-63FF49BC5A56}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp",
+    "objectid": 198,
+    "feat_name": "HWY 83 Marina "
+   },
+   "geometry": {
+    "x": -93.35900332134804,
+    "y": 37.82284238520274
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 897,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7BB59EB9-468E-43FE-8E64-31F7CC8A8555}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp 1",
+    "objectid": 17,
+    "feat_name": "Perry State Park"
+   },
+   "geometry": {
+    "x": -95.47732256822559,
+    "y": 39.139032414769865
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1075,
+    "elev_high": 1080,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp ",
+    "globalid": "{7F94FEBC-0763-4601-AB28-1B12B58FB320}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1734556715928,
+    "feat_desc": "Highwater Access Only",
+    "objectid": 30,
+    "feat_name": "Fancy Creek State Park"
+   },
+   "geometry": {
+    "x": -96.73007670414755,
+    "y": 39.44292884346449
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 972,
+    "elev_high": 974,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{168AAF4C-E396-44F6-B6AB-7EE70A7E6CA9}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 28,
+    "feat_name": "Outlet"
+   },
+   "geometry": {
+    "x": -95.70696448104636,
+    "y": 38.51602838913181
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FC90EEC5-845F-472C-9EA6-C88BAAD190A0}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 204,
+    "feat_name": "Milford State Park"
+   },
+   "geometry": {
+    "x": -96.90243204788183,
+    "y": 39.09376784531597
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 903,
+    "elev_high": 908,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{9758CB91-5390-4908-8E0E-4D03BB3628BE}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 104,
+    "feat_name": "Prairie Ridge Park"
+   },
+   "geometry": {
+    "x": -92.88911327489483,
+    "y": 40.8528446830112
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7D8E8C3E-023C-4BBE-96DA-21910BF9FE56}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "KDWPT Boat Ramp",
+    "objectid": 5,
+    "feat_name": "Boat Ramp 10"
+   },
+   "geometry": {
+    "x": -95.41000659106291,
+    "y": 38.87978087721864
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Other",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{877DDFD8-9A24-4B99-9B88-A75F745B03BD}",
+    "agencyid": null,
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 171,
+    "feat_name": null
+   },
+   "geometry": {
+    "x": -93.37853187366632,
+    "y": 38.18070139824857
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 901,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{190EBD25-E80E-4332-97FC-DA5AE6C2CD49}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp ",
+    "objectid": 165,
+    "feat_name": "Perry Marina"
+   },
+   "geometry": {
+    "x": -95.41131655573274,
+    "y": 39.12378027302847
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1501,
+    "elev_high": 1546,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 1",
+    "globalid": "{D936D5C4-41B6-451E-BF43-431C71FF7889}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 56,
+    "feat_name": "Spillway Boat Ramp"
+   },
+   "geometry": {
+    "x": -98.49136130851306,
+    "y": 38.95494456556809
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{1E608C73-BE8C-4E40-A5B1-862BC2BF590B}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "i",
+    "objectid": 151,
+    "feat_name": "Aldrich Access"
+   },
+   "geometry": {
+    "x": -93.55889313167175,
+    "y": 37.53897187918679
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{1DD8A254-DF17-4F8E-9B4B-CD8BB1B6AA80}",
+    "agencyid": null,
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 91,
+    "feat_name": "Mockingbird Hill"
+   },
+   "geometry": {
+    "x": -93.38892509853426,
+    "y": 38.15497782419859
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{5E366C5F-17AB-4808-AC19-BAE610B491C1}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 74,
+    "feat_name": "Hermitage Area south"
+   },
+   "geometry": {
+    "x": -93.30211674600645,
+    "y": 37.88642217462858
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E813A977-26B5-4856-9E28-7DE98530E098}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Pomme de Terre River Boat Ramp",
+    "objectid": 179,
+    "feat_name": "Hermitage"
+   },
+   "geometry": {
+    "x": -93.31527422175091,
+    "y": 37.93681905942828
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1462,
+    "elev_high": 1476,
+    "nwk_lakename_t": "Kanopolis Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{BF5EE485-3D38-43BA-98BF-8E2CC766763D}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Horsethief Boat Ramp 2",
+    "objectid": 54,
+    "feat_name": "East Shore"
+   },
+   "geometry": {
+    "x": -98.00004160061421,
+    "y": 38.667963336002906
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1024,
+    "elev_high": 1049.5,
+    "nwk_lakename_t": "Melvern Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{2479D82F-8511-44F3-A609-523B23108184}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 29,
+    "feat_name": "Coeur D' Alene"
+   },
+   "geometry": {
+    "x": -95.71285750387034,
+    "y": 38.501092169993484
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{8622CF65-342E-4A68-BDE3-890CE491BDBF}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "KDWPT Boat Ramp",
+    "objectid": 4,
+    "feat_name": "Boat Ramp 1"
+   },
+   "geometry": {
+    "x": -95.34703460700113,
+    "y": 38.934903237181985
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 843.5,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{65AEA9E4-E0D9-4319-AD88-38E19F9ACB38}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 138,
+    "feat_name": "Hawker Point"
+   },
+   "geometry": {
+    "x": -93.77955812146782,
+    "y": 37.61035266077486
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{81041B99-E270-41B9-B33A-0F20B417237C}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Private",
+    "objectid": 181,
+    "feat_name": "Indian Ridge Boat Ramp"
+   },
+   "geometry": {
+    "x": -95.47161089279957,
+    "y": 39.21977016168473
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{88E9EEF4-D878-4A35-A97A-F895EED2A9B9}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 96,
+    "feat_name": "Higgins Landing"
+   },
+   "geometry": {
+    "x": -93.56817893232207,
+    "y": 38.20090038256571
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{6062E326-FD02-4856-A904-B585866E415B}",
+    "agencyid": null,
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 83,
+    "feat_name": "South French Bridge"
+   },
+   "geometry": {
+    "x": -93.56092678632096,
+    "y": 38.25878481097643
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 784,
+    "elev_high": 797,
+    "nwk_lakename_t": "Long Branch Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7B8247DA-FF8E-408C-A22C-44D7A6FD175A}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 67,
+    "feat_name": "Macon Area"
+   },
+   "geometry": {
+    "x": -92.50999406406072,
+    "y": 39.78551105195077
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 902,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{C0EFA250-0B48-4540-B052-FA2A9F48609E}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp 2",
+    "objectid": 201,
+    "feat_name": "Worthington"
+   },
+   "geometry": {
+    "x": -95.4240146671769,
+    "y": 39.13717051514198
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1501,
+    "elev_high": 1546,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 1",
+    "globalid": "{B00FB158-85CD-401E-B73B-47AF972FD128}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 63,
+    "feat_name": "Wilson State Park - Hell Creek"
+   },
+   "geometry": {
+    "x": -98.50814085167023,
+    "y": 38.924333857496045
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{31D55AE2-2A59-418B-8A6B-1F7E870B93C8}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 90,
+    "feat_name": "Pom-O-Sa"
+   },
+   "geometry": {
+    "x": -93.39850738724577,
+    "y": 38.176585874642086
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{DA568785-9BDE-47DD-B8F3-898C8D9659BD}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "USACE",
+    "objectid": 10,
+    "feat_name": "Bloomington East Boat Ramp 6"
+   },
+   "geometry": {
+    "x": -95.37047525231317,
+    "y": 38.91437807341548
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 903,
+    "elev_high": 921,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{21BEA4B8-7E19-44EE-9081-4CC5C687EFFB}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 105,
+    "feat_name": "Buck Creek Marina south"
+   },
+   "geometry": {
+    "x": -92.87606945938998,
+    "y": 40.846068155681444
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FF4754F2-5480-48A1-8FE4-216C520E2B0D}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 174,
+    "feat_name": "Thibaut Point"
+   },
+   "geometry": {
+    "x": -93.40089059254171,
+    "y": 38.29831142767944
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 969,
+    "elev_high": 980,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{2538934E-FDDF-4D2F-9503-DFCEF138E22C}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 45,
+    "feat_name": "Management Park"
+   },
+   "geometry": {
+    "x": -95.56733652021724,
+    "y": 38.64820642202189
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 895,
+    "elev_high": 908,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{4B8FD414-6754-4414-A450-587FD3478228}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 107,
+    "feat_name": "Island View Park"
+   },
+   "geometry": {
+    "x": -92.90012961076971,
+    "y": 40.833047853339565
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 866,
+    "elev_high": 879.5,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{5C57C544-E0FF-418C-829A-1F160BC7F2AA}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "USACE",
+    "objectid": 6,
+    "feat_name": "Bloomington West Boat Ramp 4"
+   },
+   "geometry": {
+    "x": -95.39139515486936,
+    "y": 38.922217532506764
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Access",
+    "globalid": "{65A1165B-A482-4223-B7EE-796A0275B477}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "a",
+    "objectid": 134,
+    "feat_name": "Sac Valley Access"
+   },
+   "geometry": {
+    "x": -93.79696316515057,
+    "y": 37.64403240516377
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{D1AF04EE-568A-46C8-8770-32229601E6CE}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 86,
+    "feat_name": "County Line"
+   },
+   "geometry": {
+    "x": -93.50562878723622,
+    "y": 38.2717944651303
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 843.4,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{0ED05C18-21D3-486E-90AE-A99557FC861F}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 144,
+    "feat_name": "Mutton Creek Marina"
+   },
+   "geometry": {
+    "x": -93.78083713827776,
+    "y": 37.54388406727642
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{1EB6CDC2-5B2E-4820-8DEB-75709E64442F}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 168,
+    "feat_name": "Talley Bend"
+   },
+   "geometry": {
+    "x": -93.61598554877418,
+    "y": 38.14337704094897
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{0AE580E7-4534-4E2E-B4EE-4D7626D9D0E9}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 163,
+    "feat_name": "Fort Riley Recreation Area"
+   },
+   "geometry": {
+    "x": -96.96118227799333,
+    "y": 39.20979592274813
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{BCB08B2D-C42E-4B55-B216-1476DE5D3A3D}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 93,
+    "feat_name": "Sapps Landing"
+   },
+   "geometry": {
+    "x": -93.30361334915125,
+    "y": 38.0206723680671
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{CF1ACEFE-DA27-418C-8635-07F014150A07}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 89,
+    "feat_name": "Walnut Grove"
+   },
+   "geometry": {
+    "x": -93.39480472657905,
+    "y": 38.20072451682934
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": 1078,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{AAFD25BF-55B9-462C-BB3A-4DB80D3D0E56}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1734556648122,
+    "feat_desc": "Highwater Access Only",
+    "objectid": 39,
+    "feat_name": "Swede Creek Marsh"
+   },
+   "geometry": {
+    "x": -96.65512222096999,
+    "y": 39.5057943452053
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 720,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{BB72E42B-93C4-416A-8828-187ABA392C27}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps",
+    "objectid": 175,
+    "feat_name": "Windsor Crossing"
+   },
+   "geometry": {
+    "x": -93.5426107260743,
+    "y": 38.36578075976796
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1068,
+    "elev_high": 1075,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FDEA75E9-3276-416C-A8EB-80956EC8E357}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 50,
+    "feat_name": "Outlet Area"
+   },
+   "geometry": {
+    "x": -96.88268099095254,
+    "y": 39.07783595134163
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{2F36BBCA-22A5-4B8A-A36B-6C0CE7270E3F}",
+    "agencyid": null,
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 102,
+    "feat_name": "Macks Camp"
+   },
+   "geometry": {
+    "x": -93.45853656948852,
+    "y": 38.31145557393559
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1915,
+    "elev_high": 1935,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{F94EE901-1B5E-4AE2-B445-7138DD552041}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 167,
+    "feat_name": "Cedar Point"
+   },
+   "geometry": {
+    "x": -99.21415067205245,
+    "y": 40.051696064308196
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 899,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{34CF5D2B-F5A2-4BE1-8D4B-E8597C1A9D20}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 14,
+    "feat_name": "Rock Creek"
+   },
+   "geometry": {
+    "x": -95.45280315405519,
+    "y": 39.12552592591924
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 784,
+    "elev_high": 797,
+    "nwk_lakename_t": "Long Branch Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{8CDD57AC-19D6-47AD-9865-8D0AAF04D7EA}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 66,
+    "feat_name": "Bloomington Area"
+   },
+   "geometry": {
+    "x": -92.5222034848038,
+    "y": 39.76488042486897
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 903,
+    "elev_high": 918,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{5A03BFDB-F6D0-4D6E-A3CB-C6DA50B424B3}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 109,
+    "feat_name": "South Fork "
+   },
+   "geometry": {
+    "x": -93.01647542862878,
+    "y": 40.84120064740095
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{FC0CDAE2-DF81-47EE-9AA4-2E4B3773FCDD}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 158,
+    "feat_name": "Curtis Creek"
+   },
+   "geometry": {
+    "x": -96.94008179070885,
+    "y": 39.08550962009243
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{2A02101B-368E-4E40-99B3-3914D5232F2E}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 155,
+    "feat_name": "City of Milford"
+   },
+   "geometry": {
+    "x": -96.91440487753191,
+    "y": 39.16930190604325
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 902,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{C78A51AB-A212-4505-91B4-7EBDED022D2F}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp 3",
+    "objectid": 13,
+    "feat_name": "Devils Gap"
+   },
+   "geometry": {
+    "x": -95.43900427221469,
+    "y": 39.138193516540994
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Access",
+    "globalid": "{4D82E458-FA37-4E73-A142-0952232D3485}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "small boat access",
+    "objectid": 118,
+    "feat_name": "Small Boat Access"
+   },
+   "geometry": {
+    "x": -93.05932738353809,
+    "y": 40.837004572097705
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 837.5,
+    "elev_high": 871,
+    "nwk_lakename_t": "Stockton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{CC3FD998-B2D2-4EE8-9B55-EBA3EC518D31}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 133,
+    "feat_name": "Orleans Trail"
+   },
+   "geometry": {
+    "x": -93.77785113917166,
+    "y": 37.65876248085093
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Pomona Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{442C8669-CF52-4674-A337-BCC820B10919}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp Marina",
+    "objectid": 195,
+    "feat_name": "Pomona State Park"
+   },
+   "geometry": {
+    "x": -95.59403954301061,
+    "y": 38.65642094426752
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 903,
+    "elev_high": 920,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{85B8F91E-58EA-4E01-B788-6D39156A15C3}",
+    "agencyid": "IADNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 2",
+    "objectid": 111,
+    "feat_name": "Honey Creek State Park west"
+   },
+   "geometry": {
+    "x": -92.93367455670317,
+    "y": 40.86995973600961
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Clinton Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7CEBC99D-3A93-47F0-B330-93C0ACB9CF2E}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "KDWPT Boat Ramp",
+    "objectid": 2,
+    "feat_name": "Boat Ramp 3 North"
+   },
+   "geometry": {
+    "x": -95.38907758947123,
+    "y": 38.937308534743906
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 888.5,
+    "elev_high": 897,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{95969145-8B60-4135-AAF5-7FA5FB231153}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 16,
+    "feat_name": "Old Town"
+   },
+   "geometry": {
+    "x": -95.44573105379324,
+    "y": 39.22601014369827
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 960,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E1DA1914-14F1-44B9-89D3-DE9720CCDDF8}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp",
+    "objectid": 199,
+    "feat_name": "Nemo Marina"
+   },
+   "geometry": {
+    "x": -93.27492977112512,
+    "y": 37.86664541902073
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1510,
+    "elev_high": 1531,
+    "nwk_lakename_t": "Wilson Lake",
+    "feat_desig": "Boat Ramp 1",
+    "globalid": "{90AA64C5-FA12-40E3-997D-1FA0D162220F}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 62,
+    "feat_name": "Wilson State Park - Otoe "
+   },
+   "geometry": {
+    "x": -98.49327813815789,
+    "y": 38.9247151980277
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1924,
+    "elev_high": 1952,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7258EF1A-3A39-4A6E-844F-F6CCE63A0C2B}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 123,
+    "feat_name": "Patterson Harbor Marina"
+   },
+   "geometry": {
+    "x": -99.23277256463592,
+    "y": 40.039783638343394
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 834,
+    "elev_high": 860,
+    "nwk_lakename_t": "Pomme de Terre Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{AFC6249C-6A59-457E-A7B7-E6CD21EA267A}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "State Boat Ramp",
+    "objectid": 75,
+    "feat_name": "Pittsburg Area State Park"
+   },
+   "geometry": {
+    "x": -93.3252696573397,
+    "y": 37.88167161643327
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 904,
+    "elev_high": 926,
+    "nwk_lakename_t": "Hillsdale Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{F444EB18-4BEA-4B94-97EC-C7015E2C0C66}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 128,
+    "feat_name": "Marysville Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.89777105177274,
+    "y": 38.67833612949835
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 907,
+    "elev_high": 924,
+    "nwk_lakename_t": "Hillsdale Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{800B8752-26C1-4835-A26D-1EEE177FCFDF}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp",
+    "objectid": 126,
+    "feat_name": "Antioch Boat Ramp"
+   },
+   "geometry": {
+    "x": -94.9474402486097,
+    "y": 38.69433705340428
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 850,
+    "elev_high": 855,
+    "nwk_lakename_t": "Rathbun Lake",
+    "feat_desig": "Access",
+    "globalid": "{8B27EEA6-01B9-4D8F-88F1-7C0B03D12288}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "small boat access",
+    "objectid": 194,
+    "feat_name": "Outlet Access"
+   },
+   "geometry": {
+    "x": -92.88905462388992,
+    "y": 40.821692643823894
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1930,
+    "elev_high": 1952,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7520274C-C726-4E2A-868A-29E541AE1B0E}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 166,
+    "feat_name": "Hunter Cove"
+   },
+   "geometry": {
+    "x": -99.23203549784364,
+    "y": 40.083263651168096
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{1997F144-3854-4C7B-B740-911B9C890ED8}",
+    "agencyid": null,
+    "last_edited_date": 1736952801131,
+    "feat_desc": null,
+    "objectid": 226,
+    "feat_name": "Lays Valley View"
+   },
+   "geometry": {
+    "x": -93.4297757857553,
+    "y": 38.20793710387185
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{5752F297-4E16-4CAE-B737-3B0A3794A41D}",
+    "agencyid": null,
+    "last_edited_date": 1736952942140,
+    "feat_desc": null,
+    "objectid": 227,
+    "feat_name": "Cross Timbers Access"
+   },
+   "geometry": {
+    "x": -93.31328403927324,
+    "y": 37.98108125123745
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{55AB9991-2977-4896-9D9D-E7A74BD9066F}",
+    "agencyid": null,
+    "last_edited_date": 1736952993942,
+    "feat_desc": null,
+    "objectid": 228,
+    "feat_name": "City of Osceola"
+   },
+   "geometry": {
+    "x": -93.70614642651876,
+    "y": 38.047872968074806
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1131,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{5AA8FBC8-69DE-419A-B6C9-79419E426EB8}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 206,
+    "feat_name": "Timber Creek"
+   },
+   "geometry": {
+    "x": -96.97265207803375,
+    "y": 39.211247860521595
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{C408BB0D-D071-4F38-89E6-912967DA8630}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 224,
+    "feat_name": "Rock Creek Marina"
+   },
+   "geometry": {
+    "x": -95.47852610319549,
+    "y": 39.15396387216674
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1069,
+    "elev_high": null,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A2822DE0-0664-47BE-BE2B-A76A7FBDBE52}",
+    "agencyid": "USACE",
+    "last_edited_date": 1734556547440,
+    "feat_desc": null,
+    "objectid": 222,
+    "feat_name": "Oak Canyon"
+   },
+   "geometry": {
+    "x": -96.6633094404183,
+    "y": 39.34925969917982
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 705,
+    "elev_high": 732,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{AA038028-AF68-452C-AA19-22F13521D21A}",
+    "agencyid": "MODNR",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 208,
+    "feat_name": "Truman State Park Marina"
+   },
+   "geometry": {
+    "x": -93.42821539953037,
+    "y": 38.281847506546946
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 724,
+    "elev_high": 727,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{F0DD9EFA-7C6E-47D9-AEF2-5D78D198EC35}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 217,
+    "feat_name": "Talley Bend (high water ramp)"
+   },
+   "geometry": {
+    "x": -93.615053210697,
+    "y": 38.14354631010903
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{9386DC47-E1CC-4CAA-8AEF-DBFBAE252521}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 218,
+    "feat_name": "City of Roscoe"
+   },
+   "geometry": {
+    "x": -93.81114919123412,
+    "y": 37.98575600734657
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{13DE81E5-6DB3-4D83-9095-8D4B7A643642}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp",
+    "objectid": 211,
+    "feat_name": "Bucksaw Marina"
+   },
+   "geometry": {
+    "x": -93.60048748291253,
+    "y": 38.26141163935122
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{509310BC-9D37-4475-A95B-67C727F18D99}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 215,
+    "feat_name": "Shawnee Bend"
+   },
+   "geometry": {
+    "x": -93.42058779277481,
+    "y": 38.26633752393364
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Access",
+    "globalid": "{DA7C78CD-5B73-45A7-BAF9-6210210E6FC9}",
+    "agencyid": "MDC",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 214,
+    "feat_name": "Sac River"
+   },
+   "geometry": {
+    "x": -93.73572452354863,
+    "y": 37.99619309054634
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 706,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{58352AD9-AA07-4978-B9D1-AF414321690E}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 210,
+    "feat_name": "Crowes Crossing"
+   },
+   "geometry": {
+    "x": -93.69251990982173,
+    "y": 38.06296778867434
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 723,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A15F5C89-A9BB-4D4E-8CC4-A712E7CB8D22}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Marina Boat Ramp",
+    "objectid": 212,
+    "feat_name": "Osage Bluff Marina"
+   },
+   "geometry": {
+    "x": -93.3759659752961,
+    "y": 38.17742614155497
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{80B12923-A29E-4183-A52F-D3CD05B237C4}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Corps Boat Ramp",
+    "objectid": 209,
+    "feat_name": "Long Shoal"
+   },
+   "geometry": {
+    "x": -93.47366807240861,
+    "y": 38.266767163283774
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": null,
+    "elev_high": null,
+    "nwk_lakename_t": "Perry Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{C9A879FC-BE12-4FBD-B926-D01627B7C1B5}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 225,
+    "feat_name": "Rock Creek Marina"
+   },
+   "geometry": {
+    "x": -95.4761045335487,
+    "y": 39.150923425596325
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A920A30A-DB1D-4A9E-9740-534EA48C4248}",
+    "agencyid": "KDWP&T",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Boat Ramp 3",
+    "objectid": 205,
+    "feat_name": "Milford State Park"
+   },
+   "geometry": {
+    "x": -96.89028104727663,
+    "y": 39.12011085013481
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 720,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{E4169157-5613-4B59-96AC-9C5F691A7152}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 216,
+    "feat_name": "Sterett Creek Marina"
+   },
+   "geometry": {
+    "x": -93.36801409199433,
+    "y": 38.29443045506661
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 704,
+    "elev_high": 724,
+    "nwk_lakename_t": "Truman Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{064EB553-F2A3-4B2D-A9F9-1B2A7077ABD7}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 213,
+    "feat_name": "Osage Bluff"
+   },
+   "geometry": {
+    "x": -93.37862661718269,
+    "y": 38.18074600544682
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1921,
+    "elev_high": 1931,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{7A1168AB-7DB4-4144-BF28-89DD6AE35D11}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "Low water ramp",
+    "objectid": 220,
+    "feat_name": "Hunter Cove"
+   },
+   "geometry": {
+    "x": -99.22605957668858,
+    "y": 40.08057629123356
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1070.6,
+    "elev_high": null,
+    "nwk_lakename_t": "Tuttle Creek Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{CC6DEC0C-2E69-4069-BD3B-800776D78715}",
+    "agencyid": "USACE",
+    "last_edited_date": 1734555201118,
+    "feat_desc": null,
+    "objectid": 223,
+    "feat_name": "University Park"
+   },
+   "geometry": {
+    "x": -96.70206963837873,
+    "y": 39.37286679888057
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1925,
+    "elev_high": 1950,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{CC74EDE3-3840-4792-B7AB-EAC5AAC80DBA}",
+    "agencyid": "Lease",
+    "last_edited_date": 1733777501000,
+    "feat_desc": "High water ramp",
+    "objectid": 219,
+    "feat_name": "North Shore Marina"
+   },
+   "geometry": {
+    "x": -99.2195704228589,
+    "y": 40.086780248515524
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1934,
+    "elev_high": 1952,
+    "nwk_lakename_t": "Harlan County Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{A3812F12-C934-413A-BEAB-5EBD3D9AB4EC}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 221,
+    "feat_name": "Patterson Harbor Marina"
+   },
+   "geometry": {
+    "x": -99.23145152643363,
+    "y": 40.039269763236696
+   }
+  },
+  {
+   "attributes": {
+    "elev_low": 1127,
+    "elev_high": 1148.5,
+    "nwk_lakename_t": "Milford Lake",
+    "feat_desig": "Boat Ramp",
+    "globalid": "{F59933B2-AFEB-46F9-AC63-C4DEDDA9327F}",
+    "agencyid": "USACE",
+    "last_edited_date": 1733777501000,
+    "feat_desc": null,
+    "objectid": 207,
+    "feat_name": "Farnum Creek"
+   },
+   "geometry": {
+    "x": -96.90222505448081,
+    "y": 39.15502385529832
+   }
+  }
+ ]
+}

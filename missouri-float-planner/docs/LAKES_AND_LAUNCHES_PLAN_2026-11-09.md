@@ -1,11 +1,16 @@
 # Lakes and launches — the expansion plan
 
-**Status: approved for Phase 0, 2026-11-09.** Turns the "expand dams and
+**Status: approved; Phase 0 run, 2026-11-09.** Turns the "expand dams and
 lakes" research into a sequence Eddy can execute, with every source claim
 re-measured from this environment on the date above. Revised the same day
 after review: the freshness rule, the launch model, the gates, the ramp
 elevation output and the rollout order all changed; §7 records the
-decisions. Companions: `DAM_PRODUCT_AUDIT_2026-11-09.md` (where the dam
+decisions and ADR 0019 carries them. Phase 0 (step 1 below) ran the same
+day: `LAKES_PHASE0_AUDIT_2026-11-09.md` has the results, and one of them
+corrects §1.3 below. The Corps publishes a second, hosted copy of the
+recreation-status layer with a per-area `date_updated`, so the agency date
+exists after all; the three-timestamp rule stands unchanged and now has a
+source date to carry. Companions: `DAM_PRODUCT_AUDIT_2026-11-09.md` (where the dam
 product stands and what to fix first), `dam-expansion.md` (what adding a
 USACE dam costs), `DAM_EXPANSION_SURVEY_2026-08.md` (TVA, Nashville,
 Ameren), `TAILWATER_PLAN.md` (the audience decision this plan must not
@@ -92,6 +97,12 @@ band; either that is right and worth saying, or the fields mean something
 else at that ramp, and Phase 0 checks it specifically.
 
 ### 1.3 The Corps' national recreation layer: good shape, no dates
+
+*Corrected by Phase 0 the same day: the hosted twin of this layer,
+`Hosted/RecreationSite_Status_gdb/FeatureServer/0`, carries `date_updated`
+on every area that has a status, plus ramp counts and launch lanes. The
+measurements below are of the public layer and stand as written; the
+product reads the hosted one. See `LAKES_PHASE0_AUDIT_2026-11-09.md` §1.*
 
 `Recreation/Recreation_Site/FeatureServer/0` holds 4,855 recreation areas
 across 414 projects, each with `AreaStatus`, `Boat`, `Beach`, `Camp` and
@@ -373,6 +384,12 @@ Estimates are relative to the dam work already shipped. Each step has a
 gate that can say no.
 
 ### Step 1 — Phase 0, now, alongside the dam audit's items 1–3
+
+*Run 2026-11-09: `LAKES_PHASE0_AUDIT_2026-11-09.md`. Scripts in
+`scripts/lakes/`, outputs in `scripts/ingestion/lakes/2026-11-09/`, the daily
+ledger in `.github/workflows/usace-recreation-ledger.yml`, the ADR at
+`docs/decisions/0019`. Items 1, 3, 4 and 5 are done; item 2's comparison
+against the district's posted ramp tables needs a person with a browser.*
 
 The research asked for a focused feasibility audit first, and the
 measurements above say why. It runs in parallel with the audit's P1 fixes,
