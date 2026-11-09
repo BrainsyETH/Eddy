@@ -13,8 +13,9 @@
 //     next transition, and says so visibly;
 //   - a reading older than the lagging window loses the present tense.
 //
-// The card reads: dam → status and turbine flow → next scheduled change →
-// today's timeline → footer. Status appears once. Megawatts, sources, the
+// The card reads: dam → observed flow with status and age → posted schedule
+// and a visible current-time marker → dated downstream measures → footer.
+// Status appears once; observed flow and the posted plan are never conflated. Megawatts, sources, the
 // schedule's check time and the time zone note live in one "About this data"
 // disclosure: an info popover would clip at the iframe edge, a disclosure
 // expands in place and the host iframe resizes to fit it.
@@ -23,8 +24,8 @@
 // partner accent — a schedule bar in a host's brand red would read as alarm.
 
 import { damWidgetSnapshot } from '@shared/dam-widget';
-import { buildTailwaterStatus } from '@shared/tailwater-status';
-import { relativeAge, scheduleDayLabel } from '@shared/dam-schedule-copy';
+import { spillwayRelease, spillwayReleaseLabel } from '@shared/dam-generation';
+import { readingStaleness, relativeAge, scheduleDayLabel, tailwaterMovementLabel } from '@shared/dam-schedule-copy';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import { EDDY_IMAGES } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
@@ -116,26 +117,26 @@ export function ScheduleBars({ day, currentHour, compact = false, label }: {
 }) {
   const peak = schedulePeak(day);
   const minimumFlowOnly = peak === 0 && day.hours.some((h) => h.minimumFlow === true);
-  const height = compact ? 28 : 40;
+  const height = compact ? 42 : 72;
   // Only a day with nothing to draw earns a word beside the label.
   const note = minimumFlowOnly ? 'Minimum flow only' : peak === 0 ? 'No generation scheduled' : null;
   return (
-    <div className="ew-sched" role="img" aria-label={`${label}: posted generation schedule, Central Time, subject to change.${note ? ` ${note}.` : ''}`}>
+    <div className="ew-sched" role="img" aria-label={`${label}: posted hourly generation schedule in MW, Central Time, subject to change. Outlined bars are missing hours; the Now marker is the current time, not a flow observation.${note ? ` ${note}.` : ''}`}>
       <div className="ew-sched-head">
         <span className="ew-section-title">{label}</span>
-        {note && <span className="ew-support">{note}</span>}
+        <span className="ew-support">{note ?? 'Hourly plan · MW'}</span>
       </div>
-      <div className="ew-sched-bars" style={{ height: height + 8 }}>
+      <div className="ew-sched-bars" style={{ height: height + 18 }}>
         {day.hours.map((hour) => {
           const selected = hour.hourEnding === currentHour;
           const on = isGenerating(hour);
-          const barHeight = hour.megawatts == null ? height : on ? Math.max(5, (height * (hour.megawatts ?? 0)) / Math.max(peak, 1)) : 3;
+          const barHeight = hour.megawatts == null ? 12 : on ? Math.max(5, (height * (hour.megawatts ?? 0)) / Math.max(peak, 1)) : hour.minimumFlow ? 5 : 3;
           const title = `${hour.label}: ${hour.megawatts == null ? 'schedule unavailable' : hour.minimumFlow ? 'minimum flow' : on ? `${Math.round(hour.megawatts ?? 0)} MW` : 'no generation'}${selected ? ' (now)' : ''}`;
           return (
             <span key={hour.hourEnding} className="ew-sched-slot" title={title}>
               {selected && <span className="ew-sched-now" aria-hidden="true" />}
               <span
-                className={`ew-sched-bar${hour.megawatts == null ? ' ew-sched-bar-missing' : on ? ' ew-sched-bar-on' : ' ew-sched-bar-idle'}`}
+                className={`ew-sched-bar${hour.megawatts == null ? ' ew-sched-bar-missing' : on ? ' ew-sched-bar-on' : hour.minimumFlow ? ' ew-sched-bar-min' : ' ew-sched-bar-idle'}`}
                 style={{ height: barHeight }}
               />
             </span>
@@ -228,14 +229,12 @@ function Strip({ data, options, branding, origin, now }: Props) {
 
 // ── card / full ─────────────────────────────────────────────────────────────
 
-function Row({ label, value, detail }: { label: string; value: React.ReactNode; detail?: string | null }) {
+function Metric({ label, value, detail }: { label: string; value: React.ReactNode; detail?: string | null }) {
   return (
-    <div className="ew-row ew-row-stacked">
-      <dt className="ew-row-label">{label}</dt>
-      <dd className="ew-row-value">
-        {value}
-        {detail && <span className="ew-support ew-row-detail">{detail}</span>}
-      </dd>
+    <div className="ew-dam-metric">
+      <span className="ew-section-title">{label}</span>
+      <span className="ew-dam-metric-value">{value}</span>
+      {detail && <span className="ew-support">{detail}</span>}
     </div>
   );
 }
@@ -252,15 +251,32 @@ function Card(props: Props) {
     ? packet.scheduleDays.find((d) => d.date > moment.scheduleDate!) ?? null
     : null;
   const next = nextChange(moment);
-  const tailwater = full ? buildTailwaterStatus(dam, now) : null;
+  // Downstream changes come only from the dam's own dated stage series.
+  // Do not infer movement from turbine flow or classify wading/float safety.
+  const downstream = full ? dam.metrics.tailwaterElevation ?? null : null;
+  const downstreamChange = downstream && readingStaleness(downstream.at, now) === 'fresh'
+    ? tailwaterMovementLabel(downstream.trend)
+    : null;
+  const downstreamDirection = downstreamChange && downstream?.trend
+    ? downstream.trend.delta > 0 ? 'Rising' : 'Falling'
+    : null;
+  const spillway = full ? spillwayRelease(dam, now) : null;
   const pool = full ? dam.metrics.poolElevation ?? null : null;
   const release = full ? dam.metrics.release ?? null : null;
   const utm = utmFor(data, options, branding);
-  const links = [{ label: 'Full report', path: `/dams/${dam.id}` }];
+  const links = [{ label: 'View full report', path: `/dams/${dam.id}` }];
   if (full && dam.tailwater?.riverSlug) links.push({ label: 'River below', path: `/rivers/${dam.tailwater.riverSlug}` });
   const peak = today ? schedulePeak(today) : 0;
   const checked = moment.scheduleCheckedAt != null ? relativeAge(new Date(moment.scheduleCheckedAt).toISOString(), now) : null;
   const sources = dam.sources.map((s) => SOURCE_NAMES[s] ?? s);
+  // Only collapse identical, near-simultaneous spot readings. Daily averages,
+  // older measurements and spillway releases remain distinct facts.
+  const releaseDuplicatesTurbine = Boolean(
+    release && !release.dailyMean && !spillway && moment.turbineCfs != null && moment.observedAt != null
+    && Math.abs(Math.round(release.value) - Math.round(moment.turbineCfs)) <= 1
+    && Number.isFinite(Date.parse(release.at))
+    && Math.abs(Date.parse(release.at) - moment.observedAt) <= 15 * 60_000
+  );
 
   return (
     <EmbedFrame size={options.size} options={options} kind="dam" label={`${dam.name} generation from Eddy`}>
@@ -273,60 +289,87 @@ function Card(props: Props) {
       </header>
 
       <div className="ew-dam-now">
-        <span className="ew-section-title">Turbine flow</span>
-        <div className="ew-reading">
-          <span className={`ew-reading-value${moment.current ? '' : ' ew-dim'}`}>
-            {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
-            {moment.turbineCfs != null && <span className="ew-unit">cfs</span>}
-          </span>
-          <span className="ew-support ew-reading-age">
-            {moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : null}
-          </span>
+        <div className="ew-dam-live">
+          <div className="ew-dam-flow">
+            <span className="ew-section-title">Observed turbine flow</span>
+            <div className="ew-reading">
+              <span className={'ew-reading-value' + (moment.current ? '' : ' ew-dim')}>
+                {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
+                {moment.turbineCfs != null && <span className="ew-unit">cfs</span>}
+              </span>
+            </div>
+          </div>
+          <div className="ew-dam-state">
+            <p className={'ew-dam-status ew-gen ew-gen-' + tone}>
+              <BoltGlyph tone={tone} />
+              {moment.current ? compactStatus(moment) : moment.status}
+            </p>
+            <span className="ew-support ew-reading-age">
+              {moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : 'Observation unavailable'}
+            </span>
+          </div>
         </div>
-        <p className={`ew-dam-status ew-gen ew-gen-${tone}`}>
-          <BoltGlyph tone={tone} />
-          {moment.status}
-        </p>
       </div>
 
-      {next.stale ? (
-        <p role="note" className="ew-note">{next.text}</p>
-      ) : (
-        <p className="ew-next">{next.text}</p>
-      )}
+      <div className="ew-dam-schedule-intro">
+        <span className="ew-section-title">Posted generation schedule</span>
+        {next.stale ? (
+          <p role="note" className="ew-note">{next.text}</p>
+        ) : (
+          <p className="ew-next">{next.text}</p>
+        )}
+      </div>
 
       {today ? (
-        <ScheduleBars day={today} currentHour={moment.scheduleHour ?? null} label="Today · CT" />
+        <ScheduleBars day={today} currentHour={moment.scheduleHour ?? null} label="Today’s posted generation · CT" />
       ) : (
         <div className="ew-sched">
-          <span className="ew-section-title">Today · CT</span>
-          <p className="ew-support">{packet.scheduleDays.length === 0 && moment.scheduleCurrent ? 'Open schedule' : 'No schedule posted for today'}</p>
+          <span className="ew-section-title">Today’s posted generation · CT</span>
+          <p className="ew-support">{'No schedule posted for today'}</p>
         </div>
       )}
 
-      {full && (tailwater || release || pool) && (
-        <dl className="ew-rows">
-          {tailwater && (
-            <Row label="Below the dam" value={tailwater.headline} detail={tailwater.supporting.join(' · ') || null} />
-          )}
-          {release && (
-            <Row
-              label={release.dailyMean ? 'Total release (daily avg)' : 'Total release'}
-              value={<span className="ew-num">{Math.round(release.value).toLocaleString('en-US')} cfs</span>}
-              detail={relativeAge(release.at, now)}
+      {full && downstream && Number.isFinite(downstream.value) && (
+        <section className="ew-dam-below" aria-label="Below the dam">
+          <div className="ew-dam-below-head">
+            <h2 className="ew-dam-below-title">Below the dam</h2>
+            <span className="ew-support">{formatObservedAge(downstream.at, now)}</span>
+          </div>
+          <div className="ew-dam-change">
+            <span className="ew-dam-change-value">
+              {downstreamChange ?? downstream.value.toFixed(1) + ' ' + downstream.unit}
+            </span>
+            {downstreamChange && downstreamDirection && (
+              <span className="ew-support">{downstreamDirection} · Stage {downstream.value.toFixed(1)} {downstream.unit}</span>
+            )}
+          </div>
+        </section>
+      )}
+
+      {full && spillway && (
+        <p className="ew-dam-spill">
+          <strong>{spillwayReleaseLabel(spillway)}</strong>
+          <span className="ew-support"> · {formatObservedAge(spillway.observedAt, now)}</span>
+        </p>
+      )}
+
+      {full && ((release && !releaseDuplicatesTurbine) || pool) && (
+        <div className="ew-dam-metrics" role="group" aria-label="Additional dam measurements">
+          {release && !releaseDuplicatesTurbine && (
+            <Metric
+              label={release.dailyMean ? 'Total release · daily average' : 'Total release'}
+              value={Math.round(release.value).toLocaleString('en-US') + ' cfs'}
+              detail={formatObservedAge(release.at, now)}
             />
           )}
           {pool && (
-            <Row
+            <Metric
               label="Lake level"
-              value={<span className="ew-num">{pool.value.toFixed(1)} {pool.unit}</span>}
-              detail={[
-                dam.metrics.pctFloodPool ? `${Math.round(dam.metrics.pctFloodPool.value)}% of flood pool` : null,
-                relativeAge(pool.at, now),
-              ].filter(Boolean).join(' · ') || null}
+              value={pool.value.toFixed(1) + ' ' + pool.unit}
+              detail={formatObservedAge(pool.at, now)}
             />
           )}
-        </dl>
+        </div>
       )}
 
       {full && tomorrow && (
@@ -337,7 +380,7 @@ function Card(props: Props) {
         <summary className="ew-link">About this data</summary>
         <ul className="ew-support">
           <li>Turbine flow is observed at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}.</li>
-          <li>Schedules are posted in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
+          <li>Hourly bars show posted power generation in MW, not measured river flow. The schedule may differ from observed turbine flow. Schedules are in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
           {peak > 0 && <li>Today’s scheduled peak is {Math.round(peak).toLocaleString('en-US')} MW.</li>}
         </ul>
       </details>
