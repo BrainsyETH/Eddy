@@ -6,7 +6,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import DamDirectory from '@/components/dam/DamDirectory';
 import { conditionsDamCatalogue } from '@/lib/conditions/dam-catalogue';
 import { buildDamDirectoryGroups, parseDirectoryFilters } from '@/lib/data/dam-directory';
-import { directorySnapshotsFromRows, readDirectoryRows } from '@/lib/data/dam-directory-source';
+import { directorySnapshotsFromRows, directoryUnpublishedMetrics, readDirectoryRows } from '@/lib/data/dam-directory-source';
 import { getActiveRiverContexts } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
 import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
@@ -120,7 +120,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         </div>
       </nav>
 
-      <DamDirectory groups={groups} renderedAt={now} initialQuery={filters.query} initialState={filters.state} readingsUnavailable={damsUnavailable} />
+      <DamDirectory groups={groups} renderedAt={now} initialQuery={filters.query} initialState={filters.state} readingsUnavailable={damsUnavailable} unpublished={directoryUnpublishedMetrics()} />
 
       <section aria-labelledby="schedule-help-heading" className="mt-12 max-w-4xl">
         <h2 id="schedule-help-heading" className="font-heading text-2xl font-bold text-primary-900">Understanding generation schedules</h2>

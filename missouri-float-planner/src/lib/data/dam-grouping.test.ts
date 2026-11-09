@@ -118,7 +118,12 @@ test('directory keeps readings and all 24 scheduled hours for its visible charts
   assert.equal(result[0].schedule[0].hours.length, 24, 'index renders a complete day, not a summary string');
   assert.deepEqual(result[0].schedule, bullShoals.schedule, 'future posted days and provenance survive for next-change copy');
   assert.equal(result[0].pattern, undefined, 'detail-only history does not bloat the directory');
-  assert.equal(result[0].generationForecast, undefined, 'detail-only forecasts remain on the dam page');
+  // The operator's forecast is kept: for the Nashville dams it is the card's
+  // only forward view (see the DamListCard test in visibility-seo.test.ts).
+  const forecast = { windows: [{ startUtc: observedAt, endUtc: '2026-11-10T03:00:00Z', generating: true, peakCfs: 5_000 }], timeZone: 'America/Chicago', retrievedAt: observedAt, source: 'test' };
+  const kept = buildDamDirectoryGroups([{ ...bullShoals, generationForecast: forecast, pattern: [] }]).flatMap(group => group.dams)[0];
+  assert.deepEqual(kept.generationForecast, forecast);
+  assert.equal(kept.pattern, undefined);
 });
 
 test('directory retains all catalogued dams without inventing measurements', async () => {

@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
 import GenerationSchedule, { ScheduleCheck, ScheduleDateline, scheduleSectionCheck } from './GenerationSchedule';
-import { DamReadings, DamScheduleInfoTip } from './DamCardParts';
+import { DamReadings, DamScheduleInfoTip, type DamCardReading } from './DamCardParts';
 import Card from '@/components/ui/Card';
+import { damCardScheduleFacts, damScheduleAvailability } from '@/lib/dam-schedule-availability';
+import { forecastPlanStale, nextForecastChangeSentence } from '@shared/dam-forecast-copy';
 
 /**
  * Directory and homepage summary of one dam.
@@ -14,9 +16,28 @@ import Card from '@/components/ui/Card';
  * header's dateline is the only place the card names the day; the schedule
  * section opens with the plan in words. Navigation stays separate from the
  * timeline, which takes taps and keys for inspection and never links.
+ *
+ * Only a dam SWPA schedules draws the schedule section. A dam with no hourly
+ * schedule (Bagnell, the Nashville District dams) or no powerhouse says so in
+ * one line, and a Nashville dam leads with the next change in the Corps'
+ * forecast when the snapshot carries it. See dam-schedule-availability.ts.
  */
-export default function DamListCard({ dam, now, href, showLakeLevel = false }: { dam: DamSnapshot; now: number; href: string; showLakeLevel?: boolean }) {
-  const scheduleCheck = dam.hasTurbines ? scheduleSectionCheck(dam.schedule, dam.generationReference, now, true) : null;
+export default function DamListCard({ dam, now, href, showLakeLevel = false, unpublished }: {
+  dam: DamSnapshot; now: number; href: string; showLakeLevel?: boolean;
+  /** Readings this dam's sources never publish; passed where the registry is at hand. */
+  unpublished?: readonly DamCardReading[];
+}) {
+  const facts = damCardScheduleFacts(dam);
+  const scheduled = facts.hasTurbines && facts.hourlySchedule;
+  const scheduleCheck = scheduled ? scheduleSectionCheck(dam.schedule, dam.generationReference, now, true) : null;
+  const availability = scheduled ? null : damScheduleAvailability(facts);
+  // A forecast whose horizon has shrunk may no longer be refreshed, and one
+  // with no window at this hour cannot say what comes next: both fall back to
+  // pointing at the full report rather than stating a change.
+  const forecast = scheduled ? undefined : dam.generationForecast;
+  const forecastChange = forecast && !forecastPlanStale(forecast.windows, now)
+    ? nextForecastChangeSentence(forecast.windows, forecast.timeZone, now)
+    : null;
   const place = [dam.lakeName, dam.state].filter(Boolean).join(' · ');
 
   return (
@@ -30,17 +51,28 @@ export default function DamListCard({ dam, now, href, showLakeLevel = false }: {
             {place && <p className="mt-0.5 text-[13px] leading-[18px] text-neutral-600">{place}</p>}
           </div>
           <span className="flex shrink-0 items-center gap-2">
-            {dam.hasTurbines && <ScheduleDateline now={now} />}
+            {scheduled && <ScheduleDateline now={now} />}
             <ChevronRight className="size-5 shrink-0 text-neutral-500" aria-hidden="true" />
           </span>
         </Link>
 
-        <DamReadings dam={dam} now={now} showLakeLevel={showLakeLevel} />
+        <DamReadings dam={dam} now={now} showLakeLevel={showLakeLevel} unpublished={unpublished} />
       </div>
 
       <div className="flex flex-1 flex-col px-4 pb-1 pt-1.5 sm:px-5">
-        {dam.hasTurbines && (
+        {scheduled ? (
           <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} compact expandedChart={showLakeLevel} info={<DamScheduleInfoTip dam={dam} />} />
+        ) : availability && (
+          <section aria-label="Generation schedule" data-schedule-availability={availability.kind} className="py-2">
+            <h4 className="text-base font-semibold leading-snug text-primary-900">
+              {forecastChange ? `${forecastChange}.` : availability.title}
+            </h4>
+            <p className="mt-1 text-sm leading-5 text-neutral-600">
+              {forecastChange
+                ? 'From the Corps operating forecast, not a posted schedule. Central time, at the dam.'
+                : availability.brief}
+            </p>
+          </section>
         )}
         <div className="mt-auto pt-3">
           <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-neutral-200">

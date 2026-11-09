@@ -1074,6 +1074,29 @@ export function hasPowerhouse(dam: UsaceDam): boolean {
   return Boolean(dam.swpaCode || dam.nameplate);
 }
 
+/** The readings a dam card shows, each of which a project may or may not publish. */
+export type DamCardMetric = 'release' | 'poolElevation' | 'tailwaterTempF';
+
+/**
+ * Whether the registry DECLARES a source for one of the card readings.
+ *
+ * For telling "this dam does not publish it" from "it should be here and is
+ * not". Stockton publishes nothing to CWMS, so its three readings are absent on
+ * every visit; calling that "Unavailable" reads as an outage that never ends.
+ * A declared explicit series, a verified resolver capability, or an Ameren
+ * feed counts. Water temperature is never resolved, so only an explicit series
+ * declares it. A reading that arrives anyway is always shown: this only
+ * chooses the words for an absent one.
+ */
+export function declaresCardMetric(dam: UsaceDam, metric: DamCardMetric): boolean {
+  if (dam.series[metric]) return true;
+  if (metric === 'tailwaterTempF') return false;
+  if (dam.amerenMetrics) return true;
+  return metric === 'release'
+    ? Boolean(dam.resolvedHistoryMetrics?.includes('release'))
+    : Boolean(dam.resolvedSnapshotMetrics?.includes('poolElevation'));
+}
+
 /**
  * Whether the hourly history cron will read this project at all.
  *

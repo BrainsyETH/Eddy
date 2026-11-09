@@ -1,6 +1,6 @@
 // /dams uses the existing full-size dam cards and their interactive hourly
-// schedules. Keep the list payload small by omitting detail-only history and
-// forecast data; the individual dam report still owns those views.
+// schedules. Keep the list payload small by omitting the detail-only observed
+// history; the individual dam report still owns that view.
 
 import type { DamSnapshot } from '@shared/dam-types';
 import { groupDamsForIndex, type DamGroup } from './dam-grouping';
@@ -43,9 +43,10 @@ export function buildDamDirectoryGroups(dams: DamSnapshot[]): DirectoryDamGroup[
       ...dam,
       // DamListCard renders the complete posted hourly chart for today using
       // 'schedule'. Do not trim the days here: next-change sentences also
-      // depend on future posted days.
+      // depend on future posted days. The operator's forecast stays too: for
+      // the three Nashville dams it is the only forward view, and the card
+      // states its next change where an SWPA dam draws a schedule.
       pattern: undefined,
-      generationForecast: undefined,
     })),
   }));
 }

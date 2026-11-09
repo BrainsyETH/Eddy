@@ -4,8 +4,9 @@
 // ── Why not readStoredSnapshots ───────────────────────────────────────────
 // That reads every stored payload whole, about 160 KB, of which the observed
 // pattern alone is about 96 KB (measured 2026-11-09); the directory strips it
-// before rendering anyway. This selects only `metrics` and `schedule` and
-// rebuilds the rest from the registry through buildSnapshot, which is what
+// before rendering anyway. This selects only `metrics`, `schedule` and the
+// small forward forecast three dams carry, and rebuilds the rest from the
+// registry through buildSnapshot, which is what
 // wrote the stored payload in the first place, so the fields cannot drift.
 //
 // ── Why a deadline ─────────────────────────────────────────────────────────
@@ -27,8 +28,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';
 import { buildSnapshot, refreshStaleness } from '@/lib/data/dams';
 import { isFresh } from '@/lib/data/dam-snapshot-store';
-import { getUsaceDam, type UsaceMetric } from '@/lib/flow-providers/usace-registry';
-import type { DamMetricValue, DamScheduleDay, DamSnapshot } from '@shared/dam-types';
+import { declaresCardMetric, getUsaceDam, USACE_DAMS, type DamCardMetric, type UsaceMetric } from '@/lib/flow-providers/usace-registry';
+import type { DamGenerationForecast, DamMetricValue, DamScheduleDay, DamSnapshot } from '@shared/dam-types';
 
 /** How long one database read serves later requests on the same instance. */
 export const DIRECTORY_ROWS_TTL_MS = 60_000;
@@ -41,6 +42,8 @@ export interface DirectoryRow {
   built_at: string;
   metrics: unknown;
   schedule: unknown;
+  /** The operator's forward forecast, for the three dams that have one. */
+  forecast?: unknown;
 }
 
 const TIMED_OUT = Symbol('timed out');
@@ -52,7 +55,7 @@ async function fetchDirectoryRowsFromDb(signal: AbortSignal): Promise<DirectoryR
   try {
     const { data, error } = await createAdminClient(signal)
       .from('dam_snapshots')
-      .select('dam_id, built_at, metrics:payload->metrics, schedule:payload->schedule');
+      .select('dam_id, built_at, metrics:payload->metrics, schedule:payload->schedule, forecast:payload->generationForecast');
     if (error) {
       logger.warn('dam-directory: stored readings unavailable', { error: error.message });
       return null;
@@ -119,6 +122,28 @@ export function createDirectoryRowReader(
   };
 }
 
+/** A stored forecast, only if it has the shape the card reads; otherwise none. */
+function storedForecast(value: unknown): DamGenerationForecast | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const forecast = value as Partial<DamGenerationForecast>;
+  return Array.isArray(forecast.windows) && forecast.windows.length > 0 && typeof forecast.timeZone === 'string'
+    ? (forecast as DamGenerationForecast)
+    : undefined;
+}
+
+/**
+ * For each dam, the card readings its sources do not publish at all, from the
+ * registry. The directory words those "Not published" and keeps "Unavailable"
+ * for a reading that should be there. Passed beside the snapshots, not on
+ * them: it is a fact about the registry, and the snapshot is a wire type.
+ */
+export function directoryUnpublishedMetrics(): Record<string, DamCardMetric[]> {
+  const metrics: DamCardMetric[] = ['release', 'tailwaterTempF', 'poolElevation'];
+  return Object.fromEntries(
+    Object.values(USACE_DAMS).map(dam => [dam.id, metrics.filter(metric => !declaresCardMetric(dam, metric))]),
+  );
+}
+
 /** The production reader: one shared memo per server instance. */
 export const readDirectoryRows = createDirectoryRowReader(fetchDirectoryRowsFromDb);
 
@@ -143,7 +168,7 @@ export function directorySnapshotsFromRows(rows: DirectoryRow[], now: number): D
         ? (row.metrics as Partial<Record<UsaceMetric, DamMetricValue>>)
         : {};
     const schedule = Array.isArray(row.schedule) ? (row.schedule as DamScheduleDay[]) : [];
-    out.push(refreshStaleness(buildSnapshot(dam, metrics, schedule), now));
+    out.push(refreshStaleness(buildSnapshot(dam, metrics, schedule, undefined, storedForecast(row.forecast), now), now));
   }
   return out;
 }

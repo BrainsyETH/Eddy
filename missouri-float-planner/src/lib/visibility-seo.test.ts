@@ -332,3 +332,81 @@ test('dam card readings show one age line: shared only when both were observed i
   assert.match(separate, /Release 18 min ago · Temp 1 hr ago/, 'still one line, but each reading keeps its own age');
   assert.doesNotMatch(separate, /Measured/);
 });
+
+// ── A card says why it has no schedule, and which readings a dam never has ──
+//
+// Every dam with a powerhouse drew the schedule section, so Bagnell and the
+// three Nashville District dams read "Today's generation schedule is
+// unavailable" on every visit, as though a feed were down, and Stockton showed
+// three readings "Unavailable" that its district has never published.
+
+test('dam cards tell "no hourly schedule" from "schedule missing", and "not published" from "unavailable"', async () => {
+  const { buildSnapshot } = await import('./data/dams');
+  const { USACE_DAMS } = await import('./flow-providers/usace-registry');
+  const { directoryUnpublishedMetrics } = await import('./data/dam-directory-source');
+  const now = Date.parse('2026-11-09T22:00:00Z'); // 4 PM CST
+  const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
+  const unpublished = directoryUnpublishedMetrics();
+  const text = (id: string, over: Partial<ReturnType<typeof buildSnapshot>> = {}, directory = true) =>
+    renderToStaticMarkup(createElement(DamListCard, {
+      dam: { ...buildSnapshot(USACE_DAMS[id], {}, [], undefined, undefined, now), ...over }, now, href: `/dams/${id}`,
+      ...(directory ? { showLakeLevel: true, unpublished: unpublished[id] } : {}),
+    })).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+
+  // Bagnell: Ameren publishes no hourly schedule and no water temperature.
+  const bagnell = text('ameren-bagnell-dam', { metrics: { release: { value: 914, unit: 'cfs', at: at(50), staleness: 'fresh' } } });
+  assert.match(bagnell, /No hourly schedule published Releases can begin at any time\./);
+  assert.doesNotMatch(bagnell, /schedule is unavailable/);
+  assert.match(bagnell, /Water temp Not published/);
+  assert.match(bagnell, /Lake level Unavailable/, 'Ameren does publish the lake level, so a missing one is an outage');
+  assert.doesNotMatch(bagnell, /· CT/, 'no schedule date in the header of a card with no schedule');
+
+  // Wolf Creek: no SWPA sheet, but the Corps forecast says what comes next.
+  const forecast = {
+    timeZone: 'America/Chicago', retrievedAt: at(20), source: 'U.S. Army Corps of Engineers, Nashville District',
+    windows: [
+      { startUtc: at(120), endUtc: new Date(now + 5 * 3_600_000).toISOString(), generating: true, peakCfs: 15_800 },
+      { startUtc: new Date(now + 5 * 3_600_000).toISOString(), endUtc: new Date(now + 8 * 86_400_000).toISOString(), generating: false, peakCfs: null },
+    ],
+  };
+  const wolfCreek = text('lrn-wolf-creek-dam', { generationForecast: forecast });
+  assert.match(wolfCreek, /Generation forecast to stop at 9 PM\. From the Corps operating forecast, not a posted schedule\./);
+  assert.doesNotMatch(wolfCreek, /schedule is unavailable/);
+  // A forecast that has stopped being refreshed states no change.
+  const shortHorizon = { ...forecast, windows: [forecast.windows[0], { ...forecast.windows[1], endUtc: new Date(now + 2 * 86_400_000).toISOString() }] };
+  assert.match(text('lrn-wolf-creek-dam', { generationForecast: shortHorizon }), /No hourly schedule published The full report has the Corps operating forecast\./);
+  // On surfaces fed by summaries, which carry no forecast, it still does not claim an outage.
+  assert.match(text('lrn-wolf-creek-dam', {}, false), /No hourly schedule published/);
+
+  // Clearwater has no powerhouse.
+  const clearwater = text('swl-clearwater-dam');
+  assert.match(clearwater, /Gate-operated releases No powerhouse, so there is no generation schedule\./);
+  assert.match(clearwater, /Water temp Not published/);
+
+  // Table Rock IS scheduled: with no stored row it is a missing sheet, never "no schedule published".
+  const tableRock = text('swl-table-rock-dam');
+  assert.match(tableRock, /Today’s generation schedule is unavailable\./);
+  assert.doesNotMatch(tableRock, /No hourly schedule published/);
+  assert.match(tableRock, /Release Unavailable/);
+  assert.doesNotMatch(tableRock, /Not published/);
+
+  // Stockton's district publishes none of the three readings; its schedule is real.
+  const stockton = text('nwk-stockton-dam');
+  assert.equal((stockton.match(/Not published/g) ?? []).length, 3);
+  assert.doesNotMatch(stockton, /No hourly schedule published/);
+
+  // Without the registry facts a card keeps the cautious word.
+  assert.match(text('nwk-stockton-dam', {}, false), /Release Unavailable/);
+});
+
+test('a daily-average release stays labelled in the three-up band', async () => {
+  const { buildSnapshot } = await import('./data/dams');
+  const { USACE_DAMS } = await import('./flow-providers/usace-registry');
+  const now = Date.parse('2026-11-09T22:00:00Z');
+  const release = { value: 610, unit: 'cfs', at: new Date(now - 16 * 3_600_000).toISOString(), staleness: 'lagging' as const, dailyMean: true };
+  const render = (showLakeLevel: boolean) => renderToStaticMarkup(createElement(DamListCard, {
+    dam: buildSnapshot(USACE_DAMS['mvs-wappapello'], { release }, [], undefined, undefined, now), now, href: '/dams/x', showLakeLevel,
+  })).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  assert.match(render(true), /Release 610 cfs daily avg/);
+  assert.match(render(false), /Release \(daily avg\) 610 cfs/);
+});
