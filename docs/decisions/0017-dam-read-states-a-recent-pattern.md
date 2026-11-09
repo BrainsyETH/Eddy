@@ -57,7 +57,9 @@ Measured on that history (backtest in
    the company "we", promises and absolutes in any rendered Read.
 4. **Compact reading order (2026-11-04):** the existing otter mark and a teal
    Fredoka “Eddy's Read” label, a short Geist headline, one interpretation
-   sentence, and a quiet “Updated” timestamp. No fact rows, pattern disclosure,
+   sentence, and a quiet “Updated” timestamp. An unverified/old schedule adds
+   “Schedule couldn’t be verified” beneath the summary in both native Read
+   placements, using the existing `mayBeOutdated` flag. No fact rows, pattern disclosure,
    full list of generation windows, or repeated freshness/downstream paragraphs.
    The free schedule and generation-pattern section carry that context. Copy is
    selected from the computed facts, never clipped or ellipsized; native text
@@ -68,19 +70,39 @@ Measured on that history (backtest in
    The compact copy handles unposted schedules, minimum flow, ended windows,
    sparse/irregular history, and weekdays/weekends independently. A posted quiet
    day with recent unposted generation keeps that exception in the one sentence.
-   When generation is posted, early or unposted runs in the tracked history
-   outrank a familiar/earlier/later-start comparison. Both exceptions fit in
-   one sentence with their counts; no pattern disclosure returns.
+   When generation is posted, an earlier/later start keeps the headline.
+   Early or unposted generation can qualify that summary or replace generic
+   familiar/variable timing only when the same kind occurred on at least two
+   distinct tracked days, or on one of the previous three complete Central
+   calendar days. A single older exception stays in the legacy detail data;
+   it does not automatically lengthen the compact Read. Isolated recent events
+   name their date; repeated events retain counts, with both kinds combined
+   when relevant. The card still uses one sentence of at most 40 words, with
+   no pattern disclosure. These thresholds select eligible warnings, not a
+   reason to hide today's earlier/later posted start.
 5. **Definitions:** a typical generating day is total hours and number of
    runs, not the first run; runs carrying past midnight are counted, never
    dropped from the end time; the track record scores only days where
    something was posted or ran, with quiet days posted quiet counted apart;
-   a usual start is always stated with how many days generated at all.
-6. **Rewritten when due, served only while true.** `/api/cron/generate-dam-updates`
+   a usual start is always stated with how many days generated at all. Morning
+   coverage walks actual elapsed hours before local noon: both fall-back
+   1 AMs count, and spring's nonexistent 2 AM is not a missing observation.
+   Any observed morning generation settles the morning as not quiet; otherwise
+   a missing real morning hour makes it unknown.
+6. **Cache history; render the schedule when serving.** `/api/cron/generate-dam-updates`
    runs hourly at :47 and rewrites a dam's Read when none exists for today,
    when the posted schedule changes, or when the last one is 6 hours old. A
-   stored Read is served only on its own Central day and only if the posted
-   schedule still matches the one it was written against. Native refreshes on
+   stored Read is served only on its own Central day before expiry. A current
+   snapshot replaces its schedule-dependent facts even when the schedule hash
+   changed; an empty current schedule also replaces the saved one. A revised
+   schedule no longer hides a valid Read between the :35 snapshot and :47 job.
+   Without a snapshot, a Read no older than three hours advances its saved
+   windows against the serving clock and marks the schedule unverified. It
+   preserves the whole-day first start and tomorrow's windows, never promotes
+   yesterday's saved schedule into today, and does not mutate the cached facts.
+   Regeneration remains independent of serving eligibility: the six-hour
+   refresh picks up late historical observations without blocking a Read.
+   Native refreshes on
    focus, foreground and five-minute boundaries, aborting work on blur. It
    hides an earlier hour’s rendered prose and rejects a previous Central day
    while refreshing. Members request the entitled representation directly;
