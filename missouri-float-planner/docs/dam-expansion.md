@@ -8,6 +8,11 @@ are *not* mechanical are getting `cdaLocation` right and understanding that a da
 outside SWPA's schedule file gets a materially thinner page than the ones already
 shipped.
 
+If the reason for adding the dam is the lake behind it (levels, launches,
+closures), read `LAKES_AND_LAUNCHES_PLAN_2026-11-09.md` first: it re-measured
+the Vicksburg, Kansas City, Tulsa and Southeast candidates on 2026-11-09 and
+sequences lake work ahead of dam count.
+
 ## The headline
 
 **SWPA is exhausted.** All 18 projects in the schedule file are wired, and
