@@ -12,6 +12,7 @@ import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { ChevronLeft, ArrowRight, Phone, Smartphone } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import Button from '@/components/ui/Button';
@@ -19,22 +20,21 @@ import DamDetail from '@/components/dam/DamDetail';
 import AppLink from '@/components/AppLink';
 import { getRiverContext } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
-import { listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
+import { damAboutSentences, damPageCopy, damStructuredData } from '@/lib/dam-page-copy';
+import { jsonLdString } from '@/lib/json-ld';
 
-import { pageDam } from '@/lib/data/public-pages';
+import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
 
-export const revalidate = 60;
+// Rendered per request, deliberately not ISR. The schedule's "Today" is
+// computed from the render clock, so a cached render served after midnight
+// labelled yesterday's date as today. See src/lib/data/dam-page-snapshot.ts.
 
 /** The snapshot's agency abbreviations, spelled out for the page. */
 const SOURCE_NAMES: Record<string, string> = {
   'USACE CWMS': 'U.S. Army Corps of Engineers',
   SWPA: 'Southwestern Power Administration',
 };
-
-export function generateStaticParams() {
-  return listDamIds().map((damId) => ({ damId }));
-}
 
 export async function generateMetadata({
   params,
@@ -44,27 +44,20 @@ export async function generateMetadata({
   const { damId } = await params;
   const dam = getUsaceDam(damId);
   if (!dam) return { title: 'Dam not found' };
-  // Anglers search for the schedule by name, so dams with an hourly SWPA
-  // schedule lead with it.
-  const scheduled = Boolean(dam.swpaCode);
+  // Per-dam copy leads with what people search that dam for; see
+  // src/lib/dam-page-copy.ts for why one template no longer serves them all.
+  const copy = damPageCopy(dam);
   return {
-    ...publicPageMetadata(
-      scheduled
-        ? `${dam.name} Generation Schedule, Lake Level & Releases`
-        : `${dam.name} — Lake Level & Releases`,
-      `${scheduled ? 'Hourly generation schedule, current' : 'Current'} release in cfs, lake level and conditions below ${dam.name}${
-        dam.lakeName ? ` on ${dam.lakeName}` : ''
-      }.`,
-      `/dams/${damId}`,
-      ROUTE_SHARE_IMAGE,
-    ),
+    ...publicPageMetadata(copy.title, copy.description, `/dams/${damId}`, ROUTE_SHARE_IMAGE),
     ...appBannerMetadata(`/dam/${encodeURIComponent(damId)}`),
   };
 }
 
 export default async function DamPage({ params }: { params: Promise<{ damId: string }> }) {
   const { damId } = await params;
-  const dam = await pageDam(damId);
+  await connection();
+  const renderedAt = Date.now();
+  const dam = await loadDamPageSnapshot(damId, renderedAt);
   if (!dam) notFound();
 
   const project = getUsaceDam(dam.id);
@@ -80,7 +73,6 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   // prevent the dam readings from rendering.
   const river = dam.tailwater ? await getRiverContext(dam.tailwater.riverSlug).catch(() => null) : null;
   const riverHref = river ? `${riverPath(river.state, river.slug)}${dam.tailwater?.sectionSlug ? `?section=${encodeURIComponent(dam.tailwater.sectionSlug)}` : ''}` : null;
-  const renderedAt = Date.now();
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -105,6 +97,13 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           {dam.infoPhone && dam.schedule.length > 0 && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Release Line: {dam.infoPhone}</Button>}
           {!getDamAppPromotion(dam.id) && <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>}
         </div>
+        {project && (
+          <section aria-labelledby="dam-about-heading" className="mt-6 max-w-3xl">
+            <h2 id="dam-about-heading" className="font-heading text-lg font-bold text-primary-800">About {dam.name}</h2>
+            <p className="mt-2 text-sm leading-6 text-neutral-700">{damAboutSentences(project).join(' ')}</p>
+          </section>
+        )}
+        {project && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(damStructuredData(project)) }} />}
         {dam.sources.length > 0 && <p className="mt-5 text-xs text-neutral-500">Sources: {dam.sources.map((source) => SOURCE_NAMES[source] ?? source).join(' · ')}</p>}
       </div>
       <SiteFooter maxWidth="max-w-7xl" />

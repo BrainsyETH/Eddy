@@ -383,7 +383,6 @@ test('the cron reads the previous rows before it writes over them', () => {
   assert.ok(carry < source.indexOf('writeStoredSnapshots(supabase'), 'carry before the write');
 });
 
-test('the dam page reads live with the stored snapshot as its net', () => {
-  const source = readFileSync('src/lib/data/public-pages.ts', 'utf8');
-  assert.match(source, /pageDam = unstable_cache\(fetchDamDetailWithFallback,/);
-});
+// The dam detail page's own data path is held by dam-page-snapshot.test.ts,
+// which checks the requirement (no cache without an age limit in front of the
+// HTML) rather than which wrapper supplies it.
