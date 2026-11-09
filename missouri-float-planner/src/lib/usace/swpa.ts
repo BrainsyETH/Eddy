@@ -128,6 +128,7 @@ export const SWPA_PROJECTS: Record<string, SwpaProject> = {
  */
 export type { ScheduledHour } from '@shared/dam-types';
 import type { ScheduledHour } from '@shared/dam-types';
+import { nextDayKey } from '@shared/dam-schedule-copy';
 
 /**
  * When Eddy retrieved the page this schedule came from — NOT when SWPA posted
@@ -342,6 +343,39 @@ export function centralDateKey(date: Date): string {
 }
 
 /**
+ * The SWPA file for a Central calendar day, from the day key itself.
+ *
+ * A key names one calendar date, and a calendar date has one weekday whatever
+ * clock reads it, so no time zone is involved. Agrees with weekdayFileFor for
+ * every instant inside that Central day (swpa.test.ts walks a year of them).
+ */
+export function weekdayFileForKey(dayKey: string): SwpaWeekday {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const order: SwpaWeekday[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  return order[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+
+/**
+ * The Central day keys a schedule read covers: today, then each next calendar
+ * day, `days` in all (clamped to the seven files SWPA keeps).
+ *
+ * ── Why calendar keys and not Date arithmetic ─────────────────────────────
+ * fetchProjectSchedule stepped a Date with setDate(+1) in the SERVER's zone,
+ * which on Vercel is UTC: plus 24 hours, not plus one Central day. Across the
+ * fall-back night that named the same Central day twice and skipped tomorrow
+ * (production held 2026-11-01, 2026-11-01, 2026-11-02 at 00:35 CT); across the
+ * spring-forward night it skips a day, so at 23:30 CST on 2026-03-07 Sunday's
+ * sheet was never fetched and the hero said the posted schedule had ended.
+ * nextDayKey is calendar arithmetic on the key and has neither problem.
+ */
+export function scheduleDayKeys(days: number, now = Date.now()): string[] {
+  const count = Math.max(1, Math.min(days, 7));
+  const keys = [centralDateKey(new Date(now))];
+  while (keys.length < count) keys.push(nextDayKey(keys[keys.length - 1]));
+  return keys;
+}
+
+/**
  * Fetch and parse the schedule page covering `date`.
  *
  * FAILS CLOSED: if the page's own date isn't the date we asked for, the
@@ -353,8 +387,16 @@ export async function fetchDaySchedule(
   date: Date,
   options?: { skipCache?: boolean }
 ): Promise<DaySchedule | null> {
-  const file = weekdayFileFor(date);
-  const expected = centralDateKey(date);
+  return fetchDayScheduleForKey(centralDateKey(date), options);
+}
+
+/** fetchDaySchedule for a Central day key, which is what the day walk produces. */
+export async function fetchDayScheduleForKey(
+  dayKey: string,
+  options?: { skipCache?: boolean }
+): Promise<DaySchedule | null> {
+  const file = weekdayFileForKey(dayKey);
+  const expected = dayKey;
   const url = `${SWPA_BASE}/${file}.htm`;
 
   let html: string;
@@ -426,15 +468,8 @@ export async function fetchProjectSchedule(
   days = 3,
   options?: { skipCache?: boolean }
 ): Promise<ProjectSchedule[]> {
-  const today = new Date();
-  const wanted = Array.from({ length: Math.max(1, Math.min(days, 7)) }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
-
   const results = await Promise.allSettled(
-    wanted.map((d) => fetchDaySchedule(d, options))
+    scheduleDayKeys(days).map((key) => fetchDayScheduleForKey(key, options))
   );
 
   const codes = swpaCodeCandidates(projectCode);

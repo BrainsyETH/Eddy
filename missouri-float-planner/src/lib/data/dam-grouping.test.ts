@@ -87,3 +87,59 @@ test('an empty state produces no heading', () => {
   const groups = groupDamsForIndex([dam('swt-tenkiller-dam', 'OK')]);
   assert.deepEqual(groups.map((g) => g.label), ['Oklahoma']);
 });
+
+
+test('directory keeps readings and all 24 scheduled hours for its visible charts', async () => {
+  const { buildDamDirectoryGroups } = await import('./dam-directory');
+  const { buildSnapshot } = await import('./dams');
+  const { USACE_DAMS } = await import('@/lib/flow-providers/usace-registry');
+  const observedAt = '2026-11-09T15:30:00Z';
+  const reading = { value: 780.25, unit: 'ft', at: observedAt, staleness: 'fresh' as const };
+  const day = {
+    scheduleDate: '2026-11-09',
+    retrievedAt: observedAt,
+    hours: Array.from({ length: 24 }, (_, i) => ({
+      hourEnding: i + 1, megawatts: i >= 8 && i < 18 ? 130 : 0, cfs: null, isRamp: false,
+    })),
+    idle: [{ from: 1, to: 8 }, { from: 19, to: 24 }],
+  };
+  const bullShoals = buildSnapshot(USACE_DAMS['swl-bull-shoals-dam'], {
+    poolElevation: reading,
+    release: { ...reading, value: 3_200, unit: 'cfs' },
+    tailwaterTempF: { ...reading, value: 56, unit: 'F' },
+  }, [day]);
+
+  const directory = buildDamDirectoryGroups([bullShoals]);
+  const result = directory.flatMap(group => group.dams);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].metrics.poolElevation?.value, 780.25);
+  assert.equal(result[0].metrics.release?.value, 3_200);
+  assert.equal(result[0].metrics.tailwaterTempF?.value, 56);
+  assert.equal(result[0].schedule[0].hours.length, 24, 'index renders a complete day, not a summary string');
+  assert.deepEqual(result[0].schedule, bullShoals.schedule, 'future posted days and provenance survive for next-change copy');
+  assert.equal(result[0].pattern, undefined, 'detail-only history does not bloat the directory');
+  assert.equal(result[0].generationForecast, undefined, 'detail-only forecasts remain on the dam page');
+});
+
+test('directory retains all catalogued dams without inventing measurements', async () => {
+  const { conditionsDamCatalogue } = await import('@/lib/conditions/dam-catalogue');
+  const { buildDamDirectoryGroups } = await import('./dam-directory');
+  const { USACE_DAMS } = await import('@/lib/flow-providers/usace-registry');
+  const { dams } = conditionsDamCatalogue([]);
+  const groups = buildDamDirectoryGroups(dams);
+  const all = groups.flatMap(group => group.dams);
+  assert.equal(all.length, Object.keys(USACE_DAMS).length);
+  assert.equal(new Set(all.map(dam => dam.id)).size, all.length);
+  assert.ok(all.every(dam => !dam.metrics.poolElevation && !dam.metrics.release));
+  assert.ok(all.every(dam => dam.schedule.length === 0));
+});
+
+test('dam directory uses the existing interactive schedule component, not text-only summaries', async () => {
+  const { readFileSync } = await import('node:fs');
+  const directory = readFileSync('src/components/dam/DamDirectory.tsx', 'utf8');
+  const card = readFileSync('src/components/dam/DamListCard.tsx', 'utf8');
+  const schedule = readFileSync('src/components/dam/GenerationSchedule.tsx', 'utf8');
+  assert.match(directory, /<DamListCard\b/, 'listings must render their full card');
+  assert.match(card, /<GenerationSchedule\b/, 'cards must keep the interactive timeline');
+  assert.match(schedule, /<DamTimeline\b/, 'the chart must render 24 hourly bars');
+});

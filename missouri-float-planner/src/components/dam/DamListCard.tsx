@@ -4,6 +4,7 @@ import type { DamSnapshot } from '@/lib/data/dams';
 import GenerationSchedule, { ScheduleCheck, ScheduleDateline, scheduleSectionCheck } from './GenerationSchedule';
 import { DamReadings, DamScheduleInfoTip } from './DamCardParts';
 import Card from '@/components/ui/Card';
+import { relativeAgeShort, readingStaleness } from '@shared/dam-schedule-copy';
 
 /**
  * Directory and homepage summary of one dam.
@@ -14,9 +15,11 @@ import Card from '@/components/ui/Card';
  * section opens with the plan in words. Navigation stays separate from the
  * timeline, which takes taps and keys for inspection and never links.
  */
-export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now: number; href: string }) {
+export default function DamListCard({ dam, now, href, showLakeLevel = false }: { dam: DamSnapshot; now: number; href: string; showLakeLevel?: boolean }) {
   const scheduleCheck = dam.hasTurbines ? scheduleSectionCheck(dam.schedule, dam.generationReference, now, true) : null;
   const place = [dam.lakeName, dam.state].filter(Boolean).join(' · ');
+  const lake = dam.metrics.poolElevation;
+  const lakeAge = lake ? relativeAgeShort(lake.at, now) : null;
 
   return (
     <Card as="article" variant="framed" className="flex h-full min-w-0 flex-col">
@@ -35,11 +38,20 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
         </Link>
 
         <DamReadings dam={dam} now={now} />
+        {showLakeLevel && (
+          <p className="mx-4 mt-2 flex flex-wrap items-baseline gap-x-2 text-xs text-neutral-600 sm:mx-5">
+            <span>Lake level</span>
+            <span className={lake && readingStaleness(lake.at, now) !== 'fresh' ? 'font-mono tabular-nums text-neutral-600' : 'font-mono tabular-nums text-primary-900'}>
+              {lake ? `${lake.value.toFixed(2)} ft` : 'Unavailable'}
+            </span>
+            {lakeAge && <span>· {lakeAge}</span>}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col px-4 pb-1 pt-1.5 sm:px-5">
         {dam.hasTurbines && (
-          <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} compact info={<DamScheduleInfoTip dam={dam} />} />
+          <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} compact expandedChart={showLakeLevel} info={<DamScheduleInfoTip dam={dam} />} />
         )}
         <div className="mt-auto pt-3">
           <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-neutral-200">

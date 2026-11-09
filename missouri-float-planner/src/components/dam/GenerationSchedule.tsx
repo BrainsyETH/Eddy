@@ -99,11 +99,13 @@ export function scheduleSectionCheck(
  * Three states stay distinct in the headline: a posted day with no generation,
  * a posted day carrying only minimum flow, and no posted day at all.
  */
-export default function GenerationSchedule({ schedule, reference, now, compact = false, withTomorrow = !compact, info }: {
+export default function GenerationSchedule({ schedule, reference, now, compact = false, withTomorrow = !compact, expandedChart = false, info }: {
   schedule: DamScheduleDay[];
   reference?: GenerationReference | null;
   now: number;
   compact?: boolean;
+  /** Use the full-height interactive 24-hour chart inside a compact directory card. */
+  expandedChart?: boolean;
   /**
    * Draw a posted Tomorrow too. Full reports always do; a compact card does
    * when Tomorrow is part of its answer — a tailwater river's reading card on
@@ -196,7 +198,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
         </div>
         {todayDay && (
           <div className={compact ? 'mt-2' : 'mt-3'}>
-            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact} peakAtRest={!compact} />
+            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact && !expandedChart} peakAtRest={!compact} />
           </div>
         )}
       </section>

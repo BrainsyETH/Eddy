@@ -273,6 +273,45 @@ export function speaksForNow(age: ReadingStaleness): boolean {
 }
 
 /**
+ * How far ahead of the reader's clock a reading's timestamp may sit and still be
+ * read as current: CDN and device clocks disagree by seconds, not hours. The
+ * same allowance the dam widget packet uses.
+ */
+export const FUTURE_READING_SKEW_MS = 5 * 60_000;
+
+/**
+ * `DamSnapshot.generating`: whether the units are turning NOW, or null when no
+ * turbine reading can say so.
+ *
+ * ── Why null, not the last reading's answer ────────────────────────────────
+ * It was derived from the latest turbine flow with no age test, and drawn as a
+ * bold present-tense chip ("Generating" / "Not generating") and a map-pin label
+ * ("Generating" / "Units idle"). With CWMS five hours behind and the units shut
+ * off at 2 PM per the schedule, both still said "Generating". The hero beside
+ * them already said "at last reading", from the same rule as here: only a fresh
+ * reading speaks for now (speaksForNow). A chip and a pin have no room for "at
+ * last reading", so past that line they say nothing, which is what null already
+ * means to every client: no chip, no pin label.
+ *
+ * Null as well when the dam publishes no turbine flow, when the registry has
+ * not set its floor (leakage would read as generation), when the timestamp
+ * cannot be read, and when it sits further ahead of `now` than clock skew
+ * explains — readingStaleness calls any future stamp fresh.
+ *
+ * Shared because the server stamps it into every snapshot and clients holding
+ * a payload recompute it on their own clock.
+ */
+export function generatingForNow(dam: GenerationInputs, now = Date.now()): boolean | null {
+  if (typeof dam.generationFloorCfs !== 'number') return null;
+  const reading = dam.metrics?.generationFlow;
+  if (!reading) return null;
+  if (Date.parse(reading.at) > now + FUTURE_READING_SKEW_MS) return null;
+  const state = generationNow(dam, now);
+  if (state.kind === 'unavailable' || !speaksForNow(state.age)) return null;
+  return state.kind === 'generating';
+}
+
+/**
  * The hero's status line, or null when there is nothing to head.
  *
  * An observation that is not fresh does NOT get to say "now". It keeps its
@@ -424,6 +463,13 @@ export interface ScheduleOutlook {
   /** The next move, or null when the posted schedule holds steady to its end. */
   move: ScheduledMove | null;
   /**
+   * True when nothing is generating, nothing moves, and every posted hour from
+   * now on is the project's minimum-flow release. Bull Shoals posts its ~800 cfs
+   * minimum flow as a few megawatts every idle hour, so "no more generation"
+   * there still means water in the river, and the copy has to say which.
+   */
+  minimumFlowOnly: boolean;
+  /**
    * When generation is scheduled to RESUME after a stop, when the posted
    * schedule reaches that far.
    *
@@ -564,7 +610,18 @@ export function scheduleOutlook(
     }
   }
 
-  return { generating, move, resumesAt, stale };
+  let minimumFlowOnly = false;
+  if (!generating && !move) {
+    minimumFlowOnly = true;
+    for (const { hour } of forward(startIndex, startHour)) {
+      if (hour.minimumFlow !== true) {
+        minimumFlowOnly = false;
+        break;
+      }
+    }
+  }
+
+  return { generating, move, minimumFlowOnly, resumesAt, stale };
 }
 
 /**
@@ -703,10 +760,13 @@ function scheduledClause(
   if (!outlook.move) {
     // The posted schedule runs out without changing. Said as a fact about the
     // POSTED schedule, not about the rest of time — tomorrow's file may simply
-    // not exist yet.
-    return outlook.generating
-      ? 'Releasing through the end of the posted schedule.'
-      : 'No more releases in the posted schedule.';
+    // not exist yet. And about GENERATION, never water: these said "releases",
+    // and at Bull Shoals "No more releases" sat over ~800 cfs of minimum flow
+    // running all night. Where the plan is that minimum flow, it says so.
+    if (outlook.generating) return 'Generation continues through the end of the posted schedule.';
+    return outlook.minimumFlowOnly
+      ? 'Only minimum flow for the rest of the posted schedule.'
+      : 'No more generation in the posted schedule.';
   }
 
   const when = moveClock(outlook.move);

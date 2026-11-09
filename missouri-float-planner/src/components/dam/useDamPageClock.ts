@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-/** Refresh the existing cached HTML snapshot, never replace it with the older API cache. */
+/**
+ * Refresh the existing cached HTML snapshot, never replace it with the older API cache.
+ *
+ * Shared by the dam page and the /dams directory: a minute clock for reading
+ * ages and the schedule's now line, plus router.refresh() on focus, on
+ * visibility and every five minutes (at most once a minute), so an open page
+ * picks up new readings and newly posted schedules, not only a moving clock.
+ */
 export function useDamPageClock(renderedAt: number) {
   const router = useRouter();
   const [now, setNow] = useState(renderedAt);
@@ -38,5 +45,15 @@ export function useDamPageClock(renderedAt: number) {
     };
   }, [router]);
 
-  return { now, refreshing };
+  /** Refresh now, for an explicit "Try again"; still one refresh at a time. */
+  const refreshNow = useCallback(() => {
+    if (pending.current) return;
+    const instant = Date.now();
+    lastAttempt.current = instant;
+    pending.current = true;
+    setNow(instant);
+    startTransition(() => router.refresh());
+  }, [router]);
+
+  return { now, refreshing, refreshNow };
 }

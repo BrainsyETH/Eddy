@@ -28,6 +28,7 @@ import {
   SCHEDULE_CHANGE_NOTE,
 } from '@shared/dam-schedule-copy';
 import {
+  generatingForNow,
   generationNow,
   generationStatusLabel,
   nowNextClauses,
@@ -119,9 +120,10 @@ export default function DamStateCard({
   const tailwaterStage = metrics.tailwaterElevation;
   const inflow = metrics.inflow;
 
-  // Only a dam that actually reports turbine flow can claim a generating
-  // state. `null` means "we don't know", which is different from "idle".
-  const generating = dam.generating;
+  // Only a fresh turbine reading can claim a generating state, on this page's
+  // own clock (generatingForNow). `null` means "we don't know", which is
+  // different from "idle".
+  const generating = generatingForNow(dam, now);
 
   // The one-line version of the console: what Eddy MEASURED, then what SWPA has
   // SCHEDULED. Two strings rather than one because they can honestly disagree —

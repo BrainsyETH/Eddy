@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   FULL_GENERATION_SHORT_LABEL,
+  FUTURE_READING_SKEW_MS,
+  generatingForNow,
   generationReferenceCitation,
   generationReferenceLine,
   RACK_ESTIMATE_NOTE,
@@ -276,7 +279,7 @@ test('short next-change copy preserves timing, bounded stops and unpublished hou
   assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Generation increases at 2 PM.');
   assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Generation decreases at 2 PM.');
   assert.equal(summary([day('2026-07-28', {})]),
-    'No more releases in the posted schedule.');
+    'No more generation in the posted schedule.');
   assert.equal(summary([]), null);
 });
 
@@ -370,15 +373,34 @@ test('a schedule that never changes says so about the POSTED schedule', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, allDay, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'Releasing through the end of the posted schedule.'
+    'Generation continues through the end of the posted schedule.'
   );
 
   const never = [day('2026-07-28', {})];
   const idle = generationNow(dam({ metrics: { generationFlow: reading(20, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(idle, never, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No more releases in the posted schedule.'
+    'No more generation in the posted schedule.'
   );
+});
+
+test('the end of the posted schedule never denies water: minimum flow is named, and no sentence says "releases"', () => {
+  // Bull Shoals after its last generating hour: SWPA posts the ~800 cfs
+  // minimum flow as 7 MW in every remaining hour. "No more releases" sat over
+  // that water all night.
+  const minimumFlowRest = {
+    ...day('2026-07-28', Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i + 1, 7]))),
+  };
+  minimumFlowRest.hours = minimumFlowRest.hours.map((h) => ({ ...h, minimumFlow: true }));
+  assert.equal(scheduledChangeSummary([minimumFlowRest], BULL_SHOALS, NOON_CENTRAL),
+    'Only minimum flow for the rest of the posted schedule.');
+
+  // Minimum flow in only some remaining hours is not "only minimum flow".
+  const mixed = { ...minimumFlowRest, hours: minimumFlowRest.hours.map((h) => (h.hourEnding > 18 ? { ...h, megawatts: 0, minimumFlow: undefined } : h)) };
+  assert.equal(scheduledChangeSummary([mixed], BULL_SHOALS, NOON_CENTRAL), 'No more generation in the posted schedule.');
+
+  const source = readFileSync('shared/dam-generation.ts', 'utf8');
+  assert.doesNotMatch(source, /'(No more releases|Releasing through)/);
 });
 
 // ── Turbine flow against total release ─────────────────────────────────────
@@ -1411,4 +1433,38 @@ test('total release that only repeats the turbine figure is said once', () => {
   assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(683, 60, { dailyMean: true })), false);
   assert.equal(releaseRepeatsTurbineFlow(null, reading(683, 60)), false);
   assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), undefined), false);
+});
+
+// ── The present-tense generating flag ──────────────────────────────────────
+//
+// DamSnapshot.generating was the latest turbine flow against the floor with no
+// age test, and iOS drew it as a bold chip and a map-pin label. With CWMS five
+// hours behind and the units off since 2 PM, both still said "Generating".
+
+test('generating speaks only for a fresh reading, and is silent past the fresh band', () => {
+  const at = (cfs: number, minutesAgo: number) => dam({ metrics: { generationFlow: reading(cfs, minutesAgo) } });
+  assert.equal(generatingForNow(at(15_000, 30), NOON_CENTRAL), true);
+  assert.equal(generatingForNow(at(20, 30), NOON_CENTRAL), false);
+  assert.equal(generatingForNow(at(15_000, 120), NOON_CENTRAL), true, 'two hours is still fresh');
+  assert.equal(generatingForNow(at(15_000, 121), NOON_CENTRAL), null, 'past it, no present tense');
+  assert.equal(generatingForNow(at(20, 300), NOON_CENTRAL), null, 'a stale idle reading is not "Not generating" either');
+  // The hero beside the chip uses the same line, so the two cannot disagree.
+  const state = generationNow(at(15_000, 300), NOON_CENTRAL);
+  assert.equal(generationStatusLabel(state), 'Generating at last reading');
+});
+
+test('generating is null whenever nobody could have measured it now', () => {
+  const fresh = { generationFlow: reading(15_000, 10) };
+  assert.equal(generatingForNow(dam({ metrics: {} }), NOON_CENTRAL), null, 'no turbine flow published');
+  assert.equal(generatingForNow(dam({ metrics: fresh, generationFloorCfs: undefined }), NOON_CENTRAL), null, 'no floor: leakage would read as generation');
+  assert.equal(generatingForNow(dam({ metrics: fresh, hasTurbines: false }), NOON_CENTRAL), null, 'no powerhouse');
+  assert.equal(generatingForNow(dam({ metrics: { generationFlow: reading(15_000, 10, { at: 'garbage' }) } }), NOON_CENTRAL), null);
+  const ahead = (ms: number) => dam({ metrics: { generationFlow: reading(15_000, 0, { at: new Date(NOON_CENTRAL + ms).toISOString() }) } });
+  assert.equal(generatingForNow(ahead(FUTURE_READING_SKEW_MS), NOON_CENTRAL), true, 'clock skew is tolerated');
+  assert.equal(generatingForNow(ahead(FUTURE_READING_SKEW_MS + 1), NOON_CENTRAL), null, 'a stamp from the future is not now');
+});
+
+test('minimum flow is generating=false, as it always was, while fresh', () => {
+  const bullShoals = { ...dam({ metrics: { generationFlow: reading(700, 10) }, generationFloorCfs: 850 }), minimumFlowThroughTurbine: true };
+  assert.equal(generatingForNow(bullShoals, NOON_CENTRAL), false);
 });
