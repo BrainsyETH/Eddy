@@ -179,6 +179,8 @@ posted" Read is not the first thing an early riser sees.
 
 ### P2 — the schedule's day enumeration runs in the server's time zone
 
+*Fixed 2026-11-09: `scheduleDayKeys` in `swpa.ts` walks Central day keys.*
+
 `swpa.ts` `fetchProjectSchedule` (lines 428–433) builds the three wanted days
 with `setDate(+i)` on a `Date` in the server's zone (UTC on Vercel), then maps
 each to a Central day. On the fall-back night that produces the same Central
@@ -193,6 +195,8 @@ version and a Read rewrite. Enumerate Central day keys with `nextDayKey` and
 derive the weekday file from the key.
 
 ### P2 — the wire `generating` boolean is age-blind, and iOS draws it as a present-tense chip and pin label
+
+*Fixed 2026-11-09: `generatingForNow` in `shared/dam-generation.ts`, stamped by the server and re-derived on serving, and used by the iOS chip and pin on the device clock.*
 
 `dams.ts` `buildSnapshot` (line 687) sets `generating` from the latest turbine
 reading with no staleness test, and `refreshStaleness` never recomputes it.
@@ -209,6 +213,8 @@ with `speaksForNow`, or drop the present tense from the wire field and give it
 an `at`.
 
 ### P2 — "No more releases in the posted schedule" is a water claim
+
+*Fixed 2026-11-09: the sentences now say generation, and name minimum flow when that is all that remains.*
 
 `shared/dam-generation.ts:707–709` says "Releasing through the end of the
 posted schedule" and "No more releases in the posted schedule" when the
