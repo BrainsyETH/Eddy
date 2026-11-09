@@ -245,7 +245,8 @@ test('a summary is what the live summary path would have built', () => {
     const value = detail.metrics[metric];
     if (value) narrowed[metric] = value;
   }
-  const expected = buildSnapshot(dam, narrowed, detail.schedule.slice(0, SUMMARY_SCHEDULE_DAYS));
+  // The clock is an input too: `generating` is stamped against it.
+  const expected = buildSnapshot(dam, narrowed, detail.schedule.slice(0, SUMMARY_SCHEDULE_DAYS), undefined, undefined, now);
 
   assert.deepEqual(summaryOf(detail, now), expected);
 });

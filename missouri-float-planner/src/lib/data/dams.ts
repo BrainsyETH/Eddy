@@ -47,6 +47,7 @@ import { buildPatternDays, patternHasObservations } from '@/lib/data/dam-history
 import { readPatternHours } from '@/lib/data/dam-history-store';
 import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
 import { centralDayKey, nextDayKey, READING_STALE_AFTER_HOURS } from '@shared/dam-schedule-copy';
+import { generatingForNow } from '@shared/dam-generation';
 
 /**
  * What a LIST surface needs, and nothing else.
@@ -681,11 +682,22 @@ export function buildSnapshot(
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>,
   schedule: DamScheduleDay[],
   pattern?: DamPatternDay[],
-  forecast?: DamGenerationForecast
+  forecast?: DamGenerationForecast,
+  now = Date.now()
 ): DamSnapshot {
-  const gen = metrics.generationFlow;
-  const generating =
-    gen && dam.generationOnCfs !== undefined ? gen.value > dam.generationOnCfs : null;
+  // Present tense only while the reading speaks for now — see generatingForNow.
+  // refreshStaleness re-derives it on the serving clock, because a stored row
+  // can be served an hour after it was assembled. The reference pair sizes a
+  // reading and does not decide on/off, so it is not needed here.
+  const generating = generatingForNow(
+    {
+      hasTurbines: hasPowerhouse(dam),
+      metrics,
+      generationFloorCfs: dam.generationOnCfs,
+      minimumFlowThroughTurbine: dam.minimumFlowThroughTurbine,
+    },
+    now
+  );
 
   const sources: string[] = [];
   // Attribution follows the path the metrics actually came down: a dam with
@@ -841,7 +853,7 @@ export function summaryOf(snapshot: DamSnapshot, now = Date.now()): DamSnapshot 
     if (day) schedule.push(day);
     date = nextDayKey(date);
   }
-  return buildSnapshot(dam, metrics, schedule);
+  return buildSnapshot(dam, metrics, schedule, undefined, undefined, now);
 }
 
 /**
@@ -875,7 +887,11 @@ export function refreshStaleness(snapshot: DamSnapshot, now = Date.now()): DamSn
         // field we cannot evaluate is how a bad value becomes an asserted one.
         value;
   }
-  return { ...snapshot, metrics };
+  // `generating` is the other field stamped against the assembly clock: an
+  // hour-old row could otherwise still say the units are turning on a reading
+  // that has since stopped speaking for now. Re-derived from the same inputs,
+  // which also corrects rows stored before it carried an age test.
+  return { ...snapshot, metrics, generating: generatingForNow({ ...snapshot, metrics }, now) };
 }
 
 /**
@@ -951,7 +967,7 @@ export function carryForwardMetrics(
   }
 
   if (carried === 0) return live;
-  return buildSnapshot(dam, merged, live.schedule, live.pattern, live.generationForecast);
+  return buildSnapshot(dam, merged, live.schedule, live.pattern, live.generationForecast, now);
 }
 
 /**
@@ -1033,7 +1049,7 @@ export function carryForwardSchedule(
   const schedule = [...live.schedule, ...carried.values()].sort((a, b) =>
     a.scheduleDate.localeCompare(b.scheduleDate)
   );
-  return buildSnapshot(dam, live.metrics, schedule, live.pattern, live.generationForecast);
+  return buildSnapshot(dam, live.metrics, schedule, live.pattern, live.generationForecast, now);
 }
 
 /**
