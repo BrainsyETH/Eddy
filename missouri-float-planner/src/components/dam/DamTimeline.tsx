@@ -88,6 +88,7 @@ export default function DamTimeline({
   now,
   plainLanguage = false,
   compact = false,
+  peakAtRest = true,
 }: {
   day: DamScheduleDay;
   reference?: GenerationReference | null;
@@ -100,6 +101,12 @@ export default function DamTimeline({
    * the half-capacity hairline, which has no room for a label at that size.
    */
   compact?: boolean;
+  /**
+   * Name the peak window in the readout when no hour is inspected. A card
+   * that already leads with the peak window above the chart turns this off,
+   * so the line is said once; the readout still reports an inspected hour.
+   */
+  peakAtRest?: boolean;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -119,9 +126,9 @@ export default function DamTimeline({
   // the readout never repeats it. At rest it names the peak or stays empty — no
   // standing instruction; the row's height is reserved so inspecting an hour
   // does not shift the card.
-  const defaultReadout = plainLanguage && peakWindow ? `Peak window: ${peakWindow}` : null;
+  const defaultReadout = plainLanguage && peakAtRest && peakWindow ? `Peak window: ${peakWindow}` : null;
   const readout = (
-    <p aria-live="polite" className={`${plainLanguage ? 'mt-1' : 'mb-1'} min-h-5 text-[13px] leading-5 tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-700'}`}>
+    <p aria-live="polite" className={`${plainLanguage ? 'mt-1' : 'mb-1'} min-h-5 text-[13px] leading-5 tabular-nums ${defaultReadout && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-700'}`}>
       {hoveredHour ? hourReadout(hoveredHour, reference, plainLanguage) : defaultReadout}
     </p>
   );

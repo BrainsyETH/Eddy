@@ -11,6 +11,8 @@ import {
 import {
   scheduleCheckLine,
   scheduleOutlook,
+  schedulePeak,
+  schedulePeakWindowLabel,
   scheduledChangeSummary,
   type GenerationReference,
   type ScheduleCheckLine,
@@ -128,12 +130,25 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
   // closes the section with it.
   const check = compact ? null : scheduleSectionCheck(schedule, reference, now, compact);
 
+  // ── What a card leads with ─────────────────────────────────────────────────
+  // The next move and the peak window are what a reader at the bank decides
+  // on, so a card puts them where the plan's headline ("Generation scheduled
+  // for 9 hours") used to be: the move in the headline's weight, the peak
+  // under it. The hours count is what the chart already shows. When the
+  // posted schedule holds no move ("Releasing through the end of the posted
+  // schedule."), the day's headline leads instead and the sentence keeps its
+  // place under the chart: a minimum-flow day with no move reads "Only
+  // minimum flow scheduled", which is the fact, not "no more releases".
+  const leadsWithChange = compact && Boolean(todayDay) && Boolean(nextChange) && Boolean(scheduleOutlook(schedule, reference, now)?.move);
+  const todayPeak = compact && todayDay ? schedulePeak(todayDay, reference) : null;
+  const todayPeakWindow = todayPeak ? schedulePeakWindowLabel(todayPeak) : null;
+
   const Heading = compact ? 'h4' : 'h2';
   const DayHeading = compact ? 'h5' : 'h3';
 
   // The sentence names its own subject and time ("Generation starts at 6 AM
   // tomorrow."), so it needs no label above it.
-  const changeLine = nextChange && (
+  const changeLine = nextChange && !leadsWithChange && (
     compact
       ? <p className="mt-1.5 text-sm font-medium leading-5 text-primary-900">{nextChange}</p>
       : <p className="mt-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3 text-lg font-semibold leading-snug text-primary-900 sm:text-xl">{nextChange}</p>
@@ -164,9 +179,14 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
             card's text edge. */}
         <div className={compact ? '-mr-2.5 flex min-h-11 items-center justify-between gap-2' : undefined}>
           {todayDay ? (
-            <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'min-w-0 text-base' : 'text-xl sm:text-2xl'}`}>
-              {scheduleDayHeadline(todayDay.hours)}
-            </p>
+            <div className="min-w-0">
+              <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'text-base' : 'text-xl sm:text-2xl'}`}>
+                {leadsWithChange ? nextChange : scheduleDayHeadline(todayDay.hours)}
+              </p>
+              {todayPeakWindow && (
+                <p data-peak-window className="mt-0.5 text-sm font-medium leading-5 tabular-nums text-primary-800">Peak window: {todayPeakWindow}</p>
+              )}
+            </div>
           ) : (
             <p className={`rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600 ${compact ? 'min-w-0 flex-1' : 'mt-1'}`}>
               Today’s generation schedule is unavailable.
@@ -176,7 +196,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
         </div>
         {todayDay && (
           <div className={compact ? 'mt-2' : 'mt-3'}>
-            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact} />
+            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact} peakAtRest={!compact} />
           </div>
         )}
       </section>
