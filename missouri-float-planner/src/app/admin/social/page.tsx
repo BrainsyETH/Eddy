@@ -944,7 +944,17 @@ export default function SocialAdminPage() {
                   <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Reel text safe area</option></select></label>
                   <p className="mt-1 text-xs text-neutral-400">Guides are approximate; platform controls and crops vary.</p>
                 </div>}
-                <CoverPreview key={videoPreviewPost.id} src={videoPreviewPost.image_url} platform={videoPreviewPost.platform} videoUrl={videoPreviewPost.video_url} directPost={tiktokStatus?.directPost} />
+                <CoverPreview
+                  key={videoPreviewPost.id}
+                  src={videoPreviewPost.image_url}
+                  platform={videoPreviewPost.platform}
+                  videoUrl={videoPreviewPost.video_url}
+                  directPost={tiktokStatus?.directPost}
+                  gridNeighbors={posts
+                    .filter(p => p.platform === 'instagram' && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
+                    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+                    .map(p => p.image_url as string)}
+                />
               </div>
               <p className="mt-4 text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
               {videoPreviewPost.platform === 'tiktok' && <p className="mt-3 text-sm text-neutral-400">Inbox delivery requires finishing the post in TikTok. Check the resulting status after delivery.</p>}

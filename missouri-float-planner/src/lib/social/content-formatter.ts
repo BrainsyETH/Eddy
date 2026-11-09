@@ -11,7 +11,7 @@ import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weath
 import { toNum } from '@/lib/utils/num';
 // Long display names ("Current River", "Huzzah Creek") — shared with the OG
 // covers + reels via river-display so a rename can't drift across surfaces.
-import { riverDisplayLong, riverDisplayShort } from './river-display';
+import { riverDisplayCasual, riverDisplayLong } from './river-display';
 
 // ---------------------------------------------------------------------------
 // Canonical link builder — river pages live at /rivers/<slug>. Building bare
@@ -22,45 +22,10 @@ function riverUrl(slug: string): string {
   return `${BASE_URL}/rivers/${slug}`;
 }
 
-// ---------------------------------------------------------------------------
 // River display names — long forms ("Current River") come from the shared
-// river-display map (via riverDisplayLong above). Short casual forms
-// ("the Current") stay local; they're prose-specific to captions.
-// ---------------------------------------------------------------------------
-const RIVER_SHORT_NAMES: Record<string, string> = {
-  meramec: 'the Meramec',
-  current: 'the Current',
-  'eleven-point': 'Eleven Point',
-  'jacks-fork': 'Jacks Fork',
-  niangua: 'the Niangua',
-  'big-piney': 'Big Piney',
-  huzzah: 'Huzzah',
-  courtois: 'Courtois',
-  gasconade: 'the Gasconade',
-  black: 'the Black',
-  bourbeuse: 'the Bourbeuse',
-  'big-river': 'Big River',
-  'st-francis': 'the St. Francis',
-  buffalo: 'the Buffalo',
-  elk: 'the Elk',
-  james: 'the James',
-  'north-fork-white': 'the North Fork',
-  'bryant-creek': 'Bryant Creek',
-  'crooked-creek': 'Crooked Creek',
-  'kings-river': 'the Kings',
-  mulberry: 'the Mulberry',
-  'caddo-river': 'the Caddo',
-  'spring-river': 'the Spring River',
-  'spring-river-mo': 'the Spring River',
-  'war-eagle-creek': 'War Eagle Creek',
-};
-
-/** Casual prose name with a NEVER-raw-slug fallback: an unmapped slug degrades
- *  to the title-cased short display name ("big-river" → "Big River"), not the
- *  slug itself (a published caption once read "HIGH WATER — big-river"). */
-function riverCasualName(slug: string): string {
-  return RIVER_SHORT_NAMES[slug] || riverDisplayShort(slug);
-}
+// river-display map (via riverDisplayLong above); the casual prose form
+// ("the Current") is shared with the covers' headlines (riverDisplayCasual).
+const riverCasualName = riverDisplayCasual;
 
 // Short condition labels for scannable digest lines — derived from the canonical
 // condition system (shared/condition-system.ts) so captions, cards, and video agree.

@@ -40,7 +40,9 @@ Only a severity clip may put the dark chrome over footage and scrims.
 
 ## Primitives
 
-Every panel on a reel or cover is one of these. Reel component → cover twin.
+Every panel on a reel is one of these. Reel component → cover twin (the
+twins now serve only the trend and clip covers; the other covers use the
+editorial layout in *Covers* below).
 
 - **Page** — `ReelPage` → `CoverPage`. The tone's ground, the body font and
   ink. Optional photo: a faint texture on light, full-bleed under a scrim on dark.
@@ -122,6 +124,82 @@ frame 0 is a complete branded card — masthead, stage, dock — with entrances
 that only settle elements by a few pixels. No fade from black, no empty
 chart, no late-arriving title. The CI still gate renders frame 0 of every
 social composition (`remotion/test/check-stills.sh`).
+
+## Covers
+
+A cover is not a miniature of its reel. People meet a Reel as a small 3:4
+tile in a three-column profile grid, so the cover's only job is to earn the
+tap; distance, conditions, access details and the plan link belong to the
+reel and the caption. Rules live in `src/lib/social/cover-plan.ts` (pure,
+tested in `cover-plan.test.ts`); `EditorialCover` in
+`src/lib/og/social-cover.tsx` draws them.
+
+**Hierarchy:** one grounded headline, one visual, river + location, a small
+Eddy mark (the otter and wordmark, once, top-left, with the series label). No
+stat tiles, cards, buttons or tiny numbers. The headline is always Fredoka at
+104px (87px on the square), so the grid reads as one publication; it sits
+upper-left or lower-left, wherever the art leaves quiet room. Everything
+essential stays inside the centered 3:4 crop (y 240–1680 on 1080×1920), which
+also keeps it clear of the 9:16 view's edges; Facebook gets the same layout
+on its 1080 square.
+
+**Three treatments**
+
+| Treatment | Used by | Art |
+| --- | --- | --- |
+| Photo | Float Pick (live and Trip Idea), Weekend Forecast | A catalogued public-domain photo of that river, full bleed, with a scrim only behind the text |
+| Illustration | Tips, Eddy's Read, weekend Read, digest — and any photo cover without a usable photo | Eddy's otter art on teal, sand or cream with river strokes; three compositions rotate |
+| Conditions | High-water, easing, recovery and storm alerts | The dark severity surface and one big observation (the pinned gauge reading) |
+
+The trend cover (retired from scheduling) and the clip cover (already the
+clip's own frame) keep their earlier layouts. The AI `og_backgrounds` art is
+no longer used by these covers; only the clip cover still falls back to it.
+
+**Headlines say only what the data supports.** Float Picks use the first of
+four patterns that fits: the real endpoints ("Big Tree to Gooseneck"), a
+spring at least 2 mi inside both ends ("Past Welch Spring" — the guidebook's
+spring miles can be off by about that much), the guide's own section name
+(Trip Ideas), or "Float the Current". Alerts state the observed transition
+("The Caddo is running high", "…is coming down", "…is floatable again").
+Never "perfect", "best", or a time of day inferred from float length. 3–7
+words is a guideline the preview flags, not a rule.
+
+**Photos.** `src/data/social-cover-photos.json` is the whole system: being
+listed is the suitability flag. An entry is public domain (checked on its
+Commons page), shows that river's water or scenery (not a ramp, sign or
+parking lot), holds the headline in its `textZone`, and points at a bounded
+JPEG on upload.wikimedia.org. The test suite checks the license, host, river
+and fields. A photo cover adds "📷 Cover photo: {author} (public domain, via
+Wikimedia Commons)" to the caption. A river with no entry, or a photo that
+fails to load or isn't JPEG/PNG, gets the illustration — never a weaker photo.
+
+**Variety, without a recommendation engine**
+
+- Float Pick selection (`pickByRiver` in `section-picker.ts`): the existing
+  eligibility rules choose the candidates (floatable river, 5–9 mi, car
+  access, a float-time estimate). Each eligible river then gets one turn —
+  previously each *section* did, so the Current's 42 access points made it
+  10 of 13 posts. The previous Float Pick's river is skipped when another
+  eligible river exists. Warnings don't count against a river's next pick.
+- Cover art: a photo not used in the last nine Instagram covers wins; when all
+  of a river's photos were used, the one used longest ago returns.
+- History is read best-effort from the last nine Instagram posts made before
+  the current UTC day (`river_slug`, and `art=` parsed from `image_url`).
+  Old URLs simply contribute less; a failed read is an empty history and
+  never blocks a post. Selection and art are seeded by the UTC day, so
+  re-running a day's job picks the same float and cover.
+- `art=` (`photo.<id>` or `eddy.<n>`) pins the artwork in the cover URL, so
+  Meta's later re-crawls render the same image. Pinned covers are cached at
+  the CDN for a day.
+
+**Review.** The admin post preview shows the actual rendered cover in a phone-
+size profile grid beside the previous eight Instagram covers, with the
+route's notes (headline length, grid-size headline, photo credit, why the
+illustration was used) from the `X-Cover-Notes` header.
+
+**Measuring it.** Compare per-Reel reach, views, and where Insights has them
+watch time and profile visits, normalized by days live, before and after.
+Selection and covers changed together, so the comparison is directional.
 
 ## Motion
 

@@ -15,7 +15,7 @@
 // (tagline, "best for", difficulty) that make it read as a recommendation.
 
 import type { GuideData } from '@/types/blog';
-import { dayIndex, springsForRun, type Section } from './section-picker';
+import { pickByRiver, springsForRun, type Section } from './section-picker';
 import { toNum } from '@/lib/utils/num';
 import { riverDisplayLong } from './river-display';
 import { withReviewedPlacePhoto } from '@/lib/photos/reviewed';
@@ -244,10 +244,12 @@ export async function pickFavoriteFloat(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   date = new Date(),
+  avoidRiver?: string | null,
 ): Promise<FavoriteFloat | null> {
   const pool = await loadFavoritePool(supabase);
-  if (pool.length === 0) return null;
-  return pool[dayIndex(date) % pool.length];
+  // One turn per river, like the live pick — a river with many guide sections
+  // must not crowd out the rest (see pickByRiver).
+  return pickByRiver(pool, date, avoidRiver);
 }
 
 /**

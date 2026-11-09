@@ -46,13 +46,11 @@ and delivery smoke test.
 
 ## Cover and reel formatting follow-up
 
-The five editorial portrait cover formats keep their content in the central square
-intersection, preserving the title and branding in the supported centered crop
-previews. Covers omit lengthy report excerpts and repeated instrument stats;
-the digest cover shows three sample rivers and points to the complete reel.
-Today’s Float Pick / Trip Idea labels are shared across captions, covers and
-reels. Headings have more reserved space, longer names use smaller title type,
-river names wrap, and weather text is larger.
+Superseded for covers by the editorial cover system (one headline, photo /
+illustration / conditions treatments, 3:4 grid crop) — see *Covers* in
+`missouri-float-planner/docs/social-design-system.md`, which also describes
+the profile-grid preview in post review. Today’s Float Pick / Trip Idea labels
+remain shared across captions, covers and reels.
 
 A local Satori/ImageResponse fixture with long route endpoint names rendered
 successfully and was visually inspected. This checks static cover primitives;

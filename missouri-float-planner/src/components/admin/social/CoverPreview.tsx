@@ -3,14 +3,31 @@
 import { useEffect, useRef, useState } from 'react';
 
 /** Crop the actual asset rather than drawing a guide over a different video. */
-export function CoverPreview({ src, platform, videoUrl, directPost = false }: {
+export function CoverPreview({ src, platform, videoUrl, directPost = false, gridNeighbors = [] }: {
   src: string | null; platform: string; videoUrl: string | null; directPost?: boolean;
+  /** The previous Instagram covers, newest first — the grid this one joins. */
+  gridNeighbors?: string[];
 }) {
   const [crop, setCrop] = useState('3 / 4');
   const [frame, setFrame] = useState(0.5);
+  const [notes, setNotes] = useState<string[]>([]);
   const video = useRef<HTMLVideoElement>(null);
   const customCover = platform === 'instagram' || !videoUrl;
   useEffect(() => { if (video.current) video.current.currentTime = frame; }, [frame, videoUrl]);
+  // The cover route reports its editorial notes (headline length, grid size,
+  // photo credit, illustration fallback) in a header. Advisory only; a
+  // cross-origin or older cover simply shows none.
+  useEffect(() => {
+    if (!src || !customCover) return;
+    const controller = new AbortController();
+    fetch(src, { signal: controller.signal })
+      .then(res => {
+        const raw = res.headers.get('x-cover-notes');
+        setNotes(raw ? decodeURIComponent(raw).split('\n').filter(Boolean) : []);
+      })
+      .catch(() => setNotes([]));
+    return () => controller.abort();
+  }, [src, customCover]);
   return <div>
     <h4 className="text-sm font-medium text-white">{customCover ? 'Cover crop preview' : 'Video thumbnail preview'}</h4>
     <p className="mt-1 text-xs text-neutral-400">{customCover
@@ -30,6 +47,21 @@ export function CoverPreview({ src, platform, videoUrl, directPost = false }: {
       ) : videoUrl ? <video ref={video} src={videoUrl} muted playsInline preload="auto" onLoadedMetadata={() => { if (video.current) video.current.currentTime = frame; }} className="absolute inset-0 w-full h-full object-cover" /> : <p className="p-3 text-neutral-400">Cover unavailable</p>}
     </div>
     {!customCover && videoUrl && <label className="block mt-3 text-sm text-neutral-300">Inspect frame (seconds) <input type="number" min="0" step="0.1" value={frame} onChange={e => setFrame(Math.min(Number.isFinite(video.current?.duration) ? video.current!.duration : Infinity, Math.max(0, Number(e.target.value) || 0)))} className="w-20 rounded bg-neutral-700 p-1" /></label>}
+    {customCover && src && platform === 'instagram' && <div className="mt-4">
+      <h4 className="text-sm font-medium text-white">Profile grid</h4>
+      <p className="mt-1 text-xs text-neutral-400">The actual cover at phone grid size (3:4 tiles, ~128pt wide), beside the previous Instagram covers.</p>
+      <div className="mt-2 grid grid-cols-3 gap-[2px] bg-black" style={{ width: 390, maxWidth: '100%' }}>
+        {[src, ...gridNeighbors.slice(0, 8)].map((tile, i) => (
+          <div key={`${i}-${tile}`} className={`relative overflow-hidden ${i === 0 ? 'outline outline-2 outline-yellow-400 z-10' : ''}`} style={{ aspectRatio: '3 / 4' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={tile} alt={i === 0 ? 'This cover in the profile grid' : 'An earlier cover'} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+          </div>
+        ))}
+      </div>
+      {notes.length > 0 && <ul className="mt-2 space-y-1 text-xs text-neutral-300">
+        {notes.map(note => <li key={note}>• {note}</li>)}
+      </ul>}
+    </div>}
     {!customCover && src && <details className="mt-3 text-xs text-neutral-400"><summary>Stored artwork — not the published thumbnail</summary>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt="Reference artwork only" className="mt-2 w-full" />

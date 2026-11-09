@@ -3,10 +3,16 @@
 //
 // The cover IS the reel's thumbnail — on Instagram the OG image is passed as
 // the Reel's cover_url, so it sits in the same grid tile the video plays in.
-// Every cover here is therefore drawn with the SAME social design system the
-// Remotion reels use (shared/social-brand.ts, via src/lib/og/social-cover.tsx):
-// the series-label masthead, ruled cards and tiles, CTA treatment where one is
-// meaningful, and the light page — or the dark severity surface for alerts.
+// Covers are built to earn the tap in the profile grid (docs/social-design-
+// system.md, "Covers"): one grounded headline, one visual, river + location and
+// a small Eddy mark, inside the centered 3:4 grid crop. Three treatments —
+// photo (public-domain river photography), illustration (Eddy's otter) and
+// conditions (the dark severity surface) — drawn by EditorialCover in
+// src/lib/og/social-cover.tsx from the rules in src/lib/social/cover-plan.ts.
+// The trend and clip covers keep their earlier layouts.
+//
+// `art=` (photo.<id> | eddy.<n>) pins the cover's artwork; post-context
+// chooses it from the recent grid. Absent (legacy URLs) → derived here.
 //
 // Supports:
 //   ?type=digest                       — all rivers, daily digest thumbnail
@@ -33,7 +39,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { loadOgFonts, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
+import { loadOgFonts, loadConditionOtter, loadImageAsDataUri, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import {
   hasRainComing,
   weatherChip,
@@ -53,10 +59,26 @@ import { buildLiveConditionsMap, overlayLiveConditions } from '@/lib/social/live
 import { warningCopy, recoveryCopy } from '@shared/condition-copy';
 // riverDisplayLong/Short degrade unmapped slugs to readable title-cased names —
 // never the raw slug ("big-river"), which briefly shipped on live covers.
-import { riverDisplayLong, riverDisplayShort } from '@/lib/social/river-display';
+import { riverDisplayCasual, riverDisplayLong, riverDisplayShort } from '@/lib/social/river-display';
+import {
+  capitalizeFirst,
+  chooseCoverArt,
+  conditionHeadline,
+  coverNotes,
+  coverPhotosFor,
+  endpointsSubline,
+  floatPickHeadline,
+  illustrationArt,
+  isRenderableImageType,
+  noteHeadline,
+  parseArtParam,
+  type CoverArt,
+  type CoverPhoto,
+  type FloatPickFacts,
+} from '@/lib/social/cover-plan';
 import { trendMeta } from '@shared/trend-meta';
 import { reportStamp } from '@shared/social-editorial';
-import { CTA, LABELS, MEDIA_SCRIM, SURFACES, colors, conditionInk, hexAlpha } from '@shared/social-brand';
+import { CTA, LABELS, SURFACES, colors, conditionInk, hexAlpha } from '@shared/social-brand';
 import {
   CoverCard,
   CoverDock,
@@ -64,10 +86,9 @@ import {
   CoverPage,
   CoverPhotoCard,
   CoverPill,
-  CoverQuote,
-  CoverRiverRow,
   CoverSpacer,
   DISPLAY,
+  EditorialCover,
   MONO,
   cond,
   condLabel,
@@ -90,11 +111,6 @@ function getSize(platform: string | null): Size {
   // Facebook's current Page video publisher does not accept Instagram's
   // cover_url parameter, so its stored preview/default remain square.
   return { width: 1080, height: 1080 };
-}
-
-function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 1).trim() + '...';
 }
 
 function numParam(v: string | null): number | null {
@@ -147,9 +163,9 @@ async function loadRiverPhotoDataUri(
   }
 }
 
-/** A cached AI cover background (og_backgrounds) as a data URI, by key — a river
- *  slug, or 'forecast' / 'danger'. This model-made art is the PREFERRED cover
- *  art; callers fall back to a guide photo, then to no photo card at all. */
+/** A cached AI background (og_backgrounds) as a data URI, by key. Only the clip
+ *  cover still falls back to it; the editorial covers use catalogued
+ *  public-domain photos or Eddy's illustrations instead (cover-plan.ts). */
 async function loadBackgroundDataUri(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -183,6 +199,123 @@ function render(node: React.ReactElement, size: Size) {
   return new ImageResponse(node, { ...size, fonts: loadOgFonts(), headers: CACHE_HEADERS });
 }
 
+// ─── Editorial covers ───────────────────────────────────────────────────────
+
+/** A pinned cover URL always renders the same image, so the CDN can keep it —
+ *  Meta re-requests covers, and each miss would re-fetch the source photo. */
+const PINNED_CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+};
+
+/** Wikimedia asks automated clients to identify themselves. */
+const PHOTO_FETCH_HEADERS = { 'User-Agent': 'EddyGuide-SocialCovers/1.0 (+https://eddy.guide)' };
+
+const STATE_NAMES: Record<string, string> = { MO: 'Missouri', AR: 'Arkansas' };
+
+/** "Current River · Missouri" — the river and where it is. */
+async function riverPlace(
+  supabase: ReturnType<typeof createAdminClient>,
+  slug: string,
+): Promise<string> {
+  const { data } = await supabase.from('rivers').select('state').eq('slug', slug).maybeSingle();
+  const state = (data as { state?: string | null } | null)?.state ?? null;
+  const name = riverDisplayLong(slug);
+  // "Spring River (Missouri)" already carries its state; don't say it twice.
+  return state ? `${name.replace(/\s*\([^)]*\)$/, '')} · ${STATE_NAMES[state] ?? state}` : name;
+}
+
+/** A catalogued photo as a data URI, or null (→ the illustration fallback).
+ *  Catalog URLs are immutable, so the fetch is cached. */
+async function loadCoverPhoto(photo: CoverPhoto): Promise<string | null> {
+  try {
+    const res = await fetch(photo.url, {
+      headers: PHOTO_FETCH_HEADERS,
+      cache: 'force-cache',
+      signal: AbortSignal.timeout(6000),
+    });
+    const type = res.headers.get('content-type');
+    if (!res.ok || !isRenderableImageType(type)) return null;
+    return `data:${type!.split(';')[0]};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Stable small number from a string, to seed a legacy URL's derived choices. */
+function seedOf(text: string): number {
+  let h = 0;
+  for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return Math.abs(h);
+}
+
+type ResolvedArt = {
+  art: CoverArt;
+  photo: string | null;
+  fallback: 'no-catalogued-photo' | 'photo-unavailable' | null;
+};
+
+/** The photo treatment's art: the pinned photo when it loads; otherwise the
+ *  illustration, with the reason recorded for the reviewer. */
+async function resolvePhotoArt(riverSlug: string, artRaw: string | null, seedKey: string): Promise<ResolvedArt> {
+  const seed = seedOf(seedKey);
+  const art = parseArtParam(artRaw, riverSlug) ?? chooseCoverArt(riverSlug, [], seed);
+  if (art.kind === 'photo') {
+    const photo = await loadCoverPhoto(art.photo);
+    if (photo) return { art, photo, fallback: null };
+    return { art: illustrationArt(seed), photo: null, fallback: 'photo-unavailable' };
+  }
+  return { art, photo: null, fallback: coverPhotosFor(riverSlug).length === 0 ? 'no-catalogued-photo' : null };
+}
+
+/** Illustration compositions → their otter artwork. */
+const ILLUSTRATION_OTTERS = [OTTER_URLS.canoe, OTTER_URLS.standard, OTTER_URLS.flag];
+
+async function loadIllustration(variant: number): Promise<string | null> {
+  try {
+    return await loadOtterImage(ILLUSTRATION_OTTERS[variant % ILLUSTRATION_OTTERS.length]);
+  } catch {
+    return null;
+  }
+}
+
+function illustrationVariant(artRaw: string | null, seedKey: string): number {
+  const art = parseArtParam(artRaw);
+  if (art?.kind === 'eddy') return art.variant;
+  const derived = illustrationArt(seedOf(seedKey));
+  return derived.kind === 'eddy' ? derived.variant : 0;
+}
+
+type EditorialProps = Omit<React.ComponentProps<typeof EditorialCover>, 'cover'>;
+
+/** Render an editorial cover. Advisory reviewer notes travel in a header the
+ *  admin preview reads (URI-encoded: header values must be ASCII). */
+function renderEditorial(
+  size: Size,
+  props: EditorialProps,
+  notes: string[],
+  pinned: boolean,
+) {
+  const cover = coverGeometry(size, props.treatment === 'conditions' ? 'dark' : 'light', 'instagram');
+  return new ImageResponse(<EditorialCover cover={cover} {...props} />, {
+    ...size,
+    fonts: loadOgFonts(),
+    headers: {
+      ...(pinned ? PINNED_CACHE_HEADERS : CACHE_HEADERS),
+      'X-Cover-Notes': encodeURIComponent(notes.join('\n')),
+      'Access-Control-Expose-Headers': 'X-Cover-Notes',
+    },
+  });
+}
+
+/** Float Pick headline + the two lines under it. */
+function floatPickText(facts: FloatPickFacts, place: string) {
+  const { text, kind } = floatPickHeadline(facts);
+  const endpoints = endpointsSubline(facts, kind);
+  return endpoints
+    ? { headline: text, subline: endpoints, detail: place }
+    : { headline: text, subline: place, detail: undefined };
+}
+
 // ─── Router ─────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -205,7 +338,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (type === 'highlight' && riverSlug) {
-      return await generateHighlightImage(riverSlug, size, highlightPins);
+      return await generateHighlightImage(riverSlug, size, highlightPins, searchParams.get('art'));
     }
 
     // Legacy alias: eddy_says merged into the highlight report. Old posts'
@@ -220,7 +353,7 @@ export async function GET(request: NextRequest) {
       if (!Number.isFinite(at.getTime()) || parsePinnedDigestRivers(searchParams.get('rivers')).length < 2) {
         return new Response('A weekend Read requires pinned rivers and a date', { status: 400 });
       }
-      return await generateDigestImage(size, searchParams.get('rivers'), at);
+      return await generateDigestImage(size, searchParams.get('rivers'), at, searchParams.get('art'));
     }
 
     if (type === 'tip' && contentId) {
@@ -235,6 +368,7 @@ export async function GET(request: NextRequest) {
         bets: numParam(searchParams.get('bets')),
         rain: searchParams.get('rain') === '1',
         weather: parseWeatherParam(searchParams.get('wx')),
+        art: searchParams.get('art'),
       });
     }
 
@@ -245,6 +379,7 @@ export async function GET(request: NextRequest) {
         takeOutMile: numParam(searchParams.get('takeOutMile')),
         timeRangeLabel: searchParams.get('time')?.slice(0, 80),
         condition: searchParams.get('condition'),
+        art: searchParams.get('art'),
       });
     }
 
@@ -254,6 +389,7 @@ export async function GET(request: NextRequest) {
         fromSlug: searchParams.get('fromSlug'),
         timeRangeLabel: searchParams.get('time')?.slice(0, 80),
         toSlug: searchParams.get('toSlug'),
+        art: searchParams.get('art'),
       });
     }
 
@@ -286,7 +422,7 @@ export async function GET(request: NextRequest) {
       return await generateWarningImage(riverSlug, fromCondition, size, toCondition, pinnedFt, kind, rise);
     }
 
-    return await generateDigestImage(size, searchParams.get('rivers'));
+    return await generateDigestImage(size, searchParams.get('rivers'), undefined, searchParams.get('art'));
   } catch (err) {
     console.error('[OG/Social] Image generation failed:', err);
     const cover = coverGeometry(size);
@@ -336,11 +472,10 @@ function digestHeadline(codes: string[]): string {
   return `${floatable} of ${codes.length} in float range`;
 }
 
-// ─── Digest ─────────────────────────────────────────────────────────────────
+// ─── Digest / weekend Read — illustration ───────────────────────────────────
 
-async function generateDigestImage(size: Size, pinned?: string | null, weekendReadAt?: Date) {
+async function generateDigestImage(size: Size, pinned?: string | null, weekendReadAt?: Date, artRaw?: string | null) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Preferred path: the caller baked a pinned river list into the URL so the
   // cover matches the reel's pinned data exactly (no live drift). Absent/empty
@@ -358,39 +493,34 @@ async function generateDigestImage(size: Size, pinned?: string | null, weekendRe
       { condition_code: live.condition_code, gauge_height_ft: live.gauge_height_ft },
     ]);
   }
-  // Most notable first, like the reel.
-  if (!weekendReadAt) rivers.sort((a, b) => cond(a[1].condition_code).severity - cond(b[1].condition_code).severity);
   const today = new Date().toLocaleDateString('en-US', {
+    timeZone: 'America/Chicago',
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
 
-  const otter = await loadOtter('flowing');
-  const headline = weekendReadAt ? 'This weekend' : digestHeadline(rivers.map(([, r]) => r.condition_code));
+  const variant = illustrationVariant(artRaw ?? null, `digest:${pinned ?? today}`);
+  const [mark, art] = await Promise.all([loadOtter('flowing'), loadIllustration(variant)]);
+  const headline = weekendReadAt ? 'Eddy’s weekend read' : digestHeadline(rivers.map(([, r]) => r.condition_code));
+  const subline = weekendReadAt
+    ? rivers.map(([slug]) => riverDisplayShort(slug)).join(' · ')
+    : today;
 
-  const featured = rivers.slice(0, 3);
-  const gap = 16;
-  const rowH = Math.round(104 * cover.k);
-
-  return render(
-    <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={weekendReadAt ? LABELS.eddyRead : LABELS.riverReport} title={headline} subtitle={weekendReadAt ? `Current water · ${reportStamp(weekendReadAt)}` : today} otter={otter} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap, width: '100%' }}>
-        {featured.map(([slug, data]) => (
-          <CoverRiverRow
-            key={slug}
-            cover={cover}
-            name={riverDisplayShort(slug)}
-            conditionCode={data.condition_code}
-            gaugeFt={data.gauge_height_ft}
-            height={rowH}
-          />
-        ))}
-      </div>
-      {rivers.length > featured.length ? <span style={{ fontSize: 30, color: colors.neutral[700] }}>Full {rivers.length}-river report in the reel</span> : null}
-    </CoverPage>,
+  return renderEditorial(
     size,
+    {
+      treatment: 'illustration',
+      eyebrow: weekendReadAt ? LABELS.eddyRead : LABELS.riverReport,
+      headline,
+      subline,
+      detail: weekendReadAt ? `Current water · ${reportStamp(weekendReadAt)}` : undefined,
+      mark,
+      art,
+      variant,
+    },
+    coverNotes({ headline }),
+    pinnedRivers.length > 0,
   );
 }
 
@@ -400,9 +530,9 @@ async function generateHighlightImage(
   riverSlug: string,
   size: Size,
   pins: { id?: string | null; ft?: number | null; condition?: string | null; at?: string | null } = {},
+  artRaw: string | null = null,
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Pinned path: the post named its exact eddy_update row, so fetch THAT (no
   // expiry filter — Meta may re-crawl days later and the row is still the one
@@ -437,37 +567,32 @@ async function generateHighlightImage(
       }]
     : await overlayLiveConditions(supabase, [rawUpdate]);
 
-  const riverName = riverDisplayLong(riverSlug);
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
-  const c = cond(conditionCode);
   // The subtitle is the post's timestamp, not the crawl's.
-  const now = instantParam(pins.at ?? null);
-  const cstFormatter = new Intl.DateTimeFormat('en-US', {
+  const stamp = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
-  const timestamp = cstFormatter.format(now);
+  }).format(instantParam(pins.at ?? null));
+  const variant = illustrationVariant(artRaw, `highlight:${riverSlug}:${pins.at ?? ''}`);
+  // The condition-mood otter is both the mark and the artwork here.
   const otter = await loadOtter(conditionCode);
+  const headline = `Eddy’s read on ${riverDisplayCasual(riverSlug)}`;
 
-  return render(
-    <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={LABELS.eddyRead} title={riverName} subtitle={timestamp} otter={otter} />
-      <CoverSpacer />
-      <CoverDock
-        cover={cover}
-        tiles={[
-          { value: condLabel(conditionCode), label: 'Conditions', color: c.solid, compact: true },
-        ]}
-        cta={CTA.reportBelow}
-        ctaAsText
-      />
-    </CoverPage>,
+  return renderEditorial(
     size,
+    {
+      treatment: 'illustration',
+      eyebrow: LABELS.eddyRead,
+      headline,
+      subline: `${condLabel(conditionCode)} · ${stamp}`,
+      mark: otter,
+      art: otter,
+      variant,
+    },
+    coverNotes({ headline }),
+    pinnedReading,
   );
 }
 
@@ -475,7 +600,6 @@ async function generateHighlightImage(
 
 async function generateTipImage(contentId: string, size: Size) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size);
 
   const { data: content } = await supabase
     .from('social_custom_content')
@@ -487,20 +611,19 @@ async function generateTipImage(contentId: string, size: Size) {
     return NextResponse.json({ error: 'Content not found' }, { status: 404 });
   }
 
-  const tipText = truncate(content.text, cover.portrait ? 360 : 240);
   const typeLabel = content.content_type === 'seasonal' ? LABELS.seasonalNote :
     content.content_type === 'tip' ? LABELS.floatTip :
     content.content_type === 'promo' ? LABELS.announcement : LABELS.fromEddy;
-  const otter = await loadOtter('flowing');
+  const variant = illustrationVariant(null, `tip:${contentId}`);
+  const [mark, art] = await Promise.all([loadOtter('flowing'), loadIllustration(variant)]);
+  // One headline; the full note is the caption.
+  const headline = noteHeadline(content.text, content.content_type);
 
-  return render(
-    <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={typeLabel} title="A note from Eddy" otter={otter} />
-      <CoverQuote cover={cover} text={tipText} size={Math.round((tipText.length > 200 ? 40 : 48) * cover.k)} />
-      <CoverSpacer />
-      <CoverDock cover={cover} detail="Live levels for every Ozark river" cta={CTA.levels} />
-    </CoverPage>,
+  return renderEditorial(
     size,
+    { treatment: 'illustration', eyebrow: typeLabel, headline, mark, art, variant },
+    coverNotes({ headline }),
+    true,
   );
 }
 
@@ -589,90 +712,117 @@ async function generateForecastImage(
     bets?: number | null;
     rain?: boolean;
     weather?: WeatherChip | null;
+    art?: string | null;
   } = {},
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Pinned path: post-context baked the best bet it showed in the reel —
   // river, condition, reading, weather chip, bets count, rain note — so this
   // render cannot re-pick a different river when Meta fetches it later.
-  const best: ForecastBest | null =
-    pins.river && pins.condition
-      ? {
-          river_slug: pins.river,
-          condition_code: pins.condition,
-          gauge_height_ft: pins.ft ?? null,
-          weatherLabel: ogWeatherLabel(pins.weather ?? null),
-          betCount: Math.max(1, pins.bets ?? 1),
-          usingFallback: !!pins.rain,
-        }
-      : await liveForecastBest(supabase);
+  const pinned = !!(pins.river && pins.condition);
+  const best: ForecastBest | null = pinned
+    ? {
+        river_slug: pins.river!,
+        condition_code: pins.condition!,
+        gauge_height_ft: pins.ft ?? null,
+        weatherLabel: ogWeatherLabel(pins.weather ?? null),
+        betCount: Math.max(1, pins.bets ?? 1),
+        usingFallback: !!pins.rain,
+      }
+    : await liveForecastBest(supabase);
 
-  const bestName = best ? riverDisplayShort(best.river_slug) : '';
-  const bestWeather = best ? best.weatherLabel : '';
-  const usingFallback = best?.usingFallback ?? false;
-  const photo = best
-    ? ((await loadBackgroundDataUri(supabase, 'forecast')) ??
-       (await loadRiverPhotoDataUri(supabase, best.river_slug)))
-    : null;
-  const otter = await loadOtter(best?.condition_code ?? 'flowing');
+  const mark = await loadOtter(best?.condition_code ?? 'flowing');
 
   if (!best) {
-    return render(
-      <CoverPage cover={cover}>
-        <CoverMasthead cover={cover} label={LABELS.weekendForecast} title="No floatable rivers" subtitle="Right now — check back after the rain" otter={otter} />
-      </CoverPage>,
+    const variant = illustrationVariant(null, 'forecast:none');
+    const headline = 'No floatable rivers right now';
+    return renderEditorial(
       size,
+      { treatment: 'illustration', eyebrow: LABELS.weekendForecast, headline, subline: 'Check back after the rain', mark, art: await loadIllustration(variant), variant },
+      coverNotes({ headline }),
+      false,
     );
   }
 
-  const c = cond(best.condition_code);
-  return render(
-    <CoverPage cover={cover}>
-      <CoverMasthead
-        cover={cover}
-        label={LABELS.weekendForecast}
-        title={bestName}
-        subtitle={usingFallback ? 'Weekend pick · Rain possible' : 'Weekend pick · Check current conditions'}
-        otter={otter}
-      />
-      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 260 : 240} /> : null}
-      <CoverSpacer />
-      <CoverDock
-        cover={cover}
-        tiles={[
-          { value: condLabel(best.condition_code), label: 'Conditions', color: c.solid, compact: true },
-        ]}
-        detail={bestWeather || undefined}
-        cta={CTA.levels}
-      />
-    </CoverPage>,
+  const resolved = await resolvePhotoArt(best.river_slug, pins.art ?? null, `forecast:${best.river_slug}`);
+  const art = resolved.art.kind === 'eddy' ? await loadIllustration(resolved.art.variant) : null;
+  const headline = `Weekend pick: ${riverDisplayCasual(best.river_slug)}`;
+  const place = await riverPlace(supabase, best.river_slug);
+
+  return renderEditorial(
     size,
+    {
+      treatment: resolved.photo ? 'photo' : 'illustration',
+      eyebrow: LABELS.weekendForecast,
+      headline,
+      subline: place,
+      detail: best.usingFallback ? 'Rain possible this weekend' : undefined,
+      photo: resolved.photo,
+      textZone: resolved.art.kind === 'photo' ? resolved.art.photo.textZone : 'lower',
+      mark,
+      art,
+      variant: resolved.art.kind === 'eddy' ? resolved.art.variant : 0,
+    },
+    coverNotes({ headline, art: resolved.photo ? resolved.art : null, fallback: resolved.fallback }),
+    pinned && !!pins.art,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Float Pick thumbnail — the live, condition-aware section
+// Float Pick — photo treatment (illustration when the river has no catalogued
+// public-domain photo or it fails to load). The live pick and the evergreen
+// Trip Idea share the layout; only the eyebrow differs.
 // ---------------------------------------------------------------------------
+
+async function renderFloatPick(
+  size: Size,
+  supabase: ReturnType<typeof createAdminClient>,
+  facts: FloatPickFacts,
+  eyebrow: string,
+  artRaw: string | null,
+  pinned: boolean,
+) {
+  const resolved = await resolvePhotoArt(facts.riverSlug, artRaw, `float:${facts.riverSlug}:${facts.putInMile}:${facts.takeOutMile}`);
+  const [mark, art, place] = await Promise.all([
+    loadOtter('flowing'),
+    resolved.art.kind === 'eddy' ? loadIllustration(resolved.art.variant) : Promise.resolve(null),
+    riverPlace(supabase, facts.riverSlug),
+  ]);
+  const text = floatPickText(facts, place);
+  return renderEditorial(
+    size,
+    {
+      treatment: resolved.photo ? 'photo' : 'illustration',
+      eyebrow,
+      ...text,
+      photo: resolved.photo,
+      textZone: resolved.art.kind === 'photo' ? resolved.art.photo.textZone : 'lower',
+      mark,
+      art,
+      variant: resolved.art.kind === 'eddy' ? resolved.art.variant : 0,
+    },
+    coverNotes({ headline: text.headline, art: resolved.photo ? resolved.art : null, fallback: resolved.fallback }),
+    pinned,
+  );
+}
+
 async function generateSectionImage(
   size: Size,
-  params?: { timeRangeLabel?: string; river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
+  params?: { timeRangeLabel?: string; river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null; art?: string | null },
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   let section: Section | null = null;
-  let condition = 'flowing';
 
-  // Preferred path: the post baked the exact section + condition into the URL,
-  // so render THAT float (matching the reel) instead of re-picking. The unique
-  // URL also defeats Meta's by-URL OG-image cache, which previously served a
-  // stale cover from an earlier post.
+  // Preferred path: the post baked the exact section into the URL, so render
+  // THAT float (matching the reel) instead of re-picking. The unique URL also
+  // defeats Meta's by-URL OG-image cache, which previously served a stale
+  // cover from an earlier post.
   if (params?.river && params.putInMile != null && params.takeOutMile != null) {
     section = await findSection(supabase, params.river, params.putInMile, params.takeOutMile);
-    if (section) condition = params.condition || 'flowing';
   }
+  const pinned = !!section;
 
   // Fallback (legacy / param-less URL): re-pick today's section live.
   if (!section) {
@@ -691,48 +841,17 @@ async function generateSectionImage(
     if (!section) {
       return NextResponse.json({ error: 'No section available' }, { status: 404 });
     }
-    condition = overlaid.find((u) => u.river_slug === section!.riverSlug)?.condition_code || 'flowing';
   }
 
-  const photo =
-    (await loadBackgroundDataUri(supabase, section.riverSlug)) ??
-    (await loadRiverPhotoDataUri(supabase, section.riverSlug));
-  const otter = await loadOtter(condition);
-
-  return render(
-    <CoverPage cover={cover}>
-      <CoverMasthead
-        cover={cover}
-        label={LABELS.todayFloatPick}
-        title={section.riverName}
-        subtitle={`${section.putInName} to ${section.takeOutName}`}
-        otter={otter}
-      />
-      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 260 : 240} /> : null}
-      <CoverSpacer />
-      <CoverDock
-        cover={cover}
-        tiles={[
-          { value: section.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
-        ]}
-        cta={CTA.plan}
-      />
-    </CoverPage>,
-    size,
-  );
+  return renderFloatPick(size, supabase, section, LABELS.todayFloatPick, params?.art ?? null, pinned);
 }
 
-// ---------------------------------------------------------------------------
-// Float Pick thumbnail — the evergreen favourite. SAME series label as the
-// live pick (the caption says "Float Pick", so must the art); the guide's
-// section name as the tagline, difficulty in place of the live condition.
-// ---------------------------------------------------------------------------
+// The evergreen favourite: the guide's own section name may headline it.
 async function generateFavoriteImage(
   size: Size,
-  params: { timeRangeLabel?: string; river?: string | null; fromSlug?: string | null; toSlug?: string | null },
+  params: { timeRangeLabel?: string; river?: string | null; fromSlug?: string | null; toSlug?: string | null; art?: string | null },
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Preferred path: the post baked the exact endpoints into the URL, so render
   // THAT float (matching the reel). Fall back to today's rotation if absent.
@@ -740,43 +859,13 @@ async function generateFavoriteImage(
   if (params.river && params.fromSlug && params.toSlug) {
     fav = await findFavoriteFloat(supabase, params.river, params.fromSlug, params.toSlug);
   }
+  const pinned = !!fav;
   if (!fav) fav = await pickFavoriteFloat(supabase);
   if (!fav) {
     return NextResponse.json({ error: 'No favorite float available' }, { status: 404 });
   }
 
-  // Real guide photography in the photo card (matches the reel). Inlined as a
-  // data URI because Satori can't lazy-load remote images; a dead/slow URL
-  // degrades to no photo card rather than failing the cover.
-  // Prefer the cached AI cover background; then the guide section's own photo;
-  // then the river's guide hero photo.
-  let photo = await loadBackgroundDataUri(supabase, fav.riverSlug);
-  if (!photo && fav.photoUrl) {
-    try {
-      photo = await loadImageAsDataUri(fav.photoUrl);
-    } catch {
-      // fall through to the river hero
-    }
-  }
-  if (!photo) photo = await loadRiverPhotoDataUri(supabase, fav.riverSlug);
-  const otter = await loadOtter('flowing');
-
-  return render(
-    <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={LABELS.tripIdea} title={fav.riverName} subtitle={fav.tagline || `${fav.putInName} to ${fav.takeOutName}`} otter={otter} />
-      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 260 : 240} /> : null}
-      <CoverSpacer />
-      <CoverDock
-        cover={cover}
-        tiles={[
-          { value: fav.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
-        ]}
-        detail={fav.tagline ? `${fav.putInName} to ${fav.takeOutName}` : undefined}
-        cta={CTA.plan}
-      />
-    </CoverPage>,
-    size,
-  );
+  return renderFloatPick(size, supabase, fav, LABELS.tripIdea, params.art ?? null, pinned);
 }
 
 // ---------------------------------------------------------------------------
@@ -944,21 +1033,12 @@ async function generateTrendImage(
 }
 
 // ---------------------------------------------------------------------------
-// Condition-change Warning thumbnail — fired when a river crosses from
-// flowing into high / dangerous water. The SEVERITY SURFACE: the dark tone
-// washed toward the condition colour, the danger art under a scrim, the
-// numeral in Geist Mono — the same look as the alert reel.
+// Condition alerts — the conditions treatment. Fired when a river crosses into
+// high / dangerous water (or eases, or recovers). The dark severity surface,
+// one big observation (the pinned gauge reading), and a headline that states
+// only the observed transition. Calm enough that an update doesn't read as an
+// emergency; distinct enough that it never looks like a Float Pick.
 // ---------------------------------------------------------------------------
-const CONDITION_DISPLAY: Record<string, string> = {
-  flowing: 'Flowing',
-  good: 'Good',
-  low: 'Low',
-  too_low: 'Too low',
-  high: 'High',
-  dangerous: 'Dangerous',
-  unknown: 'Unknown',
-};
-
 async function generateWarningImage(
   riverSlug: string,
   fromCondition: string | undefined,
@@ -969,8 +1049,6 @@ async function generateWarningImage(
   riseText?: string,
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size, 'dark');
-  const s = SURFACES.dark;
 
   const { data: rawUpdate } = await supabase
     .from('eddy_updates')
@@ -981,8 +1059,6 @@ async function generateWarningImage(
     .order('generated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-
-  const riverName = riverDisplayLong(riverSlug);
 
   // Prefer the PINNED event (baked into the URL by the alert as &to=&ft=) so the
   // cover always agrees with the caption + reel — a re-fetched "live" value can
@@ -1004,118 +1080,62 @@ async function generateWarningImage(
 
   const isRecovery = kind === 'recovery';
   const c = cond(newCondition);
+  const riverName = riverDisplayLong(riverSlug);
   const { severityLabel, cta: actionCta } = isRecovery
     ? recoveryCopy(newCondition, riverName)
     : warningCopy(newCondition, riverName);
-  // Warning covers use the generic 'danger' art; recovery ("all clear") covers
-  // use the river's own calm art — mirrors the reel's background selection in
-  // condition-alerts.ts so the cover/reel pair reads as one piece.
-  const photo = await loadBackgroundDataUri(supabase, isRecovery ? riverSlug : 'danger');
-  const otter = await loadOtter(newCondition);
+  const [mark, place] = await Promise.all([loadOtter(newCondition), riverPlace(supabase, riverSlug)]);
+  const headline = conditionHeadline({ riverSlug, to: newCondition, from: fromCondition, recovery: isRecovery });
 
-  // Rate-of-rise/fall pill (e.g. "▲ up 2.4 ft in 6h"). Direction inferred from
-  // the phrase; drawn in the condition colour.
-  const riseArrow = riseText ? (/down/i.test(riseText) ? '▼' : '▲') : '';
-  const prev = fromCondition ? cond(fromCondition) : null;
-
-  return render(
-    <CoverPage cover={cover} severity={c.solid} photo={photo} scrim={isRecovery ? MEDIA_SCRIM.neutral : MEDIA_SCRIM.warning}>
-      <CoverMasthead
-        cover={cover}
-        label={severityLabel}
-        labelFill={c.solid}
-        title={riverName}
-        otter={otter}
-        subtitleNode={
-          fromCondition && prev ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 600, color: prev.solid }}>{CONDITION_DISPLAY[fromCondition] || fromCondition}</span>
-              <span style={{ fontFamily: MONO, fontWeight: 700, color: s.inkMuted }}>→</span>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 600, color: c.solid }}>{CONDITION_DISPLAY[newCondition] || newCondition}</span>
-            </div>
-          ) : undefined
-        }
-      />
-
-      {/* The reading — instrument numerals, condition-coloured */}
-      {gaugeFt !== null ? (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-          <span style={{ fontFamily: MONO, fontSize: Math.round(150 * cover.k), fontWeight: 700, color: c.solid, lineHeight: 1, letterSpacing: -4 }}>
-            {gaugeFt.toFixed(1)}
-          </span>
-          <span style={{ fontFamily: MONO, fontSize: Math.round(48 * cover.k), fontWeight: 700, color: s.inkMuted }}>ft right now</span>
-        </div>
-      ) : null}
-
-      {riseText ? (
-        <div style={{ display: 'flex' }}>
-          <CoverPill cover={cover} fill={c.solid} size={Math.round(30 * cover.k)}>
-            <span style={{ fontFamily: MONO }}>{riseArrow}</span>
-            <span style={{ marginLeft: 12, textTransform: 'none', letterSpacing: 0 }}>{riseText}</span>
-          </CoverPill>
-        </div>
-      ) : null}
-
-      <CoverSpacer />
-      <CoverDock
-        cover={cover}
-        accent={c.solid}
-        tiles={[
-          ...(gaugeFt !== null ? [{ value: gaugeFt.toFixed(1), unit: 'FT', label: 'Gauge' }] : []),
-          { value: condLabel(newCondition), label: 'Conditions', color: c.solid, compact: true },
-        ]}
-        detail={actionCta}
-        detailColor={c.solid}
-        cta={CTA.gauge}
-        ctaFill={c.solid}
-      />
-    </CoverPage>,
+  return renderEditorial(
     size,
+    {
+      treatment: 'conditions',
+      eyebrow: severityLabel,
+      eyebrowFill: c.solid,
+      severity: c.solid,
+      observation: gaugeFt !== null ? { value: gaugeFt.toFixed(1), unit: 'FT' } : null,
+      headline,
+      subline: place,
+      detail: riseText ? `${capitalizeFirst(riseText)} · ${actionCta}` : actionCta,
+      mark,
+    },
+    coverNotes({ headline }),
+    !!toCondition,
   );
 }
 
 // ---------------------------------------------------------------------------
 // Storm-digest cover — fired when several rivers rise at once (batch alert).
-// A compact list of the affected rivers, each with its live condition pill,
-// on the same severity surface as the single-river warning cover.
 // `riversParam` is a comma-separated list of `slug:condition` pairs, e.g.
 //   current:dangerous,meramec:high,niangua:high
 // ---------------------------------------------------------------------------
 async function generateStormImage(size: Size, riversParam: string | null) {
-  const cover = coverGeometry(size, 'dark');
-  const high = cond('high');
-
-  // Parse `slug:condition` pairs; keep up to 5 so the list stays legible.
   const rivers = (riversParam || '')
     .split(',')
     .map((pair) => {
       const [slug, condition] = pair.split(':');
       return { slug: (slug || '').trim(), condition: (condition || '').trim() };
     })
-    .filter((r) => r.slug !== '')
-    .slice(0, 5);
-  const worst = rivers.some((r) => r.condition === 'dangerous') ? cond('dangerous') : high;
-  const otter = await loadOtter(worst === high ? 'high' : 'dangerous');
-  const rowH = cover.portrait ? 104 : 84;
+    .filter((r) => r.slug !== '');
+  const worst = rivers.some((r) => r.condition === 'dangerous') ? cond('dangerous') : cond('high');
+  const mark = await loadOtter(rivers.some((r) => r.condition === 'dangerous') ? 'dangerous' : 'high');
+  const headline = rivers.length > 1 ? `${rivers.length} rivers are rising` : 'Rivers are rising';
+  const names = rivers.slice(0, 4).map((r) => riverDisplayShort(r.slug)).join(' · ');
 
-  return render(
-    <CoverPage cover={cover} severity={worst.solid}>
-      <CoverMasthead
-        cover={cover}
-        label={LABELS.riversRising}
-        labelFill={worst.solid}
-        title="Multiple rivers rising"
-        subtitle="Levels are climbing across the Ozarks"
-        otter={otter}
-      />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
-        {rivers.map((r) => (
-          <CoverRiverRow key={r.slug} cover={cover} name={riverDisplayLong(r.slug)} conditionCode={r.condition} gaugeFt={null} height={rowH} accent={cond(r.condition).solid} />
-        ))}
-      </div>
-      <CoverSpacer />
-      <CoverDock cover={cover} accent={worst.solid} detail="Do not float until levels drop" detailColor={worst.solid} cta={CTA.levels} ctaFill={worst.solid} />
-    </CoverPage>,
+  return renderEditorial(
     size,
+    {
+      treatment: 'conditions',
+      eyebrow: LABELS.riversRising,
+      eyebrowFill: worst.solid,
+      severity: worst.solid,
+      headline,
+      subline: rivers.length > 4 ? `${names} + ${rivers.length - 4} more` : names,
+      detail: 'Do not float until levels drop',
+      mark,
+    },
+    coverNotes({ headline }),
+    rivers.length > 0,
   );
 }
