@@ -598,3 +598,213 @@ export function CoverQuote({ cover, text, size, caption }: { cover: Cover; text:
 export function CoverSpacer() {
   return <div style={{ display: 'flex', flex: 1 }} />;
 }
+
+// ─── Editorial covers ───────────────────────────────────────────────────────
+// The profile-grid cover (docs/social-design-system.md, "Covers"): one
+// headline, one visual, river + location, a small Eddy mark — no tiles, cards
+// or buttons. Every essential element sits inside the centered 3:4 grid crop
+// (coverGeometry's content box); the headline is the same size on every cover.
+// What it says and which art it uses is decided by src/lib/social/cover-plan.ts.
+
+export type EditorialTreatment = 'photo' | 'illustration' | 'conditions';
+
+/** Illustration compositions: ground, ink, where the otter sits, where the text sits. */
+const ILLUSTRATIONS = [
+  { ground: colors.primary[800], ink: '#FFFFFF', muted: colors.primary[100], wave: colors.primary[500], zone: 'upper' as const },
+  { ground: colors.secondary[100], ink: colors.neutral[900], muted: colors.neutral[700], wave: colors.secondary[300], zone: 'lower' as const },
+  { ground: colors.neutral[50], ink: colors.primary[900], muted: colors.primary[700], wave: colors.primary[200], zone: 'lower' as const },
+];
+
+export function illustrationTextZone(variant: number): 'upper' | 'lower' {
+  return ILLUSTRATIONS[Math.abs(variant) % ILLUSTRATIONS.length].zone;
+}
+
+/** Three hand-drawn-feeling river strokes across the canvas. */
+function RiverStrokes({ width, top, color, k }: { width: number; top: number; color: string; k: number }) {
+  const h = Math.round(260 * k);
+  const path = (y: number, amp: number, phase: number) => {
+    const pts: string[] = [];
+    for (let x = -20; x <= width + 20; x += 20) {
+      pts.push(`${x},${(y + Math.sin((x / width) * Math.PI * 2.2 + phase) * amp).toFixed(1)}`);
+    }
+    return `M ${pts.join(' L ')}`;
+  };
+  return (
+    <svg
+      width={width}
+      height={h}
+      viewBox={`0 0 ${width} ${h}`}
+      style={{ position: 'absolute', left: 0, top }}
+    >
+      <path d={path(h * 0.3, 26 * k, 0)} fill="none" stroke={color} strokeWidth={14 * k} strokeLinecap="round" />
+      <path d={path(h * 0.55, 30 * k, 0.9)} fill="none" stroke={color} strokeWidth={10 * k} strokeLinecap="round" opacity={0.7} />
+      <path d={path(h * 0.8, 22 * k, 1.8)} fill="none" stroke={color} strokeWidth={7 * k} strokeLinecap="round" opacity={0.45} />
+    </svg>
+  );
+}
+
+/** A subline whose → is set in Geist Mono (Fredoka has no arrows). */
+function SublineText({ text, size, color }: { text: string; size: number; color: string }) {
+  const parts = text.split('→');
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', fontFamily: DISPLAY, fontSize: size, fontWeight: 600, color, lineHeight: 1.2 }}>
+      {parts.map((part, i) => (
+        <div key={i} style={{ display: 'flex' }}>
+          {i > 0 ? <span style={{ fontFamily: MONO, fontWeight: 700, margin: `0 ${Math.round(size * 0.3)}px` }}>→</span> : null}
+          <span>{part.trim()}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function EditorialCover({
+  cover,
+  treatment,
+  eyebrow,
+  eyebrowFill,
+  headline,
+  subline,
+  detail,
+  textZone = 'lower',
+  photo,
+  mark,
+  art,
+  variant = 0,
+  severity,
+  observation,
+}: {
+  cover: Cover;
+  treatment: EditorialTreatment;
+  /** The series label, set small after the wordmark ("FLOAT PICK"). */
+  eyebrow: string;
+  /** Conditions: the label becomes a condition-coloured pill. */
+  eyebrowFill?: string;
+  headline: string;
+  /** River + location, or the endpoints. */
+  subline?: string;
+  /** A second quiet line (e.g. the rate of rise). */
+  detail?: string;
+  /** Photo: where the photo leaves quiet room for the text. */
+  textZone?: 'upper' | 'lower';
+  /** Photo treatment: the photo as a PNG/JPEG data URI. */
+  photo?: string | null;
+  /** The small Eddy mark beside the wordmark (an otter data URI). */
+  mark?: string | null;
+  /** Illustration treatment: the large otter artwork. */
+  art?: string | null;
+  variant?: number;
+  /** Conditions treatment: the condition colour. */
+  severity?: string;
+  /** Conditions treatment: the one big reading ("6.8" "FT"). */
+  observation?: { value: string; unit: string } | null;
+}) {
+  const k = cover.k;
+  const { width: W, height: H } = cover.size;
+  const ill = ILLUSTRATIONS[Math.abs(variant) % ILLUSTRATIONS.length];
+  const zone = treatment === 'illustration' ? ill.zone : treatment === 'conditions' ? 'lower' : textZone;
+  const ink = treatment === 'illustration' ? ill.ink : '#FFFFFF';
+  const muted = treatment === 'illustration' ? ill.muted : 'rgba(255,255,255,0.88)';
+  const ground =
+    treatment === 'conditions'
+      ? severityGround(severity ?? colors.accent[600])
+      : treatment === 'illustration'
+        ? ill.ground
+        : colors.primary[900];
+  // Scrim only where the text is, so the photo stays the photo.
+  const scrim =
+    zone === 'upper'
+      ? `linear-gradient(180deg, rgba(15,45,53,0.86) 0%, rgba(15,45,53,0.55) ${Math.round(((cover.top + cover.height * 0.45) / H) * 100)}%, rgba(15,45,53,0.05) 75%, rgba(15,45,53,0.15) 100%)`
+      : `linear-gradient(0deg, rgba(15,45,53,0.88) 0%, rgba(15,45,53,0.6) ${Math.round(((H - cover.top - cover.height * 0.55) / H) * 100)}%, rgba(15,45,53,0.05) 70%, rgba(15,45,53,0.35) 100%)`;
+
+  const headlineSize = Math.round(104 * k);
+  const textBlock = (
+    <div style={{ display: 'flex', flexDirection: 'column', width: cover.width, gap: Math.round(18 * k) }}>
+      {treatment === 'conditions' && observation ? (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: Math.round(18 * k), marginBottom: Math.round(8 * k) }}>
+          {/* Fredoka numerals: Geist Mono's fixed advance spaces "6.8" into "6 . 8" at this size. */}
+          <span style={{ fontFamily: DISPLAY, fontSize: Math.round(230 * k), fontWeight: 600, color: severity ?? '#FFFFFF', lineHeight: 0.9, letterSpacing: -4 }}>
+            {observation.value}
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: Math.round(76 * k), fontWeight: 700, color: muted }}>{observation.unit}</span>
+        </div>
+      ) : null}
+      <span
+        style={{
+          fontFamily: DISPLAY,
+          fontSize: headlineSize,
+          fontWeight: 600,
+          lineHeight: 1.0,
+          letterSpacing: -2,
+          color: ink,
+        }}
+      >
+        {headline}
+      </span>
+      {subline ? <SublineText text={subline} size={Math.round(40 * k)} color={muted} /> : null}
+      {detail ? <SublineText text={detail} size={Math.round(34 * k)} color={muted} /> : null}
+    </div>
+  );
+
+  // Illustration otter: opposite the text, inside the crop.
+  const otterSize = Math.round((variant % 3 === 0 ? 560 : 500) * k);
+  const otterTop = ill.zone === 'upper' ? cover.top + cover.height - otterSize : cover.top + Math.round(110 * k);
+  const otterLeft = variant % 3 === 2 ? cover.left : W - cover.left - otterSize;
+
+  return (
+    <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', background: ground, fontFamily: DISPLAY }}>
+      {treatment === 'photo' && photo ? <FullBleedPhoto dataUri={photo} size={cover.size} scrim={scrim} /> : null}
+      {treatment === 'illustration' ? (
+        <RiverStrokes
+          width={W}
+          k={k}
+          color={ill.wave}
+          top={ill.zone === 'upper' ? cover.top + cover.height - Math.round(330 * k) : cover.top + Math.round(560 * k)}
+        />
+      ) : null}
+      {treatment === 'illustration' && art ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={art}
+          alt=""
+          width={otterSize}
+          height={otterSize}
+          style={{ position: 'absolute', left: otterLeft, top: otterTop, objectFit: 'contain' }}
+        />
+      ) : null}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'absolute',
+          top: cover.top,
+          left: cover.left,
+          width: cover.width,
+          height: cover.height,
+        }}
+      >
+        {/* The Eddy mark — once, small, the same on every cover. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: Math.round(14 * k) }}>
+          {mark ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={mark} alt="" width={Math.round(64 * k)} height={Math.round(64 * k)} style={{ objectFit: 'contain' }} />
+          ) : null}
+          <span style={{ fontFamily: DISPLAY, fontSize: Math.round(30 * k), fontWeight: 600, color: ink }}>{WORDMARK}</span>
+          {eyebrowFill ? (
+            <CoverPill cover={cover} fill={eyebrowFill} size={Math.round(24 * k)}>{eyebrow}</CoverPill>
+          ) : (
+            <span style={{ fontFamily: DISPLAY, fontSize: Math.round(26 * k), fontWeight: 600, color: muted, letterSpacing: 2, textTransform: 'uppercase' }}>
+              {`/ ${eyebrow}`}
+            </span>
+          )}
+        </div>
+        {zone === 'upper' ? (
+          <div style={{ display: 'flex', marginTop: Math.round(40 * k) }}>{textBlock}</div>
+        ) : (
+          <div style={{ display: 'flex', flex: 1 }} />
+        )}
+        {zone === 'lower' ? textBlock : null}
+      </div>
+    </div>
+  );
+}
