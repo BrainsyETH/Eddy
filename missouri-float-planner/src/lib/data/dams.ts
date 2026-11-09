@@ -955,8 +955,21 @@ export function carryForwardMetrics(
 }
 
 /**
+ * How long after its own fetch a posted day may still be carried over failed
+ * SWPA reads.
+ *
+ * The same six hours as CARRY_FORWARD_MAX_HOURS, for the same reason: past it a
+ * value "describes a river that has since changed". Kept as its own constant
+ * because it bounds a plan rather than an observation, and the two should be
+ * free to move apart. Six hours covers a SWPA outage through a morning without
+ * letting an evening fetch of tomorrow's sheet stand in for that sheet all day.
+ */
+export const SCHEDULE_CARRY_MAX_HOURS = 6;
+
+/**
  * Fill the posted schedule days a live read lost with the same days from an
- * earlier snapshot, each still wearing its own `retrievedAt`.
+ * earlier snapshot, each still wearing its own `retrievedAt`, for at most
+ * SCHEDULE_CARRY_MAX_HOURS after that fetch.
  *
  * ── Why ────────────────────────────────────────────────────────────────────
  * readSchedule answers an empty list whenever a SWPA file fails: a 5xx, a
@@ -981,6 +994,14 @@ export function carryForwardMetrics(
  * `retrievedAt`, so a carried day is the same version to dam_forecast_history
  * and to the dam Read, not a change.
  *
+ * ── Why it stops after SCHEDULE_CARRY_MAX_HOURS ───────────────────────────
+ * The calendar window alone would let a sheet for tomorrow, fetched yesterday
+ * evening, be carried through a whole day of SWPA failures, and SWPA can revise
+ * a sheet in that time. The bound is measured from the day's own `retrievedAt`,
+ * which a carry never refreshes, so repeated failures cannot extend it. Past
+ * it the day is dropped and every surface says the schedule is unavailable. A
+ * day with no `retrievedAt` cannot be bounded, so it is never carried.
+ *
  * `sources` and `scheduleTimeZone` are re-derived by buildSnapshot.
  */
 export function carryForwardSchedule(
@@ -998,10 +1019,13 @@ export function carryForwardSchedule(
     window.push(day);
   }
   const have = new Set(live.schedule.map((day) => day.scheduleDate));
+  const maxAgeMs = SCHEDULE_CARRY_MAX_HOURS * 3_600_000;
   const carried = new Map<string, DamScheduleDay>();
   for (const day of previous.schedule ?? []) {
     if (!window.includes(day.scheduleDate) || have.has(day.scheduleDate) || carried.has(day.scheduleDate)) continue;
     if (!Array.isArray(day.hours) || day.hours.length === 0) continue;
+    const fetched = day.retrievedAt ? Date.parse(day.retrievedAt) : NaN;
+    if (!Number.isFinite(fetched) || now - fetched > maxAgeMs) continue;
     carried.set(day.scheduleDate, day);
   }
   if (carried.size === 0) return live;

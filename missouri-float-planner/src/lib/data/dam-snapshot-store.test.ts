@@ -19,6 +19,7 @@ import {
   carryForwardSchedule,
   CARRY_FORWARD_MAX_HOURS,
   declaresNoSources,
+  SCHEDULE_CARRY_MAX_HOURS,
 } from './dams';
 import { forecastHistoryRows } from './dam-forecast-history';
 import { generationNow, generationStatusLabel } from '@shared/dam-generation';
@@ -458,6 +459,49 @@ test('a day the live read has always wins, and an empty or duplicate day is neve
   assert.deepEqual(merged.schedule.map((day) => day.scheduleDate), ['2026-08-31', '2026-09-01']);
   assert.equal(merged.schedule[0], liveToday, 'a revision the live read fetched is never overwritten');
   assert.equal(merged.schedule[1].hours[13].megawatts, 150, 'the first copy of a duplicated day is the one kept');
+});
+
+test('a posted day is carried for six hours after its own fetch and not a moment longer', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  const fetchedAt = (hoursAgo: number) => new Date(NOW - hoursAgo * HOUR).toISOString();
+  const atBound = tableRock({}, [postedDay('2026-08-31', fetchedAt(SCHEDULE_CARRY_MAX_HOURS))]);
+  const pastBound = tableRock({}, [postedDay('2026-08-31', new Date(NOW - SCHEDULE_CARRY_MAX_HOURS * HOUR - 1).toISOString())]);
+  assert.equal(carryForwardSchedule(live, atBound, NOW).schedule.length, 1);
+  assert.equal(carryForwardSchedule(live, pastBound, NOW), live);
+});
+
+test('a posted day with no fetch time cannot be bounded, so it is never carried', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  assert.equal(carryForwardSchedule(live, tableRock({}, [postedDay('2026-08-31', null)]), NOW), live);
+  assert.equal(carryForwardSchedule(live, tableRock({}, [postedDay('2026-08-31', 'garbage')]), NOW), live);
+});
+
+test('hour after hour of SWPA failures carries the schedule, then lets it go as unavailable', () => {
+  // The cron's real loop: each pass reads metrics but no schedule, and the row
+  // it writes becomes the next pass's previous row. Tomorrow's sheet was
+  // fetched the evening before, the case the calendar window alone would carry
+  // all day. A carry never refreshes retrievedAt, so the chain cannot extend
+  // the bound; at the next pass after it the dam shows no schedule.
+  const fetched = NOW - 2 * HOUR;
+  let row = tableRock({ release: reading(20, 2) }, [
+    postedDay('2026-08-31', new Date(fetched).toISOString()),
+    postedDay('2026-09-01', new Date(fetched).toISOString()),
+  ]);
+  const carriedAt: number[] = [];
+  for (let pass = 1; pass <= 8; pass += 1) {
+    const now = NOW + pass * HOUR;
+    const swpaFailed = buildSnapshot(USACE_DAMS[TABLE_ROCK], {
+      release: { value: 20, unit: 'cfs', at: new Date(now).toISOString(), staleness: 'fresh' },
+    }, []);
+    const written = carryFromPrevious(decideWrites([swpaFailed]).writable, new Map([[TABLE_ROCK, row]]), now);
+    row = written.snapshots[0];
+    if (written.scheduleCarriedDams === 1) carriedAt.push(pass);
+    for (const day of row.schedule) assert.equal(day.retrievedAt, new Date(fetched).toISOString(), 'never re-dated');
+  }
+  // Fetched 2 h before NOW, so passes 1-4 are within six hours of the fetch.
+  assert.deepEqual(carriedAt, [1, 2, 3, 4]);
+  assert.deepEqual(row.schedule, [], 'past the bound the schedule is unavailable, not carried indefinitely');
+  assert.equal(row.sources.includes('SWPA'), false);
 });
 
 test('a dam with no SWPA column, a different dam, or no previous row carries no schedule', () => {

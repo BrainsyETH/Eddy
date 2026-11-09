@@ -51,7 +51,8 @@
 // carryForwardMetrics copies individual OBSERVATIONS out of a fresh row, each
 // with its own timestamp and bounded by its own age (CARRY_FORWARD_MAX_HOURS).
 // carryForwardSchedule copies posted DAYS that are still today or later, each
-// with its own retrievedAt. Neither reaches past MAX_AGE_MS for a row.
+// with its own retrievedAt and bounded by it (SCHEDULE_CARRY_MAX_HOURS).
+// Neither reaches past MAX_AGE_MS for a row.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';

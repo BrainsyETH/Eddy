@@ -90,8 +90,12 @@ the one sentence in `dam-page-copy.ts`, and says so.
 
 ### P1 — a failed SWPA fetch overwrites a good stored schedule
 
-*Fixed 2026-11-09: `carryForwardSchedule` in `dams.ts`, the pattern no longer
-counts in `saysAnything`, and the cron reports `scheduleCarried`.*
+*Fixed 2026-11-09: `carryForwardSchedule` in `dams.ts`, bounded to six hours
+after each day's own fetch (`SCHEDULE_CARRY_MAX_HOURS`); the pattern no longer
+counts in `saysAnything`; the cron reports `scheduleCarried`. Note that #1742
+since stopped withholding a Read on a schedule-hash mismatch, so the
+"withholds the previous Read" consequence below no longer applies; the empty
+schedule would now be rendered into the Read instead.*
 
 `src/lib/data/dam-snapshot-store.ts` `saysAnything()` (line 196) treats a
 snapshot as "something was read" if it has metrics, a schedule, a forecast
