@@ -1,8 +1,8 @@
 # Lake and dam experience — visual review
 
-These are local browser captures of the actual Eddy components, using the
+The original captures are local browser captures of the actual Eddy components, using the
 labelled fixture route from `npm run test:lakes`. **All levels, schedules,
-trends and launch records in these captures are synthetic.** No fixture launch
+trends and launch records in those original captures are synthetic.** No fixture launch
 has been approved or published. The photographs are the attributed Truman and
 Table Rock assets already used by iOS; provenance is in `public/lakes/credits.json`.
 
@@ -11,9 +11,27 @@ filters and map controls. It omits the production page's breadcrumb, Share
 control and footer. External map tiles are replaced with a neutral test style;
 map checks verify interactions, not geographic accuracy.
 
-The captures predate the follow-up removal of the inline Photo credit control.
+The original captures predate the follow-up removal of the inline Photo credit control.
 Both pilot headers now keep only the image; attribution is on `/photo-credits`,
 reachable from the shared footer.
+
+## Real-data verification
+
+The later [Table Rock desktop](table-rock-real-1440.png) and
+[Truman phone](truman-real-390.png) captures use actual production dam
+snapshots, the 200 source observations backfilled on November 9, and the
+six approved source/imagery-reviewed launch records. They show the final
+photo-credit treatment. These are local renders of captured production data,
+not screenshots of public lake pages. Their banner identifies that provenance.
+The chart has keyboard focus in the captures because its controls were checked.
+
+[Real-data browser checks](real-data-browser-checks.txt) passed at 1440 and
+390 px for both pilots: real history, three launches per lake, empty hand-launch
+filter, directions URLs, map controls, chart keyboard interaction, no inline
+credit link, no overflow, and no browser errors. The map uses the same neutral
+test style; geographic pin review is separately recorded with agency and
+imagery sources in
+[`reviewed-pilot`](../../../scripts/ingestion/lakes/2026-11-09/reviewed-pilot/README.md).
 
 ## What to review
 
@@ -35,9 +53,10 @@ differs; read that record before comparing data values.
 ## Publication
 
 No public lake routes are approved yet. The route, reciprocal links, Conditions
-links and sitemap all use the same release gate. Production migration `20261109224918` is applied; real pool history,
-canonical launch identities and useful
-reviewed launch coverage must be verified before publication. A data outage
+links and sitemap all use the same release gate. Production migration
+`20261109224918`, the history backfill, canonical identity check and six
+reviewed locations are recorded. The first monitored production sync and
+release checks remain outstanding. A data outage
 after publication will show an unavailable state instead of removing the route.
 
 ## Validation

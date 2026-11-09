@@ -1,0 +1,213 @@
+{
+  "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
+  "reviewer": "Codex (source and imagery review)",
+  "locations": [
+    {
+      "lake_slug": "truman",
+      "slug": "long-shoal",
+      "name": "Long Shoal",
+      "longitude": -93.47366807240861,
+      "latitude": 38.266767163283774,
+      "launch_methods": [
+        "trailer"
+      ],
+      "amenities": [
+        "parking"
+      ],
+      "managing_agency": "USACE",
+      "fee_required": null,
+      "access_point_id": null,
+      "sources": [
+        {
+          "provider": "USACE Kansas City District",
+          "source_id": "80b12923-a29e-4183-a52f-d3cd05b237c4",
+          "type": "Boat Ramp",
+          "waterbody": "Truman Lake",
+          "url": "https://geospatial.sec.usace.army.mil/server/rest/services/Hosted/NWK_Boat_Ramps/FeatureServer/0",
+          "source_updated_at": "2024-12-09T20:51:41.000Z"
+        },
+        {
+          "provider": "Esri World Imagery",
+          "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-93.47572753813546%2C38.26515020316879%2C-93.47160860668177%2C38.26838412339876&bboxSR=4326&imageSR=4326&size=800%2C800&format=jpg&f=image",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
+          "image_sha256": "f6fb54c5be46dd6db96ba3744ff5f24c85d5467e1c78335d5675d595f909f9de"
+        }
+      ],
+      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review."
+    },
+    {
+      "lake_slug": "truman",
+      "slug": "sparrowfoot",
+      "name": "Sparrowfoot",
+      "longitude": -93.73727404914177,
+      "latitude": 38.30776788302787,
+      "launch_methods": [
+        "trailer"
+      ],
+      "amenities": [
+        "parking"
+      ],
+      "managing_agency": "USACE",
+      "fee_required": null,
+      "access_point_id": null,
+      "sources": [
+        {
+          "provider": "USACE Kansas City District",
+          "source_id": "b83abba0-810c-4b74-b994-c6fb4e936321",
+          "type": "Boat Ramp",
+          "waterbody": "Truman Lake",
+          "url": "https://geospatial.sec.usace.army.mil/server/rest/services/Hosted/NWK_Boat_Ramps/FeatureServer/0",
+          "source_updated_at": "2024-12-09T20:51:41.000Z"
+        },
+        {
+          "provider": "Esri World Imagery",
+          "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-93.73933467856222%2C38.306150922912884%2C-93.73521341972133%2C38.30938484314286&bboxSR=4326&imageSR=4326&size=800%2C800&format=jpg&f=image",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
+          "image_sha256": "3fb052e322936c51fb45d85be0e138a6aa3764eadc226cb32b6a382ae489a5e6"
+        }
+      ],
+      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review."
+    },
+    {
+      "lake_slug": "truman",
+      "slug": "thibaut-point",
+      "name": "Thibaut Point",
+      "longitude": -93.40089059254171,
+      "latitude": 38.29831142767944,
+      "launch_methods": [
+        "trailer"
+      ],
+      "amenities": [
+        "parking"
+      ],
+      "managing_agency": "USACE",
+      "fee_required": null,
+      "access_point_id": null,
+      "sources": [
+        {
+          "provider": "USACE Kansas City District",
+          "source_id": "ff4754f2-5480-48a1-8fe4-216c520e2b0d",
+          "type": "Boat Ramp",
+          "waterbody": "Truman Lake",
+          "url": "https://geospatial.sec.usace.army.mil/server/rest/services/Hosted/NWK_Boat_Ramps/FeatureServer/0",
+          "source_updated_at": "2024-12-09T20:51:41.000Z"
+        },
+        {
+          "provider": "Esri World Imagery",
+          "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-93.40295095335618%2C38.29669446756445%2C-93.39883023172725%2C38.299928387794424&bboxSR=4326&imageSR=4326&size=800%2C800&format=jpg&f=image",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
+          "image_sha256": "e12f1c4412abef11baced8160c7e4f8a09e48b9be0506ea38f37aff734b4a6f3"
+        }
+      ],
+      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review."
+    },
+    {
+      "lake_slug": "table-rock",
+      "slug": "table-rock-state-park",
+      "name": "Table Rock State Park Boat Ramp",
+      "longitude": -93.310995,
+      "latitude": 36.581494,
+      "launch_methods": [
+        "trailer"
+      ],
+      "amenities": [
+        "parking",
+        "restrooms"
+      ],
+      "managing_agency": "Missouri State Parks",
+      "fee_required": false,
+      "access_point_id": null,
+      "sources": [
+        {
+          "provider": "Missouri State Parks",
+          "type": "Boat Ramp",
+          "url": "https://mostateparks.com/key-location/boat-launch-table-rock",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
+        },
+        {
+          "provider": "Missouri State Parks",
+          "url": "https://mostateparks.com/park/table-rock-state-park/boating",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
+        },
+        {
+          "provider": "Esri World Imagery",
+          "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-93.31300862386291%2C36.57987703988501%2C-93.3089813761371%2C36.583110960114986&bboxSR=4326&imageSR=4326&size=800%2C800&format=jpg&f=image",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
+        }
+      ],
+      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. Official park page supplies these ramp coordinates, paved surfaces, restroom icon and no-fee information."
+    },
+    {
+      "lake_slug": "table-rock",
+      "slug": "moonshine-beach",
+      "name": "Moonshine Beach Boat Ramp",
+      "longitude": -93.311509,
+      "latitude": 36.608153,
+      "launch_methods": [
+        "trailer"
+      ],
+      "amenities": [
+        "parking"
+      ],
+      "managing_agency": "USACE",
+      "fee_required": null,
+      "access_point_id": null,
+      "sources": [
+        {
+          "provider": "USACE Little Rock District",
+          "type": "Boat Ramp",
+          "url": "https://www.swl.usace.army.mil/Portals/50/docs/tablerocklake/2026-TABLE-ROCK-MAP-3-2-26.pdf",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
+        },
+        {
+          "provider": "USACE Little Rock District",
+          "url": "https://www.swl.usace.army.mil/Missions/Recreation/Lakes/Table-Rock-Lake/Recreation-Activities/",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
+        },
+        {
+          "provider": "Esri World Imagery",
+          "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-93.31365718886468%2C36.605215066475026%2C-93.30694281113531%2C36.61060493352497&bboxSR=4326&imageSR=4326&size=1000%2C1000&format=jpg&f=image",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
+          "image_sha256": "65eb7d9f9cf0cdb459de10d1aed3bcdc30985df74c0beb73a7b34d97083a1de0"
+        }
+      ],
+      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (320,455), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed."
+    },
+    {
+      "lake_slug": "table-rock",
+      "slug": "cow-creek",
+      "name": "Cow Creek Boat Ramp",
+      "longitude": -93.3884,
+      "latitude": 36.566355,
+      "launch_methods": [
+        "trailer"
+      ],
+      "amenities": [
+        "parking"
+      ],
+      "managing_agency": "USACE",
+      "fee_required": null,
+      "access_point_id": null,
+      "sources": [
+        {
+          "provider": "USACE Little Rock District",
+          "type": "Boat Ramp",
+          "url": "https://www.swl.usace.army.mil/Portals/50/docs/tablerocklake/2026-TABLE-ROCK-MAP-3-2-26.pdf",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
+        },
+        {
+          "provider": "USACE Little Rock District",
+          "url": "https://www.swl.usace.army.mil/Missions/Recreation/Lakes/Table-Rock-Lake/Recreation-Activities/",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
+        },
+        {
+          "provider": "Esri World Imagery",
+          "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-93.39373537864464%2C36.56358506647503%2C-93.38702462135535%2C36.56897493352497&bboxSR=4326&imageSR=4326&size=1000%2C1000&format=jpg&f=image",
+          "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
+          "image_sha256": "8141839330adb2ca6ef5468f0ce38b980ad4c57913fa9b5b8fc8bedd3c3ad970"
+        }
+      ],
+      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (795,486), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed."
+    }
+  ]
+}

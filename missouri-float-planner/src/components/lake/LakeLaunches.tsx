@@ -7,7 +7,6 @@ import Card from '@/components/ui/Card';
 import { RAMP_CAUTION_COPY, listingAge } from '@shared/lake-status';
 import type { LakeLaunch, LakeSection, LaunchMethod } from '@shared/lake-types';
 import { riverAccessPath } from '@/lib/navigation/river-path';
-import { generateNavLinks } from '@/lib/navigation/deepLinks';
 import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 import Button from '@/components/ui/Button';
 import dynamic from 'next/dynamic';
@@ -30,10 +29,9 @@ function amenityLabel(key: string): string {
   return key.replace(/_/g, ' ');
 }
 
-/** Google Maps directions to the launch, the same builder the access pages use. Opens in a new tab. */
-function directionsHref(launch: LakeLaunch): string | null {
-  const google = generateNavLinks({ lat: launch.lat, lng: launch.lon, label: launch.name }).find((l) => l.app === 'google');
-  return google?.webFallback ?? null;
+/** Open route planning to the reviewed ramp coordinate, using the visitor's origin. */
+function directionsHref(launch: LakeLaunch): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${launch.lat},${launch.lon}`)}`;
 }
 
 function LaunchItem({ launch, now, selected, onSelect, cautionsCurrent }: { launch: LakeLaunch; now: number; selected: boolean; onSelect: () => void; cautionsCurrent: boolean }) {

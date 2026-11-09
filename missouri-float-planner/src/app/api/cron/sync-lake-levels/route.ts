@@ -18,8 +18,9 @@
 // `?backfillHours=N` (capped at 90 days) widens the CWMS window so the 7-day
 // chart is full on the first run rather than a week later. Ameren's report is
 // one day per request, so a backfill asks it one day at a time, capped at 14;
-// that path is unverified from the environment this was written in, which
-// Ameren challenges, and should be watched on its first production run.
+// the dated endpoint and parser were verified against eight distinct real
+// reports on 2026-11-09 (scripts/ingestion/lakes/2026-11-09/reviewed-pilot/).
+// The scheduled handler still needs a recorded production run before rollout.
 //
 // SCHEDULED AT :40 (vercel.json) — after sync-dam-snapshots at :35 and off
 // the :00/:15/:20/:25 slots the gauge and dam-history jobs hold.

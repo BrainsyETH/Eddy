@@ -1,8 +1,11 @@
 # Lakes — Phase 0 records and the recreation-status ledger
 
 Evidence for `docs/LAKES_AND_LAUNCHES_PLAN_2026-11-09.md` step 1 (Phase 0) and
-the audit that reads it, `docs/LAKES_PHASE0_AUDIT_2026-11-09.md`. Nothing in
-this directory is published, approved, pinned, or written to the database.
+the audit that reads it, `docs/LAKES_PHASE0_AUDIT_2026-11-09.md`. The original
+queues are unapproved candidates. The later `2026-11-09/reviewed-pilot/`
+record identifies the six source/imagery-reviewed locations and real pool
+history written to production; it does not imply that public lake routes
+have been released.
 
 ## `usace-recreation-ledger.json`
 

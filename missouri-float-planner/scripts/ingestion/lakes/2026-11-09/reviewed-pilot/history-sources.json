@@ -1,0 +1,114 @@
+{
+  "fetched_at": "2026-11-09T22:56:02.715876+00:00",
+  "requests": [
+    {
+      "name": "table-rock-history",
+      "status": 200,
+      "type": "application/json;version=2",
+      "json": true,
+      "keys": [
+        "begin",
+        "date-version-type",
+        "end",
+        "interval",
+        "interval-offset",
+        "name",
+        "office-id",
+        "page",
+        "page-size",
+        "time-zone",
+        "total",
+        "units"
+      ],
+      "url": "https://cwms-data.usace.army.mil/cwms-data/timeseries?office=SWL&name=Table_Rock_Dam-Headwater.Elev.Inst.1Hour.0.Decodes-rev&unit=ft&begin=2026-11-01T22%3A56%3A02.715876%2B00%3A00&end=2026-11-09T22%3A56%3A02.715876%2B00%3A00&page-size=10000"
+    },
+    {
+      "name": "truman-2026-11-09",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F08%2F2026&endDate=11%2F09%2F2026"
+    },
+    {
+      "name": "truman-2026-11-08",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F07%2F2026&endDate=11%2F08%2F2026"
+    },
+    {
+      "name": "truman-2026-11-07",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F06%2F2026&endDate=11%2F07%2F2026"
+    },
+    {
+      "name": "truman-2026-11-06",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F05%2F2026&endDate=11%2F06%2F2026"
+    },
+    {
+      "name": "truman-2026-11-05",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F04%2F2026&endDate=11%2F05%2F2026"
+    },
+    {
+      "name": "truman-2026-11-04",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F03%2F2026&endDate=11%2F04%2F2026"
+    },
+    {
+      "name": "truman-2026-11-03",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F02%2F2026&endDate=11%2F03%2F2026"
+    },
+    {
+      "name": "truman-2026-11-02",
+      "status": 200,
+      "type": "application/json; charset=utf-8",
+      "json": true,
+      "keys": [
+        "dischargeData",
+        "levelandFlowData"
+      ],
+      "url": "https://www.ameren.com/api/ameren/Hydroelectric/getBagnellDamDailyReportData?startDate=11%2F01%2F2026&endDate=11%2F02%2F2026"
+    }
+  ]
+}
