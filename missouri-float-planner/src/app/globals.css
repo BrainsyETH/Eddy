@@ -428,6 +428,7 @@ body {
 .ew-gen { color: var(--ew-muted); }
 .ew-gen-on, .ew-gen-min { color: var(--ew-data); }
 .ew-gen-chip { border-color: var(--ew-border); background: var(--ew-surface); }
+.ew-dam-header-age { flex: 0 0 auto; align-self: center; margin-left: auto; color: var(--ew-muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
 .ew-dam-live { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px 16px; min-width: 0; }
 .ew-dam-flow { min-width: 0; }
 .ew-dam-live .ew-reading-value { font-size: clamp(28px, 5vw, 36px); }
@@ -457,14 +458,45 @@ body {
 .ew-sched-slot:first-child .ew-sched-now::before { transform: translateX(-12%); }
 .ew-sched-slot:last-child .ew-sched-now::before { transform: translateX(-88%); }
 .ew-sched-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--ew-muted); }
-.ew-dam-below { display: flex; flex-direction: column; gap: 5px; border-top: 1px solid var(--ew-border); padding-top: 10px; }
-.ew-dam-below-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 3px 10px; }
-.ew-dam-below-title { font-size: 13px; font-weight: 700; }
-.ew-dam-change { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
-.ew-dam-change-value { font-size: 18px; line-height: 1.3; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ew-dam-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
-.ew-dam-metric { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border-top: 1px solid var(--ew-border); padding-top: 9px; min-width: 0; }
-.ew-dam-metric-value { font-size: 17px; line-height: 1.35; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Water measurements: same row on full-width cards, no extra mini-cards.
+   Eddy's existing water/level/thermometer symbols supply the identity. */
+.ew-dam-details {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px; border-top: 1px solid var(--ew-border); padding-top: 12px;
+}
+.ew-dam-detail { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+.ew-dam-detail + .ew-dam-detail { border-left: 1px solid var(--ew-border); padding-left: 12px; }
+.ew-dam-detail-heading { display: flex; align-items: center; gap: 6px; min-height: 28px; }
+.ew-dam-detail-heading img { flex: none; }
+.ew-dam-detail-title { font-family: var(--font-body), system-ui, sans-serif; font-size: 12px; font-weight: 700; line-height: 1.3; }
+.ew-dam-detail-value {
+  display: block; font-size: 20px; font-weight: 700; line-height: 1.25;
+  letter-spacing: -0.018em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.ew-dam-detail-unit { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--ew-muted); }
+.ew-dam-value-rising { color: var(--ew-rise); }
+.ew-dam-value-falling, .ew-dam-value-lake, .ew-dam-value-temperature { color: var(--ew-data); }
+.ew-dam-movement {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 22px;
+  padding: 2px 7px; border-radius: 6px; background: var(--ew-surface);
+  font-size: 12px; font-weight: 700; line-height: 18px;
+}
+.ew-dam-movement-rising { color: var(--ew-rise); }
+.ew-dam-movement-falling { color: var(--ew-data); }
+.ew-dam-movement > span { font-size: 17px; font-weight: 700; line-height: 1; }
+.ew-dam-additional { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 10px; border-top: 1px solid var(--ew-border); padding-top: 8px; }
+.ew-dam-additional-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .ew-dam-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ew-dam-detail:nth-child(3) { border-left: 0; padding-left: 0; border-top: 1px solid var(--ew-border); padding-top: 8px; }
+}
+@media (max-width: 460px) {
+  .ew-dam-details { grid-template-columns: minmax(0, 1fr); }
+  .ew-dam-detail + .ew-dam-detail,
+  .ew-dam-detail:nth-child(3) { border-left: 0; padding-left: 0; border-top: 1px solid var(--ew-border); padding-top: 9px; }
+  .ew-dam-header-age { flex-basis: 100%; margin-left: auto; text-align: right; }
+}
+
 .ew-dam-spill { border-top: 1px solid var(--ew-border); padding-top: 8px; }
 .ew[data-eddy-embed-kind="dam"] .ew-credit { padding-top: 7px; }
 .ew[data-eddy-embed-kind="dam"] .ew-powered { font-weight: 500; }
@@ -476,7 +508,6 @@ body {
 @media (max-width: 380px) {
   .ew-dam-live { align-items: flex-start; flex-wrap: wrap; }
   .ew-dam-state { align-items: flex-start; text-align: left; }
-  .ew-dam-metrics { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

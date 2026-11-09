@@ -48,10 +48,24 @@ when the disclosure expands. `full` adds the dam's own dated downstream
 water elevation and only fresh, canonically rounded movement (no safety verdict; outdated elevation values are suppressed),
 spillway discharge when separately observed, and total release only when
 it isn't an effectively identical, near-simultaneous turbine observation.
-Daily-average release stays distinct. Lake level and tomorrow's posted
-bars remain available. Everything is flat within the Eddy frame, not nested
-metric tiles. "Turbine flow" stays explicit: "release" could include spillway
-or other outlets.
+Daily-average release stays distinct. The full embed shows **below the dam**,
+**lake level**, and **water temperature below the dam** in a shared measurement
+row when data exists. Use the existing web/iOS Eddy glyphs for river gauge,
+lake gauge and water temperature, rather than generic iconography. Rising
+stage (only when a fresh, measured change exists) uses a coral arrow + text;
+falling stage uses teal arrow + text; lake level is rendered in Eddy water teal.
+These are measurements, **not safety classifications**. The row wraps to two
+columns and then one for narrow iframes; only available metrics are shown.
+
+The full card has one visible `Observed … ago` line at the header's top-right,
+referring **only to turbine flow**. It is not a single timestamp for all
+measurements: exact ages for downstream stage, lake elevation, temperature,
+spillway and other release readings stay in the expanded `About this data`
+and on the metric's native hover title. Stale levels/temperatures have no
+numeric reading presented as current. Tomorrow's posted bars remain.
+Everything is flat within the Eddy frame, not nested metric tiles.
+"Turbine flow" stays explicit: "release" could include spillway or other
+outlets.
 Flood-control projects (no powerhouse) render an explanatory unavailable state;
 the workbench picker excludes them, as the iOS picker does.
 

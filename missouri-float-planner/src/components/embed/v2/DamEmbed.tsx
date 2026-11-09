@@ -26,7 +26,7 @@
 import { damWidgetSnapshot } from '@shared/dam-widget';
 import { spillwayRelease, spillwayReleaseLabel } from '@shared/dam-generation';
 import { readingStaleness, relativeAge, scheduleDayLabel, tailwaterMovementLabel } from '@shared/dam-schedule-copy';
-import { eddyIconUrl } from '@/components/ui/EddyIcon';
+import { EddyIcon, eddyIconUrl } from '@/components/ui/EddyIcon';
 import { EDDY_IMAGES } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import type { EmbedBrandingRecord } from '@/lib/embed/cards';
@@ -234,16 +234,6 @@ function Strip({ data, options, branding, origin, now }: Props) {
 
 // ── card / full ─────────────────────────────────────────────────────────────
 
-function Metric({ label, value, detail }: { label: string; value: React.ReactNode; detail?: string | null }) {
-  return (
-    <div className="ew-dam-metric">
-      <span className="ew-section-title">{label}</span>
-      <span className="ew-dam-metric-value">{value}</span>
-      {detail && <span className="ew-support">{detail}</span>}
-    </div>
-  );
-}
-
 function Card(props: Props) {
   const { data, options, branding, origin, now } = props;
   const full = options.size === 'full';
@@ -259,6 +249,7 @@ function Card(props: Props) {
   // Downstream changes come only from the dam's own dated stage series.
   // Do not infer movement from turbine flow or classify wading/float safety.
   const downstream = full ? dam.metrics.tailwaterElevation ?? null : null;
+  const waterTemp = full ? dam.metrics.tailwaterTempF ?? null : null;
   const downstreamAge = downstream ? readingStaleness(downstream.at, now) : null;
   const downstreamChange = downstream && downstreamAge === 'fresh'
     ? tailwaterMovementLabel(downstream.trend)
@@ -268,6 +259,8 @@ function Card(props: Props) {
     : null;
   const spillway = full ? spillwayRelease(dam, now) : null;
   const pool = full ? dam.metrics.poolElevation ?? null : null;
+  const poolAge = pool ? readingStaleness(pool.at, now) : null;
+  const tempAge = waterTemp ? readingStaleness(waterTemp.at, now) : null;
   const release = full ? dam.metrics.release ?? null : null;
   const utm = utmFor(data, options, branding);
   const links = [{ label: 'View full report', path: `/dams/${dam.id}` }];
@@ -291,12 +284,19 @@ function Card(props: Props) {
           <h1 className="ew-title">{dam.name}</h1>
           <p className="ew-support">{locationLine(dam)}</p>
         </div>
+        <time
+          className="ew-dam-header-age"
+          dateTime={observedIso(moment) ?? undefined}
+          title="Turbine flow observation; other measurements may have different timestamps"
+        >
+          {moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : 'Observation unavailable'}
+        </time>
       </header>
 
       <div className="ew-dam-now">
         <div className="ew-dam-live">
           <div className="ew-dam-flow">
-            <span className="ew-section-title">Observed turbine flow</span>
+            <span className="ew-section-title">Turbine flow</span>
             <div className="ew-reading">
               <span className={'ew-reading-value' + (moment.current ? '' : ' ew-dim')}>
                 {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
@@ -309,9 +309,6 @@ function Card(props: Props) {
               <BoltGlyph tone={tone} />
               {moment.current ? compactStatus(moment) : moment.status}
             </p>
-            <span className="ew-support ew-reading-age">
-              {moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : 'Observation unavailable'}
-            </span>
           </div>
         </div>
       </div>
@@ -336,52 +333,91 @@ function Card(props: Props) {
         </div>
       )}
 
-      {full && downstream && Number.isFinite(downstream.value) && (
-        <section className="ew-dam-below" aria-label="Below the dam">
-          <div className="ew-dam-below-head">
-            <h2 className="ew-dam-below-title">Below the dam</h2>
-            <span className="ew-support">
-              {downstreamAge !== 'fresh' ? 'Older reading · ' : ''}{formatObservedAge(downstream.at, now)}
-            </span>
-          </div>
-          {downstreamAge === 'stale' || downstreamAge === null ? (
-            <p className="ew-support">No recent downstream level reading.</p>
-          ) : (
-            <div className="ew-dam-change">
-              <span className="ew-dam-change-value">
-                {downstreamChange ?? 'Water elevation ' + downstream.value.toFixed(1) + ' ' + downstream.unit}
-              </span>
-              {downstreamChange && downstreamDirection && (
-                <span className="ew-support">{downstreamDirection} · Water elevation {downstream.value.toFixed(1)} {downstream.unit}</span>
+      {full && (downstream || pool || waterTemp) && (
+        <div className="ew-dam-details" role="group" aria-label="Dam and downstream measurements">
+          {downstream && Number.isFinite(downstream.value) && (
+            <section className="ew-dam-detail" aria-label="Below the dam">
+              <div className="ew-dam-detail-heading">
+                <EddyIcon name="gauge" size={28} />
+                <h2 className="ew-dam-detail-title">Below the dam</h2>
+              </div>
+              {downstreamAge === 'stale' || downstreamAge === null ? (
+                <p className="ew-support">No recent downstream level reading</p>
+              ) : (
+                <>
+                  {downstreamChange && downstreamDirection ? (
+                    <>
+                      <div className="ew-dam-detail-figure">
+                        <strong className={`ew-dam-detail-value ${downstreamDirection === 'Rising' ? 'ew-dam-value-rising' : 'ew-dam-value-falling'}`}>
+                          {downstreamChange}
+                        </strong>
+                      </div>
+                      <p className={`ew-dam-movement ew-dam-movement-${downstreamDirection.toLowerCase()}`}>
+                        <span aria-hidden="true">{downstreamDirection === 'Rising' ? '↗' : '↘'}</span>
+                        {downstreamDirection}
+                      </p>
+                      <p className="ew-support">Water elevation {downstream.value.toFixed(1)} {downstream.unit}</p>
+                    </>
+                  ) : (
+                    <>
+                      <strong className="ew-dam-detail-value">{downstream.value.toFixed(1)} {downstream.unit}</strong>
+                      <p className="ew-support">{downstreamAge === 'lagging' ? 'Older reading · ' : ''}Water elevation</p>
+                    </>
+                  )}
+                </>
               )}
-            </div>
+            </section>
           )}
-        </section>
+          {pool && Number.isFinite(pool.value) && (
+            <section className="ew-dam-detail" aria-label="Lake level" title={formatObservedAge(pool.at, now)}>
+              <div className="ew-dam-detail-heading">
+                <EddyIcon name="damGauge" size={28} />
+                <h2 className="ew-dam-detail-title">Lake level</h2>
+              </div>
+              {poolAge === 'stale' || poolAge === null ? (
+                <p className="ew-support">No recent lake level reading</p>
+              ) : (
+                <>
+                  <strong className="ew-dam-detail-value ew-dam-value-lake">
+                    {pool.value.toFixed(1)} <span className="ew-dam-detail-unit">{pool.unit}</span>
+                  </strong>
+                  <p className="ew-support">{poolAge === 'lagging' ? 'Older reading · ' : ''}Lake elevation</p>
+                </>
+              )}
+            </section>
+          )}
+          {waterTemp && Number.isFinite(waterTemp.value) && (
+            <section className="ew-dam-detail" aria-label="Water temperature below the dam" title={formatObservedAge(waterTemp.at, now)}>
+              <div className="ew-dam-detail-heading">
+                <EddyIcon name="waterTemperature" size={28} />
+                <h2 className="ew-dam-detail-title">Water temperature</h2>
+              </div>
+              {tempAge === 'stale' || tempAge === null ? (
+                <p className="ew-support">No recent temperature reading</p>
+              ) : (
+                <>
+                  <strong className="ew-dam-detail-value ew-dam-value-temperature">
+                    {waterTemp.value.toFixed(1)} <span className="ew-dam-detail-unit">°F</span>
+                  </strong>
+                  <p className="ew-support">{tempAge === 'lagging' ? 'Older reading · ' : ''}Below the dam</p>
+                </>
+              )}
+            </section>
+          )}
+        </div>
       )}
 
       {full && spillway && (
-        <p className="ew-dam-spill">
+        <p className="ew-dam-spill" title={formatObservedAge(spillway.observedAt, now)}>
           <strong>{spillwayReleaseLabel(spillway)}</strong>
-          <span className="ew-support"> · {formatObservedAge(spillway.observedAt, now)}</span>
         </p>
       )}
 
-      {full && ((release && !releaseDuplicatesTurbine) || pool) && (
-        <div className="ew-dam-metrics" role="group" aria-label="Additional dam measurements">
-          {release && !releaseDuplicatesTurbine && (
-            <Metric
-              label={release.dailyMean ? 'Total release · daily average' : 'Total release'}
-              value={Math.round(release.value).toLocaleString('en-US') + ' cfs'}
-              detail={formatObservedAge(release.at, now)}
-            />
-          )}
-          {pool && (
-            <Metric
-              label="Lake level"
-              value={pool.value.toFixed(1) + ' ' + pool.unit}
-              detail={formatObservedAge(pool.at, now)}
-            />
-          )}
+      {full && release && !releaseDuplicatesTurbine && (
+        <div className="ew-dam-additional" title={formatObservedAge(release.at, now)}>
+          <span className="ew-section-title">{release.dailyMean ? 'Total release · daily average' : 'Total release'}</span>
+          <strong className="ew-dam-additional-value">{Math.round(release.value).toLocaleString('en-US')} cfs</strong>
+          {readingStaleness(release.at, now) !== 'fresh' && <span className="ew-support">Older reading</span>}
         </div>
       )}
 
@@ -392,7 +428,12 @@ function Card(props: Props) {
       <details className="ew-about">
         <summary className="ew-link">About this data</summary>
         <ul className="ew-support">
-          <li>Turbine flow is observed at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}.</li>
+          <li>Turbine flow is measured at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}. The header age applies to turbine flow only; downstream, lake and temperature measurements have independent timestamps.</li>
+          {downstream && <li>Downstream level: {formatObservedAge(downstream.at, now)}.</li>}
+          {pool && <li>Lake level: {formatObservedAge(pool.at, now)}.</li>}
+          {waterTemp && <li>Water temperature below the dam: {formatObservedAge(waterTemp.at, now)}.</li>}
+          {release && !releaseDuplicatesTurbine && <li>Total release: {formatObservedAge(release.at, now)}.</li>}
+          {spillway && <li>Spillway release: {formatObservedAge(spillway.observedAt, now)}.</li>}
           <li>Hourly bars show posted power generation in MW, not measured river flow. The schedule may differ from observed turbine flow. Schedules are in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
         </ul>
       </details>
