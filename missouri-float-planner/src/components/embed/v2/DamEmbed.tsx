@@ -117,14 +117,19 @@ export function ScheduleBars({ day, currentHour, compact = false, label }: {
 }) {
   const peak = schedulePeak(day);
   const minimumFlowOnly = peak === 0 && day.hours.some((h) => h.minimumFlow === true);
+  const missingHours = day.hours.filter((h) => h.megawatts == null).length;
   const height = compact ? 42 : 72;
-  // Only a day with nothing to draw earns a word beside the label.
-  const note = minimumFlowOnly ? 'Minimum flow only' : peak === 0 ? 'No generation scheduled' : null;
+  // Incomplete source hours must never read as confirmed idle generation.
+  const note = missingHours === 24 ? 'Schedule unavailable'
+    : missingHours > 0 ? 'Some hours unavailable'
+    : minimumFlowOnly ? 'Minimum flow only'
+    : peak === 0 ? 'No generation scheduled'
+    : null;
   return (
-    <div className="ew-sched" role="img" aria-label={`${label}: posted hourly generation schedule in MW, Central Time, subject to change. Outlined bars are missing hours; the Now marker is the current time, not a flow observation.${note ? ` ${note}.` : ''}`}>
+    <div className="ew-sched" role="img" aria-label={`${label}: posted hourly generation schedule in MW, Central Time, subject to change. Outlined bars are missing hours.${currentHour != null ? ' The Now marker shows the current hour, not measured flow.' : ''}${note ? ` ${note}.` : ''}`}>
       <div className="ew-sched-head">
         <span className="ew-section-title">{label}</span>
-        <span className="ew-support">{note ?? 'Hourly plan · MW'}</span>
+        <span className="ew-support">{note ?? (peak > 0 ? 'Peak ' + Math.round(peak).toLocaleString('en-US') + ' MW' : 'Hourly plan · MW')}</span>
       </div>
       <div className="ew-sched-bars" style={{ height: height + 18 }}>
         {day.hours.map((hour) => {
@@ -266,7 +271,6 @@ function Card(props: Props) {
   const utm = utmFor(data, options, branding);
   const links = [{ label: 'View full report', path: `/dams/${dam.id}` }];
   if (full && dam.tailwater?.riverSlug) links.push({ label: 'River below', path: `/rivers/${dam.tailwater.riverSlug}` });
-  const peak = today ? schedulePeak(today) : 0;
   const checked = moment.scheduleCheckedAt != null ? relativeAge(new Date(moment.scheduleCheckedAt).toISOString(), now) : null;
   const sources = dam.sources.map((s) => SOURCE_NAMES[s] ?? s);
   // Only collapse identical, near-simultaneous spot readings. Daily averages,
@@ -325,7 +329,7 @@ function Card(props: Props) {
       ) : (
         <div className="ew-sched">
           <span className="ew-section-title">Today’s posted generation · CT</span>
-          <p className="ew-support">{'No schedule posted for today'}</p>
+          <p className="ew-support">No schedule posted for today</p>
         </div>
       )}
 
@@ -381,7 +385,6 @@ function Card(props: Props) {
         <ul className="ew-support">
           <li>Turbine flow is observed at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}.</li>
           <li>Hourly bars show posted power generation in MW, not measured river flow. The schedule may differ from observed turbine flow. Schedules are in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
-          {peak > 0 && <li>Today’s scheduled peak is {Math.round(peak).toLocaleString('en-US')} MW.</li>}
         </ul>
       </details>
 
