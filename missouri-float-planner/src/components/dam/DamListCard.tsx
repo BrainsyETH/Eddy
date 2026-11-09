@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
-import GenerationSchedule, { ScheduleCheck, scheduleSectionCheck } from './GenerationSchedule';
+import GenerationSchedule, { ScheduleCheck, ScheduleDateline, scheduleSectionCheck } from './GenerationSchedule';
 import { DamReadings, DamScheduleInfoTip } from './DamCardParts';
 import Card from '@/components/ui/Card';
 import { relativeAgeShort, readingStaleness } from '@shared/dam-schedule-copy';
@@ -9,9 +9,11 @@ import { relativeAgeShort, readingStaleness } from '@shared/dam-schedule-copy';
 /**
  * Directory and homepage summary of one dam.
  *
- * Reading order: dam → measured release and temperature → today's schedule →
- * next change → schedule freshness → full report. Navigation stays separate
- * from the timeline, which takes taps and keys for inspection and never links.
+ * Reading order: dam, dated today → measured release and temperature →
+ * today's schedule → next change → schedule freshness → full report. The
+ * header's dateline is the only place the card names the day; the schedule
+ * section opens with the plan in words. Navigation stays separate from the
+ * timeline, which takes taps and keys for inspection and never links.
  */
 export default function DamListCard({ dam, now, href, showLakeLevel = false }: { dam: DamSnapshot; now: number; href: string; showLakeLevel?: boolean }) {
   const scheduleCheck = dam.hasTurbines ? scheduleSectionCheck(dam.schedule, dam.generationReference, now, true) : null;
@@ -29,7 +31,10 @@ export default function DamListCard({ dam, now, href, showLakeLevel = false }: {
             <h3 className="font-heading text-xl font-bold leading-6 text-neutral-900">{dam.name}</h3>
             {place && <p className="mt-0.5 text-[13px] leading-[18px] text-neutral-600">{place}</p>}
           </div>
-          <ChevronRight className="size-5 shrink-0 text-neutral-500" aria-hidden="true" />
+          <span className="flex shrink-0 items-center gap-2">
+            {dam.hasTurbines && <ScheduleDateline now={now} />}
+            <ChevronRight className="size-5 shrink-0 text-neutral-500" aria-hidden="true" />
+          </span>
         </Link>
 
         <DamReadings dam={dam} now={now} />

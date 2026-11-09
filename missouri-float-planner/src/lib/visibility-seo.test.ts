@@ -138,7 +138,16 @@ test('All keeps the river chart and Eddy report alongside the dam schedule and e
     }));
   });
   const textContent = html.replace(/<[^>]*>/g, '');
-  for (const text of ['Eddy says', 'Full river report', 'At Van Buren', 'Van Buren gauge', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation scheduled all day', 'Generation increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  for (const text of ['Eddy says', 'Full river report', 'At Van Buren', 'Van Buren gauge', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  // The card leads its schedule with the next move and the peak window, in
+  // place of the hours count, each said once and both above the chart.
+  const todaySchedule = scheduleSection(html, 'Today');
+  const todayText = todaySchedule.replace(/<[^>]*>/g, ' ');
+  assert.ok(todayText.indexOf('Generation increases at 2 PM.') < todayText.indexOf('Peak window: 2 PM–midnight'), 'the next move leads, the peak window follows');
+  assert.ok(todaySchedule.indexOf('data-peak-window') < todaySchedule.indexOf('role="img"'), 'both sit above the chart');
+  assert.equal((html.match(/Peak window:/g) ?? []).length, 1, 'the chart’s at-rest readout does not repeat the peak');
+  assert.equal((html.match(/Generation increases at 2 PM\./g) ?? []).length, 1, 'the change is not repeated under the chart');
+  assert.doesNotMatch(textContent, /Generation scheduled all day/, 'the hours count gives way to the move');
   // Trimmed: no label over the change sentence, no standing instruction, no repeated caveats.
   // River card: the reading is shown once (no chart "Current:" copy), the
   // comparison never says "typical", actions are sentence case.
@@ -187,7 +196,18 @@ test('dam cards render only today on the Central calendar across midnight, DST a
     assert.match(section, /aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is 50%/);
     assert.match(html, /data-schedule-check="(current|stale)"[^>]*>(?:<svg[\s\S]*?Outdated: <\/span>)?Schedule checked /, 'one freshness line, as a Central clock time');
     assert.equal((html.match(/data-schedule-check=/g) ?? []).length, 1, 'matching retrievals do not repeat as separate alerts');
-    assert.match(section, /Today’s generation <span[^>]*>· /, 'heading, day and date share one row');
+    // The card names the day once, as a dateline in its header, before the
+    // readings; the schedule section opens with the plan in words under a
+    // heading that is spoken only.
+    const header = html.match(/<a\b[^>]*href="\/dams\/[^"]*"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? '';
+    assert.match(header, /· <span aria-hidden="true">CT<\/span><span class="sr-only">Central time<\/span>/, 'the header carries the day and zone');
+    assert.ok(html.indexOf(header) < html.indexOf(section), 'the dateline precedes the schedule');
+    assert.equal((html.match(/aria-hidden="true">CT</g) ?? []).length, 1, 'the day is dated once');
+    assert.match(section, /<h4 class="sr-only">Today’s generation<\/h4>/, 'the section keeps a spoken heading');
+    assert.doesNotMatch(section, /Today’s generation <span/, 'no visible heading row above the plan');
+    // A flat all-day schedule holds no move, so the day's headline leads.
+    assert.ok(section.replace(/<[^>]*>/g, ' ').indexOf('Generation scheduled all day') < section.indexOf('role="img"'), 'the plan in words is the section’s first line');
+    assert.match(section, /data-peak-window[^>]*>Peak window: all day</, 'the peak window follows the headline');
     assert.equal((section.match(/data-schedule-now/g) ?? []).length, 1);
     assert.doesNotMatch(html, /aria-label="Tomorrow’s generation schedule"/);
     assert.doesNotMatch(html, /<details|role="tab"/);

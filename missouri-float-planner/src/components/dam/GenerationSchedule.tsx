@@ -11,6 +11,8 @@ import {
 import {
   scheduleCheckLine,
   scheduleOutlook,
+  schedulePeak,
+  schedulePeakWindowLabel,
   scheduledChangeSummary,
   type GenerationReference,
   type ScheduleCheckLine,
@@ -30,6 +32,23 @@ export function ScheduleCheck({ check }: { check: ScheduleCheckLine }) {
     </p>
   ) : (
     <p data-schedule-check="current" className="text-xs leading-4 text-neutral-600">{check.text}</p>
+  );
+}
+
+/**
+ * The day a compact card's schedule describes, for the card's HEADER:
+ * "Mon, Nov 9 · CT". It used to open the schedule section as "Today's
+ * generation · Mon, Nov 9 · CT", a heading-weight line sat directly on the
+ * plan in words, so the card read as two headlines in a row. As a dateline
+ * beside the dam's name it dates the whole card once, and the plan opens the
+ * section. The zone is abbreviated as the iOS card does ("Schedule · CT") and
+ * spoken in full.
+ */
+export function ScheduleDateline({ now, className = '' }: { now: number; className?: string }) {
+  return (
+    <span className={`whitespace-nowrap text-[13px] leading-[18px] text-neutral-600 tabular-nums ${className}`}>
+      {scheduleDayLabel(centralDayKey(now))} · <span aria-hidden="true">CT</span><span className="sr-only">Central time</span>
+    </span>
   );
 }
 
@@ -113,12 +132,25 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
   // closes the section with it.
   const check = compact ? null : scheduleSectionCheck(schedule, reference, now, compact);
 
+  // ── What a card leads with ─────────────────────────────────────────────────
+  // The next move and the peak window are what a reader at the bank decides
+  // on, so a card puts them where the plan's headline ("Generation scheduled
+  // for 9 hours") used to be: the move in the headline's weight, the peak
+  // under it. The hours count is what the chart already shows. When the
+  // posted schedule holds no move ("Releasing through the end of the posted
+  // schedule."), the day's headline leads instead and the sentence keeps its
+  // place under the chart: a minimum-flow day with no move reads "Only
+  // minimum flow scheduled", which is the fact, not "no more releases".
+  const leadsWithChange = compact && Boolean(todayDay) && Boolean(nextChange) && Boolean(scheduleOutlook(schedule, reference, now)?.move);
+  const todayPeak = compact && todayDay ? schedulePeak(todayDay, reference) : null;
+  const todayPeakWindow = todayPeak ? schedulePeakWindowLabel(todayPeak) : null;
+
   const Heading = compact ? 'h4' : 'h2';
   const DayHeading = compact ? 'h5' : 'h3';
 
   // The sentence names its own subject and time ("Generation starts at 6 AM
   // tomorrow."), so it needs no label above it.
-  const changeLine = nextChange && (
+  const changeLine = nextChange && !leadsWithChange && (
     compact
       ? <p className="mt-1.5 text-sm font-medium leading-5 text-primary-900">{nextChange}</p>
       : <p className="mt-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3 text-lg font-semibold leading-snug text-primary-900 sm:text-xl">{nextChange}</p>
@@ -127,32 +159,48 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
   return (
     <section aria-label="Generation schedule" className="min-w-0">
       <section aria-label="Today’s generation schedule">
-        <div className={`flex min-h-11 items-center justify-between gap-2 ${compact ? '-mr-2.5' : 'pr-10'}`}>
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-            <Heading className={`font-heading font-bold text-primary-800 ${compact ? 'text-sm' : 'text-lg'}`}>
-              Today’s generation <span className="font-normal text-neutral-600">
-                · {scheduleDayLabel(today)}
-                {/* A card is too narrow for "Central time" to share the
-                    heading's line, and on its own row it read as a second
-                    heading. Abbreviated there as the iOS card does ("Schedule
-                    · CT"); spoken in full. */}
-                {compact && <> · <span aria-hidden="true">CT</span><span className="sr-only">Central time</span></>}
-              </span>
-            </Heading>
-            {!compact && <span className="text-xs leading-4 text-neutral-600">Central time</span>}
+        {compact ? (
+          // A card shows the day and zone once, in its header (ScheduleDateline,
+          // placed by DamListCard and RiverDamPanel), so the plan in words is
+          // the first line here. The heading stays for screen readers, which
+          // reach the section through it.
+          <Heading className="sr-only">Today’s generation</Heading>
+        ) : (
+          <div className="flex min-h-11 items-center justify-between gap-2 pr-10">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+              <Heading className="font-heading text-lg font-bold text-primary-800">
+                Today’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(today)}</span>
+              </Heading>
+              <span className="text-xs leading-4 text-neutral-600">Central time</span>
+            </div>
+            {info}
           </div>
-          {info}
+        )}
+        {/* On a card the ⓘ shares the plan's row; its 44px target sets the
+            row's height, and the negative margin keeps the glyph on the
+            card's text edge. */}
+        <div className={compact ? '-mr-2.5 flex min-h-11 items-center justify-between gap-2' : undefined}>
+          {todayDay ? (
+            <div className="min-w-0">
+              <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'text-base' : 'text-xl sm:text-2xl'}`}>
+                {leadsWithChange ? nextChange : scheduleDayHeadline(todayDay.hours)}
+              </p>
+              {todayPeakWindow && (
+                <p data-peak-window className="mt-0.5 text-sm font-medium leading-5 tabular-nums text-primary-800">Peak window: {todayPeakWindow}</p>
+              )}
+            </div>
+          ) : (
+            <p className={`rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600 ${compact ? 'min-w-0 flex-1' : 'mt-1'}`}>
+              Today’s generation schedule is unavailable.
+            </p>
+          )}
+          {compact && info}
         </div>
-        {todayDay ? <>
-          <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'text-base' : 'text-xl sm:text-2xl'}`}>
-            {scheduleDayHeadline(todayDay.hours)}
-          </p>
+        {todayDay && (
           <div className={compact ? 'mt-2' : 'mt-3'}>
-            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact && !expandedChart} />
+            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact && !expandedChart} peakAtRest={!compact} />
           </div>
-        </> : <p className="mt-1 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
-          Today’s generation schedule is unavailable.
-        </p>}
+        )}
       </section>
 
       {changeLine}
