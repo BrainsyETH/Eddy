@@ -94,6 +94,7 @@ export function friendlyJob(id: string): string {
     'record-river-map-frame': 'Record national map frames',
     'sync-dam-history': 'Record dam history',
     'sync-dam-snapshots': 'Refresh dam conditions',
+    'sync-lake-levels': 'Record lake levels',
     'snapshot-percentiles': 'Update flow comparisons',
     'evaluate-gauge-alerts': 'Check river alerts',
     'deliver-push': 'Send push alerts',
