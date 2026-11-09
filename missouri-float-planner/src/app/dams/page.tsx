@@ -5,9 +5,8 @@ import { ChevronRight } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import DamDirectory from '@/components/dam/DamDirectory';
 import { conditionsDamCatalogue } from '@/lib/conditions/dam-catalogue';
-import { buildDamDirectoryGroups } from '@/lib/data/dam-directory';
-import { readStoredSnapshots } from '@/lib/data/dam-snapshot-store';
-import { refreshStaleness } from '@/lib/data/dams';
+import { buildDamDirectoryGroups, parseDirectoryFilters } from '@/lib/data/dam-directory';
+import { directorySnapshotsFromRows, readDirectoryRows } from '@/lib/data/dam-directory-source';
 import { getActiveRiverContexts } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
 import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
@@ -55,20 +54,23 @@ const QUESTIONS = [
   },
 ] as const;
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ q?: string; state?: string }> }) {
-  const filters = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
   // Render at request time: a cached HTML page could otherwise call yesterday
   // 'today' after midnight. The stored full snapshots include lake elevation;
   // the smaller Conditions summaries deliberately do not.
   await connection();
   const now = Date.now();
-  const [stored, activeRivers] = await Promise.all([
-    readStoredSnapshots({ now }),
+  // A narrow read with a deadline and a 60-second bounded memo; rows are
+  // re-checked and re-banded on this request's clock (dam-directory-source.ts).
+  const [rows, activeRivers] = await Promise.all([
+    readDirectoryRows(),
     getActiveRiverContexts().catch(() => []),
   ]);
   // The registry keeps all destinations navigable through data outages.
-  const { dams } = conditionsDamCatalogue([...stored.values()].map(snapshot => refreshStaleness(snapshot, now)));
+  const { dams } = conditionsDamCatalogue(directorySnapshotsFromRows(rows, now));
   const groups = buildDamDirectoryGroups(dams);
+  const filters = parseDirectoryFilters({ q: params.q, state: params.state }, dams.map(dam => dam.state));
   const riverLinks = RELATED_RIVERS.flatMap(related => {
     const river = activeRivers.find(entry => entry.slug === related.slug);
     return river ? [{ href: riverPath(river.state, river.slug), label: related.label }] : [];
@@ -103,7 +105,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
         </div>
       </nav>
 
-      <DamDirectory groups={groups} renderedAt={now} initialQuery={filters.q ?? ''} initialState={filters.state?.toUpperCase() ?? 'all'} />
+      <DamDirectory groups={groups} renderedAt={now} initialQuery={filters.query} initialState={filters.state} />
 
       <section aria-labelledby="schedule-help-heading" className="mt-12 max-w-4xl">
         <h2 id="schedule-help-heading" className="font-heading text-2xl font-bold text-primary-900">Understanding generation schedules</h2>

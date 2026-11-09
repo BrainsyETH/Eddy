@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import DamListCard from '@/components/dam/DamListCard';
 import { stateName } from '@/lib/navigation/states';
-import type { DirectoryDamGroup } from '@/lib/data/dam-directory';
+import { parseDirectoryFilters, type DirectoryDamGroup } from '@/lib/data/dam-directory';
 
 function normalize(value: string): string {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, '').trim();
@@ -36,16 +36,6 @@ export default function DamDirectory({
     };
   }, []);
 
-  // Preserve existing /dams?q=...&state=... links, including Back/Forward.
-  useEffect(() => {
-    const restore = () => {
-      const params = new URLSearchParams(window.location.search);
-      setQuery(params.get('q') ?? '');
-      setState(params.get('state')?.toUpperCase() || 'all');
-    };
-    window.addEventListener('popstate', restore);
-    return () => window.removeEventListener('popstate', restore);
-  }, []);
 
   function filter(nextQuery: string, nextState: string) {
     setQuery(nextQuery);
@@ -70,6 +60,19 @@ export default function DamDirectory({
       return stateName(a).localeCompare(stateName(b));
     });
   }, [groups]);
+
+  // Preserve existing /dams?q=...&state=... links, including Back/Forward, by
+  // the same rule the page applies on the server (parseDirectoryFilters).
+  useEffect(() => {
+    const restore = () => {
+      const params = new URLSearchParams(window.location.search);
+      const next = parseDirectoryFilters({ q: params.get('q'), state: params.get('state') }, states);
+      setQuery(next.query);
+      setState(next.state);
+    };
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, [states]);
 
   const filtered = useMemo(() => {
     const term = normalize(query);
