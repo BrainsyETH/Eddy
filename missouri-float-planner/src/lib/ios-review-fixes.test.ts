@@ -76,7 +76,7 @@ function nodes(value: unknown): Node[] {
 const theme = { useTheme: () => ({ colors: {}, elevation: () => ({}) }) };
 const native = { View: 'View', Text: 'Text', Pressable: 'Pressable', StyleSheet: { create: (styles: unknown) => styles } };
 
-test('expired membership offers Premium while invalid authentication offers Apple sign-in', async () => {
+test('member Read distinguishes access failures and unverified schedules', async () => {
   const dependencies: Record<string, unknown> = {
     'react/jsx-runtime': { jsx, jsxs: jsx }, react: {}, 'react-native': native,
     '@/hooks/useDamRefresh': {}, '@/hooks/useObservationClock': {}, '@/lib/damReadFreshness': {},
@@ -112,6 +112,15 @@ test('expired membership offers Premium while invalid authentication offers Appl
       (tree.find(node => node.type === 'Pressable')!.props.onPress as () => void)();
       assert.deepEqual(calls, ['retry']);
     }
+  }
+  // Both the standalone card and river-tab Read use this renderer.
+  for (const mayBeOutdated of [false, true]) {
+    const tree = nodes(exports.MemberRead!({ current: { key: 'user:dam', state: 'ready', read: {
+      takeaway: { headline: 'No more generation scheduled today', summary: 'Today’s posted windows have ended.' },
+      mayBeOutdated,
+    } } }));
+    assert.equal(tree.some(node => node.type === 'Text' && node.props.children === 'Schedule couldn’t be verified'), mayBeOutdated);
+    assert.ok(tree.some(node => node.props.children === 'Today’s posted windows have ended.'), 'fallback keeps the advanced Read visible');
   }
 });
 

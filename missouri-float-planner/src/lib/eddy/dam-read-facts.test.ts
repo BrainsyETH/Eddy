@@ -7,6 +7,7 @@ import type { DamReadRow, DamScheduleDay, ScheduledHour } from '@shared/dam-type
 import {
   CONSISTENT_SPREAD_HOURS,
   DAM_READ_DAM_IDS,
+  advancePosted,
   buildDamReadFacts,
   clockLabel,
   damReadDetailRows,
@@ -148,6 +149,23 @@ test('the fall-back day keeps Central hours right', () => {
   assert.equal(nov1.endHour, 19);
 });
 
+test('morning coverage counts both fall-back hours and only real spring-forward hours', () => {
+  const fallback = (bits: string) => observedDays(dayRows('2026-11-01', bits), FLOOR,
+    { days: 1, now: noonOn('2026-11-02') })[0];
+  const secondHourRan = fallback('001' + '0'.repeat(22));
+  assert.equal(secondHourRan.coverage, 25);
+  assert.equal(secondHourRan.generatingHours, 1);
+  assert.equal(secondHourRan.morningOff, false);
+  assert.equal(recentShape([secondHourRan]).morningsOff, 0);
+  assert.equal(fallback('00.' + '0'.repeat(22)).morningOff, null, 'missing repeated hour cannot establish quiet');
+  assert.equal(fallback('01.' + '0'.repeat(22)).morningOff, false, 'any observed morning run settles it despite a gap');
+  assert.equal(fallback('0'.repeat(25)).morningOff, true);
+  const spring = observedDays(dayRows('2026-03-08', '0'.repeat(23)), FLOOR,
+    { days: 1, now: noonOn('2026-03-09') })[0];
+  assert.equal(spring.fullyObserved, true);
+  assert.equal(spring.morningOff, true, 'the nonexistent 2 AM is not a feed gap');
+});
+
 // ── Patterns and shape ─────────────────────────────────────────────────────
 
 test('a start exactly CONSISTENT_SPREAD_HOURS early counts as early', () => {
@@ -271,6 +289,30 @@ test('posted schedule keeps today\'s windows that have not ended, and tomorrow o
   assert.deepEqual(posted.days[1].windows.map((w) => w.label), ['1 PM – 6 PM']);
   assert.equal(postedSchedule([scheduleDay('2026-10-31', 15), scheduleDay('2026-11-02', 15)], NOW)!.days.length, 1);
   assert.equal(postedSchedule([scheduleDay('2026-11-01', 15)], NOW), null);
+});
+
+test('missing-snapshot fallback advances saved windows without losing the whole-day start or tomorrow', () => {
+  const written = centralDayStart('2026-10-31') + (11 + 47 / 60) * HOUR;
+  const stored = buildDamReadFacts(inputs({ now: written,
+    schedule: [scheduleDay('2026-10-31', 11, 1), scheduleDay('2026-11-01', 15)] }));
+  const original = JSON.stringify(stored);
+  for (const now of [NOW, NOW + HOUR / 3]) {
+    const served = withCurrentSchedule(stored, null, now);
+    assert.equal(served.now, now);
+    assert.equal(served.posted!.days[0].firstStartHour, 11);
+    assert.deepEqual(served.posted!.days[0].windows, []);
+    assert.deepEqual(served.posted!.days[1], stored.posted!.days[1]);
+    assert.equal(renderDamRead(served).takeaway.headline, 'No more generation scheduled today');
+    assert.equal(renderDamRead(served).mayBeOutdated, true);
+    assert.equal(served.shape, stored.shape, 'historical analysis stays cached');
+  }
+  assert.equal(JSON.stringify(stored), original, 'serving does not mutate the stored facts');
+  assert.equal(advancePosted(stored.posted, centralDayStart('2026-11-01')), null, 'never roll yesterday into today');
+  assert.equal(advancePosted(null, NOW), null);
+  const current = withCurrentSchedule(stored, [scheduleDay('2026-10-31', 16)], NOW);
+  assert.equal(current.posted!.days[0].firstStartHour, 16, 'a revised snapshot replaces saved windows');
+  assert.equal(renderDamRead(current).mayBeOutdated, false);
+  assert.equal(withCurrentSchedule(stored, [], NOW).posted, null, 'an empty snapshot schedule does not revive the fallback');
 });
 
 // ── The Read ───────────────────────────────────────────────────────────────
@@ -555,18 +597,64 @@ test('backtest: the stated pattern holds on most days at each tailwater', () => 
 });
 
 
-test('short Reads prioritize early and unposted generation over a familiar start', () => {
+test('recent exceptions qualify generic timing with dates and counts', () => {
   const facts = buildDamReadFacts(inputs());
-  const read = damReadTakeaway(facts);
-  assert.equal(read.headline, 'Recent exceptions to the schedule');
-  assert.match(read.summary, /3 PM is posted today/);
+  assert.ok(facts.reliability);
+  const reliability = { ...facts.reliability, startedEarlyDays: ['2026-10-29'], ranUnpostedDays: ['2026-10-30'] };
+  const read = damReadTakeaway({ ...facts, reliability });
+  assert.equal(read.headline, 'Early and unposted generation lately');
   assert.match(read.summary, /14 tracked days/);
   assert.match(read.summary, /over an hour early once/);
   assert.match(read.summary, /without a posted start once/);
-  assert.ok(read.summary.split(/\s+/).length <= 40);
+  const earlyOnly = damReadTakeaway({ ...facts, reliability: { ...reliability, ranUnpostedDays: [] } });
+  assert.match(earlyOnly.summary, /over an hour early on Thu, Oct 29/);
+  const unpostedOnly = damReadTakeaway({ ...facts, reliability: { ...reliability, startedEarlyDays: [] } });
+  assert.match(unpostedOnly.summary, /without a posted start on Fri, Oct 30/);
+});
+
+test('a single exception holds a generic headline for only three complete Central days', () => {
+  const facts = buildDamReadFacts(inputs());
   assert.ok(facts.reliability);
-  const earlyOnly = damReadTakeaway({ ...facts, reliability: { ...facts.reliability, ranUnpostedDays: [] } });
-  assert.match(earlyOnly.summary, /over an hour early on 1 of 14/);
-  const unpostedOnly = damReadTakeaway({ ...facts, reliability: { ...facts.reliability, startedEarlyDays: [] } });
-  assert.match(unpostedOnly.summary, /without a posted start on 1 of 14/);
+  for (const kind of ['startedEarlyDays', 'ranUnpostedDays'] as const) {
+    let held = 0;
+    let day = '2026-10-31';
+    for (let age = 1; age <= 14; age += 1) {
+      day = previousDay(day);
+      const reliability = { ...facts.reliability, startedEarlyDays: [], ranUnpostedDays: [], [kind]: [day] };
+      const read = damReadTakeaway({ ...facts, reliability });
+      const leads = read.headline !== 'A familiar start time';
+      assert.equal(leads, age <= 3, `${kind}, age ${age}`);
+      if (leads) held += 1;
+    }
+    assert.equal(held, 3);
+  }
+  // Across fall-back, the third complete day is still recent even though a
+  // rolling 72-hour calculation would change its meaning as the clock moves.
+  const november = withCurrentSchedule(facts, [scheduleDay('2026-11-04', 15)], noonOn('2026-11-04'));
+  assert.match(damReadTakeaway({ ...november, reliability: { ...facts.reliability,
+    startedEarlyDays: ['2026-11-01'], ranUnpostedDays: [] } }).summary, /Sun, Nov 1/);
+});
+
+test('earlier and later starts keep the headline when exceptions compete for attention', () => {
+  const facts = buildDamReadFacts(inputs());
+  assert.ok(facts.reliability);
+  for (const start of [12, 18]) {
+    const current = withCurrentSchedule(facts, [scheduleDay('2026-10-31', start)], NOW);
+    for (const early of [['2026-10-18'], ['2026-10-29'], ['2026-10-18', '2026-10-19']]) {
+      for (const unposted of [[], ['2026-10-30'], ['2026-10-20', '2026-10-21']]) {
+        const read = damReadTakeaway({ ...current, reliability: { ...facts.reliability,
+          startedEarlyDays: early, ranUnpostedDays: unposted } });
+        assert.equal(read.headline, start === 12 ? 'An earlier start today' : 'A later start today');
+        assert.ok(read.summary.split(/\s+/).length <= 40, read.summary);
+        assert.equal(read.summary.split(/[.!?]/).filter(Boolean).length, 1);
+        if (early.length > 1 || early[0] === '2026-10-29') assert.match(read.summary, /over an hour early/);
+        else if (!unposted.length) assert.doesNotMatch(read.summary, /generation started/);
+      }
+    }
+  }
+  const repeated = { ...facts.reliability, startedEarlyDays: ['2026-10-18', '2026-10-19'], ranUnpostedDays: [] };
+  assert.equal(damReadTakeaway({ ...facts, reliability: repeated }).headline, 'Generation has started early');
+  assert.match(damReadTakeaway({ ...facts, reliability: repeated }).summary, /2 of 14 tracked days, most recently Mon, Oct 19/);
+  const duplicates = { ...repeated, startedEarlyDays: ['2026-10-18', '2026-10-18'] };
+  assert.equal(damReadTakeaway({ ...facts, reliability: duplicates }).headline, 'A familiar start time');
 });
