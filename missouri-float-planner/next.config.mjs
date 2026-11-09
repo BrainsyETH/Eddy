@@ -66,6 +66,18 @@ const nextConfig = {
     // search engines, equivalent to 301 for ranking transfer). Query params
     // not in destination are forwarded automatically.
     return [
+      // Keep previously shared Buffalo access links working after their slugs
+      // changed. Match the exact old URL; do not redirect other Buffalo places.
+      {
+        source: '/rivers/arkansas/buffalo/access/hasty-launch',
+        destination: '/rivers/arkansas/buffalo/access/hasty',
+        permanent: true,
+      },
+      {
+        source: '/rivers/arkansas/buffalo/access/maumee-north',
+        destination: '/rivers/arkansas/buffalo/access/north-maumee',
+        permanent: true,
+      },
       // River Reports consolidated from /gauges onto the canonical /rivers index.
       {
         source: '/gauges',
