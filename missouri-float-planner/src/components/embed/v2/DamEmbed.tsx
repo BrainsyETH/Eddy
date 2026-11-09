@@ -316,21 +316,23 @@ function Card(props: Props) {
         </div>
       </div>
 
-      <div className="ew-dam-schedule-intro">
-        <span className="ew-section-title">Posted generation schedule</span>
-        {next.stale ? (
-          <p role="note" className="ew-note">{next.text}</p>
-        ) : (
-          <p className="ew-next">{next.text}</p>
-        )}
-      </div>
+      {packet.scheduleDays.length > 0 && (
+        <div className="ew-dam-schedule-intro">
+          <span className="ew-section-title">Posted generation schedule</span>
+          {next.stale ? (
+            <p role="note" className="ew-note">{next.text}</p>
+          ) : (
+            <p className="ew-next">{next.text}</p>
+          )}
+        </div>
+      )}
 
       {today ? (
         <ScheduleBars day={today} currentHour={moment.scheduleHour ?? null} label="Today’s posted generation · CT" />
       ) : (
         <div className="ew-sched">
           <span className="ew-section-title">Today’s posted generation · CT</span>
-          <p className="ew-support">No schedule posted for today</p>
+          <p className="ew-support">Today's generation schedule is unavailable.</p>
         </div>
       )}
 
