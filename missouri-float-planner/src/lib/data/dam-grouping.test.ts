@@ -96,13 +96,14 @@ test('directory preserves the registry and distinguishes readings from unavailab
   const now = Date.parse('2026-11-09T16:00:00Z');
   const measured = {
     value: 780.25,
+    unit: 'ft',
     at: new Date(now - 30 * 60_000).toISOString(),
     staleness: 'fresh' as const,
   };
   const tableRock = buildSnapshot(USACE_DAMS['swl-table-rock-dam'], {
     poolElevation: measured,
-    release: { ...measured, value: 3_200 },
-    generationFlow: { ...measured, value: 6_400 },
+    release: { ...measured, value: 3_200, unit: 'cfs' },
+    generationFlow: { ...measured, value: 6_400, unit: 'cfs' },
   }, []);
   const clearwater = buildSnapshot(USACE_DAMS['swl-clearwater-dam'], {}, []);
   const groups = buildDamDirectoryGroups([tableRock, clearwater], now);
