@@ -213,10 +213,10 @@ function Strip({ data, options, branding, origin, now }: Props) {
   const next = nextChange(moment);
   return (
     <EmbedFrame size="strip" options={options} kind="dam" label={`${data.dam.name} generation`}>
-      <a href={eddyDeepLink(origin, `/dams/${data.dam.id}`, utmFor(data, options, branding))} target="_blank" rel="noopener noreferrer" className="ew-strip" aria-label={`${data.dam.name}: ${moment.status}. ${next.text}`}>
+      <a href={eddyDeepLink(origin, `/dams/${data.dam.id}`, utmFor(data, options, branding))} target="_blank" rel="noopener noreferrer" className="ew-strip" aria-label={`${data.dam.name}. Observed turbine flow ${moment.turbineCfs != null ? `${Math.round(moment.turbineCfs).toLocaleString("en-US")} cfs` : "unavailable"}. ${moment.current ? compactStatus(moment) : moment.status}. ${formatObservedAge(observedIso(moment), now)}. Posted schedule: ${next.text}`}>
         <span className="ew-strip-name">
           <span className="ew-strip-river">{data.dam.name}</span>
-          <span className={`ew-support ew-clip${next.stale ? ' ew-stale' : ''}`}>{next.text}</span>
+          <span className={`ew-support ew-clip${next.stale ? ' ew-stale' : ''}`}>Schedule · {next.text}</span>
         </span>
         <span className="ew-strip-reading">
           {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
