@@ -15,7 +15,8 @@ elevations check out against the lakes' pools except where they expose a
 misfiled ramp; the launch inventory for Truman is nearly complete from
 sources Eddy already holds, while Table Rock's is nearly empty because its
 ramps are the Corps' own and no layer places them; and Hartwell and Thurmond
-carry a day-ahead hourly generation schedule in CWMS.
+publish forward scheduled energy in CWMS, whose cadence is now being recorded
+before anyone calls it a schedule.
 
 ---
 
@@ -74,16 +75,31 @@ lakes:
 | Lanier / Allatoona | 75 / 82 | 29 / 15 | 2026-10-15 / 09-10 | 65 · 146 / 51 · 96 | maintained |
 | Wolf Creek / Center Hill / Dale Hollow | 38 / 25 / 28 | 7 / 8 / 7 | 2025-09-29 / 08-29 / 08-29 | | stale |
 
-The class is a summary; the date is the evidence, and the date is what a
-reader sees. A status at Table Rock renders as "Corps of Engineers listing,
-updated 2026-04-28" or not at all. Nothing is promoted for staying the same:
-`recreation-status.test.ts` asserts that three weeks of identical reads leave
-a project `static` and that one observed change makes it `maintained`.
+The class is a report, not a display rule. Whether a status is shown, and
+how old it reads, follows the area's own agency date: a status at Table Rock
+renders as "Corps of Engineers listing, updated 2026-04-28" or not at all,
+and the report's "fresh boat status" column counts the areas a reader could
+see as current (Texoma: 16 boat statuses, few of them fresh). The class
+counts only events inside a rolling 120-day window, so a change observed
+once cannot keep a project maintained for good, and one freshly dated area
+makes the project `maintained` while its neighbours still show their own
+old dates. `recreation-status.test.ts` asserts all of that: three weeks of
+identical reads leave a project `static`, one observed status change makes
+it `maintained`, and the same change viewed 200 days later counts for
+nothing.
 
 ### What the daily ledger now measures
 
 `scripts/ingestion/lakes/usace-recreation-ledger.json` holds run 1 (one area
-per line, 4,854 entries). The workflow commits each day's run to
+per line, 4,854 entries). Each status field keeps its own value, the time
+Eddy first saw that value and the agency date it carried then; the time of
+the last check is kept once on the ledger, so an unchanged area is
+byte-identical after a run and a quiet day's diff is the one header line
+(measured: a second merge of the same snapshot changed 1 of 4,857 lines).
+Events are
+recorded only for a status value changing, the agency re-dating a record
+without changing it, and an area disappearing or returning; a notes edit is
+none of those. The workflow commits each day's run to
 `data/usace-recreation-ledger`. After three weeks it answers two questions
 the source dates cannot: whether `date_updated` moves when a status moves
 (so the date can be trusted as an edit stamp), and which projects edit at
@@ -187,13 +203,16 @@ at 21:00Z and 52 at 00:00Z; Thurmond 139 at 00:00Z and 35 at 03:00Z). The
 observed `Energy.Total` series carries zeros for the same future hours, so
 anything reading it must slice at now, as the LRN forecast taught.
 
-This is a day-ahead hourly generation schedule in CWMS for the Savannah
-projects, in energy rather than flow, which is SWPA's shape with the
-Cumberland's delivery. Not measured: when the next day's hours appear (SWPA
-posts overnight and weekend sheets the evening before), and whether a
-MW-to-cfs reference exists for the Hartwell units. Both belong to the
-Southeast step; the daily workflow does not record this series, and should
-before that step is designed.
+What one read establishes is forward scheduled energy for the rest of the
+Eastern day. It does not establish that tomorrow's schedule is reliably
+available today, how often the values are revised, what an MWh in this
+series represents, or whether a MW-to-cfs reference exists for the Hartwell
+units. Calling it a day-ahead schedule in the product waits on those.
+`scripts/lakes/record-savannah-schedule.ts` now runs with the daily workflow
+and appends, per project and per read, how far the series reaches, how many
+future hours are nonzero, which Eastern days it covers and the future values
+themselves, so revisions and posting times are visible run to run before
+the Southeast step is designed.
 
 ## 5. The ADR
 
@@ -212,7 +231,11 @@ enforces.
   threshold set that is uniform across most ramps; the caution copy already
   says what the numbers are based on.
 - The workflow needs no secret and writes to one data branch; enabling it is
-  a merge.
+  a merge, and it does not start collecting until it is on the default
+  branch.
+- The queue's area matches (400 m by distance, 5 km by name) are suggestions
+  for a reviewer. An approved launch inherits an area's status only through
+  a separately reviewed link, never from the match.
 
 ## Appendix — files
 

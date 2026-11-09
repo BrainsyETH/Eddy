@@ -66,11 +66,11 @@ export function renderReport(summaries: ProjectSummary[], ledger: Ledger, now: s
   lines.push(`Ledger started ${ledger.started_at.slice(0, 10)}, ${ledger.runs} run(s), last recorded ${ledger.last_recorded_at.slice(0, 19)}Z, classified at ${now.slice(0, 19)}Z. Source: ${ledger.source}.`, '');
   const counts = summaries.reduce<Record<string, number>>((acc, s) => ({ ...acc, [s.class]: (acc[s.class] ?? 0) + 1 }), {});
   lines.push(`Projects: ${summaries.length} · maintained ${counts.maintained ?? 0} · static ${counts.static ?? 0} · stale ${counts.stale ?? 0} · unmaintained ${counts.unmaintained ?? 0}.`, '');
-  lines.push('A class is a summary; the newest agency date beside it is the evidence. "maintained" means the newest `date_updated` is within 120 days or Eddy has seen a status change; nothing is promoted for staying the same.', '');
-  lines.push('| Project | District | Areas | With status | Boat status | Newest agency date | Oldest | Ramp areas | Lanes | Kayak launch areas | Stale notes | Changes seen | Class |');
-  lines.push('| --- | --- | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |');
+  lines.push('A class is a report, not a display rule: a status is shown from its own area\'s agency date. "maintained" means that within the last 120 days the agency dated an area, or Eddy saw a status change or an agency re-date; events older than the window do not count, and nothing is promoted for staying the same. "Fresh boat status" is the number of areas whose boat status a reader could see as current.', '');
+  lines.push('| Project | District | Areas | With status | Boat status | Fresh boat status | Newest agency date | Oldest | Ramp areas | Lanes | Kayak launch areas | Stale notes | Status changes (window) | Agency touches (window) | Class |');
+  lines.push('| --- | --- | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |');
   for (const s of summaries) {
-    lines.push(`| ${s.project} | ${s.district ?? ''} | ${s.areas} | ${s.with_status} | ${s.with_boat_status} | ${s.newest_source_update?.slice(0, 10) ?? '—'} | ${s.oldest_source_update?.slice(0, 10) ?? '—'} | ${s.boat_ramp_areas} | ${s.launch_lanes} | ${s.canoe_kayak_launch_areas} | ${s.stale_notes} | ${s.changes_observed} | ${s.class} |`);
+    lines.push(`| ${s.project} | ${s.district ?? ''} | ${s.areas} | ${s.with_status} | ${s.with_boat_status} | ${s.fresh_boat_status} | ${s.newest_source_update?.slice(0, 10) ?? '—'} | ${s.oldest_source_update?.slice(0, 10) ?? '—'} | ${s.boat_ramp_areas} | ${s.launch_lanes} | ${s.canoe_kayak_launch_areas} | ${s.stale_notes} | ${s.status_changes_in_window} | ${s.agency_touches_in_window} | ${s.class} |`);
   }
   return `${lines.join('\n')}\n`;
 }
@@ -98,7 +98,7 @@ async function main() {
     const previous: Ledger | null = existsSync(recordTo) ? JSON.parse(readFileSync(recordTo, 'utf8')) : null;
     const outcome = mergeLedger(previous, records, snapshot.retrieved_at);
     writeLedger(recordTo, outcome.ledger);
-    console.log(`Run ${outcome.ledger.runs}: ${records.length} areas, ${outcome.added} added, ${outcome.changed} changed, ${outcome.missing} missing → ${recordTo}`);
+    console.log(`Run ${outcome.ledger.runs}: ${records.length} areas, ${outcome.added} added, ${outcome.status_changed} status changed, ${outcome.agency_touched} re-dated, ${outcome.missing} missing, ${outcome.returned} returned → ${recordTo}`);
     return;
   }
 

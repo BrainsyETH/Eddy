@@ -6,9 +6,15 @@
 # the changes Eddy observes. Nothing in the product reads this ledger; it is
 # evidence for a decision, kept where it can be re-read.
 #
-# It writes ONLY to the data branch below: the ledger JSON, one commit a day
-# when something changed. It touches no production system and no secret.
-# To stop it, disable the workflow or delete the branch.
+# It also appends one line per Savannah project to a JSONL record of what the
+# district's scheduled-energy series contained at the read, so the Southeast
+# step can see when the schedule posts and how far it reaches.
+#
+# It writes ONLY to the data branch below: the ledger JSON and the schedule
+# record, one commit a day. An unchanged area is byte-identical after a run,
+# so a quiet day's ledger diff is the run counter and the check time. It
+# touches no production system and no secret. To stop it, disable the
+# workflow or delete the branch.
 
 name: USACE recreation ledger
 
@@ -27,6 +33,7 @@ concurrency:
 env:
   DATA_BRANCH: data/usace-recreation-ledger
   LEDGER: missouri-float-planner/scripts/ingestion/lakes/usace-recreation-ledger.json
+  SCHEDULE: missouri-float-planner/scripts/ingestion/lakes/savannah-energy-schedule.jsonl
 
 jobs:
   record:
@@ -48,32 +55,36 @@ jobs:
         working-directory: missouri-float-planner
         run: npm ci
 
-      - name: Start from the data branch's ledger when it exists
+      - name: Start from the data branch's records when it exists
         run: |
           if git ls-remote --exit-code --heads origin "$DATA_BRANCH" >/dev/null; then
             git fetch origin "$DATA_BRANCH"
-            git checkout "origin/$DATA_BRANCH" -- "$LEDGER" || echo "::notice::data branch has no ledger yet; seeding from main"
+            git checkout "origin/$DATA_BRANCH" -- "$LEDGER" "$SCHEDULE" || echo "::notice::data branch is missing a record; seeding from main"
           fi
 
-      - name: Record today's snapshot
+      - name: Record today's recreation statuses
         working-directory: missouri-float-planner
         run: npx tsx scripts/lakes/record-usace-recreation.ts --record scripts/ingestion/lakes/usace-recreation-ledger.json
 
-      - name: Commit the ledger to the data branch
+      - name: Record the Savannah scheduled-energy horizon
+        working-directory: missouri-float-planner
+        run: npx tsx scripts/lakes/record-savannah-schedule.ts --append scripts/ingestion/lakes/savannah-energy-schedule.jsonl
+
+      - name: Commit the records to the data branch
         run: |
           git config user.name "eddy-data-bot"
           git config user.email "noreply@eddy.guide"
-          git stash push -- "$LEDGER"
+          git stash push -- "$LEDGER" "$SCHEDULE"
           if git ls-remote --exit-code --heads origin "$DATA_BRANCH" >/dev/null; then
             git checkout -B "$DATA_BRANCH" "origin/$DATA_BRANCH"
           else
             git checkout -B "$DATA_BRANCH"
           fi
           git stash pop
-          git add "$LEDGER"
+          git add "$LEDGER" "$SCHEDULE"
           if git diff --cached --quiet; then
-            echo "Ledger unchanged; nothing to commit."
+            echo "Records unchanged; nothing to commit."
             exit 0
           fi
-          git commit -m "Record USACE recreation statuses $(date -u +%Y-%m-%d)"
+          git commit -m "Record USACE recreation statuses and Savannah schedule $(date -u +%Y-%m-%d)"
           git push origin "$DATA_BRANCH"

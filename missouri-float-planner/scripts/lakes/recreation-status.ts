@@ -21,8 +21,10 @@
  * ── THE THREE TIMESTAMPS ───────────────────────────────────────────────────
  * source_updated_at  the Corps' own `date_updated`; the only date a reader may
  *                    be shown as the agency's.
- * first_observed_at  when Eddy first saw this exact status value for the area.
- * last_checked_at    when Eddy last retrieved the record successfully.
+ * first_observed_at  when Eddy first saw this exact value of THIS status field.
+ *                    Each status field keeps its own; a notes edit moves none.
+ * last_checked_at    when Eddy last retrieved the layer. Kept once, on the
+ *                    ledger, so a quiet day changes one line and not 4,854.
  *
  * Nothing derives currency from how long a value has stayed the same. An area
  * listed "Open" since 2022 is dated 2022, however many times Eddy reads it.
@@ -81,29 +83,36 @@ export interface AreaRecord {
   source_updated_at: string | null;
 }
 
-const STATUS_FIELDS = ['area_status', 'boat_status', 'camp_status', 'beach_status', 'notes', 'source_updated_at'] as const;
-type TrackedField = (typeof STATUS_FIELDS)[number];
+export const STATUS_FIELDS = ['area_status', 'boat_status', 'camp_status', 'beach_status'] as const;
+export type StatusField = (typeof STATUS_FIELDS)[number];
 
-export interface LedgerChange {
-  at: string;
-  field: TrackedField;
-  from: string | null;
-  to: string | null;
+/** One status field's current value, when Eddy first saw that value, and the agency date it carried then. */
+export interface FieldObservation {
+  value: ReportedStatus | null;
+  first_observed_at: string;
   source_updated_at: string | null;
 }
 
+export type LedgerEvent =
+  | { at: string; kind: 'status_change'; field: StatusField; from: ReportedStatus | null; to: ReportedStatus | null; source_updated_at: string | null }
+  | { at: string; kind: 'agency_touch'; from: string | null; to: string | null }
+  | { at: string; kind: 'missing' }
+  | { at: string; kind: 'returned' };
+
 export interface LedgerEntry {
-  record: AreaRecord;
-  first_observed_at: string;
-  last_checked_at: string;
-  /** Set when a run no longer returned the area; cleared if it returns. */
+  /** When Eddy first saw the area at all. Distinct from any status's first observation. */
+  first_seen_at: string;
+  /** Set when a run no longer returned the area; cleared, with a `returned` event, if it comes back. */
   missing_since: string | null;
-  changes: LedgerChange[];
+  record: AreaRecord;
+  statuses: Record<StatusField, FieldObservation>;
+  events: LedgerEvent[];
 }
 
 export interface Ledger {
   source: string;
   started_at: string;
+  /** The ledger's `last_checked_at`: the retrieval time of the last complete snapshot merged. */
   last_recorded_at: string;
   runs: number;
   areas: Record<string, LedgerEntry>;
@@ -223,69 +232,82 @@ export function emptyLedger(startedAt: string): Ledger {
   return { source: USACE_RECREATION_STATUS_SOURCE.url, started_at: startedAt, last_recorded_at: startedAt, runs: 0, areas: {} };
 }
 
+function observeAll(record: AreaRecord, at: string): Record<StatusField, FieldObservation> {
+  return Object.fromEntries(STATUS_FIELDS.map((f) => [f, { value: record[f], first_observed_at: at, source_updated_at: record.source_updated_at }])) as Record<StatusField, FieldObservation>;
+}
+
 export interface MergeOutcome {
   ledger: Ledger;
   added: number;
-  changed: number;
+  /** Areas with at least one status field whose value changed. */
+  status_changed: number;
+  /** Areas whose agency date moved without any status value changing. */
+  agency_touched: number;
   missing: number;
+  returned: number;
 }
 
 /**
- * Fold one complete snapshot into the ledger. `first_observed_at` moves only
- * when a tracked field changes; `last_checked_at` moves every run.
+ * Fold one complete snapshot into the ledger.
+ *
+ * Only three things write to an area's entry: a status value changing (an
+ * event and a new first_observed_at for THAT field), the agency date moving
+ * (an `agency_touch` event), and the area disappearing or returning. A notes
+ * edit updates the stored record and nothing else. An unchanged area is
+ * byte-identical after the run, so the day's diff is the areas that moved.
  */
 export function mergeLedger(previous: Ledger | null, records: AreaRecord[], retrievedAt: string): MergeOutcome {
-  const ledger: Ledger = previous
-    ? { ...previous, areas: { ...previous.areas } }
-    : emptyLedger(retrievedAt);
+  const ledger: Ledger = previous ? { ...previous, areas: { ...previous.areas } } : emptyLedger(retrievedAt);
   if (ledger.source !== USACE_RECREATION_STATUS_SOURCE.url) throw new Error('Ledger belongs to a different source');
   if (Date.parse(retrievedAt) < Date.parse(ledger.last_recorded_at)) throw new Error('Snapshot is older than the ledger');
-  let added = 0;
-  let changed = 0;
+  const outcome: MergeOutcome = { ledger, added: 0, status_changed: 0, agency_touched: 0, missing: 0, returned: 0 };
   const seen = new Set<string>();
   for (const record of records) {
     seen.add(record.area_id);
     const entry = ledger.areas[record.area_id];
     if (!entry) {
-      ledger.areas[record.area_id] = { record, first_observed_at: retrievedAt, last_checked_at: retrievedAt, missing_since: null, changes: [] };
-      added += 1;
+      ledger.areas[record.area_id] = { first_seen_at: retrievedAt, missing_since: null, record, statuses: observeAll(record, retrievedAt), events: [] };
+      outcome.added += 1;
       continue;
     }
-    const changes: LedgerChange[] = [];
+    const events: LedgerEvent[] = [];
+    const statuses = { ...entry.statuses };
     for (const field of STATUS_FIELDS) {
-      const from = entry.record[field] ?? null;
-      const to = record[field] ?? null;
-      if (from !== to) changes.push({ at: retrievedAt, field, from, to, source_updated_at: record.source_updated_at });
+      const from = entry.statuses[field].value;
+      const to = record[field];
+      if (from === to) continue;
+      events.push({ at: retrievedAt, kind: 'status_change', field, from, to, source_updated_at: record.source_updated_at });
+      statuses[field] = { value: to, first_observed_at: retrievedAt, source_updated_at: record.source_updated_at };
     }
-    if (changes.length) changed += 1;
-    ledger.areas[record.area_id] = {
-      record,
-      first_observed_at: changes.length ? retrievedAt : entry.first_observed_at,
-      last_checked_at: retrievedAt,
-      missing_since: null,
-      changes: [...entry.changes, ...changes],
-    };
+    if (events.length) outcome.status_changed += 1;
+    if (entry.record.source_updated_at !== record.source_updated_at) {
+      events.push({ at: retrievedAt, kind: 'agency_touch', from: entry.record.source_updated_at, to: record.source_updated_at });
+      if (!events.some((e) => e.kind === 'status_change')) outcome.agency_touched += 1;
+    }
+    if (entry.missing_since) { events.push({ at: retrievedAt, kind: 'returned' }); outcome.returned += 1; }
+    const recordChanged = JSON.stringify(entry.record) !== JSON.stringify(record);
+    if (!events.length && !recordChanged) continue;
+    ledger.areas[record.area_id] = { ...entry, missing_since: null, record, statuses, events: [...entry.events, ...events] };
   }
-  let missing = 0;
   for (const [id, entry] of Object.entries(ledger.areas)) {
     if (seen.has(id)) continue;
-    missing += 1;
-    if (!entry.missing_since) ledger.areas[id] = { ...entry, missing_since: retrievedAt };
+    outcome.missing += 1;
+    if (!entry.missing_since) ledger.areas[id] = { ...entry, missing_since: retrievedAt, events: [...entry.events, { at: retrievedAt, kind: 'missing' }] };
   }
   ledger.runs += 1;
   ledger.last_recorded_at = retrievedAt;
-  return { ledger, added, changed, missing };
+  return outcome;
 }
 
 /**
- * How a project maintains its status fields. The class is a summary; the
- * report always prints the newest source date beside it, which is the evidence.
+ * How a project maintains its status fields, as a REPORT. The decision to show
+ * a status is made per area from that area's own agency date, never from this.
  *
- *   maintained    newest date_updated within MAINTAINED_DAYS, or Eddy has seen a
- *                 status change in its own recording window
- *   static        dated statuses exist but the newest is older than that
- *   stale         the newest date is over a year old, or every dated note is in
- *                 the past and nothing newer exists
+ *   maintained    within the window, the agency dated an area, or Eddy saw a
+ *                 status change or an agency touch
+ *   static        dated statuses exist but nothing in the window
+ *   stale         the newest date is over STALE_DAYS old, or every dated note
+ *                 is in the past and nothing newer exists
  *   unmaintained  no area carries a status at all
  */
 export type ProjectClass = 'maintained' | 'static' | 'stale' | 'unmaintained';
@@ -299,6 +321,8 @@ export interface ProjectSummary {
   areas: number;
   with_status: number;
   with_boat_status: number;
+  /** Areas whose boat status carries an agency date inside the window: what a reader could see as current. */
+  fresh_boat_status: number;
   dated: number;
   newest_source_update: string | null;
   oldest_source_update: string | null;
@@ -306,12 +330,16 @@ export interface ProjectSummary {
   launch_lanes: number;
   canoe_kayak_launch_areas: number;
   stale_notes: number;
-  changes_observed: number;
+  /** Events Eddy observed inside the window, by kind. Older events do not count. */
+  status_changes_in_window: number;
+  agency_touches_in_window: number;
   class: ProjectClass;
 }
 
-export function classifyProjects(ledger: Ledger, now: string): ProjectSummary[] {
+export function classifyProjects(ledger: Ledger, now: string, windowDays = MAINTAINED_DAYS): ProjectSummary[] {
   const nowMs = Date.parse(now);
+  const windowStart = nowMs - windowDays * 86_400_000;
+  const inWindow = (iso: string | null) => iso !== null && Date.parse(iso) >= windowStart;
   const byProject = new Map<string, LedgerEntry[]>();
   for (const entry of Object.values(ledger.areas)) {
     if (entry.missing_since) continue;
@@ -325,11 +353,13 @@ export function classifyProjects(ledger: Ledger, now: string): ProjectSummary[] 
     const newest = dates.length ? dates[dates.length - 1] : null;
     const withStatus = entries.filter((e) => e.record.area_status || e.record.boat_status).length;
     const staleNotes = entries.filter((e) => e.record.stale_note).length;
-    const changes = entries.reduce((n, e) => n + e.changes.length, 0);
+    const events = entries.flatMap((e) => e.events).filter((ev) => inWindow(ev.at));
+    const statusChanges = events.filter((ev) => ev.kind === 'status_change').length;
+    const agencyTouches = events.filter((ev) => ev.kind === 'agency_touch').length;
     let cls: ProjectClass;
     const ageDays = newest ? (nowMs - Date.parse(newest)) / 86_400_000 : null;
     if (withStatus === 0) cls = 'unmaintained';
-    else if (changes > 0 || (ageDays !== null && ageDays <= MAINTAINED_DAYS)) cls = 'maintained';
+    else if (inWindow(newest) || statusChanges > 0 || agencyTouches > 0) cls = 'maintained';
     else if (ageDays === null || ageDays > STALE_DAYS || staleNotes === withStatus) cls = 'stale';
     else cls = 'static';
     summaries.push({
@@ -338,6 +368,7 @@ export function classifyProjects(ledger: Ledger, now: string): ProjectSummary[] 
       areas: entries.length,
       with_status: withStatus,
       with_boat_status: entries.filter((e) => e.record.boat_status).length,
+      fresh_boat_status: entries.filter((e) => e.record.boat_status && inWindow(e.record.source_updated_at)).length,
       dated: dates.length,
       newest_source_update: newest,
       oldest_source_update: dates[0] ?? null,
@@ -345,7 +376,8 @@ export function classifyProjects(ledger: Ledger, now: string): ProjectSummary[] 
       launch_lanes: entries.reduce((n, e) => n + (e.record.launch_lanes ?? 0), 0),
       canoe_kayak_launch_areas: entries.filter((e) => (e.record.canoe_kayak_launches ?? 0) > 0).length,
       stale_notes: staleNotes,
-      changes_observed: changes,
+      status_changes_in_window: statusChanges,
+      agency_touches_in_window: agencyTouches,
       class: cls,
     });
   }

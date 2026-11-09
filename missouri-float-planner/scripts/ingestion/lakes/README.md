@@ -8,12 +8,24 @@ this directory is published, approved, pinned, or written to the database.
 
 Eddy's observation ledger of the Corps' recreation-area status layer
 (`Hosted/RecreationSite_Status_gdb/FeatureServer/0`): one entry per area with
-the agency's own `date_updated` (`source_updated_at`), the time Eddy first saw
-the current status value (`first_observed_at`), the last successful read
-(`last_checked_at`), and a change log. One area per line so a day's diff reads
-as the areas that changed. Seeded here with run 1 (2026-11-09); the daily
-recording is `.github/workflows/usace-recreation-ledger.yml`, which commits to
-the `data/usace-recreation-ledger` branch and never to `main`.
+the current record, and for each status field its value, the time Eddy first
+saw that value and the agency `date_updated` it carried then. The time of the
+last complete read is kept once on the ledger (`last_recorded_at`), so an
+unchanged area is byte-identical after a run. Events are recorded for a
+status value changing, the agency re-dating a record, and an area
+disappearing or returning; a notes edit is none of those. One area per line
+so a day's diff reads as the areas that moved. Seeded here with run 1
+(2026-11-09); the daily recording is
+`.github/workflows/usace-recreation-ledger.yml`, which commits to the
+`data/usace-recreation-ledger` branch and never to `main`.
+
+## `savannah-energy-schedule.jsonl`
+
+One line per Savannah project per daily read: how far the district's
+scheduled-energy series reaches, how many future hours are nonzero, which
+Eastern days it covers, and the future values themselves, so posting times
+and revisions become visible before the Southeast step is designed
+(`scripts/lakes/record-savannah-schedule.ts`). Seeded with the first read.
 
 The product never derives currency from this ledger's `first_observed_at`. A
 reader is shown the agency's date or "update date unavailable"
