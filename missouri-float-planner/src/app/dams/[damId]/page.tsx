@@ -20,8 +20,8 @@ import AppLink from '@/components/AppLink';
 import { getRiverContext } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
 import { listDamIds } from '@/lib/data/dams';
-import { getUsaceDam, type UsaceDam } from '@/lib/flow-providers/usace-registry';
-import { damAboutSentences, damPageCopy, damStateName } from '@/lib/dam-page-copy';
+import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
+import { damAboutSentences, damPageCopy, damStructuredData } from '@/lib/dam-page-copy';
 import { jsonLdString } from '@/lib/json-ld';
 
 import { pageDam } from '@/lib/data/public-pages';
@@ -33,34 +33,6 @@ const SOURCE_NAMES: Record<string, string> = {
   'USACE CWMS': 'U.S. Army Corps of Engineers',
   SWPA: 'Southwestern Power Administration',
 };
-
-const SITE_URL = 'https://eddy.guide';
-
-/** Breadcrumbs plus the dam as a place, so search engines can tie the page to the structure. */
-function damStructuredData(dam: UsaceDam) {
-  const url = `${SITE_URL}/dams/${dam.id}`;
-  return {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-          { '@type': 'ListItem', position: 2, name: 'Lakes & Dams', item: `${SITE_URL}/dams` },
-          { '@type': 'ListItem', position: 3, name: dam.name, item: url },
-        ],
-      },
-      {
-        '@type': 'Dam',
-        '@id': `${url}#dam`,
-        name: dam.name,
-        url,
-        geo: { '@type': 'GeoCoordinates', latitude: dam.lat, longitude: dam.lon },
-        containedInPlace: { '@type': 'State', name: damStateName(dam) },
-      },
-    ],
-  };
-}
 
 export function generateStaticParams() {
   return listDamIds().map((damId) => ({ damId }));

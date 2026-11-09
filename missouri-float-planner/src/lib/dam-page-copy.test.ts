@@ -1,74 +1,164 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { USACE_DAMS, type UsaceDam } from './flow-providers/usace-registry';
-import { DAM_PAGE_COPY, damAboutSentences, damPageCopy } from './dam-page-copy';
+import {
+  DAM_PAGE_COPY, SITE_URL, USACE_DISTRICT_OPERATORS,
+  damAboutSentences, damHasPostedSchedule, damPageCopy, damStateName, damStructuredData,
+} from './dam-page-copy';
+import { jsonLdString } from './json-ld';
+import { renderedTitle } from './seo';
+import { generateMetadata } from '../app/dams/[damId]/page';
 
 const dams = Object.values(USACE_DAMS);
 
-const hasPostedSchedule = (dam: UsaceDam) => Boolean(dam.swpaCode) && dam.amerenMetrics !== 'osage';
-// Stockton publishes nothing to CWMS and is not an Ameren-fed dam, so its page
-// has no lake level to promise.
-const hasPoolReading = (dam: UsaceDam) => Boolean(dam.series.poolElevation || dam.office || dam.amerenMetrics);
+// Capabilities come from declarations, never from an office or a district:
+// an `office` says where to look, not that a reading exists there.
+const capability = {
+  schedule: damHasPostedSchedule,
+  forecast: (dam: UsaceDam) => Boolean(dam.series.generationForecast),
+  level: (dam: UsaceDam) => Boolean(dam.series.poolElevation || dam.amerenMetrics || dam.resolvedSnapshotMetrics?.includes('poolElevation')),
+  waterTemperature: (dam: UsaceDam) => Boolean(dam.series.tailwaterTempF),
+};
+const claims: Record<keyof typeof capability, RegExp> = {
+  schedule: /schedule/i,
+  forecast: /forecast/i,
+  level: /\blevel\b/i,
+  waterTemperature: /water temperature/i,
+};
+
+async function metadataTitle(dam: UsaceDam): Promise<string> {
+  const metadata = await generateMetadata({ params: Promise.resolve({ damId: dam.id }) });
+  assert.equal(typeof metadata.title, 'string', `${dam.id} metadata title`);
+  return metadata.title as string;
+}
 
 test('every registry dam has hand-written page copy, and no copy outlives its dam', () => {
   assert.deepEqual(Object.keys(DAM_PAGE_COPY).toSorted(), Object.keys(USACE_DAMS).toSorted());
 });
 
-test('dam titles and descriptions fit search results and are distinct', () => {
+test('the page serves the written copy, and the branded title fits a search result', async () => {
   const titles = new Set<string>();
   const descriptions = new Set<string>();
   for (const dam of dams) {
     const { title, description } = damPageCopy(dam);
-    // The root template appends " | Eddy"; 60 + 7 stays inside the ~600px
-    // Google renders before truncating.
-    assert.ok(title.length <= 60, `${dam.id} title is ${title.length} chars: ${title}`);
-    assert.ok(!/eddy/i.test(title), `${dam.id} title repeats the brand the template adds`);
+    assert.equal(await metadataTitle(dam), title, `${dam.id} page metadata ignores its copy`);
+    const shown = renderedTitle(title);
+    assert.ok(shown.endsWith(' | Eddy') && !/eddy/i.test(title), `${dam.id}: ${shown}`);
+    // Google cuts titles near 600px (about 60–65 characters). The brand may be
+    // cut, but the dam's name must survive it.
+    assert.ok(shown.length <= 65, `${dam.id} rendered title is ${shown.length} chars: ${shown}`);
+    const words = dam.name.replace(/\s+(Lock & Dam|Dam|Lake)$/, '').split(' ');
+    const at = Math.max(shown.indexOf(words[0]), shown.indexOf(words.at(-1)!));
+    assert.ok(at >= 0 && at < 40, `${dam.id}: "${shown}" does not name ${dam.name} early`);
     assert.ok(description.length >= 100 && description.length <= 160, `${dam.id} description is ${description.length} chars`);
-    assert.ok(!titles.has(title), `${dam.id} reuses a title`);
-    assert.ok(!descriptions.has(description), `${dam.id} reuses a description`);
+    assert.ok(!titles.has(title) && !descriptions.has(description), `${dam.id} reuses copy`);
     titles.add(title);
     descriptions.add(description);
   }
 });
 
-test('each title names its own dam', () => {
-  for (const dam of dams) {
-    const words = dam.name.replace(/\s+(Lock & Dam|Dam|Lake)$/, '').split(' ');
-    const { title } = damPageCopy(dam);
-    assert.ok(title.includes(words[0]) || title.includes(words.at(-1)!), `${dam.id}: "${title}" does not name ${dam.name}`);
-  }
-});
-
-test('titles and descriptions promise only what the dam page can show', () => {
+test('copy claims only declared capabilities, and names the page’s main product', () => {
   for (const dam of dams) {
     const { title, description } = damPageCopy(dam);
     const copy = `${title} ${description}`;
-    if (/schedule/i.test(copy)) assert.ok(hasPostedSchedule(dam), `${dam.id} promises a schedule SWPA does not post`);
-    if (hasPostedSchedule(dam)) assert.match(copy, /schedule/i, `${dam.id} hides its hourly schedule`);
-    if (/forecast/i.test(copy)) assert.ok(!hasPostedSchedule(dam) && dam.office === 'LRN', `${dam.id} promises a generation forecast`);
-    if (/level/i.test(copy)) assert.ok(hasPoolReading(dam), `${dam.id} promises a lake level it has no reading for`);
-    if (!hasPoolReading(dam)) assert.doesNotMatch(copy, /level/i);
+    for (const [name, pattern] of Object.entries(claims) as [keyof typeof capability, RegExp][]) {
+      if (pattern.test(copy)) assert.ok(capability[name](dam), `${dam.id} claims ${name} without a declared source: ${copy}`);
+    }
+    if (capability.schedule(dam)) assert.match(title, claims.schedule, `${dam.id} title hides its hourly schedule`);
+    if (capability.forecast(dam)) assert.match(title, claims.forecast, `${dam.id} title hides its generation forecast`);
+    assert.doesNotMatch(copy, /\btoday/i, `${dam.id} copy cannot vouch for freshness`);
+  }
+  // The claims are real constraints, not a populated registry: Stockton
+  // publishes no pool reading, and nothing outside Nashville declares a forecast.
+  assert.equal(capability.level(USACE_DAMS['nwk-stockton-dam']), false);
+  assert.deepEqual(dams.filter(capability.forecast).map((dam) => dam.id).toSorted(), ['lrn-center-hill-dam', 'lrn-dale-hollow-dam', 'lrn-wolf-creek-dam']);
+});
+
+test('each dam names its real operator', () => {
+  // Kansas City publishes nothing to CWMS, so its dams carry no office to check against.
+  const kansasCity = new Set(['nwk-stockton-dam', 'nwk-truman-dam']);
+  for (const dam of dams) {
+    const expected = dam.amerenMetrics === 'osage' ? 'Ameren Missouri'
+      : dam.office ? USACE_DISTRICT_OPERATORS[dam.office]
+        : kansasCity.has(dam.id) ? 'the U.S. Army Corps of Engineers, Kansas City District'
+          : undefined;
+    assert.ok(expected, `${dam.id} has no known operator`);
+    assert.equal(damPageCopy(dam).operator, expected, dam.id);
+  }
+});
+
+test('About text states declared facts without classifying the structure from its name', () => {
+  for (const dam of dams) {
+    const sentences = damAboutSentences(dam);
+    const text = sentences.join(' ');
+    assert.equal(sentences.length, 3, dam.id);
+    assert.ok(text.includes(damPageCopy(dam).operator!), `${dam.id} omits its operator`);
+    assert.ok(text.includes(damPageCopy(dam).belowDam), `${dam.id} omits the water below`);
+    assert.doesNotMatch(text, /is a reservoir/, dam.id);
+    if (!damHasPostedSchedule(dam)) assert.doesNotMatch(text, /Southwestern Power/, dam.id);
+  }
+  assert.deepEqual(damAboutSentences(USACE_DAMS['swl-table-rock-dam']), [
+    'Table Rock Dam, in Missouri, forms Table Rock Lake and is operated by the U.S. Army Corps of Engineers, Little Rock District.',
+    'Its powerhouse has 4 generating units rated at 200 MW, and the Southwestern Power Administration posts its hourly generation schedule.',
+    'Water released here flows into Lake Taneycomo, a cold-water trout fishery.',
+  ]);
+  assert.equal(damAboutSentences(USACE_DAMS['mvs-wappapello'])[0],
+    'The dam at Wappapello Lake, in Missouri, is operated by the U.S. Army Corps of Engineers, St. Louis District.');
+  assert.match(damAboutSentences(USACE_DAMS['nwk-stockton-dam'])[1], /1 generating unit rated/);
+  assert.match(damAboutSentences(USACE_DAMS['swl-clearwater-dam'])[1], /no powerhouse/);
+  assert.match(damAboutSentences(USACE_DAMS['ameren-bagnell-dam'])[0], /operated by Ameren Missouri\.$/);
+});
+
+// Checked against the schema.org vocabulary (schemaorg-current-https.jsonld)
+// on 2026-11-09. schema.org has no Dam type, which is why the structure is a
+// CivicStructure. Extend this only after checking the vocabulary again.
+const VALIDATED_PROPERTIES: Record<string, string[]> = {
+  BreadcrumbList: ['itemListElement'],
+  ListItem: ['position', 'name', 'item'],
+  CivicStructure: ['@id', 'name', 'url', 'geo', 'containedInPlace'],
+  GeoCoordinates: ['latitude', 'longitude'],
+  State: ['name'],
+};
+
+function assertValidatedNode(node: Record<string, unknown>, damId: string) {
+  const type = node['@type'] as string;
+  assert.ok(VALIDATED_PROPERTIES[type], `${damId} emits unvalidated type ${type}`);
+  for (const [key, value] of Object.entries(node)) {
+    if (key === '@type') continue;
+    assert.ok(VALIDATED_PROPERTIES[type].includes(key), `${damId} emits ${type}.${key}`);
+    for (const child of Array.isArray(value) ? value : [value]) {
+      if (child && typeof child === 'object') assertValidatedNode(child as Record<string, unknown>, damId);
+    }
+  }
+}
+
+test('structured data for every dam uses validated vocabulary and accurate identity', () => {
+  for (const dam of dams) {
+    const data = damStructuredData(dam);
+    assert.deepEqual(JSON.parse(jsonLdString(data)), data, `${dam.id} JSON-LD must round-trip`);
+    assert.equal(data['@context'], 'https://schema.org');
+    for (const node of data['@graph']) assertValidatedNode(node, dam.id);
+    const [breadcrumbs, structure] = data['@graph'] as unknown as [
+      { itemListElement: { position: number; name: string; item: string }[] },
+      { name: string; url: string; geo: { latitude: number; longitude: number }; containedInPlace: { name: string } },
+    ];
+    const url = `${SITE_URL}/dams/${dam.id}`;
+    assert.deepEqual(breadcrumbs.itemListElement.map((item) => item.position), [1, 2, 3]);
+    assert.deepEqual(breadcrumbs.itemListElement.at(-1), { '@type': 'ListItem', position: 3, name: dam.name, item: url });
+    assert.equal(structure.url, url);
+    assert.equal(structure.name, dam.name);
+    assert.deepEqual(structure.geo, { '@type': 'GeoCoordinates', latitude: dam.lat, longitude: dam.lon });
+    // Inside the six-state footprint: catches swapped or sign-flipped coordinates.
+    assert.ok(dam.lat > 33 && dam.lat < 40 && dam.lon > -97.5 && dam.lon < -84, `${dam.id} coordinates ${dam.lat},${dam.lon}`);
+    assert.equal(structure.containedInPlace.name, damStateName(dam));
   }
 });
 
 test('a dam missing from the copy table still gets honest metadata', () => {
-  const stockton = USACE_DAMS['nwk-stockton-dam'];
-  const unlisted = { ...stockton, id: 'test-unlisted-dam', name: 'Example Dam', lakeName: 'Example Lake' };
+  const unlisted = { ...USACE_DAMS['nwk-stockton-dam'], id: 'test-unlisted-dam', name: 'Example Dam', lakeName: 'Example Lake' };
   assert.equal(damPageCopy(unlisted).title, 'Example Dam Generation Schedule');
+  assert.equal(damAboutSentences(unlisted)[0], 'Example Dam, in Missouri, forms Example Lake.');
   const gated = { ...USACE_DAMS['swl-clearwater-dam'], id: 'test-gated-dam', name: 'Gate Dam' };
-  assert.equal(damPageCopy(gated).title, 'Gate Dam Release & Lake Level');
-});
-
-test('About text is built from registry facts and names the water below', () => {
-  assert.deepEqual(damAboutSentences(USACE_DAMS['swl-table-rock-dam']), [
-    'Table Rock Dam impounds Table Rock Lake in Missouri and is operated by the U.S. Army Corps of Engineers.',
-    'Its powerhouse has 4 generating units rated at 200 MW, and the Southwestern Power Administration posts its hourly generation schedule.',
-    'Water released here flows into Lake Taneycomo, a cold-water trout fishery.',
-  ]);
-  assert.match(damAboutSentences(USACE_DAMS['nwk-stockton-dam'])[1], /1 generating unit rated/);
-  assert.match(damAboutSentences(USACE_DAMS['swl-clearwater-dam'])[1], /no powerhouse/);
-  const bagnell = damAboutSentences(USACE_DAMS['ameren-bagnell-dam']);
-  assert.match(bagnell[0], /operated by Ameren Missouri/);
-  assert.doesNotMatch(bagnell.join(' '), /Southwestern Power/);
-  assert.equal(damAboutSentences(USACE_DAMS['mvs-wappapello'])[0], 'Wappapello Lake is a reservoir in Missouri operated by the U.S. Army Corps of Engineers.');
+  assert.equal(damPageCopy(gated).title, 'Gate Dam Release');
+  assert.doesNotMatch(`${damPageCopy(gated).title} ${damPageCopy(gated).description}`, claims.level);
 });
