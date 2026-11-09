@@ -122,12 +122,18 @@ test('an id the registry does not carry reads nothing', async () => {
   assert.deepEqual(calls, { stored: [], live: [] });
 });
 
-test('the dam detail route renders per request from the bounded loader, not from a cache with no age limit', () => {
+// ISR, unstable_cache and 'use cache' without an expiry all hand their last
+// entry, however old, to the next visitor; that is how Saturday's HTML reached
+// Sunday's readers. pageDam is one of them, which is why the route avoids it.
+const UNBOUNDED_CACHE = /export const revalidate|export function generateStaticParams|export const dynamic\b|unstable_cache|['"]use cache['"]|\bpageDam\b|public-pages/;
+
+test('the dam detail HTML has no cache without an age limit in front of it', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/app/dams/[damId]/page.tsx'), 'utf8');
-  // ISR and unstable_cache both serve their last entry, however old, to the
-  // next visitor; that is how Saturday's HTML reached Sunday's readers.
-  assert.doesNotMatch(source, /export const revalidate|export function generateStaticParams|export const dynamic\b/);
-  assert.doesNotMatch(source, /\bpageDam\b|unstable_cache|public-pages/);
+  const loader = readFileSync(resolve(process.cwd(), 'src/lib/data/dam-page-snapshot.ts'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(source, UNBOUNDED_CACHE, 'the route');
+  assert.doesNotMatch(loader, UNBOUNDED_CACHE, 'the loader');
+  // The loader's only age limit is the stored row's: readStoredSnapshot -> isFresh (MAX_AGE_MS).
+  assert.match(loader, /readStored: readStoredSnapshot/);
   const body = source.slice(source.indexOf('export default async function DamPage'));
   const order = ['await connection()', 'const renderedAt = Date.now()', 'loadDamPageSnapshot(damId, renderedAt)', 'renderedAt={renderedAt}'];
   const positions = order.map((needle) => body.indexOf(needle));
