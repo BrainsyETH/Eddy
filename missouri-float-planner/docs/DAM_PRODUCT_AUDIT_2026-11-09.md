@@ -459,3 +459,9 @@ Not recommended now: adding dams. SWPA is exhausted, Kansas City publishes
 nothing, the Vicksburg candidates publish daily manual flows only, and TVA
 needs the time-zone work and an eastern reach. The 24 dams already carried are
 more than the content and linking around them can support.
+
+*Added 2026-11-09:* the lake side of the same dams is a different question,
+and `LAKES_AND_LAUNCHES_PLAN_2026-11-09.md` takes it up: lake levels, trends,
+launches and official closure status on the lakes Eddy already carries. Its
+feasibility audit runs alongside items 1–3 above; its Table Rock and Truman
+pilot follows them.

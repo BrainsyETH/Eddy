@@ -1,0 +1,366 @@
+{
+ "lake": {
+  "lake_name": "Stockton Lake",
+  "multipurpose_pool_ft": 867,
+  "flood_pool_ft": 892,
+  "datum": "NGVD29",
+  "source": "USACE Kansas City District, Stockton Lake project data (multipurpose pool 867.0, flood control pool 892.0)"
+ },
+ "retrieved_at": "2026-11-09T19:11:23.391Z",
+ "ramps": [
+  {
+   "source_id": "5962fb64-c46e-4f87-b872-f29a0e10fe43",
+   "name": "3 Hills Access",
+   "designation": "Access",
+   "description": "f",
+   "lake_name": "Stockton Lake",
+   "agency": "MDC",
+   "lon": -93.82713895535643,
+   "lat": 37.501048516095494,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "1e608c73-be8c-4e40-a5b1-862bc2bf590b",
+   "name": "Aldrich Access",
+   "designation": "Access",
+   "description": "i",
+   "lake_name": "Stockton Lake",
+   "agency": "MDC",
+   "lon": -93.55889313167175,
+   "lat": 37.53897187918679,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "28d5899e-97ba-4b90-b460-80e1ec9d26d6",
+   "name": "Cedar Oaks Access",
+   "designation": "Access",
+   "description": "d",
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.79556922956128,
+   "lat": 37.60618124054999,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "ce055d46-10ac-4b4d-9559-2edb6d78a0e1",
+   "name": "Cedar Ridge",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.68582423330821,
+   "lat": 37.580482321588235,
+   "ramp_bottom_elev_ft": 828.3,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "b34e4b4b-6171-4545-b551-7f6b79f5b639",
+   "name": "Cedar Ridge (east ramp)",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.66594021942865,
+   "lat": 37.57056091985082,
+   "ramp_bottom_elev_ft": 859,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "41989c1d-271f-475f-8f79-d08d2595254c",
+   "name": "Crabtree",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.7558652813263,
+   "lat": 37.671356473771624,
+   "ramp_bottom_elev_ft": 828.3,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "6184029b-6996-41f6-aff6-b0f325a98e29",
+   "name": "Greenfield",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.77785441532751,
+   "lat": 37.45151997241916,
+   "ramp_bottom_elev_ft": 860.6,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "65aea9e4-e0d9-4319-ad88-38e19f9acb38",
+   "name": "Hawker Point",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.77955812146782,
+   "lat": 37.61035266077486,
+   "ramp_bottom_elev_ft": 843.5,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "869dcc2b-e991-4e1a-a730-dfb6fde8abd2",
+   "name": "High Point",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.59689527729653,
+   "lat": 37.566275868997266,
+   "ramp_bottom_elev_ft": 860,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "d0dde80b-ab2f-4a8b-af84-226046a9fcd0",
+   "name": "Lowe Access",
+   "designation": "Access",
+   "description": "e",
+   "lake_name": "Stockton Lake",
+   "agency": "MDC",
+   "lon": -93.84301050208566,
+   "lat": 37.513708804392216,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "813d598b-f80b-48ae-acd3-6f769f5cc323",
+   "name": "Masters",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.68571529730866,
+   "lat": 37.6026954584952,
+   "ramp_bottom_elev_ft": 842.5,
+   "ramp_closure_elev_ft": 869.98,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "3535a53b-76de-4e2c-be1f-b3037680ddf2",
+   "name": "Mutton Creek",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.78036894892809,
+   "lat": 37.547818161766514,
+   "ramp_bottom_elev_ft": 834.5,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "0ed05c18-21d3-486e-90ae-a99557fc861f",
+   "name": "Mutton Creek Marina",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "Lease",
+   "lon": -93.78083713827776,
+   "lat": 37.54388406727642,
+   "ramp_bottom_elev_ft": 843.4,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "cc3fd998-b2d2-4ee8-9b55-eba3ec518d31",
+   "name": "Orleans Trail",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.77785113917166,
+   "lat": 37.65876248085093,
+   "ramp_bottom_elev_ft": 837.5,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "472b0bed-1fa1-48a1-8e38-a63c09b0deff",
+   "name": "Orleans Trail Marina",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "Lease",
+   "lon": -93.79248839800557,
+   "lat": 37.66644205225615,
+   "ramp_bottom_elev_ft": 837.5,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "a6b02c87-9839-4776-9166-d7cadaf2b2cf",
+   "name": "Ruark Bluff West",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.80598701167413,
+   "lat": 37.53040151661183,
+   "ramp_bottom_elev_ft": 843.5,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "65a1165b-a482-4223-b7ee-796a0275b477",
+   "name": "Sac Valley Access",
+   "designation": "Access",
+   "description": "a",
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.79696316515057,
+   "lat": 37.64403240516377,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "17fb406b-aade-4009-8aa7-6674ed8a43c1",
+   "name": "Son's Creek Access",
+   "designation": "Access",
+   "description": "g",
+   "lake_name": "Stockton Lake",
+   "agency": "MDC",
+   "lon": -93.85816572052924,
+   "lat": 37.48368505790223,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "b9bcb1cc-d14c-414f-9d32-725720a3e3cf",
+   "name": "State Park Marina",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "MODNR",
+   "lon": -93.73619486436341,
+   "lat": 37.603560305036424,
+   "ramp_bottom_elev_ft": 843.6,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "21ec6147-73f7-473f-9e0a-695fdf40cdc4",
+   "name": "Stockton",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.78481226336005,
+   "lat": 37.68364743134845,
+   "ramp_bottom_elev_ft": 843.5,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "e15b14fc-08af-4a63-a39d-54d207f5a8b3",
+   "name": "Stockton State Park",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Stockton Lake",
+   "agency": "MODNR",
+   "lon": -93.7537334920205,
+   "lat": 37.60517043914821,
+   "ramp_bottom_elev_ft": 843.6,
+   "ramp_closure_elev_ft": 871,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "5515e618-1ed1-49cb-ae35-253aad7ed952",
+   "name": "Taylor Heights Access",
+   "designation": "Access",
+   "description": "h",
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.69429614503974,
+   "lat": 37.580108432713345,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "87a31357-2a68-476c-9e10-c06cff47ec77",
+   "name": "Umberland Access",
+   "designation": "Access",
+   "description": "b",
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.79523587014923,
+   "lat": 37.63002837348802,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "d63e2455-1a52-4823-b706-3ffc9a434191",
+   "name": "Umberview Access",
+   "designation": "Access",
+   "description": "c",
+   "lake_name": "Stockton Lake",
+   "agency": "USACE",
+   "lon": -93.7967130867519,
+   "lat": 37.618976670341205,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  }
+ ]
+}
