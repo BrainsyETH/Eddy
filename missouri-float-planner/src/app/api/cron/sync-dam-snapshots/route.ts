@@ -92,6 +92,7 @@ async function runSync(request: NextRequest) {
   let stored = 0;
   let keptOnOutage = 0;
   let carriedForward = 0;
+  let scheduleCarried = 0;
   let forecastHistory: Awaited<ReturnType<typeof recordForecastHistory>> = null;
 
   try {
@@ -123,12 +124,16 @@ async function runSync(request: NextRequest) {
     // After decideWrites, never before — see carryFromPrevious.
     const carried = carryFromPrevious(decided.writable, await previousPromise, Date.now());
     carriedForward = carried.carriedDams;
+    scheduleCarried = carried.scheduleCarriedDams;
 
     stored = await writeStoredSnapshots(supabase, carried.snapshots, startedAt);
     await pruneStoredSnapshots(supabase, ids);
     // Only snapshots decideWrites accepted: an outage's empty schedule is not a
-    // forecast of no generation. See dam-forecast-history.ts.
-    forecastHistory = await recordForecastHistory(supabase, decided.writable, startedAt);
+    // forecast of no generation. See dam-forecast-history.ts. The carried
+    // snapshots, because they are what was served: a schedule day carried over
+    // a failed SWPA fetch hashes the same as the version it came from, so it
+    // extends that version rather than minting one that lacks the day.
+    forecastHistory = await recordForecastHistory(supabase, carried.snapshots, startedAt);
   } finally {
     await releaseCronLock(supabase, JOB);
   }
@@ -148,6 +153,11 @@ async function runSync(request: NextRequest) {
     // same dam every hour is a series that has stopped publishing, and it will
     // fall to "unavailable" on its own once the reading passes six hours.
     carriedForward,
+    // Dams whose row kept one or more posted schedule days from the previous
+    // pass because this pass's SWPA read lost them. Every SWPA dam at once is a
+    // SWPA fetch or parse failure; it clears itself at the next good read, and
+    // the carried days age on the page from their own retrievedAt meanwhile.
+    scheduleCarried,
     // Null means the history write failed; the pages were still served.
     forecastHistory,
   });

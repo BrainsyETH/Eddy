@@ -1215,7 +1215,7 @@ export const PEAK_RELEASE_HEADING = 'Peak scheduled release';
  * ── And why the heading says "scheduled" ──────────────────────────────────
  *
  * "Peak release" alone reads as a measurement taken downstream. This is SWPA's
- * plan for the powerhouse, published the afternoon before, and the whole screen
+ * plan for the powerhouse, posted ahead of the day, and the whole screen
  * turns on keeping a plan and an observation apart — the hero above reports
  * what the turbines are actually doing, and the two may legitimately disagree.
  */

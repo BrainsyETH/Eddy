@@ -1,4 +1,4 @@
-import { readingStaleness, relativeAge } from '@shared/dam-schedule-copy';
+import { readingStaleness, relativeAge, SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
 import type { DamSnapshot } from '@/lib/data/dams';
 import { generationReferenceCitation, RACK_ESTIMATE_NOTE } from '@shared/dam-generation';
 import DamGenerationHero from './DamGenerationHero';
@@ -27,7 +27,7 @@ export default function GenerationCard({ dam, now, availability }: {
           {dam.nameplate && <p>{dam.nameplate.units} generating units · {dam.nameplate.megawatts} MW nameplate capacity. Nameplate capacity and the published scheduling reference can differ.</p>}
           {hasSchedule && <>
             <p>Teal bars show scheduled generation. The coral line marks the current time. The peak window names the day’s highest scheduled generation.</p>
-            <p>Southwestern Power Administration posts schedules each afternoon. Its “hour ending” labels describe the preceding hour; Eddy displays the start of each interval.</p>
+            <p>{SCHEDULE_POSTING_NOTE} Its “hour ending” labels describe the preceding hour; Eddy displays the start of each interval.</p>
             <p>Every day uses the same chart scale{dam.generationReference ? `: ${dam.generationReference.schedulingCapacityMw} MW of scheduling capacity` : ''}, so different days can be compared.</p>
           </>}
           <p>Times describe the dam. Water arrives downstream later; the delay depends on location. Schedules can change without notice as power demand, inflow, outages and operating needs change.</p>

@@ -20,7 +20,7 @@
 // Observed and scheduled remain separate SECTIONS with a rule between them, and
 // nowNextClauses still hands the two out as separate strings so a UI cannot
 // accidentally present a plan as a measurement. They can legitimately disagree
-// — SWPA posts the afternoon before and the Corps runs the plant — and when
+// — SWPA posts its sheet overnight and the Corps runs the plant — and when
 // they do, the reader should see both and know which is which.
 //
 // What is shared is everything that qualifies BOTH: who publishes the schedule,
@@ -47,6 +47,7 @@ import {
 import {
   oldestRetrievedAt,
   retrievalSentence,
+  SCHEDULE_POSTING_NOTE,
   scheduleIsStale,
 } from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -93,7 +94,7 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
     dam.nameplate
       ? `${dam.nameplate.units} generating ${dam.nameplate.units === 1 ? 'unit' : 'units'} · ${dam.nameplate.megawatts} MW nameplate capacity.`
       : null,
-    hasSchedule ? 'Schedule posted each afternoon by Southwestern Power Administration.' : null,
+    hasSchedule ? SCHEDULE_POSTING_NOTE : null,
     DOWNSTREAM_AND_CHANGE,
   ].filter(Boolean).join('\n\n');
 

@@ -89,7 +89,8 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
    * Draw a posted Tomorrow too. Full reports always do; a compact card does
    * when Tomorrow is part of its answer — a tailwater river's reading card on
    * the dam's own release, where anglers plan the night before and SWPA posts
-   * the afternoon before. Later days stay on the full report.
+   * weekend and Monday sheets the evening before. Later days stay on the full
+   * report.
    */
   withTomorrow?: boolean;
   info?: ReactNode;

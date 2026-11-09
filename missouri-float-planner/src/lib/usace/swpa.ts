@@ -56,8 +56,9 @@ const SWPA_BASE = 'https://www.energy.gov/swpa';
 const REQUEST_TIMEOUT_MS = 8_000;
 
 /**
- * Schedules post 2-4 PM CT and don't change for the rest of the day, so this
- * caches far more coarsely than the hourly CWMS observations.
+ * A day's sheet usually lands once, overnight, and rarely changes after (see
+ * SCHEDULE_POSTING_NOTE in shared/dam-schedule-copy.ts for the measurement), so
+ * this caches far more coarsely than the hourly CWMS observations.
  */
 const REVALIDATE_SECONDS = 1_800;
 

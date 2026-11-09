@@ -15,8 +15,9 @@
 //           and age line, which only restated it. The release has no float ladder
 //           (shared/tailwater-status.ts says why one cannot be borrowed), so the
 //           dam is the answer: it opens the card, and draws Tomorrow's bars too,
-//           because anglers plan the night before and SWPA posts the afternoon
-//           before.
+//           because anglers plan the night before and SWPA posts weekend and
+//           Monday sheets the evening before (weekday sheets land overnight;
+//           see SCHEDULE_POSTING_NOTE).
 //   footer  on every other tab, under the reading it qualifies, Today only:
 //           a rated gauge keeps its verdict, a downstream gauge its reading.
 //

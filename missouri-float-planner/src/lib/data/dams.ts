@@ -955,6 +955,88 @@ export function carryForwardMetrics(
 }
 
 /**
+ * How long after its own fetch a posted day may still be carried over failed
+ * SWPA reads.
+ *
+ * The same six hours as CARRY_FORWARD_MAX_HOURS, for the same reason: past it a
+ * value "describes a river that has since changed". Kept as its own constant
+ * because it bounds a plan rather than an observation, and the two should be
+ * free to move apart. Six hours covers a SWPA outage through a morning without
+ * letting an evening fetch of tomorrow's sheet stand in for that sheet all day.
+ */
+export const SCHEDULE_CARRY_MAX_HOURS = 6;
+
+/**
+ * Fill the posted schedule days a live read lost with the same days from an
+ * earlier snapshot, each still wearing its own `retrievedAt`, for at most
+ * SCHEDULE_CARRY_MAX_HOURS after that fetch.
+ *
+ * ── Why ────────────────────────────────────────────────────────────────────
+ * readSchedule answers an empty list whenever a SWPA file fails: a 5xx, a
+ * timeout, a page that stopped parsing, or the fail-closed date check. CWMS
+ * usually still answers in the same pass, so the snapshot has metrics and is
+ * written, and before this the stored row with this morning's good schedule was
+ * replaced by one with none. Every reader of the stored row then saw "Today's
+ * generation schedule is unavailable" for an hour while SWPA was posting
+ * generation, and the dam Read was rewritten as "not posted".
+ *
+ * ── Why this cannot invent a schedule ─────────────────────────────────────
+ * Only days a previous read actually fetched are carried, and only days that are
+ * still today or later in Central time, inside the detail window. A posted day
+ * is never unposted by SWPA, only replaced, so a day the live read HAS always
+ * wins. Yesterday falls out of the window at midnight on its own, so the chain
+ * of hourly snapshots cannot keep a past day alive.
+ *
+ * ── Why it cannot overstate freshness ─────────────────────────────────────
+ * A carried day keeps the `retrievedAt` of the read that fetched it, so every
+ * surface's "Schedule checked" line ages from that read and turns to "may be
+ * outdated" on its own (scheduleIsStale). The schedule hash ignores
+ * `retrievedAt`, so a carried day is the same version to dam_forecast_history
+ * and to the dam Read, not a change.
+ *
+ * ── Why it stops after SCHEDULE_CARRY_MAX_HOURS ───────────────────────────
+ * The calendar window alone would let a sheet for tomorrow, fetched yesterday
+ * evening, be carried through a whole day of SWPA failures, and SWPA can revise
+ * a sheet in that time. The bound is measured from the day's own `retrievedAt`,
+ * which a carry never refreshes, so repeated failures cannot extend it. Past
+ * it the day is dropped and every surface says the schedule is unavailable. A
+ * day with no `retrievedAt` cannot be bounded, so it is never carried.
+ *
+ * `sources` and `scheduleTimeZone` are re-derived by buildSnapshot.
+ */
+export function carryForwardSchedule(
+  live: DamSnapshot,
+  previous: DamSnapshot | null | undefined,
+  now = Date.now()
+): DamSnapshot {
+  if (!previous || previous.id !== live.id) return live;
+  const dam = getUsaceDam(live.id);
+  // The registry decides whether this dam has a schedule at all, as readSchedule does.
+  if (!dam?.swpaCode) return live;
+
+  const window: string[] = [];
+  for (let i = 0, day = centralDayKey(now); i < DETAIL_SCHEDULE_DAYS; i += 1, day = nextDayKey(day)) {
+    window.push(day);
+  }
+  const have = new Set(live.schedule.map((day) => day.scheduleDate));
+  const maxAgeMs = SCHEDULE_CARRY_MAX_HOURS * 3_600_000;
+  const carried = new Map<string, DamScheduleDay>();
+  for (const day of previous.schedule ?? []) {
+    if (!window.includes(day.scheduleDate) || have.has(day.scheduleDate) || carried.has(day.scheduleDate)) continue;
+    if (!Array.isArray(day.hours) || day.hours.length === 0) continue;
+    const fetched = day.retrievedAt ? Date.parse(day.retrievedAt) : NaN;
+    if (!Number.isFinite(fetched) || now - fetched > maxAgeMs) continue;
+    carried.set(day.scheduleDate, day);
+  }
+  if (carried.size === 0) return live;
+
+  const schedule = [...live.schedule, ...carried.values()].sort((a, b) =>
+    a.scheduleDate.localeCompare(b.scheduleDate)
+  );
+  return buildSnapshot(dam, live.metrics, schedule, live.pattern, live.generationForecast);
+}
+
+/**
  * Every dam, for the index and /api/dams.
  *
  * Reads four metrics rather than seven. Lake level, flood pool and inflow stay
