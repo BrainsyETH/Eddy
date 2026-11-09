@@ -436,9 +436,11 @@ body {
 .ew-dam-status { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .ew-dam-status svg { flex: none; }
 .ew-dam-schedule-intro { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.ew-dam-schedule-date { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ew-next { font-size: 15px; font-weight: 700; line-height: 1.4; }
 .ew-sched { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ew-sched-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ew-sched-head-quiet { justify-content: flex-end; }
 .ew-sched-bars { display: flex; align-items: flex-end; gap: 3px; padding-top: 12px; }
 .ew-sched-slot { position: relative; display: flex; min-width: 0; flex: 1 1 0; flex-direction: column; justify-content: flex-end; height: 100%; }
 .ew-sched-bar { display: block; width: 100%; border-radius: 3px 3px 1px 1px; }
@@ -462,7 +464,7 @@ body {
    Eddy's existing water/level/thermometer symbols supply the identity. */
 .ew-dam-details {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px; border-top: 1px solid var(--ew-border); padding-top: 12px;
+  gap: 10px; border-top: 1px solid var(--ew-border); padding-top: 12px;
 }
 .ew-dam-detail { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
 .ew-dam-detail + .ew-dam-detail { border-left: 1px solid var(--ew-border); padding-left: 12px; }
@@ -470,7 +472,7 @@ body {
 .ew-dam-detail-heading img { flex: none; }
 .ew-dam-detail-title { font-family: var(--font-body), system-ui, sans-serif; font-size: 12px; font-weight: 700; line-height: 1.3; }
 .ew-dam-detail-value {
-  display: block; font-size: 20px; font-weight: 700; line-height: 1.25;
+  display: block; font-size: clamp(15px, 2.6vw, 20px); font-weight: 700; line-height: 1.25;
   letter-spacing: -0.018em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
 }
 .ew-dam-detail-unit { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--ew-muted); }
@@ -486,14 +488,20 @@ body {
 .ew-dam-movement > span { font-size: 17px; font-weight: 700; line-height: 1; }
 .ew-dam-additional { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 10px; border-top: 1px solid var(--ew-border); padding-top: 8px; }
 .ew-dam-additional-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* A full dam card has exactly three primary measurements. Avoid 2-column
+   wrapping that stranded water temperature by itself at typical iframe widths.
+   On a phone the icon moves above the label instead of moving the metric. */
 @media (max-width: 720px) {
-  .ew-dam-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ew-dam-detail:nth-child(3) { border-left: 0; padding-left: 0; border-top: 1px solid var(--ew-border); padding-top: 8px; }
+  .ew-dam-details { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ew-dam-detail + .ew-dam-detail { padding-left: 8px; }
+  .ew-dam-detail-heading { gap: 4px; }
 }
 @media (max-width: 460px) {
-  .ew-dam-details { grid-template-columns: minmax(0, 1fr); }
-  .ew-dam-detail + .ew-dam-detail,
-  .ew-dam-detail:nth-child(3) { border-left: 0; padding-left: 0; border-top: 1px solid var(--ew-border); padding-top: 9px; }
+  .ew-dam-detail-heading { flex-direction: column; align-items: flex-start; gap: 3px; min-height: 50px; }
+  .ew-dam-detail-title { line-height: 1.2; }
+  .ew-dam-detail-value { font-size: 15px; }
+  .ew-dam-detail-unit { font-size: 12px; }
+  .ew-dam-movement { padding: 1px 4px; gap: 3px; font-size: 12px; }
   .ew-dam-header-age { flex-basis: 100%; margin-left: auto; text-align: right; }
 }
 
