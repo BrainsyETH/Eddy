@@ -93,6 +93,10 @@ test('data ink in the stylesheet and the chart never reads the link color', () =
   }
   const theme = readFileSync(join(process.cwd(), 'src/lib/embed/theme.ts'), 'utf8');
   assert.match(theme, /link: 'var\(--ew-data\)'/, 'the chart line is drawn in the data token');
+  for (const tokens of [EMBED_LIGHT_TOKENS, EMBED_DARK_TOKENS]) {
+    const themedCss = embedThemeCss('e', { theme: tokens === EMBED_LIGHT_TOKENS ? 'light' : 'dark', transparent: false, accent: '#AA00FF' });
+    assert.ok(themedCss.includes(`--ew-rise:${tokens.rise}`), 'rise color is derived from Eddy, not partner accents');
+  }
 });
 
 // ── Impressions ─────────────────────────────────────────────────────────────
@@ -162,7 +166,7 @@ test('the dam card distinguishes dated observations from posted generation and r
   const card = dam.slice(dam.indexOf('function Card('));
   assert.equal((card.match(/moment\.status/g) ?? []).length, 1, 'observed status has one location');
   assert.doesNotMatch(card, /ew-gen-pill/, 'no second status pill in the header');
-  assert.match(card, /Observed turbine flow/, 'the flow is an observation, not the schedule');
+  assert.match(card, /<span className="ew-section-title">Turbine flow<\/span>/, 'turbine flow remains the primary observation');
   assert.match(card, /moment\.current \? compactStatus\(moment\) : moment\.status/, 'old observations never borrow a present-tense chip');
   assert.match(card, /Posted generation schedule/, 'the hourly bars belong to the publisher\'s plan');
   assert.match(card, /next\.stale \? \(\s*<p role="note"/, 'an old schedule has a visible notice');
@@ -176,6 +180,24 @@ test('the dam card distinguishes dated observations from posted generation and r
   assert.match(card, /releaseDuplicatesTurbine/, 'equivalent release numbers are collapsed');
   assert.match(card, /!release\.dailyMean && !spillway/, 'daily averages and spillway readings remain visible');
   assert.doesNotMatch(card, /Safe to wade|Good for fishing|Safe to float/, 'no unsupported safety verdict');
+  const header = card.slice(card.indexOf('<header className="ew-head">'), card.indexOf('</header>'));
+  const hero = card.slice(card.indexOf('<div className="ew-dam-now">'), card.indexOf('{packet.scheduleDays.length'));
+  assert.match(header, /ew-dam-header-age/, 'the single visible observation time lives in the header');
+  assert.match(header, /formatObservedAge\(observedIso\(moment\), now\)/);
+  assert.doesNotMatch(hero, /formatObservedAge|ew-reading-age/, 'no duplicated observation time in the flow hero');
+  assert.equal((card.match(/formatObservedAge\(observedIso\(moment\), now\)/g) ?? []).length, 1, 'primary reading age appears once');
+  assert.match(card, /<div className="ew-dam-details"/, 'downstream, lake and temperature share one row');
+  assert.match(card, /eddyIconUrl\('release'\)/, 'header keeps the Eddy release icon');
+  for (const icon of ['gauge', 'damGauge', 'waterTemperature']) {
+    assert.ok(card.includes(`<EddyIcon name="${icon}"`), `Eddy symbol ${icon} is used in the metrics`);
+  }
+  assert.match(card, /dam\.metrics\.tailwaterTempF/, 'temperature comes from real dam measurements');
+  assert.match(card, /waterTemp\.value\.toFixed\(1\)/, 'temperature is displayed only when measured');
+  assert.match(card, /tempAge === 'stale' \|\| tempAge === null/, 'stale temperature is not shown as current');
+  assert.match(card, /ew-dam-movement-\$\{downstreamDirection\.toLowerCase\(\)\}/, 'rising and falling have visual state without a safety rating');
+  assert.match(card, /formatObservedAge\(pool\.at, now\)/, 'the real lake observation time remains available in disclosure/metadata');
+  assert.match(card, /formatObservedAge\(waterTemp\.at, now\)/, 'temperature keeps its independent observation clock');
+  assert.match(card, /The header age applies to turbine flow only/, 'header date cannot imply all measurements were simultaneous');
 });
 
 test('legacy embed routes stay alive as fixed sizes of the family', () => {
