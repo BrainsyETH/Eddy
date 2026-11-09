@@ -207,14 +207,38 @@
     "road_access": "Directly off OK-10 (Illinois River Scenic Drive)."
   },
   {
-    "name": "New Combs Bridge Access",
-    "slug": "edmondson-public-access-area",
+    "name": "Edmondson Public Access Area",
     "kind": "access",
     "roles": [
       "access"
     ],
     "is_float_endpoint": true,
-    "expected_mile": 83.4,
+    "expected_mile": 83.44,
+    "lat": 36.031363,
+    "lon": -94.912292,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (signed 'Edmondson Day Use Only Public Access Area'); land ownership unverified",
+    "managing_agency": null,
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Gravel parking lot, portable toilets and picnic tables (owner's street-level photo). Day use only.",
+    "description": "GRDA public access area on river left beside the road near Combs Bridge, signed 'Edmondson Day Use Only Public Access Area' (owner's photo, 2026-11-09). The pin is American Whitewater's 'Edmondson Public Access Area' point, which sits on a roadside gravel lot visible in USGS imagery, 105 m from the river line at Eddy mile 83.44, about 0.05 mi below the 2015 Combs Bridge (83.39). GRDA's 2025 guide lists Edmondson at RM 36.2, 0.3 mi above New Combs Bridge (RM 36.5); the mapped lot does not agree with that order, so confirm the pin in review. Day use only: no overnight parking or camping.",
+    "confidence": "medium (owner confirmed the public access and its signage 2026-11-09; American Whitewater point matches a gravel lot in USGS imagery; no agency coordinate)",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
+    ],
+    "parking_info": "Gravel day-use lot beside the road. Day use only."
+  },
+  {
+    "name": "New Combs Bridge Access",
+    "slug": "new-combs-bridge-access",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": null,
     "lat": null,
     "lon": null,
     "is_public": false,
@@ -222,7 +246,7 @@
     "managing_agency": "Private",
     "official_site_url": "https://grda.com/illinois-river/",
     "facilities": "Not verified. Alcohol allowed.",
-    "description": "HELD for a pin: the owner says the access at New Combs Bridge is private (2026-11-09). American Whitewater's 'Edmondson Public Access Area' point (36.031363, -94.912292, river left) is 143 m from the 2015 Combs Bridge (NBI 308360). GRDA's mileage puts a public Edmondson access 0.3 mile above the bridge (RM 36.2 vs 36.5); whether that is a separate public site, or the same place now private, needs the owner or GRDA. No coordinate until the launch is pinned.",
+    "description": "HELD for a pin: a private access at New Combs Bridge, separate from GRDA's public Edmondson access (owner, 2026-11-09). The 2015 Combs Bridge (NBI 308360) is at Eddy mile 83.39. Which bank and side of the bridge the private launch uses is unknown, so it has no coordinate or mile yet.",
     "confidence": "unverified location; owner confirmed private access 2026-11-09",
     "source_urls": [
       "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
@@ -340,7 +364,7 @@
       "access"
     ],
     "is_float_endpoint": false,
-    "expected_mile": 109.2,
+    "expected_mile": 108.2,
     "lat": null,
     "lon": null,
     "is_public": true,
@@ -348,7 +372,7 @@
     "managing_agency": "COE",
     "official_site_url": null,
     "facilities": "Not verified. GRDA marks it 'Dangerous during high water'.",
-    "description": "HELD: no USACE coordinate found. It is absent from the Tulsa District recreation-features service, the USACE recreation-area polygons and recreation.gov. AW lists no point for it, and OSM has nothing tagged there. The endpoint flag stays false until a USACE source confirms launch and parking. Expected mile converted from GRDA mile 62.0 (+47.2) = 109.2. That is past the Baron Fork mouth (Eddy 108.70), where the stored line now ends. GRDA puts Baron Fork 0.5 mile below this access, so the true position is about Eddy 108.2.",
+    "description": "HELD for a pin. USACE owns and manages it (GRDA 2025 guide; USACE Tenkiller office 918-487-5252). GRDA's map places it on the east bank (river left), east of Park Hill, at GRDA mile 62.0, about 0.5 mi above the Baron Fork confluence where the river becomes Lake Tenkiller, roughly Eddy mile 108.2 on the stored line (the +47.2 conversion gives 109.2, past the line's end, so the converted mile is not used). No coordinate exists in USACE layers, recreation.gov, American Whitewater or OSM, and USGS imagery of that bank shows no identifiable lot or ramp. It is the proposed lower-corridor take-out; without it the lower section ends at US-62.",
     "confidence": "unverified",
     "source_urls": [
       "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
