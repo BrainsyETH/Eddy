@@ -42,6 +42,7 @@ import {
   arrivalAnchor,
   arrivalCopy,
   arrivalOutlook,
+  formatBeyond,
   indexRoute,
   mapFeatures,
   remainingCopy,
@@ -201,6 +202,10 @@ export default function FloatModeScreen() {
     : weakGps && (view.status === 'stale' || view.status === 'acquiring')
       ? 'Finding you on the river…'
       : live && !view.atRiverEnd ? null
+      // The headline already says "At the river’s closest point"; the line
+      // adds only where the take-out is. VoiceOver still hears the full sentence.
+      : live && view.takeOutBeyondMeters != null
+        ? `${view.takeOutName} is about ${formatBeyond(view.takeOutBeyondMeters)} from here, off the mapped river.`
       : statusCopy(view, clock);
   const originNote = recordedOrigin(session).note;
   // Finish could not read the whole track and the paddler stopped tracking

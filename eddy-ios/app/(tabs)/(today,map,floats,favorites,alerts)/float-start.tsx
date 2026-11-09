@@ -199,8 +199,9 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const takeOutPoint = points.find(point => point.id === draft.takeOutId);
   const gpsReady = location.state === 'ready' && usableStartFix(location.fix, location.checkedAt);
   const putInStatus = loaded?.ok && putIn ? putInLocation(loaded.index, location.fix, location.checkedAt, putIn) : null;
-  // A failed lookup is said once, below the card with its retry; the put-in
-  // row does not also keep saying "Waiting for GPS…" beside it.
+  // A failed lookup is said once, on the put-in row with its retry, in place
+  // of "Waiting for GPS…". Start stays available: tracking begins when GPS
+  // finds the paddler.
   const gpsFailed = location.state === 'ready' && Boolean(location.error) && !location.busy;
   const gpsLabel = location.state === 'checking' ? 'Finding your location…'
     : location.state === 'precise' ? 'Precise location needed'
@@ -262,7 +263,9 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           from={{ value: putIn?.name ?? (draft.putInId ? null : 'Current location'),
             // A current-location start has no published mile; the leg below says how far it is.
             detail: putIn && startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,
-            status: gpsFailed && !gpsReady ? undefined : { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
+            status: gpsFailed && !gpsReady
+              ? { label: 'GPS unavailable', ready: false, busy: false, action: { label: 'Try again', onPress: () => void location.act() } }
+              : { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
             photo: putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} /> : undefined }}
           to={{ value: takeOut?.name ?? null, detail: takeOut ? `Mile ${takeOut.mile.toFixed(1)}` : undefined,
             photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
@@ -297,10 +300,6 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           <TextButton label="Start from here" onPress={() => selectFrom()} />
         </> : null}
         {location.state !== 'ready' && location.state !== 'checking' ? <LocationGate location={location} /> : null}
-        {gpsFailed ? <View>
-          <Text style={[styles.body, { color: colors.textMuted }]}>Eddy couldn’t find your location. You can still start; tracking begins when GPS finds you.</Text>
-          <TextButton label="Try GPS again" onPress={() => void location.act()} />
-        </View> : null}
         {loaded && !loaded.ok ? <Text style={[styles.body, { color: colors.error }]}>{routeProblemCopy(loaded.reason)}</Text> : null}
         {takeOut?.offLineMeters != null ? <Text style={[styles.body, { color: colors.textMuted }]}>
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
