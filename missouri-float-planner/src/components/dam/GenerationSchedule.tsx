@@ -134,15 +134,15 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
 
   // ── What a card leads with ─────────────────────────────────────────────────
   // The next move and the peak window are what a reader at the bank decides
-  // on, so a card puts them where the plan's headline ("Generation scheduled
-  // for 9 hours") used to be: the move in the headline's weight, the peak
-  // under it. The hours count is what the chart already shows. When the
+  // on, so a card and the full report both put them where the plan's headline
+  // ("Generation scheduled for 9 hours") used to be: the move in the
+  // headline's weight, the peak under it. The hours count is what the chart already shows. When the
   // posted schedule holds no move ("Releasing through the end of the posted
   // schedule."), the day's headline leads instead and the sentence keeps its
   // place under the chart: a minimum-flow day with no move reads "Only
   // minimum flow scheduled", which is the fact, not "no more releases".
-  const leadsWithChange = compact && Boolean(todayDay) && Boolean(nextChange) && Boolean(scheduleOutlook(schedule, reference, now)?.move);
-  const todayPeak = compact && todayDay ? schedulePeak(todayDay, reference) : null;
+  const leadsWithChange = Boolean(todayDay) && Boolean(nextChange) && Boolean(scheduleOutlook(schedule, reference, now)?.move);
+  const todayPeak = todayDay ? schedulePeak(todayDay, reference) : null;
   const todayPeakWindow = todayPeak ? schedulePeakWindowLabel(todayPeak) : null;
 
   const Heading = compact ? 'h4' : 'h2';
@@ -198,7 +198,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
         </div>
         {todayDay && (
           <div className={compact ? 'mt-2' : 'mt-3'}>
-            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact && !expandedChart} peakAtRest={!compact} />
+            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact && !expandedChart} peakAtRest={!todayPeakWindow} />
           </div>
         )}
       </section>

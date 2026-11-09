@@ -16,9 +16,11 @@ import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
  * The icon sits inside the <dt> (a <dl> group may hold only dt/dd) and is
  * pulled into a left gutter, so it aligns beside the whole label/value group.
  */
-function Reading({ label, value, unit, metric, now, icon }: {
+function Reading({ label, value, unit, metric, now, icon, dense = false }: {
   label: string; value: string | null; unit: string; metric?: DamMetricValue; now: number;
   icon: EddyIconName;
+  /** Three readings share the band: a smaller numeral keeps each on one line. */
+  dense?: boolean;
 }) {
   return (
     <div className="relative min-w-0 pl-9">
@@ -28,7 +30,7 @@ function Reading({ label, value, unit, metric, now, icon }: {
       </dt>
       <dd className={`mt-1 flex flex-wrap items-baseline gap-x-1 text-primary-900 ${metric && readingStaleness(metric.at, now) !== 'fresh' ? 'opacity-60' : ''}`}>
         {value === null ? <span className="text-sm">Unavailable</span> : <>
-          <span className="font-mono text-2xl font-medium leading-7 tabular-nums tracking-tight sm:text-[26px]">{value}</span>{' '}
+          <span className={`font-mono font-medium leading-7 tabular-nums tracking-tight ${dense ? 'text-xl sm:text-[22px]' : 'text-2xl sm:text-[26px]'}`}>{value}</span>{' '}
           <span className="text-[13px] text-neutral-500">{unit}</span>
         </>}
       </dd>
@@ -37,34 +39,42 @@ function Reading({ label, value, unit, metric, now, icon }: {
 }
 
 /**
- * ONE age line for the readings band: "Measured 53 min ago" when both were
- * observed in the same minute (or only one exists), otherwise
- * "Release 18 min ago · Temp 1 hr ago". Still one line, but never one age for
- * two observations an hour apart, which would date one of them wrongly.
+ * ONE age line for the readings band: "Measured 53 min ago" when every
+ * reading was observed in the same minute (or only one exists), otherwise
+ * "Release 18 min ago · Temp 1 hr ago · Lake 3 hr ago". Still one line, but
+ * never one age for observations an hour apart, which would date one wrongly.
  */
-function readingAgeLine(release: DamMetricValue | undefined, temperature: DamMetricValue | undefined, now: number): string | null {
-  const releaseAge = release ? relativeAgeShort(release.at, now) : null;
-  const temperatureAge = temperature ? relativeAgeShort(temperature.at, now) : null;
-  if (!releaseAge || !temperatureAge) {
-    const only = releaseAge ?? temperatureAge;
-    return only ? `Measured ${only}` : null;
-  }
-  const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000);
-  return minute(release!.at) === minute(temperature!.at)
-    ? `Measured ${releaseAge}`
-    : `Release ${releaseAge} · Temp ${temperatureAge}`;
+function readingAgeLine(readings: { label: string; metric: DamMetricValue | undefined }[], now: number): string | null {
+  const present = readings.flatMap(({ label, metric }) => {
+    const age = metric ? relativeAgeShort(metric.at, now) : null;
+    return metric && age ? [{ label, age, minute: Math.floor(Date.parse(metric.at) / 60_000) }] : [];
+  });
+  if (present.length === 0) return null;
+  if (present.every(entry => entry.minute === present[0].minute)) return `Measured ${present[0].age}`;
+  return present.map(entry => `${entry.label} ${entry.age}`).join(' · ');
 }
 
-/** Release and water temperature at the dam, with one age line. */
-export function DamReadings({ dam, now }: { dam: DamSnapshot; now: number }) {
+/**
+ * Release and water temperature at the dam — and, where asked, the lake level
+ * as a third reading with its own mark — with one age line.
+ */
+export function DamReadings({ dam, now, showLakeLevel = false }: { dam: DamSnapshot; now: number; showLakeLevel?: boolean }) {
   const flow = dam.metrics.release;
   const temperature = dam.metrics.tailwaterTempF;
-  const measured = readingAgeLine(flow, temperature, now);
+  const lake = showLakeLevel ? dam.metrics.poolElevation : undefined;
+  const measured = readingAgeLine([
+    { label: 'Release', metric: flow },
+    { label: 'Temp', metric: temperature },
+    ...(showLakeLevel ? [{ label: 'Lake', metric: lake }] : []),
+  ], now);
   return (
     <div className="mx-3 rounded-xl bg-secondary-50 px-3 py-3 sm:mx-4 sm:px-4">
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-3">
-        <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" />
-        <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" />
+      <dl className={`grid gap-x-3 gap-y-3 ${showLakeLevel ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" dense={showLakeLevel} />
+        <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" dense={showLakeLevel} />
+        {showLakeLevel && (
+          <Reading label="Lake level" value={lake ? lake.value.toFixed(2) : null} unit="ft" metric={lake} now={now} icon="damGauge" dense />
+        )}
       </dl>
       {measured && <p data-reading-age className="mt-1.5 text-right text-xs leading-4 text-neutral-600">{measured}</p>}
     </div>

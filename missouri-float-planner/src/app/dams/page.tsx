@@ -10,6 +10,8 @@ import { directorySnapshotsFromRows, readDirectoryRows } from '@/lib/data/dam-di
 import { getActiveRiverContexts } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
 import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
+import { EddyIcon } from '@/components/ui/EddyIcon';
+import { readingStaleness } from '@shared/dam-schedule-copy';
 
 export const metadata: Metadata = publicPageMetadata(
   'Lake Levels, Dam Releases & Generation Schedules',
@@ -88,9 +90,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <p className="mt-3 max-w-3xl text-base leading-7 text-neutral-700">
           Check lake levels, water releases, and posted generation schedules for dams across Missouri, Arkansas, and beyond.
         </p>
-        <p className="mt-2 text-sm leading-6 text-neutral-600">
-          Readings from the U.S. Army Corps of Engineers and Ameren. Generation schedules from SWPA. Eddy checks for new readings hourly.
-        </p>
       </header>
 
       <nav aria-label="Popular tailwater dams" className="mb-9">
@@ -99,11 +98,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <a href="#all-dams" className="inline-flex min-h-11 items-center text-sm font-medium text-primary-800 underline-offset-4 hover:underline">All dams <ChevronRight className="size-4" aria-hidden="true" /></a>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          {POPULAR_DAMS.map(dam => <Link key={dam.id} href={'/dams/' + dam.id}
-            className="group flex min-h-20 items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 hover:border-primary-400 hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-primary-600">
-            <span><span className="block font-heading text-lg font-bold text-primary-900">{dam.name}</span><span className="mt-0.5 block text-xs text-neutral-600">{dam.river}</span></span>
-            <ChevronRight className="size-5 shrink-0 text-primary-700 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </Link>)}
+          {POPULAR_DAMS.map(dam => {
+            // The current release at the dam, in the same mark and number
+            // style as the readings band on each dam card below.
+            const release = dams.find(entry => entry.id === dam.id)?.metrics.release;
+            const stale = release && readingStaleness(release.at, now) !== 'fresh';
+            return <Link key={dam.id} href={'/dams/' + dam.id}
+              className="group flex min-h-20 items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 hover:border-primary-400 hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-primary-600">
+              <span className="min-w-0"><span className="block font-heading text-lg font-bold text-primary-900">{dam.name}</span><span className="mt-0.5 block text-xs text-neutral-600">{dam.river}</span></span>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5" data-popular-release>
+                <EddyIcon name="release" size={28} />
+                {release ? <span className={`flex items-baseline gap-1 text-primary-900 ${stale ? 'opacity-60' : ''}`}>
+                  <span className="sr-only">Release </span>
+                  <span className="font-mono text-xl font-medium tabular-nums tracking-tight">{Math.round(release.value).toLocaleString()}</span>
+                  <span className="text-xs text-neutral-500">cfs</span>
+                </span> : <span className="text-sm text-neutral-600">Release unavailable</span>}
+              </span>
+              <ChevronRight className="size-5 shrink-0 text-primary-700 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </Link>;
+          })}
         </div>
       </nav>
 
