@@ -12,6 +12,7 @@ import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { ChevronLeft, ArrowRight, Phone, Smartphone } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import Button from '@/components/ui/Button';
@@ -19,24 +20,21 @@ import DamDetail from '@/components/dam/DamDetail';
 import AppLink from '@/components/AppLink';
 import { getRiverContext } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
-import { listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import { damAboutSentences, damPageCopy, damStructuredData } from '@/lib/dam-page-copy';
 import { jsonLdString } from '@/lib/json-ld';
 
-import { pageDam } from '@/lib/data/public-pages';
+import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
 
-export const revalidate = 60;
+// Rendered per request, deliberately not ISR. The schedule's "Today" is
+// computed from the render clock, so a cached render served after midnight
+// labelled yesterday's date as today. See src/lib/data/dam-page-snapshot.ts.
 
 /** The snapshot's agency abbreviations, spelled out for the page. */
 const SOURCE_NAMES: Record<string, string> = {
   'USACE CWMS': 'U.S. Army Corps of Engineers',
   SWPA: 'Southwestern Power Administration',
 };
-
-export function generateStaticParams() {
-  return listDamIds().map((damId) => ({ damId }));
-}
 
 export async function generateMetadata({
   params,
@@ -57,7 +55,9 @@ export async function generateMetadata({
 
 export default async function DamPage({ params }: { params: Promise<{ damId: string }> }) {
   const { damId } = await params;
-  const dam = await pageDam(damId);
+  await connection();
+  const renderedAt = Date.now();
+  const dam = await loadDamPageSnapshot(damId, renderedAt);
   if (!dam) notFound();
 
   const project = getUsaceDam(dam.id);
@@ -73,7 +73,6 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   // prevent the dam readings from rendering.
   const river = dam.tailwater ? await getRiverContext(dam.tailwater.riverSlug).catch(() => null) : null;
   const riverHref = river ? `${riverPath(river.state, river.slug)}${dam.tailwater?.sectionSlug ? `?section=${encodeURIComponent(dam.tailwater.sectionSlug)}` : ''}` : null;
-  const renderedAt = Date.now();
 
   return (
     <div className="min-h-screen bg-neutral-50">
