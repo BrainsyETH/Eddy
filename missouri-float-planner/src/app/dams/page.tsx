@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import DamDirectory from '@/components/dam/DamDirectory';
 import { conditionsDamCatalogue } from '@/lib/conditions/dam-catalogue';
 import { buildDamDirectoryGroups } from '@/lib/data/dam-directory';
-import { pageDamSummaries } from '@/lib/data/public-pages';
+import { readStoredSnapshots } from '@/lib/data/dam-snapshot-store';
+import { refreshStaleness } from '@/lib/data/dams';
 import { getActiveRiverContexts } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
 import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 
-export const revalidate = 300;
 export const metadata: Metadata = publicPageMetadata(
   'Lake Levels, Dam Releases & Generation Schedules',
   'Lake levels, releases and hourly generation schedules for Corps of Engineers and Ameren dams in Missouri, Arkansas, Oklahoma, Texas, Kentucky and Tennessee.',
@@ -55,16 +56,17 @@ const QUESTIONS = [
 ] as const;
 
 export default async function Page() {
-  // Conditions already reads these assembled snapshots. Keep /dams on the same
-  // fast data path rather than fetching 24 dams individually during SSR.
-  const [summaries, activeRivers] = await Promise.all([
-    pageDamSummaries().catch(() => []),
+  // Render at request time: a cached HTML page could otherwise call yesterday
+  // 'today' after midnight. The stored full snapshots include lake elevation;
+  // the smaller Conditions summaries deliberately do not.
+  await connection();
+  const now = Date.now();
+  const [stored, activeRivers] = await Promise.all([
+    readStoredSnapshots({ now }),
     getActiveRiverContexts().catch(() => []),
   ]);
-  // The registry is the authority on discovery. A failed upstream read must
-  // never remove a dam or fabricate a zero-valued observation.
-  const { dams } = conditionsDamCatalogue(summaries);
-  const now = Date.now();
+  // The registry keeps all destinations navigable through data outages.
+  const { dams } = conditionsDamCatalogue([...stored.values()].map(snapshot => refreshStaleness(snapshot, now)));
   const groups = buildDamDirectoryGroups(dams, now);
   const riverLinks = RELATED_RIVERS.flatMap(related => {
     const river = activeRivers.find(entry => entry.slug === related.slug);
