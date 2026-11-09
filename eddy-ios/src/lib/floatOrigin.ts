@@ -14,6 +14,13 @@ export function nearLaunch(point: LngLat, accuracy: number | null, launch: LngLa
     startPointDistance(point, launch) <= 75;
 }
 
+/**
+ * The note an on-river start records with no planned put-in to measure from.
+ * It says no more than "started on the water", so screens that already say
+ * that leave it out.
+ */
+export const BARE_ON_RIVER_START = 'On-river start';
+
 export function relativeStart(mile: number, putInMile: number, name: string): string {
   const delta = mile - putInMile;
   return Math.abs(delta) < 0.1 ? `On-river start near ${name}`
@@ -32,6 +39,6 @@ export function recordedOrigin(session: FloatSession): { id: string | null; name
   // Legacy accounting retains a first mile, but no reliable launch coordinates.
   const mile = origin?.riverMile ?? session.totals?.firstMile;
   if (mile == null) return { id: null, name: null, note: null };
-  const name = session.putIn ? relativeStart(mile, session.putIn.riverMile, session.putIn.name) : 'On-river start';
+  const name = session.putIn ? relativeStart(mile, session.putIn.riverMile, session.putIn.name) : BARE_ON_RIVER_START;
   return { id: null, name: null, note: name.startsWith('On-river') ? name : `Recording started ${name}` };
 }

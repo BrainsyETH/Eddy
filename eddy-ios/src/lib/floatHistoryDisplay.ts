@@ -15,6 +15,7 @@
 // falls back to its tracked distance, named as such.
 
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
+import { BARE_ON_RIVER_START } from './floatOrigin';
 import {
   exploredMiles,
   floatBadge,
@@ -138,8 +139,18 @@ export interface HistoryCardModel {
   route: string;
   /** "Started on the water": only when a river position was confirmed. */
   startedOnWater: boolean;
+  /**
+   * The one start line under the route: the recorded start note when it says
+   * where ("1.2 mi below Dillard Mill"), else "Started on the water" for a
+   * confirmed on-river start. A bare "On-river start" note repeats that line,
+   * so the card never shows both.
+   */
+  startLine: string | null;
   date: string;
-  /** "9.6 river mi · 4 hr 12 min", or "4 hr 12 min" with no stretch to give. */
+  /**
+   * "9.6 river mi · 4 hr 12 min", "0.4 river mi tracked · 4 min" when GPS saw
+   * only part of the float, or "4 hr 12 min" with no stretch to give.
+   */
   stats: string;
   /** "GPS tracking unavailable" or "Limited GPS tracking"; null when measured. */
   trackingNote: string | null;
@@ -149,6 +160,12 @@ export interface HistoryCardModel {
   moodLine: string | null;
   tracking: FloatTracking;
   accessibilityLabel: string;
+}
+
+function startLine(trip: CompletedFloat, startedOnWater: boolean): string | null {
+  const note = trip.startNote?.trim() || null;
+  if (note && note !== BARE_ON_RIVER_START) return note;
+  return startedOnWater ? 'Started on the water' : null;
 }
 
 export function historyCardModel(trip: CompletedFloat, now = Date.now()): HistoryCardModel {
@@ -174,8 +191,11 @@ export function historyCardModel(trip: CompletedFloat, now = Date.now()): Histor
     river: trip.riverName,
     route: routeTitle(trip),
     startedOnWater: !trip.putInName && tracking !== 'none',
+    startLine: startLine(trip, !trip.putInName && tracking !== 'none'),
     date: shortDate(trip.startedAt, now),
-    stats: stretch ? `${stretch.value} ${stretch.unit} · ${duration}` : duration,
+    // With limited tracking the miles are what GPS confirmed, not how far the
+    // float went, so they say "tracked" rather than read as the whole trip.
+    stats: stretch ? `${stretch.value} ${stretch.unit}${tracking === 'partial' ? ' tracked' : ''} · ${duration}` : duration,
     trackingNote,
     badge,
     mood,

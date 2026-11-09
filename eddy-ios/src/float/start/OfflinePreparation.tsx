@@ -49,6 +49,6 @@ export function OfflinePreparation({ tripKey, onBuild, disabled, download }: {
         setManaging(value => !value); setRevision(n => n + 1);
       }} />
       {managing ? <View><TripDownloadCard key={tripKey} {...download} tripKey={tripKey} compact /></View> : null}
-    </> : !checking ? <TextButton label="Plan a float to download" disabled={disabled} onPress={onBuild} /> : null}
+    </> : !checking ? <TextButton label="Set up an offline map" disabled={disabled} onPress={onBuild} /> : null}
   </Card>;
 }

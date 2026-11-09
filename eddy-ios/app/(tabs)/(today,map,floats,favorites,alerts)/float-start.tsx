@@ -199,6 +199,9 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const takeOutPoint = points.find(point => point.id === draft.takeOutId);
   const gpsReady = location.state === 'ready' && usableStartFix(location.fix, location.checkedAt);
   const putInStatus = loaded?.ok && putIn ? putInLocation(loaded.index, location.fix, location.checkedAt, putIn) : null;
+  // A failed lookup is said once, below the card with its retry; the put-in
+  // row does not also keep saying "Waiting for GPS…" beside it.
+  const gpsFailed = location.state === 'ready' && Boolean(location.error) && !location.busy;
   const gpsLabel = location.state === 'checking' ? 'Finding your location…'
     : location.state === 'precise' ? 'Precise location needed'
     : location.state === 'services' ? 'Location Services are off'
@@ -245,7 +248,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         {!draft.riverSlug ? <Card padded={false}>
           <View style={{ padding: 16, paddingBottom: 12 }}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Choose your river</Text>
-            {gpsRiver.searching ? <Text style={[styles.body, { color: colors.textMuted }]}>Looking for your river…</Text> : null}
+            {/* One searching message: the picker shows its own while GPS is still looking. */}
+            {gpsRiver.searching && !(location.busy && !location.fix) ? <Text style={[styles.body, { color: colors.textMuted }]}>Looking for your river…</Text> : null}
           </View>
           <RiverPicker inline location={location} onSearchChange={stopDetection} onChoose={river => {
             stopDetection(); setAutoRiver(null);
@@ -256,8 +260,9 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           takeOutHint={!takeOut && route && startMile == null ? 'Choose a put-in to see downstream suggestions.' : undefined}
           disabled={start.busy} onRiver={() => openPicker('river')} onFrom={() => openPicker('from')} onTo={() => openPicker('to')}
           from={{ value: putIn?.name ?? (draft.putInId ? null : 'Current location'),
-            detail: startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,
-            status: { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
+            // A current-location start has no published mile; the leg below says how far it is.
+            detail: putIn && startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,
+            status: gpsFailed && !gpsReady ? undefined : { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
             photo: putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} /> : undefined }}
           to={{ value: takeOut?.name ?? null, detail: takeOut ? `Mile ${takeOut.mile.toFixed(1)}` : undefined,
             photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
@@ -292,8 +297,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           <TextButton label="Start from here" onPress={() => selectFrom()} />
         </> : null}
         {location.state !== 'ready' && location.state !== 'checking' ? <LocationGate location={location} /> : null}
-        {location.state === 'ready' && location.error && !location.busy ? <View>
-          <Text style={[styles.body, { color: colors.textMuted }]}>{location.error} You can still start; tracking begins when GPS finds you.</Text>
+        {gpsFailed ? <View>
+          <Text style={[styles.body, { color: colors.textMuted }]}>Eddy couldn’t find your location. You can still start; tracking begins when GPS finds you.</Text>
           <TextButton label="Try GPS again" onPress={() => void location.act()} />
         </View> : null}
         {loaded && !loaded.ok ? <Text style={[styles.body, { color: colors.error }]}>{routeProblemCopy(loaded.reason)}</Text> : null}
