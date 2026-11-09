@@ -40,6 +40,9 @@
 // src/, so nothing here may import through the app alias or from a .tsx. Same
 // constraint as availability.ts and placeSymbol.ts — see their headers.
 
+import { generatingForNow } from '@eddy/conditions/dam-generation';
+import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
+
 /** A dam's immutable half: who it is and where. */
 export interface DamCatalogEntry {
   /** Eddy's slug — `DamSnapshot.id`, and the dam screen's route segment. */
@@ -115,6 +118,45 @@ export interface DamLiveState {
   lakeName?: string | null;
   state?: string | null;
 }
+
+/**
+ * One dam from /api/dams, as a pin needs it, as of `now`.
+ *
+ * ── Why `now` is a parameter, and the map passes its minute clock ─────────
+ * The pin's label is present tense ("Generating" / "Units idle") and its age
+ * line is relative ("12 min ago"). Both were computed once per response, so a
+ * reading that crossed the two-hour fresh line while the map stayed open kept
+ * saying "Generating", and the age stood still. The map recomputes this on
+ * useObservationClock, and an open callout follows because the screen swaps in
+ * the newest pin for the selected dam whenever the pins change.
+ */
+export function damLiveState(dam: DamLiveInput, now: number): DamLiveState {
+  const release = dam.metrics?.release;
+  return {
+    id: dam.id,
+    name: dam.name,
+    lakeName: dam.lakeName,
+    state: dam.state,
+    generating: generatingForNow(dam, now),
+    value: release
+      ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
+      : null,
+    updatedAt: release ? relativeAge(release.at, now) : null,
+    riverSlug: dam.tailwater?.riverSlug ?? null,
+  };
+}
+
+/** The fields of one /api/dams entry damLiveState reads. Structural, like DamLiveState. */
+export type DamLiveInput = Parameters<typeof generatingForNow>[0] & {
+  id: string;
+  name?: string | null;
+  lakeName?: string | null;
+  state?: string | null;
+  tailwater?: { riverSlug?: string | null } | null;
+  metrics: Parameters<typeof generatingForNow>[0]['metrics'] & {
+    release?: { value: number; at: string; dailyMean?: boolean };
+  };
+};
 
 /** What a dam pin is, before the map turns it into a MapPin. */
 export interface DamPinFacts {

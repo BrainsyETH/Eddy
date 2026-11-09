@@ -572,7 +572,8 @@ test('the iOS chip and map pin judge generating on the device clock', () => {
   const card = readFileSync('../eddy-ios/src/components/dam/DamStateCard.tsx', 'utf8');
   assert.match(card, /const generating = generatingForNow\(dam\);/);
   assert.doesNotMatch(card, /dam\.generating/);
+  // The map builds its pins through damLiveState on the minute clock; that
+  // path and its expiry are held in dam-catalog-parity.test.ts.
   const map = readFileSync('../eddy-ios/app/(tabs)/(map)/index.tsx', 'utf8');
-  assert.match(map, /generating: generatingForNow\(dam\),/);
   assert.doesNotMatch(map, /generating: dam\.generating/);
 });

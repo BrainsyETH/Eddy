@@ -144,8 +144,6 @@ import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { gaugeLink, gaugePlaceLabel, gaugeConditionCode, gaugeReadingText } from '@/lib/gaugeCondition';
 import { formatReading, readingAge } from '@/lib/readingCopy';
 import { readRiver } from '@/lib/riverCache';
-import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
-import { generatingForNow } from '@eddy/conditions/dam-generation';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
 import { usgsGaugeUrl } from '@/lib/directions';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -155,7 +153,8 @@ import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds, type StatewideRiverGauge } from '@/lib/statewideNetwork';
 import type { RiverGaugeRow } from '@/components/map-sheet/riverTabs';
-import { damPins as damPinFacts } from '@/lib/damCatalog';
+import { damLiveState, damPins as damPinFacts } from '@/lib/damCatalog';
+import { useObservationClock } from '@/hooks/useObservationClock';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 // The GETTER only, for onLocate's no-fix alert. Never the asker: useLocation
 // owns every prompt, and this import exists because the hook's status after a
@@ -1433,24 +1432,13 @@ function MapContent() {
    * Declared BEFORE the search block below, because a dam search result opens
    * one of these pins and a useCallback may not read a memo declared after it.
    */
+  // The pins' generating label and age line are present tense, so they are
+  // rebuilt on the minute clock, not only when /api/dams answers. Without it a
+  // reading that aged past the two-hour fresh line while the map stayed open
+  // kept its "Generating" pin and its frozen "12 min ago". See damLiveState.
+  const observationNow = useObservationClock();
   const damPins = useMemo<MapPin[]>(() => {
-    const live = (dams ?? []).map((dam) => {
-      const release = dam.metrics.release;
-      return {
-        id: dam.id,
-        name: dam.name,
-        lakeName: dam.lakeName,
-        state: dam.state,
-        // On this device's clock: the pin says "Generating" or "Units idle" in
-        // the present tense, so only a fresh turbine reading may set it.
-        generating: generatingForNow(dam),
-        value: release
-          ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
-          : null,
-        updatedAt: release ? relativeAge(release.at) : null,
-        riverSlug: dam.tailwater?.riverSlug ?? null,
-      };
-    });
+    const live = (dams ?? []).map((dam) => damLiveState(dam, observationNow));
     // Positions for anything the shipped catalog has never heard of — a project
     // added to the registry since this build left. Everything else is placed
     // from the catalog, which is what lets the layer draw with no answer at all.
@@ -1462,7 +1450,7 @@ function MapContent() {
       ...facts,
       layer: 'dams' as LayerKey,
     }));
-  }, [dams]);
+  }, [dams, observationNow]);
 
   /**
    * Keep an OPEN dam callout in step with the live answer.
