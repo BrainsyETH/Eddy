@@ -2,18 +2,26 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
+  carryFromPrevious,
   decideWrites,
   isFresh,
   pruneStoredSnapshots,
   readStoredSnapshot,
   readStoredSnapshots,
   saysAnything,
+  withStoredFallback,
   writeStoredSnapshots,
   MAX_AGE_MS,
 } from './dam-snapshot-store';
-import { buildSnapshot, declaresNoSources } from './dams';
+import {
+  buildSnapshot,
+  carryForwardMetrics,
+  CARRY_FORWARD_MAX_HOURS,
+  declaresNoSources,
+} from './dams';
+import { generationNow, generationStatusLabel } from '@shared/dam-generation';
 import { USACE_DAMS } from '@/lib/flow-providers/usace-registry';
-import type { DamSnapshot } from '@shared/dam-types';
+import type { DamMetricValue, DamSnapshot } from '@shared/dam-types';
 
 // The two decisions behind storing an assembled dam page — is a row still worth
 // serving, and is a payload worth writing.
@@ -261,4 +269,121 @@ test('pruning deletes every row the registry no longer names, and never everythi
   const none = fakeClient();
   await pruneStoredSnapshots(none.client, []);
   assert.equal(none.calls.length, 0);
+});
+
+// ── carrying a reading over a failed request ──────────────────────────────
+//
+// 2026-11-08: one failed CWMS request for Table Rock's turbine flow rendered
+// "Release status unavailable" over the dam page while the Corps was publishing
+// the reading the whole time. These pin the fallback that fills such a hole
+// from the last good snapshot without ever making a reading look newer.
+
+const HOUR = 3_600_000;
+const TABLE_ROCK = 'swl-table-rock-dam';
+
+function reading(value: number, hoursAgo: number, over?: Partial<DamMetricValue>): DamMetricValue {
+  return {
+    value,
+    unit: 'cfs',
+    at: new Date(NOW - hoursAgo * HOUR).toISOString(),
+    staleness: 'fresh',
+    ...over,
+  };
+}
+
+function tableRock(
+  metrics: DamSnapshot['metrics'],
+  schedule: DamSnapshot['schedule'] = [],
+): DamSnapshot {
+  return buildSnapshot(USACE_DAMS[TABLE_ROCK], metrics, schedule);
+}
+
+test('a turbine flow the live read dropped is carried, and the hero has a status again', () => {
+  const live = tableRock({ release: reading(20, 0.5) });
+  const previous = tableRock({ release: reading(20, 1.5), generationFlow: reading(646, 1.5) });
+
+  assert.equal(generationStatusLabel(generationNow(live, NOW)), 'Release status unavailable');
+
+  const merged = carryForwardMetrics(live, previous, NOW);
+  assert.equal(merged.metrics.generationFlow?.value, 646);
+  assert.equal(merged.metrics.generationFlow?.at, previous.metrics.generationFlow!.at, 'keeps its own observation time');
+  assert.equal(merged.metrics.release?.value, 20);
+  assert.equal(merged.metrics.release?.at, live.metrics.release!.at, 'the live reading wins');
+  assert.equal(merged.generating, true, 'generating is re-derived from the carried flow');
+  assert.equal(generationStatusLabel(generationNow(merged, NOW)), 'Generating now');
+});
+
+test('a carried reading is banded by its own age, never as fresh as the read that carried it', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  const previous = tableRock({ generationFlow: reading(646, 4, { staleness: 'fresh' }) });
+  const merged = carryForwardMetrics(live, previous, NOW);
+  assert.equal(merged.metrics.generationFlow?.staleness, 'lagging');
+  assert.equal(generationStatusLabel(generationNow(merged, NOW)), 'Generating at last reading');
+});
+
+test('nothing older than the stale line is carried, so re-storing cannot keep a reading alive', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  const justInside = tableRock({ generationFlow: reading(646, CARRY_FORWARD_MAX_HOURS) });
+  const tooOld = tableRock({ generationFlow: reading(646, CARRY_FORWARD_MAX_HOURS + 0.01) });
+  assert.ok(carryForwardMetrics(live, justInside, NOW).metrics.generationFlow);
+  assert.equal(carryForwardMetrics(live, tooOld, NOW), live);
+  assert.equal(carryForwardMetrics(live, tableRock({ generationFlow: reading(646, 1, { at: 'garbage' }) }), NOW), live);
+});
+
+test('a carried reading drops its trend, which described the hours before the old reading', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  const previous = tableRock({
+    tailwaterElevation: reading(703, 1, { unit: 'ft', trend: { delta: 0.5, hours: 3 } }),
+  });
+  const merged = carryForwardMetrics(live, previous, NOW);
+  assert.equal(merged.metrics.tailwaterElevation?.value, 703);
+  assert.equal('trend' in merged.metrics.tailwaterElevation!, false);
+});
+
+test('a different dam, or no previous snapshot, carries nothing', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  const other = { ...tableRock({ generationFlow: reading(646, 1) }), id: 'swl-bull-shoals-dam' };
+  assert.equal(carryForwardMetrics(live, other, NOW), live);
+  assert.equal(carryForwardMetrics(live, null, NOW), live);
+});
+
+test('the page serves the stored snapshot when the live read came back empty', () => {
+  const empty = tableRock({});
+  const stored = tableRock({ generationFlow: reading(646, 1.5, { staleness: 'fresh' }) });
+  const served = withStoredFallback(empty, stored, NOW);
+  assert.equal(served?.metrics.generationFlow?.value, 646);
+  assert.equal(served?.metrics.generationFlow?.staleness, 'fresh');
+  assert.equal(withStoredFallback(null, stored, NOW)?.id, TABLE_ROCK);
+});
+
+test('with no stored row the page is exactly the live read', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  assert.equal(withStoredFallback(live, null, NOW), live);
+  assert.equal(withStoredFallback(null, null, NOW), null);
+});
+
+test('the cron carries only onto what decideWrites accepted, so an outage keeps the old row whole', () => {
+  const previous = new Map([[TABLE_ROCK, tableRock({ generationFlow: reading(646, 1) })]]);
+  const outage = tableRock({});
+  const partial = tableRock({ release: reading(20, 0) });
+
+  const decided = decideWrites([outage]);
+  assert.equal(decided.writable.length, 0, 'an empty read is still not written');
+  assert.equal(carryFromPrevious(decided.writable, previous, NOW).snapshots.length, 0);
+
+  const carried = carryFromPrevious(decideWrites([partial]).writable, previous, NOW);
+  assert.equal(carried.carriedDams, 1);
+  assert.equal(carried.snapshots[0].metrics.generationFlow?.value, 646);
+});
+
+test('the cron reads the previous rows before it writes over them', () => {
+  const source = readFileSync('src/app/api/cron/sync-dam-snapshots/route.ts', 'utf8');
+  const carry = source.indexOf('carryFromPrevious(decided.writable');
+  assert.ok(carry > source.indexOf('decideWrites(snapshots)'), 'carry after decideWrites');
+  assert.ok(carry < source.indexOf('writeStoredSnapshots(supabase'), 'carry before the write');
+});
+
+test('the dam page reads live with the stored snapshot as its net', () => {
+  const source = readFileSync('src/lib/data/public-pages.ts', 'utf8');
+  assert.match(source, /pageDam = unstable_cache\(fetchDamDetailWithFallback,/);
 });

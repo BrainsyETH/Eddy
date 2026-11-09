@@ -6,8 +6,8 @@ import { unstable_cache } from 'next/cache';
 import { createPublicReadClient } from '@/lib/supabase/public-read';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getRivers } from './rivers';
-import { fetchDamDetail, fetchRiverDam, refreshStaleness, summaryOf } from './dams';
-import { readStoredSnapshots } from './dam-snapshot-store';
+import { fetchRiverDam, refreshStaleness, summaryOf } from './dams';
+import { fetchDamDetailWithFallback, readStoredSnapshots } from './dam-snapshot-store';
 import { fetchRiverReaches } from './river-reaches';
 import { getAccessPointDetail } from '@/lib/access-points/detail';
 
@@ -15,7 +15,9 @@ import { getAccessPointDetail } from '@/lib/access-points/detail';
 // their existing policies. Water-bearing snapshots use a short 60s window;
 // descriptive catalog reads use 5 minutes. Original observation times survive.
 export const pageRivers = unstable_cache(getRivers, ['page-rivers-v1'], { revalidate: 60 });
-export const pageDam = unstable_cache(fetchDamDetail, ['page-dam-v1'], { revalidate: 60 });
+// Live, with the hourly stored snapshot filling any reading one failed request
+// dropped — see withStoredFallback.
+export const pageDam = unstable_cache(fetchDamDetailWithFallback, ['page-dam-v1'], { revalidate: 60 });
 export const pageRiverDam = unstable_cache(fetchRiverDam, ['page-river-dam-v1'], { revalidate: 60 });
 // Shared by Conditions and the homepage. Read stored summaries so public HTML
 // never waits for upstream dam providers; the existing client query refreshes.
