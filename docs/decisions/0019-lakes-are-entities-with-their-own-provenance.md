@@ -21,8 +21,11 @@ status nobody has looked at since 2022.
 1. **A lake is an entity, separate from its dam.** A code registry carries its
    identity, controlling structures (a list with roles), pool source, datum
    and optional operating range. Dam URLs, titles and charts are unchanged.
-   Dam pages lead with generation and the water below; lake surfaces lead with
-   elevation, launches, facilities and restrictions; they link both ways.
+   Dam pages always lead with their available operations, including on Truman.
+   Conditions and operational interpretation precede the compact lake preview.
+   Lake pages put conditions then reviewed launches first. Both destinations
+   link only when the dedicated lake page has passed its public release gate.
+   See `missouri-float-planner/docs/LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md`.
 2. **Three timestamps, never conflated.** `source_updated_at` is the agency's
    date and the only one a reader sees as such. `first_observed_at` is when
    Eddy first saw a value; `last_checked_at` is the fetch. A status with no

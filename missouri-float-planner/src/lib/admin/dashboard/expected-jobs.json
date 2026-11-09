@@ -60,6 +60,10 @@
     "schedule": "35 * * * *"
   },
   {
+    "path": "/api/cron/sync-lake-levels",
+    "schedule": "40 * * * *"
+  },
+  {
     "path": "/api/cron/generate-dam-updates",
     "schedule": "47 * * * *"
   },

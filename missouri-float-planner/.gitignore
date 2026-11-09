@@ -63,3 +63,6 @@ tmp/
 
 # Development-only Conditions browser fixture.
 /src/app/conditions-layout-check/
+
+# Development-only lake/dam experience preview.
+/src/app/lakes-layout-check/

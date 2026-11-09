@@ -17,6 +17,7 @@ import { ChevronLeft, ArrowRight, Phone, Smartphone } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import Button from '@/components/ui/Button';
 import DamDetail from '@/components/dam/DamDetail';
+import PlaceHeader from '@/components/lake/PlaceHeader';
 import AppLink from '@/components/AppLink';
 import { getRiverContext } from '@/lib/rivers/context';
 import { riverPath } from '@/lib/navigation/river-path';
@@ -25,6 +26,8 @@ import { damAboutSentences, damPageCopy, damStructuredData } from '@/lib/dam-pag
 import { jsonLdString } from '@/lib/json-ld';
 
 import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
+import { loadLakeSection } from '@/lib/lakes/section';
+import { lakePageHref } from '@/lib/lakes/public-pages';
 import { SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
 
 // Rendered per request, deliberately not ISR. The schedule's "Today" is
@@ -60,6 +63,9 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   const renderedAt = Date.now();
   const dam = await loadDamPageSnapshot(damId, renderedAt);
   if (!dam) notFound();
+  // The lake behind the dam, when Eddy carries it as an entity (ADR 0019).
+  // Separate from the snapshot so the stored row and the iOS wire stay as they are.
+  const lake = await loadLakeSection(dam.id, dam.metrics.poolElevation, renderedAt);
 
   const project = getUsaceDam(dam.id);
   const availability = project?.amerenMetrics === 'osage'
@@ -81,15 +87,19 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
         <Link href="/dams" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-primary-700 hover:text-primary-800">
           <ChevronLeft className="size-4" aria-hidden="true" /> All lakes &amp; dams
         </Link>
-        <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        {lake && ['truman', 'table-rock'].includes(lake.slug) ? (
+          <PlaceHeader lakeSlug={lake.slug} title={dam.name} actions={<StationShareButton station={{ provider: 'usace', siteId: damId }} title={dam.name} label="Share" />}>
+            <p>{[dam.lakeName, river?.name, dam.state].filter(Boolean).join(' · ')}</p>
+          </PlaceHeader>
+        ) : <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight text-primary-800 sm:text-5xl" style={{ fontFamily: 'var(--font-display)' }}>{dam.name}</h1>
             <p className="mt-2 text-sm text-neutral-600">{[dam.lakeName ?? 'Dam conditions', river?.name, dam.state].filter(Boolean).join(' · ')}</p>
           </div>
           <StationShareButton station={{ provider: 'usace', siteId: damId }} title={dam.name} label="Share" />
-        </header>
+        </header>}
         <div id="generation" className="scroll-mt-24">
-          <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} />
+          <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} lake={lake} lakeHref={lake ? lakePageHref(lake.slug) : undefined} />
         </div>
         <div id="dam-resources" className="dam-resource-links mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
           {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>}

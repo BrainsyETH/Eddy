@@ -12,6 +12,7 @@ import {
   MessageSquare,
   History,
   Compass,
+  Waves,
   Film,
   ShieldCheck,
   Bot,
@@ -51,6 +52,13 @@ const ADMIN_SECTIONS = [
     href: '/admin/geography',
     icon: MapPin,
     color: 'bg-blue-500',
+  },
+  {
+    title: 'Lake Launches',
+    description: 'Review and publish lake launches staged from the agency queues',
+    href: '/admin/lakes',
+    icon: Waves,
+    color: 'bg-cyan-500',
   },
   {
     title: 'Blog Posts',

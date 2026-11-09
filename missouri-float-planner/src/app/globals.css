@@ -1714,6 +1714,7 @@ select.input {
 }
 @media (min-width: 900px), (orientation: landscape) and (min-width: 640px) {
   .dam-generation-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
+  .dam-generation-layout[data-schedule-first] > .dam-observed { order: -1; }
 }
 @media (min-width: 1100px) {
   .dam-measurements { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }

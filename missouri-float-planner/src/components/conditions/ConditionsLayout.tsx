@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { publishedLakes } from '@/lib/lakes/public-pages';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { EDDY_IMAGES } from '@/constants';
@@ -22,6 +23,7 @@ export default function ConditionsLayout(props: ConditionsExplorerProps) {
     </header>
     <div className="mx-auto max-w-7xl px-4 pb-12 pt-5 sm:px-6 lg:px-8">
       <ConditionsExplorer {...props} />
+      {publishedLakes().length > 0 && <nav className="mt-6 border-t border-neutral-200 pt-4" aria-label="Lake reports"><h2 className="font-heading text-lg font-bold text-primary-800">Lake levels &amp; launches</h2><div className="mt-2 flex flex-wrap gap-x-6">{publishedLakes().map(lake => <Link key={lake.slug} href={`/lakes/${lake.slug}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline underline-offset-4">{lake.name} →</Link>)}</div></nav>}
       <p className="mt-8 max-w-2xl text-xs text-neutral-500">Readings from USGS, USACE, and Ameren; schedules from SWPA. Releases can change without notice. Follow warning sirens and posted signs below every dam.</p>
       <p className="mt-2 max-w-2xl text-xs text-neutral-500">USGS readings can lag actual river conditions. Check the observation time before heading out.</p>
     </div>

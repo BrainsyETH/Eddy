@@ -1,0 +1,20 @@
+{
+  "swl-table-rock-dam": {
+    "title": "Table Rock Dam and Table Rock Lake",
+    "credit": "KTrimble \u00b7 CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Aerial_photo_of_Table_Rock_Dam,_lake,_and_White_River,_October_2009.jpg",
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "asset": "table-rock.jpg",
+    "changes": "Resized and cropped for display"
+  },
+  "nwk-truman-dam": {
+    "title": "Harry S. Truman Dam and Truman Lake",
+    "asset": "nwk-truman-dam.jpg",
+    "credit": "Samuel Weldin / USACE \u00b7 Federal photo; DVIDS use terms",
+    "url": "https://www.dvidshub.net/image/8838433/truman-lake-dam",
+    "license": "https://www.dvidshub.net/image/8838433/truman-lake-dam",
+    "originalUrl": "https://d1ldvf68ux039x.cloudfront.net/thumbs/photos/2501/8838433/1000w_q95.jpg",
+    "originalSha256": "8f3a6ab5b0232c6ac1175a8762a26f8e6fdd2d6d86d26066a51bf9457d6ceb87",
+    "changes": "Resized to 640 \u00d7 400 and cropped for display"
+  }
+}
