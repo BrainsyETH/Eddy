@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Search, X } from 'lucide-react';
 import { readingStaleness, relativeAgeShort } from '@shared/dam-schedule-copy';
+import { scheduleOutlook, scheduledChangeSummary } from '@shared/dam-generation';
 import type { DirectoryDam, DirectoryDamGroup, DirectoryReading } from '@/lib/data/dam-directory';
 
 const MISSING = '—';
@@ -41,7 +42,9 @@ function DamRow({ dam, now }: { dam: DirectoryDam; now: number }) {
   const release = readingCopy(dam.release, 'cfs', now);
   const generating = generationCopy(dam, now);
   const url = '/dams/' + dam.id;
-  const next = dam.nextChange ?? 'No hourly schedule';
+  const outlook = dam.hasHourlySchedule ? scheduleOutlook(dam.schedule, dam.generationReference, now) : null;
+  const next = !dam.hasTurbines || !dam.hasHourlySchedule ? 'No hourly schedule' : !outlook ? 'Schedule unavailable' : outlook.move ? (scheduledChangeSummary(dam.schedule, dam.generationReference, now) ?? 'Schedule unavailable') : 'No change in posted hours';
+  const scheduleStale = Boolean(outlook?.stale);
 
   return (
     <li className="border-t border-neutral-200 first:border-t-0">
@@ -63,7 +66,7 @@ function DamRow({ dam, now }: { dam: DirectoryDam; now: number }) {
         <p className={generating.current ? 'text-sm font-medium text-primary-800' : 'text-sm text-neutral-600'}>{generating.label}</p>
         <div className="min-w-0">
           <p className="text-sm text-neutral-800">{next}</p>
-          {dam.scheduleStale && <p className="mt-0.5 text-xs text-neutral-600">Schedule may be outdated</p>}
+          {scheduleStale && <p className="mt-0.5 text-xs text-neutral-600">Schedule may be outdated</p>}
         </div>
       </div>
       <Link href={url} className="flex min-h-16 items-start justify-between gap-3 px-4 py-3.5 hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-600 md:hidden">
@@ -75,7 +78,7 @@ function DamRow({ dam, now }: { dam: DirectoryDam; now: number }) {
             <span className={generating.current ? 'font-medium text-primary-800' : 'text-neutral-600'}>{generating.label}</span>
           </div>
           <p className="mt-1.5 text-xs text-neutral-600">Lake {pool.value} <span aria-hidden="true">·</span> {next}</p>
-          {dam.scheduleStale && <p className="mt-1 text-xs text-neutral-600">Schedule may be outdated</p>}
+          {scheduleStale && <p className="mt-1 text-xs text-neutral-600">Schedule may be outdated</p>}
         </div>
         <ChevronRight className="mt-1 size-4 shrink-0 text-primary-700" aria-hidden="true" />
       </Link>
