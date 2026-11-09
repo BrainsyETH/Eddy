@@ -34,8 +34,9 @@ call to action.
 Dam sizes mirror the iOS "Dam generation" Home Screen widget, read off
 `shared/dam-widget.ts` — the same posted MW packet the phone draws, so an
 hour cannot disagree between the two. The card reads: dam and lake → **observed**
-turbine flow with one dated generation status → **posted** next-change sentence
-and taller 24-hour MW chart with an Eddy-coral Now line → footer. The marker
+turbine flow with one dated generation status → the **Central-time date**
+and posted next-change sentence → taller 24-hour MW chart with an Eddy-coral
+Now line → footer. The marker
 is the current Central hour, not a claim that a scheduled bar was observed.
 Missing hours have short outlined marks, not zero-generation bars; minimum
 flow is separate from scheduled generation. Observations and posted plans may
@@ -54,8 +55,16 @@ row when data exists. Use the existing web/iOS Eddy glyphs for river gauge,
 lake gauge and water temperature, rather than generic iconography. Rising
 stage (only when a fresh, measured change exists) uses a coral arrow + text;
 falling stage uses teal arrow + text; lake level is rendered in Eddy water teal.
-These are measurements, **not safety classifications**. The row wraps to two
-columns and then one for narrow iframes; only available metrics are shown.
+These are measurements, **not safety classifications**. All three metrics
+stay on one row at every embed width; narrow frames use compact figures and
+stack the existing branded icons above their labels instead of forcing
+temperature onto a second row. Only available metrics are shown.
+
+Today's chart does not repeat a "Posted generation schedule" or "Today's posted
+generation · CT" heading. Its date appears once, where the schedule title
+used to sit, above the next-change sentence; the chart retains an accessible
+day/date label, its MW context, and the coral Now marker. Tomorrow retains
+its own distinct date heading when the full embed includes it.
 
 The full card has one visible `Observed … ago` line at the header's top-right,
 referring **only to turbine flow**. It is not a single timestamp for all

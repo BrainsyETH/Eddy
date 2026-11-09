@@ -109,11 +109,13 @@ function schedulePeak(day: ScheduleDay): number {
 }
 
 /** A posted day as 24 bars — the iOS DamScheduleChart in HTML. */
-export function ScheduleBars({ day, currentHour, compact = false, label }: {
+export function ScheduleBars({ day, currentHour, compact = false, label, hideVisualLabel = false }: {
   day: ScheduleDay;
   currentHour: number | null;
   compact?: boolean;
   label: string;
+  /** Today's date is displayed above the next-change sentence, not again above the bars. */
+  hideVisualLabel?: boolean;
 }) {
   const peak = schedulePeak(day);
   const minimumFlowOnly = peak === 0 && day.hours.some((h) => h.minimumFlow === true);
@@ -127,8 +129,8 @@ export function ScheduleBars({ day, currentHour, compact = false, label }: {
     : null;
   return (
     <div className="ew-sched" role="img" aria-label={`${label}: posted hourly generation schedule in MW, Central Time, subject to change. Outlined bars are missing hours.${currentHour != null ? ' The Now marker shows the current hour, not measured flow.' : ''}${note ? ` ${note}.` : ''}`}>
-      <div className="ew-sched-head">
-        <span className="ew-section-title">{label}</span>
+      <div className={`ew-sched-head${hideVisualLabel ? ' ew-sched-head-quiet' : ''}`}>
+        {!hideVisualLabel && <span className="ew-section-title">{label}</span>}
         <span className="ew-support">{note ?? (peak > 0 ? 'Peak ' + Math.round(peak).toLocaleString('en-US') + ' MW' : 'Hourly plan · MW')}</span>
       </div>
       <div className="ew-sched-bars" style={{ height: height + 18 }}>
@@ -313,24 +315,28 @@ function Card(props: Props) {
         </div>
       </div>
 
-      {packet.scheduleDays.length > 0 && (
-        <div className="ew-dam-schedule-intro">
-          <span className="ew-section-title">Posted generation schedule</span>
-          {next.stale ? (
+      <div className="ew-dam-schedule-intro">
+        <time className="ew-section-title ew-dam-schedule-date" dateTime={moment.scheduleDate}>
+          {scheduleDayLabel(moment.scheduleDate)} · CT
+        </time>
+        {packet.scheduleDays.length > 0 ? (
+          next.stale ? (
             <p role="note" className="ew-note">{next.text}</p>
           ) : (
             <p className="ew-next">{next.text}</p>
-          )}
-        </div>
-      )}
-
-      {today ? (
-        <ScheduleBars day={today} currentHour={moment.scheduleHour ?? null} label="Today’s posted generation · CT" />
-      ) : (
-        <div className="ew-sched">
-          <span className="ew-section-title">Today’s posted generation · CT</span>
+          )
+        ) : (
           <p className="ew-support">Today's generation schedule is unavailable.</p>
-        </div>
+        )}
+      </div>
+
+      {today && (
+        <ScheduleBars
+          day={today}
+          currentHour={moment.scheduleHour ?? null}
+          label={`${scheduleDayLabel(today.date)} · CT`}
+          hideVisualLabel
+        />
       )}
 
       {full && (downstream || pool || waterTemp) && (
@@ -349,8 +355,9 @@ function Card(props: Props) {
                     <>
                       <div className="ew-dam-detail-figure">
                         <strong className={`ew-dam-detail-value ${downstreamDirection === 'Rising' ? 'ew-dam-value-rising' : 'ew-dam-value-falling'}`}>
-                          {downstreamChange}
+                          {downstreamChange.split(' over ')[0]}
                         </strong>
+                        <span className="ew-support">over {downstreamChange.split(' over ')[1]}</span>
                       </div>
                       <p className={`ew-dam-movement ew-dam-movement-${downstreamDirection.toLowerCase()}`}>
                         <span aria-hidden="true">{downstreamDirection === 'Rising' ? '↗' : '↘'}</span>

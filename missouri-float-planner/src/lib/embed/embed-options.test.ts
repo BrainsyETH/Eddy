@@ -168,7 +168,11 @@ test('the dam card distinguishes dated observations from posted generation and r
   assert.doesNotMatch(card, /ew-gen-pill/, 'no second status pill in the header');
   assert.match(card, /<span className="ew-section-title">Turbine flow<\/span>/, 'turbine flow remains the primary observation');
   assert.match(card, /moment\.current \? compactStatus\(moment\) : moment\.status/, 'old observations never borrow a present-tense chip');
-  assert.match(card, /Posted generation schedule/, 'the hourly bars belong to the publisher\'s plan');
+  assert.match(card, /ew-dam-schedule-date/, 'one Central-time date sits above the schedule');
+  assert.match(card, /scheduleDayLabel\(moment\.scheduleDate\)/, 'the date uses the dam’s Central calendar day');
+  assert.doesNotMatch(card, /Posted generation schedule|Today’s posted generation · CT/, 'remove duplicated schedule headings');
+  assert.match(card, /hideVisualLabel/, 'today’s chart does not repeat the date as a heading');
+  assert.match(dam, /!hideVisualLabel && <span className="ew-section-title">\{label\}<\/span>/, 'tomorrow’s chart can retain its day label');
   assert.match(card, /next\.stale \? \(\s*<p role="note"/, 'an old schedule has a visible notice');
   assert.match(dam, /ew-sched-now/, 'the scheduled hours retain a visible current-time marker');
   assert.match(dam, /hour\.minimumFlow \? ' ew-sched-bar-min'/, 'minimum flow is not shown as normal generation');
@@ -198,6 +202,13 @@ test('the dam card distinguishes dated observations from posted generation and r
   assert.match(card, /formatObservedAge\(pool\.at, now\)/, 'the real lake observation time remains available in disclosure/metadata');
   assert.match(card, /formatObservedAge\(waterTemp\.at, now\)/, 'temperature keeps its independent observation clock');
   assert.match(card, /The header age applies to turbine flow only/, 'header date cannot imply all measurements were simultaneous');
+  assert.match(card, /downstreamChange\.split\(' over '\)\[0\]/, 'movement magnitude is compact enough for a third-width column');
+  const styles = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
+  const detailStart = styles.indexOf('.ew-dam-details {');
+  const detailEnd = styles.indexOf('.ew-dam-spill {', detailStart);
+  const detailStyles = styles.slice(detailStart, detailEnd);
+  assert.match(detailStyles, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/, 'all three primary metrics share the first row');
+  assert.doesNotMatch(detailStyles, /grid-template-columns: repeat\((1|2),/, 'narrow embeds cannot orphan temperature on a second row');
 });
 
 test('legacy embed routes stay alive as fixed sizes of the family', () => {
