@@ -45,7 +45,7 @@ A schedule Eddy checked more than 90 minutes ago replaces the next-change
 sentence with a visible coral notice. Sources, peak MW, the check time and
 the Central-time explanation sit in "About this data"; the iframe resizes
 when the disclosure expands. `full` adds the dam's own dated downstream
-stage and only fresh, canonically rounded movement (no safety verdict),
+water elevation and only fresh, canonically rounded movement (no safety verdict; outdated elevation values are suppressed),
 spillway discharge when separately observed, and total release only when
 it isn't an effectively identical, near-simultaneous turbine observation.
 Daily-average release stays distinct. Lake level and tomorrow's posted
