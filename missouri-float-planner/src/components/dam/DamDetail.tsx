@@ -24,8 +24,13 @@ export default function DamDetail({ dam, renderedAt, availability, lake }: {
   const { now, refreshing } = useDamPageClock(renderedAt);
   const { poolElevation, tailwaterElevation, tailwaterTempF, inflow } = dam.metrics;
   const hasMeasurements = Boolean(poolElevation || tailwaterElevation || tailwaterTempF || inflow || dam.tailwaterFishery);
+  // ADR 0019 §7: the water below the dam leads where Eddy carries that river
+  // (the trout tailwaters); on a lake-focused destination with no Eddy river
+  // below it (Truman), the lake leads.
+  const lakeLeads = Boolean(lake && !dam.tailwater);
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
+      {lakeLeads && lake && <OnTheLake lake={lake} now={now} />}
       <GenerationCard dam={dam} now={now} availability={availability} />
       {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}
@@ -33,7 +38,7 @@ export default function DamDetail({ dam, renderedAt, availability, lake }: {
         {hasMeasurements && <DamStateCard dam={dam} secondary now={now} />}
         {dam.pattern && dam.pattern.length > 0 && <DamPatternStrip pattern={dam.pattern} schedule={dam.schedule} reference={dam.generationReference} generationFloorCfs={dam.generationFloorCfs} now={now} />}
       </div>
-      {lake && <OnTheLake lake={lake} now={now} />}
+      {!lakeLeads && lake && <OnTheLake lake={lake} now={now} />}
       <p className="min-h-4 text-right text-xs text-neutral-500" aria-live="polite">{refreshing ? 'Checking for updates…' : null}</p>
     </div>
   );
