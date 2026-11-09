@@ -5,6 +5,7 @@ import { parseDirectoryFilters, DIRECTORY_QUERY_MAX_LENGTH } from './dam-directo
 import {
   createDirectoryRowReader,
   directorySnapshotsFromRows,
+  directoryUnsupportedReadings,
   DIRECTORY_READ_TIMEOUT_MS,
   DIRECTORY_ROWS_TTL_MS,
   type DirectoryRow,
@@ -149,7 +150,8 @@ test('the production deadline and cache bound are the reviewed values', () => {
   assert.equal(DIRECTORY_ROWS_TTL_MS, 60_000);
   const source = readFileSync('src/lib/data/dam-directory-source.ts', 'utf8');
   assert.match(source, /createAdminClient\(signal\)/, 'the deadline reaches the database client');
-  assert.match(source, /select\('dam_id, built_at, metrics:payload->metrics, schedule:payload->schedule'\)/, 'the read stays narrow');
+  assert.match(source, /select\('dam_id, built_at, metrics:payload->metrics, schedule:payload->schedule, forecast:payload->generationForecast'\)/, 'the read stays narrow');
+  assert.doesNotMatch(source, /payload->pattern|select\('[^']*\bpayload\b(?!->)/, 'never the observed pattern or the whole payload');
   assert.doesNotMatch(source, /unstable_cache\(/, 'no cache without an age bound');
 });
 
@@ -218,4 +220,42 @@ test('an outage says so and offers a retry instead of a page of silent blanks', 
   const directory = readFileSync('src/components/dam/DamDirectory.tsx', 'utf8');
   assert.match(directory, /Dam readings couldn’t refresh\. You can still open individual dam reports\./);
   assert.match(directory, /onClick=\{refreshNow\}/);
+});
+
+// ── What the registry knows that a reading's absence cannot say ───────────
+
+test('a stored forecast reaches the card, and a malformed one is dropped', () => {
+  const forecast = { windows: [{ startUtc: '2026-11-09T15:00:00Z', endUtc: '2026-11-10T03:00:00Z', generating: true, peakCfs: 15_800 }], timeZone: 'America/Chicago', retrievedAt: null, source: 'Nashville District' };
+  const [wolfCreek] = directorySnapshotsFromRows([{ ...row('lrn-wolf-creek-dam', 5), forecast }], NOW);
+  assert.deepEqual(wolfCreek.generationForecast, forecast);
+  for (const bad of [null, 'text', { windows: [] }, { windows: 'x', timeZone: 'America/Chicago' }, { windows: forecast.windows }]) {
+    const [dam] = directorySnapshotsFromRows([{ ...row('lrn-wolf-creek-dam', 5), forecast: bad }], NOW);
+    assert.equal(dam.generationForecast, undefined);
+  }
+});
+
+test('a dam with no stored row still carries what the registry knows about it', () => {
+  // The card tells "SWPA schedules this dam" from the reference pair. A
+  // hand-built stand-in lacked it, so an outage would have told a reader that
+  // Table Rock publishes no hourly schedule.
+  const { dams } = conditionsDamCatalogue([]);
+  const byId = new Map(dams.map(dam => [dam.id, dam]));
+  for (const dam of Object.values(USACE_DAMS)) {
+    assert.equal(Boolean(byId.get(dam.id)!.generationReference), Boolean(dam.swpaCode), dam.id);
+    assert.equal(byId.get(dam.id)!.generationFloorCfs, dam.generationOnCfs, dam.id);
+  }
+  assert.ok(dams.every(dam => dam.generating === null && Object.keys(dam.metrics).length === 0 && dam.schedule.length === 0));
+});
+
+test('the readings Eddy has no source for at each dam come from the registry', () => {
+  const unsupported = directoryUnsupportedReadings();
+  assert.equal(Object.keys(unsupported).length, Object.keys(USACE_DAMS).length);
+  assert.deepEqual(unsupported['swl-table-rock-dam'], []);
+  assert.deepEqual(unsupported['nwk-stockton-dam'], ['release', 'tailwaterTempF', 'poolElevation'], 'Eddy reads nothing for Stockton from the national data API');
+  assert.deepEqual(unsupported['nwk-truman-dam'], ['tailwaterTempF'], 'Ameren reports Truman\'s pool and outflow');
+  assert.deepEqual(unsupported['ameren-bagnell-dam'], ['tailwaterTempF']);
+  assert.deepEqual(unsupported['swl-clearwater-dam'], ['tailwaterTempF']);
+  assert.deepEqual(unsupported['swt-keystone-dam'], ['tailwaterTempF'], 'no water temperature source; release and pool are verified resolver capabilities');
+  assert.deepEqual(unsupported['lrn-wolf-creek-dam'], ['tailwaterTempF'], 'the sensor has been dead since 2022');
+  assert.deepEqual(unsupported['lrn-center-hill-dam'], []);
 });

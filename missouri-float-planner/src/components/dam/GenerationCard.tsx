@@ -1,3 +1,4 @@
+import type { ScheduleAvailability as FullScheduleAvailability } from '@/lib/dam-schedule-availability';
 import { readingStaleness, relativeAge, SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
 import type { DamSnapshot } from '@/lib/data/dams';
 import { generationReferenceCitation, RACK_ESTIMATE_NOTE } from '@shared/dam-generation';
@@ -7,7 +8,7 @@ import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import DamAppCTA from './DamAppCTA';
 
-export type ScheduleAvailability = { title: string; detail: string };
+export type ScheduleAvailability = Pick<FullScheduleAvailability, 'title' | 'detail'>;
 
 export default function GenerationCard({ dam, now, availability }: {
   dam: DamSnapshot;

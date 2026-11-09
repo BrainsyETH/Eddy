@@ -16,22 +16,45 @@ import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
  * The icon sits inside the <dt> (a <dl> group may hold only dt/dd) and is
  * pulled into a left gutter, so it aligns beside the whole label/value group.
  */
-function Reading({ label, value, unit, metric, now, icon, dense = false }: {
+/** The readings the band can show, named as the snapshot's metrics are. */
+export type DamCardReading = 'release' | 'tailwaterTempF' | 'poolElevation';
+
+function Reading({ label, value, unit, metric, now, icon, dense = false, unsupported = false, note }: {
   label: string; value: string | null; unit: string; metric?: DamMetricValue; now: number;
   icon: EddyIconName;
   /** Three readings share the band: a smaller numeral keeps each on one line. */
   dense?: boolean;
+  /**
+   * Eddy has no source configured for this reading at this dam. An absent
+   * value then reads "Not available in Eddy", and "Unavailable" is kept for a
+   * reading that should be here and is not.
+   *
+   * Deliberately not "Not published": the registry knows which feeds Eddy
+   * reads, not what an agency publishes. Kansas City puts Stockton's pool and
+   * outflow on its own site, outside the API Eddy reads, so "Not published"
+   * was a claim about the Corps that was false. Reserve it for a limitation
+   * someone has verified at the source and recorded as such.
+   */
+  unsupported?: boolean;
+  /** A qualifier that belongs with the value, such as "daily avg". */
+  note?: string;
 }) {
+  // Three-up on a phone leaves each reading about 95px. The 36px icon gutter
+  // then took a third of that: labels wrapped, units dropped to their own line,
+  // and a seven-digit lake level ran past the card's edge. So below `sm` a
+  // dense reading puts a small mark on the label's line and gives the value the
+  // whole column; from `sm` up it is the same gutter layout as the two-up band.
   return (
-    <div className="relative min-w-0 pl-9">
-      <dt className="text-[13px] font-medium leading-4 text-neutral-700">
-        <EddyIcon name={icon} size={28} className="absolute left-0 top-0.5" />
+    <div className={`relative min-w-0 ${dense ? 'sm:pl-9' : 'pl-9'}`}>
+      <dt className={`text-[13px] font-medium leading-4 text-neutral-700 ${dense ? 'flex items-center gap-1 max-sm:text-xs sm:block' : ''}`}>
+        <EddyIcon name={icon} size={28} className={dense ? 'shrink-0 max-sm:!h-5 max-sm:!w-5 sm:absolute sm:left-0 sm:top-0.5' : 'absolute left-0 top-0.5'} />
         {label}
       </dt>
       <dd className={`mt-1 flex flex-wrap items-baseline gap-x-1 text-primary-900 ${metric && readingStaleness(metric.at, now) !== 'fresh' ? 'opacity-60' : ''}`}>
-        {value === null ? <span className="text-sm">Unavailable</span> : <>
-          <span className={`font-mono font-medium leading-7 tabular-nums tracking-tight ${dense ? 'text-xl sm:text-[22px]' : 'text-2xl sm:text-[26px]'}`}>{value}</span>{' '}
+        {value === null ? <span className={unsupported ? 'text-[13px] leading-5 text-neutral-600 sm:text-sm' : 'text-sm'}>{unsupported ? 'Not available in Eddy' : 'Unavailable'}</span> : <>
+          <span className={`font-mono font-medium leading-7 tabular-nums tracking-tight ${dense ? 'text-[17px] sm:text-[22px]' : 'text-2xl sm:text-[26px]'}`}>{value}</span>{' '}
           <span className="text-[13px] text-neutral-500">{unit}</span>
+          {note && <span className="text-xs text-neutral-600">{note}</span>}
         </>}
       </dd>
     </div>
@@ -58,7 +81,11 @@ function readingAgeLine(readings: { label: string; metric: DamMetricValue | unde
  * Release and water temperature at the dam — and, where asked, the lake level
  * as a third reading with its own mark — with one age line.
  */
-export function DamReadings({ dam, now, showLakeLevel = false }: { dam: DamSnapshot; now: number; showLakeLevel?: boolean }) {
+export function DamReadings({ dam, now, showLakeLevel = false, unsupported = [] }: {
+  dam: DamSnapshot; now: number; showLakeLevel?: boolean;
+  /** Readings Eddy has no source for at this dam; see Reading. Unknown on surfaces that do not pass it. */
+  unsupported?: readonly DamCardReading[];
+}) {
   const flow = dam.metrics.release;
   const temperature = dam.metrics.tailwaterTempF;
   const lake = showLakeLevel ? dam.metrics.poolElevation : undefined;
@@ -70,10 +97,12 @@ export function DamReadings({ dam, now, showLakeLevel = false }: { dam: DamSnaps
   return (
     <div className="mx-3 rounded-xl bg-secondary-50 px-3 py-3 sm:mx-4 sm:px-4">
       <dl className={`grid gap-x-3 gap-y-3 ${showLakeLevel ? 'grid-cols-3' : 'grid-cols-2'}`}>
-        <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" dense={showLakeLevel} />
-        <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" dense={showLakeLevel} />
+        {/* A daily average is always labelled. In the three-up band the label
+            has one line, so the qualifier sits with the value instead. */}
+        <Reading label={flow?.dailyMean && !showLakeLevel ? 'Release (daily avg)' : 'Release'} note={flow?.dailyMean && showLakeLevel ? 'daily avg' : undefined} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" dense={showLakeLevel} unsupported={unsupported.includes('release')} />
+        <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" dense={showLakeLevel} unsupported={unsupported.includes('tailwaterTempF')} />
         {showLakeLevel && (
-          <Reading label="Lake level" value={lake ? lake.value.toFixed(2) : null} unit="ft" metric={lake} now={now} icon="damGauge" dense />
+          <Reading label="Lake level" value={lake ? lake.value.toFixed(2) : null} unit="ft" metric={lake} now={now} icon="damGauge" dense unsupported={unsupported.includes('poolElevation')} />
         )}
       </dl>
       {measured && <p data-reading-age className="mt-1.5 text-right text-xs leading-4 text-neutral-600">{measured}</p>}

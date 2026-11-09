@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import DamListCard from '@/components/dam/DamListCard';
+import type { DamCardReading } from '@/components/dam/DamCardParts';
 import { useDamPageClock } from '@/components/dam/useDamPageClock';
 import { stateName } from '@/lib/navigation/states';
 import { parseDirectoryFilters, type DirectoryDamGroup } from '@/lib/data/dam-directory';
@@ -17,6 +18,7 @@ export default function DamDirectory({
   initialQuery = '',
   initialState = 'all',
   readingsUnavailable = false,
+  unsupported = {},
 }: {
   groups: DirectoryDamGroup[];
   renderedAt: number;
@@ -24,6 +26,8 @@ export default function DamDirectory({
   initialState?: string;
   /** No dam had stored readings this render: the read failed, timed out, or every row expired. */
   readingsUnavailable?: boolean;
+  /** Per dam, the card readings Eddy has no source for (from the registry). */
+  unsupported?: Record<string, readonly DamCardReading[]>;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [state, setState] = useState(initialState);
@@ -142,7 +146,7 @@ export default function DamDirectory({
               <h3 className="mb-3 border-b border-neutral-200 pb-2 font-heading text-lg font-bold text-primary-900">{group.label}</h3>
               <div className="grid items-stretch gap-4 lg:grid-cols-2">
                 {group.dams.map(dam => (
-                  <DamListCard key={dam.id} dam={dam} now={now} href={'/dams/' + dam.id} showLakeLevel />
+                  <DamListCard key={dam.id} dam={dam} now={now} href={'/dams/' + dam.id} showLakeLevel unsupported={unsupported[dam.id]} />
                 ))}
               </div>
             </section>

@@ -25,7 +25,7 @@ import { damAboutSentences, damPageCopy, damStructuredData } from '@/lib/dam-pag
 import { jsonLdString } from '@/lib/json-ld';
 
 import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
-import { SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
+import { damScheduleAvailability } from '@/lib/dam-schedule-availability';
 
 // Rendered per request, deliberately not ISR. The schedule's "Today" is
 // computed from the render clock, so a cached render served after midnight
@@ -62,13 +62,12 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   if (!dam) notFound();
 
   const project = getUsaceDam(dam.id);
-  const availability = project?.amerenMetrics === 'osage'
-    ? { title: 'No hourly schedule published', detail: 'Ameren operates this dam. Releases can begin at any time, and the dam sounds a warning siren before starting or stopping generators. The recorded operations line provides current information.' }
-    : !dam.hasTurbines
-      ? { title: 'Gate-operated releases', detail: 'This dam has no powerhouse. Releases are controlled by gate operation, so there is no generation schedule.' }
-      : !project?.swpaCode
-        ? { title: 'No hourly schedule published', detail: dam.generationForecast ? 'The operating forecast below provides the forward view for this dam.' : 'Eddy shows observed readings for this dam. No public hourly loading schedule is available.' }
-        : { title: 'Schedule currently unavailable', detail: `${SCHEDULE_POSTING_NOTE} Eddy shows only dates it can confirm; an unavailable schedule does not mean generation has stopped.` };
+  const availability = damScheduleAvailability({
+    hasTurbines: dam.hasTurbines,
+    hourlySchedule: Boolean(project?.swpaCode),
+    forecast: Boolean(dam.generationForecast),
+    amerenOperated: project?.amerenMetrics === 'osage',
+  });
 
   // Only offer a river destination that is active. Catalog failure must not
   // prevent the dam readings from rendering.
