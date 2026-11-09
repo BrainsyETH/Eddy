@@ -201,14 +201,16 @@ export type GenerationNow =
       kind: 'unavailable';
       /**
        * `no-powerhouse` — a flood-control project. Render no hero at all.
-       * `not-reported` — a powerhouse whose operator publishes no turbine
-       *   flow at all (Bagnell, Stockton, Truman, Mark Twain). A permanent fact
-       *   about the source, not an outage, and worded as one.
+       * `no-source` — a powerhouse Eddy has no turbine-flow source for
+       *   (Bagnell, Stockton, Truman, Mark Twain). A standing fact about
+       *   EDDY, not an outage and not a claim about the operator: the registry
+       *   records which feeds Eddy reads, never what an agency publishes
+       *   elsewhere. The wording says exactly that much.
        * `not-published` — a powerhouse whose turbine flow Eddy expected and
        *   could not read this time.
        * `unreadable` — a reading arrived with a timestamp that will not parse.
        */
-      reason: 'no-powerhouse' | 'not-reported' | 'not-published' | 'unreadable';
+      reason: 'no-powerhouse' | 'no-source' | 'not-published' | 'unreadable';
     };
 
 /**
@@ -234,12 +236,12 @@ export function generationNow(dam: GenerationInputs, now = Date.now()): Generati
   if (!reading || typeof reading.value !== 'number' || !Number.isFinite(reading.value)) {
     // The registry sets a generation floor for exactly the dams whose turbine
     // flow it reads, and the floor rides the wire on every snapshot. No floor
-    // and no reading is therefore a dam that never reports turbine flow, which
-    // used to head its page "Release status unavailable" directly above a
-    // current release figure, on every visit, as though a feed were down.
+    // and no reading is therefore a dam Eddy has no turbine-flow source for,
+    // which used to head its page "Release status unavailable" directly above
+    // a current release figure, on every visit, as though a feed were down.
     return {
       kind: 'unavailable',
-      reason: typeof dam.generationFloorCfs === 'number' ? 'not-published' : 'not-reported',
+      reason: typeof dam.generationFloorCfs === 'number' ? 'not-published' : 'no-source',
     };
   }
 
@@ -345,7 +347,7 @@ export function generationStatusLabel(state: GenerationNow): string | null {
       // A flood-control project has no powerhouse to report on, and a hero that
       // said anything at all here would invent one.
       if (state.reason === 'no-powerhouse') return null;
-      return state.reason === 'not-reported' ? 'Turbine flow not reported' : 'Release status unavailable';
+      return state.reason === 'no-source' ? 'Turbine flow not available in Eddy' : 'Release status unavailable';
   }
 }
 
@@ -716,8 +718,8 @@ function observedClause(
 ): string {
   if (state.kind === 'unavailable') {
     if (state.reason === 'no-powerhouse') return 'This project has no powerhouse.';
-    return state.reason === 'not-reported'
-      ? 'This dam does not report turbine flow.'
+    return state.reason === 'no-source'
+      ? 'Eddy has no turbine flow reading for this dam.'
       : 'Current turbine flow unavailable.';
   }
 
@@ -889,17 +891,23 @@ export interface ScheduleCheckLine {
  */
 export function scheduleCheckLine(
   retrievedAts: Array<string | null>,
-  now = Date.now()
+  now = Date.now(),
+  /**
+   * What was checked. A card that states a change from an operator's FORECAST
+   * says "Forecast checked", so the time is not read as the age of the
+   * measurements above it or as an SWPA schedule's.
+   */
+  subject: 'Schedule' | 'Forecast' = 'Schedule'
 ): ScheduleCheckLine | null {
   if (retrievedAts.length === 0) return null;
   if (retrievedAts.some((iso) => !iso || !Number.isFinite(Date.parse(iso)))) {
-    return { text: 'Schedule check time unavailable', stale: false };
+    return { text: `${subject} check time unavailable`, stale: false };
   }
   const oldest = oldestRetrievedAt(retrievedAts.map((retrievedAt) => ({ retrievedAt })));
   const phrase = scheduleCheckedPhrase(oldest, now);
-  if (!oldest || !phrase) return { text: 'Schedule check time unavailable', stale: false };
+  if (!oldest || !phrase) return { text: `${subject} check time unavailable`, stale: false };
   return {
-    text: `Schedule checked ${phrase.replace(/^at /, '')}`,
+    text: `${subject} checked ${phrase.replace(/^at /, '')}`,
     stale: scheduleIsStale(oldest, now),
   };
 }
@@ -1338,8 +1346,8 @@ export function generationVoiceOver(
 ): string | null {
   if (state.kind === 'unavailable') {
     if (state.reason === 'no-powerhouse') return null;
-    return state.reason === 'not-reported'
-      ? 'This dam does not report turbine flow.'
+    return state.reason === 'no-source'
+      ? 'Eddy has no turbine flow reading for this dam.'
       : 'Current turbine flow is unavailable.';
   }
   if (state.kind === 'not-generating') {

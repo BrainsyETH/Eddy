@@ -1080,9 +1080,18 @@ export type DamCardMetric = 'release' | 'poolElevation' | 'tailwaterTempF';
 /**
  * Whether the registry DECLARES a source for one of the card readings.
  *
- * For telling "this dam does not publish it" from "it should be here and is
- * not". Stockton publishes nothing to CWMS, so its three readings are absent on
- * every visit; calling that "Unavailable" reads as an outage that never ends.
+ * For telling "Eddy has no source for it" from "it should be here and is not".
+ * Eddy reads nothing for Stockton from the Corps' national data API, so its
+ * three readings are absent on every visit; calling that "Unavailable" reads
+ * as an outage that never ends.
+ *
+ * ── What this does NOT say ─────────────────────────────────────────────────
+ * That the agency publishes nothing. It answers for Eddy's configuration only.
+ * Kansas City publishes Stockton's pool and outflow on its own water-management
+ * site, and NWS publishes its lake level; neither is a feed Eddy reads. So the
+ * words chosen from this are "Not available in Eddy", never "Not published".
+ * A source limitation somebody has verified belongs in its own declaration.
+ *
  * A declared explicit series, a verified resolver capability, or an Ameren
  * feed counts. Water temperature is never resolved, so only an explicit series
  * declares it. A reading that arrives anyway is always shown: this only

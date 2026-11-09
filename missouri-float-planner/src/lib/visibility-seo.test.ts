@@ -338,27 +338,29 @@ test('dam card readings show one age line: shared only when both were observed i
 // Every dam with a powerhouse drew the schedule section, so Bagnell and the
 // three Nashville District dams read "Today's generation schedule is
 // unavailable" on every visit, as though a feed were down, and Stockton showed
-// three readings "Unavailable" that its district has never published.
+// three readings "Unavailable" that Eddy has no source for. Those read "Not
+// available in Eddy", never "Not published": the Corps publishes Stockton's pool
+// and outflow on a site Eddy does not read, so the registry cannot speak for it.
 
-test('dam cards tell "no hourly schedule" from "schedule missing", and "not published" from "unavailable"', async () => {
+test('dam cards tell "no hourly schedule" from "schedule missing", and "not available in Eddy" from "unavailable"', async () => {
   const { buildSnapshot } = await import('./data/dams');
   const { USACE_DAMS } = await import('./flow-providers/usace-registry');
-  const { directoryUnpublishedMetrics } = await import('./data/dam-directory-source');
+  const { directoryUnsupportedReadings } = await import('./data/dam-directory-source');
   const now = Date.parse('2026-11-09T22:00:00Z'); // 4 PM CST
   const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
-  const unpublished = directoryUnpublishedMetrics();
+  const unsupported = directoryUnsupportedReadings();
   const text = (id: string, over: Partial<ReturnType<typeof buildSnapshot>> = {}, directory = true) =>
     renderToStaticMarkup(createElement(DamListCard, {
       dam: { ...buildSnapshot(USACE_DAMS[id], {}, [], undefined, undefined, now), ...over }, now, href: `/dams/${id}`,
-      ...(directory ? { showLakeLevel: true, unpublished: unpublished[id] } : {}),
+      ...(directory ? { showLakeLevel: true, unsupported: unsupported[id] } : {}),
     })).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 
-  // Bagnell: Ameren publishes no hourly schedule and no water temperature.
+  // Bagnell: no hourly schedule, and Eddy has no water temperature source.
   const bagnell = text('ameren-bagnell-dam', { metrics: { release: { value: 914, unit: 'cfs', at: at(50), staleness: 'fresh' } } });
   assert.match(bagnell, /No hourly schedule published Releases can begin at any time\./);
   assert.doesNotMatch(bagnell, /schedule is unavailable/);
-  assert.match(bagnell, /Water temp Not published/);
-  assert.match(bagnell, /Lake level Unavailable/, 'Ameren does publish the lake level, so a missing one is an outage');
+  assert.match(bagnell, /Water temp Not available in Eddy/);
+  assert.match(bagnell, /Lake level Unavailable/, 'Eddy does read the lake level from Ameren, so a missing one is an outage');
   assert.doesNotMatch(bagnell, /· CT/, 'no schedule date in the header of a card with no schedule');
 
   // Wolf Creek: no SWPA sheet, but the Corps forecast says what comes next.
@@ -370,29 +372,38 @@ test('dam cards tell "no hourly schedule" from "schedule missing", and "not publ
     ],
   };
   const wolfCreek = text('lrn-wolf-creek-dam', { generationForecast: forecast });
-  assert.match(wolfCreek, /Generation forecast to stop at 9 PM\. From the Corps operating forecast, not a posted schedule\./);
+  assert.match(wolfCreek, /Generation forecast to stop at 9 PM\. Corps operating forecast, not a posted schedule\. Central time, at the dam\. Subject to change · Downstream timing varies/);
   assert.doesNotMatch(wolfCreek, /schedule is unavailable/);
+  // The forecast carries its own check time; "Measured…" above dates the readings only.
+  assert.match(wolfCreek, /Forecast checked 3:40 PM CST/);
+  assert.doesNotMatch(wolfCreek, /Schedule checked/);
+  const oldFetch = text('lrn-wolf-creek-dam', { generationForecast: { ...forecast, retrievedAt: at(200) } });
+  assert.match(oldFetch, /Outdated: Forecast checked/, 'a forecast fetched hours ago says so');
+  assert.match(text('lrn-wolf-creek-dam', { generationForecast: { ...forecast, retrievedAt: null } }), /Forecast check time unavailable/);
   // A forecast that has stopped being refreshed states no change.
   const shortHorizon = { ...forecast, windows: [forecast.windows[0], { ...forecast.windows[1], endUtc: new Date(now + 2 * 86_400_000).toISOString() }] };
-  assert.match(text('lrn-wolf-creek-dam', { generationForecast: shortHorizon }), /No hourly schedule published The full report has the Corps operating forecast\./);
+  const fallback = text('lrn-wolf-creek-dam', { generationForecast: shortHorizon });
+  assert.match(fallback, /No hourly schedule published The full report has the Corps operating forecast\./);
+  assert.doesNotMatch(fallback, /Forecast checked/, 'no check time for a forecast the card does not state');
   // On surfaces fed by summaries, which carry no forecast, it still does not claim an outage.
   assert.match(text('lrn-wolf-creek-dam', {}, false), /No hourly schedule published/);
 
   // Clearwater has no powerhouse.
   const clearwater = text('swl-clearwater-dam');
   assert.match(clearwater, /Gate-operated releases No powerhouse, so there is no generation schedule\./);
-  assert.match(clearwater, /Water temp Not published/);
+  assert.match(clearwater, /Water temp Not available in Eddy/);
 
   // Table Rock IS scheduled: with no stored row it is a missing sheet, never "no schedule published".
   const tableRock = text('swl-table-rock-dam');
   assert.match(tableRock, /Today’s generation schedule is unavailable\./);
   assert.doesNotMatch(tableRock, /No hourly schedule published/);
   assert.match(tableRock, /Release Unavailable/);
-  assert.doesNotMatch(tableRock, /Not published/);
+  assert.doesNotMatch(tableRock, /Not available in Eddy/);
 
-  // Stockton's district publishes none of the three readings; its schedule is real.
+  // Eddy has no source for Stockton's three readings; its schedule is real.
   const stockton = text('nwk-stockton-dam');
-  assert.equal((stockton.match(/Not published/g) ?? []).length, 3);
+  assert.equal((stockton.match(/Not available in Eddy/g) ?? []).length, 3);
+  assert.doesNotMatch(stockton, /Not published/, 'no claim about what the Corps publishes');
   assert.doesNotMatch(stockton, /No hourly schedule published/);
 
   // Without the registry facts a card keeps the cautious word.

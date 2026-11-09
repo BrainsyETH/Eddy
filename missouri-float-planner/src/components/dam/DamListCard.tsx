@@ -5,6 +5,7 @@ import GenerationSchedule, { ScheduleCheck, ScheduleDateline, scheduleSectionChe
 import { DamReadings, DamScheduleInfoTip, type DamCardReading } from './DamCardParts';
 import Card from '@/components/ui/Card';
 import { damCardScheduleFacts, damScheduleAvailability } from '@/lib/dam-schedule-availability';
+import { scheduleCheckLine } from '@shared/dam-generation';
 import { forecastPlanStale, nextForecastChangeSentence } from '@shared/dam-forecast-copy';
 
 /**
@@ -22,10 +23,10 @@ import { forecastPlanStale, nextForecastChangeSentence } from '@shared/dam-forec
  * one line, and a Nashville dam leads with the next change in the Corps'
  * forecast when the snapshot carries it. See dam-schedule-availability.ts.
  */
-export default function DamListCard({ dam, now, href, showLakeLevel = false, unpublished }: {
+export default function DamListCard({ dam, now, href, showLakeLevel = false, unsupported }: {
   dam: DamSnapshot; now: number; href: string; showLakeLevel?: boolean;
-  /** Readings this dam's sources never publish; passed where the registry is at hand. */
-  unpublished?: readonly DamCardReading[];
+  /** Readings Eddy has no source for at this dam; passed where the registry is at hand. */
+  unsupported?: readonly DamCardReading[];
 }) {
   const facts = damCardScheduleFacts(dam);
   const scheduled = facts.hasTurbines && facts.hourlySchedule;
@@ -38,6 +39,11 @@ export default function DamListCard({ dam, now, href, showLakeLevel = false, unp
   const forecastChange = forecast && !forecastPlanStale(forecast.windows, now)
     ? nextForecastChangeSentence(forecast.windows, forecast.timeZone, now)
     : null;
+  // The forecast's OWN check time, in the footer corner where a scheduled card
+  // says "Schedule checked". Without it the only time on the card was
+  // "Measured…" in the readings band, which dates the readings and would be
+  // read as dating the forecast too.
+  const forecastCheck = forecast && forecastChange ? scheduleCheckLine([forecast.retrievedAt], now, 'Forecast') : null;
   const place = [dam.lakeName, dam.state].filter(Boolean).join(' · ');
 
   return (
@@ -56,7 +62,7 @@ export default function DamListCard({ dam, now, href, showLakeLevel = false, unp
           </span>
         </Link>
 
-        <DamReadings dam={dam} now={now} showLakeLevel={showLakeLevel} unpublished={unpublished} />
+        <DamReadings dam={dam} now={now} showLakeLevel={showLakeLevel} unsupported={unsupported} />
       </div>
 
       <div className="flex flex-1 flex-col px-4 pb-1 pt-1.5 sm:px-5">
@@ -69,9 +75,12 @@ export default function DamListCard({ dam, now, href, showLakeLevel = false, unp
             </h4>
             <p className="mt-1 text-sm leading-5 text-neutral-600">
               {forecastChange
-                ? 'From the Corps operating forecast, not a posted schedule. Central time, at the dam.'
+                ? 'Corps operating forecast, not a posted schedule. Central time, at the dam.'
                 : availability.brief}
             </p>
+            {forecastChange && (
+              <p data-forecast-caution className="mt-1 text-xs leading-4 text-neutral-600">Subject to change · Downstream timing varies</p>
+            )}
           </section>
         )}
         <div className="mt-auto pt-3">
@@ -79,7 +88,7 @@ export default function DamListCard({ dam, now, href, showLakeLevel = false, unp
             <Link href={href} prefetch={false} className="inline-flex min-h-11 items-center gap-1 rounded text-sm font-medium text-primary-700 underline-offset-4 hover:text-primary-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600">
               Full report<span className="sr-only"> for {dam.name}</span><ChevronRight className="size-4" aria-hidden="true" />
             </Link>
-            {scheduleCheck && <div className="ml-auto py-1"><ScheduleCheck check={scheduleCheck} /></div>}
+            {(scheduleCheck ?? forecastCheck) && <div className="ml-auto py-1"><ScheduleCheck check={(scheduleCheck ?? forecastCheck)!} /></div>}
           </div>
         </div>
       </div>

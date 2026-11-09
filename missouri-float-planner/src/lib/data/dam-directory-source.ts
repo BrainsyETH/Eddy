@@ -132,12 +132,14 @@ function storedForecast(value: unknown): DamGenerationForecast | undefined {
 }
 
 /**
- * For each dam, the card readings its sources do not publish at all, from the
- * registry. The directory words those "Not published" and keeps "Unavailable"
- * for a reading that should be there. Passed beside the snapshots, not on
- * them: it is a fact about the registry, and the snapshot is a wire type.
+ * For each dam, the card readings Eddy has no source configured for, from the
+ * registry. The directory words those "Not available in Eddy" and keeps
+ * "Unavailable" for a reading that should be there. It is a statement about
+ * Eddy's coverage, never about what an agency publishes. Passed beside the
+ * snapshots, not on them: it is a fact about the registry, and the snapshot
+ * is a wire type.
  */
-export function directoryUnpublishedMetrics(): Record<string, DamCardMetric[]> {
+export function directoryUnsupportedReadings(): Record<string, DamCardMetric[]> {
   const metrics: DamCardMetric[] = ['release', 'tailwaterTempF', 'poolElevation'];
   return Object.fromEntries(
     Object.values(USACE_DAMS).map(dam => [dam.id, metrics.filter(metric => !declaresCardMetric(dam, metric))]),

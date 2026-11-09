@@ -18,7 +18,7 @@ export default function DamDirectory({
   initialQuery = '',
   initialState = 'all',
   readingsUnavailable = false,
-  unpublished = {},
+  unsupported = {},
 }: {
   groups: DirectoryDamGroup[];
   renderedAt: number;
@@ -26,8 +26,8 @@ export default function DamDirectory({
   initialState?: string;
   /** No dam had stored readings this render: the read failed, timed out, or every row expired. */
   readingsUnavailable?: boolean;
-  /** Per dam, the card readings its sources never publish (from the registry). */
-  unpublished?: Record<string, readonly DamCardReading[]>;
+  /** Per dam, the card readings Eddy has no source for (from the registry). */
+  unsupported?: Record<string, readonly DamCardReading[]>;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [state, setState] = useState(initialState);
@@ -146,7 +146,7 @@ export default function DamDirectory({
               <h3 className="mb-3 border-b border-neutral-200 pb-2 font-heading text-lg font-bold text-primary-900">{group.label}</h3>
               <div className="grid items-stretch gap-4 lg:grid-cols-2">
                 {group.dams.map(dam => (
-                  <DamListCard key={dam.id} dam={dam} now={now} href={'/dams/' + dam.id} showLakeLevel unpublished={unpublished[dam.id]} />
+                  <DamListCard key={dam.id} dam={dam} now={now} href={'/dams/' + dam.id} showLakeLevel unsupported={unsupported[dam.id]} />
                 ))}
               </div>
             </section>

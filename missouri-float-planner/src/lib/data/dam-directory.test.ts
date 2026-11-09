@@ -5,7 +5,7 @@ import { parseDirectoryFilters, DIRECTORY_QUERY_MAX_LENGTH } from './dam-directo
 import {
   createDirectoryRowReader,
   directorySnapshotsFromRows,
-  directoryUnpublishedMetrics,
+  directoryUnsupportedReadings,
   DIRECTORY_READ_TIMEOUT_MS,
   DIRECTORY_ROWS_TTL_MS,
   type DirectoryRow,
@@ -247,15 +247,15 @@ test('a dam with no stored row still carries what the registry knows about it', 
   assert.ok(dams.every(dam => dam.generating === null && Object.keys(dam.metrics).length === 0 && dam.schedule.length === 0));
 });
 
-test('the readings each dam never publishes come from the registry', () => {
-  const unpublished = directoryUnpublishedMetrics();
-  assert.equal(Object.keys(unpublished).length, Object.keys(USACE_DAMS).length);
-  assert.deepEqual(unpublished['swl-table-rock-dam'], []);
-  assert.deepEqual(unpublished['nwk-stockton-dam'], ['release', 'tailwaterTempF', 'poolElevation'], 'Kansas City publishes nothing to CWMS');
-  assert.deepEqual(unpublished['nwk-truman-dam'], ['tailwaterTempF'], 'Ameren reports Truman\'s pool and outflow');
-  assert.deepEqual(unpublished['ameren-bagnell-dam'], ['tailwaterTempF']);
-  assert.deepEqual(unpublished['swl-clearwater-dam'], ['tailwaterTempF']);
-  assert.deepEqual(unpublished['swt-keystone-dam'], ['tailwaterTempF'], 'Tulsa publishes no water temperature; release and pool are verified resolver capabilities');
-  assert.deepEqual(unpublished['lrn-wolf-creek-dam'], ['tailwaterTempF'], 'the sensor has been dead since 2022');
-  assert.deepEqual(unpublished['lrn-center-hill-dam'], []);
+test('the readings Eddy has no source for at each dam come from the registry', () => {
+  const unsupported = directoryUnsupportedReadings();
+  assert.equal(Object.keys(unsupported).length, Object.keys(USACE_DAMS).length);
+  assert.deepEqual(unsupported['swl-table-rock-dam'], []);
+  assert.deepEqual(unsupported['nwk-stockton-dam'], ['release', 'tailwaterTempF', 'poolElevation'], 'Eddy reads nothing for Stockton from the national data API');
+  assert.deepEqual(unsupported['nwk-truman-dam'], ['tailwaterTempF'], 'Ameren reports Truman\'s pool and outflow');
+  assert.deepEqual(unsupported['ameren-bagnell-dam'], ['tailwaterTempF']);
+  assert.deepEqual(unsupported['swl-clearwater-dam'], ['tailwaterTempF']);
+  assert.deepEqual(unsupported['swt-keystone-dam'], ['tailwaterTempF'], 'no water temperature source; release and pool are verified resolver capabilities');
+  assert.deepEqual(unsupported['lrn-wolf-creek-dam'], ['tailwaterTempF'], 'the sensor has been dead since 2022');
+  assert.deepEqual(unsupported['lrn-center-hill-dam'], []);
 });
