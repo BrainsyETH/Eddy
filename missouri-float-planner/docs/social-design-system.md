@@ -210,30 +210,49 @@ Portrait reels dip toward the loop seam with `reelLoopOpacity`.
 
 ### Eddy’s Read
 
-The full report (`quote_text`, falling back to the retained public summary)
-starts in view and scrolls continuously upward through a clipped reading window. Do
-not prepend the separate `eddy_read` interpretation or summarize/truncate the
-full report. Soft, friendly, well-paced narration takes priority over a fixed
-runtime. The measured voice audio determines the duration; never speed it up,
-crop it, or shorten the report to hit 30 seconds. Studio/visual fixtures without
-audio estimate 145 words per minute. The complete text also remains in the caption.
+The social Read is a sequence of river scenes, with one spoken phrase visible
+at a time. It no longer scrolls an article inside a card. A compact Eddy mark,
+large river name and current-condition label identify the active river; a wide
+scenic area separates that identity from the larger caption below. Text, the
+otter and attribution remain inside the shared Reel safe area. The scenery
+alone may reach the canvas edges.
 
-Eddy’s existing condition-mood artwork remains visible beside the reported
-condition and gauge height (when available). Water, weather and launch-advice
-illustrations mark relevant passages; measurements are emphasized verbatim. A
-weather tile shows the report-date high/low, actual condition icon, and that day's
-rain chance from its saved weather snapshot. Label its date; omit the tile when
-that day's data is missing. Do not borrow another day's forecast or the window's
-maximum rain chance. Topic markers never substitute for measured weather.
-The masthead, mascot and footer remain fixed while the text moves. Browser
-measurement after font loading determines the complete scroll distance, so
-wrapped names and long reports cannot strand the final lines offscreen. The
-closing card follows the last sentence in the same scrolling flow, then holds
-for at least three seconds, extending for the closing voice and a short tail.
-There is no empty entrance or exit interval. Canoeing Eddy and river strokes
-anchor the closing panel with a bold Geist headline and coral rule. The gapless
-theme bed stays at 3.5% under normalized narration; playback speed is always 1.
-The footer identifies the AI voice. Final audio processing preserves this mix.
+The weekend builder supplies each river's complete retained summary and a
+separate, explicitly forecast weekend-weather sentence. It translates display
+shorthand into spoken words ("highs up to 73 degrees") and removes repeated
+"Latest Read" / "Weekend weather" labels from narration. It does not rewrite,
+shorten or drop the saved summary or its qualifications. The full original
+reporting, source dates and current-water/forecast distinction remain in the
+post caption. Single-river and previously saved props remain supported.
+
+A river may use only its own photo from the existing public-domain cover
+catalog, with an author credit and "Not live" label. Missing or failed photos
+fall back to Eddy's existing condition art and brand river strokes. This is
+scenery, never a visual assertion about today's water. The closing scene uses
+canoeing Eddy and the app CTA. No dashboard cards or simulated buttons.
+
+Narration uses the existing Marin voice with an engaged, conversational brief:
+varied emphasis and sentence rhythm, purposeful pauses and more deliberate
+cautions. It keeps a consistent identity; it is neither an announcer nor a
+whispered meditation. Each complete sentence becomes a measured audio clip.
+Visual captions are anchored to those sentence boundaries, with phrase timing
+estimated within each sentence; they are not word-level karaoke timestamps.
+The exact script and river index travel with each clip. Mismatched scene and
+narration scripts fail before synthesis. New speech instructions invalidate the
+audio cache. Legacy audio without text metadata uses estimated caption timing.
+
+The measured audio determines runtime. Never speed it up, crop it or shorten
+source prose to meet an arbitrary duration. The ending holds for at least three
+seconds and includes the whole closing voice. The theme bed stays at 3.5% under
+normalized speech, with playback speed 1. The footer identifies the AI voice.
+Final audio processing preserves this mix.
+
+`test:read-browser` samples phrases and transitions across single-river, long
+report and multi-river fixtures, checking retained text, river identity, safe
+bounds and footer collisions. `test:read-narration` checks measured clips,
+scene identity, caching and rejection of inconsistent scripts. Listening to an
+actual newly synthesized Read is still a release check: a changed prompt and
+synthetic audio-processing test cannot establish how natural the voice sounds.
 
 ## Copy
 

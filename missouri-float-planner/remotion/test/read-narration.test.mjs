@@ -53,6 +53,28 @@ test('missing speech credentials fail before a music-only result can be produced
   } finally { await rm(dir,{recursive:true,force:true}); }
 });
 
+test('sentence audio preserves scene identity and rejects mismatched scripts before synthesis', async () => {
+  const dir=await mkdtemp(join(tmpdir(),'eddy-read-scenes-'));
+  try {
+    const tone=join(dir,'tone.mp3');
+    execFileSync('ffmpeg',['-y','-v','error','-f','lavfi','-i','sine=frequency=440:duration=4','-c:a','libmp3lame',tone]);
+    const bytes=await readFile(tone);
+    const inputs=[];
+    const scenes=[{riverName:'Current River',text:'Current River. Check shallow crossings.'},{riverName:'Meramec River',text:'Meramec River: check your stretch before launch.'}];
+    const readingText=scenes.map(scene=>scene.text).join('\n\n');
+    const propsPath=join(dir,'props.json');
+    await writeFile(propsPath,JSON.stringify({readingText,scenes}));
+    const options={propsPath,assetDir:join(dir,'public'),cacheDir:join(dir,'cache'),synthesize:async text=>{inputs.push(text);return bytes;}};
+    const voice=await prepareReadNarration(options);
+    assert.deepEqual(voice.clips.map(clip=>clip.sceneIndex),[0,0,1]);
+    assert.equal(voice.clips.map(clip=>clip.text).join(' '),readingText.replace(/\s+/g,' '));
+    assert.deepEqual(inputs.slice(0,-1),voice.clips.map(clip=>clip.text));
+    await writeFile(propsPath,JSON.stringify({readingText:'A different report.',scenes}));
+    await assert.rejects(prepareReadNarration(options),/preserve the complete narration script/);
+    assert.equal(inputs.length,4,'mismatched content never reaches speech generation');
+  } finally { await rm(dir,{recursive:true,force:true}); }
+});
+
 test('final social mux preserves the complete encoded voice and music track', async () => {
   const dir=await mkdtemp(join(tmpdir(),'eddy-read-mux-test-'));
   try {
