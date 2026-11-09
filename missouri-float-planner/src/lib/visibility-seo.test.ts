@@ -187,7 +187,16 @@ test('dam cards render only today on the Central calendar across midnight, DST a
     assert.match(section, /aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is 50%/);
     assert.match(html, /data-schedule-check="(current|stale)"[^>]*>(?:<svg[\s\S]*?Outdated: <\/span>)?Schedule checked /, 'one freshness line, as a Central clock time');
     assert.equal((html.match(/data-schedule-check=/g) ?? []).length, 1, 'matching retrievals do not repeat as separate alerts');
-    assert.match(section, /Today’s generation <span[^>]*>· /, 'heading, day and date share one row');
+    // The card names the day once, as a dateline in its header, before the
+    // readings; the schedule section opens with the plan in words under a
+    // heading that is spoken only.
+    const header = html.match(/<a\b[^>]*href="\/dams\/[^"]*"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? '';
+    assert.match(header, /· <span aria-hidden="true">CT<\/span><span class="sr-only">Central time<\/span>/, 'the header carries the day and zone');
+    assert.ok(html.indexOf(header) < html.indexOf(section), 'the dateline precedes the schedule');
+    assert.equal((html.match(/aria-hidden="true">CT</g) ?? []).length, 1, 'the day is dated once');
+    assert.match(section, /<h4 class="sr-only">Today’s generation<\/h4>/, 'the section keeps a spoken heading');
+    assert.doesNotMatch(section, /Today’s generation <span/, 'no visible heading row above the plan');
+    assert.ok(section.replace(/<[^>]*>/g, ' ').indexOf('Generation scheduled all day') < section.indexOf('role="img"'), 'the plan in words is the section’s first line');
     assert.equal((section.match(/data-schedule-now/g) ?? []).length, 1);
     assert.doesNotMatch(html, /aria-label="Tomorrow’s generation schedule"/);
     assert.doesNotMatch(html, /<details|role="tab"/);

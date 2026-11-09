@@ -37,7 +37,7 @@ import { ChevronRight } from 'lucide-react';
 import type { RiverDamContext } from '@/lib/data/dams';
 import { dailyForecastDays } from '@shared/river-dam-panel';
 import { buildTailwaterStatus } from '@shared/tailwater-status';
-import GenerationSchedule, { ScheduleCheck, scheduleSectionCheck } from './GenerationSchedule';
+import GenerationSchedule, { ScheduleCheck, ScheduleDateline, scheduleSectionCheck } from './GenerationSchedule';
 import { DamReadings, DamScheduleInfoTip } from './DamCardParts';
 
 export type RiverDamPanelPosition = 'lead' | 'footer';
@@ -72,15 +72,20 @@ export default function RiverDamPanel({
       aria-labelledby="river-dam-heading"
       data-dam-panel={position}
     >
-      {/* The dam card's title row: the name is the way to the full report. */}
+      {/* The dam card's title row: the name is the way to the full report, and
+          the day the schedule below describes sits under it, where the
+          directory card keeps the dam's lake. */}
       <Link
         href={`/dams/${dam.id}`}
         prefetch={false}
         className="flex min-h-11 items-center justify-between gap-3 px-4 pb-2.5 pt-3.5 transition-colors hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-600 sm:px-5"
       >
-        <h3 id="river-dam-heading" className="font-heading text-lg font-bold leading-6 text-neutral-900">
-          {dam.name}
-        </h3>
+        <span className="min-w-0">
+          <h3 id="river-dam-heading" className="font-heading text-lg font-bold leading-6 text-neutral-900">
+            {dam.name}
+          </h3>
+          {dam.hasTurbines && <ScheduleDateline now={now} className="mt-0.5 block" />}
+        </span>
         <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-primary-700">
           Full report<span className="sr-only"> for {dam.name}</span>
           <ChevronRight className="size-4" aria-hidden="true" />
