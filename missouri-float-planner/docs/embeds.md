@@ -32,16 +32,26 @@ call to action.
 | `full` | Card + high/low weather, the trend chart, and other gauges as flat rows. | ~550px |
 
 Dam sizes mirror the iOS "Dam generation" Home Screen widget, read off
-`shared/dam-widget.ts` — the same packet the phone draws, so a bar cannot
-disagree between the two. The card reads: dam and lake → turbine flow with
-the generation status (stated once) → the next scheduled change → today's 24
-hour-ending bars → footer. A schedule Eddy checked more than 90 minutes ago
-replaces the next-change line with a visible coral note. Megawatts, sources,
-the check time and the Central-time note sit in one "About this data"
-disclosure (a popover would clip at the iframe edge; a disclosure expands and
-the iframe resizes). `full` adds aligned rows for the tailwater status, total
-release and lake level, and tomorrow's bars. "Turbine flow" stays the label —
-"release" would blur it with total release.
+`shared/dam-widget.ts` — the same posted MW packet the phone draws, so an
+hour cannot disagree between the two. The card reads: dam and lake → **observed**
+turbine flow with one dated generation status → **posted** next-change sentence
+and taller 24-hour MW chart with an Eddy-coral Now line → footer. The marker
+is the current Central hour, not a claim that a scheduled bar was observed.
+Missing hours have short outlined marks, not zero-generation bars; minimum
+flow is separate from scheduled generation. Observations and posted plans may
+disagree and must never be presented as a single live feed.
+
+A schedule Eddy checked more than 90 minutes ago replaces the next-change
+sentence with a visible coral notice. Sources, peak MW, the check time and
+the Central-time explanation sit in "About this data"; the iframe resizes
+when the disclosure expands. `full` adds the dam's own dated downstream
+water elevation and only fresh, canonically rounded movement (no safety verdict; outdated elevation values are suppressed),
+spillway discharge when separately observed, and total release only when
+it isn't an effectively identical, near-simultaneous turbine observation.
+Daily-average release stays distinct. Lake level and tomorrow's posted
+bars remain available. Everything is flat within the Eddy frame, not nested
+metric tiles. "Turbine flow" stays explicit: "release" could include spillway
+or other outlets.
 Flood-control projects (no powerhouse) render an explanatory unavailable state;
 the workbench picker excludes them, as the iOS picker does.
 
