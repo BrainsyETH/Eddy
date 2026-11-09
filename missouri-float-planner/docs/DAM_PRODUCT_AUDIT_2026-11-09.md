@@ -90,6 +90,9 @@ the one sentence in `dam-page-copy.ts`, and says so.
 
 ### P1 — a failed SWPA fetch overwrites a good stored schedule
 
+*Fixed 2026-11-09: `carryForwardSchedule` in `dams.ts`, the pattern no longer
+counts in `saysAnything`, and the cron reports `scheduleCarried`.*
+
 `src/lib/data/dam-snapshot-store.ts` `saysAnything()` (line 196) treats a
 snapshot as "something was read" if it has metrics, a schedule, a forecast
 **or a pattern**. The pattern comes from `dam_metric_readings`, Eddy's own
@@ -118,6 +121,10 @@ response as `scheduleCarried`. Exclude `pattern` from `saysAnything`, or test
 sources separately from derived sections.
 
 ### P1 — the product assumes SWPA posts "each afternoon"; it does not
+
+*Copy fixed 2026-11-09: one measured `SCHEDULE_POSTING_NOTE` in
+`shared/dam-schedule-copy.ts` on web and iOS, with a test that fails on any dam
+surface claiming afternoon posting. Parts (2) and (3) below remain open.*
 
 Every copy surface says so: the dam page availability text
 (`src/app/dams/[damId]/page.tsx:70`), the generation info tip

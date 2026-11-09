@@ -14,7 +14,8 @@
 //           the reading card's "Not rated", bare number and age row. A release has no float ladder, and one cannot be
 //           borrowed (shared/tailwater-status.ts); the dam is the answer. It
 //           draws Tomorrow's bars too: anglers plan the night before, and SWPA
-//           posts the afternoon before.
+//           posts weekend and Monday sheets the evening before (weekday
+//           sheets land overnight; see SCHEDULE_POSTING_NOTE).
 //   footer  under the reading on every other tab, Today only: a rated gauge
 //           keeps its verdict, a downstream gauge its own reading.
 //

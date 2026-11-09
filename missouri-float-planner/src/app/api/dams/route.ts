@@ -19,7 +19,8 @@
 // stale, or not yet migrated costs latency and nothing else.
 //
 // Cached more coarsely than gauge endpoints because generation schedules post
-// once each afternoon and pool elevation moves slowly.
+// about once a day (overnight; see SCHEDULE_POSTING_NOTE) and pool elevation
+// moves slowly.
 
 import { NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';

@@ -23,6 +23,7 @@ import type { DamScheduleDay } from '@eddy/types';
 import {
   oldestRetrievedAt,
   retrievalSentence,
+  SCHEDULE_POSTED_BY,
   scheduleDayLabel,
   scheduledHoursSummary,
   scheduleIsStale,
@@ -190,7 +191,7 @@ export function GenerationSchedule({
           publisher. */}
       {embedded ? null : (
         <Text style={[styles.intro, { color: colors.textMuted }]}>
-          Posted each afternoon by Southwestern Power Administration.
+          {SCHEDULE_POSTED_BY}
         </Text>
       )}
 

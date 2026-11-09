@@ -16,12 +16,14 @@ import {
 import {
   buildSnapshot,
   carryForwardMetrics,
+  carryForwardSchedule,
   CARRY_FORWARD_MAX_HOURS,
   declaresNoSources,
 } from './dams';
+import { forecastHistoryRows } from './dam-forecast-history';
 import { generationNow, generationStatusLabel } from '@shared/dam-generation';
 import { USACE_DAMS } from '@/lib/flow-providers/usace-registry';
-import type { DamMetricValue, DamSnapshot } from '@shared/dam-types';
+import type { DamMetricValue, DamPatternDay, DamScheduleDay, DamSnapshot } from '@shared/dam-types';
 
 // The two decisions behind storing an assembled dam page — is a row still worth
 // serving, and is a payload worth writing.
@@ -381,6 +383,114 @@ test('the cron reads the previous rows before it writes over them', () => {
   const carry = source.indexOf('carryFromPrevious(decided.writable');
   assert.ok(carry > source.indexOf('decideWrites(snapshots)'), 'carry after decideWrites');
   assert.ok(carry < source.indexOf('writeStoredSnapshots(supabase'), 'carry before the write');
+});
+
+// ── carrying a posted schedule over a failed SWPA read ────────────────────
+//
+// The 2026-11-09 audit's first P1. readSchedule answers [] whenever a SWPA file
+// fails or fails closed, CWMS usually still answers, so the snapshot "said
+// something" and was written: the stored row with this morning's schedule was
+// replaced by one with none, every stored-first reader showed "schedule
+// unavailable" for an hour, and the dam Read was rewritten as "not posted".
+// NOW is 07:00 CDT on Mon 2026-08-31, so today is 08-31.
+
+function postedDay(scheduleDate: string, retrievedAt: string | null, on: [number, number] = [14, 18]): DamScheduleDay {
+  const hours = Array.from({ length: 24 }, (_, i) => {
+    const hourEnding = i + 1;
+    const megawatts = hourEnding >= on[0] && hourEnding <= on[1] ? 150 : 0;
+    return { hourEnding, megawatts, cfs: megawatts ? 9_000 : null, isRamp: hourEnding === on[0] || hourEnding === on[1] + 1 };
+  });
+  return { scheduleDate, hours, idle: [], retrievedAt };
+}
+
+const FETCHED_EARLIER = new Date(NOW - 3 * HOUR).toISOString();
+
+test('the observed pattern alone is not a read, so a total upstream outage keeps the stored row', () => {
+  // The pattern comes from dam_metric_readings, Eddy's own table: present
+  // whenever Supabase is up, whatever CWMS and SWPA did.
+  const pattern: DamPatternDay[] = [{
+    scheduleDate: '2026-08-30', startUtc: '2026-08-30T05:00:00.000Z',
+    turbineCfs: Array(24).fill(0), totalReleaseCfs: Array(24).fill(20),
+  }];
+  const patternOnly = { ...tableRock({}), pattern };
+  assert.equal(saysAnything(patternOnly), false);
+  assert.deepEqual(decideWrites([patternOnly]), { writable: [], keptOnOutage: 1 });
+});
+
+test('posted days a failed SWPA read lost are carried, still dated by the read that fetched them', () => {
+  const live = tableRock({ release: reading(20, 0) });
+  const previous = tableRock({ release: reading(20, 1) }, [
+    postedDay('2026-08-30', FETCHED_EARLIER),
+    postedDay('2026-08-31', FETCHED_EARLIER),
+    postedDay('2026-09-01', FETCHED_EARLIER),
+  ]);
+  assert.deepEqual(live.schedule, []);
+
+  const merged = carryForwardSchedule(live, previous, NOW);
+  assert.deepEqual(merged.schedule.map((day) => day.scheduleDate), ['2026-08-31', '2026-09-01'], 'yesterday is not carried');
+  assert.ok(merged.schedule.every((day) => day.retrievedAt === FETCHED_EARLIER), 'carried days keep their own retrievedAt');
+  assert.ok(merged.sources.includes('SWPA'), 'attribution follows the schedule it now carries');
+  assert.equal(merged.scheduleTimeZone, 'America/Chicago');
+  assert.equal(merged.metrics.release?.at, live.metrics.release!.at, 'the live readings are untouched');
+});
+
+test('a carried schedule is the same version to forecast history and to the dam Read', () => {
+  // The hash ignores retrievedAt, so a carried day neither mints a schedule
+  // version nor trips the Read's hash-mismatch withholding.
+  const previous = tableRock({}, [postedDay('2026-08-31', FETCHED_EARLIER), postedDay('2026-09-01', FETCHED_EARLIER)]);
+  const merged = carryForwardSchedule(tableRock({ release: reading(20, 0) }), previous, NOW);
+  const hashOf = (snapshot: DamSnapshot) =>
+    forecastHistoryRows(snapshot).find((row) => row.source === 'swpa_schedule')?.content_hash;
+  assert.ok(hashOf(previous));
+  assert.equal(hashOf(merged), hashOf(previous));
+});
+
+test('a day the live read has always wins, and an empty or duplicate day is never carried', () => {
+  const liveToday = postedDay('2026-08-31', new Date(NOW).toISOString(), [6, 9]);
+  const live = tableRock({ release: reading(20, 0) }, [liveToday]);
+  const previous = tableRock({}, [
+    postedDay('2026-08-31', FETCHED_EARLIER),
+    postedDay('2026-09-01', FETCHED_EARLIER),
+    postedDay('2026-09-01', FETCHED_EARLIER, [1, 2]),
+    { ...postedDay('2026-09-02', FETCHED_EARLIER), hours: [] },
+  ]);
+  const merged = carryForwardSchedule(live, previous, NOW);
+  assert.deepEqual(merged.schedule.map((day) => day.scheduleDate), ['2026-08-31', '2026-09-01']);
+  assert.equal(merged.schedule[0], liveToday, 'a revision the live read fetched is never overwritten');
+  assert.equal(merged.schedule[1].hours[13].megawatts, 150, 'the first copy of a duplicated day is the one kept');
+});
+
+test('a dam with no SWPA column, a different dam, or no previous row carries no schedule', () => {
+  const clearwater = USACE_DAMS['swl-clearwater-dam'];
+  const live = buildSnapshot(clearwater, { release: reading(3_000, 0) }, []);
+  const stray = { ...buildSnapshot(clearwater, {}, []), schedule: [postedDay('2026-08-31', FETCHED_EARLIER)] };
+  assert.equal(carryForwardSchedule(live, stray, NOW), live);
+
+  const tableRockLive = tableRock({ release: reading(20, 0) });
+  const bullShoals = { ...tableRock({}, [postedDay('2026-08-31', FETCHED_EARLIER)]), id: 'swl-bull-shoals-dam' };
+  assert.equal(carryForwardSchedule(tableRockLive, bullShoals, NOW), tableRockLive);
+  assert.equal(carryForwardSchedule(tableRockLive, null, NOW), tableRockLive);
+});
+
+test('the cron keeps a stored schedule through a SWPA failure and counts it', () => {
+  const previous = new Map([[TABLE_ROCK, tableRock({ release: reading(20, 1) }, [postedDay('2026-08-31', FETCHED_EARLIER)])]]);
+  const swpaFailed = tableRock({ release: reading(20, 0) });
+  const carried = carryFromPrevious(decideWrites([swpaFailed]).writable, previous, NOW);
+  assert.equal(carried.scheduleCarriedDams, 1);
+  assert.equal(carried.carriedDams, 0, 'no metric needed carrying');
+  assert.deepEqual(carried.snapshots[0].schedule.map((day) => day.scheduleDate), ['2026-08-31']);
+});
+
+test('the page net carries a lost schedule as well as lost readings', () => {
+  const stored = tableRock({ release: reading(20, 1) }, [postedDay('2026-08-31', FETCHED_EARLIER)]);
+  const served = withStoredFallback(tableRock({ release: reading(20, 0) }), stored, NOW);
+  assert.deepEqual(served?.schedule.map((day) => day.scheduleDate), ['2026-08-31']);
+});
+
+test('the cron records the snapshots it served in forecast history, carried days included', () => {
+  const source = readFileSync('src/app/api/cron/sync-dam-snapshots/route.ts', 'utf8');
+  assert.match(source, /recordForecastHistory\(supabase, carried\.snapshots,/);
+  assert.match(source, /scheduleCarried,/, 'the count is in the cron response');
 });
 
 // The dam detail page's own data path is held by dam-page-snapshot.test.ts,

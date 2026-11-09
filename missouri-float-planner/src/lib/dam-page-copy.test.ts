@@ -162,3 +162,49 @@ test('a dam missing from the copy table still gets honest metadata', () => {
   assert.equal(damPageCopy(gated).title, 'Gate Dam Release');
   assert.doesNotMatch(`${damPageCopy(gated).title} ${damPageCopy(gated).description}`, claims.level);
 });
+
+// ── When SWPA posts ───────────────────────────────────────────────────────
+//
+// Every dam surface said "posted each afternoon" while dam_forecast_history
+// showed weekday sheets first appearing overnight (see SCHEDULE_POSTING_NOTE).
+// The copy is now one shared, measured note; this keeps the old claim from
+// creeping back into a card, a tip, or a comment that a later change copies.
+
+test('no dam surface says SWPA posts in the afternoon', async () => {
+  const { readdirSync, readFileSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const roots = [
+    'src/components/dam', 'src/app/dams', 'src/app/api/dams', 'src/app/api/dam-update',
+    'src/app/api/cron/generate-dam-updates', 'src/app/api/cron/sync-dam-snapshots',
+    'src/lib/usace', 'src/lib/eddy', 'shared', '../eddy-ios/src/components/dam',
+  ];
+  const files: string[] = [];
+  const walk = (path: string) => {
+    if (statSync(path).isDirectory()) for (const name of readdirSync(path)) walk(join(path, name));
+    else if (/\.(ts|tsx)$/.test(path) && !/\.test\.ts$/.test(path)) files.push(path);
+  };
+  for (const root of roots) walk(root);
+  for (const file of ['src/lib/data/dams.ts', 'src/lib/data/dam-snapshot-store.ts']) files.push(file);
+
+  const claim = /(post|publish)\w*[^.\n]{0,60}\bafternoon\b|\bafternoon\b[^.\n]{0,30}(post|publish)|\b2\s*[-–]\s*4\s*PM\b/i;
+  const offenders = files.filter((file) => {
+    if (file.endsWith('dam-schedule-copy.ts')) return false; // The note's own history comment.
+    return claim.test(readFileSync(file, 'utf8'));
+  });
+  assert.deepEqual(offenders, []);
+});
+
+test('the posting note says overnight, and both platforms use it', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { SCHEDULE_POSTING_NOTE, SCHEDULE_POSTED_BY } = await import('@shared/dam-schedule-copy');
+  for (const note of [SCHEDULE_POSTING_NOTE, SCHEDULE_POSTED_BY]) {
+    assert.match(note, /overnight/);
+    assert.doesNotMatch(note, /afternoon/i);
+  }
+  for (const file of [
+    'src/components/dam/GenerationCard.tsx',
+    'src/app/dams/[damId]/page.tsx',
+    '../eddy-ios/src/components/dam/GenerationCard.tsx',
+  ]) assert.match(readFileSync(file, 'utf8'), /SCHEDULE_POSTING_NOTE/, file);
+  assert.match(readFileSync('../eddy-ios/src/components/dam/GenerationSchedule.tsx', 'utf8'), /SCHEDULE_POSTED_BY/);
+});

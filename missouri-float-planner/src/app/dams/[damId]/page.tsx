@@ -25,6 +25,7 @@ import { damAboutSentences, damPageCopy, damStructuredData } from '@/lib/dam-pag
 import { jsonLdString } from '@/lib/json-ld';
 
 import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
+import { SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
 
 // Rendered per request, deliberately not ISR. The schedule's "Today" is
 // computed from the render clock, so a cached render served after midnight
@@ -67,7 +68,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
       ? { title: 'Gate-operated releases', detail: 'This dam has no powerhouse. Releases are controlled by gate operation, so there is no generation schedule.' }
       : !project?.swpaCode
         ? { title: 'No hourly schedule published', detail: dam.generationForecast ? 'The operating forecast below provides the forward view for this dam.' : 'Eddy shows observed readings for this dam. No public hourly loading schedule is available.' }
-        : { title: 'Schedule currently unavailable', detail: 'The Southwestern Power Administration (SWPA) posts upcoming schedules each afternoon. Eddy shows only dates it can confirm; an unavailable schedule does not mean generation has stopped.' };
+        : { title: 'Schedule currently unavailable', detail: `${SCHEDULE_POSTING_NOTE} Eddy shows only dates it can confirm; an unavailable schedule does not mean generation has stopped.` };
 
   // Only offer a river destination that is active. Catalog failure must not
   // prevent the dam readings from rendering.
