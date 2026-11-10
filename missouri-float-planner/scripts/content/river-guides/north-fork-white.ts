@@ -16,32 +16,36 @@ export default {
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Missouri"
+          "label": "Length",
+          "value": "58 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I–II"
         },
         {
-          "label": "In this guide",
-          "value": "2 float routes"
+          "label": "Good water",
+          "value": "630–1,000 cfs"
+        },
+        {
+          "label": "Gauge",
+          "value": "Tecumseh"
         }
       ]
     },
     "intro_html": "<p><strong>The North Fork’s clear water has a way of making the riverbed look close enough to touch.</strong> Springs give this south-central Missouri river much of its character, and the wooded corridor around North Fork Recreation Area adds a good reason to stay a little longer. A float, a spring walk, and a campground evening can all fit into the same weekend.</p><p>This is the North Fork of the White River in Missouri, above Norfork Lake. It is not the Norfork tailwater below the Arkansas dam. Keep that distinction in your searches and shuttle arrangements. Within the Missouri river, depth and current still vary by reach; the lower Tecumseh gauge cannot promise what you will find at an upper bridge.</p>",
     "why_different": [
       {
-        "strong": "A spring is part of the visit.",
-        "body": "Blue Spring is reached from the North Fork Recreation Area trail, giving the float a worthwhile land-based companion."
+        "strong": "Spring water you can see through.",
+        "body": "Springs feed the North Fork, and the water is clear enough that the bottom looks an arm’s length away."
       },
       {
-        "strong": "Cold water changes the packing list.",
-        "body": "A hot afternoon does not warm a spring-fed river into a bathtub. Keep a dry layer where you can reach it."
+        "strong": "It stays cold.",
+        "body": "A hot afternoon does not warm a spring-fed river. Keep a dry layer where you can reach it."
       },
       {
-        "strong": "Several distances without a lake crossing.",
-        "body": "Twin Bridges, Hammond, Blair Bridge, and Patrick Bridge let you plan river outings above the lower lake transition."
+        "strong": "Blue Spring is a short walk.",
+        "body": "A trail from the North Fork Recreation Area at Hammond leads to the spring. It is this river’s own Blue Spring, not the ones on the Current or the Jacks Fork."
       }
     ],
     "sections": [
@@ -53,9 +57,11 @@ export default {
         "from": "Highway 14 bridge (Twin Bridges) over North Fork",
         "to": "North Fork Recreation Area (Hammond)",
         "miles": "4.9",
-        "best": "An upper outing paired with a Blue Spring walk at Hammond",
+        "best": "A short float with a spring walk",
         "photo": null,
-        "body": "Start at the North Fork side of Twin Bridges and finish at North Fork Recreation Area. Check the exact launch location so you do not confuse the North Fork with nearby Spring Creek. Leave time for a spring walk after loading the boats."
+        "body": "4.9 miles from Twin Bridges to the North Fork Recreation Area at Hammond. Highway 14 crosses both the North Fork and Spring Creek at Twin Bridges, so make sure you launch on the North Fork. Walk to Blue Spring after you load the boats.",
+        "time": "About 2 hr",
+        "diff": "I–II"
       },
       {
         "id": 2,
@@ -65,32 +71,34 @@ export default {
         "from": "Blair Bridge Access",
         "to": "Patrick Bridge Access",
         "miles": "3.1",
-        "best": "A short lower-river paddle with Patrick Bridge as the finish",
+        "best": "A quick lower-river float",
         "photo": null,
-        "body": "This short lower-river outing runs from Blair Bridge to Patrick Bridge. Use Patrick Bridge as the definite finish. Downstream is the historic Dawt Mill dam site; much of the dam was removed in 2017, so older descriptions of a required portage are not a reliable current route plan. Continuing toward Dawt or Tecumseh needs a separate check of access, channel conditions, and any remaining structure."
+        "body": "3.1 miles from Blair Bridge to Patrick Bridge. Take out at Patrick Bridge. Downstream is the old Dawt Mill dam, much of which was removed in 2017. Older trip reports that describe a portage there are out of date, and this guide has not checked what is left.",
+        "time": "About 1 hr",
+        "diff": "I–II"
       }
     ],
     "springs": [
       {
         "name": "Blue Spring Trail at North Fork Recreation Area",
-        "note": "Take a separate walk from the recreation area to see the spring. It is this North Fork’s Blue Spring, not the similarly named springs on the Current or Jacks Fork."
+        "note": "A trail from the recreation area leads to the spring. Bring dry shoes and walk it after the float."
       }
     ],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "Spring-fed does not mean unchanging.",
-        "note": "Heavy rain can still raise the river quickly. Check the trend before the drive."
+        "t": "Spring-fed, not rain-proof.",
+        "note": "Heavy rain still raises the river quickly. Check the gauge before you drive."
       },
       {
         "m": "Jun–Aug",
         "t": "Cool water, warm afternoons.",
-        "note": "The lower spring-influenced river can offer a different picture from the upper crossings. Verify the actual route’s depth."
+        "note": "The lower river, with more spring water in it, can float when the upper crossings are thin."
       },
       {
         "m": "Sep–Feb",
-        "t": "Bring the cold-water kit.",
-        "note": "A short float with dry insulation and an early finish is a better starting point than a long winter commitment."
+        "t": "Dress for the water.",
+        "note": "A short float, dry insulation and an early finish."
       }
     ],
     "what_to_bring": [
@@ -102,16 +110,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Make Blue Spring a separate little walk.",
-        "body": "Leave dry shoes accessible at the take-out so the trail does not become an afterthought."
+        "strong": "North Fork, not Norfork.",
+        "body": "Search for the wrong one and you get the tailwater below the dam in Arkansas. Add “Missouri” and the access name."
       },
       {
-        "strong": "Check the river name in your directions.",
-        "body": "“North Fork” and “Norfork” can return very different destinations. Add Missouri and the exact access name."
+        "strong": "Give anglers room.",
+        "body": "This is trout water. Pass behind people who are fishing and stay off their lines."
       },
       {
-        "strong": "Leave room for anglers.",
-        "body": "Trout water draws people who may be standing quietly in or beside the channel. Give them space and avoid drifting through their line."
+        "strong": "Shoes for Blue Spring.",
+        "body": "Leave a dry pair at the take-out so the walk actually happens."
       }
     ],
     "callouts": {
@@ -121,31 +129,31 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Finish the lower outing at Patrick Bridge. A trip toward Dawt Mill and Tecumseh needs a separate current access and channel check; old dam and portage descriptions are not enough."
+        "quote": "Take out at Patrick Bridge. The old Dawt Mill dam downstream was largely removed in 2017, and this guide has not verified the channel there."
       }
     },
     "faq": [
       {
         "q": "Is this below Norfork Dam?",
-        "a": "No. This guide covers the Missouri North Fork above Norfork Lake. The Arkansas tailwater is a different trip."
+        "a": "No. This is the North Fork in Missouri, above Norfork Lake. The tailwater below the dam in Arkansas is a different trip."
       },
       {
         "q": "Which Blue Spring is this?",
-        "a": "The one near North Fork Recreation Area in Mark Twain National Forest. It is separate from the Blue Springs on the Current and Jacks Fork."
+        "a": "The one near the North Fork Recreation Area in Mark Twain National Forest. The Current and the Jacks Fork each have their own."
       },
       {
         "q": "Which gauge does Eddy use?",
-        "a": "North Fork River near Tecumseh, USGS 07057500. Keep its downstream location in mind when evaluating an upper-river launch."
+        "a": "North Fork River near Tecumseh (USGS 07057500). Eddy rates it best between about 630 and 1,000 cfs. It is near the bottom of the river, so the upper bridges can be thinner than it suggests."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Confirm the North Fork launch.",
-        "body": "Highway 14 crosses both the North Fork and Spring Creek at Twin Bridges. Use the North Fork launch for the Hammond route."
+        "strong": "Launch on the right stream.",
+        "body": "At Twin Bridges, Highway 14 crosses the North Fork and Spring Creek. The Hammond float starts on the North Fork."
       },
       {
-        "strong": "Keep the finish above your planned boundary.",
-        "body": "The featured lower route ends at Patrick Bridge."
+        "strong": "Patrick Bridge is the finish.",
+        "body": "The lower float in this guide stops there."
       }
     ],
     "related_rivers": [
@@ -159,9 +167,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "3.1–4.9 mi featured routes",
-      "best_for_beginners": "Blair Bridge → Patrick Bridge is the shorter option at 3.1 miles; cold water and current still matter.",
-      "primary_gauge": "North Fork River near Tecumseh, MO · USGS 07057500"
+      "typical_distance": "3.1–4.9 mi featured floats",
+      "best_for_beginners": "Blair Bridge → Patrick Bridge (3.1 mi, about 1 hr)",
+      "primary_gauge": "North Fork River near Tecumseh, MO · USGS 07057500",
+      "route_label": "Start here"
     },
     "sources": [
       {

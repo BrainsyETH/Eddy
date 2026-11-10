@@ -16,16 +16,20 @@ export default {
       "photo_url": "https://live.staticflickr.com/4619/25631401007_d4f96050b4_b.jpg",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Arkansas Ozarks"
+          "label": "Length",
+          "value": "70 mi"
         },
         {
-          "label": "Plan around",
-          "value": "Moving-water skills"
+          "label": "Difficulty",
+          "value": "Class II+ (Wolf Pen–Redding)"
         },
         {
-          "label": "In this guide",
-          "value": "2 float routes"
+          "label": "Good water",
+          "value": "2.0–3.5 ft"
+        },
+        {
+          "label": "Gauge",
+          "value": "Mulberry (USGS)"
         }
       ],
       "photo_credit": {
@@ -40,16 +44,16 @@ export default {
     "intro_html": "<p><strong>The Mulberry is the river for a day when you want to keep your paddle in your hands.</strong> Rockier passages and quick decisions are part of the attraction. Around Wolf Pen, High Bank, and Redding, the surrounding national forest gives the trip a mountain feel that is different from a slow summer pool-to-pool float.</p><p>The catch is timing. Rain can change the Mulberry rapidly, and a route that feels modest at one level can be a different outing at another. The gauge near Mulberry is not the same measuring point as a local outfitter’s painted or staff gauge. Know which reading someone means before comparing advice, and choose the run around your experience rather than the most exciting photograph.</p>",
     "why_different": [
       {
-        "strong": "A more active paddling day.",
-        "body": "The Mulberry asks you to read the water and steer. It is a better fit for a moving-water plan than an unattended drift."
+        "strong": "Whitewater, not a drift.",
+        "body": "The Mulberry is rocky and quick. You read the water and steer the whole way, which is why people come."
       },
       {
-        "strong": "Forest accesses anchor the trip.",
-        "body": "Wolf Pen, High Bank, and Redding are useful named locations for working out a route and an overnight base."
+        "strong": "National forest landings.",
+        "body": "Wolf Pen, High Bank and Redding are recreation areas in the national forest, so they work as put-ins, take-outs and a base for the night."
       },
       {
-        "strong": "Rain drives the opportunity.",
-        "body": "This is a river to visit when the water and your skills line up, not simply because a summer weekend is free."
+        "strong": "It runs on rain.",
+        "body": "Late fall through spring is the season. In a dry summer it is usually too low."
       }
     ],
     "sections": [
@@ -61,9 +65,11 @@ export default {
         "from": "Wolf Pen Recreation Area",
         "to": "High Bank Recreation Area",
         "miles": "4.3",
-        "best": "Experienced moving-water paddlers choosing a shorter run",
+        "best": "Experienced paddlers wanting a short run",
         "photo": null,
-        "body": "Wolf Pen to High Bank keeps the distance modest, but short does not mean easy. Get a current local assessment of the run and make sure the group can handle moving water and self-rescue. This is part of American Whitewater’s II+ Wolf Pen–Redding corridor; the rating is not a promise about conditions on the day."
+        "body": "4.3 miles from Wolf Pen to High Bank. Short, but not easy: American Whitewater rates the Wolf Pen to Redding corridor Class II+, and it gets harder as the water rises. Everyone in the group should be able to handle moving water and get themselves out of a swim.",
+        "time": "About 1½ hr",
+        "diff": "II"
       },
       {
         "id": 2,
@@ -73,27 +79,29 @@ export default {
         "from": "High Bank Recreation Area",
         "to": "Redding Recreation Area",
         "miles": "8.3",
-        "best": "A longer whitewater outing ending at Redding",
+        "best": "A longer whitewater day",
         "photo": null,
-        "body": "High Bank to Redding gives experienced paddlers a longer commitment through this forest corridor. Choose the day’s water carefully and arrange the take-out before you reach the launch. This is part of American Whitewater’s II+ Wolf Pen–Redding corridor; the rating is not a promise about conditions on the day."
+        "body": "8.3 miles from High Bank to Redding, the rest of the same Class II+ corridor. Set up the Redding take-out before you launch, and choose your water level with care.",
+        "time": "About 3½ hr",
+        "diff": "II"
       }
     ],
     "springs": [],
     "seasons": [
       {
         "m": "Late fall–spring",
-        "t": "Look for suitable water, not high water.",
-        "note": "Rain often makes these months the planning window. Cold water is part of the deal."
+        "t": "The season.",
+        "note": "Rain puts the river in shape during these months. The water is cold, so dress for a swim."
       },
       {
         "m": "Summer",
-        "t": "Do not count on depth.",
-        "note": "Dry periods can leave the river too low for a satisfying run. Check before reserving the whole trip around it."
+        "t": "Usually too low.",
+        "note": "Check the gauge before you plan a whole trip around it."
       },
       {
         "m": "After storms",
-        "t": "Let the readings settle the plan.",
-        "note": "Rapidly changing flow can outpace an old report. Get a fresh gauge and local assessment."
+        "t": "Wait for a fresh reading.",
+        "note": "The river changes faster than yesterday’s report. Get a new gauge reading and ask someone local."
       }
     ],
     "what_to_bring": [
@@ -106,15 +114,15 @@ export default {
     "pro_tips": [
       {
         "strong": "Ask which gauge.",
-        "body": "A local level at Turner Bend and USGS 07252000 near Mulberry are different references. Never transfer a numeric cutoff between them."
+        "body": "The level posted at Turner Bend and the USGS gauge near Mulberry (07252000) are different gauges. A number from one means nothing on the other."
       },
       {
-        "strong": "Do not extend past the take-out on impulse.",
-        "body": "The river below Redding includes named rapids and different access arrangements. Keep it a separate route decision."
+        "strong": "Stop at Redding.",
+        "body": "Below it are named rapids and different accesses. That is another trip."
       },
       {
-        "strong": "Keep the gear appropriate.",
-        "body": "Secure everything in the boat and bring the protective equipment, clothing, and rescue skills suited to the run."
+        "strong": "Helmet, tied-in gear, dry clothes.",
+        "body": "Wear a helmet, tie everything into the boat, and carry warm dry clothes for after a swim."
       }
     ],
     "callouts": {
@@ -124,31 +132,31 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "On the Mulberry, a short route still asks you to paddle. Choose the reach for the group’s moving-water skills, and make Redding a planned finish rather than a place you pass by."
+        "quote": "Even the short run asks you to paddle the whole way. Choose it for the group’s whitewater skills, and take out at Redding as planned."
       }
     },
     "faq": [
       {
         "q": "Is the Mulberry a casual beginner float?",
-        "a": "Not as a blanket description. Difficulty changes with the reach and flow. Choose it for a group prepared for moving water, with appropriate instruction or guidance."
+        "a": "No. The Wolf Pen to Redding corridor is rated Class II+ and gets harder as the water rises. Go with a guide or experienced paddlers the first time."
       },
       {
         "q": "Why do two river-level reports show different feet?",
-        "a": "They may refer to different gauges with different datums and locations. Compare readings only from the same station."
+        "a": "Because they come from different gauges in different places. The level at Turner Bend and the USGS gauge near Mulberry do not match, so only compare numbers from the same one."
       },
       {
         "q": "Does the featured trip include Sacroiliac Rapid?",
-        "a": "The featured longer route ends at Redding. Sacroiliac is farther downstream, on a different outing toward Turner Bend."
+        "a": "No. The longer float ends at Redding. Sacroiliac Rapid is farther downstream, on the run toward Turner Bend."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Choose for skill as well as distance.",
-        "body": "A short Mulberry run still requires moving-water judgment."
+        "strong": "Short is not easy.",
+        "body": "The 4.3-mile run is the same Class II+ water as the long one."
       },
       {
-        "strong": "Keep gauge references straight.",
-        "body": "USGS and local staff-gauge numbers are not interchangeable."
+        "strong": "USGS feet are not Turner Bend feet.",
+        "body": "Compare readings only from the same gauge. Eddy rates the USGS gauge best between about 2.0 and 3.5 feet."
       }
     ],
     "related_rivers": [
@@ -162,9 +170,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "4.3–8.3 mi featured routes",
-      "best_for_beginners": "Not a casual first float. The Wolf Pen–Redding corridor is rated II+ by American Whitewater.",
-      "primary_gauge": "Mulberry River near Mulberry, AR · USGS 07252000"
+      "typical_distance": "4.3–8.3 mi featured floats",
+      "best_for_beginners": "Not a first float. Wolf Pen → High Bank (4.3 mi) is the short run, and it is rated Class II+.",
+      "primary_gauge": "Mulberry River near Mulberry, AR · USGS 07252000",
+      "route_label": "Before you go"
     },
     "sources": [
       {
@@ -189,7 +198,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

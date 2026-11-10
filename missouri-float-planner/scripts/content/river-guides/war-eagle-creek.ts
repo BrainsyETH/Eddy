@@ -16,32 +16,36 @@ export default {
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Arkansas Ozarks"
+          "label": "Length",
+          "value": "68 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I"
         },
         {
-          "label": "In this guide",
-          "value": "2 float routes"
+          "label": "Good water",
+          "value": "2.5–3.5 ft"
+        },
+        {
+          "label": "Season",
+          "value": "Mar–Jun, after rain"
         }
       ]
     },
     "intro_html": "<p><strong>War Eagle Creek is a good reason to keep a little flexibility in your spring calendar.</strong> When the water cooperates, its wooded bends and limestone bluffs offer a northwest Arkansas outing with a smaller-creek feel. Withrow Springs State Park makes a natural place to start researching the trip and a useful base for time off the water.</p><p>This is a rain-dependent plan. A date in July does not guarantee enough water just because the photographs look inviting. Start with the Hindsville gauge, confirm the launch and shuttle, and keep a park walk or a visit to War Eagle Mill as the backup that still makes the drive worthwhile.</p>",
     "why_different": [
       {
-        "strong": "The park anchors the weekend.",
-        "body": "Withrow Springs provides a recognizable river-access area along with camping and trails."
+        "strong": "A state park on the creek.",
+        "body": "Withrow Springs State Park has a boating access, camping and trails, so it works as a base."
       },
       {
-        "strong": "Season matters.",
-        "body": "The park describes spring into early summer as the usual floating window, depending on rainfall."
+        "strong": "A spring-season creek.",
+        "body": "The park gives spring into early summer as the usual floating season, and only when there has been rain."
       },
       {
-        "strong": "The mill is a separate outing.",
-        "body": "Visit War Eagle Mill by road rather than treating its dam as an extra feature to paddle through."
+        "strong": "The mill is a drive, not a paddle.",
+        "body": "War Eagle Mill, downstream, has a dam. Visit it by road."
       }
     ],
     "sections": [
@@ -53,9 +57,9 @@ export default {
         "from": "Hwy 412 Bridge Access",
         "to": "Withrow Springs State Park Boating Access (Hwy 23 Bridge)",
         "miles": "4.5",
-        "best": "A shorter paddle ending by Withrow Springs",
+        "best": "A short float ending at the park",
         "photo": null,
-        "body": "Confirm launch and parking at the Highway 412 crossing, then plan the take-out at the park’s Highway 23 boating access. This keeps the outing upstream of the mill area and leaves time for the park afterward.",
+        "body": "4.5 miles from the Highway 412 bridge to the park’s boating access at the Highway 23 bridge. Confirm you can launch and park at Highway 412 first. You finish at the park with the afternoon left.",
         "photo_detail": {
           "url": "/images/river-guides/war-eagle-creek.webp",
           "alt": "War Eagle Creek at Withrow Springs State Park.",
@@ -64,7 +68,9 @@ export default {
           "source_url": "https://commons.wikimedia.org/wiki/File:War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg",
           "license": "CC0",
           "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
-        }
+        },
+        "time": "About 2 hr",
+        "diff": "I"
       },
       {
         "id": 2,
@@ -74,9 +80,9 @@ export default {
         "from": "Withrow Springs State Park Boating Access (Hwy 23 Bridge)",
         "to": "War Eagle Creek Walk-in Access ('Chicken House Access')",
         "miles": "6.2",
-        "best": "A longer outing below the park for paddlers prepared for the carry-out",
+        "best": "A longer float with a carry at the end",
         "photo": null,
-        "body": "Before choosing this pairing, confirm that the downstream walk-in access suits carrying your boat and that parking is available. A walk-in take-out can be very different from a ramp, especially with a heavy canoe.",
+        "body": "6.2 miles from the park’s boating access to the walk-in access known as the Chicken House Access. There is no ramp there: you carry the boat out. Check the carry and the parking before you commit, more so with a heavy canoe.",
         "photo_detail": {
           "url": "/images/river-guides/war-eagle-creek.webp",
           "alt": "War Eagle Creek at Withrow Springs State Park.",
@@ -85,30 +91,32 @@ export default {
           "source_url": "https://commons.wikimedia.org/wiki/File:War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg",
           "license": "CC0",
           "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
-        }
+        },
+        "time": "About 2½ hr",
+        "diff": "I"
       }
     ],
     "springs": [
       {
         "name": "Withrow Springs trails",
-        "note": "Pair the paddle with a walk in the state park. Check the current trail notice first: the park has posted storm-damage repairs affecting the lower War Eagle Trail."
+        "note": "The park has trails for after the float. Check its current trail notice first: storm-damage repairs have affected the lower War Eagle Trail."
       }
     ],
     "seasons": [
       {
         "m": "Mar–Jun",
-        "t": "The usual planning window.",
-        "note": "Withrow Springs identifies this as the typical floating season, subject to rainfall and actual conditions."
+        "t": "The floating season.",
+        "note": "The park calls this the usual window, when rain has put water in the creek."
       },
       {
         "m": "Jul–Aug",
-        "t": "Check before committing.",
-        "note": "Dry weather may leave the creek too thin. Keep a land-based park day as an alternative."
+        "t": "Often too thin.",
+        "note": "Check the gauge first, and keep a park day as the fallback."
       },
       {
         "m": "Sep–Feb",
-        "t": "Wait for the right conditions.",
-        "note": "Rain can change the picture, but colder water and short days make the outing more demanding."
+        "t": "Only after rain.",
+        "note": "It can run, but the water is cold and the days are short."
       }
     ],
     "what_to_bring": [
@@ -120,16 +128,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Call before loading the boats.",
-        "body": "Ask Withrow Springs about current water and any available seasonal shuttle arrangements; do not assume a service runs every day."
+        "strong": "Call the park first.",
+        "body": "Ask Withrow Springs about the water and whether a shuttle is running. Do not assume one runs every day."
       },
       {
         "strong": "Match the boat to the take-out.",
-        "body": "A short carry with a light kayak and a steep carry with a loaded canoe are different ends to the afternoon."
+        "body": "Carrying a light kayak out of the walk-in access is easy. A loaded canoe is not."
       },
       {
-        "strong": "Keep the mill visit on land.",
-        "body": "The lower mill dam changes the route. A drive there after the float is the simpler way to enjoy the landmark."
+        "strong": "Drive to the mill.",
+        "body": "The mill dam is downstream of both floats. Go by road afterward."
       }
     ],
     "callouts": {
@@ -139,35 +147,35 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Withrow Springs is the anchor, but choose which side of it you plan to paddle. Save the exact access and ask the park about today’s creek before setting the shuttle."
+        "quote": "Decide which side of Withrow Springs you are floating, save the exact access, and ask the park about the creek before you set the shuttle."
       }
     },
     "faq": [
       {
         "q": "Can I count on floating all summer?",
-        "a": "No. War Eagle Creek depends on rainfall. Check the Hindsville reading and local conditions close to your trip."
+        "a": "No. The creek depends on rain and is often too low by July. Check the Hindsville gauge the week you go."
       },
       {
         "q": "Which gauge does Eddy use?",
-        "a": "War Eagle Creek near Hindsville, USGS 07049000. Use that station’s own trend rather than comparing its height with another creek."
+        "a": "War Eagle Creek near Hindsville (USGS 07049000). Eddy rates it best between about 2.5 and 3.5 feet, and too low under 1.8."
       },
       {
         "q": "Is the walk-in access the same as a ramp?",
-        "a": "No. Confirm the carry and parking before choosing it as the finish, especially with a heavy boat."
+        "a": "No. You carry the boat from the water to the parking area. Look at the carry and the parking before you choose it as your finish."
       },
       {
         "q": "Does the route go over the mill dam?",
-        "a": "No. The featured routes are upstream, and the mill is a separate land-based visit."
+        "a": "No. Both floats are upstream of the mill. Visit it by road."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Confirm the take-out carry.",
-        "body": "The walk-in access needs different planning from a developed boat ramp."
+        "strong": "Check the carry.",
+        "body": "The walk-in access has no ramp."
       },
       {
-        "strong": "Check seasonal service availability.",
-        "body": "Arrange transport before arriving with the boats."
+        "strong": "Arrange the ride ahead.",
+        "body": "Shuttle service is seasonal."
       }
     ],
     "related_rivers": [
@@ -181,9 +189,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "4.5–6.2 mi featured routes",
-      "best_for_beginners": "Highway 412 → Withrow Springs is the shorter featured reach at 4.5 miles; confirm seasonal water and access.",
-      "primary_gauge": "War Eagle Creek near Hindsville, AR · USGS 07049000"
+      "typical_distance": "4.5–6.2 mi featured floats",
+      "best_for_beginners": "Highway 412 → Withrow Springs (4.5 mi, about 2 hr)",
+      "primary_gauge": "War Eagle Creek near Hindsville, AR · USGS 07049000",
+      "route_label": "Start here"
     },
     "sources": [
       {
