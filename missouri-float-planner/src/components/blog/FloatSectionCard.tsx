@@ -6,6 +6,7 @@ import PhotoCreditOverlay from './PhotoCreditOverlay';
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { MapPin, Navigation } from 'lucide-react';
 import type { FloatSection } from '@/types/blog';
 import { optimizeBlogImage } from '@/lib/blog-image';
 
@@ -162,22 +163,6 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
               titleContent
             )}
           </h3>
-          {plannerUrl && (
-            <Link
-              href={plannerUrl}
-              data-ga-event="guide_planner_click"
-              data-ga-label={`${s.from} → ${s.to}`}
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--color-accent-600)',
-                textDecoration: 'none',
-                letterSpacing: '.02em',
-              }}
-            >
-              Open this float in the planner →
-            </Link>
-          )}
           <p
             style={{
               fontSize: 13,
@@ -261,10 +246,21 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
           >
             <strong style={{ color: 'var(--color-neutral-900)' }}>Best for:</strong> {s.best}
           </div>
-          {estimateEndpoints && <GuideRouteTime {...estimateEndpoints} />}
-          {(fromHref || toHref) && <nav aria-label={`Access details for ${s.from} to ${s.to}`} className="mt-3 flex flex-wrap gap-x-4 text-sm">
-            {fromHref && <Link href={fromHref} data-ga-event="guide_access_click" data-ga-label={s.from} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.from} access details</Link>}
-            {toHref && <Link href={toHref} data-ga-event="guide_access_click" data-ga-label={s.to} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.to} access details</Link>}
+          {(() => {
+            const planButton = plannerUrl && (
+              <Link href={plannerUrl} data-ga-event="guide_planner_click" data-ga-label={`${s.from} → ${s.to}`} className="guide-action guide-action--plan">
+                <Navigation size={15} strokeWidth={2.5} aria-hidden="true" />
+                Plan this float
+              </Link>
+            );
+            return estimateEndpoints
+              ? <GuideRouteTime {...estimateEndpoints}>{planButton}</GuideRouteTime>
+              : planButton && <div className="mt-4 flex flex-wrap gap-2.5">{planButton}</div>;
+          })()}
+          {(fromHref || toHref) && <nav aria-label={`Access details for ${s.from} to ${s.to}`} className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-[10px] font-bold uppercase tracking-[.12em] text-neutral-500">Access points</span>
+            {fromHref && <Link href={fromHref} data-ga-event="guide_access_click" data-ga-label={s.from} aria-label={`${s.from} access details`} className="guide-pill"><MapPin size={14} strokeWidth={2.5} aria-hidden="true" />{s.from}</Link>}
+            {toHref && <Link href={toHref} data-ga-event="guide_access_click" data-ga-label={s.to} aria-label={`${s.to} access details`} className="guide-pill"><MapPin size={14} strokeWidth={2.5} aria-hidden="true" />{s.to}</Link>}
           </nav>}
         </div>
       </div>
