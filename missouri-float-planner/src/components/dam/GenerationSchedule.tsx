@@ -153,7 +153,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
   const changeLine = nextChange && !leadsWithChange && (
     compact
       ? <p className="mt-1.5 text-sm font-medium leading-5 text-primary-900">{nextChange}</p>
-      : <p className="mt-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3 text-lg font-semibold leading-snug text-primary-900 sm:text-xl">{nextChange}</p>
+      : <p className="mt-4 rounded-r-lg border-l-4 border-accent-500 bg-accent-50 px-4 py-3 text-lg font-semibold leading-snug text-primary-900 sm:text-xl">{nextChange}</p>
   );
 
   return (
@@ -181,7 +181,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
             card's text edge. */}
         <div className={compact ? '-mr-2.5 flex min-h-11 items-center justify-between gap-2' : undefined}>
           {todayDay ? (
-            <div className="min-w-0">
+            <div className={!compact && leadsWithChange ? 'min-w-0 rounded-r-lg border-l-4 border-accent-500 bg-accent-50 px-4 py-3' : 'min-w-0'}>
               <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'text-base' : 'text-xl sm:text-2xl'}`}>
                 {leadsWithChange ? nextChange : scheduleDayHeadline(todayDay.hours)}
               </p>
