@@ -112,6 +112,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           <section aria-labelledby="dam-about-heading" className="mt-6 max-w-3xl">
             <h2 id="dam-about-heading" className="font-heading text-lg font-bold text-primary-800">About {dam.name}</h2>
             <p className="mt-2 text-sm leading-6 text-neutral-700">{damAboutSentences(project).join(' ')}</p>
+            {lakeExperienceEnabled && lake && dam.tailwaterFishery === 'warmwater' && <p className="mt-2 text-sm leading-6 text-neutral-700">The water below the dam supports a warmwater fishery.</p>}
           </section>
         )}
         {project && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(damStructuredData(project)) }} />}
