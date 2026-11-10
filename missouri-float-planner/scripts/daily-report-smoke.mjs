@@ -74,13 +74,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`${origin}/embed/report-check?index=preview`, { waitUntil: 'networkidle' });
-    assert((await page.getByRole('button', { name: 'Next' }).boundingBox()).height >= 44, 'touch target');
-    await page.getByRole('button', { name: 'Next' }).click();
-    assert.match(await page.locator('[aria-live]').innerText(), /Slide 2 of 2/);
-    assert.equal(await page.getByRole('button', { name: 'Next' }).isDisabled(), true);
-    await page.getByRole('button', { name: 'Previous' }).focus();
+    const preview = page.getByRole('region', { name: 'Daily Report carousel' });
+    const next = preview.getByRole('button', { name: 'Next', exact: true });
+    assert((await next.boundingBox()).height >= 44, 'touch target');
+    await next.click();
+    assert.match(await preview.locator('[aria-live]').innerText(), /Slide 2 of 2/);
+    assert.equal(await next.isDisabled(), true);
+    await preview.getByRole('button', { name: 'Previous', exact: true }).focus();
     await page.keyboard.press('Enter');
-    assert.match(await page.locator('[aria-live]').innerText(), /Slide 1 of 2/);
+    assert.match(await preview.locator('[aria-live]').innerText(), /Slide 1 of 2/);
+    await preview.screenshot({ path: `${output}/review-${width}.png` });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   }
   assert.deepEqual(errors, []);
