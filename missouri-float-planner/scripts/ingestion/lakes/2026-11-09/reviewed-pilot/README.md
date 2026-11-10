@@ -107,15 +107,17 @@ with the elevation-caution footer, until that lake passes threshold review.
 
 ## Public release
 
-Both allowlists in `src/lib/lakes/public-pages.ts` remain empty. One gates
-lake routes, sitemap entries and lake links. The other independently gates
-the dam photo header, replacement conditions card and lake preview. Registry
-membership and backfilled history cannot enable either experience.
+After merging the foundation, the owner instructed: “merged. lets turn it on”.
+The activation change adds only `table-rock` and `truman` to both allowlists
+in `src/lib/lakes/public-pages.ts`. One publishes lake routes, sitemap entries
+and lake links. The other independently enables the dam photo header,
+replacement conditions card and lake preview. Registry membership and
+backfilled history cannot enable additional destinations.
 
 The hourly pool-history collector is intentionally independent: deploying
 the foundation starts its scheduled production writes even while both UI
 gates stay closed. Owner approval is recorded for the six prepared locations.
 The first monitored production run and release checks remain prerequisites
-for public lake rollout. Cron health and the UI both use six hours for hourly observations and 36 hours for daily
+for merging the activation change; the activation PR records their results. Cron health and the UI both use six hours for hourly observations and 36 hours for daily
 reports. A delayed daily report becomes outdated rather than extending that
-window silently. Current CI details belong in PR #1765.
+window silently. The foundation review and its checks are recorded in PR #1765.

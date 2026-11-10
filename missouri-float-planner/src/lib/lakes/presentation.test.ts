@@ -37,12 +37,17 @@ test('discovery and lake links use the same reviewed public destinations', () =>
   assert.equal(lakePageHref('unknown'), undefined);
 });
 
-test('registry membership does not release dam layouts or public lake pages', () => {
+test('only the approved Table Rock and Truman experiences are public', () => {
+  assert.deepEqual(publishedLakes().map(lake => lake.slug).sort(), ['table-rock', 'truman']);
   for (const lake of Object.values(LAKES)) {
-    assert.equal(damLakeExperienceEnabled(lake.pool.damId), false);
-    assert.equal(lakePageHref(lake.slug), undefined);
+    const approved = ['table-rock', 'truman'].includes(lake.slug);
+    assert.equal(damLakeExperienceEnabled(lake.pool.damId), approved);
+    assert.equal(lakePageHref(lake.slug), approved ? `/lakes/${lake.slug}` : undefined);
+    if (approved) assert.equal(lake.rampCautionsVerified, false, 'page publication does not approve ramp thresholds');
   }
+  assert.equal(damLakeExperienceEnabled('swl-bull-shoals-dam'), false);
   assert.equal(damLakeExperienceEnabled('unknown'), false);
+  assert.equal(lakePageHref('bull-shoals'), undefined);
 });
 
 test('collector health becomes degraded when the public observation becomes outdated', () => {

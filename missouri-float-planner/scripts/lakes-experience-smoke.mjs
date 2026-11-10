@@ -43,7 +43,7 @@ try {
 import DamDetail from '@/components/dam/DamDetail';
 import LakeDetail from '@/components/lake/LakeDetail';
 import PlaceHeader from '@/components/lake/PlaceHeader';
-import { damLakeExperienceEnabled } from '@/lib/lakes/public-pages';
+import { damLakeExperienceEnabled, lakePageHref } from '@/lib/lakes/public-pages';
 const baseDam = ${JSON.stringify(dam)};
 const baseLake = ${JSON.stringify(lake)};
 export default async function Page({ searchParams }: { searchParams: Promise<{ kind?: string; variant?: string }> }) {
@@ -64,8 +64,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   if (variant === 'missing') { lake.pool = undefined; lake.history = []; lake.launches = []; dam.metrics = {}; }
   if (variant === 'stale') { lake.pool!.at = '2026-11-07T18:00:00Z'; for (const metric of Object.values(dam.metrics)) if (metric) metric.at = '2026-11-07T18:00:00Z'; }
   if (variant === 'mixed') { lake.pool!.at = '2026-11-08T18:00:00Z'; dam.metrics.poolElevation!.at = lake.pool!.at; }
-  const enabled = variant === 'held' ? damLakeExperienceEnabled(dam.id) : !['baseline', 'gate'].includes(variant ?? '');
-  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader>{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div>;
+  if (variant === 'baseline') dam.id = 'swl-bull-shoals-dam';
+  const enabled = variant !== 'held' && damLakeExperienceEnabled(dam.id);
+  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader>{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div>;
 }
 `);
   assert.equal(spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]).status, 0);
@@ -110,6 +111,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           assert.equal(directions.searchParams.get('destination'), '36.6,-93.3');
         }
         if (kind === 'dam') {
+          const lakeLink = page.locator(`[data-lake-section] a[href="/lakes/${variant === 'truman' ? 'truman' : 'table-rock'}"]`);
+          assert.equal(await lakeLink.count(), 1, 'published dam links to its lake page');
           const generation = page.locator('[data-dam-detail] > section').first();
           assert((await generation.innerText()).includes('Nov 9'), 'generation is first');
           const scheduleBox = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
@@ -188,13 +191,22 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     await page.close();
   }
   assert.deepEqual(errors, [], 'no browser errors');
-  const unpublished = await fetch(`${origin}/lakes/truman`);
+  const unpublished = await fetch(`${origin}/lakes/unreleased-lake`);
   const unpublishedHtml = await unpublished.text();
   // A streamed Next notFound can use HTTP 200; its noindex and absent page
   // content are the publication contract in either transport mode.
   assert([200, 404].includes(unpublished.status));
   assert.match(unpublishedHtml, /name="robots" content="[^"]*noindex/);
   assert(!unpublishedHtml.includes('data-lake-detail='), 'unapproved lake content is never rendered');
+  for (const slug of ['table-rock', 'truman']) {
+    const response = await fetch(`${origin}/lakes/${slug}`);
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert(html.includes(`data-lake-detail="${slug}"`), 'published lake survives an optional data outage');
+    assert(!/name="robots" content="[^"]*noindex/.test(html), 'published lake is indexable');
+    assert(html.includes(`https://eddy.guide/lakes/${slug}`), 'published lake has its canonical URL');
+  }
+  console.log('PASS published lake routes, canonical URLs, outage states and unknown-route noindex');
   console.log(`PASS screenshots: ${out}`);
 } catch (error) { console.error(log.slice(-5000)); throw error; }
 finally { await cleanup(); }
