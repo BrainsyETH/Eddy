@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Black River · Missouri",
       "title_top": "Black River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Lesterville’s upper river and the water below Clearwater make two different Black River trips. Pick one stretch, find its gauge, and give the day room to unfold.",
+      "lede": "Lesterville’s upper river and the water below Clearwater are two different Black River trips. Choose your side of the dam, then check the gauge and access for that stretch.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -55,7 +55,16 @@ export default {
         "miles": "12.9",
         "best": "A longer upper-Black day for paddlers prepared to cover nearly 13 miles",
         "photo": null,
-        "body": "Start at Lesterville Access and finish at Highway K above Clearwater Lake. This is a substantial day, so arrange the shuttle and confirm how lake backwater affects the final miles. Do not continue toward the dam as an afterthought."
+        "body": "Start at Lesterville Access and finish at Highway K above Clearwater Lake. This is a substantial day, so arrange the shuttle and confirm how lake backwater affects the final miles. Do not continue toward the dam as an afterthought.",
+        "photo_detail": {
+          "url": "/images/river-guides/black.webp",
+          "alt": "Canoes on the Black River near Lesterville.",
+          "caption": "Canoes on the Black River near Lesterville.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Black_River_Missouri_20140720_206b.jpg",
+          "license": "CC BY 4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0"
+        }
       },
       {
         "id": 2,
@@ -187,7 +196,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

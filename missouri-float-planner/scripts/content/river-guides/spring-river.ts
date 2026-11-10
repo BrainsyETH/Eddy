@@ -10,7 +10,7 @@ export default {
   "guide_data": {
     "hero": {
       "eyebrow": "Spring River · Northern Arkansas",
-      "title_top": "Spring River",
+      "title_top": "Spring River (Arkansas)",
       "title_accent": "Float Trip Guide.",
       "lede": "Visit the big spring on land, then choose your paddle downstream. The Arkansas Spring River changes character between Mammoth Spring and Hardy; the name alone doesn’t describe the trip.",
       "photo_url": "",
@@ -55,7 +55,16 @@ export default {
         "miles": "6.4",
         "best": "A downstream-Hardy outing kept separate from the upper river’s dams and falls",
         "photo": null,
-        "body": "Use Hardy Beach as the starting point and LB Access in Harold E. Alexander Spring River WMA as the planned finish. Confirm current access directions and the reach’s conditions. This route does not describe the upper ledges between Mammoth Spring and Hardy."
+        "body": "Use Hardy Beach as the starting point and LB Access in Harold E. Alexander Spring River WMA as the planned finish. Confirm current access directions and the reach’s conditions. This route does not describe the upper ledges between Mammoth Spring and Hardy.",
+        "photo_detail": {
+          "url": "/images/river-guides/spring-river.webp",
+          "alt": "Spring River at LB Access in Arkansas.",
+          "caption": "Spring River at LB Access in Arkansas.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:LB_Access,_Spring_River.jpg",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
+        }
       }
     ],
     "springs": [
@@ -167,7 +176,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

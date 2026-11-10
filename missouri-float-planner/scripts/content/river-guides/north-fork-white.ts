@@ -12,7 +12,7 @@ export default {
       "eyebrow": "North Fork River · Missouri",
       "title_top": "North Fork River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Cold spring water, wooded banks, and a Blue Spring walk at Hammond make the North Fork a good river to linger around. This is Missouri above Norfork Lake—not the Arkansas tailwater.",
+      "lede": "Cold spring water and a Blue Spring walk at Hammond shape a North Fork day. These floats are in Missouri above Norfork Lake; the Arkansas tailwater is a separate river trip.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -195,7 +195,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

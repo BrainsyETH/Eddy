@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Kings River · Arkansas",
       "title_top": "Kings River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Rockhouse to Trigger Gap is a day for clear pools, gravel bends, and lunch that lasts a little longer. Keep the schedule loose enough to enjoy the Kings between paddle strokes.",
+      "lede": "Rockhouse to Trigger Gap follows the Kings through pools and gravel bends. Arrange the specific Trigger Gap landing before launching—the rapid near the finish is part of the decision.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -157,7 +157,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

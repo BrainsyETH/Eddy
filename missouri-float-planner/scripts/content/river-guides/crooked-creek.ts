@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Crooked Creek · Arkansas",
       "title_top": "Crooked Creek",
       "title_accent": "Float Trip Guide.",
-      "lede": "Smallmouth pools, quick riffles, and a shorter paddle by Yellville: Crooked Creek gives you good reasons to stop rushing. Pick a leg of the water trail and leave room to explore.",
+      "lede": "Pick a leg of the Crooked Creek water trail for smallmouth pools and riffles. Around Yellville, a short route can leave more of the day for fishing.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -82,7 +82,16 @@ export default {
         "best": "A shorter Yellville outing paired with Fred Berry Nature Center",
         "photo": null,
         "body": "Use the designated launch downstream of Kelley’s Slab and finish at Yellville City Park. Confirm where to put in; this trip is not a suggestion to paddle over the slab crossing. The paddling estimate uses AGFC’s normal-condition pace of about 2 mph; add time for fishing and stops, and reassess when flow changes.",
-        "time": "About 1¾ hr"
+        "time": "About 1¾ hr",
+        "photo_detail": {
+          "url": "/images/river-guides/crooked-creek.webp",
+          "alt": "Crooked Creek at Highway 14 in Yellville.",
+          "caption": "Crooked Creek at Highway 14 in Yellville.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Yellville,_AR_021.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       }
     ],
     "springs": [
@@ -194,7 +203,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

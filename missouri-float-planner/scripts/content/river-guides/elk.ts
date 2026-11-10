@@ -11,7 +11,7 @@ export default {
     "hero": {
       "eyebrow": "Elk River · Missouri",
       "title_top": "Elk River",
-      "title_accent": "Float Trip Guide.",
+      "title_accent": "Access & Trip Guide.",
       "lede": "Pineville mornings, gravel-bar afternoons, and Noel summer weekends. Get to know the Elk’s public accesses, then choose a complete trip with both ends arranged.",
       "photo_url": "",
       "mile_stats": [
@@ -174,7 +174,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Public access on the Elk"
+    "sights_heading": "Public access on the Elk",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

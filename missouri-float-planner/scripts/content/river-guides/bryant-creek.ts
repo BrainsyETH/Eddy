@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Bryant Creek · Missouri",
       "title_top": "Bryant Creek",
       "title_accent": "Float Trip Guide.",
-      "lede": "Bring the fishing rod and a patient pace. The lower Bryant offers a smaller-stream day through the southern Missouri Ozarks, with Sycamore and Warren Bridge anchoring the choices.",
+      "lede": "Sycamore to Warren Bridge gives you more creek miles; Warren Bridge to Cook is the shorter option toward Norfork Lake. Compare the two before choosing your fishing stops.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/BryantCreek_02.jpg?width=1280",
       "mile_stats": [
         {
@@ -63,7 +63,7 @@ export default {
         "miles": "7.6",
         "best": "Fishing stops on a lower-creek day from Sycamore",
         "photo": null,
-        "body": "Sycamore to Warren Bridge is a useful place to start thinking about a Bryant day. Give yourself time for the pools and a close look at narrower bends. Confirm your exact access directions before heading into the valley."
+        "body": "This is the longer of the two featured lower-Bryant routes. It ends at Warren Bridge, where a separate trip can begin toward the lake end of the watershed. Pick this pairing for more creek miles; pick Warren–Cook for a shorter outing."
       },
       {
         "id": 2,
@@ -185,7 +185,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

@@ -55,7 +55,7 @@ export default {
         "miles": "7.2",
         "best": "Unhurried paddling through the middle river’s bends",
         "photo": null,
-        "body": "Use Mill Rock and Wenkel Ford for a day of bends and pools. Keep the put-in and take-out pinned before leaving home; two places that look close together by road can be a real day on this river."
+        "body": "The route follows the Bourbeuse’s bends between Mill Rock and Wenkel Ford. Road distance is a poor guide to paddling distance here; use the mapped river miles and allow for slow pools."
       },
       {
         "id": 2,
@@ -185,7 +185,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

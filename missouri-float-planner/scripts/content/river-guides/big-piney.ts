@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Big Piney River · Missouri",
       "title_top": "Big Piney River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Pine-topped bluffs, fishing pools, and room for a gravel-bar lunch. Choose a short outing near Houston or give the forest reach below Mason Bridge more of your day.",
+      "lede": "Pine-topped bluffs and fishing pools line the Big Piney. Compare the Houston-area routes with the separate lower river; access through the military stretch needs its own arrangements.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -52,10 +52,10 @@ export default {
         "to_slug": "mineral-springs",
         "from": "Dogs Bluff Access",
         "to": "Mineral Springs Access",
-        "miles": "2.9",
+        "miles": "5.9",
         "best": "A short upper-river outing with a modest mileage target",
         "photo": null,
-        "body": "Start at Dogs Bluff and finish at Mineral Springs. Keep this one deliberately unhurried: stop for lunch, work a promising pool, and give first-time canoe partners time to find their rhythm. Check the upper river before committing in a dry spell."
+        "body": "Dogs Bluff to Mineral Springs is the shorter Houston-area choice. It stays on the upper Big Piney, so inspect the riffles during dry weather; the lower river’s reading may not describe them."
       },
       {
         "id": 2,
@@ -209,7 +209,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

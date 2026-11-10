@@ -48,6 +48,7 @@ export interface FloatSection {
   crowd?: string;
   best: string;
   photo: string | null;
+  photo_detail?: GuidePhotoDetail;
   body: string;
   segment?: SegmentId;
   best_for_tags?: string[];
@@ -62,7 +63,18 @@ export interface FloatSection {
   eddy_favorite?: boolean;
 }
 
+export interface GuidePhotoDetail {
+  url: string;
+  alt: string;
+  caption: string;
+  author: string;
+  source_url: string;
+  license: string;
+  license_url: string;
+}
+
 export interface SpringStop {
+  photo?: GuidePhotoDetail;
   name: string;
   /** Omit for land visits that are not a river-mile stop. */
   mile?: string;
@@ -96,6 +108,7 @@ export interface FaqItem {
 export interface GuideTldr {
   typical_distance: string;
   best_for_beginners: string;
+  route_label?: string;
   primary_gauge: string;
   gauge_label?: string;
   recommended_outfitter?: string;
@@ -135,6 +148,8 @@ export interface RelatedRiver {
 }
 
 export interface GuideData {
+  /** Date of a substantive copy edit; not an operational or field-verification date. */
+  editorial_updated_at?: string;
   /** Primary references and local access information used for this guide. */
   sources?: { label: string; url: string }[];
   /** Editorial review date, independent of operational row updates. */

@@ -1,3 +1,4 @@
+import { guideEditorialDate } from '@/lib/guides/editorial-date';
 // src/app/sitemap.ts
 // Dynamic sitemap generation for SEO optimization
 
@@ -61,7 +62,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .order('name', { ascending: true }),
     supabase
       .from('blog_posts')
-      .select('slug, published_at')
+      .select('slug, published_at, editorial_updated_at:guide_data->>editorial_updated_at')
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false }),
@@ -108,10 +109,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // updated_at changes on operational writes (including social shares), so it
-  // is not a content modification date. Omit lastModified until the database
-  // records editorial changes separately; published_at isn't a last edit.
+  // is not a content modification date. Only an explicit editorial date is used;
+  // older posts without one continue to omit lastModified.
   const blogPages: MetadataRoute.Sitemap = (blogResult.data || []).map((post) => ({
     url: `${BASE_URL}/blog/${post.slug}`,
+    lastModified: guideEditorialDate({ editorial_updated_at: post.editorial_updated_at }),
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));

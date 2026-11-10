@@ -55,7 +55,7 @@ export default {
         "miles": "3.2",
         "best": "Combining a park visit with a short paddle",
         "photo": null,
-        "body": "Launch at the park and finish at Mammoth. This shorter pairing leaves room for breaks and a park visit afterward. Even a modest distance can take time when the current is slow."
+        "body": "This is the shortest featured Big River pairing and starts at Washington State Park. A park walk and the float can share the day. Expect to paddle the pools when the current is slow."
       },
       {
         "id": 2,
@@ -79,7 +79,7 @@ export default {
         "miles": "5",
         "best": "A five-mile outing farther downstream",
         "photo": null,
-        "body": "Keep the day between Merrill Horse and Brown’s Ford. It is a sensible distance to stretch out with fishing stops rather than turning a short trip into an afternoon sprint."
+        "body": "This middle option is shorter than Mammoth to Merrill Horse and finishes at Brown’s Ford. It gives anglers a smaller distance to cover; choose how much fishing time to add after checking the route estimate."
       }
     ],
     "springs": [
@@ -207,7 +207,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

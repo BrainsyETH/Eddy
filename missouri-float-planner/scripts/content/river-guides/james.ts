@@ -12,7 +12,7 @@ export default {
       "eyebrow": "James River · Missouri",
       "title_top": "James River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Delaware Town, Shelvin Rock, and the old Y-Bridge give the James several ways into a river day. Pick one stretch and leave the rest for the next visit.",
+      "lede": "The James offers consecutive floats near Delaware Town and Shelvin Rock, plus a separate lower outing to Galena’s Y-Bridge. Choose a single leg or plan a longer connection.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/James_River_in_Springfield_Missouri_USA.jpg?width=1280",
       "mile_stats": [
         {
@@ -63,7 +63,7 @@ export default {
         "miles": "5.7",
         "best": "A modest-mileage paddle starting at Delaware Town",
         "photo": null,
-        "body": "Delaware Town to Shelvin Rock is a useful first route to inspect. Set up the shuttle before launch and keep the day loose enough for a lunch or fishing stop."
+        "body": "Delaware Town to Shelvin Rock is one of two consecutive options in this part of the James. Stop at Shelvin Rock for this trip; combining it with the Hootentown leg changes both the day’s distance and the shuttle."
       },
       {
         "id": 2,
@@ -75,7 +75,7 @@ export default {
         "miles": "6",
         "best": "Continuing the James experience on a separate reach toward Hootentown",
         "photo": null,
-        "body": "Shelvin Rock to Hootentown makes another self-contained outing. Choosing this pair instead of linking both upper sections leaves more time to enjoy the river."
+        "body": "This starts where the Delaware Town route ends and follows the James to Hootentown. Compare the two legs in the planner before linking them; two individually short trips still add up to a longer day."
       },
       {
         "id": 3,
@@ -205,7 +205,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

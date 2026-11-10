@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Buffalo National River · Arkansas",
       "title_top": "Buffalo National River",
       "title_accent": "Float Trip Guide.",
-      "lede": "The bluffs are the invitation; the water decides which district gets your day. Start with the upper, middle, or lower Buffalo, then choose the float that fits.",
+      "lede": "Steel Creek’s bluffs, a shorter middle-river float, or the lower trip to Rush: the Buffalo offers different days in different districts. Let the available water help choose yours.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Misty_Bluff_along_the_Buffalo_River.jpg?width=1200",
       "mile_stats": [
         {
@@ -215,7 +215,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

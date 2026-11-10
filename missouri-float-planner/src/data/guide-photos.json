@@ -68,8 +68,8 @@
     "author": "Thomas & Dianne Jones",
     "license": "CC BY 2.0",
     "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
-    "caption": "Buffalo River near Riley\u2019s Station, on the lower river.",
-    "alt": "Buffalo River near Riley\u2019s Station, on the lower river.",
+    "caption": "Buffalo River near Riley’s Station, on the lower river.",
+    "alt": "Buffalo River near Riley’s Station, on the lower river.",
     "changes": "Resized and converted to WebP; cropped for display.",
     "replaces": [
       "https://commons.wikimedia.org/wiki/Special:FilePath/Misty_Bluff_along_the_Buffalo_River.jpg?width=1200"
@@ -185,5 +185,37 @@
     "changes": "Resized and converted to WebP; cropped for display.",
     "replaces": [],
     "postSlug": "war-eagle-creek-float-trips-arkansas"
+  },
+  {
+    "riverSlug": "current",
+    "imageUrl": "/images/river-guides/current.webp",
+    "cardUrl": "/images/river-guides/current-card.webp",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Current_River_MO_2009-06-15_n65_below_Welch_Spring_crop1.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Current_River_MO_2009-06-15_n65_below_Welch_Spring_crop1.jpg",
+    "author": "Kbh3rd",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "caption": "Current River between Welch Spring and Akers.",
+    "alt": "Canoes on the Current River below Welch Spring, with wooded bluffs behind.",
+    "changes": "Resized and converted to WebP; cropped for display.",
+    "replaces": [
+      "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1770003451989-Montauk-9DBZH6CuKRaiCxQEd6sBa5MWkONotQ.png"
+    ],
+    "postSlug": "current-river-float-trips-missouri"
+  },
+  {
+    "riverSlug": "gasconade",
+    "imageUrl": "/images/river-guides/gasconade.webp",
+    "cardUrl": "/images/river-guides/gasconade-card.webp",
+    "originalUrl": "https://live.staticflickr.com/65535/50657945393_f34ca11de0_b.jpg",
+    "sourceUrl": "https://www.flickr.com/photos/ricricciardi/50657945393",
+    "author": "Richard Ricciardi",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+    "caption": "Gasconade River at Jerome in late November. Photo: “Jerome Missouri - Blue Sky - Ozarks.”",
+    "alt": "Gasconade River at Jerome with a gravel bar and bare autumn trees.",
+    "changes": "Resized and converted to WebP; cropped for display.",
+    "replaces": [],
+    "postSlug": "gasconade-river-float-trips-missouri"
   }
 ]

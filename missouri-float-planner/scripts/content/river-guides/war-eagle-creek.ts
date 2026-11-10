@@ -12,7 +12,7 @@ export default {
       "eyebrow": "War Eagle Creek · Arkansas",
       "title_top": "War Eagle Creek",
       "title_accent": "Float Trip Guide.",
-      "lede": "Build a spring river day around Withrow Springs: a paddle through wooded bends, time on a park trail, and no need to turn it into an expedition.",
+      "lede": "Withrow Springs gives a War Eagle trip a park base. Choose a float ending at the Highway 23 access, or check whether the downstream walk-in landing suits your boat.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -55,7 +55,16 @@ export default {
         "miles": "4.5",
         "best": "A shorter paddle ending by Withrow Springs",
         "photo": null,
-        "body": "Confirm launch and parking at the Highway 412 crossing, then plan the take-out at the park’s Highway 23 boating access. This keeps the outing upstream of the mill area and leaves time for the park afterward."
+        "body": "Confirm launch and parking at the Highway 412 crossing, then plan the take-out at the park’s Highway 23 boating access. This keeps the outing upstream of the mill area and leaves time for the park afterward.",
+        "photo_detail": {
+          "url": "/images/river-guides/war-eagle-creek.webp",
+          "alt": "War Eagle Creek at Withrow Springs State Park.",
+          "caption": "War Eagle Creek at Withrow Springs State Park.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
+        }
       },
       {
         "id": 2,
@@ -67,7 +76,16 @@ export default {
         "miles": "6.2",
         "best": "A longer outing below the park for paddlers prepared for the carry-out",
         "photo": null,
-        "body": "Before choosing this pairing, confirm that the downstream walk-in access suits carrying your boat and that parking is available. A walk-in take-out can be very different from a ramp, especially with a heavy canoe."
+        "body": "Before choosing this pairing, confirm that the downstream walk-in access suits carrying your boat and that parking is available. A walk-in take-out can be very different from a ramp, especially with a heavy canoe.",
+        "photo_detail": {
+          "url": "/images/river-guides/war-eagle-creek.webp",
+          "alt": "War Eagle Creek at Withrow Springs State Park.",
+          "caption": "War Eagle Creek at Withrow Springs State Park.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
+        }
       }
     ],
     "springs": [
@@ -183,7 +201,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

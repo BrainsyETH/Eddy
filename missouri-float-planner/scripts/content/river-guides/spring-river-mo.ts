@@ -10,8 +10,8 @@ export default {
   "guide_data": {
     "hero": {
       "eyebrow": "Spring River · Southwest Missouri",
-      "title_top": "Spring River",
-      "title_accent": "Float Trip Guide.",
+      "title_top": "Spring River (Missouri)",
+      "title_accent": "Access & Trip Guide.",
       "lede": "This is the Spring River near La Russell and Carthage. Start by getting to know the public access, the local water readings, and the arrangements a southwest Missouri river day needs.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Spring_River%2C_La_Russell_Mo.JPG?width=1280",
       "mile_stats": [
@@ -167,7 +167,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Public access near La Russell"
+    "sights_heading": "Public access near La Russell",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

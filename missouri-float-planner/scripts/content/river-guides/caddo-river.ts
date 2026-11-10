@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Caddo River · Arkansas",
       "title_top": "Caddo River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Make Glenwood the meeting point, then follow the Caddo through an Ouachita river day of riffles and long pools. Check the actual launch name before borrowing anyone else’s float time.",
+      "lede": "Caddo Gap and Glenwood frame two different Ouachita river outings. Match the named public launch and take-out before borrowing a rental company’s float time.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Norman%2C_AR_002.jpg?width=1280",
       "mile_stats": [
         {
@@ -75,7 +75,7 @@ export default {
         "miles": "8.1",
         "best": "A separate downstream day toward Amity",
         "photo": null,
-        "body": "The reach to Highway 182 near Amity is an alternative below Glenwood. Check access and local conditions at both ends, and make the downstream take-out part of the shuttle plan before leaving town."
+        "body": "This lower pairing starts in Glenwood and finishes at Highway 182 near Amity. It is a different outing from the Caddo Gap route above town. Confirm the Highway 182 landing and downstream conditions before arranging the shuttle."
       }
     ],
     "springs": [],
@@ -172,7 +172,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;
