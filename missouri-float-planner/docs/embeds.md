@@ -56,7 +56,8 @@ lake gauge and water temperature, rather than generic iconography. Rising
 stage (only when a fresh, measured change exists) uses a coral arrow + text;
 falling stage uses teal arrow + text; lake level is rendered in Eddy water teal.
 These are measurements, **not safety classifications**. All three metrics
-stay on one row at every embed width; narrow frames use compact figures and
+stay on one row at every embed width, with icons, labels, values and supporting
+text centered within each column; narrow frames use compact figures and
 stack the existing branded icons above their labels instead of forcing
 temperature onto a second row. Only available metrics are shown.
 
