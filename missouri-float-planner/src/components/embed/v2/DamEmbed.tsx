@@ -339,6 +339,10 @@ function Card(props: Props) {
         />
       )}
 
+      {full && tomorrow && (
+        <ScheduleBars day={tomorrow} currentHour={null} compact label={`${scheduleDayLabel(tomorrow.date)} · CT`} />
+      )}
+
       {full && (downstream || pool || waterTemp) && (
         <div className="ew-dam-details" role="group" aria-label="Dam and downstream measurements">
           {downstream && Number.isFinite(downstream.value) && (
@@ -426,10 +430,6 @@ function Card(props: Props) {
           <strong className="ew-dam-additional-value">{Math.round(release.value).toLocaleString('en-US')} cfs</strong>
           {readingStaleness(release.at, now) !== 'fresh' && <span className="ew-support">Older reading</span>}
         </div>
-      )}
-
-      {full && tomorrow && (
-        <ScheduleBars day={tomorrow} currentHour={null} compact label={`${scheduleDayLabel(tomorrow.date)} · CT`} />
       )}
 
       <details className="ew-about">
