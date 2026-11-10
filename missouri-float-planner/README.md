@@ -370,10 +370,11 @@ with a clock change also carry their own correctly positioned time labels. Missi
 
 The detail dashboard uses a static framed generation card with a warm sand
 observed panel, turbine flow as the primary reading, and the next scheduled
-change above the hourly chart. Date headings lead straight into the
-chart; hourly details and the peak window share one line below it. Generation
-uses teal bars, while an orange Now marker matches iOS. Peak windows are named
-without a second band above the bars. Flow
+change in a coral callout above the hourly chart, with the day's peak window
+under the change. Hourly details sit below the chart. Generation uses teal bars
+on the project's fixed capacity scale, with a two-pixel visibility floor so
+small scheduled changes remain distinct. Peak bars keep a teal outline even
+after their hours pass; an orange Now marker matches iOS. Flow
 estimates stay out of ramp hours, and megawatts are spelled out in hourly
 details and explained in the info dialog. Dam and lake measurements sit above
 the full-width generation pattern at every screen size, on quiet panel cards.

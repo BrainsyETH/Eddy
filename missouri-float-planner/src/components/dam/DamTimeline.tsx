@@ -168,6 +168,7 @@ export default function DamTimeline({
         {hours.map((hour, index) => {
           const bar = hour ? scheduledBar(hour.megawatts, reference) : null;
           const generating = (hour?.megawatts ?? 0) > 0;
+          const atPeak = Boolean(peak && hour?.megawatts === peak.megawatts);
           // Elapsed hours are dimmed: the schedule is a forward-looking
           // document, and the part of today that already happened is context
           // rather than plan. The observed record of it is the pattern strip.
@@ -184,16 +185,22 @@ export default function DamTimeline({
                 />
               ) : (
                 <div
-                  data-peak-hour={peak && hour.megawatts === peak.megawatts ? hour.hourEnding : undefined}
+                  data-schedule-hour={hour.hourEnding}
+                  data-peak-hour={atPeak ? hour.hourEnding : undefined}
                   className={[
                     'w-full rounded-sm',
                     generating ? fillClass(bar?.fraction ?? 0) : 'bg-neutral-200',
-                    past ? 'opacity-45' : '',
+                    past ? (atPeak ? 'opacity-75' : 'opacity-45') : '',
+                    atPeak && hovered !== index ? 'ring-1 ring-inset ring-primary-900' : '',
                     hovered === index ? 'ring-2 ring-primary-900' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  style={{ height: `${Math.max((bar?.fraction ?? 0) * 100, 12)}%` }}
+                  // A 12% floor flattened Bull Shoals' entire low-output day:
+                  // even its 40 MW peak is only 10.2% of 391 MW capacity.
+                  // Keep the capacity scale, with just a 2px visibility floor.
+                  // Without a reference, retain an unscaled presence marker.
+                  style={{ height: bar ? `${bar.fraction * 100}%` : generating ? '12%' : '0%', minHeight: 2 }}
                 />
               )}
             </div>

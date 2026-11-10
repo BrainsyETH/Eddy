@@ -44,7 +44,7 @@ export default function GenerationCard({ dam, now, availability }: {
           {dam.generationReference && <p>{generationReferenceCitation(dam.generationReference)}. {RACK_ESTIMATE_NOTE}</p>}
           {dam.nameplate && <p>{dam.nameplate.units} generating units · {dam.nameplate.megawatts} MW nameplate capacity. Nameplate capacity and the published scheduling reference can differ.</p>}
           {hasSchedule && <>
-            <p>Teal bars show scheduled generation. The coral line marks the current time. The peak window names the day’s highest scheduled generation.</p>
+            <p>Teal bars show scheduled generation. Outlined bars mark the day’s peak, including hours that have passed. The coral line marks the current time.</p>
             <p>{SCHEDULE_POSTING_NOTE} Its “hour ending” labels describe the preceding hour; Eddy displays the start of each interval.</p>
             <p>Every day uses the same chart scale{dam.generationReference ? `: ${dam.generationReference.schedulingCapacityMw} MW of scheduling capacity` : ''}, so different days can be compared.</p>
           </>}

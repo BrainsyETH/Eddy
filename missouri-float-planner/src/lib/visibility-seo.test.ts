@@ -14,6 +14,7 @@ import { accessFeeSchema, publicPageMetadata, ROUTE_SHARE_IMAGE, SHARE_IMAGES } 
 import ArticleByline from '../components/blog/ArticleByline';
 import ConditionsLayout from '../components/conditions/ConditionsLayout';
 import GenerationSchedule from '../components/dam/GenerationSchedule';
+import DamTimeline from '../components/dam/DamTimeline';
 import DamListCard from '../components/dam/DamListCard';
 import type { ConditionsExplorerProps } from '../components/conditions/ConditionsExplorer';
 import { conditionsDamCatalogue } from './conditions/dam-catalogue';
@@ -178,6 +179,43 @@ function scheduleSection(html: string, label: 'Today' | 'Tomorrow'): string {
   assert.ok(section, `${label} schedule is server-rendered`);
   return section;
 }
+
+// Bull Shoals' posted Nov 9 schedule: every hour was below the old 12% floor,
+// including the 40 MW peak at HE14 (1–2 PM Central).
+const lowOutputDay: DamScheduleDay = {
+  scheduleDate: '2026-11-09', retrievedAt: '2026-11-09T23:30:04Z', idle: [],
+  hours: [7, 7, 7, 7, 7, 7, 10, 7, 30, 7, 7, 7, 15, 40, 7, 7, 20, 30, 15, 7, 15, 7, 7, 7]
+    .map((megawatts, i) => ({ hourEnding: i + 1, megawatts, cfs: null, isRamp: true, minimumFlow: megawatts <= 10 })),
+};
+const bullShoalsReference = { units: 8, fullGenerationCfs: 26400, schedulingCapacityMw: 391, source: 'SWPA' };
+
+test('low-output schedules retain their capacity-scaled shape and outline the past peak', () => {
+  for (const compact of [false, true]) {
+    const html = renderToStaticMarkup(createElement(DamTimeline, {
+      day: lowOutputDay, reference: bullShoalsReference, now: Date.parse('2026-11-10T00:45:00Z'), plainLanguage: true, compact,
+    }));
+    const height = (hour: number) => Number(html.match(new RegExp(`data-schedule-hour="${hour}"[^>]*style="height:([\\d.]+)%`))?.[1]);
+    assert.ok(height(1) < height(13) && height(13) < height(9) && height(9) < height(14), '7, 15, 30 and 40 MW must not collapse to equal-height bars');
+    assert.equal(height(14), 40 / 391 * 100, 'the peak stays at 10.2% of capacity, not rescaled to full height');
+    assert.match(html, /Peak window: 1–2 PM/);
+    assert.equal((html.match(/data-peak-hour=/g) ?? []).length, 1);
+    assert.match(html, /data-peak-hour="14"[^>]*class="[^"]*opacity-75[^"]*ring-1 ring-inset ring-primary-900/);
+  }
+});
+
+test('full dam reports keep the next change and peak together in the coral callout', () => {
+  for (const compact of [false, true]) {
+    const html = renderToStaticMarkup(createElement(GenerationSchedule, {
+      schedule: [lowOutputDay], reference: bullShoalsReference, now: Date.parse('2026-11-10T00:45:00Z'), compact,
+    }));
+    const today = scheduleSection(html, 'Today');
+    assert.equal(today.includes('border-accent-500 bg-accent-50'), !compact, 'restore the full-report callout without boxing compact cards');
+    assert.match(today, /Generation stops at 7 PM\. Resumes at 8 PM\./);
+    assert.match(today, /Peak window: 1–2 PM/);
+    assert.equal((html.match(/Generation stops at 7 PM/g) ?? []).length, 1);
+    assert.ok(today.indexOf('data-peak-window') < today.indexOf('role="img"'));
+  }
+});
 
 test('dam cards render only today on the Central calendar across midnight, DST and year boundaries', () => {
   for (const [instant, today, tomorrow] of [
