@@ -1,5 +1,5 @@
 import GuideRouteTime from './GuideRouteTime';
-import { GuidePhotoCaption } from './GuidePhoto';
+import PhotoCreditOverlay from './PhotoCreditOverlay';
 // src/components/blog/FloatSectionCard.tsx
 // Photo-left card used in the "Pick your float" section list. Stacks photo
 // above text under 768px via the [data-stack] attribute + CSS variables.
@@ -81,6 +81,7 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
               sizes="(max-width: 767px) 100vw, 260px"
               style={{ objectFit: 'cover' }}
             />
+            {s.photo_detail && photo === s.photo_detail.url && <PhotoCreditOverlay author={s.photo_detail.author} sourceUrl={s.photo_detail.source_url} license={s.photo_detail.license} licenseUrl={s.photo_detail.license_url} />}
             <div
               style={{
                 position: 'absolute',
@@ -245,7 +246,6 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
           >
             <strong style={{ color: 'var(--color-neutral-900)' }}>Best for:</strong> {s.best}
           </div>
-          {s.photo_detail && <figure className="m-0 mt-3"><GuidePhotoCaption photo={s.photo_detail} /></figure>}
           {(() => {
             const planButton = plannerUrl && (
               <Link href={plannerUrl} data-ga-event="guide_planner_click" data-ga-label={`${s.from} → ${s.to}`} className="guide-action guide-action--plan">
