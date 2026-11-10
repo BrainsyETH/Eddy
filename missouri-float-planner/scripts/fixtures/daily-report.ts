@@ -10,7 +10,7 @@ export const reportRiver: RiverEmbedData = {
   river: { id: 'r1', slug: 'current', name: 'Current River', path: '/rivers/missouri/current', state: 'MO', lengthMiles: 100, accessPointCount: 30, conditionCode: 'flowing', conditionLabel: 'Flowing', thresholdUnit: 'cfs' },
   primary: { id: 'g1', siteId: '07067000', name: 'Current River at Van Buren', isPrimary: true, provider: 'usgs', rated: true, unit: 'cfs', gaugeHeightFt: 2.4, dischargeCfs: 460,
     readingTimestamp: at, readingSuspect: false, qualifierNote: null, conditionCode: 'flowing', conditionLabel: 'Flowing', ladder, optimalRange: '300–800 cfs', trend: null, coordinates: null },
-  secondary: [], take: null, weather: { tempF: 61, condition: 'Mostly sunny', highF: 66, lowF: 42, precipitation: 10 },
+  secondary: [], release: null, take: null, weather: { tempF: 61, condition: 'Mostly sunny', highF: 66, lowF: 42, precipitation: 10 },
   chart: { days: 7, unit: 'cfs', thresholds: ladder, readings: Array.from({ length: 169 }, (_, i) => ({ timestamp: new Date(Date.parse(at) - (168 - i) * 3_600_000).toISOString(), value: Math.round(460 + 440 * Math.exp(-(((i - 82) / 25) ** 2))) })) },
   assembledAt: REPORT_FIXTURE_NOW,
 };
