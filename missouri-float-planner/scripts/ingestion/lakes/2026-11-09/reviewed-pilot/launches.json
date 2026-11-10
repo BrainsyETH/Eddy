@@ -1,6 +1,6 @@
 {
   "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
-  "reviewer": "Codex (source and imagery review)",
+  "reviewer": "Codex (source/imagery research only; human approval required)",
   "locations": [
     {
       "lake_slug": "truman",
@@ -8,9 +8,6 @@
       "name": "Long Shoal",
       "longitude": -93.47366807240861,
       "latitude": 38.266767163283774,
-      "launch_methods": [
-        "trailer"
-      ],
       "amenities": [
         "parking"
       ],
@@ -33,7 +30,11 @@
           "image_sha256": "f6fb54c5be46dd6db96ba3744ff5f24c85d5467e1c78335d5675d595f909f9de"
         }
       ],
-      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review."
+      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
+      "proposed_launch_methods": [
+        "trailer"
+      ],
+      "approval_status": "pending_human_review"
     },
     {
       "lake_slug": "truman",
@@ -41,9 +42,6 @@
       "name": "Sparrowfoot",
       "longitude": -93.73727404914177,
       "latitude": 38.30776788302787,
-      "launch_methods": [
-        "trailer"
-      ],
       "amenities": [
         "parking"
       ],
@@ -66,7 +64,11 @@
           "image_sha256": "3fb052e322936c51fb45d85be0e138a6aa3764eadc226cb32b6a382ae489a5e6"
         }
       ],
-      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review."
+      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
+      "proposed_launch_methods": [
+        "trailer"
+      ],
+      "approval_status": "pending_human_review"
     },
     {
       "lake_slug": "truman",
@@ -74,9 +76,6 @@
       "name": "Thibaut Point",
       "longitude": -93.40089059254171,
       "latitude": 38.29831142767944,
-      "launch_methods": [
-        "trailer"
-      ],
       "amenities": [
         "parking"
       ],
@@ -99,7 +98,11 @@
           "image_sha256": "e12f1c4412abef11baced8160c7e4f8a09e48b9be0506ea38f37aff734b4a6f3"
         }
       ],
-      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review."
+      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
+      "proposed_launch_methods": [
+        "trailer"
+      ],
+      "approval_status": "pending_human_review"
     },
     {
       "lake_slug": "table-rock",
@@ -107,9 +110,6 @@
       "name": "Table Rock State Park Boat Ramp",
       "longitude": -93.310995,
       "latitude": 36.581494,
-      "launch_methods": [
-        "trailer"
-      ],
       "amenities": [
         "parking",
         "restrooms"
@@ -135,7 +135,11 @@
           "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
         }
       ],
-      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. Official park page supplies these ramp coordinates, paved surfaces, restroom icon and no-fee information."
+      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. Official park page supplies these ramp coordinates, paved surfaces, restroom icon and no-fee information.",
+      "proposed_launch_methods": [
+        "trailer"
+      ],
+      "approval_status": "pending_human_review"
     },
     {
       "lake_slug": "table-rock",
@@ -143,9 +147,6 @@
       "name": "Moonshine Beach Boat Ramp",
       "longitude": -93.311509,
       "latitude": 36.608153,
-      "launch_methods": [
-        "trailer"
-      ],
       "amenities": [
         "parking"
       ],
@@ -171,7 +172,11 @@
           "image_sha256": "65eb7d9f9cf0cdb459de10d1aed3bcdc30985df74c0beb73a7b34d97083a1de0"
         }
       ],
-      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (320,455), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed."
+      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (320,455), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed.",
+      "proposed_launch_methods": [
+        "trailer"
+      ],
+      "approval_status": "pending_human_review"
     },
     {
       "lake_slug": "table-rock",
@@ -179,9 +184,6 @@
       "name": "Cow Creek Boat Ramp",
       "longitude": -93.3884,
       "latitude": 36.566355,
-      "launch_methods": [
-        "trailer"
-      ],
       "amenities": [
         "parking"
       ],
@@ -207,7 +209,12 @@
           "image_sha256": "8141839330adb2ca6ef5468f0ce38b980ad4c57913fa9b5b8fc8bedd3c3ad970"
         }
       ],
-      "review_note": "Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (795,486), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed."
+      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (795,486), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed.",
+      "proposed_launch_methods": [
+        "trailer"
+      ],
+      "approval_status": "pending_human_review"
     }
-  ]
+  ],
+  "approval_status": "pending_human_review"
 }

@@ -12,7 +12,7 @@
 // A run that re-writes two-day-old rows and nothing newer has written nothing
 // anybody can read as current. Each lake is healthy only when its newest
 // observation is younger than its cadence allows: six hours for an hourly
-// source, forty-eight for the daily one.
+// source, thirty-six for the daily one, matching the public page.
 //
 // ── Backfill ───────────────────────────────────────────────────────────────
 // `?backfillHours=N` (capped at 90 days) widens the CWMS window so the 7-day
@@ -35,6 +35,7 @@ import { fetchTrumanDaily } from '@/lib/ameren/osage';
 import { seriesFor } from '@/lib/data/dams';
 import { LAKES, poolDamFor, type LakeEntry } from '@/lib/lakes/registry';
 import { writePoolReadings, type PoolReadingWrite } from '@/lib/lakes/store';
+import { lakeObservationIsCurrent } from '@/lib/lakes/freshness';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -44,8 +45,6 @@ const JOB = 'sync_lake_levels';
 const LOOKBACK_HOURS = 48;
 const MAX_BACKFILL_HOURS = 90 * 24;
 const MAX_DAILY_BACKFILL_DAYS = 14;
-/** How old the newest observation may be for the lake to count as healthy. */
-export const HEALTHY_WITHIN_HOURS: Record<LakeEntry['poolCadence'], number> = { hourly: 6, daily: 48 };
 
 interface LakeResult {
   lake: string;
@@ -87,7 +86,8 @@ async function readingsFor(lake: LakeEntry, now: Date, backfillHours: number | n
 export function lakeHealth(lake: LakeEntry, readings: Array<{ at: string }>, now: number): { newestAt: string | null; healthy: boolean } {
   const newest = readings.map((r) => Date.parse(r.at)).filter(Number.isFinite).sort((a, b) => b - a)[0];
   if (newest === undefined) return { newestAt: null, healthy: false };
-  return { newestAt: new Date(newest).toISOString(), healthy: now - newest <= HEALTHY_WITHIN_HOURS[lake.poolCadence] * 3_600_000 };
+  const newestAt = new Date(newest).toISOString();
+  return { newestAt, healthy: lakeObservationIsCurrent(newestAt, lake.poolCadence, now) };
 }
 
 async function runSync(request: NextRequest) {

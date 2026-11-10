@@ -1,3 +1,4 @@
+import type { ScheduleAvailability as FullScheduleAvailability } from '@/lib/dam-schedule-availability';
 import { readingStaleness, relativeAge, SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
 import type { DamSnapshot } from '@/lib/data/dams';
 import { generationReferenceCitation, RACK_ESTIMATE_NOTE } from '@shared/dam-generation';
@@ -7,14 +8,12 @@ import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import DamAppCTA from './DamAppCTA';
 
-export type ScheduleAvailability = { title: string; detail: string };
+export type ScheduleAvailability = Pick<FullScheduleAvailability, 'title' | 'detail'>;
 
-export default function GenerationCard({ dam, now, availability, scheduleFirst = false }: {
+export default function GenerationCard({ dam, now, availability }: {
   dam: DamSnapshot;
   now: number;
   availability: ScheduleAvailability;
-  /** Pilot portrait layout keeps the complete schedule close to the heading. */
-  scheduleFirst?: boolean;
 }) {
   const hasSchedule = dam.schedule.length > 0;
   const release = dam.metrics.release;
@@ -53,8 +52,8 @@ export default function GenerationCard({ dam, now, availability, scheduleFirst =
           <p>Check posted warnings and local operating information before entering the water below a dam. No generation scheduled does not mean no water is being released.</p>
         </DamInfoTip>
       </div>
-      <div className={hasObserved ? 'dam-generation-layout' : undefined} data-schedule-first={scheduleFirst && hasSchedule || undefined}>
-        {scheduleFirst && hasSchedule ? <>{schedule}{observed}</> : <>{observed}{schedule}</>}
+      <div className={hasObserved ? 'dam-generation-layout' : undefined}>
+        {observed}{schedule}
       </div>
       <DamAppCTA damId={dam.id} damName={dam.name} />
     </Card>

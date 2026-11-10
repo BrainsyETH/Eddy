@@ -13,13 +13,15 @@ import { damHasRead } from '@/lib/eddy/dam-read-dams';
 import { useDamPageClock } from './useDamPageClock';
 
 /** The server snapshot renders immediately; clocks and RSC refreshes enhance it. */
-export default function DamDetail({ dam, renderedAt, availability, lake, lakeHref }: {
+export default function DamDetail({ dam, renderedAt, availability, lake, lakeHref, lakeExperienceEnabled = false }: {
   dam: DamSnapshot;
   renderedAt: number;
   availability: ScheduleAvailability;
   /** The lake behind the dam, when Eddy carries it as an entity. Below the tailwater content on purpose (TAILWATER_PLAN.md). */
   lake?: LakeSection | null;
   lakeHref?: string;
+  /** Explicit server release decision; data being available never enables UI. */
+  lakeExperienceEnabled?: boolean;
 }) {
   // One server-seeded clock drives the readings, schedule and history together,
   // including immediately on return from a hidden tab across an hour boundary.
@@ -28,10 +30,10 @@ export default function DamDetail({ dam, renderedAt, availability, lake, lakeHre
   const hasMeasurements = Boolean(poolElevation || tailwaterElevation || tailwaterTempF || inflow || dam.tailwaterFishery);
   // Optional lake data never decides which operation leads. The existing
   // non-pilot layout remains intact. No database reader enters this client.
-  const pilot = lake?.slug === 'truman' || lake?.slug === 'table-rock';
+  const pilot = lakeExperienceEnabled && Boolean(lake);
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
-      <GenerationCard dam={dam} now={now} availability={availability} scheduleFirst={pilot} />
+      <GenerationCard dam={dam} now={now} availability={availability} />
       {pilot && lake && <PilotDamConditions dam={dam} lake={lake} now={now} />}
       {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}

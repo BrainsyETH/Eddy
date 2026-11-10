@@ -17,7 +17,7 @@ The dam page answers: What's the dam doing, what's scheduled, and what does that
 Page order:
 
 1. Compact header with dam name, location, and optional verified real dam photography. Photography must not displace the primary generation chart on mobile.
-2. **Today's generation:** Existing full schedule visualization remains the focal point.
+2. **Today's generation:** Current observed generation or release comes first, followed by the existing full schedule visualization. DOM and visual order agree on phone and desktop.
 3. **Conditions:** Lake level and below-dam measurements together, using Eddy icons and clear freshness labels. Display only measurements the source supports.
 4. **Operational interpretation:** Eddy's Read, generation forecasts, and patterns where supported, all ahead of the lake preview. Preserve useful existing ordering within this group.
 5. **Lake preview:** Compact seven-day trend, a brief lake summary, reviewed launch count, and an "Explore [Lake]" action only once that public lake route is approved.
@@ -25,7 +25,7 @@ Page order:
 
 The page must never put a boat-launch directory ahead of generation. Operations-first is capability-aware: retain release information and the existing honest availability explanation for gate-operated dams or dams without a published hourly schedule. Do not create an empty generation panel.
 
-The redesigned condition area and lake preview are limited to the two pilot dams initially. Other dam pages retain their existing layout. Shared primitives must pass regression checks across all supported capabilities.
+The redesigned condition area and lake preview are limited to the two pilot dams initially. The dam experience has its own explicit release allowlist, separate from lake-page publication. Data collection and backfills never enable the design. Other dam pages retain their existing layout. Shared primitives must pass regression checks across all supported capabilities.
 
 ### Lake page: Recreation and conditions first
 
@@ -152,9 +152,9 @@ These are release requirements, not optional polish.
 
 **Preserve source freshness.** Truman uses a daily lake-level report; Table Rock has an hourly source. Display and stale-data behavior must respect those different cadences.
 
-**Respect ramp verification.** Published elevation thresholds can support cautions only after review, with a sufficiently recent lake level and matching vertical datum. A calculated caution is not an official closure or opening declaration.
+**Respect ramp verification.** Hide the elevation values themselves and their explanatory footer until threshold review passes. Published elevation thresholds can support cautions only after review, with a sufficiently recent lake level and matching vertical datum. A calculated caution is not an official closure or opening declaration.
 
-**Only show approved launches.** Preserve `/admin/lakes` review and existing canonical access-point relationships. An agency recreation-area entrance must not become a launch coordinate without verification.
+**Only show approved launches.** Preserve human approval through `/admin/lakes` and existing canonical access-point relationships. Agent research supplies proposals, not approval. An agency recreation-area entrance must not become a launch coordinate without verification.
 
 **Migration sequencing matters.** Migration `20261109224918` was applied to production on 2026-11-09. Never reapply its former pending version `20261109210000` based on an old plan. Reconcile its filename and ledger under the project's procedure, stage and review launch records, and validate the pool-history job before depending on that data publicly. Public launch approval and production data changes require their normal review; fixture records are never promoted as evidence.
 

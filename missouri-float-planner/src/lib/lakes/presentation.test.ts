@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { lakeReadingIsStale, lakeReadingLabel, sharedObservationAt } from './presentation';
-import { publishedLakes, lakePageHref } from './public-pages';
+import { publishedLakes, lakePageHref, damLakeExperienceEnabled } from './public-pages';
+import { LAKES } from './registry';
+import { lakeHealth } from '@/app/api/cron/sync-lake-levels/route';
 import type { LakePoolReading } from '@shared/lake-types';
 
 const now = Date.parse('2026-11-09T18:00:00Z');
@@ -33,4 +35,24 @@ test('shared age requires the same observation instant, not the same rounded age
 test('discovery and lake links use the same reviewed public destinations', () => {
   for (const lake of publishedLakes()) assert.equal(lakePageHref(lake.slug), `/lakes/${lake.slug}`);
   assert.equal(lakePageHref('unknown'), undefined);
+});
+
+test('registry membership does not release dam layouts or public lake pages', () => {
+  for (const lake of Object.values(LAKES)) {
+    assert.equal(damLakeExperienceEnabled(lake.pool.damId), false);
+    assert.equal(lakePageHref(lake.slug), undefined);
+  }
+  assert.equal(damLakeExperienceEnabled('unknown'), false);
+});
+
+test('collector health becomes degraded when the public observation becomes outdated', () => {
+  for (const lake of Object.values(LAKES)) {
+    const daily = lake.poolCadence === 'daily';
+    for (const hours of [0, 6, 6.01, 24, 36, 36.01, 40, 48, -2]) {
+      const reading = pool(hours, daily);
+      assert.equal(lakeHealth(lake, [{ at: reading.at }], now).healthy, !lakeReadingIsStale(reading, now));
+    }
+    assert.equal(lakeHealth(lake, [{ at: 'invalid' }], now).healthy, false);
+    assert.equal(lakeHealth(lake, [], now).healthy, false);
+  }
 });

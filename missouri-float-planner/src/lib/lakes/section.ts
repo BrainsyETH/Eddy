@@ -15,6 +15,7 @@ import type { LakeLaunch, LakeSection, LaunchMethod } from '@shared/lake-types';
 import { lakeForDam, type LakeEntry } from './registry';
 import { historyForWire, poolChange, toleranceFor, type PoolPoint } from './pool-history';
 import { readApprovedLaunches, readPoolReadings, type LaunchRow } from './store';
+import { LAKE_READING_MAX_AGE_HOURS } from './freshness';
 
 export const HISTORY_DAYS = 7;
 
@@ -22,10 +23,10 @@ export const HISTORY_DAYS = 7;
  * The oldest pool a caution may be computed from. An hourly source past six
  * hours is stale by the dam page's own rule; a daily source is a day old by
  * construction, so it gets a day and a half and no more. Past this, the
- * launch shows its thresholds and no caution: the arithmetic would be
+ * launch shows its verified thresholds and no caution: the arithmetic would be
  * comparing a ramp with where the lake used to be.
  */
-export const CAUTION_POOL_MAX_AGE_HOURS: Record<LakeEntry['poolCadence'], number> = { hourly: 6, daily: 36 };
+export const CAUTION_POOL_MAX_AGE_HOURS = LAKE_READING_MAX_AGE_HOURS;
 
 export interface LakeSectionInputs {
   lake: LakeEntry;
@@ -49,7 +50,7 @@ function launchFromRow(row: LaunchRow, lake: LakeEntry, pool: { valueFt: number;
     managingAgency: row.managing_agency,
     feeRequired: row.fee_required,
   };
-  if (row.elev_datum && (row.ramp_bottom_elev_ft !== null || row.ramp_closure_elev_ft !== null)) {
+  if (lake.rampCautionsVerified && row.elev_datum && (row.ramp_bottom_elev_ft !== null || row.ramp_closure_elev_ft !== null)) {
     launch.thresholds = {
       bottomFt: row.ramp_bottom_elev_ft,
       closureFt: row.ramp_closure_elev_ft,

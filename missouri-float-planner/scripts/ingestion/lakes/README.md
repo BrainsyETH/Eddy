@@ -3,8 +3,8 @@
 Evidence for `docs/LAKES_AND_LAUNCHES_PLAN_2026-11-09.md` step 1 (Phase 0) and
 the audit that reads it, `docs/LAKES_PHASE0_AUDIT_2026-11-09.md`. The original
 queues are unapproved candidates. The later `2026-11-09/reviewed-pilot/`
-record identifies the six source/imagery-reviewed locations and real pool
-history written to production; it does not imply that public lake routes
+record identifies six source/imagery-researched proposals awaiting human
+approval and real pool history written to production; it does not imply that public lake routes
 have been released.
 
 ## `usace-recreation-ledger.json`
@@ -50,12 +50,12 @@ reader is shown the agency's date or "update date unavailable"
 
 Once migration `20261109224918` is applied and `stage-launch-candidates.sql`
 has run, `/admin/lakes` lists every staged place by lake. For each row the
-reviewer checks the location on imagery (link on the row), sets the launch
+human reviewer checks the location on imagery (link on the row), sets the launch
 method (trailer, hand, or both), the amenities and the agency, pastes the id
 of the access point the place already is when it is one, and publishes. The
 API and the table both refuse to publish a row with no method or no source.
-The dam page shows published launches only, and shows nothing for a lake with
-neither a reading nor a published launch.
+The lake page shows approved launches only. A separate dam-experience gate
+controls the compact lake preview; data availability does not release it.
 
 ## Reproduce
 

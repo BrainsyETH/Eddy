@@ -1468,3 +1468,37 @@ test('minimum flow is generating=false, as it always was, while fresh', () => {
   const bullShoals = { ...dam({ metrics: { generationFlow: reading(700, 10) }, generationFloorCfs: 850 }), minimumFlowThroughTurbine: true };
   assert.equal(generatingForNow(bullShoals, NOON_CENTRAL), false);
 });
+
+// ── A dam Eddy has no turbine-flow source for is not an outage ─────────────
+//
+// Bagnell's page was headed "Release status unavailable" directly above its
+// current release, on every visit, though no feed Eddy reads was down. The
+// wording is about EDDY: the registry knows which feeds Eddy reads, not what
+// an operator publishes somewhere else.
+
+test('no floor and no turbine reading is "no source", worded as a fact about Eddy', () => {
+  const unreported = generationNow(dam({ metrics: {}, generationFloorCfs: undefined }), NOON_CENTRAL);
+  assert.deepEqual(unreported, { kind: 'unavailable', reason: 'no-source' });
+  assert.equal(generationStatusLabel(unreported), 'Turbine flow not available in Eddy');
+  assert.equal(nowNextClauses(unreported, [], BULL_SHOALS, NOON_CENTRAL).observed, 'Eddy has no turbine flow reading for this dam.');
+  assert.equal(generationVoiceOver(unreported, BULL_SHOALS), 'Eddy has no turbine flow reading for this dam.');
+  for (const text of [generationStatusLabel(unreported), generationVoiceOver(unreported, BULL_SHOALS)]) {
+    assert.doesNotMatch(text!, /publish|report/i, 'no claim about what the operator publishes');
+  }
+  assert.equal(generatingForNow(dam({ metrics: {}, generationFloorCfs: undefined }), NOON_CENTRAL), null);
+
+  // A dam whose turbine flow Eddy does read keeps the outage wording.
+  const outage = generationNow(dam({ metrics: {} }), NOON_CENTRAL);
+  assert.deepEqual(outage, { kind: 'unavailable', reason: 'not-published' });
+  assert.equal(generationStatusLabel(outage), 'Release status unavailable');
+});
+
+test('the check line can name a forecast, so its time is not read as a schedule\'s or a reading\'s', () => {
+  const at = new Date(NOON_CENTRAL - 10 * 60_000).toISOString();
+  assert.match(scheduleCheckLine([at], NOON_CENTRAL)!.text, /^Schedule checked /);
+  const forecast = scheduleCheckLine([at], NOON_CENTRAL, 'Forecast')!;
+  assert.match(forecast.text, /^Forecast checked \d/);
+  assert.equal(forecast.stale, false);
+  assert.equal(scheduleCheckLine([new Date(NOON_CENTRAL - 3 * 3_600_000).toISOString()], NOON_CENTRAL, 'Forecast')!.stale, true);
+  assert.equal(scheduleCheckLine([null], NOON_CENTRAL, 'Forecast')!.text, 'Forecast check time unavailable');
+});

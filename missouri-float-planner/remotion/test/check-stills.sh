@@ -50,13 +50,15 @@ STILLS=(
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);
   # the square social-gauge and the alert are the other two gauge layouts.
   "social-gauge-portrait:0,120"
-  # Full reading: immediate prose, continuous travel, and inline closing CTA.
+  # Full reading: immediate captions, sentence changes and the closing CTA.
   "social-eddy-read:0,120,360"
   # Long names/full text, topic illustrations and the natural reading duration.
   "social-eddy-read-long:0,540,1158"
   # The exact Current River full report that previously rendered to 89 seconds
   # after a redundant short interpretation was prepended.
   "social-eddy-read-current:0,600,1742"
+  # Two-river layout fixture: real attributed scenery, next river, closing.
+  "social-eddy-read-weekend:0,450,703"
   "social-gauge:0,120"
   "social-gauge-alert:0,120"
   "social-trend-portrait:0,120"

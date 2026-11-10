@@ -34,9 +34,9 @@ function directionsHref(launch: LakeLaunch): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${launch.lat},${launch.lon}`)}`;
 }
 
-function LaunchItem({ launch, now, selected, onSelect, cautionsCurrent }: { launch: LakeLaunch; now: number; selected: boolean; onSelect: () => void; cautionsCurrent: boolean }) {
+function LaunchItem({ launch, now, selected, onSelect, cautionsCurrent, thresholdsVerified }: { launch: LakeLaunch; now: number; selected: boolean; onSelect: () => void; cautionsCurrent: boolean; thresholdsVerified: boolean }) {
   const caution = cautionsCurrent && launch.caution ? RAMP_CAUTION_COPY[launch.caution] : null;
-  const thresholds = launch.thresholds;
+  const thresholds = thresholdsVerified ? launch.thresholds : undefined;
   const directions = directionsHref(launch);
   return (
     <li id={`launch-${launch.id}`} className={`scroll-mt-24 border-t border-neutral-200 py-4 first:border-t-0 ${selected ? 'border-l-4 border-l-accent-500 pl-3' : ''}`} data-launch-id={launch.id}>
@@ -110,8 +110,8 @@ export default function LakeLaunches({ lake, now }: { lake: LakeSection; now: nu
       <div className="my-4 flex flex-wrap gap-2" role="group" aria-label="Filter launches by method">{FILTERS.map(f => <Button key={f.key} variant={filter === f.key ? 'primary' : 'outline'} size="sm" className="min-h-11" aria-pressed={filter === f.key} onClick={() => { setFilter(f.key); setSelected(null); }}>{f.label}</Button>)}</div>
       {showMap && <div id="lake-launch-map" className="relative mb-4 h-80 overflow-hidden rounded-xl border border-neutral-200"><LakeLaunchMap launches={shown} selected={selected} onSelect={selectFromMap} /></div>}
       <p className="sr-only" role="status">{shown.length} launches shown</p>
-      {shown.length ? <ul>{shown.map(launch => <LaunchItem key={launch.id} launch={launch} now={now} selected={selected === launch.id} onSelect={() => select(launch.id)} cautionsCurrent={cautionsCurrent} />)}</ul> : <p className="py-4 text-sm text-neutral-600">No reviewed {filter === 'hand' ? 'hand launches' : 'trailer ramps'} in this list. Try All launches.</p>}
-      <p className="mt-4 border-t border-neutral-200 pt-3 text-xs leading-5 text-neutral-500">Reviewed locations are not a report of current opening or closure. Elevation cautions use published thresholds, not an official closure report. Follow the managing agency’s notices.</p>
+      {shown.length ? <ul>{shown.map(launch => <LaunchItem key={launch.id} launch={launch} now={now} selected={selected === launch.id} onSelect={() => select(launch.id)} cautionsCurrent={cautionsCurrent} thresholdsVerified={lake.cautionsVerified} />)}</ul> : <p className="py-4 text-sm text-neutral-600">No reviewed {filter === 'hand' ? 'hand launches' : 'trailer ramps'} in this list. Try All launches.</p>}
+      <p className="mt-4 border-t border-neutral-200 pt-3 text-xs leading-5 text-neutral-500">Reviewed locations are not a report of current opening or closure. {lake.cautionsVerified && 'Elevation cautions use published thresholds, not an official closure report. '}Follow the managing agency’s notices.</p>
     </>}
   </Card>;
 }

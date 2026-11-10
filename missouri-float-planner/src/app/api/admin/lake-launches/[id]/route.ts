@@ -35,6 +35,14 @@ function stringList(value: unknown, field: string, allowed?: Set<string>): strin
   return list;
 }
 
+function databaseError(error: { code?: string }, writing = false) {
+  if (writing && error.code === '23505') return NextResponse.json({ error: 'That access point is already linked to another launch.' }, { status: 409 });
+  if (writing && error.code === '23503') return NextResponse.json({ error: 'The linked access point no longer exists. Choose another access point.' }, { status: 400 });
+  if (writing && error.code === '23514') return NextResponse.json({ error: 'Check the launch methods, source information and coordinates before saving.' }, { status: 400 });
+  console.error('[lake-launches] Database request failed:', error.code ?? 'unknown');
+  return NextResponse.json({ error: 'Could not save the launch. Please try again.' }, { status: 500 });
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authError = requireAdminAuth(request);
   if (authError) return authError;
@@ -74,7 +82,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     else {
       if (typeof body.access_point_id !== 'string' || !isValidUUID(body.access_point_id)) return NextResponse.json({ error: 'access_point_id must be a UUID or null' }, { status: 400 });
       const { data: point, error } = await supabase.from('access_points').select('id').eq('id', body.access_point_id).maybeSingle();
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return databaseError(error);
       if (!point) return NextResponse.json({ error: 'access_point_id names no access point' }, { status: 400 });
       update.access_point_id = body.access_point_id;
     }
@@ -82,28 +90,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if ('approved' in body) {
     if (typeof body.approved !== 'boolean') return NextResponse.json({ error: 'approved must be a boolean' }, { status: 400 });
-    if (body.approved) {
-      const { data: current, error } = await supabase.from('lake_launches').select('launch_methods, sources, longitude, latitude').eq('id', id).maybeSingle();
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      const methods = (update.launch_methods as string[] | undefined) ?? (current.launch_methods as string[]);
-      const sources = current.sources as unknown[];
-      if (!methods.length) return NextResponse.json({ error: 'Set at least one launch method before approving' }, { status: 400 });
-      if (!Array.isArray(sources) || sources.length === 0) return NextResponse.json({ error: 'A published launch needs at least one source' }, { status: 400 });
-      if (Math.abs(Number(current.longitude)) > 180 || Math.abs(Number(current.latitude)) > 90) return NextResponse.json({ error: 'Coordinates are not valid' }, { status: 400 });
-      update.approved = true;
-      update.approved_at = new Date().toISOString();
-    } else {
-      update.approved = false;
-      update.approved_at = null;
-    }
+    update.approved = body.approved;
+    update.approved_at = body.approved ? new Date().toISOString() : null;
   }
 
   if (Object.keys(update).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  const { data: current, error: readError } = await supabase.from('lake_launches').select('approved, launch_methods, sources, longitude, latitude').eq('id', id).maybeSingle();
+  if (readError) return databaseError(readError);
+  if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  // Validate the resulting row, including Save on an already approved launch.
+  // Sending approved=false and clearing methods together is a valid unpublish.
+  if (update.approved === true || (!('approved' in update) && current.approved)) {
+    const methods = (update.launch_methods as string[] | undefined) ?? (current.launch_methods as string[]);
+    if (!methods.length) return NextResponse.json({ error: 'Set at least one launch method, or unpublish the launch before clearing its methods.' }, { status: 400 });
+    if (!Array.isArray(current.sources) || current.sources.length === 0) return NextResponse.json({ error: 'A published launch needs at least one source' }, { status: 400 });
+    const longitude = Number(current.longitude), latitude = Number(current.latitude);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || Math.abs(longitude) > 180 || Math.abs(latitude) > 90) return NextResponse.json({ error: 'Coordinates are not valid' }, { status: 400 });
+  }
   update.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase.from('lake_launches').update(update).eq('id', id).select(LAUNCH_ADMIN_COLUMNS).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return databaseError(error, true);
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   await logAdminAction({ action: 'approved' in body ? (body.approved ? 'lake_launch_approve' : 'lake_launch_unapprove') : 'lake_launch_update', entityType: 'lake_launch', entityId: id, entityName: String(data.name), details: update });
   return NextResponse.json({ launch: data });

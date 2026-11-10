@@ -11,11 +11,14 @@ export const VOICE_SETTINGS = {
   voice: 'marin',
   response_format: 'mp3',
   speed: 1,
-  instructions: 'Read the supplied text verbatim as Eddy, a kind, soft-spoken river guide. ' +
-    'Use a warm, friendly, calm conversational voice with a gentle smile. Speak clearly at ' +
-    'roughly 145 to 155 words per minute, with easy breaths and natural pauses between sentences. ' +
-    'Keep your volume even. No whispering, exaggerated accent, announcer delivery, sales pitch, ' +
-    'or rushed ending. Read all words and numbers. Say ft as feet and cfs as cubic feet per second. ' +
+  instructions: 'You are Eddy, a friendly river guide talking directly to one person planning a float. ' +
+    'Read the supplied words verbatim, as a conversation, with clear, engaged energy and a natural speaking register. ' +
+    'Vary your pitch and sentence rhythm with the meaning: lightly lift a river introduction, ' +
+    'put emphasis on the useful takeaway, and slow slightly for a caution. Keep warnings grounded and serious. ' +
+    'Let sentences resolve naturally; do not give every phrase the same rising or falling melody. ' +
+    'Use short, purposeful pauses, not a sleepy meditation pace. No whispering, exaggerated accent, ' +
+    'announcer delivery, sales pitch, sing-song reading or rushed ending. Keep the same voice across clips. ' +
+    'Read all words and numbers. Say ft as feet and cfs as cubic feet per second. ' +
     'Do not add an introduction or commentary.',
 };
 export const CLOSING_SCRIPT = 'Plan it on the Eddy app.';
@@ -23,18 +26,22 @@ export const CLOSING_SCRIPT = 'Plan it on the Eddy app.';
 /** Stay below the speech endpoint limit without dropping or rewriting prose. */
 export function speechChunks(text, limit = 3500) {
   const chunks = [];
-  let chunk = '';
-  for (const word of text.trim().split(/\s+/)) {
-    if (word.length > limit) throw new Error('A word in the Read exceeds the speech input limit.');
-    if (chunk && chunk.length + word.length + 1 > limit) { chunks.push(chunk); chunk = ''; }
-    chunk += (chunk ? ' ' : '') + word;
+  // A measured clip per sentence anchors the on-screen text. Keep decimals
+  // intact; oversized sentences still split at words within the provider cap.
+  for (const sentence of text.trim().split(/\n\s*\n|(?<=[.!?])\s+(?=[A-Z“"‘])/u)) {
+    let chunk = '';
+    for (const word of sentence.trim().split(/\s+/)) {
+      if (word.length > limit) throw new Error('A word in the Read exceeds the speech input limit.');
+      if (chunk && chunk.length + word.length + 1 > limit) { chunks.push(chunk); chunk = ''; }
+      chunk += (chunk ? ' ' : '') + word;
+    }
+    if (chunk) chunks.push(chunk);
   }
-  if (chunk) chunks.push(chunk);
   return chunks;
 }
 
 export function narrationCacheKey(text) {
-  return createHash('sha256').update(JSON.stringify({ text: text.trim(), ...VOICE_SETTINGS, normalization: 1 })).digest('hex');
+  return createHash('sha256').update(JSON.stringify({ text: text.trim(), ...VOICE_SETTINGS, normalization: 1, sentenceTiming: 2 })).digest('hex');
 }
 
 async function requestSpeech(input, apiKey) {
@@ -85,7 +92,15 @@ export async function prepareReadNarration({ propsPath, assetDir, cacheDir, apiK
     return { src: `audio/reads/${hash}.mp3`, durationFrames: frames };
   }
   const clips = [];
-  for (const text of speechChunks(props.readingText)) clips.push(await clip(text));
+  const scenes = props.scenes?.length ? props.scenes : [{ text: props.readingText }];
+  const normalize = text => text.trim().replace(/\s+/g, ' ');
+  if (scenes.some(scene => typeof scene.text !== 'string') ||
+      normalize(scenes.map(scene => scene.text).join(' ')) !== normalize(props.readingText)) {
+    throw new Error('Read scenes must preserve the complete narration script.');
+  }
+  for (const [sceneIndex, scene] of scenes.entries()) {
+    for (const text of speechChunks(scene.text)) clips.push({ ...await clip(text), text, sceneIndex });
+  }
   const words = props.readingText.trim().split(/\s+/).length;
   const seconds = clips.reduce((sum, item) => sum + item.durationFrames / 30, 0);
   if (words >= 30 && words / seconds * 60 > 190) throw new Error('Narration is too rushed; revise the voice instructions and regenerate. Audio will never be sped up to fit a reel.');

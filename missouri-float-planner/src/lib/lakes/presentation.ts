@@ -1,10 +1,10 @@
 import type { LakePoolReading } from '@shared/lake-types';
 import { relativeAge } from '@shared/dam-schedule-copy';
+import { lakeObservationIsCurrent } from './freshness';
 
 /** Daily reports have a different expected cadence from hourly observations. */
 export function lakeReadingIsStale(pool: LakePoolReading, now: number): boolean {
-  const at = Date.parse(pool.at);
-  return !Number.isFinite(at) || at > now + 3_600_000 || now - at > (pool.daily ? 36 : 6) * 3_600_000;
+  return !lakeObservationIsCurrent(pool.at, pool.daily ? 'daily' : 'hourly', now);
 }
 
 export function lakeReadingLabel(pool: LakePoolReading, now: number): string {

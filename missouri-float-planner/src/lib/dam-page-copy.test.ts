@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { USACE_DAMS, type UsaceDam } from './flow-providers/usace-registry';
+import { USACE_DAMS, declaresCardMetric, type UsaceDam } from './flow-providers/usace-registry';
 import {
   DAM_PAGE_COPY, SITE_URL, USACE_DISTRICT_OPERATORS,
   damAboutSentences, damHasPostedSchedule, damPageCopy, damStateName, damStructuredData,
@@ -16,8 +16,9 @@ const dams = Object.values(USACE_DAMS);
 const capability = {
   schedule: damHasPostedSchedule,
   forecast: (dam: UsaceDam) => Boolean(dam.series.generationForecast),
-  level: (dam: UsaceDam) => Boolean(dam.series.poolElevation || dam.amerenMetrics || dam.resolvedSnapshotMetrics?.includes('poolElevation')),
-  waterTemperature: (dam: UsaceDam) => Boolean(dam.series.tailwaterTempF),
+  // The same declarations the dam cards use to word an absent reading.
+  level: (dam: UsaceDam) => declaresCardMetric(dam, 'poolElevation'),
+  waterTemperature: (dam: UsaceDam) => declaresCardMetric(dam, 'tailwaterTempF'),
 };
 const claims: Record<keyof typeof capability, RegExp> = {
   schedule: /schedule/i,
@@ -184,7 +185,7 @@ test('no dam surface says SWPA posts in the afternoon', async () => {
     else if (/\.(ts|tsx)$/.test(path) && !/\.test\.ts$/.test(path)) files.push(path);
   };
   for (const root of roots) walk(root);
-  for (const file of ['src/lib/data/dams.ts', 'src/lib/data/dam-snapshot-store.ts']) files.push(file);
+  for (const file of ['src/lib/data/dams.ts', 'src/lib/data/dam-snapshot-store.ts', 'src/lib/dam-schedule-availability.ts']) files.push(file);
 
   const claim = /(post|publish)\w*[^.\n]{0,60}\bafternoon\b|\bafternoon\b[^.\n]{0,30}(post|publish)|\b2\s*[-–]\s*4\s*PM\b/i;
   const offenders = files.filter((file) => {
@@ -203,8 +204,10 @@ test('the posting note says overnight, and both platforms use it', async () => {
   }
   for (const file of [
     'src/components/dam/GenerationCard.tsx',
-    'src/app/dams/[damId]/page.tsx',
+    // The dam report's "schedule currently unavailable" copy, shared with the cards.
+    'src/lib/dam-schedule-availability.ts',
     '../eddy-ios/src/components/dam/GenerationCard.tsx',
   ]) assert.match(readFileSync(file, 'utf8'), /SCHEDULE_POSTING_NOTE/, file);
+  assert.match(readFileSync('src/app/dams/[damId]/page.tsx', 'utf8'), /damScheduleAvailability\(/);
   assert.match(readFileSync('../eddy-ios/src/components/dam/GenerationSchedule.tsx', 'utf8'), /SCHEDULE_POSTED_BY/);
 });

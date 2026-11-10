@@ -27,8 +27,8 @@ import { jsonLdString } from '@/lib/json-ld';
 
 import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
 import { loadLakeSection } from '@/lib/lakes/section';
-import { lakePageHref } from '@/lib/lakes/public-pages';
-import { SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
+import { damLakeExperienceEnabled, lakePageHref } from '@/lib/lakes/public-pages';
+import { damScheduleAvailability } from '@/lib/dam-schedule-availability';
 
 // Rendered per request, deliberately not ISR. The schedule's "Today" is
 // computed from the render clock, so a cached render served after midnight
@@ -65,16 +65,16 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   if (!dam) notFound();
   // The lake behind the dam, when Eddy carries it as an entity (ADR 0019).
   // Separate from the snapshot so the stored row and the iOS wire stay as they are.
-  const lake = await loadLakeSection(dam.id, dam.metrics.poolElevation, renderedAt);
+  const lakeExperienceEnabled = damLakeExperienceEnabled(dam.id);
+  const lake = lakeExperienceEnabled ? await loadLakeSection(dam.id, dam.metrics.poolElevation, renderedAt) : null;
 
   const project = getUsaceDam(dam.id);
-  const availability = project?.amerenMetrics === 'osage'
-    ? { title: 'No hourly schedule published', detail: 'Ameren operates this dam. Releases can begin at any time, and the dam sounds a warning siren before starting or stopping generators. The recorded operations line provides current information.' }
-    : !dam.hasTurbines
-      ? { title: 'Gate-operated releases', detail: 'This dam has no powerhouse. Releases are controlled by gate operation, so there is no generation schedule.' }
-      : !project?.swpaCode
-        ? { title: 'No hourly schedule published', detail: dam.generationForecast ? 'The operating forecast below provides the forward view for this dam.' : 'Eddy shows observed readings for this dam. No public hourly loading schedule is available.' }
-        : { title: 'Schedule currently unavailable', detail: `${SCHEDULE_POSTING_NOTE} Eddy shows only dates it can confirm; an unavailable schedule does not mean generation has stopped.` };
+  const availability = damScheduleAvailability({
+    hasTurbines: dam.hasTurbines,
+    hourlySchedule: Boolean(project?.swpaCode),
+    forecast: Boolean(dam.generationForecast),
+    amerenOperated: project?.amerenMetrics === 'osage',
+  });
 
   // Only offer a river destination that is active. Catalog failure must not
   // prevent the dam readings from rendering.
@@ -87,7 +87,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
         <Link href="/dams" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-primary-700 hover:text-primary-800">
           <ChevronLeft className="size-4" aria-hidden="true" /> All lakes &amp; dams
         </Link>
-        {lake && ['truman', 'table-rock'].includes(lake.slug) ? (
+        {lakeExperienceEnabled && lake ? (
           <PlaceHeader lakeSlug={lake.slug} title={dam.name} actions={<StationShareButton station={{ provider: 'usace', siteId: damId }} title={dam.name} label="Share" />}>
             <p>{[dam.lakeName, river?.name, dam.state].filter(Boolean).join(' · ')}</p>
           </PlaceHeader>
@@ -99,7 +99,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           <StationShareButton station={{ provider: 'usace', siteId: damId }} title={dam.name} label="Share" />
         </header>}
         <div id="generation" className="scroll-mt-24">
-          <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} lake={lake} lakeHref={lake ? lakePageHref(lake.slug) : undefined} />
+          <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} lake={lake} lakeExperienceEnabled={lakeExperienceEnabled} lakeHref={lake ? lakePageHref(lake.slug) : undefined} />
         </div>
         <div id="dam-resources" className="dam-resource-links mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
           {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>}

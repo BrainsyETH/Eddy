@@ -76,19 +76,20 @@ test('movement ends at the displayed observation even when the history collector
   assert.equal(buildLakeSection({ lake, history, launches: [], now: NOW }).change24hFt, undefined, 'no displayed observation means no current change');
 });
 
-test('launches carry methods, amenities and thresholds; a caution needs the verified gate, a young enough pool and one datum', () => {
+test('unreviewed thresholds never leave the server; reviewed cautions also require a current pool and matching datum', () => {
   const truman = LAKES.truman;
   const dayOld = { value: 703.5, unit: 'ft', at: new Date(h(20)).toISOString(), staleness: 'stale' as const };
   const unverified = buildLakeSection({ lake: truman, pool: dayOld, history: [], launches: [row()], now: NOW });
   const launch = unverified.launches[0];
   assert.deepEqual(launch.launchMethods, ['trailer']);
   assert.deepEqual(launch.amenities, ['courtesy_dock', 'parking']);
-  assert.equal(launch.thresholds?.bottomFt, 704);
-  assert.equal(launch.thresholds?.closureFt, 724);
+  assert.equal(launch.thresholds, undefined, 'the threshold numbers are withheld along with the caution');
   assert.equal(launch.caution, undefined, 'unverified lakes draw no caution even when the arithmetic would');
 
   const verifiedTruman = { ...truman, rampCautionsVerified: true };
   const verified = buildLakeSection({ lake: verifiedTruman, pool: dayOld, history: [], launches: [row(), row({ id: '2', slug: 'avery', name: 'Avery', ramp_bottom_elev_ft: null, ramp_closure_elev_ft: null, elev_datum: null }), row({ id: '3', slug: 'other-datum', name: 'Other', elev_datum: 'NAVD88' })], now: NOW });
+  assert.equal(verified.launches[0].thresholds?.bottomFt, 704);
+  assert.equal(verified.launches[0].thresholds?.closureFt, 724);
   assert.equal(verified.launches[0].caution, 'low_water', 'a 20-hour-old daily pool is inside the daily age limit');
   assert.equal(verified.launches[1].thresholds, undefined, 'no thresholds published means no thresholds, not fine');
   assert.equal(verified.launches[1].caution, undefined);

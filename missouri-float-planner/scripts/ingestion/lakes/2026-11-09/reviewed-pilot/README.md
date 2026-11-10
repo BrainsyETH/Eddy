@@ -1,6 +1,6 @@
 # Pilot data verification — November 9, 2026
 
-These are real source observations and source/imagery-reviewed launch records,
+These are real source observations and source/imagery research for launch candidates,
 not the illustrative values in the layout screenshots. Target project:
 `ilefwfpvphadsbptiaur` (Eddy / FloatMe production).
 
@@ -25,14 +25,14 @@ not the illustrative values in the layout screenshots. Target project:
   It does **not** claim that the new scheduled cron handler has run in
   production. Its first monitored production run remains a release gate.
 
-## Reviewed locations
+## Launch proposals awaiting human review
 
 `launches.json` records the source URLs, coordinates, review notes and
-review method. Review was performed by Codex using agency records and
-georeferenced imagery, not by an on-site human inspector. No record claims
+research method. Codex checked agency records and georeferenced imagery.
+This supports human review; it does not satisfy ADR 0019 approval. No record claims
 a ramp is currently open. Unknown fees and amenities remain unknown.
 
-| Lake | Approved launch | Coordinate basis |
+| Lake | Proposed launch | Coordinate basis |
 | --- | --- | --- |
 | Table Rock | Table Rock State Park | Official park ramp coordinates, checked against imagery |
 | Table Rock | Moonshine Beach | Paved ramp mapped from georeferenced imagery; agency map identifies launch |
@@ -41,21 +41,32 @@ a ramp is currently open. Unknown fees and amenities remain unknown.
 | Truman | Sparrowfoot | Current USACE NWK ramp feature, checked against imagery |
 | Truman | Thibaut Point | Current USACE NWK ramp feature, checked against imagery |
 
-The Table Rock set covers the Branson/dam end and Cow Creek; it does not
-cover the whole reservoir. The Truman set covers Long Shoal, the northern
-main-lake arm, and the Sparrowfoot end. Public copy says **three reviewed
-launches**, not a complete directory. All six have verified trailer ramps;
-none was guessed to be a dedicated hand launch.
+The Table Rock proposals cover the Branson/dam end and Cow Creek; they do
+not cover the whole reservoir. The Truman proposals cover Long Shoal, the
+northern main-lake arm and the Sparrowfoot end. `proposed_launch_methods`
+records the research suggestion (trailer for each); a human must decide and
+save methods through `/admin/lakes` before approving a location.
 
-Production access points were re-read before approval. No existing identity
-matched these six. The unapproved Romp Hole candidate was linked to its
-existing canonical access point, `9a1a7b6c-2476-4fc8-a512-740227fff6d7`.
+Production access points were checked for existing identities. No existing
+identity matched these six. The pending Romp Hole candidate remains linked
+to its canonical access point, `9a1a7b6c-2476-4fc8-a512-740227fff6d7`.
 
-`stage-launch-candidates.sql` staged 43 unapproved candidates. The reviewed
-SQL approved three of those and added the three Table Rock locations,
-leaving **46 total rows, six approved, 40 unapproved**. The approved SQL
-only updates an existing row while it is unapproved; it does not overwrite
-later editorial changes to approved records.
+### Approval correction
+
+The earlier agent SQL had approved these six locations. That contradicted
+ADR 0019. `restore-human-review.sql` has now returned exactly those six
+unchanged records to pending review, cleared their approval timestamps and
+methods, and preserved their research as proposals in the review notes.
+The update checked both the original approval and last-edit timestamps so
+it could not reset a later human edit. The read-back confirmed **46 total
+rows, zero approved**: nine Table Rock candidates and 37 Truman candidates.
+All six proposal notes are present. The other 40 records were untouched.
+
+The former `approve-reviewed-launches.sql` is removed.
+`stage-researched-launches.sql` now stages only unapproved proposals with
+empty methods and leaves every existing record untouched on conflict.
+Neither staging script approves launches. The production history and schema
+remain in place; no rollback of valid observations was needed.
 
 Specific holds recorded during review:
 
@@ -69,11 +80,21 @@ Specific holds recorded during review:
   lake's public launch list.
 
 Ramp-elevation cautions remain disabled for both lakes. Published threshold
-values in the district layer are not a completed threshold review.
+values in the district layer are not a completed threshold review. They stay
+in the review data but are excluded from public payloads and display, along
+with the elevation-caution footer, until that lake passes threshold review.
 
 ## Public release
 
-The shared public-page allowlist remains empty. These data changes do not
-publish lake routes, add sitemap entries or expose lake links. Release
-still requires the monitored production sync and passing release checks.
-Current CI details belong in PR #1765, not in this data evidence record.
+Both allowlists in `src/lib/lakes/public-pages.ts` remain empty. One gates
+lake routes, sitemap entries and lake links. The other independently gates
+the dam photo header, replacement conditions card and lake preview. Registry
+membership and backfilled history cannot enable either experience.
+
+The hourly pool-history collector is intentionally independent: deploying
+the foundation starts its scheduled production writes even while both UI
+gates stay closed. Its first monitored production run, human launch review
+and release checks remain prerequisites for public lake rollout. Cron health
+and the UI both use six hours for hourly observations and 36 hours for daily
+reports. A delayed daily report becomes outdated rather than extending that
+window silently. Current CI details belong in PR #1765.
