@@ -32,7 +32,7 @@ import { damReleaseTab } from '@shared/dam-release-tab';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import { readStoredSnapshot } from '@/lib/data/dam-snapshot-store';
 import type { ConditionCode } from '@/types/api';
-import { formatRange, newerRelease, type EmbedChartDays, type ReadingUnit } from './options';
+import { formatRange, newestTotalRelease, type EmbedChartDays, type ReadingUnit } from './options';
 
 export interface EmbedLadder {
   levelTooLow: number | null;
@@ -309,14 +309,14 @@ async function assembleRiverEmbed(slug: string, days: EmbedChartDays): Promise<R
       // The dam widget reads dam_snapshots (written at :35); this reading comes
       // from gauge_readings (written at :00). Both are the Corps' release
       // series, so between the two crons the widgets used to show different
-      // hours of it side by side: 1,971 cfs here, 1,807 on the dam card. Take
-      // whichever observation is newer.
+      // hours of it side by side: 1,971 cfs here, 1,807 on the dam card. Both
+      // widgets take the newer observation through newestTotalRelease.
       const stored = (await readStoredSnapshot(release.damId, { now }))?.metrics.release;
-      const newer = newerRelease(primary.readingTimestamp, stored);
-      if (newer) {
-        primary.dischargeCfs = newer.value;
-        primary.readingTimestamp = newer.at;
-        history.push({ timestamp: newer.at, gaugeHeightFt: null, dischargeCfs: newer.value });
+      const newest = newestTotalRelease({ value: primary.dischargeCfs, at: primary.readingTimestamp }, stored);
+      if (newest?.from === 'snapshot') {
+        primary.dischargeCfs = newest.value;
+        primary.readingTimestamp = newest.at;
+        history.push({ timestamp: newest.at, gaugeHeightFt: null, dischargeCfs: newest.value });
       }
     }
     const trend = computeTrend(history, primary.unit, 6);

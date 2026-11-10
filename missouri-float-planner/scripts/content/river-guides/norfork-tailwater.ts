@@ -147,7 +147,7 @@ export default {
       },
       {
         "topic": "Catch-and-release area, Dry Run Creek and the dam",
-        "rule": "No fishing within 100 yards of Norfork Dam. From the downstream end of Long Hole to the Bill Ackerman River Ridge walk-in access every trout must be released, with barbless artificial lures or flies only. Dry Run Creek is open only to anglers under 16 and mobility-impaired anglers, catch-and-release with a single barbless hook. A trout permit is required to fish the tailwater. These are the rules in the 2026-27 guidebook; the areas are marked by signs.",
+        "rule": "No fishing within 100 yards of Norfork Dam, and no boat may enter that water. From the downstream end of Long Hole to the Bill Ackerman River Ridge walk-in access every trout must be released, with barbless artificial lures or flies only. Dry Run Creek is open only to anglers under 16 and mobility-impaired anglers, catch-and-release with a single barbless hook. A trout permit is required to fish the tailwater. These are the rules in the 2026-27 guidebook; the areas are marked by signs.",
         "url": "https://www.agfc.com/regulations/guidebooks/"
       }
     ],

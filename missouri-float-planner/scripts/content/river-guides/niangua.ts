@@ -27,7 +27,7 @@ export default {
       },
       {
         "q": "What should I know about Tunnel Dam?",
-        "a": "It is a former hydroelectric dam near the end of the lower river, and the last miles above it are slow, backed-up water. Take out at the Tunnel Dam boat landing and stay away from the dam itself. Its owner has applied to stop generating power there while keeping the dam and lake in place, and the channel below the dam can run very low."
+        "a": "It is a dam built for hydropower near the end of the lower river, and the last miles above it are slow, backed-up water. Take out at the Tunnel Dam boat landing and stay away from the dam itself. Federal regulators approved its owner’s surrender of the power licence in December 2025, with the dam and lake staying in place. Eddy has not confirmed whether generation has stopped. The channel below the dam can run very low."
       },
       {
         "q": "How do I check Niangua water levels?",
@@ -373,6 +373,10 @@ export default {
       {
         "label": "Sho-Me Power: Niangua River dam licence surrender",
         "url": "https://shomepower.com/about-sho-me/niangua-river-dam"
+      },
+      {
+        "label": "FERC: December 2025 meeting summary, Niangua licence surrender approved",
+        "url": "https://ferc.gov/news-events/news/summaries-december-2025-commission-meeting"
       }
     ],
     "editorial_updated_at": "2026-11-10",

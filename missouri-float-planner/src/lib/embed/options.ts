@@ -318,19 +318,42 @@ export function readingSource(data: {
 }
 
 /**
- * The stored dam release, when it is a spot reading newer than the gauge's.
- * A daily mean is a different quantity and never replaces an hourly reading.
+ * The newest observation of a dam's total release, from the two places Eddy
+ * keeps it: gauge_readings (written at :00) and the stored dam snapshot
+ * (written at :35). Either can be the newer one, so the river widget and the
+ * dam widget both choose through here and show the same hour of the series.
+ * A daily mean is a different quantity and never competes with a spot reading.
+ * Turbine flow is not total release and is never passed in.
  */
-export function newerRelease(
-  gaugeAt: string | null,
+export function newestTotalRelease(
+  gauge: { value: number | null; at: string | null } | null | undefined,
   stored: { value: number; unit: string; at: string; dailyMean?: boolean } | null | undefined,
-): { value: number; at: string } | null {
-  if (!stored || stored.dailyMean || stored.unit !== 'cfs' || !Number.isFinite(stored.value)) return null;
-  const at = Date.parse(stored.at);
-  if (!Number.isFinite(at)) return null;
-  const current = gaugeAt ? Date.parse(gaugeAt) : NaN;
-  if (Number.isFinite(current) && at <= current) return null;
-  return { value: stored.value, at: stored.at };
+): { value: number; at: string; from: 'gauge' | 'snapshot' } | null {
+  const dated = (value: number | null | undefined, at: string | null | undefined) =>
+    typeof value === 'number' && Number.isFinite(value) && at && Number.isFinite(Date.parse(at)) ? { value, at } : null;
+  const g = gauge ? dated(gauge.value, gauge.at) : null;
+  const s = stored && !stored.dailyMean && stored.unit === 'cfs' ? dated(stored.value, stored.at) : null;
+  if (g && s) return Date.parse(s.at) > Date.parse(g.at) ? { ...s, from: 'snapshot' } : { ...g, from: 'gauge' };
+  if (g) return { ...g, from: 'gauge' };
+  return s ? { ...s, from: 'snapshot' } : null;
+}
+
+/**
+ * A dam snapshot with its total release brought up to the gauge table's
+ * reading when that one is newer, so the dam widget and the river widget show
+ * the same hour. Turbine flow, the dam widget's headline, is a different series
+ * and is left alone. The caller re-bands staleness against its own clock.
+ */
+export function withNewestRelease<T extends { metrics: { release?: { value: number; unit: string; at: string; dailyMean?: boolean; staleness: 'fresh' | 'lagging' | 'stale' } } }>(
+  snapshot: T,
+  gauge: { value: number | null; at: string | null } | null | undefined,
+): T {
+  const stored = snapshot.metrics.release;
+  if (stored?.dailyMean) return snapshot;
+  const newest = newestTotalRelease(gauge, stored);
+  if (newest?.from !== 'gauge') return snapshot;
+  if (stored && Number.isFinite(Date.parse(stored.at)) && Date.parse(newest.at) <= Date.parse(stored.at)) return snapshot;
+  return { ...snapshot, metrics: { ...snapshot.metrics, release: { value: newest.value, unit: 'cfs', at: newest.at, staleness: 'fresh' } } };
 }
 
 export function headlineReading(data: {

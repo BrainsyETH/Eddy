@@ -161,8 +161,16 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "The trout rules changed in 2026.",
-        "body": "From February 1, 2026: between the dam and Norfork Access you may keep two rainbow trout under 14 inches and must release every other trout. That does not apply in the two catch-and-release areas, below the dam and at Rim Shoals, where every trout goes back, and from November 1 to January 31 the water from the dam down to the state park trout dock is closed to fishing. From Norfork Access to the Highway 58 bridge the limit is two trout, only one over 14 inches, and the minimum lengths still apply there: 24 inches for brown, cutthroat and tiger trout, 14 inches for brook trout. The Game and Fish Commission says these stay in effect until further notice, so read its current rules before you keep a fish."
+        "strong": "Trout, dam to Norfork Access.",
+        "body": "From February 1, 2026: keep two rainbow trout under 14 inches a day and release every other trout."
+      },
+      {
+        "strong": "Special areas below the dam and at Rim Shoals.",
+        "body": "From below the dam to the top of the state park, and at Rim Shoals, every trout goes back. From November 1 to January 31 the water from the dam down to the state park trout dock is closed to fishing. In those months, from the trout dock to the park’s downstream boundary, brown trout must be released and there is no fishing at night."
+      },
+      {
+        "strong": "Trout, Norfork Access to Highway 58.",
+        "body": "Two trout a day, only one over 14 inches. Brown, cutthroat and tiger trout must be at least 24 inches to keep, and brook trout 14. The Game and Fish Commission says these rules stay in effect until further notice, so read its current rules before you keep a fish."
       },
       {
         "strong": "Know your way out.",
@@ -187,7 +195,7 @@ export default {
       },
       {
         "topic": "Catch-and-release areas and the closed water below the dam",
-        "rule": "No fishing within 100 yards of Bull Shoals Dam. From there to the upstream boundary of Bull Shoals-White River State Park, and at Rim Shoals from the sign above Jenkins Creek to the first power line downstream, every trout must be released and only barbless artificial lures or flies are allowed. From November 1 to January 31 the upper area is closed to fishing and reaches down to the wing dike at the state park trout dock, and from that wing dike to the park’s downstream boundary brown trout must be released. These are the rules in the 2026-27 guidebook; the areas are marked by signs.",
+        "rule": "No fishing within 100 yards of Bull Shoals Dam, and no boat may enter that water. From there to the upstream boundary of Bull Shoals-White River State Park, and at Rim Shoals from the sign above Jenkins Creek to the first power line downstream, every trout must be released and only barbless artificial lures or flies are allowed. From November 1 to January 31 the upper area is closed to fishing and reaches down to the wing dike at the state park trout dock, and from that wing dike to the park’s downstream boundary brown trout must be released and there is no fishing from 30 minutes after sunset until 30 minutes before sunrise. These are the rules in the 2026-27 guidebook; the areas are marked by signs.",
         "url": "https://www.agfc.com/regulations/guidebooks/"
       },
       {
@@ -197,7 +205,7 @@ export default {
       },
       {
         "topic": "Permit and night fishing",
-        "rule": "A trout permit is required to fish anywhere from the dam to the Highway 58 bridge at Guion. From 30 minutes after sunset to 30 minutes before sunrise, no trout other than rainbow trout may be kept.",
+        "rule": "A trout permit is required to fish anywhere from the dam to the Highway 58 bridge at Guion. From 30 minutes after sunset to 30 minutes before sunrise, no trout other than rainbow trout may be kept. From November 1 to January 31, the water from the wing dike at the state park trout dock to the park’s downstream boundary is closed to all fishing during those hours.",
         "url": "https://www.agfc.com/regulations/guidebooks/"
       }
     ],
@@ -220,7 +228,7 @@ export default {
       },
       {
         "q": "What are the trout limits?",
-        "a": "As of February 1, 2026: two rainbow trout under 14 inches between the dam and Norfork Access, with all other trout released, except in the catch-and-release areas below the dam and at Rim Shoals, where every trout goes back; and two trout, only one over 14 inches, from Norfork Access to the Highway 58 bridge, where brown, cutthroat and tiger trout must also be at least 24 inches and brook trout 14. These rules have changed recently, so check the Game and Fish Commission before you keep a fish."
+        "a": "As of February 1, 2026: two rainbow trout under 14 inches between the dam and Norfork Access, with all other trout released, except in the catch-and-release areas below the dam and at Rim Shoals, where every trout goes back. From November 1 to January 31 the area below the dam is closed to fishing as far down as the state park trout dock, and the water from there to the park’s downstream boundary is closed at night. From Norfork Access to the Highway 58 bridge the limit is two trout, only one over 14 inches, and brown, cutthroat and tiger trout must be at least 24 inches and brook trout 14. These rules have changed recently, so check the Game and Fish Commission before you keep a fish."
       },
       {
         "q": "Where can I camp?",

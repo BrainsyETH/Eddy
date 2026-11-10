@@ -36,10 +36,13 @@ Lake Taneycomo, the Norfork tailwater; `shared/dam-release-tab.ts`) is not
 presented as a river gauge. The gauge line reads "Total release from <dam>",
 the chip reads "Not rated" in place of "Unknown" (as it does for any gauge with
 no ladder), there is no trend word, and Eddy's take is one fixed sentence that
-points to the dam's schedule. The reading is the newer of `gauge_readings`
-(written at :00) and the stored dam snapshot's `release` (written at :35), so
-this widget and the dam widget cannot show different hours of one series
-(`newerRelease` in `src/lib/embed/options.ts`). Total release and the dam
+points to the dam's schedule. Total release is stored in two places, `gauge_readings` (written at :00)
+and the dam snapshot's `release` (written at :35), and either can be the newer
+one. Both widgets choose through `newestTotalRelease` in
+`src/lib/embed/options.ts` (the dam widget via `withNewestRelease`), so they
+show the same hour of the series in both update orders. Their caches are
+separate (river 120 s, dam 60 s), so they can still differ for up to two
+minutes after a new reading lands. Total release and the dam
 widget's turbine flow are different quantities and can differ when a dam spills
 or passes minimum flow outside the turbines; the labels say which is which.
 
