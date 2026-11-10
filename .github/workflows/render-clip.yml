@@ -259,11 +259,18 @@ jobs:
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          VIDEO_ID: ${{ inputs.youtube_video_id }}
+          PEAK_NUMBER: ${{ inputs.peak_number }}
+          RIVER_SLUG: ${{ inputs.river_slug }}
+        # Inputs reach the shell only through env, and jq builds the JSON, so a
+        # dispatched value is never executable script text.
         run: |
-          echo "::error::render-clip failed for ${{ inputs.youtube_video_id }} (peak ${{ inputs.peak_number }}, river ${{ inputs.river_slug }})"
+          echo "::error::render-clip failed for ${VIDEO_ID} (peak ${PEAK_NUMBER}, river ${RIVER_SLUG})"
           if [ -n "$SITE_URL" ] && [ -n "$CRON_SECRET" ]; then
+            BODY=$(jq -n --arg error "render-clip failed for ${VIDEO_ID} (${RIVER_SLUG})" \
+              '{status: "failed", error: $error}')
             curl -s -X POST "${SITE_URL}/api/admin/clips/callback" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${CRON_SECRET}" \
-              -d "{\"status\": \"failed\", \"error\": \"render-clip failed for ${{ inputs.youtube_video_id }} (${{ inputs.river_slug }})\"}" || true
+              -d "$BODY" || true
           fi

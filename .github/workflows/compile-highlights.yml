@@ -120,37 +120,39 @@ jobs:
           echo "✅ Uploaded: $VIDEO_URL"
           echo "video_url=${VIDEO_URL}" >> "$GITHUB_OUTPUT"
 
+      # Dispatch inputs are data, never script text: they reach the shell only
+      # through env, and jq builds the JSON body so a quote in a value cannot
+      # break out of it. See src/lib/social/workflow-inputs.ts for the API-side
+      # validation; this is the half that holds for every other caller.
       - name: Callback to publish
         if: success() && inputs.post_ids != ''
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          POST_IDS: ${{ inputs.post_ids }}
+          VIDEO_URL: ${{ steps.*.outputs.video_url }}
         run: |
-          VIDEO_URL="${{ steps.*.outputs.video_url }}"
+          BODY=$(jq -n --arg postIds "$POST_IDS" --arg videoUrl "$VIDEO_URL" \
+            '{postIds: $postIds, videoUrl: $videoUrl, status: "rendered"}')
           curl -s -X POST \
             "${SITE_URL}/api/admin/social/video-callback" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            -d "{
-              \"postIds\": \"${{ inputs.post_ids }}\",
-              \"videoUrl\": \"${VIDEO_URL}\",
-              \"status\": \"rendered\"
-            }"
+            -d "$BODY"
 
       - name: Report failure
         if: failure()
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          POST_IDS: ${{ inputs.post_ids }}
         run: |
-          if [ -n "${{ inputs.post_ids }}" ]; then
+          if [ -n "$POST_IDS" ]; then
+            BODY=$(jq -n --arg postIds "$POST_IDS" \
+              '{postIds: $postIds, status: "failed", error: "Highlights compilation failed — check workflow logs"}')
             curl -s -X POST \
               "${SITE_URL}/api/admin/social/video-callback" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${CRON_SECRET}" \
-              -d "{
-                \"postIds\": \"${{ inputs.post_ids }}\",
-                \"status\": \"failed\",
-                \"error\": \"Highlights compilation failed — check workflow logs\"
-              }"
+              -d "$BODY"
           fi
