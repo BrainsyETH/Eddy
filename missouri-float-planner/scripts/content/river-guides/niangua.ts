@@ -79,19 +79,29 @@ export default {
     },
     "seasons": [
       {
-        "m": "Mar–May",
-        "t": "A park visit and a float need separate checks.",
-        "note": "Confirm Bennett Spring visitor and fishing information, then check the Niangua route after recent rain."
+        "m": "Mar–Apr",
+        "t": "High and cold.",
+        "note": "Spring flows are up, and trout season at Bennett Spring opens March 1."
       },
       {
-        "m": "Jun–Aug",
-        "t": "Book around your chosen access pair.",
-        "note": "The spring contributes flow but does not guarantee a drag-free trip. Confirm rentals, camping and the actual route with the operator."
+        "m": "May–Jun",
+        "t": "The sweet spot.",
+        "note": "Warm air and steady water, with the busy season just starting."
       },
       {
-        "m": "Sep–Feb",
-        "t": "Allow for seasonal service changes.",
-        "note": "Check shuttle hours and campground availability. Pack for cold water and leave enough daylight to reach the landing."
+        "m": "Jul–Aug",
+        "t": "Still floating.",
+        "note": "The spring keeps it going. Weekends near Bennett Spring are busy, so reserve."
+      },
+      {
+        "m": "Sep–Oct",
+        "t": "Quiet and pretty.",
+        "note": "Thinner crowds and fall color, and the spring still carries the river."
+      },
+      {
+        "m": "Nov–Feb",
+        "t": "Cold and private.",
+        "note": "Floatable below the spring. Check which outfitters are still running shuttles."
       }
     ],
     "springs": [
@@ -120,17 +130,25 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Bennett Spring adds water, not a guarantee. Check the route, and identify the lower take-out well before Tunnel Dam."
+        "quote": "The Niangua is gentle, but the lower river ends at Tunnel Dam. Take out at the landing above it. The water below Bennett Spring is cold all year, so keep the life jacket on."
       }
     },
     "pro_tips": [
       {
-        "strong": "Keep the trout-park visit separate.",
-        "body": "Bennett Spring’s fishing areas have their own zones and rules. A float on the Niangua does not make every part of the spring branch open to boating or fishing."
+        "strong": "The summer fallback.",
+        "body": "When the Meramec, the Huzzah and the Jacks Fork canyon are too low, check here."
       },
       {
-        "strong": "Confirm what the shuttle includes.",
-        "body": "Ask whether the operator moves your vehicle or collects you, where the pickup happens and when the last return runs."
+        "strong": "Base yourself near the spring.",
+        "body": "Between Bennett Spring and Prosperine you can camp, rent and shuttle without driving far."
+      },
+      {
+        "strong": "Ask what the shuttle covers.",
+        "body": "Some outfitters move your car and others pick you up. Ask where, and when the last ride leaves."
+      },
+      {
+        "strong": "Trout water is separate.",
+        "body": "Fishing the spring branch takes a daily tag and follows zone rules. Floats start on the river, not in the park’s spring branch."
       }
     ],
     "sections": [
@@ -283,16 +301,20 @@ export default {
     ],
     "why_different": [
       {
-        "strong": "A spring-fed change of pace.",
-        "body": "Bennett Spring adds cold water to the Niangua; the upper river can be shallow even when a lower trip is possible."
+        "strong": "It floats when others do not.",
+        "body": "Bennett Spring adds roughly 100 million gallons a day. In a dry August, when rain-fed streams are too thin, the Niangua below the spring is usually still good."
       },
       {
-        "strong": "Services near the spring.",
-        "body": "Outfitters and riverside campgrounds around Bennett Spring and Prosperine offer several ways to arrange boats and a shuttle."
+        "strong": "Easy to set up.",
+        "body": "Most of the outfitters and riverside campgrounds sit in the 10 miles below the spring, so a rental and a shuttle are simple to arrange."
       },
       {
-        "strong": "A dam is a firm boundary.",
-        "body": "For a lower-river trip, identify the designated Tunnel Dam landing from land and finish before the structure."
+        "strong": "A trout park at the top.",
+        "body": "Bennett Spring State Park stocks its spring branch with trout daily in season. It is worth a walk even if you do not fish."
+      },
+      {
+        "strong": "It ends at a dam.",
+        "body": "The lower river runs to Tunnel Dam. The last miles are slow, and the take-out is above the dam, not at it."
       }
     ],
     "related_rivers": [
@@ -307,12 +329,12 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "Spring-fed does not mean guaranteed.",
-        "body": "Bennett Spring adds water, but river depth still changes. Check the route’s report and ask about shallow sections."
+        "strong": "Above the spring it is a different river.",
+        "body": "Moon Valley to Bennett Spring depends on rain and can be too shallow in summer."
       },
       {
-        "strong": "Know the take-out before Tunnel Dam.",
-        "body": "Confirm the exact landing and local instructions for a lower-river trip. Do not use the dam itself as a target to paddle toward."
+        "strong": "Find the Tunnel Dam landing first.",
+        "body": "If you are floating the lower river, look at the take-out from the road before you launch."
       }
     ],
     "nearby_attractions": [

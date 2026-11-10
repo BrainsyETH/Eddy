@@ -79,19 +79,29 @@ export default {
     },
     "seasons": [
       {
-        "m": "Mar–May",
-        "t": "Watch the upper-creek options.",
-        "note": "Recent rain may change what is practical above Red Bluff. High water can also rule a trip out; check the creek before driving."
+        "m": "Mar–Apr",
+        "t": "The upper creek’s window.",
+        "note": "Spring water floats the Dillard Mill stretch. Cold and quiet."
       },
       {
-        "m": "Jun–Aug",
-        "t": "A light load helps; a date proves nothing.",
-        "note": "Dry weather can leave shallow riffles. Ask about the exact lower-creek route and vessel rather than assuming a summer rental means enough water."
+        "m": "May–Jun",
+        "t": "The sweet spot.",
+        "note": "Warm air and good water on the lower floats."
       },
       {
-        "m": "Sep–Feb",
-        "t": "Check water and opening hours.",
-        "note": "Fall color can make a short outing appealing. Confirm the shuttle or campsite is operating, and prepare for cold water."
+        "m": "Jul–Aug",
+        "t": "Drops fast.",
+        "note": "The lower creek runs best after rain. Weekends are busy."
+      },
+      {
+        "m": "Sep–Oct",
+        "t": "Pretty, often low.",
+        "note": "Fall color and quiet water, but it can be too low in a dry year."
+      },
+      {
+        "m": "Nov–Feb",
+        "t": "Only after rain.",
+        "note": "Cold and private."
       }
     ],
     "springs": [
@@ -118,17 +128,25 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Visit Dillard Mill on land and inspect your actual launch. A good day on the upper creek needs enough water there."
+        "quote": "The Huzzah is small and driven by rain: low in a dry summer, fast and brown after a storm. Check the gauge and which way it is moving the morning you launch. Life jacket on."
       }
     },
     "pro_tips": [
       {
-        "strong": "Make time for Dillard Mill.",
-        "body": "The mill visit and the paddle are separate parts of the day. Check opening and tour information before building a float around a visit."
+        "strong": "Look at the gauge first.",
+        "body": "The Huzzah drops fast in a dry spell and jumps after rain. Under about 56 cfs at the Steelville gauge you will drag."
       },
       {
-        "strong": "Travel light on shallow water.",
-        "body": "Ask the outfitter which vessel suits the route that day. A loaded boat may drag where an empty one slips through."
+        "strong": "The upper creek is a spring trip.",
+        "body": "Dillard Mill to Red Bluff usually needs spring water or a recent rain. In summer, float near Huzzah Valley."
+      },
+      {
+        "strong": "Go light.",
+        "body": "Kayaks and canoes ride higher than rafts on shallow water. A loaded boat drags where an empty one slides through."
+      },
+      {
+        "strong": "See Dillard Mill.",
+        "body": "Tours run in season. Go before the float."
       }
     ],
     "sections": [
@@ -279,16 +297,20 @@ export default {
     ],
     "why_different": [
       {
-        "strong": "Red Bluff is a useful landmark.",
-        "body": "The recreation area gives the middle creek a recognizable starting point and an option for a separate land visit."
+        "strong": "A creek you can do in an afternoon.",
+        "body": "The featured floats are 5 to 10 miles. No overnight gear and no long shuttle."
       },
       {
-        "strong": "Upper water is seasonal.",
-        "body": "A downstream reading does not guarantee enough depth above Red Bluff. Ask about your exact stretch."
+        "strong": "Clear and shallow.",
+        "body": "Smaller than the Meramec it runs into, with bright gravel bars made for swimming."
       },
       {
-        "strong": "The Courtois is nearby.",
-        "body": "Both creeks fit a Steelville weekend, but check each launch independently instead of assuming identical conditions."
+        "strong": "A mill at the top.",
+        "body": "Dillard Mill is a red water-powered gristmill kept as a State Historic Site."
+      },
+      {
+        "strong": "The Courtois is next door.",
+        "body": "Float one on Saturday and the other on Sunday. They rise and fall together, so one is not a backup for the other."
       }
     ],
     "related_rivers": [
@@ -307,12 +329,12 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "Use the actual Huzzah station.",
-        "body": "USGS 07014000 is Huzzah Creek near Steelville. Check its trend and confirm conditions at your intended launch."
+        "strong": "It is a rain creek.",
+        "body": "Check Huzzah Creek near Steelville (USGS 07014000) the morning you go, and which way it is heading."
       },
       {
-        "strong": "Confirm private landings.",
-        "body": "For a resort endpoint, arrange permission, fees and pickup with the operator before driving to the water."
+        "strong": "Private landings need a call.",
+        "body": "Huzzah Valley and the other resort landings are private. Set up access, fees and pickup with them before you drive out."
       }
     ],
     "nearby_attractions": [

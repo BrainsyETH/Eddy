@@ -79,19 +79,29 @@ export default {
     },
     "seasons": [
       {
-        "m": "Mar–May",
-        "t": "Watch storms across the watershed.",
-        "note": "Springs contribute base flow, while rainfall can still change the river quickly. Check the reading and trend for your stretch."
+        "m": "Mar–Apr",
+        "t": "More water, fewer people.",
+        "note": "Cool and often high. Bring a layer."
       },
       {
-        "m": "Jun–Aug",
-        "t": "Choose a route, then a rental.",
-        "note": "Confirm which put-in and take-out the outfitter is using that day. Low water, busy launches and the length of the trip can change the plan."
+        "m": "May–Jun",
+        "t": "The sweet spot.",
+        "note": "Warm air, good water and green bluffs."
       },
       {
-        "m": "Sep–Feb",
-        "t": "Pair a shorter paddle with a park stop.",
-        "note": "Check seasonal park services and daylight. Lower temperatures call for cold-water preparation even when the river looks calm."
+        "m": "Jul–Aug",
+        "t": "Crowds near the park.",
+        "note": "The lower river is busy on weekends. Go midweek, or float the upper river for quiet."
+      },
+      {
+        "m": "Sep–Oct",
+        "t": "Color and quiet.",
+        "note": "Pleasant days and thin crowds. It can run low in a dry year."
+      },
+      {
+        "m": "Nov–Feb",
+        "t": "After rain.",
+        "note": "Cold and variable. Floatable in wet spells."
       }
     ],
     "springs": [
@@ -125,17 +135,25 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Read the level, trend and recent rain together. Falling water can still be high, fast or obstructed."
+        "quote": "After a hard rain the Meramec rises fast and stays muddy and pushy for days. A river that is dropping can still be too high. Life jacket on."
       }
     },
     "pro_tips": [
       {
-        "strong": "The two spellings are real.",
-        "body": "Maramec Spring and the Meramec River use different spellings. Check the destination before starting your drive."
+        "strong": "Match the gauge to your stretch.",
+        "body": "Steelville for the upper river, Sullivan for the state-park stretch, Eureka for the lower river. It is more than 100 river miles from one to the other."
       },
       {
-        "strong": "A park visit takes time too.",
-        "body": "A cave tour or trail walk can pair well with a float. Check the park’s schedule and give the land visit its own place in the day."
+        "strong": "Scenery up, tubes down.",
+        "body": "Onondaga to Meramec State Park has the best bluffs. Below the park the river is wider and better for big raft and tube groups."
+      },
+      {
+        "strong": "Book summer Saturdays ahead.",
+        "body": "The state park and Meramec Caverns stretches fill up. Reserve the boat and the shuttle."
+      },
+      {
+        "strong": "Maramec is not a typo.",
+        "body": "The spring and its park are spelled Maramec; the river is Meramec. Check which one your map app picked."
       }
     ],
     "sections": [
@@ -300,16 +318,20 @@ export default {
     ],
     "why_different": [
       {
-        "strong": "Caves on land, river by boat.",
-        "body": "Onondaga Cave and the Meramec State Park area can anchor a trip with time both on and off the water."
+        "strong": "The closest float to St. Louis.",
+        "body": "Steelville and Sullivan are about 90 minutes down I-44."
       },
       {
-        "strong": "Springs and rain both matter.",
-        "body": "Spring inputs support base flow. Storm runoff and water arriving from tributaries can still change the river quickly."
+        "strong": "Caves in the bluffs.",
+        "body": "Onondaga Cave and Meramec Caverns are show caves beside the river, and Fisher Cave runs lantern tours from Meramec State Park."
       },
       {
-        "strong": "Pick the right part of the river.",
-        "body": "The upper trout reaches, state-park corridor and broader downstream river need different access and water checks."
+        "strong": "Three rivers in one.",
+        "body": "Narrow trout water near Maramec Spring, bluffs and caves through the middle, and a wide, gentle lower river made for rafts and tubes."
+      },
+      {
+        "strong": "It moves with the rain.",
+        "body": "Maramec Spring keeps some water in the river, but storms upstream can bring it up fast and leave it muddy for days."
       }
     ],
     "related_rivers": [
@@ -328,12 +350,12 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "Match the station to the stretch.",
-        "body": "Steelville is the guide’s primary station, not a reading for the whole Meramec. Use the river report to compare gauges near your route."
+        "strong": "Check the gauge that morning.",
+        "body": "The Meramec can be too low after a dry spell or too high after a storm. Look at the level and which way it is heading."
       },
       {
-        "strong": "Confirm the long shuttle.",
-        "body": "Onondaga to Meramec State Park and Sand Ford to Red Horse are long featured trips. Arrange the exact landings and return transport before launch."
+        "strong": "The long floats are long.",
+        "body": "Onondaga to Meramec State Park and Sand Ford to Red Horse are both full days. Set the shuttle and the pickup time before you launch."
       }
     ],
     "nearby_attractions": [

@@ -79,19 +79,29 @@ export default {
     },
     "seasons": [
       {
-        "m": "Mar–May",
-        "t": "Upper-river options depend on water.",
-        "note": "Compare Thomasville to Greer with routes below the spring. Cold water and storm changes need to be part of the decision."
+        "m": "Mar–Apr",
+        "t": "High and cold.",
+        "note": "Spring storms bring fast rises and muddy water. The upper river has its best water now."
       },
       {
-        "m": "Jun–Aug",
-        "t": "Greer changes the river.",
-        "note": "Its spring inflow matters during dry weather, but it does not promise suitable conditions on every stretch. Confirm your route and shuttle."
+        "m": "May–Jun",
+        "t": "Clear and green.",
+        "note": "The river below Greer is clear and steady, and the upper river often still floats."
       },
       {
-        "m": "Sep–Feb",
-        "t": "Leave a generous daylight margin.",
-        "note": "Long forest stretches offer few shortcuts. For an overnight, check campsite access and pack for the forecast overnight temperature."
+        "m": "Jul–Sep",
+        "t": "Prime season below Greer.",
+        "note": "The spring keeps the lower river going when other streams are low. Reserve the shuttle."
+      },
+      {
+        "m": "Oct",
+        "t": "Color and quiet.",
+        "note": "Fall color and almost nobody on the water."
+      },
+      {
+        "m": "Nov–Feb",
+        "t": "Cold, private, remote.",
+        "note": "Floatable below Greer. Tell someone your plan and pack for a night out, even on a day trip."
       }
     ],
     "springs": [
@@ -120,17 +130,25 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Choose your camps and take-out before launching. A quiet river is more enjoyable when you know how the trip ends."
+        "quote": "Help is a long way off on the Eleven Point. Decide your camps and your take-out before you launch, and keep your life jacket on."
       }
     },
     "pro_tips": [
       {
-        "strong": "Choose which Turner Mill access.",
-        "body": "North and south approaches have different road routes. Use the exact landing selected in the planner when arranging the shuttle."
+        "strong": "Put in at Greer in summer.",
+        "body": "The river above the spring is often too low by July. Greer to Turner Mill, or on to Riverton, is the dependable trip."
       },
       {
-        "strong": "Pack for the gaps between roads.",
-        "body": "Keep a downloaded route, spare food and dry clothing with you. Do not assume the next bend offers a road or phone signal."
+        "strong": "Say which Turner Mill.",
+        "body": "There is a north access and a south access on opposite banks, reached by different roads. Tell your shuttle driver which one."
+      },
+      {
+        "strong": "Carry the day with you.",
+        "body": "Downloaded map, extra food, dry clothes, a first-aid kit. Do not count on a road or a phone signal around the next bend."
+      },
+      {
+        "strong": "You may spot eagles and otters.",
+        "body": "Bald eagles, great blue herons and river otters all live along this stretch. Early morning is the best time to look."
       }
     ],
     "sections": [
@@ -282,16 +300,20 @@ export default {
     ],
     "why_different": [
       {
-        "strong": "Greer is the turning point.",
-        "body": "Spring flow changes the river below the Greer area. Do not assume the upper route shares those conditions."
+        "strong": "Greer Spring makes the river.",
+        "body": "Above Greer it is a small headwater that needs rain. Below, Missouri’s second-largest spring more than doubles the flow, and the river runs cold and clear through summer."
       },
       {
-        "strong": "Float camps are part of the route.",
-        "body": "Check USFS camp information and choose a realistic overnight stopping point before launching."
+        "strong": "It is remote.",
+        "body": "There are far fewer accesses and outfitters than on the Current, and long stretches with no road nearby. Sort out the shuttle and carry what you need."
       },
       {
-        "strong": "Mill sites reward a pause.",
-        "body": "Turner Mill and Boze Mill give you specific places to look for, rather than a mileage target alone."
+        "strong": "You camp at float camps.",
+        "body": "The Forest Service keeps seven camps along the river, most reachable only by boat. They are first come, first served, so have a second choice on a summer weekend."
+      },
+      {
+        "strong": "Old mills on the bank.",
+        "body": "Turner Mill still has its iron wheel, and Boze Mill Spring is a blue pool beside an old mill site. Both are worth getting out for."
       }
     ],
     "related_rivers": [
@@ -306,12 +328,12 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "Book the shuttle before the drive.",
-        "body": "Confirm the exact landings and pickup time. A long drive along forest roads is part of the trip, not something to sort out after launching."
+        "strong": "Book the shuttle before you drive.",
+        "body": "Few outfitters work this river and the forest roads are slow. Agree on the landings and the pickup time ahead."
       },
       {
-        "strong": "Plan an overnight site by name.",
-        "body": "Use the Forest Service river guide for float-camp locations and current rules. Check access or fire restrictions before relying on a stop."
+        "strong": "Pick your camp by name.",
+        "body": "Whites Creek, Greenbriar and Morgan Spring are among the float camps. Choose one and a backup, and check for fire restrictions."
       }
     ],
     "nearby_attractions": [

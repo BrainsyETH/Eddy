@@ -79,19 +79,29 @@ export default {
     },
     "seasons": [
       {
-        "m": "Mar–May",
-        "t": "Spring stops, cool water.",
-        "note": "A spring visit can be the highlight, but recent storms may change the float. Check river conditions before committing to a route."
+        "m": "Mar–Apr",
+        "t": "High, cold and empty.",
+        "note": "Spring rain brings the most water and the fewest people. The water is cold enough to be dangerous if you flip, so dress for a swim."
       },
       {
-        "m": "Jun–Aug",
-        "t": "Leave time to get out of the boat.",
-        "note": "Arrange the shuttle and campground first, then budget for shore visits. Spring water can still feel very cold on a hot day."
+        "m": "May–Jun",
+        "t": "The sweet spot.",
+        "note": "Warm days, clear water and green bluffs, without the July crowds."
       },
       {
-        "m": "Sep–Feb",
-        "t": "Shorter days, longer layers.",
-        "note": "Choose a distance that fits the daylight. Check seasonal campground services and pack for cold water, even on a sunny afternoon."
+        "m": "Jul–Aug",
+        "t": "Busy on top, quiet below.",
+        "note": "Akers to Pulltite is packed on weekends, while the lower river stays quiet. Reserve boats and campsites weeks ahead."
+      },
+      {
+        "m": "Sep–Oct",
+        "t": "Eddy’s favorite.",
+        "note": "Fall color, cool mornings and half the traffic. The springs keep the river floatable through autumn."
+      },
+      {
+        "m": "Nov–Feb",
+        "t": "Floatable and nearly private.",
+        "note": "The springs do not shut off in winter. Short days and cold water call for a short float and dry clothes in a bag."
       }
     ],
     "springs": [
@@ -159,17 +169,25 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Pick one spring stop to leave time for. A shorter paddle with a good shore visit can make a fuller day."
+        "quote": "The current is gentle. The water is not: it comes out of the ground in the mid-50s all year. Life jacket on, even when the river looks lazy."
       }
     },
     "pro_tips": [
       {
-        "strong": "Give the spring stop its own time.",
-        "body": "A float estimate covers the trip on the water. Add time to land, walk to a spring and get everyone back into their boats."
+        "strong": "Launch early or go midweek.",
+        "body": "Akers to Pulltite fills up on summer Saturdays. A weekday, or a start ahead of the outfitter buses, gets you a quieter river."
       },
       {
-        "strong": "Big Spring is a shore visit.",
-        "body": "Plan the walk separately from your paddle. The spring basin is protected; it is not a swimming stop."
+        "strong": "Budget time for the springs.",
+        "body": "Float times cover paddling. Welch Spring, Cave Spring and Round Spring each deserve half an hour out of the boat."
+      },
+      {
+        "strong": "Big Spring is a walk, not a swim.",
+        "body": "You visit it on foot from the take-out. The spring basin is protected, so no swimming or wading."
+      },
+      {
+        "strong": "Download before you drive.",
+        "body": "Phone service is spotty inside the park. Save your float plan, the map and the directions to your take-out before you leave town."
       }
     ],
     "sections": [
@@ -383,16 +401,20 @@ export default {
     ],
     "why_different": [
       {
-        "strong": "Stops shape the day.",
-        "body": "Welch Spring and Cave Spring lie on different upper-river floats. Pick the route that passes the place you want to see."
+        "strong": "Springs run the river.",
+        "body": "Welch, Cave, Pulltite, Round, Blue and Big Spring all feed the Current. Together they keep it cold, clear and floatable when rain-fed streams have dried up. Big Spring alone averages about 286 million gallons a day."
       },
       {
-        "strong": "Spring water stays cold.",
-        "body": "A hot afternoon can hide how cold the water is near a spring. Pack for a swim as well as the air temperature."
+        "strong": "You can see the bottom.",
+        "body": "Spring water runs clear most of the year. Bring polarized sunglasses and you can watch fish holding in the current under your boat."
       },
       {
-        "strong": "Two kinds of camping.",
-        "body": "Developed campgrounds and backcountry river camping have different fees and rules. Check the specific place before counting on a free night."
+        "strong": "It is a national park.",
+        "body": "The Ozark National Scenic Riverways, established in 1964, was the first national park area created to protect a river system. That is why the banks are woods and bluffs instead of cabins."
+      },
+      {
+        "strong": "Gravel bars are campsites.",
+        "body": "Camping on park-owned gravel bars is free and needs no reservation. The developed campgrounds, Jerktail included, charge a fee."
       }
     ],
     "related_rivers": [
@@ -411,12 +433,12 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "Upper or lower Current?",
-        "body": "Van Buren is a lower-river gauge. Check the report for the stretch you plan to paddle; one reading does not describe every access."
+        "strong": "Two gauges, two rivers.",
+        "body": "Van Buren reads the lower Current. For anything above Round Spring, use the Akers gauge; the two do not always move together."
       },
       {
         "strong": "Know the landing name.",
-        "body": "The Doniphan route ends at T. L. Wright Memorial Access. Save that exact take-out and your shuttle directions before leaving signal."
+        "body": "The Doniphan float ends at T. L. Wright Memorial Access. Save that name and the shuttle directions before you lose signal."
       }
     ],
     "nearby_attractions": [

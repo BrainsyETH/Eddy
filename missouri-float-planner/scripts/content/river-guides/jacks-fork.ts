@@ -75,19 +75,29 @@ export default {
     },
     "seasons": [
       {
-        "m": "Mar–May",
-        "t": "Watch the upper canyon.",
-        "note": "Rain can change upper-river options quickly. More water can also bring fast rises and difficult conditions."
+        "m": "Mar–Apr",
+        "t": "The canyon’s window.",
+        "note": "Spring rain floats the upper river past Jam Up Cave. Cold water and fast rises make this the wrong season for a first trip."
       },
       {
-        "m": "Jun–Aug",
-        "t": "Compare the routes below Alley.",
-        "note": "Alley Spring adds flow, but do not assume the whole Jacks Fork has the same depth. Reserve rentals and camping for your chosen endpoints."
+        "m": "May–Jun",
+        "t": "The sweet spot.",
+        "note": "The canyon still runs most years, and the lower river is warm enough to swim."
       },
       {
-        "m": "Sep–Feb",
-        "t": "Make daylight part of the route.",
-        "note": "The canyon is worth a look in fall, but a long float can outlast a short day. Cold-water equipment matters as temperatures drop."
+        "m": "Jul–Aug",
+        "t": "Below Alley Spring.",
+        "note": "The canyon goes dry and the spring keeps the lower river going. It is the busiest stretch, so reserve ahead."
+      },
+      {
+        "m": "Sep–Oct",
+        "t": "Quiet and colorful.",
+        "note": "The lower river floats; the canyon needs rain to come back."
+      },
+      {
+        "m": "Nov–Feb",
+        "t": "Cold and empty.",
+        "note": "Floatable below Alley Spring, and above it after rain. Pack dry clothes."
       }
     ],
     "springs": [
@@ -122,17 +132,25 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Decide above or below Alley Spring first. The water and the route choices change on either side."
+        "quote": "A storm upstream can raise the canyon in hours. If the gauge is rising or rain is in the forecast, wait a day. Life jacket on."
       }
     },
     "pro_tips": [
       {
-        "strong": "Visit the mill before the shuttle.",
-        "body": "Alley Mill makes a useful stop around an Alley Spring launch. Allow time for the walk instead of squeezing it into your paddle estimate."
+        "strong": "Check the gauge the morning you go.",
+        "body": "Use Mountain View for the canyon and Alley Spring for the lower river. If either is climbing, or rain is coming, pick another day."
       },
       {
-        "strong": "Save both sides of Two Rivers.",
-        "body": "The confluence is a landmark, but your exact landing matters. Save the selected access and road directions before you set off."
+        "strong": "By July, float below Alley.",
+        "body": "The canyon is usually too low by midsummer. Alley Spring to Eminence and Eminence to Two Rivers are the summer floats."
+      },
+      {
+        "strong": "See the mill first.",
+        "body": "Alley Mill and the spring are a short walk from the launch. Go before the shuttle, not after, when everyone is wet and hungry."
+      },
+      {
+        "strong": "Know your Two Rivers landing.",
+        "body": "Two Rivers is where the Jacks Fork meets the Current. Miss the take-out and the next access is 7 miles down the Current."
       }
     ],
     "sections": [
@@ -284,16 +302,20 @@ export default {
     ],
     "why_different": [
       {
-        "strong": "Alley Spring adds water.",
-        "body": "A reading below the spring does not tell you whether the upper canyon has enough depth."
+        "strong": "Two rivers in one.",
+        "body": "Above Alley Spring it is a rain-fed canyon stream that runs in spring and after storms. Below the spring, about 81 million gallons a day keep it floating into summer."
       },
       {
-        "strong": "Jam Up is on the upper river.",
-        "body": "Choose the Buck Hollow–Rymers stretch for the cave arch view, subject to suitable water and current park access rules."
+        "strong": "It rises fast.",
+        "body": "No big springs feed the upper river, so it comes up and drops faster than the Current. Yesterday’s reading is not today’s river."
       },
       {
-        "strong": "Eminence connects the trips.",
-        "body": "Alley Spring, Eminence and Two Rivers offer separate lower-river outings; linking them makes a longer commitment."
+        "strong": "Small and close.",
+        "body": "Narrower than the Current and tight against bluffs and boulders. Kayaks and canoes fit the upper river better than rafts."
+      },
+      {
+        "strong": "Same park, same rules.",
+        "body": "It is part of the Ozark National Scenic Riverways, so gravel-bar camping is free and glass and foam are banned, the same as on the Current."
       }
     ],
     "related_rivers": [
@@ -312,12 +334,12 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "Check the upper canyon separately.",
-        "body": "A reading below Alley Spring does not tell you how much water is above the spring. Confirm the upper route with someone who has seen it recently."
+        "strong": "The canyon needs rain.",
+        "body": "Buck Hollow to Alley Spring floats in spring and after storms. In a dry summer, plan on the river below Alley Spring."
       },
       {
-        "strong": "Plan the shuttle around Eminence.",
-        "body": "Arrange your selected put-in and take-out with an outfitter, or stage two vehicles. Download directions before entering areas with limited reception."
+        "strong": "Shuttle: outfitter or two cars.",
+        "body": "Rent from an outfitter around Eminence and they drive, or leave a second car at your take-out. Download directions first; service is spotty in the park."
       }
     ],
     "nearby_attractions": [

@@ -79,19 +79,29 @@ export default {
     },
     "seasons": [
       {
-        "m": "Mar–May",
-        "t": "Upper-creek possibilities change with rain.",
-        "note": "Check the route after recent weather. More water may help depth while also increasing hazards."
+        "m": "Mar–Apr",
+        "t": "The upper creek’s window.",
+        "note": "Spring water floats the stretch above Highway 8. Cool and empty."
       },
       {
-        "m": "Jun–Aug",
-        "t": "Confirm the shallow bits.",
-        "note": "Low water can mean repeated exits and dragging. Get current route advice before choosing a long float or a heavily loaded vessel."
+        "m": "May–Jun",
+        "t": "The sweet spot.",
+        "note": "Warm air and good water from Bass River down."
       },
       {
-        "m": "Sep–Feb",
-        "t": "Short routes still need a plan.",
-        "note": "Confirm shuttle availability, daylight and cold-water equipment. The proxy gauge cannot settle those decisions for you."
+        "m": "Jul–Aug",
+        "t": "Drops fast.",
+        "note": "Runs best after rain. Quieter than the Huzzah, even on weekends."
+      },
+      {
+        "m": "Sep–Oct",
+        "t": "Pretty, often low.",
+        "note": "Color and solitude, but it can be too low in a dry year."
+      },
+      {
+        "m": "Nov–Feb",
+        "t": "Only after rain.",
+        "note": "Cold and very private."
       }
     ],
     "springs": [
@@ -118,17 +128,25 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "The Huzzah gauge is a regional clue. Check Courtois depth and obstructions at the stretch you plan to float."
+        "quote": "The Courtois is a small rain creek with no gauge of its own. The Huzzah gauge tells you the trend; your eyes tell you the depth. Life jacket on."
       }
     },
     "pro_tips": [
       {
-        "strong": "Scotia is your landing, not just a direction.",
-        "body": "Save the selected access in the planner and confirm the shuttle location before passing into the confluence area."
+        "strong": "Not a low-water backup.",
+        "body": "If the Huzzah is too low, so is the Courtois."
       },
       {
-        "strong": "Compare trips by endpoints.",
-        "body": "An outfitter’s trip name may cover a different launch than another provider’s. Ask for the actual put-in and take-out before comparing mileage."
+        "strong": "The upper creek is a spring trip.",
+        "body": "Brazil to Highway 8 needs spring water. In summer, float from Bass River down."
+      },
+      {
+        "strong": "Compare trips by landing.",
+        "body": "Outfitters name trips differently. Ask for the actual put-in and take-out before comparing miles or prices."
+      },
+      {
+        "strong": "Steelville has the supplies.",
+        "body": "Bass River Resort is the outfitter on the creek; Steelville has gas, food and lodging."
       }
     ],
     "sections": [
@@ -262,16 +280,20 @@ export default {
     ],
     "why_different": [
       {
-        "strong": "A small creek changes quickly.",
-        "body": "Shallow riffles can shorten the practical paddling season on the upper creek."
+        "strong": "The quiet one.",
+        "body": "Same clear water and gravel bars as the Huzzah, with fewer people. When the Huzzah is packed on a summer Saturday, locals come here."
       },
       {
-        "strong": "The gauge is a proxy.",
-        "body": "Huzzah Creek near Steelville, USGS 07014000, helps show regional trends. Confirm Courtois depth and obstructions locally."
+        "strong": "Short floats in the woods.",
+        "body": "Six to nine miles a float, through Mark Twain National Forest country."
       },
       {
-        "strong": "Know the Scotia finish.",
-        "body": "The confluence is a route decision. Continuing onto the Huzzah needs a separately arranged take-out."
+        "strong": "No gauge of its own.",
+        "body": "Eddy reads it from the Huzzah gauge next door. The two creeks move together, but that number is not a Courtois depth."
+      },
+      {
+        "strong": "It runs into the Huzzah.",
+        "body": "The creeks meet at the Scotia bridge. Stop there, or keep going down the Huzzah with a different take-out."
       }
     ],
     "related_rivers": [
@@ -290,12 +312,12 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "The gauge is on a different creek.",
-        "body": "Huzzah Creek near Steelville is a proxy here. Its stage is not a depth measurement for the Courtois."
+        "strong": "The gauge is on another creek.",
+        "body": "Huzzah Creek near Steelville shows which way the water is heading. For depth, ask Bass River Resort or look at the creek."
       },
       {
-        "strong": "Ask about the last shallow stretch.",
-        "body": "A recent local report for your route is more useful than a generic seasonal promise. Confirm which vessel and load the operator recommends."
+        "strong": "Decide about the Huzzah before you launch.",
+        "body": "Stopping at Scotia and continuing down the Huzzah are different floats with different take-outs."
       }
     ],
     "nearby_attractions": [
