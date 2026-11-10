@@ -15,6 +15,8 @@ import {
   embedTokensFor,
   formatReading,
   headlineReading,
+  readingSource,
+  statusLabel,
   shortAge,
   TREND_GLYPH,
   type EmbedOptions,
@@ -54,10 +56,11 @@ export function riverImageModel(
   const reading = headlineReading(data);
   const trend = data.primary?.trend ?? null;
   const value = reading.value != null ? formatReading(reading.value, reading.unit) : null;
+  const label = statusLabel(data.river.conditionCode, data.primary?.rated, chip.label);
   return {
     title: data.river.name,
-    subtitle: data.primary?.name ?? null,
-    status: chip.label,
+    subtitle: readingSource(data),
+    status: label,
     statusInk: chip.color,
     statusBg: chip.background,
     statusBorder: chip.borderColor,
@@ -67,7 +70,7 @@ export function riverImageModel(
     trend: trend ? TREND_GLYPH[trend] : null,
     age: shortAge(data.primary?.readingTimestamp, now),
     tokens: embedTokensFor(options),
-    alt: `${data.river.name}: ${chip.longLabel}${value ? `, ${value} ${reading.unit}` : ''}${trend ? `, ${trend}` : ''}. Live from Eddy.`,
+    alt: `${data.river.name}: ${label === chip.label ? chip.longLabel : label}${value ? `, ${value} ${reading.unit}` : ''}${trend ? `, ${trend}` : ''}. Live from Eddy.`,
   };
 }
 

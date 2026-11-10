@@ -27,7 +27,7 @@ export default {
       },
       {
         "q": "What should I know about Tunnel Dam?",
-        "a": "It is a hydroelectric dam at the bottom of the lower river, and the last miles above it are slow, backed-up water. Take out at the Tunnel Dam boat landing and stay away from the dam itself. Water below it can change with power generation."
+        "a": "It is a dam built for hydropower near the end of the lower river, and the last miles above it are slow, backed-up water. Take out at the Tunnel Dam boat landing and stay away from the dam itself. Federal regulators approved its owner’s surrender of the power licence in December 2025, with the dam and lake staying in place. Eddy has not confirmed whether generation has stopped. The channel below the dam can run very low."
       },
       {
         "q": "How do I check Niangua water levels?",
@@ -46,7 +46,7 @@ export default {
       "mile_stats": [
         {
           "label": "Length",
-          "value": "76 mi"
+          "value": "122 mi"
         },
         {
           "label": "Difficulty",
@@ -204,7 +204,7 @@ export default {
         "id": 4,
         "to": "Tunnel Dam",
         "best": "Flat, quiet water",
-        "body": "Slow water backed up by Tunnel Dam, a hydroelectric dam at the end of the float, so you will paddle most of it. Find the Tunnel Dam boat landing from the road before you launch so you recognize it from the water, and take out there. Stay away from the dam.",
+        "body": "Slow water backed up by Tunnel Dam, built for hydropower, at the end of the float, so you will paddle most of it. Find the Tunnel Dam boat landing from the road before you launch so you recognize it from the water, and take out there. Stay away from the dam.",
         "from": "Berry Bluff",
         "name": "Berry Bluff to Tunnel Dam",
         "miles": "9.9",
@@ -285,7 +285,7 @@ export default {
         "topic": "Bennett Spring trout park"
       },
       {
-        "url": "https://mdc.mo.gov/fishing/where-to-fish",
+        "url": "https://mostateparks.com/park/bennett-spring-state-park",
         "rule": "Most riverside camping is at private resorts between Bennett Spring and Prosperine, and Bennett Spring State Park has its own campgrounds. Book ahead for summer weekends.",
         "topic": "Camping & access"
       }
@@ -367,11 +367,20 @@ export default {
         "url": "https://mostateparks.com/park/bennett-spring/fishing"
       },
       {
-        "label": "Camping & access",
-        "url": "https://mdc.mo.gov/fishing/where-to-fish"
+        "label": "Missouri State Parks: Bennett Spring State Park",
+        "url": "https://mostateparks.com/park/bennett-spring-state-park"
+      },
+      {
+        "label": "Sho-Me Power: Niangua River dam licence surrender",
+        "url": "https://shomepower.com/about-sho-me/niangua-river-dam"
+      },
+      {
+        "label": "FERC: December 2025 meeting summary, Niangua licence surrender approved",
+        "url": "https://ferc.gov/news-events/news/summaries-december-2025-commission-meeting"
       }
     ],
-    "editorial_updated_at": "2026-11-10"
+    "editorial_updated_at": "2026-11-10",
+    "checked_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773883574106-Screenshot_2026-03-18_at_8.26.06_PM-KvQqnT3PZJtQeXmQ2woqigz7Jnui8B.png"
 } satisfies RiverGuideSeed;

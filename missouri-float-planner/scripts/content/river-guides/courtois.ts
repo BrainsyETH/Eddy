@@ -163,7 +163,7 @@ export default {
         "to_slug": "highway-8-bridge",
         "from_slug": "brazil-low-water-bridge-cr-657",
         "time": "2½–3 hr",
-        "diff": "I",
+        "diff": "I–II",
         "crowd": "Quiet"
       },
       {
@@ -215,7 +215,7 @@ export default {
       },
       {
         "id": "lower",
-        "label": "Lower Courtois — Bass River to the Huzzah",
+        "label": "Lower Courtois — Highway 8 to the Huzzah",
         "best_for": [
           "families",
           "day-trippers",
@@ -259,7 +259,6 @@ export default {
         "topic": "Mixed management"
       },
       {
-        "url": "https://mdc.mo.gov/fishing/where-to-fish",
         "rule": "Bass River Resort runs the main campground on the creek. Most other bank is private, so do not count on a gravel-bar camp without knowing who owns it.",
         "topic": "Camping"
       },
@@ -328,7 +327,7 @@ export default {
         "note": "A 24-mile loop in the Mark Twain National Forest near the upper creek — popular with mountain bikers, hikers, and equestrians, with primitive trailhead camping."
       },
       {
-        "url": "https://mostateparks.com/park/dillard-mill-state-historic-site",
+        "url": "https://mostateparks.com/historic-site/dillard-mill-state-historic-site",
         "kind": "Historic site",
         "name": "Dillard Mill State Historic Site",
         "note": "A preserved red gristmill on the neighboring Huzzah Creek, an easy add-on to a Courtois weekend."
@@ -356,15 +355,12 @@ export default {
         "url": "https://www.fs.usda.gov/mtnf"
       },
       {
-        "label": "Camping",
-        "url": "https://mdc.mo.gov/fishing/where-to-fish"
-      },
-      {
         "label": "Missouri statute 306.325: glass, coolers and trash on vessels",
         "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325"
       }
     ],
-    "editorial_updated_at": "2026-11-10"
+    "editorial_updated_at": "2026-11-10",
+    "checked_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772677224627-Screenshot_2026-03-04_at_8.19.57_PM-3x0uDZV4fXZfi7IBByG00d9BFacuCO.png"
 } satisfies RiverGuideSeed;

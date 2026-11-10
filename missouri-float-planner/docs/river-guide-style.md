@@ -238,10 +238,15 @@ a calculation for every route. Dangerous/regulated responses withhold the
 estimate; missing current readings are labelled as planning estimates.
 
 A guide for a river that a dam controls gets a “Dam releases” section with no
-per-guide content. For a dam with a schedule it sits at the top, directly under
-the live conditions; for one without, after the gauge. The gauge section also
-explains that Eddy does not rate a dam-controlled river, which is why its report
-can read “Unknown” beside valid flow numbers. The lookup: `guideDam()` reads the static dam registry.
+per-guide content. For a dam with a schedule it sits at the top and replaces
+the “Today on the river” card: that card showed the same release as the dam
+card, labelled as a river gauge and sometimes an hour apart. For a dam without a
+schedule it comes after the gauge. On a hydro tailwater the gauge section says
+that the report's first number is the dam's total release and not a river
+gauge, that gauges on the river are listed under “Other gauges”, and that Eddy
+does not rate the river, which is why its readings say “Not rated”. A guide's
+own text must not say a tailwater has no gauge without saying where the first
+one is. The lookup: `guideDam()` reads the static dam registry.
 A dam with a powerhouse shows the live `/embed/dam` schedule and a link to the
 embed page; one without (Clearwater, on the Black) shows a link to its dam
 report only, because it has no hourly schedule to draw. The section states

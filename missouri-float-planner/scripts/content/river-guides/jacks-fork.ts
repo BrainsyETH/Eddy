@@ -27,7 +27,7 @@ export default {
       },
       {
         "q": "When is the Jacks Fork too high?",
-        "a": "The Park Service closes the river to canoes, kayaks, rafts and tubes when it is two feet above its average level. Eddy’s river report marks the Alley Spring gauge high above about 640 cfs and dangerous at 1,000. The Jacks Fork comes up fast after rain, and the canyon is the wrong place to find that out."
+        "a": "The Park Service closes the river to canoes, kayaks, rafts and tubes when it reaches a set level at the park’s bridge gauges: 4.0 feet at the Highway 17 bridge and 5.4 feet at the Highway 106 bridge at Alley Spring. Eddy’s river report marks the Alley Spring gauge high above about 640 cfs and dangerous at 1,000. The Jacks Fork comes up fast after rain, and the canyon is the wrong place to find that out."
       },
       {
         "q": "Can I drink the spring water?",
@@ -109,7 +109,7 @@ export default {
       {
         "mile": "12.6",
         "name": "Jam Up Cave",
-        "note": "An 80-foot-high cave arch visible from the river — one of the most spectacular cave mouths in Missouri. Like all ONSR caves it's closed to entry on foot to slow White-Nose Syndrome among bats.",
+        "note": "An 80-foot-high cave arch visible from the river — one of the most spectacular cave mouths in Missouri. The Park Service lets you walk in as far as the pool at the base of the waterfall; do not go past it.",
         "rank": "ONSR landmark"
       },
       {
@@ -158,7 +158,7 @@ export default {
         "id": 1,
         "to": "Rymers",
         "best": "Experienced paddlers when the water is up",
-        "body": "The canyon. The river squeezes between bluffs past the Jacks Fork’s own Blue Spring (not the one on the Current) and the 80-foot arch of Jam Up Cave, which you look at from your boat. It only runs in spring or after rain; by midsummer most years you would be walking it. Tight turns and downed trees make this the most technical stretch in the guide.",
+        "body": "The canyon. The river squeezes between bluffs past the Jacks Fork’s own Blue Spring (not the one on the Current) and the 80-foot arch of Jam Up Cave, which opens right on the river. It only runs in spring or after rain; by midsummer most years you would be walking it. Tight turns and downed trees make this the most technical stretch in the guide.",
         "from": "Buck Hollow",
         "name": "The upper canyon",
         "miles": "9.4",
@@ -222,7 +222,7 @@ export default {
     "segments": [
       {
         "id": "upper",
-        "label": "Upper Jacks Fork — The Prongs to Bay Creek",
+        "label": "Upper Jacks Fork — The Prongs to Alley Spring",
         "best_for": [
           "experienced-paddlers",
           "spring-runoff",
@@ -344,7 +344,7 @@ export default {
     ],
     "nearby_attractions": [
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/alleyspring.htm",
+        "url": "https://www.nps.gov/places/alley-spring-and-mill.htm",
         "kind": "Historic site",
         "name": "Alley Spring & Mill",
         "note": "The blue spring pool and the red 1894 roller mill — the most photographed spot in the Ozarks, right at the lower put-in."
@@ -353,7 +353,7 @@ export default {
         "url": "https://www.nps.gov/places/rocky-falls.htm",
         "kind": "Waterfall",
         "name": "Rocky Falls",
-        "note": "A pink-granite shut-in and swimming hole off the Stegall Mountain road — a short detour between the Jacks Fork and the Current."
+        "note": "A reddish rhyolite shut-in and swimming hole off Highway NN — a short detour between the Jacks Fork and the Current."
       },
       {
         "url": "https://mostateparks.com/park/echo-bluff-state-park",
@@ -362,7 +362,7 @@ export default {
         "note": "Modern lodge, cabins, and a trailhead at Sinking Creek — the best overnight base between the Jacks Fork and the upper Current."
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/round-spring-cave-tours.htm",
+        "url": "https://www.nps.gov/ozar/learn/nature/caves.htm",
         "kind": "Cave",
         "name": "Round Spring Cave",
         "note": "Ranger-led lantern tours from the Round Spring campground on the nearby Current River, in season."
@@ -398,7 +398,8 @@ export default {
         "url": "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm"
       }
     ],
-    "editorial_updated_at": "2026-11-10"
+    "editorial_updated_at": "2026-11-10",
+    "checked_at": "2026-11-10"
   },
   "og_image_url": "https://www.nps.gov/common/uploads/cropped_image/4E240289-EB97-9CDB-81F98A50145B568B.jpg"
 } satisfies RiverGuideSeed;

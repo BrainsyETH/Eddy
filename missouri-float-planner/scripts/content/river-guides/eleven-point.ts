@@ -109,7 +109,7 @@ export default {
         "flow": "~222 MGD avg",
         "mile": "~17",
         "name": "Greer Spring",
-        "note": "Missouri's 2nd-largest spring. It enters through the Greer Spring Branch about a mile below the access and roughly doubles the river — colder, clearer, and faster below the confluence. The spring itself is a 1.1-mile hike down from Highway 19.",
+        "note": "Missouri's 2nd-largest spring. It enters through the Greer Spring Branch about a mile below the access and more than doubles the river — colder, clearer, and faster below the confluence. The spring itself is a 0.9-mile hike down from Highway 19.",
         "rank": "MO #2"
       },
       {
@@ -269,7 +269,7 @@ export default {
     ],
     "regulations": [
       {
-        "url": "https://www.rivers.gov/rivers/eleven-point.php",
+        "url": "https://www.rivers.gov/river/eleven-point",
         "rule": "Congress made the Eleven Point one of the first eight National Wild and Scenic Rivers in 1968. The protected stretch runs 44 miles, from Thomasville to the Highway 142 bridge.",
         "topic": "Wild & Scenic designation"
       },
@@ -338,7 +338,7 @@ export default {
     ],
     "nearby_attractions": [
       {
-        "url": "https://www.fs.usda.gov/mtnf",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/greer-spring",
         "kind": "Natural area",
         "name": "Greer Spring",
         "note": "Missouri's 2nd-largest spring, reached by a 0.9-mile trail down from Highway 19 — a worthwhile stop even if you're not floating."
@@ -350,10 +350,10 @@ export default {
         "note": "Missouri's 'Little Grand Canyon' — a collapsed cave system of sheer dolomite walls near Thayer, a short drive south."
       },
       {
-        "url": "https://www.fs.usda.gov/mtnf",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/groups/irish-wilderness",
         "kind": "Wilderness",
         "name": "Irish Wilderness",
-        "note": "A 16,500-acre USFS wilderness on the river's east side — the largest in Missouri's national forest, with backcountry trails."
+        "note": "A 16,277-acre USFS wilderness on the river's east side — the largest in Missouri's national forest, with backcountry trails."
       }
     ],
     "sources": [
@@ -363,7 +363,7 @@ export default {
       },
       {
         "label": "Wild & Scenic designation",
-        "url": "https://www.rivers.gov/rivers/eleven-point.php"
+        "url": "https://www.rivers.gov/river/eleven-point"
       },
       {
         "label": "USFS: Eleven Point float camps, glass and motor rules",
@@ -372,13 +372,10 @@ export default {
       {
         "label": "USFS: Greer Spring trail",
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/greer-mill-historic-site"
-      },
-      {
-        "label": "USFS: Eleven Point Scenic River travel guide",
-        "url": "https://www.fs.usda.gov/Internet/FSE_DOCUMENTS/stelprdb5200703.pdf"
       }
     ],
-    "editorial_updated_at": "2026-11-10"
+    "editorial_updated_at": "2026-11-10",
+    "checked_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772685020904-Screenshot_2026-03-04_at_8.27.42_PM-mJ3OpnZe9jVmj3ROMqwZya2bjj3471.png"
 } satisfies RiverGuideSeed;

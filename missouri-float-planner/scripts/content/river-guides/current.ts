@@ -106,26 +106,25 @@ export default {
     ],
     "springs": [
       {
-        "mile": "12.6",
+        "mile": "13.5",
         "name": "Medlock Cave & Spring",
         "note": "River-right cave entrance just upstream of Welch — easy to miss. Worth a paddle-by; entering the cave on foot is closed (White-Nose Syndrome)."
       },
       {
-        "flow": "78–120 MGD (sources vary)",
-        "mile": "13.7",
+        "flow": "78–148 MGD (sources vary)",
+        "mile": "14.8",
         "name": "Welch Spring & Hospital",
         "note": "Ruined 1913 sanitarium built to use the spring's 'curative' air. Pull off river-right and walk up — this one is on the Cedar Grove–Akers float, not Akers–Pulltite.",
         "rank": "First-magnitude"
       },
       {
         "flow": "~32 MGD",
-        "mile": "21.9",
+        "mile": "22.1",
         "name": "Cave Spring",
-        "note": "On the Akers–Pulltite stretch. NPS identifies Cave Spring as an exception to its general cave closures; check current guidance before visiting.",
-        "rank": "First-magnitude"
+        "note": "On the Akers–Pulltite stretch. NPS identifies Cave Spring as an exception to its general cave closures; check current guidance before visiting."
       },
       {
-        "flow": "~47 MGD",
+        "flow": "~30 MGD",
         "mile": "26.3",
         "name": "Pulltite Spring",
         "note": "Near the Pulltite area. Plan the spring visit separately and follow the marked route; do not assume a campground path reaches every spring-bank stop.",
@@ -133,10 +132,9 @@ export default {
       },
       {
         "flow": "~26 MGD",
-        "mile": "35.2",
+        "mile": "35.5",
         "name": "Round Spring",
         "note": "Circular blue spring pool — a 50-foot-wide bowl. NPS interpretive site, walk to it from the parking lot.",
-        "rank": "First-magnitude",
         "photo": {
           "url": "/images/river-guides/round-spring.webp",
           "alt": "Blue Round Spring pool beneath a wooded bluff.",
@@ -149,14 +147,14 @@ export default {
       },
       {
         "flow": "~90 MGD",
-        "mile": "57.4",
+        "mile": "61.8",
         "name": "Blue Spring (Current)",
         "note": "Near Powder Mill on the lower river. Not the Jacks Fork's Blue Spring near Buck Hollow — these are routinely conflated.",
         "rank": "MO #6 — Missouri's deepest at 310 ft"
       },
       {
-        "flow": "~286 MGD avg (~470 cfs avg; 1,170 cfs max)",
-        "mile": "90.2",
+        "flow": "~286 MGD avg (~440 cfs)",
+        "mile": "90.9",
         "name": "Big Spring",
         "note": "One of the largest single-outlet springs in the United States. Reliably blue, surrounded by old CCC stonework.",
         "rank": "MO #1"
@@ -284,7 +282,7 @@ export default {
         "id": 6,
         "to": "Doniphan",
         "best": "Long, quiet miles",
-        "body": "Below Big Spring the river goes wide and slow and the crowds disappear. About 15 miles in you leave the national park, and the rest runs through Mark Twain National Forest past Hickory Landing, Gooseneck and Float Camp. Take out at T. L. Wright Memorial Access in Doniphan. Know where you are sleeping each night, because the camping rules change when you leave the park.",
+        "body": "Below Big Spring the river goes wide and slow and the crowds disappear. About 16 miles in, below Gooseneck, you leave the national park, and the rest runs through Mark Twain National Forest past Bay Nothing, Deer Leap and Float Camp. Take out at T. L. Wright Memorial Access in Doniphan. Know where you are sleeping each night, because the camping rules change when you leave the park.",
         "from": "Big Spring",
         "name": "Lower river",
         "miles": "36.2",
@@ -381,7 +379,7 @@ export default {
         "topic": "Gravel-bar camping"
       },
       {
-        "url": "https://www.nps.gov/ozar/learn/management/laws-and-policies.htm",
+        "url": "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm",
         "rule": "Motor rules vary by stretch and season. Use the current NPS rules for your planned route.",
         "topic": "Motorboat HP limits"
       },
@@ -452,7 +450,7 @@ export default {
         "url": "https://mostateparks.com/park/current-river-state-park",
         "kind": "State Park",
         "name": "Current River State Park",
-        "note": "Old Alton Box Company company town turned park, with day-use access between Akers and Round Spring."
+        "note": "Former Alton Box Board Co. corporate retreat turned park, with day-use access between Akers and Round Spring."
       },
       {
         "url": "https://mostateparks.com/park/montauk-state-park",
@@ -461,31 +459,31 @@ export default {
         "note": "Trout park at the headwaters; daily stocking, fly-and-artificial water above Cedar Grove."
       },
       {
-        "url": "https://www.nps.gov/ozar/learn/historyculture/big-spring.htm",
+        "url": "https://www.nps.gov/places/big-spring.htm",
         "kind": "Historic site",
         "name": "Big Spring CCC District",
         "note": "Civilian Conservation Corps stonework around Big Spring — the dining lodge and cabins are NRHP-listed."
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/rockyfalls.htm",
+        "url": "https://www.nps.gov/places/rocky-falls.htm",
         "kind": "Waterfall",
         "name": "Rocky Falls",
-        "note": "Shut-in cascade off the Stegall Mountain road, a quick stop on the drive in or out."
+        "note": "Shut-in cascade off Highway NN, a quick stop on the drive in or out."
       },
       {
-        "url": "https://www.nps.gov/ozar/learn/historyculture/devils-well.htm",
+        "url": "https://www.nps.gov/places/devils-well.htm",
         "kind": "Cave",
         "name": "Devil's Well",
         "note": "Walk-down cave overlook — a roadside stop near Akers."
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/round-spring-cave-tours.htm",
+        "url": "https://www.nps.gov/ozar/learn/nature/caves.htm",
         "kind": "Cave",
         "name": "Round Spring Cave",
         "note": "Ranger-led tours from Round Spring campground in season."
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/alleyspring.htm",
+        "url": "https://www.nps.gov/places/alley-spring-and-mill.htm",
         "kind": "Historic site",
         "name": "Alley Spring Mill",
         "note": "Red mill on the Jacks Fork — easy detour for a multi-river weekend."
@@ -510,7 +508,7 @@ export default {
       },
       {
         "label": "Motorboat HP limits",
-        "url": "https://www.nps.gov/ozar/learn/management/laws-and-policies.htm"
+        "url": "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm"
       },
       {
         "label": "NPS: park brochure and river mileage",
@@ -537,7 +535,8 @@ export default {
         "url": "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm"
       }
     ],
-    "editorial_updated_at": "2026-11-10"
+    "editorial_updated_at": "2026-11-10",
+    "checked_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1770003451989-Montauk-9DBZH6CuKRaiCxQEd6sBa5MWkONotQ.png"
 } satisfies RiverGuideSeed;
