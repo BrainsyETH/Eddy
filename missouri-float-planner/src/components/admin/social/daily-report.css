@@ -7,6 +7,9 @@
 .daily-report-count { font-family: var(--font-body), sans-serif; font-size: 16px; font-weight: 500; }
 .daily-report-stamp { font-size: 14px; margin: 0 0 6px; }
 .daily-report-widget { flex: none; }
+/* The full dam widget carries more measurements. Keep its complete hierarchy
+   in the portrait canvas, with at least 24px supporting text in the JPEG. */
+.daily-report-slide[data-report-kind="dam"] .daily-report-widget { zoom: .8; }
 .daily-report-slide .ew-title { font-size: 24px; }
 .daily-report-slide .ew-support, .daily-report-slide .ew-section-title,
 .daily-report-slide .ew-sched-axis, .daily-report-slide .text-xs { font-size: 15px; }

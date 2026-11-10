@@ -10,7 +10,7 @@ export default function DailyReportSlide({ report, index }: { report: DailyRepor
   const options = parseEmbedOptions({ size: 'full', theme: 'light', days: '7' });
   const props = { options, branding: null, origin: 'https://eddy.guide', now: Date.parse(report.capturedAt), report: true };
   return (
-    <article className="daily-report-slide" data-report-slide data-slide-count={report.slides.length} data-captured-at={report.capturedAt}>
+    <article className="daily-report-slide" data-report-slide data-report-kind={slide.kind} data-slide-count={report.slides.length} data-captured-at={report.capturedAt}>
       <header className="daily-report-heading">
         <span>Daily Report</span><span className="daily-report-count">{index + 1} / {report.slides.length}</span>
       </header>

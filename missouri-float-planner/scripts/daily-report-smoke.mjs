@@ -47,6 +47,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
     const slide = page.locator('[data-report-slide]');
     await slide.waitFor();
     await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.querySelectorAll('[data-report-slide] img')].map(img => img.decode())); });
+    // Next's development badge is not part of the production export.
+    await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' });
+    await slide.screenshot({ path: `${output}/${name}.png` });
     const bounds = await slide.evaluate(el => ({ height: el.clientHeight, scroll: el.scrollHeight, width: el.clientWidth,
       overflow: [...el.querySelectorAll('*')].filter(c => { const r = c.getBoundingClientRect(), b = el.getBoundingClientRect(); return r.width && (r.right > b.right + 1 || r.left < b.left - 1 || r.bottom > b.bottom + 1); }).map(c => c.className) }));
     assert.equal(bounds.width, 540);
@@ -57,7 +60,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
     assert.equal(await slide.locator('.ew-credit, .ew-about').count(), 0, 'static export has no dead controls');
     assert.equal(await slide.locator(index ? '.ew-sched' : 'svg[role="img"]').count(), 1, 'one actual widget chart');
     if (index) assert.equal(await slide.locator('.ew-dam-detail').count(), 3, 'dam measurements stay together');
-    await slide.screenshot({ path: `${output}/${name}.png` });
     console.log(`PASS ${name}: actual widget fits 1080 × 1350 export`);
   }
   for (const width of [390, 320]) {
