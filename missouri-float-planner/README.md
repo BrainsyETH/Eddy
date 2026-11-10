@@ -90,6 +90,10 @@ retired `/rivers/<river>/access/<access>` form. Legacy links return HTTP 308 in
 indexes and canonical pages bypass the redirect lookup. Only verified access
 aliases are redirected; an unavailable catalog returns a retryable 503.
 
+`/rivers/<state>/<river>/accesses` returns HTTP 308 to the river page's `#access`
+section, preserving query strings. The access list stays on the river page;
+individual places keep `/rivers/<state>/<river>/access/<place>`.
+
 Conditions links to the state indexes, and river/access breadcrumbs expose the
 same hierarchy. Access pages offer Start here / End here only for float
 endpoints; every access can open on the planner map. Guide section cards link
