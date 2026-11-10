@@ -58,7 +58,7 @@ export default {
         },
         {
           "label": "Season",
-          "value": "Check your stretch"
+          "value": "Year-round below Greer Spring"
         },
         {
           "label": "Manager",
@@ -240,23 +240,23 @@ export default {
     "regulations": [
       {
         "url": "https://www.rivers.gov/rivers/eleven-point.php",
-        "rule": "Use the linked agency information for current wild & scenic designation requirements on your particular stretch.",
+        "rule": "Congress made the Eleven Point one of the first eight National Wild and Scenic Rivers in 1968. The protected stretch runs 44 miles, from Thomasville to the Highway 142 bridge.",
         "topic": "Wild & Scenic designation"
       },
       {
-        "url": "https://www.fs.usda.gov/mtnf",
-        "rule": "Use the linked agency information for current float camps requirements on your particular stretch.",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/eleven-point-national-wild-and-scenic-river",
+        "rule": "The Forest Service keeps seven float camps along the river, and most can only be reached by boat. Eight people to a site at most, and burn only dead, downed wood.",
         "topic": "Float camps"
       },
       {
-        "url": "https://www.fs.usda.gov/mtnf",
-        "rule": "Use the linked agency information for current greer spring branch requirements on your particular stretch.",
-        "topic": "Greer Spring Branch"
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/greer-mill-historic-site",
+        "rule": "Greer Spring is a walk, not a paddle stop: a 0.9-mile trail with a steep drop at the end. It is day use only, so no camping at the spring.",
+        "topic": "Greer Spring"
       },
       {
-        "url": "https://www.fs.usda.gov/mtnf",
-        "rule": "Use the linked agency information for current leave no trace requirements on your particular stretch.",
-        "topic": "Leave No Trace"
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/eleven-point-national-wild-and-scenic-river",
+        "rule": "No glass or foam coolers on the river. Motors are capped at 25 horsepower between Thomasville and the Highway 142 bridge.",
+        "topic": "Glass, foam & motors"
       }
     ],
     "what_to_bring": [
@@ -307,7 +307,7 @@ export default {
         "url": "https://www.fs.usda.gov/mtnf",
         "kind": "Natural area",
         "name": "Greer Spring",
-        "note": "Missouri's 2nd-largest spring, reached by a 1.1-mile hike down from Highway 19 — a worthwhile stop even if you're not floating."
+        "note": "Missouri's 2nd-largest spring, reached by a 0.9-mile trail down from Highway 19 — a worthwhile stop even if you're not floating."
       },
       {
         "url": "https://mostateparks.com/park/grand-gulf-state-park",
@@ -332,8 +332,12 @@ export default {
         "url": "https://www.rivers.gov/rivers/eleven-point.php"
       },
       {
-        "label": "Leave No Trace",
-        "url": "https://www.fs.usda.gov/mtnf"
+        "label": "USFS: Eleven Point float camps, glass and motor rules",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/eleven-point-national-wild-and-scenic-river"
+      },
+      {
+        "label": "USFS: Greer Spring trail",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/greer-mill-historic-site"
       },
       {
         "label": "USFS: Eleven Point Scenic River travel guide",

@@ -23,7 +23,7 @@ export default {
       },
       {
         "q": "When is the upper Jacks Fork too low to float?",
-        "a": "Check the upper stretch directly. The Alley Spring gauge is useful context but does not measure the depth at every upstream riffle; a blanket two-foot rule is not reliable route advice."
+        "a": "For the canyon above Alley Spring, watch the Jacks Fork near Mountain View gauge (USGS 07065200), not the one at Alley Spring. Eddy rates the upper river best between about 100 and 490 cfs there, and too low under 30. In between, expect to float the pools and walk some riffles."
       },
       {
         "q": "When is the Jacks Fork too high?",
@@ -54,7 +54,7 @@ export default {
         },
         {
           "label": "Season",
-          "value": "Check your stretch"
+          "value": "Spring above Alley; longer below"
         },
         {
           "label": "Manager",
@@ -242,8 +242,8 @@ export default {
     ],
     "regulations": [
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/things2know.htm",
-        "rule": "Check the linked NPS visitor rules for prohibited containers and river-use requirements before packing.",
+        "url": "https://www.nps.gov/ozar/planyourvisit/park-regulations.htm",
+        "rule": "Glass and foam coolers are banned on and around the river, including in any canoe, kayak, raft or tube.",
         "topic": "Glass containers"
       },
       {
@@ -252,13 +252,13 @@ export default {
         "topic": "Caves & White-Nose Syndrome"
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/camping.htm",
-        "rule": "Check NPS backcountry camping rules and closures for the particular site. Developed campgrounds have separate fees.",
+        "url": "https://www.nps.gov/ozar/planyourvisit/gravel-bar-camping.htm",
+        "rule": "Gravel-bar camping is free with no reservation, on NPS-owned bars only. Camp at least 300 yards from any campground and 50 feet from accesses and cave mouths, and move on after five days. Rivers here rise fast, so plan a way off the bar.",
         "topic": "Gravel-bar camping"
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/things2know.htm",
-        "rule": "Review NPS river-use rules; keep anyone operating a boat sober.",
+        "url": "https://www.nps.gov/ozar/planyourvisit/park-regulations.htm",
+        "rule": "Drinking is allowed for adults. Beer bongs and similar gear are not, and the glass ban covers bottles.",
         "topic": "Alcohol"
       }
     ],
@@ -340,16 +340,16 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/07065495/"
       },
       {
-        "label": "Alcohol",
-        "url": "https://www.nps.gov/ozar/planyourvisit/things2know.htm"
+        "label": "NPS: park regulations (glass, foam, alcohol)",
+        "url": "https://www.nps.gov/ozar/planyourvisit/park-regulations.htm"
       },
       {
         "label": "Caves & White-Nose Syndrome",
         "url": "https://www.nps.gov/ozar/learn/nature/caves.htm"
       },
       {
-        "label": "Gravel-bar camping",
-        "url": "https://www.nps.gov/ozar/planyourvisit/camping.htm"
+        "label": "NPS: gravel-bar camping rules",
+        "url": "https://www.nps.gov/ozar/planyourvisit/gravel-bar-camping.htm"
       },
       {
         "label": "NPS: park brochure and river mileage",

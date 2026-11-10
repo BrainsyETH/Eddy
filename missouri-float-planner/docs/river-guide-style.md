@@ -189,6 +189,16 @@ cache window. No schema migration or new scheduled job is involved.
 byline, Article/OG metadata and sitemap. `checked_at` records a source review;
 it is not changed just because wording was edited. Neither is derived from
 operational `blog_posts.updated_at`.
+Set `editorial_updated_at` only on a guide whose reader-facing copy changed in
+that edit. A guide that was reviewed and left alone keeps its earlier date, or
+none.
+
+A regulations row states the rule: the limit, the boundary, the fee, the date.
+“Check the agency page” is not a rule; if the rule cannot be verified, delete
+the row and keep the link in `sources`. Hero stats follow the same test. A tile
+holds a fact a reader can use (“Apr–Oct”, “Year-round below Greer Spring”),
+never an instruction. Do not refer to earlier versions of a guide in reader
+copy; a correction belongs in the PR, not the FAQ.
 
 The overview uses real `get_float_segment` geometry and omits missing lines.
 It shows featured stretches, not a continuous navigable river or a basemap.

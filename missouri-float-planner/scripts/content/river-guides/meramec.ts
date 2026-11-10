@@ -58,7 +58,7 @@ export default {
         },
         {
           "label": "Season",
-          "value": "Check your stretch"
+          "value": "Apr–Oct"
         },
         {
           "label": "Access",
@@ -258,22 +258,22 @@ export default {
     "regulations": [
       {
         "url": "https://mdc.mo.gov/fishing/regulations/special-waterbody-regulations/meramec-river",
-        "rule": "Use the linked agency information for current red ribbon trout area requirements on your particular stretch.",
+        "rule": "From the Highway 8 bridge to Scotts Ford, a trout must be at least 15 inches to keep, the daily limit is two, and only artificial lures and flies are allowed. Felt and other porous-soled waders are banned in Crawford and Phelps counties.",
         "topic": "Red Ribbon trout area"
       },
       {
         "url": "https://mdc.mo.gov/fishing/regulations/special-waterbody-regulations/meramec-river",
-        "rule": "Use the linked agency information for current black bass & goggle-eye limits requirements on your particular stretch.",
+        "rule": "From the Highway 8 bridge to the Bird’s Nest railroad crossing, a smallmouth must be 15 inches and you may keep one a day. Goggle-eye must be 8 inches from the Highway 19 bridge down to Pacific Palisades.",
         "topic": "Black bass & goggle-eye limits"
       },
       {
         "url": "https://mostateparks.com/park/meramec-state-park",
-        "rule": "Check the land manager or operator’s current rules for the place you plan to stay.",
+        "rule": "Onondaga Cave and Meramec state parks both have campgrounds by the river. A gravel bar is not automatically public land, so find out who owns the bank before you pitch a tent.",
         "topic": "Camping"
       },
       {
-        "url": "https://mdc.mo.gov/fishing/regulations",
-        "rule": "Pack out your trash and check the linked agency information before your trip.",
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325",
+        "rule": "Missouri law bans glass drink containers in canoes, kayaks, rafts and tubes. Coolers must seal shut, and each boat needs a trash bag that closes. Carry it all out.",
         "topic": "Glass & trash"
       }
     ],
@@ -364,8 +364,8 @@ export default {
         "url": "https://mostateparks.com/park/meramec-state-park"
       },
       {
-        "label": "Glass & trash",
-        "url": "https://mdc.mo.gov/fishing/regulations"
+        "label": "Missouri statute 306.325: glass, coolers and trash on vessels",
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325"
       },
       {
         "label": "MDC: Meramec watershed and spring base flow",

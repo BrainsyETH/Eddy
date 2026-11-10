@@ -208,8 +208,7 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore",
-    "editorial_updated_at": "2026-11-10"
+    "sights_heading": "Places to explore ashore"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

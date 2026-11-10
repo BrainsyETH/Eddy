@@ -186,8 +186,7 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false,
-    "editorial_updated_at": "2026-11-10"
+    "use_access_photos": false
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

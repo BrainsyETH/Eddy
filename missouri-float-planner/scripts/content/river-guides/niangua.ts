@@ -58,7 +58,7 @@ export default {
         },
         {
           "label": "Season",
-          "value": "Check your stretch"
+          "value": "Apr–Oct"
         },
         {
           "label": "Access",
@@ -250,19 +250,14 @@ export default {
     ],
     "regulations": [
       {
-        "url": "https://mostateparks.com/park/bennett-spring-state-park",
-        "rule": "Use the linked agency information for current bennett spring trout park requirements on your particular stretch.",
+        "url": "https://mostateparks.com/park/bennett-spring/fishing",
+        "rule": "To fish inside Bennett Spring State Park you need a daily trout tag on top of a Missouri fishing permit. The regular season runs March 1 to October 31; winter is catch-and-release, Friday through Monday. The park’s three zones each allow different lures and bait.",
         "topic": "Bennett Spring trout park"
       },
       {
         "url": "https://mdc.mo.gov/fishing/where-to-fish",
-        "rule": "Use the linked agency information for current camping & access requirements on your particular stretch.",
+        "rule": "Most riverside camping is at private resorts between Bennett Spring and Prosperine, and Bennett Spring State Park has its own campgrounds. Book ahead for summer weekends.",
         "topic": "Camping & access"
-      },
-      {
-        "url": "https://mdc.mo.gov/fishing/regulations",
-        "rule": "Use the linked agency information for current fishing limits requirements on your particular stretch.",
-        "topic": "Fishing limits"
       }
     ],
     "what_to_bring": [
@@ -334,16 +329,12 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/06923250/"
       },
       {
-        "label": "Bennett Spring trout park",
-        "url": "https://mostateparks.com/park/bennett-spring-state-park"
+        "label": "Missouri State Parks: Bennett Spring fishing rules",
+        "url": "https://mostateparks.com/park/bennett-spring/fishing"
       },
       {
         "label": "Camping & access",
         "url": "https://mdc.mo.gov/fishing/where-to-fish"
-      },
-      {
-        "label": "Fishing limits",
-        "url": "https://mdc.mo.gov/fishing/regulations"
       }
     ],
     "editorial_updated_at": "2026-11-10"

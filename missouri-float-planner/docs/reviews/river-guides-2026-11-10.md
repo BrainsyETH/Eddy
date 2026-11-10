@@ -15,6 +15,14 @@ All 25 published guides were reviewed. The original seven received substantial c
 - Correct Cave Spring entry wording to match the current NPS exceptions. Remove the unrelated Ha Ha Tonka source from Tunnel Dam advice.
 - Remove the Hickory Landing image from Akers → Pulltite: it depicts a different stretch.
 
+## Review follow-up
+
+- Regulations rows in Eleven Point, Meramec, Huzzah, Courtois, Niangua, Current and Jacks Fork now state the rule itself, checked against the linked USFS, MDC, Missouri State Parks, NPS and Missouri statute pages on November 10. The unverified Niangua fishing-limits row was removed. The NPS visitor-rules link returned 404 and now points to the park regulations page.
+- Huzzah and Jacks Fork low-water answers give the thresholds Eddy's river report uses (`river_gauges`) and no longer refer to earlier advice.
+- The “Season” hero tile gives a season again.
+- Gasconade, Mulberry and St. Francis had no copy change, so they carry no `editorial_updated_at` and are not part of the content batch.
+- Open question for the next source review: the NPS park regulations page says all caves are closed to visitation, while the NPS floating page lists exceptions. The cave rows were left as they were.
+
 ## Coverage and remaining image work
 
 The table counts explicit article photos; the original seven can also display existing access-photo fallbacks. Those fallback slots need separate location/rights review and are not all blank on the live site. A numbered route card is an intentional fallback when a matching photo and reuse rights are not established. Existing legacy images are retained except the known mismatch above; their presence is not a new rights approval. New route/sight photography includes an exact-location caption and source/license links.

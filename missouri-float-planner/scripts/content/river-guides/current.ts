@@ -58,7 +58,7 @@ export default {
         },
         {
           "label": "Season",
-          "value": "Check your stretch"
+          "value": "Year-round below Welch Spring"
         },
         {
           "label": "Manager",
@@ -330,8 +330,8 @@ export default {
     ],
     "regulations": [
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/things2know.htm",
-        "rule": "Check the linked NPS visitor rules for prohibited containers and river-use requirements before packing.",
+        "url": "https://www.nps.gov/ozar/planyourvisit/park-regulations.htm",
+        "rule": "Glass and foam coolers are banned on and around the river, including in any canoe, kayak, raft or tube.",
         "topic": "Glass containers"
       },
       {
@@ -340,8 +340,8 @@ export default {
         "topic": "Caves & White-Nose Syndrome"
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/camping.htm",
-        "rule": "Check NPS backcountry camping rules and closures for the particular site. Developed campgrounds have separate fees.",
+        "url": "https://www.nps.gov/ozar/planyourvisit/gravel-bar-camping.htm",
+        "rule": "Gravel-bar camping is free with no reservation, on NPS-owned bars only. Camp at least 300 yards from any campground and 50 feet from accesses and cave mouths, and move on after five days. Rivers here rise fast, so plan a way off the bar.",
         "topic": "Gravel-bar camping"
       },
       {
@@ -350,8 +350,8 @@ export default {
         "topic": "Motorboat HP limits"
       },
       {
-        "url": "https://www.nps.gov/ozar/planyourvisit/things2know.htm",
-        "rule": "Review NPS river-use rules; keep anyone operating a boat sober.",
+        "url": "https://www.nps.gov/ozar/planyourvisit/park-regulations.htm",
+        "rule": "Drinking is allowed for adults. Beer bongs and similar gear are not, and the glass ban covers bottles.",
         "topic": "Alcohol"
       }
     ],
@@ -457,16 +457,16 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/07067000/"
       },
       {
-        "label": "Alcohol",
-        "url": "https://www.nps.gov/ozar/planyourvisit/things2know.htm"
+        "label": "NPS: park regulations (glass, foam, alcohol)",
+        "url": "https://www.nps.gov/ozar/planyourvisit/park-regulations.htm"
       },
       {
         "label": "Caves & White-Nose Syndrome",
         "url": "https://www.nps.gov/ozar/learn/nature/caves.htm"
       },
       {
-        "label": "Gravel-bar camping",
-        "url": "https://www.nps.gov/ozar/planyourvisit/camping.htm"
+        "label": "NPS: gravel-bar camping rules",
+        "url": "https://www.nps.gov/ozar/planyourvisit/gravel-bar-camping.htm"
       },
       {
         "label": "Motorboat HP limits",

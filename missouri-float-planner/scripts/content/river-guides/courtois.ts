@@ -54,7 +54,7 @@ export default {
         },
         {
           "label": "Season",
-          "value": "Check your stretch"
+          "value": "Apr–Jun, or after rain"
         },
         {
           "label": "Type",
@@ -224,17 +224,17 @@ export default {
       },
       {
         "url": "https://www.fs.usda.gov/mtnf",
-        "rule": "Use the linked agency information for current mixed management requirements on your particular stretch.",
+        "rule": "The creek passes Mark Twain National Forest, MDC land and a lot of private bank. Unless a sign says it is public, treat the bank as someone’s property.",
         "topic": "Mixed management"
       },
       {
         "url": "https://mdc.mo.gov/fishing/where-to-fish",
-        "rule": "Check the land manager or operator’s current rules for the place you plan to stay.",
+        "rule": "Bass River Resort runs the main campground on the creek. Most other bank is private, so do not count on a gravel-bar camp without knowing who owns it.",
         "topic": "Camping"
       },
       {
-        "url": "https://mdc.mo.gov/fishing/regulations",
-        "rule": "Pack out your trash and check the linked agency information before your trip.",
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325",
+        "rule": "Missouri law bans glass drink containers in canoes, kayaks, rafts and tubes. Coolers must seal shut, and each boat needs a trash bag that closes. Carry it all out.",
         "topic": "Glass & trash"
       }
     ],
@@ -325,8 +325,8 @@ export default {
         "url": "https://mdc.mo.gov/fishing/where-to-fish"
       },
       {
-        "label": "Glass & trash",
-        "url": "https://mdc.mo.gov/fishing/regulations"
+        "label": "Missouri statute 306.325: glass, coolers and trash on vessels",
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325"
       }
     ],
     "editorial_updated_at": "2026-11-10"

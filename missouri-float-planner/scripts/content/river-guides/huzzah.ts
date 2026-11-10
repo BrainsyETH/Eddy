@@ -19,7 +19,7 @@ export default {
       },
       {
         "q": "When is the Huzzah too low to float?",
-        "a": "Use Huzzah Creek near Steelville, USGS 07014000, as context and confirm your specific stretch. The old two-foot advice tied to a Big River station should not guide a Huzzah trip."
+        "a": "Eddy calls the Huzzah too low below about 56 cfs (3.1 ft) at the Huzzah Creek near Steelville gauge, USGS 07014000. It floats best between roughly 110 and 260 cfs (3.4 to 4.0 ft). The creek above Red Bluff runs out of water first, so you will be dragging there before the lower creek gets scrapy."
       },
       {
         "q": "Can I float the Huzzah and Courtois the same weekend?",
@@ -54,7 +54,7 @@ export default {
         },
         {
           "label": "Season",
-          "value": "Check your stretch"
+          "value": "Apr–Jun, or after rain"
         },
         {
           "label": "Type",
@@ -233,22 +233,22 @@ export default {
     "regulations": [
       {
         "url": "https://mostateparks.com/park/dillard-mill-state-historic-site",
-        "rule": "Use the linked agency information for current mixed management requirements on your particular stretch.",
+        "rule": "Three different managers in 28 miles. Dillard Mill is a State Historic Site, Red Bluff is a Forest Service recreation area, and Huzzah Conservation Area belongs to MDC. Each posts its own rules at the access.",
         "topic": "Mixed management"
       },
       {
         "url": "https://www.fs.usda.gov/mtnf",
-        "rule": "Check the land manager or operator’s current rules for the place you plan to stay.",
+        "rule": "Red Bluff has a Forest Service campground with a nightly fee. Huzzah Valley and the other resorts run their own campgrounds, so book those with the resort.",
         "topic": "Camping"
       },
       {
         "url": "https://waterdata.usgs.gov/monitoring-location/07014000/",
-        "rule": "Use the linked agency information for current shared gauge with the courtois requirements on your particular stretch.",
+        "rule": "Eddy reads both creeks from one station: Huzzah Creek near Steelville (USGS 07014000). It sits on the Huzzah, so for the Courtois it shows which way the water is heading, not how deep it is.",
         "topic": "Shared gauge with the Courtois"
       },
       {
-        "url": "https://mdc.mo.gov/fishing/regulations",
-        "rule": "Pack out your trash and check the linked agency information before your trip.",
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325",
+        "rule": "Missouri law bans glass drink containers in canoes, kayaks, rafts and tubes. Coolers must seal shut, and each boat needs a trash bag that closes. Carry it all out.",
         "topic": "Glass & trash"
       }
     ],
@@ -339,8 +339,8 @@ export default {
         "url": "https://www.fs.usda.gov/mtnf"
       },
       {
-        "label": "Glass & trash",
-        "url": "https://mdc.mo.gov/fishing/regulations"
+        "label": "Missouri statute 306.325: glass, coolers and trash on vessels",
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325"
       }
     ],
     "editorial_updated_at": "2026-11-10"

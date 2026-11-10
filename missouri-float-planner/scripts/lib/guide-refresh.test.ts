@@ -34,7 +34,8 @@ test('all 25 reviewed guides have baselines, resolved endpoint slugs and distinc
   assert.equal(reviewedRiverGuides.length, 25);
   for (const guide of reviewedRiverGuides) {
     assert.match(baseline[guide.slug as keyof typeof baseline], /^[a-f0-9]{64}$/);
-    assert.equal(guide.guide_data.editorial_updated_at, '2026-11-10');
+    // A date is claimed only for a guide whose copy changed; it is never required.
+    if (guide.guide_data.editorial_updated_at) assert.match(guide.guide_data.editorial_updated_at, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(guide.guide_data.sources?.length);
     for (const route of guide.guide_data.sections) {
       assert.ok(route.from_slug && route.to_slug);
