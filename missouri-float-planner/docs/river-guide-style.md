@@ -217,6 +217,13 @@ requested explicitly from the existing planner; reading a guide does not run
 a calculation for every route. Dangerous/regulated responses withhold the
 estimate; missing current readings are labelled as planning estimates.
 
+A guide for a river that a dam controls gets a “Dam releases” section after the
+gauge, with no per-guide content: `guideDam()` reads the static dam registry.
+A dam with a powerhouse shows the live `/embed/dam` schedule and a link to the
+embed page; one without (Clearwater, on the Black) shows a link to its dam
+report only, because it has no hourly schedule to draw. The section states
+what the dam is doing and never says the water is safe to wade or float.
+
 Run `npm run test:guides` for fixture-backed desktop, 390px and 320px checks.
 App CI runs it using its existing Chromium installation and uploads the previews.
 It exercises the actual guide presentation, map selection, planner estimates,

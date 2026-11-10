@@ -1,4 +1,5 @@
 import GuideOverview from './GuideOverview';
+import { guideDam, type GuideDam } from '@/lib/guides/dam';
 import GuidePhoto from './GuidePhoto';
 import { guideOverview, type GuideMapRoute } from '@/lib/guides/overview';
 import type { ReactNode } from 'react';
@@ -36,7 +37,7 @@ import RelatedRiversStrip from './RelatedRiversStrip';
 const EDDY_CANOE =
   'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
-function buildToc(post: RiverGuidePost, hasDirectory: boolean): TocItem[] {
+function buildToc(post: RiverGuidePost, hasDirectory: boolean, hasDam = false): TocItem[] {
   const g = post.guide_data;
   const items: TocItem[] = [];
   if (g.tldr) items.push({ id: 'tldr', label: 'TL;DR' });
@@ -49,6 +50,7 @@ function buildToc(post: RiverGuidePost, hasDirectory: boolean): TocItem[] {
   if (g.springs.length) items.push({ id: 'springs', label: g.sights_heading ?? 'Springs & sights' });
   if (hasDirectory) items.push({ id: 'outfitters', label: 'Outfitters & lodging' });
   items.push({ id: 'gauge', label: 'Water levels & gauge' });
+  if (hasDam) items.push({ id: 'dam', label: 'Dam releases' });
   if (g.regulations?.length)        items.push({ id: 'regulations', label: 'Regulations' });
   items.push({ id: 'when', label: 'When to go' });
   if (g.drive_times?.length)        items.push({ id: 'drive', label: 'Drive times' });
@@ -232,11 +234,12 @@ export default async function RiverGuideLayout({ post }: Props) {
     return { id: section.id, number: index + 1, label: `${section.from} → ${section.to}`, miles: section.miles, geometry: data?.[0]?.segment_geom };
   }));
   const overview = guideOverview(mapLines.filter((line): line is NonNullable<typeof line> => line !== null));
-  return <RiverGuideView post={post} aps={aps} riverMeta={riverMeta} directory={directory} overview={overview} />;
+  return <RiverGuideView post={post} aps={aps} riverMeta={riverMeta} directory={directory} overview={overview} dam={post.river_slug ? guideDam(post.river_slug) : null} />;
 }
 
 /** Shared presentation, with independently loaded resources kept on the server. */
-export function RiverGuideView({ post, aps, riverMeta, directory, overview }: Props & {
+export function RiverGuideView({ post, aps, riverMeta, directory, overview, dam = null }: Props & {
+  dam?: GuideDam | null;
   aps: Map<string, GuideAccessInfo>;
   riverMeta: { state: string | null; name: string | null };
   directory: ReactNode;
@@ -246,7 +249,7 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview }: Pr
   const slug = post.river_slug ?? post.slug;
   const riverName = g.hero.title_top;
   const heroCredit = guidePhotoCredit(g.hero);
-  const toc = buildToc(post, directory != null);
+  const toc = buildToc(post, directory != null, dam != null);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
   const riverState = riverMeta.state;
   const reportHref = post.river_slug
@@ -681,6 +684,35 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview }: Pr
               height: 520,
             }}
           />
+
+          {/* Dam releases: only on a river a dam controls. A dam without a
+              powerhouse has no generation schedule, so it gets the link alone. */}
+          {dam && (
+            <>
+              <SectionTitle id="dam" eyebrow="Below the dam">
+                {dam.name} releases
+              </SectionTitle>
+              <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 12, lineHeight: 1.65 }}>
+                {dam.hydro
+                  ? `Water below ${dam.name} rises and falls with power generation. This is what the dam is releasing now and what is scheduled next. Water already released can still be on its way downstream.`
+                  : `The river below ${dam.name} runs on what the dam releases, so the gauge upstream of the lake says nothing about it. ${dam.name} has no powerhouse and no hourly schedule; the dam report shows the current release and the forecast.`}
+              </p>
+              {dam.hydro && (
+                <iframe
+                  data-eddy-embed
+                  src={`/embed/dam/${dam.id}?size=full&theme=light`}
+                  width="100%"
+                  loading="lazy"
+                  title={`${dam.name} generation schedule`}
+                  style={{ border: 0, borderRadius: 12, display: 'block', width: '100%', maxWidth: '100%', height: 420 }}
+                />
+              )}
+              <p className="mt-3 flex flex-wrap gap-x-5 text-sm">
+                <Link href={`/dams/${dam.id}`} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">Open the full {dam.name} report →</Link>
+                {dam.hydro && <Link href="/embed" className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">Put this schedule on your site →</Link>}
+              </p>
+            </>
+          )}
 
           {/* Regulations */}
           {g.regulations && g.regulations.length > 0 && (
