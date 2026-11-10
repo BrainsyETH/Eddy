@@ -30,7 +30,7 @@ test('dam widget keeps observation and schedule separate and expires each locall
   assert.equal(first.turbineCfs, 6600);
   assert.equal(first.observedAt, now - 3600_000);
   assert.equal(first.status, 'Generating now');
-  assert.match(first.scheduleSummary, /Generation stops at 2 PM/); // HE15 begins at 2, not 3.
+  assert.match(first.scheduleSummary, /Generation scheduled until 2 PM/); // HE15 begins at 2, not 3.
   assert.equal(first.scheduleCheckedAt, now);
   const older = packet.entries.find(entry => entry.date === now + 3600_000 + 1)!;
   assert.equal(older.status, 'Generating at last reading');
@@ -85,8 +85,8 @@ test('schedule bars preserve published MW, true zero and canonical hour-ending l
   const packet = damWidgetSnapshot(dam, now);
   assert.equal(packet.scheduleDays[0].date, '2026-10-17');
   assert.equal(packet.scheduleDays[0].hours.length, 24);
-  assert.deepEqual(packet.scheduleDays[0].hours[13], { hourEnding: 14, label: '1 PM', megawatts: 275 });
-  assert.deepEqual(packet.scheduleDays[0].hours[14], { hourEnding: 15, label: '2 PM', megawatts: 0 });
+  assert.deepEqual(packet.scheduleDays[0].hours[13], { hourEnding: 14, label: '1 PM', megawatts: 275, fraction: 275 / 391 });
+  assert.deepEqual(packet.scheduleDays[0].hours[14], { hourEnding: 15, label: '2 PM', megawatts: 0, fraction: 0 });
   assert.equal(packet.entries[0].scheduleHour, 13); // 12:30 PM is HE13.
   assert.equal(packet.entries[0].generationKind, 'generating');
 });
@@ -199,7 +199,7 @@ test('dam favorites find tomorrow by its Central day, never by packet position',
   assert.equal(display.schedule?.date, '2026-10-17', 'today is still today');
   assert.equal(display.tomorrow?.date, '2026-10-18');
   assert.equal(display.tomorrowPeak, 300, 'minimum-flow hours never set the scale');
-  assert.equal(display.tomorrowCaption, '300 MW');
+  assert.equal(display.tomorrowCaption, '0–391 MW');
   assert.match(display.tomorrowDescription ?? '', /Tomorrow, Central time/);
   assert.match(display.tomorrowDescription ?? '', /minimum.flow/);
   assert.doesNotMatch(display.tomorrowDescription ?? '', /current hour/, 'no hour of tomorrow is now');
@@ -339,7 +339,7 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
   powerhouse.schedule[0].retrievedAt = new Date(now - 3 * 3600_000).toISOString();
   nodes.length = 0;
   render({ kind: 'dam', entityId: powerhouse.id });
-  assert.match(text(), /100 MW/);
+  assert.match(text(), /0–391 MW/);
   assert.match(text(), /12a/);
   assert.match(text(), /Observed an hour ago/);
   assert.doesNotMatch(text(), /Check schedule|Subject to change/);
@@ -362,7 +362,7 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
     .filter(styles => styles[0]?.borderRadius === 1.5)
     .map(styles => styles[1]?.height);
   assert.equal(heights.length, 24);
-  assert.ok(heights.every(height => height === 3), `minimum-flow hours drew generation bars: ${heights}`);
+  assert.ok(heights.every(height => height === 2), `minimum-flow hours drew generation bars: ${heights}`);
   const minimumDetails = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
   assert.match(String(minimumDetails!.props.accessibilityLabel), /Minimum flow\./);
   assert.match(String(minimumDetails!.props.accessibilityLabel), /Only minimum flow scheduled/);
@@ -386,7 +386,7 @@ test('a minimum-flow day reads "Minimum flow" with no generation bars or peak, o
   const packet = damWidgetSnapshot(dam, now);
   assert.equal(packet.entries[0].status, 'Minimum flow');
   assert.equal(packet.entries[0].minimumFlow, true);
-  assert.deepEqual(packet.scheduleDays[0].hours[0], { hourEnding: 1, label: '12 AM', megawatts: 7, minimumFlow: true });
+  assert.deepEqual(packet.scheduleDays[0].hours[0], { hourEnding: 1, label: '12 AM', megawatts: 7, fraction: 7 / 391, minimumFlow: true });
   const display = damFavoriteDisplay(dam, now);
   assert.equal(display.status, 'Minimum flow');
   assert.equal(display.peak, 0);
@@ -406,7 +406,7 @@ test('a mixed day scales and captions only the scheduled generation', () => {
   const display = damFavoriteDisplay(dam, now);
   assert.equal(display.status, 'Generating');
   assert.equal(display.peak, 200);
-  assert.equal(display.scheduleCaption, '200 MW');
+  assert.equal(display.scheduleCaption, '0–391 MW');
   assert.equal(display.schedule!.hours.filter(packetHourGenerating).length, 6);
   assert.match(display.scheduleDescription, /Generation scheduled 10 AM to 4 PM.*Includes minimum.flow hours/);
 });
@@ -416,16 +416,43 @@ test('dams without minimum flow keep their packet shape, caption and status', ()
   assert.equal(packet.entries[0].minimumFlow, false);
   assert.ok(packet.scheduleDays[0].hours.every(hour => !('minimumFlow' in hour)));
   const display = damFavoriteDisplay(fixture(), now);
-  assert.equal(display.scheduleCaption, '100 MW');
+  assert.equal(display.scheduleCaption, '0–391 MW');
   const idle = fixture();
   idle.metrics.generationFlow!.value = 20;
   idle.schedule[0].hours.forEach(hour => { hour.megawatts = 0; });
   const idleDisplay = damFavoriteDisplay(idle, now);
   assert.equal(idleDisplay.status, 'No generation');
-  assert.equal(idleDisplay.scheduleCaption, '0 MW');
+  assert.equal(idleDisplay.scheduleCaption, '0–391 MW');
   // A server from before #1655 sends no minimumFlow flag: the hour is read as
   // posted load, exactly as older builds did.
   assert.equal(packetHourGenerating({ megawatts: 7 }), true);
   assert.equal(packetHourGenerating({ megawatts: null }), false);
   assert.equal(packetHourGenerating({ megawatts: 0 }), false);
+});
+
+
+test('widgets and favorites retain fixed capacity fractions across days and output levels', () => {
+  const dam = fixture();
+  dam.generationReference = { units: 2, fullGenerationCfs: 7200, schedulingCapacityMw: 92, source: 'SWPA' };
+  dam.schedule[0].hours = dam.schedule[0].hours.map(hour => ({ ...hour, megawatts: hour.megawatts > 0 ? 33 : 0 }));
+  dam.schedule.push({ ...dam.schedule[0], scheduleDate: '2026-10-18',
+    hours: dam.schedule[0].hours.map(hour => ({ ...hour, megawatts: hour.megawatts > 0 ? 66 : 0 })) });
+  const packet = damWidgetSnapshot(dam, now);
+  assert.equal(packet.scheduleDays[0].capacityMw, 92);
+  assert.equal(packet.scheduleDays[0].hours[0].fraction, 33 / 92);
+  assert.equal(packet.scheduleDays[1].hours[0].fraction, 66 / 92);
+  assert.equal(packet.scheduleDays[0].hours[14].fraction, 0);
+  assert.equal(packet.scheduleDays[0].summary, 'Scheduled generation: midnight–2 PM');
+  assert.equal(packet.entries[0].scheduleSummary, generation.scheduledChangeSummary(dam.schedule, dam.generationReference, now, false));
+  assert.equal(damFavoriteDisplay(dam, now).schedule?.hours[0].fraction, 33 / 92);
+  dam.schedule[0].hours[0].megawatts = 120;
+  assert.equal(damWidgetSnapshot(dam, now).scheduleDays[0].hours[0].fraction, 1, 'over-capacity bars stay in their plot');
+  delete dam.generationReference;
+  const unknownScale = damWidgetSnapshot(dam, now).scheduleDays[0];
+  assert.equal(unknownScale.capacityMw, null);
+  assert.equal(unknownScale.hours[0].fraction, null, 'missing reference never falls back to the day’s peak');
+  dam.schedule[0].hours.splice(2, 1);
+  const missing = damWidgetSnapshot(dam, now).scheduleDays[0].hours[2];
+  assert.equal(missing.megawatts, null);
+  assert.equal(missing.fraction, null, 'missing readings remain unknown');
 });

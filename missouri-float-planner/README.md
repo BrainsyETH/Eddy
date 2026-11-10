@@ -399,16 +399,21 @@ with a clock change also carry their own correctly positioned time labels. Missi
 
 The detail dashboard uses a static framed generation card with a warm sand
 observed panel, total reported release as the primary reading, and the next scheduled
-change in a coral callout above the hourly chart, with the day's peak window
-under the change. Schedule headings and change sentences explicitly describe a plan.
+change in a coral callout above the hourly chart. Flat-output days show
+scheduled generation windows; only varying-output days name and highlight
+the highest scheduled generation. Schedule headings and change sentences explicitly describe a plan.
 Turbine status, flow and the generator rack are secondary; missing total release
 never falls back to turbine flow. Observation times are shown in Central time,
 with separate ages when turbine and total release readings differ. Daily averages
 remain labeled. Hourly details sit below the chart, showing the current scheduled
-hour at rest and retaining tapped selections. Generation uses taller teal bars
+hour at rest and retaining tapped selections. Generation uses compact teal bars
 on the project's fixed capacity scale with a numeric MW axis on full charts
 (no half-capacity reference line), with a two-pixel visibility floor so
-small scheduled changes remain distinct. Peak bars keep a teal outline even
+small scheduled changes remain distinct. The same capacity fractions reach web
+embeds, iOS Favorites/tailwaters and the Home Screen widget through additive
+v1 packet fields. Missing capacity uses an unscaled presence mark, never
+a daily-peak scale. Elapsed scheduled bars fade only slightly; they are
+still scheduled values, not observations. Peak bars keep a teal outline even
 after their hours pass; an orange Now marker matches iOS. Flow
 estimates stay out of ramp hours and are labeled estimated turbine flow;
 measured release is never inferred from the schedule. MW is explained in the info

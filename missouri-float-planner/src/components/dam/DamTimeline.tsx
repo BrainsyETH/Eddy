@@ -23,11 +23,10 @@
 
 import { useMemo, useRef, useState } from 'react';
 import type { DamScheduleDay, ScheduledHour } from '@/lib/data/dams';
-import { hourEndingLabel, scheduleHoursElapsed } from '@shared/dam-schedule-copy';
+import { hourEndingLabel, scheduleHoursElapsed, scheduledGeneration } from '@shared/dam-schedule-copy';
 import {
   scheduledBar,
-  schedulePeak,
-  schedulePeakWindowLabel,
+  scheduleWindowSummary,
   scheduleDayVoiceOver,
   type GenerationReference,
 } from '@shared/dam-generation';
@@ -63,6 +62,7 @@ function fillClass(fraction: number): string {
 /** The readout line for one hour, or the day's summary when nothing is hovered. */
 function hourReadout(hour: ScheduledHour, ref: GenerationReference | null | undefined, plainLanguage: boolean): string {
   const window = `${hourEndingLabel(hour.hourEnding)}–${hourEndingLabel(hour.hourEnding + 1)}`;
+  if (hour.minimumFlow) return `${window} · minimum flow scheduled`;
   if (hour.megawatts <= 0) return `${window} · no generation scheduled`;
 
   if (plainLanguage) {
@@ -119,8 +119,8 @@ export default function DamTimeline({
     return Array.from({ length: HOURS }, (_, i) => byHour.get(i + 1) ?? null);
   }, [day.hours]);
 
-  const peak = plainLanguage ? schedulePeak(day, reference) : null;
-  const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
+  const windowSummary = plainLanguage ? scheduleWindowSummary(day, reference) : null;
+  const peak = windowSummary?.varied ? windowSummary.peak : null;
   const defaultHour = elapsed !== null ? Math.min(HOURS - 1, Math.floor(elapsed)) : null;
   const inspected = hovered ?? defaultHour;
   const inspectedHour = inspected === null ? null : hours[inspected];
@@ -128,7 +128,7 @@ export default function DamTimeline({
   const hasScale = !compact && typeof capacity === 'number' && Number.isFinite(capacity) && capacity > 0;
   // The current scheduled hour remains visible at rest; touch selection stays
   // until another hour is picked. A missing hour must not look like zero MW.
-  const defaultReadout = plainLanguage && peakAtRest && peakWindow ? `Highest scheduled generation: ${peakWindow}` : null;
+  const defaultReadout = plainLanguage && peakAtRest ? windowSummary?.text : null;
   const readout = (
     <p data-schedule-readout aria-live="polite" className={`${plainLanguage ? 'mt-2' : 'mb-1'} min-h-15 text-[13px] leading-5 tabular-nums text-neutral-700`}>
       {inspectedHour ? hourReadout(inspectedHour, reference, plainLanguage) : inspected !== null ? `${hourEndingLabel(inspected + 1)}–${hourEndingLabel(inspected + 2)} · schedule not posted` : defaultReadout}
@@ -159,7 +159,7 @@ export default function DamTimeline({
           role="img"
           aria-label={summary}
           tabIndex={0}
-          className={`relative flex ${compact ? 'h-16' : 'h-32 sm:h-40'} items-end rounded-sm border-b border-neutral-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
+          className={`relative flex ${compact ? 'h-16' : 'h-24 sm:h-28'} items-end rounded-sm border-b border-neutral-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
           onPointerDown={(e) => setHovered(hourFromPointer(e.clientX))}
           onPointerMove={(e) => setHovered(hourFromPointer(e.clientX))}
           onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHovered(null); }}
@@ -179,7 +179,7 @@ export default function DamTimeline({
         >
           {hours.map((hour, index) => {
             const bar = hour ? scheduledBar(hour.megawatts, reference) : null;
-            const generating = (hour?.megawatts ?? 0) > 0;
+            const generating = Boolean(hour && scheduledGeneration(hour));
             const atPeak = Boolean(peak && hour?.megawatts === peak.megawatts);
             // Elapsed hours are dimmed: the schedule is a forward-looking
             // document, and the part of today that already happened is context
@@ -202,7 +202,7 @@ export default function DamTimeline({
                     className={[
                       'w-full rounded-sm',
                       generating ? fillClass(bar?.fraction ?? 0) : 'bg-neutral-200',
-                      past ? (atPeak ? 'opacity-75' : 'opacity-45') : '',
+                      past ? 'opacity-90' : '',
                       atPeak && inspected !== index ? 'ring-1 ring-inset ring-primary-900' : '',
                       inspected === index ? 'ring-2 ring-primary-900' : '',
                     ]
@@ -212,7 +212,7 @@ export default function DamTimeline({
                     // even its 40 MW peak is only 10.2% of 391 MW capacity.
                     // Keep the capacity scale, with just a 2px visibility floor.
                     // Without a reference, retain an unscaled presence marker.
-                    style={{ height: bar ? `${bar.fraction * 100}%` : generating ? '12%' : '0%', minHeight: 2 }}
+                    style={{ height: generating ? bar ? `${bar.fraction * 100}%` : '12%' : '0%', minHeight: 2 }}
                   />
                 )}
               </div>

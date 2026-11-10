@@ -133,20 +133,21 @@ export function ScheduleBars({ day, currentHour, compact = false, label, hideVis
     <div className="ew-sched" role="img" aria-label={`${label}: posted hourly generation schedule in MW, Central Time, subject to change. Outlined bars are missing hours.${currentHour != null ? ' The Now marker shows the current hour, not measured flow.' : ''}${note ? ` ${note}.` : ''}`}>
       <div className={`ew-sched-head${hideVisualLabel ? ' ew-sched-head-quiet' : ''}`}>
         {!hideVisualLabel && <span className="ew-section-title">{label}</span>}
-        <span className="ew-support">{note ?? (peak > 0 ? 'Peak ' + Math.round(peak).toLocaleString('en-US') + ' MW' : 'Hourly plan · MW')}</span>
+        <span className="ew-support">{note ?? (day.capacityMw ? `0–${day.capacityMw.toLocaleString('en-US')} MW` : 'MW · scale unavailable')}</span>
       </div>
+      {day.summary && <p className="ew-support">{day.summary}</p>}
       <div className="ew-sched-bars" style={{ height: height + 18 }}>
         {day.hours.map((hour) => {
           const selected = hour.hourEnding === currentHour;
           const on = isGenerating(hour);
-          const barHeight = hour.megawatts == null ? 12 : on ? Math.max(5, (height * (hour.megawatts ?? 0)) / Math.max(peak, 1)) : hour.minimumFlow ? 5 : 3;
+          const barHeight = hour.megawatts == null ? 12 : on ? Math.max(2, height * (hour.fraction ?? 0.12)) : 2;
           const title = `${hour.label}: ${hour.megawatts == null ? 'schedule unavailable' : hour.minimumFlow ? 'minimum flow' : on ? `${Math.round(hour.megawatts ?? 0)} MW` : 'no generation'}${selected ? ' (now)' : ''}`;
           return (
             <span key={hour.hourEnding} className="ew-sched-slot" title={title}>
               {selected && <span className="ew-sched-now" aria-hidden="true" />}
               <span
                 className={`ew-sched-bar${hour.megawatts == null ? ' ew-sched-bar-missing' : on ? ' ew-sched-bar-on' : hour.minimumFlow ? ' ew-sched-bar-min' : ' ew-sched-bar-idle'}`}
-                style={{ height: barHeight }}
+                style={{ height: barHeight, opacity: currentHour !== null && hour.hourEnding < currentHour ? 0.9 : 1 }}
               />
             </span>
           );

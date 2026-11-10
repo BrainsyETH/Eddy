@@ -121,18 +121,15 @@ function markerLeft(hoursElapsed: number, rowWidth: number): number {
 /**
  * The share of the plant an hour runs at, on the fixed project scale.
  *
- * Falls back to the day's own peak ONLY when the payload carries no reference —
- * an app newer than its server. That fallback is the old, misleading scaling,
- * so it is confined to the case where the alternative is no bars at all.
+ * Without a reference, draw an unscaled presence marker, never a daily peak.
  */
 function shareOf(
   megawatts: number,
-  reference: GenerationReference | null | undefined,
-  dayPeak: number
+  reference: GenerationReference | null | undefined
 ): number {
   const bar = scheduledBar(megawatts, reference);
   if (bar) return bar.fraction;
-  return dayPeak > 0 ? megawatts / dayPeak : 0;
+  return megawatts > 0 ? 0.12 : 0;
 }
 
 /**
@@ -156,18 +153,12 @@ function barColor(share: number, generating: boolean, colors: Palette): string {
  * a ramp hour's cfs estimate ran -41% to +117% against CWMS, so the number is
  * withheld there and only the load is shown.
  */
-function hourReadout(
-  hour: ScheduledHour,
-  reference: GenerationReference | null | undefined,
-  dayPeak: number
-): string {
+function hourReadout(hour: ScheduledHour): string {
   const window = `${hourEndingLabel(hour.hourEnding)}–${hourEndingLabel(hour.hourEnding + 1)}`;
+  if (hour.minimumFlow) return `${window} · minimum flow scheduled`;
   if (hour.megawatts <= 0) return `${window} · no generation scheduled`;
-  const share = reference
-    ? ` · ${Math.round(shareOf(hour.megawatts, reference, dayPeak) * 100)}% of capacity`
-    : '';
-  const flow = hour.isRamp || hour.cfs === null ? '' : ` · ~${hour.cfs.toLocaleString()} cfs`;
-  return `${window} · ${hour.megawatts.toLocaleString()} MW${share}${flow}`;
+  const flow = hour.isRamp || hour.cfs === null ? '' : ` · Est. turbine flow ${Math.round(hour.cfs).toLocaleString()} cfs`;
+  return `${window} · ${hour.megawatts.toLocaleString()} MW scheduled${flow}`;
 }
 
 export function DayBars({ day, reference, compact = false, peakSchedule = null }: Props) {
@@ -191,8 +182,6 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
     () => [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding),
     [day.hours]
   );
-
-  const peak = hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
 
   // Null on every day but today, which is the point — see scheduleHoursElapsed.
   const hoursElapsed = scheduleHoursElapsed(day.scheduleDate);
@@ -244,35 +233,19 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
       {list ? <View>
         <Text style={[t.xs, { color: colors.textMuted }]}>{scheduledHoursSummary(day.hours)} · Central time</Text>
         {hours.map((hour) => {
-          const line = hourReadout(hour, reference, peak);
+          const line = hourReadout(hour);
           return <Text key={hour.hourEnding}
             accessibilityLabel={line.replace(/\bMW\b/g, 'megawatts').replace(/\bcfs\b/g, 'cubic feet per second').replace('~', 'approximately ')}
             style={[styles.hourDetail, { color: colors.text, borderColor: colors.border }]}>{line}</Text>;
         })}
       </View> : <>
-      {/* THE SCALE, which this chart went without for too long. Bars with
-          nothing naming what they are drawn against are a shape, not a
-          measurement. Now it names BOTH halves: the day's own peak in SWPA's
-          published megawatts, and what fraction of the plant that is — because
-          the second is the number that makes two days comparable.
-          A wholly idle day has no peak worth naming and prints nothing rather
-          than "0 MW". */}
-      {!compact && peak > 0 ? (
+      {/* Keep the fixed scale visible until an hour is inspected. */}
+      {!compact ? (
         <View style={styles.scaleRow}>
-          {/* One readout line, replacing per-bar tooltips. It holds the day's
-              scale until something is scrubbed so the space never jumps. */}
-          {/* ── THE PEAK LINE MOVED OUT AND UP ──────────────────────────
-              This read "peaks at 335 MW · 86% of capacity", which repeated the
-              headline above the chart in the unit the schedule is published in
-              rather than the one anybody fishes in. The peak is stated once
-              now, over the chart, in cfs and hours — and the highlight below
-              shows it rather than restating it.
-
-              The row still renders, holding a space, because it is where a
-              scrubbed hour reports itself. Collapsing it when idle would make
-              the chart jump the first time a finger touched it. */}
           <Text style={[styles.scaleText, { color: colors.textSubtle }]}>
-            {scrubbedHour ? hourReadout(scrubbedHour, reference, peak) : ' '}
+            {scrubbedHour ? hourReadout(scrubbedHour)
+              : scrubbed !== null ? `${hourEndingLabel(scrubbed + 1)} · schedule not posted`
+                : reference ? `0–${reference.schedulingCapacityMw.toLocaleString()} MW` : 'MW · scale unavailable'}
           </Text>
         </View>
       ) : null}
@@ -329,17 +302,11 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
             })
           : null}
 
-        {/* Half capacity, as a hairline behind the bars. One reference line is
-            enough to read a bar as "about two thirds" instead of "tall-ish",
-            and a full gridline stack would out-weigh the data on a 44pt plot. */}
-        {!compact ? (
-          <View style={[styles.halfLine, { backgroundColor: colors.border }]} />
-        ) : null}
-
-        {/* A 12% floor keeps an idle hour visible as a tick rather than a gap —
-            an invisible bar reads as missing data, which is a different fact. */}
-        {hours.map((h) => {
-          const share = shareOf(h.megawatts, reference, peak);
+        {/* Fixed capacity scale, with only a two-point visibility floor. */}
+        {Array.from({ length: HOURS }, (_, index) => {
+          const h = hours.find(hour => hour.hourEnding === index + 1);
+          if (!h) return <View key={index + 1} style={[styles.bar, { height: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textSubtle }]} />;
+          const share = shareOf(h.megawatts, reference);
           const generating = scheduledGeneration(h);
           // The elapsed part of today is context, not plan: the schedule is a
           // forward-looking document and what already happened is answered by
@@ -351,9 +318,10 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
               style={[
                 styles.bar,
                 {
-                  height: `${Math.max(share * 100, 12)}%`,
+                  height: generating ? `${share * 100}%` : 0,
+                  minHeight: 2,
                   backgroundColor: barColor(share, generating, colors),
-                  opacity: past ? 0.45 : 1,
+                  opacity: past ? 0.9 : 1,
                 },
                 scrubbed === h.hourEnding - 1 && {
                   borderWidth: 1,
@@ -477,7 +445,6 @@ const styles = StyleSheet.create({
   },
   barsCompact: { height: 26, marginTop: 6 },
   bar: { flex: 1, borderRadius: 2 },
-  halfLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: StyleSheet.hairlineWidth },
   nowLine: { position: 'absolute', top: -3, bottom: -3, width: 2, borderRadius: 1 },
   // The bracket sits in its own 18pt band above the bars: inside the plot it
   // would compete with a full-height bar, and below it would collide with the

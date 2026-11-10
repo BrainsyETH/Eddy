@@ -92,8 +92,9 @@ test('offline badges preserve verification failures, incomplete packs, and outda
 });
 
 test('a dam glance speaks remaining windows without enumerating every hour', () => {
-  const day = { date: '2026-11-04', retrievedAt: null, hours: Array.from({ length: 24 }, (_, i) => ({
+  const day = { date: '2026-11-04', capacityMw: 391, summary: null, hours: Array.from({ length: 24 }, (_, i) => ({
     hourEnding: i + 1, label: `${i}`, megawatts: [8, 9, 15, 16].includes(i) ? 100 : 0,
+    fraction: [8, 9, 15, 16].includes(i) ? 100 / 391 : 0,
   })) };
   assert.equal(spokenGeneration(day, 'Today', 13), 'Today, Central time. Generation scheduled 3 PM to 5 PM.');
   assert.equal(spokenGeneration(day, 'Today', 18), 'Today, Central time. No more generation scheduled.');

@@ -17,6 +17,8 @@ import GenerationSchedule from '../components/dam/GenerationSchedule';
 import DamTimeline from '../components/dam/DamTimeline';
 import DamGenerationHero from '../components/dam/DamGenerationHero';
 import DamListCard from '../components/dam/DamListCard';
+import { ScheduleBars } from '../components/embed/v2/DamEmbed';
+import { damWidgetSnapshot } from '@shared/dam-widget';
 import type { ConditionsExplorerProps } from '../components/conditions/ConditionsExplorer';
 import { conditionsDamCatalogue } from './conditions/dam-catalogue';
 import { normalizeGaugeHistory } from '@shared/history-normalize';
@@ -246,7 +248,7 @@ test('low-output schedules retain their capacity-scaled shape and outline the pa
     assert.doesNotMatch(html, /Half capacity/);
     assert.equal(html.includes('data-schedule-scale'), !compact);
     assert.equal((html.match(/data-peak-hour=/g) ?? []).length, 1);
-    assert.match(html, /data-peak-hour="14"[^>]*class="[^"]*opacity-75[^"]*ring-1 ring-inset ring-primary-900/);
+    assert.match(html, /data-peak-hour="14"[^>]*class="[^"]*opacity-90[^"]*ring-1 ring-inset ring-primary-900/);
   }
 });
 
@@ -257,9 +259,9 @@ test('full dam reports keep the next change and peak together in the coral callo
     }));
     const today = scheduleSection(html, 'Today');
     assert.equal(today.includes('border-accent-500 bg-accent-50'), !compact, 'restore the full-report callout without boxing compact cards');
-    assert.match(today, /No generation scheduled from 7 PM to 8 PM\./);
+    assert.match(today, /Generation scheduled until 7 PM\. Resumes at 8 PM\./);
     assert.match(today, /Highest scheduled generation: 1–2 PM/);
-    assert.equal((html.match(/No generation scheduled from 7 PM/g) ?? []).length, 1);
+    assert.equal((html.match(/Generation scheduled until 7 PM/g) ?? []).length, 1);
     assert.ok(today.indexOf('data-peak-window') < today.indexOf('role="img"'));
   }
 });
@@ -292,7 +294,7 @@ test('dam cards render only today on the Central calendar across midnight, DST a
     assert.doesNotMatch(section, /Today’s generation <span/, 'no visible heading row above the plan');
     // A flat all-day schedule holds no move, so the day's headline leads.
     assert.ok(section.replace(/<[^>]*>/g, ' ').indexOf('Generation scheduled all day') < section.indexOf('role="img"'), 'the plan in words is the section’s first line');
-    assert.match(section, /data-peak-window[^>]*>Highest scheduled generation: all day</, 'the peak window follows the headline');
+    assert.match(section, /data-peak-window[^>]*>Today’s scheduled generation: all day</, 'the peak window follows the headline');
     assert.equal((section.match(/data-schedule-now/g) ?? []).length, 1);
     assert.doesNotMatch(html, /aria-label="Tomorrow’s generation schedule"/);
     assert.doesNotMatch(html, /<details|role="tab"/);
@@ -505,4 +507,25 @@ test('a daily-average release stays labelled in the three-up band', async () => 
   })).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
   assert.match(render(true), /Release 610 cfs daily avg/);
   assert.match(render(false), /Release \(daily avg\) 610 cfs/);
+});
+
+
+test('website and embedded schedules give flat output the same meaning and capacity scale', () => {
+  const dam = { ...scheduledDam, schedule: [scheduleDay('2026-10-27', 33)],
+    generationReference: { units: 2, fullGenerationCfs: 7200, schedulingCapacityMw: 92, source: 'SWPA' } };
+  const now = Date.parse('2026-10-27T17:00:00Z');
+  const web = renderToStaticMarkup(createElement(GenerationSchedule, {
+    schedule: dam.schedule, reference: dam.generationReference, now, compact: true,
+  }));
+  assert.match(web, /Today’s scheduled generation: all day/);
+  assert.doesNotMatch(web, /Highest scheduled generation|data-peak-hour/);
+  assert.match(web, /height:35\.869565217391305%/);
+  const packet = damWidgetSnapshot(dam, now);
+  const embed = renderToStaticMarkup(createElement(ScheduleBars, {
+    day: packet.scheduleDays[0], currentHour: 13, label: 'Today',
+  }));
+  assert.match(embed, /Scheduled generation: all day/);
+  assert.match(embed, /0–92 MW/);
+  assert.match(embed, /height:25\.82608695652174px/);
+  assert.doesNotMatch(embed, /Peak 33/);
 });

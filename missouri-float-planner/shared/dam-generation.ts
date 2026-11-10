@@ -750,18 +750,17 @@ function observedClause(
 }
 
 /**
- * Short copy for a panel already headed "Next scheduled change".
+ * Shared schedule copy for cards, embeds and widgets.
  *
- * Still names its subject. "Starts at 6 AM tomorrow." under that heading left
- * the reader to guess what starts, and the same string reaches widgets and
- * embeds where no heading sits above it.
+ * Standalone wording explicitly names the plan; an optional shorter variant
+ * remains available for a panel already headed "Next scheduled change".
  */
 export function scheduledChangeSummary(
   schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
   now = Date.now(),
   // Standalone callouts must name the schedule in the sentence itself.
-  underScheduleHeading = true
+  underScheduleHeading = false
 ): string | null {
   return scheduledClause(schedule, ref, now, underScheduleHeading);
 }
@@ -799,13 +798,9 @@ function scheduledClause(
       // be able to tell them apart. When the posted schedule does not reach the
       // restart, it says so rather than implying there is not one.
       if (outlook.resumesAt) {
-        return underScheduleHeading
-          ? `Generation stops at ${when}. Resumes at ${moveClock(outlook.resumesAt)}.`
-          : `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt)}.`;
+        return `Generation scheduled until ${when}. Resumes at ${moveClock(outlook.resumesAt)}.`;
       }
-      return underScheduleHeading
-        ? `Generation stops at ${when}. Later hours have not been posted.`
-        : `Generation scheduled to stop at ${when}. Later hours have not been posted.`;
+      return `Generation scheduled until ${when}. Later hours have not been posted.`;
     case 'increase':
       return underScheduleHeading ? `Generation increases at ${when}.` : `Generation scheduled to increase at ${when}.`;
     case 'decrease':
@@ -1259,6 +1254,22 @@ export function schedulePeakWindowLabel(peak: SchedulePeak): string | null {
   if (parts.length === 1) return parts[0];
   // "a and b", "a, b and c" — the same joining the idle-window sentence uses.
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** A flat-output day has generation windows, not a distinct peak window. */
+export function scheduleWindowSummary(
+  day: Pick<DamScheduleDay, 'hours'>,
+  ref: GenerationReference | null | undefined,
+  dayLabel?: 'Today' | 'Tomorrow',
+): { heading: string; window: string; text: string; peak: SchedulePeak; varied: boolean } | null {
+  const peak = schedulePeak(day, ref);
+  if (!peak) return null;
+  const window = schedulePeakWindowLabel(peak);
+  if (!window) return null;
+  const varied = day.hours.some(hour => scheduledGeneration(hour) && hour.megawatts !== peak.megawatts);
+  const heading = varied ? 'Highest scheduled generation'
+    : dayLabel ? `${dayLabel}’s scheduled generation` : 'Scheduled generation';
+  return { heading, window, text: `${heading}: ${window}`, peak, varied };
 }
 
 /**

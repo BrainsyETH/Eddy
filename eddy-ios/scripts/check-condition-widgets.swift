@@ -39,7 +39,7 @@ import Foundation
     let day = formatter.string(from: now)
     let damMoment = WidgetDamMoment(date: now.timeIntervalSince1970 * 1000,
       status: "Generating now", turbineCfs: 6600, observedAt: now.timeIntervalSince1970 * 1000,
-      current: true, scheduleSummary: "Stops at 6 PM", scheduleCurrent: true, scheduleCheckedAt: nil,
+      current: true, scheduleSummary: "Generation scheduled until 6 PM.", scheduleCurrent: true, scheduleCheckedAt: nil,
       generationKind: "generating", scheduleDate: day, scheduleHour: 13)
     let schedule = WidgetDamScheduleDay(date: day, hours: (1...24).map {
       WidgetDamScheduleHour(hourEnding: $0, label: "Hour \($0)", megawatts: $0 == 1 ? nil : 100)
@@ -54,6 +54,16 @@ import Foundation
     packet.entries[0].scheduleCurrent = true
     packet.scheduleDays?[0].hours[0].megawatts = -1
     precondition(packet.todaySchedule(at: now) == nil)
+    let scaled = WidgetDamScheduleHour(hourEnding: 13, label: "Noon", megawatts: 33, fraction: 33.0 / 92)
+    precondition(abs(scaled.barHeight(40) - 40 * 33.0 / 92) < 0.0001)
+    var low = scaled
+    low.megawatts = 1; low.fraction = 1.0 / 92
+    precondition(low.barHeight(40) == 2)
+    low.minimumFlow = true
+    precondition(low.barHeight(40) == 2)
+    let cachedHour = try JSONDecoder().decode(WidgetDamScheduleHour.self,
+      from: Data(#"{"hourEnding":13,"label":"Noon","megawatts":33}"#.utf8))
+    precondition(cachedHour.fraction == nil && cachedHour.barHeight(40) == 4.8)
     // Existing v1 API packets and cache records still decode without new fields.
     let legacyJSON = """
       {"version":1,"id":"example","name":"Example","entries":[{"date":1,"status":"Older reading","turbineCfs":6600,"current":false,"scheduleSummary":"Check schedule","scheduleCurrent":false}]}
