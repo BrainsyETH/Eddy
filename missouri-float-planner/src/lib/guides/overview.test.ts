@@ -52,5 +52,16 @@ test('the river line shares the featured stretches’ projection and is optional
   assert.ok(map.river?.includes(map.routes[0].path.slice(1).split(' ')[0]), 'the river passes through the stretch’s start');
   assert.equal(guideOverviewMap([stretch]).river, null);
   assert.equal(guideOverviewMap([stretch], { type: 'Point', coordinates: [-91, 37] }).river, null);
-  assert.deepEqual(guideOverviewMap([], { type: 'LineString', coordinates: [[-92, 38], [-91, 37.5]] }), { routes: [], river: null });
+  assert.deepEqual(guideOverviewMap([], { type: 'LineString', coordinates: [[-92, 38], [-91, 37.5]] }), { routes: [], river: null, geo: [], bounds: null });
+});
+
+test('the interactive map gets the same stretches in longitude and latitude, bounded and thinned', () => {
+  const coordinates = Array.from({ length: 5000 }, (_, i) => [-92.5 + i / 20000, 36.2 + i / 40000]);
+  const map = guideOverviewMap([route({ type: 'LineString', coordinates })]);
+  assert.equal(map.geo[0].id, 1);
+  assert.ok(map.geo[0].coordinates.length <= 401);
+  assert.deepEqual(map.geo[0].coordinates[0], [-92.5, 36.2]);
+  assert.deepEqual(map.geo[0].coordinates.at(-1), [-92.25005, 36.32498]);
+  const [west, south, east, north] = map.bounds!;
+  assert.ok(west < -92.5 && south < 36.2 && east > -92.25 && north > 36.32);
 });

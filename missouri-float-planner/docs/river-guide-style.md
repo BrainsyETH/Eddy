@@ -218,6 +218,14 @@ with the answer: a number, a yes or no, or a place name. “Use the planner” a
 low-water numbers come from `river_gauges` (attributed to Eddy's river report)
 or from an agency closure level, named as such.
 
+The overview is the river page's map (`MapContainer`, `AccessPointMarkers`)
+with the featured floats pre-drawn by `GuideRoutesLayer`: every float in teal,
+the selected one in the planner's route color, selectable from the map or the
+list. A “Plan [put-in] → [take-out]” button in the map opens the planner with
+that float loaded. The engine mounts only when the reader scrolls near it. The
+SVG drawing described next stays underneath as the placeholder, the
+no-JavaScript view and the fallback if the map engine fails.
+
 The overview uses real `get_float_segment` geometry and omits missing lines.
 Featured stretches are drawn in color over the river's own stored line in grey,
 so separated stretches read as parts of one river; it is still not a basemap.

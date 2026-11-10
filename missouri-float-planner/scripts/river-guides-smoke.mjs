@@ -82,10 +82,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     await page.goto(`${origin}/guides-layout-check`, {waitUntil:'networkidle'});
     await page.screenshot({path:`${out}/current-${name}-hero.png`});
     assert.equal(await page.locator('h1').count(),1);
-    assert.equal(await page.locator('a[href^="/plan?river=current&putIn="]').count(),12);
+    // Two per route card, plus the plan button in the overview map for the selected float.
+    assert.equal(await page.locator('a[href^="/plan?river=current&putIn="]').count(),13);
+    assert.equal(await page.locator('[data-guide-map] a[data-ga-event="guide_planner_click"]').count(),1);
     assert.equal(estimates,0,'Reading a guide must not calculate routes');
     await page.getByRole('button',{name:'Show Cedar Grove → Akers Ferry',exact:true}).click();
     await page.getByRole('link',{name:'Read about Cedar Grove → Akers Ferry ↓'}).waitFor();
+    assert.match(await page.locator('[data-guide-map] a[data-ga-event="guide_planner_click"]').textContent(),/Plan Cedar Grove → Akers Ferry/);
     const overview = page.getByRole('region',{name:'Current River featured route overview'});
     await overview.scrollIntoViewIfNeeded(); await overview.screenshot({path:`${out}/current-${name}-routes.png`});
     const estimate = page.getByRole('button',{name:'Get a float time estimate'}).first();

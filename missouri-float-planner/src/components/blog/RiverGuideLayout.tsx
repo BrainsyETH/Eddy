@@ -242,13 +242,15 @@ export default async function RiverGuideLayout({ post }: Props) {
     : null;
   const map = guideOverviewMap(drawn, riverLine);
   const overview = map.routes;
-  return <RiverGuideView post={post} aps={aps} riverMeta={riverMeta} directory={directory} overview={overview} riverLine={map.river} dam={post.river_slug ? guideDam(post.river_slug) : null} />;
+  return <RiverGuideView post={post} aps={aps} riverMeta={riverMeta} directory={directory} overview={overview} riverLine={map.river} overviewGeo={map.geo} overviewBounds={map.bounds} dam={post.river_slug ? guideDam(post.river_slug) : null} />;
 }
 
 /** Shared presentation, with independently loaded resources kept on the server. */
-export function RiverGuideView({ post, aps, riverMeta, directory, overview, riverLine = null, dam = null }: Props & {
+export function RiverGuideView({ post, aps, riverMeta, directory, overview, riverLine = null, overviewGeo = [], overviewBounds = null, dam = null }: Props & {
   dam?: GuideDam | null;
   riverLine?: string | null;
+  overviewGeo?: { id: number; coordinates: number[][] }[];
+  overviewBounds?: [number, number, number, number] | null;
   aps: Map<string, GuideAccessInfo>;
   riverMeta: { state: string | null; name: string | null };
   directory: ReactNode;
@@ -610,7 +612,8 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview, rive
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 24, lineHeight: 1.65 }}>
             Choose a stretch for your group, your time, and today&rsquo;s water.{g.sections.some(s => s.time) ? ' Typical paddling times are for a canoe or kayak at normal water; stops, low water, rafts and tubes all add to them. Ask a card for a float time estimate to get the planner’s figure for today’s level.' : ''}
           </p>
-          <GuideOverview routes={overview} riverName={riverName} riverPath={riverLine} />
+          <GuideOverview routes={overview} riverName={riverName} riverPath={riverLine} riverSlug={post.river_slug ?? null} geo={overviewGeo} bounds={overviewBounds}
+            plannerUrls={Object.fromEntries(g.sections.flatMap(s => { const url = buildPlannerUrl(slug, s, aps); return url ? [[s.id, url]] : []; }))} />
           {floatSearchLaunch().web && <Link href={`/find-float?river=${encodeURIComponent(slug)}`} className="mb-6 inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">Find a float for your time and vessel →</Link>}
           {(() => {
             // Render section cards with optional segment headers between groups.
