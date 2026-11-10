@@ -11,6 +11,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 
+import { useRivers } from '@/hooks/useRivers';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { CONDITION_COLORS } from '@/constants';
@@ -46,6 +47,7 @@ export default function EddyHeroBubble({ excludeRiverSlugs = [] }: {
    */
   excludeRiverSlugs?: readonly string[];
 } = {}) {
+  const { data: rivers } = useRivers();
   const { riverGroups, isLoading } = useRiverGroups();
   const { data: eddyUpdates } = useEddyUpdates();
   const reduceMotion = usePrefersReducedMotion();
@@ -94,7 +96,7 @@ export default function EddyHeroBubble({ excludeRiverSlugs = [] }: {
     update?.summaryText ||
     CONDITION_CARD_BLURBS[river.condition.code] ||
     CONDITION_CARD_BLURBS.unknown;
-  const href = river.riverSlug ? `/rivers/${river.riverSlug}` : '#';
+  const href = rivers?.find(item => item.slug === river.riverSlug)?.path ?? '/rivers';
 
   const goTo = (i: number) => {
     setInteracted(true); // manual navigation stops the auto-rotation

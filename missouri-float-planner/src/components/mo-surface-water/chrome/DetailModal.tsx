@@ -1,5 +1,6 @@
 'use client';
 
+import { useRivers } from '@/hooks/useRivers';
 import { useEffect, useState } from 'react';
 import {
   THEME,
@@ -167,8 +168,8 @@ export function DetailModal({
   selection: ModalSelection | null;
   onClose: () => void;
 }) {
+  const { data: rivers } = useRivers();
   if (!selection) return null;
-
   if (selection.kind === 'access') {
     const { ap, river } = selection;
     const mapsHref = `https://www.google.com/maps/search/?api=1&query=${ap.lat},${ap.lon}`;
@@ -185,7 +186,7 @@ export function DetailModal({
           <FactRow label="Coordinates" value={`${ap.lat.toFixed(4)}, ${ap.lon.toFixed(4)}`} />
         </div>
         <div className="grid gap-2">
-          <LinkRow href={`/rivers/${river.slug}/access`} label="Open in Eddy float planner" hint={`All access on the ${river.name}`} />
+          <LinkRow href={`/plan?river=${encodeURIComponent(river.slug)}&access=${encodeURIComponent(ap.id)}`} label="Open in Eddy float planner" hint="View this access on the map" />
           <LinkRow href={mapsHref} label="Open in Google Maps" hint="Driving directions" />
         </div>
       </ModalShell>
@@ -240,7 +241,7 @@ export function DetailModal({
         </div>
         <div className="grid gap-2">
           {poi.nps_url && <LinkRow href={poi.nps_url} label="View on NPS.gov" hint="Park information" />}
-          <LinkRow href={`/rivers/${river.slug}`} label={`Open ${river.name} in Eddy`} hint="River overview + access points" />
+          <LinkRow href={rivers?.find(item => item.slug === river.slug)?.path ?? "/rivers"} label={`Open ${river.name} in Eddy`} hint="River overview + access points" />
           <LinkRow href={mapsHref} label="Open in Google Maps" hint="Driving directions" />
         </div>
       </ModalShell>

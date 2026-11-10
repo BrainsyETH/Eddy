@@ -171,14 +171,12 @@ function ExpandedDetail({
   isTakeOut,
   onClose,
   onReportIssue,
-  riverSlug,
 }: {
   point: AccessPoint;
   isPutIn: boolean;
   isTakeOut: boolean;
   onClose: () => void;
   onReportIssue?: () => void;
-  riverSlug: string;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const allImages = [
@@ -480,9 +478,9 @@ function ExpandedDetail({
         {/* Footer links */}
         <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-neutral-100">
           {/* View Full Details link */}
-          {point.slug && (
+          {point.path && (
             <Link
-              href={`/rivers/${riverSlug}/access/${point.slug}`}
+              href={point.path}
               className="inline-flex items-center justify-center gap-2 w-full py-2 px-4 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg font-medium text-sm transition-colors"
             >
               <ExternalLink size={14} />
@@ -531,7 +529,6 @@ export default function AccessPointStrip({
   onHover,
   onReportIssue,
   hideExpandedDetails = false,
-  riverSlug,
 }: AccessPointStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -649,7 +646,6 @@ export default function AccessPointStrip({
               isTakeOut={false}
               onClose={() => onSelect(putInPoint)}
               onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
-              riverSlug={riverSlug}
             />
           )}
           {takeOutPoint && (
@@ -659,7 +655,6 @@ export default function AccessPointStrip({
               isTakeOut={true}
               onClose={() => onSelect(takeOutPoint)}
               onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
-              riverSlug={riverSlug}
             />
           )}
         </div>

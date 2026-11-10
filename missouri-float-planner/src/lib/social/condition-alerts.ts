@@ -11,6 +11,7 @@
 // window — so a multi-hour storm produces one post, not a barrage. Multiple
 // gauges on the same river collapse to a single most-severe entry.
 
+import { getRiverContext } from '@/lib/rivers/context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter, getEnabledPlatforms } from './adapters';
 import { tiktokCapReached } from './tiktok-cap';
@@ -394,12 +395,13 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
   const { supabase, postType, kind, riverSlug, oldCondition, newCondition, gaugeHeightFt, ctx, metadata } = p;
   let published = 0;
 
+  const riverState = (await getRiverContext(riverSlug).catch(() => null))?.state;
   for (const platform of p.platforms) {
     const adapter = getAdapter(platform);
     if (!adapter) continue;
 
     const { caption, hashtags } = formatConditionChangeCaption({
-      riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
+      riverSlug, riverState, oldCondition, newCondition, gaugeHeightFt, platform,
       kind: 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
@@ -457,12 +459,13 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
   const riverName = getRiverName(riverSlug);
   const postIds: string[] = [];
 
+  const riverState = (await getRiverContext(riverSlug).catch(() => null))?.state;
   for (const platform of p.platforms) {
     const adapter = getAdapter(platform);
     if (!adapter) continue;
 
     const { caption, hashtags } = formatConditionChangeCaption({
-      riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
+      riverSlug, riverState, oldCondition, newCondition, gaugeHeightFt, platform,
       kind: 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);

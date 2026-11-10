@@ -61,6 +61,8 @@ export interface RiverListItem extends River {
 }
 
 export interface AccessPoint {
+  /** Canonical web detail path. Optional for older cached/offline payloads. */
+  path?: string;
   id: string;
   riverId: string;
   name: string;

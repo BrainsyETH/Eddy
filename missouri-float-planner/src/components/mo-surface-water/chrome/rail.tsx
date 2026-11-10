@@ -6,6 +6,7 @@
 // from ./shared, the chart from ./Sparkline, the report from ./eddy-report.
 
 import { useEffect, useRef, useState } from 'react';
+import { useRivers } from '@/hooks/useRivers';
 import {
   STAGE_VERDICTS,
   THEME,
@@ -393,6 +394,7 @@ function RiverCard({
   onAccessPointClick?: (id: string) => void;
   onSheetExpandedChange?: (expanded: boolean) => void;
 }) {
+  const { data: rivers } = useRivers();
   const primaryThresholds = (river.gauges ?? []).find((x) => x.is_primary) ?? null;
   // Use the canonical classifier so this badge matches /rivers/[slug] for
   // the same gauge reading. Falls back to forecast peak when the live
@@ -638,7 +640,7 @@ function RiverCard({
         <span aria-hidden>→</span>
       </a>
       <a
-        href={`/rivers/${river.slug}`}
+        href={rivers?.find(item => item.slug === river.slug)?.path ?? "/rivers"}
         className="mt-2 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2 uppercase"
         style={{
           background: THEME.cardBg,
@@ -673,6 +675,7 @@ function GaugeDetail({
   onClose: () => void;
   onSheetExpandedChange?: (expanded: boolean) => void;
 }) {
+  const { data: rivers } = useRivers();
   const cls = gauge.percentile != null ? classifyPercentile(gauge.percentile) : null;
   const history = useHistory(gauge.site_no);
   // Live verdict gates the note: a Flood reading must never sit under a
@@ -791,7 +794,7 @@ function GaugeDetail({
           and borrows the RiverCard's coral CTA to keep the map's cards
           consistent. */}
       <a
-        href={`/rivers/${gauge.river_slug}`}
+        href={rivers?.find(item => item.slug === gauge.river_slug)?.path ?? "/rivers"}
         className="mt-3 flex items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2.5 uppercase"
         style={{
           background: 'var(--color-accent-700)',
