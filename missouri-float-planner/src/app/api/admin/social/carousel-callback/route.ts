@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
-import { isDailyReport, reportImageUrls } from '@/lib/social/daily-report';
+import { dailyReportAutoPublishEnabled, isDailyReport, reportImageUrls } from '@/lib/social/daily-report';
 import { savedPostMedia } from '@/lib/social/review';
 import { getAdapter } from '@/lib/social/adapters';
 import { outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from '@/lib/social/publish-outcome';
@@ -29,10 +29,11 @@ export async function POST(request: NextRequest) {
     const report = { ...post.render_request, imageUrls: body.imageUrls };
     const urls = reportImageUrls(report);
     if (!urls || body.capturedAt !== report.capturedAt) return NextResponse.json({ error: 'Incomplete or mismatched carousel' }, { status: 400 });
-    const review = post.auto_publish === false;
+    const review = post.auto_publish === false || !dailyReportAutoPublishEnabled();
     const { data: claimed, error: claimError } = await supabase.from('social_posts').update({
       render_request: JSON.parse(JSON.stringify(report)), image_url: urls[0],
       status: review ? 'review' : 'publishing', error_message: null, updated_at: new Date().toISOString(),
+      ...(review ? { auto_publish: false } : {}),
     }).eq('id', id).eq('status', 'rendering').select('id');
     if (claimError) return NextResponse.json({ error: 'Could not save rendered carousel' }, { status: 500 });
     if (!claimed?.length || review) continue;

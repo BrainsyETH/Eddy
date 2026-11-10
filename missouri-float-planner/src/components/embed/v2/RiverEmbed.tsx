@@ -21,10 +21,13 @@ import type { EmbedBrandingRecord } from '@/lib/embed/cards';
 import { embedVarPalette } from '@/lib/embed/theme';
 import {
   formatObservedAge,
+  formatObservedTimestamp,
   formatReading,
   headlineReading,
   impressionType,
+  readingSource,
   shortAge,
+  statusLabel,
   TREND_GLYPH,
   type EmbedOptions,
 } from '@/lib/embed/options';
@@ -64,8 +67,9 @@ function utmFor(data: RiverEmbedData, options: EmbedOptions, branding: EmbedBran
 
 function Badge({ data, options, branding, origin }: Props) {
   const chip = conditionChip(data.river.conditionCode);
+  const label = statusLabel(data.river.conditionCode, data.primary?.rated, chip.label);
   return (
-    <EmbedFrame size="badge" options={options} kind="river" label={`${data.river.name}: ${chip.longLabel}`}>
+    <EmbedFrame size="badge" options={options} kind="river" label={`${data.river.name}: ${label === chip.label ? chip.longLabel : label}`}>
       <a
         href={eddyDeepLink(origin, data.river.path, utmFor(data, options, branding))}
         target="_blank"
@@ -77,7 +81,7 @@ function Badge({ data, options, branding, origin }: Props) {
         <span className="ew-badge-text">{data.river.name}</span>
         <span className="ew-badge-status ew-chip" style={chipStyle(chip)}>
           <span className="ew-dot" style={{ background: chip.solid }} aria-hidden="true" />
-          {chip.label}
+          {label}
         </span>
       </a>
     </EmbedFrame>
@@ -91,17 +95,18 @@ export function StripRow({ data, options, branding, origin, now, standalone = tr
   const reading = headlineReading(data);
   const trend = data.primary?.trend ?? null;
   const age = shortAge(data.primary?.readingTimestamp, now);
+  const label = statusLabel(data.river.conditionCode, data.primary?.rated, chip.label);
   const row = (
     <a
       href={eddyDeepLink(origin, data.river.path, utmFor(data, options, branding))}
       target="_blank"
       rel="noopener noreferrer"
       className="ew-strip"
-      aria-label={`${data.river.name}: ${chip.longLabel}${reading.value != null ? `, ${formatReading(reading.value, reading.unit)} ${reading.unit}` : ''}${trend ? `, ${trend}` : ''}`}
+      aria-label={`${data.river.name}: ${label === chip.label ? chip.longLabel : label}${reading.value != null ? `, ${formatReading(reading.value, reading.unit)} ${reading.unit}` : ''}${trend ? `, ${trend}` : ''}`}
     >
       <span className="ew-strip-name">
         <span className="ew-strip-river">{data.river.name}</span>
-        {data.primary && <span className="ew-support ew-clip">{data.primary.name}</span>}
+        {data.primary && <span className="ew-support ew-clip">{readingSource(data)}</span>}
       </span>
       <span className="ew-strip-reading">
         {formatReading(reading.value, reading.unit)}
@@ -109,7 +114,7 @@ export function StripRow({ data, options, branding, origin, now, standalone = tr
         {trend && <span className="ew-trend" aria-hidden="true">{TREND_GLYPH[trend]}</span>}
       </span>
       <span className="ew-strip-status ew-chip" style={chipStyle(chip)}>
-        {chip.label}
+        {label}
       </span>
       {age && <span className="ew-support ew-strip-age" aria-label={formatObservedAge(data.primary?.readingTimestamp, now)}>{age}</span>}
     </a>
@@ -135,7 +140,7 @@ function GaugeRow({ gauge }: { gauge: EmbedGauge }) {
         {value != null && <span className="ew-unit">{gauge.unit}</span>}
       </span>
       <span className="ew-strip-status ew-chip" style={chipStyle(chip)}>
-        {chip.label}
+        {statusLabel(gauge.conditionCode, gauge.rated, chip.label)}
       </span>
     </li>
   );
@@ -164,7 +169,7 @@ function Card(props: Props) {
   const links = [{ label: 'Full report', path: data.river.path }];
   if (full) links.push({ label: 'Plan a float', path: `/plan?river=${data.river.slug}` });
   const gaugeLine = [
-    primary?.name,
+    readingSource(data),
     reading.secondary ? `${formatReading(reading.secondary.value, reading.secondary.unit)} ${reading.secondary.unit}` : null,
   ].filter(Boolean).join(' · ');
 
@@ -178,7 +183,8 @@ function Card(props: Props) {
         </div>
         <a href={eddyDeepLink(origin, data.river.path, utm)} target="_blank" rel="noopener noreferrer" className="ew-head-status"
           style={{ '--chip-ink-dark': conditionChip(data.river.conditionCode).borderColor } as React.CSSProperties}>
-          <ConditionBadge code={data.river.conditionCode} size="md" className="ew-chip" />
+          <ConditionBadge code={data.river.conditionCode} size="md" className="ew-chip"
+            label={statusLabel(data.river.conditionCode, primary?.rated, conditionChip(data.river.conditionCode).label)} />
         </a>
       </header>
 
@@ -188,9 +194,9 @@ function Card(props: Props) {
           {reading.value != null && <span className="ew-unit">{reading.unit}</span>}
         </span>
         {trend && (
-          <span className="ew-trend-text"><span aria-hidden="true">{TREND_GLYPH[trend]}</span> {TREND_WORD[trend]}</span>
+          <span className="ew-trend-text"><span aria-hidden="true">{TREND_GLYPH[trend]}</span> {TREND_WORD[trend]}{props.report ? ` · ${primary?.trendWindowHours ? `${primary.trendWindowHours}h` : 'recent'}` : ''}</span>
         )}
-        <span className="ew-support ew-reading-age">{formatObservedAge(primary?.readingTimestamp, now)}</span>
+        <span className="ew-support ew-reading-age">{props.report ? formatObservedTimestamp(primary?.readingTimestamp) : formatObservedAge(primary?.readingTimestamp, now)}</span>
       </div>
 
       {primary && (

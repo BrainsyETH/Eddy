@@ -62,6 +62,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
     assert.equal(bounds.scroll, bounds.height, `${name}: vertical clipping`);
     assert.deepEqual(bounds.overflow, [], `${name}: ${JSON.stringify(bounds.overflow)}`);
     assert.match(await slide.innerText(), /Captured Nov 10, 2026, 9:30 AM CT/);
+    assert.match(await slide.innerText(), /Observed Nov 10, 9:20 AM CT/);
+    assert.doesNotMatch(await slide.innerText(), /Observed \d+ (min|hr) ago/);
+    if (!index) {
+      assert.match(await slide.locator('.ew-trend-text').innerText(), /Steady · 6h/);
+      assert.match(await slide.innerText(), /Little change at this gauge/);
+    }
     assert.equal(await slide.locator('.ew-credit, .ew-about').count(), 0, 'static export has no dead controls');
     assert.equal(await slide.locator(index ? '.ew-sched' : 'svg[role="img"]').count(), 1, 'one actual widget chart');
     if (index) assert.equal(await slide.locator('.ew-dam-detail').count(), 3, 'dam measurements stay together');

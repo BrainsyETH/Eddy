@@ -2,9 +2,14 @@ import type { RiverEmbedData } from '../embed/river-data';
 import type { DamEmbedData } from '../embed/dam-data';
 import { damWidgetSnapshot } from '../../../shared/dam-widget';
 import { centralDayKey } from '../../../shared/dam-schedule-copy';
+import { classifyTrend } from '../../../shared/gauge-trend';
 
 export const DAILY_REPORT_KIND = 'daily-report-carousel' as const;
 export const DAILY_REPORT_MAX_SLIDES = 5;
+/** Manual drafts work during rollout; automation requires an explicit opt-in. */
+export function dailyReportAutoPublishEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.DAILY_REPORT_AUTO_PUBLISH_ENABLED === 'true';
+}
 export type DailyReportSlide =
   | { kind: 'river'; data: RiverEmbedData; takeaway: string }
   | { kind: 'dam'; data: DamEmbedData; takeaway: string };
@@ -60,7 +65,7 @@ export function riverReportSlide(data: RiverEmbedData, now: number): DailyReport
     const delta = last.value - previous.value;
     const amount = data.chart.unit === 'cfs' ? Math.round(Math.abs(delta)).toLocaleString('en-US') : Math.abs(delta).toFixed(2);
     const hours = Math.round((Date.parse(last.timestamp) - Date.parse(previous.timestamp)) / 3_600_000);
-    takeaway = Number(amount.replaceAll(',', '')) === 0
+    takeaway = classifyTrend(delta, last.value).direction === 'steady' || Number(amount.replaceAll(',', '')) === 0
       ? `Little change at this gauge over the past ${hours} hours. Conditions can differ along the river.`
       : `${delta > 0 ? 'Up' : 'Down'} ${amount} ${data.chart.unit} at this gauge over the past ${hours} hours. Conditions can differ along the river.`;
   }

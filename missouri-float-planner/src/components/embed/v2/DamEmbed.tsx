@@ -30,7 +30,7 @@ import { EddyIcon, eddyIconUrl } from '@/components/ui/EddyIcon';
 import { EDDY_IMAGES } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import type { EmbedBrandingRecord } from '@/lib/embed/cards';
-import { formatObservedAge, impressionType, shortAge, type EmbedOptions } from '@/lib/embed/options';
+import { formatObservedAge, formatObservedTimestamp, impressionType, shortAge, type EmbedOptions } from '@/lib/embed/options';
 import type { DamEmbedData } from '@/lib/embed/dam-data';
 import EmbedBrandMark from './EmbedBrandMark';
 import EmbedCredit from './EmbedCredit';
@@ -293,7 +293,7 @@ function Card(props: Props) {
           dateTime={observedIso(moment) ?? undefined}
           title="Turbine flow observation; other measurements may have different timestamps"
         >
-          {moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : 'Observation unavailable'}
+          {props.report ? formatObservedTimestamp(observedIso(moment)) : moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : 'Observation unavailable'}
         </time>
       </header>
 

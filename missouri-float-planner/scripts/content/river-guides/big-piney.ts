@@ -102,7 +102,7 @@ export default {
       {
         "m": "Jun–Aug",
         "t": "Low and slow.",
-        "note": "Gravel shallows drag on a loaded canoe in summer. Float a shorter stretch and use the gauge nearest it."
+        "note": "Gravel shallows drag on a loaded canoe in summer. Float a shorter stretch and check the Big Piney gauge."
       },
       {
         "m": "Sep–Feb",
@@ -144,7 +144,7 @@ export default {
     "faq": [
       {
         "q": "Which gauge should I use?",
-        "a": "Houston for the floats near Houston; Big Piney (USGS 06930000) for the lower river. Eddy rates the Big Piney gauge best between about 520 and 1,010 cfs, and too low under about 165."
+        "a": "Big Piney River near Big Piney (USGS 06930000) is the only live gauge. It sits at Ross Access, downstream of the floats near Houston and upstream of Fort Leonard Wood, so use it as a guide for either stretch and look at the first riffle. Eddy rates it best between about 520 and 1,010 cfs, and too low under about 165."
       },
       {
         "q": "Can I float straight through Fort Leonard Wood?",
@@ -162,7 +162,7 @@ export default {
       },
       {
         "strong": "Use the right gauge.",
-        "body": "Houston reads the upper river. The Big Piney gauge is farther downstream; Eddy rates it best between about 520 and 1,010 cfs."
+        "body": "There is one live gauge, Big Piney River near Big Piney (USGS 06930000), at Ross Access. It is downstream of the floats near Houston and above the East Gate float. Eddy rates it best between about 520 and 1,010 cfs."
       }
     ],
     "related_rivers": [
@@ -207,8 +207,8 @@ export default {
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/slabtown-recreation-area"
       },
       {
-        "label": "USFS: Big Piney recreation information",
-        "url": "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21814"
+        "label": "USFS: Paddy Creek Recreation Area",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/paddy-creek-recreation-area"
       },
       {
         "label": "USFS: Crossroads Access",
@@ -219,7 +219,7 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/06930000/"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "editorial_updated_at": "2026-11-10"
   },

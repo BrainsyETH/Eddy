@@ -433,5 +433,8 @@ The former Daily Digest slot (`daily_digest`) now produces a widget carousel.
 Its saved days/time and master posting switch are retained. The existing
 manual draft/review workflow also applies. Instagram receives an ordered
 carousel; Facebook receives the same images as one multi-photo feed post.
+Automatic reports remain paused until the web server explicitly sets
+`DAILY_REPORT_AUTO_PUBLISH_ENABLED=true`. First generate and approve a manual
+draft on both platforms and check the real posts; then enable the flag.
 This format does not use the TikTok video connector or change Weekend Forecast.
 See [Daily Report implementation and checks](../missouri-float-planner/docs/social-daily-report.md).

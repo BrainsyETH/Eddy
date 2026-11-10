@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { Eye, Sparkles } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, Lock } from 'lucide-react';
+import AppLink from '@/components/AppLink';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 import { DamReadTeaser } from '@/components/dam/DamEddyRead';
@@ -35,22 +36,31 @@ export default function EddyOutlookFooter({
   const updatedLabel = generatedAt ? formatAgeFromTimestamp(generatedAt) : null;
 
   return (
-    <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
-      <div className="flex items-center justify-between gap-3 border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
-        <h3 id="eddy-outlook-heading" className="font-sans text-xs font-bold uppercase tracking-wide text-primary-800">
-          Eddy&apos;s take
-        </h3>
+    <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-700 bg-secondary-50" aria-labelledby="eddy-outlook-heading" aria-describedby="eddy-read-access">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-primary-800 px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <Image src="/icons/eddy-wave.png" alt="" width={40} height={46} className="h-11 w-auto shrink-0" />
+          <h3 id="eddy-outlook-heading" className="font-display text-xl font-semibold text-white">
+            Eddy&apos;s take
+          </h3>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-300/50 bg-accent-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-accent-200">
+          <Lock className="h-3 w-3" aria-hidden="true" />
+          Premium
+        </span>
       </div>
+      <p id="eddy-read-access" className="sr-only">
+        Eddy&apos;s Read and weather interpretation{damRead ? '' : ', including the bottom line,'} are available in the app with Eddy Premium.
+      </p>
 
-      {/* The order is the app's: the read leads, Weather follows, Bottom line
-          closes as the conclusion of the two above it (eddy-ios EddyTake.tsx).
-          Eddy's read carries the full model report now, which runs to several
-          sentences — it gets the full width rather than the middle cell of a
-          three-column strip sized for one line. */}
+      {/* Only public summary/deterministic copy reaches this component. The
+          blur is a visual teaser, not entitlement enforcement: the full Read
+          remains server-gated. Keep blurred copy out of screen readers and
+          search snippets; the labels and app action explain the locked state. */}
       <div id="eddy-take-content">
-        <article className="min-w-0 border-b-2 border-primary-100 px-4 py-4 sm:px-5">
+        <article className="min-w-0 border-b border-primary-100 px-4 py-4 sm:px-5">
           <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-primary-800">
-            <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <EddyIcon name="ai" size={22} />
             <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddy&apos;s read</h4>
           </div>
           {damRead ? (
@@ -59,7 +69,7 @@ export default function EddyOutlookFooter({
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s read…</p>
           ) : (
             <>
-              <p className="text-sm font-medium leading-relaxed text-neutral-700 lg:text-base">{sections.eddyRead}</p>
+              <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm font-medium leading-relaxed text-neutral-700 opacity-60 blur-[5px] lg:text-base">{sections.eddyRead}</p>
               {/* Attribution belongs to model-written prose only. When the read
                   falls back to the deterministic line there is no author and no
                   write time to name, and stamping one on it would date a
@@ -76,38 +86,45 @@ export default function EddyOutlookFooter({
 
         {/* Weather and Bottom line are one or two sentences each, so they
             still pair on a wide viewport. */}
-        <div className={`grid grid-cols-1 divide-y-2 divide-primary-100 ${damRead ? '' : 'lg:grid-cols-2 lg:divide-x-2 lg:divide-y-0'}`}>
+        <div className={`grid grid-cols-1 divide-y divide-primary-100 ${damRead ? '' : 'sm:grid-cols-2 sm:divide-x sm:divide-y-0'}`}>
           <article className="min-w-0 px-4 py-4 sm:px-5">
             <div className="mb-2 flex items-center gap-2 text-primary-800">
-              <Eye className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              <EddyIcon name="weather" size={22} />
               <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Weather</h4>
             </div>
-            <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
+            <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm font-medium leading-relaxed text-neutral-700 opacity-60 blur-[5px]">{sections.watchFor}</p>
           </article>
 
           {!damRead && (
-          <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
+          <article className="min-w-0 bg-accent-50 px-4 py-4 sm:px-5">
             <div className="mb-2 flex items-center gap-2 text-accent-800">
-              {/* The AI mark, not the mascot's head. Every word in this section
-                  is model-written — the heading above says "Eddy's take" — and
-                  the catalog draws that as its own symbol. The condition otters
-                  stay where a condition is being reported. */}
-              <EddyIcon name="ai" size={20} />
+              <EddyIcon name="ai" size={22} />
               <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Bottom line</h4>
             </div>
-            <p className="font-display text-base font-semibold leading-relaxed text-neutral-900" aria-live="polite">{sections.bottomLine}</p>
+            <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none font-display text-base font-semibold leading-relaxed text-neutral-900 opacity-60 blur-[5px]">{sections.bottomLine}</p>
           </article>
           )}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t-2 border-primary-100 bg-white px-4 py-3 sm:px-5">
-          <Link
-            href="/app"
-            className="inline-flex items-center rounded-md px-3.5 py-1.5 text-xs font-semibold text-primary-800 underline decoration-1 underline-offset-2 transition-colors hover:text-primary-600"
-          >
-            Get Eddy&apos;s full read in the app
-          </Link>
+      <div className="flex flex-col gap-4 border-t-2 border-primary-700 bg-secondary-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-accent-300 bg-accent-100 text-accent-800">
+            <Lock className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="font-display text-lg font-semibold text-primary-800">Read it in the app</p>
+            <p className="text-xs text-neutral-600">Included with Eddy Premium.</p>
+          </div>
+        </div>
+        <AppLink
+          data-ga-event="app_landing_click"
+          data-ga-label="river_eddy_read"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border-2 border-primary-800 bg-accent-500 px-4 py-3 text-center text-sm font-bold text-primary-900 shadow-primary transition-colors duration-fast hover:bg-accent-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700 sm:shrink-0"
+        >
+          Get Eddy&apos;s full Read
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </AppLink>
       </div>
     </section>
   );

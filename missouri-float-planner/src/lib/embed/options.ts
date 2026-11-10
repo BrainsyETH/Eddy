@@ -264,6 +264,13 @@ export function formatRange(min: number | null, max: number | null, unit: Readin
   return `${formatReading(min, unit)}–${formatReading(max, unit)} ${unit}`;
 }
 
+/** An observation time that remains meaningful in a saved social image. */
+export function formatObservedTimestamp(iso: string | null | undefined): string {
+  const at = Date.parse(iso ?? '');
+  if (!Number.isFinite(at)) return 'Observation unavailable';
+  return `Observed ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(at))} CT`;
+}
+
 /** "Observed 12 min ago" style ages. Null timestamp → "time unavailable". */
 export function formatObservedAge(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return 'Observation time unavailable';
@@ -303,6 +310,59 @@ export const TREND_GLYPH: Record<'rising' | 'falling' | 'steady', string> = {
  * cfs with a 2.8 ft tile up front was the widget's most-read mistake.
  */
 /** The live, headline reading the badge/strip/card print: rated unit first. */
+/** An unrated gauge has a reading and no verdict; "Unknown" reads as a fault. */
+export function statusLabel(code: string, rated: boolean | undefined, fallback: string): string {
+  return code === 'unknown' && rated === false ? 'Not rated' : fallback;
+}
+
+/** What the headline number is. A dam's total release is not a river gauge, and
+ * is not the turbine flow the dam widget leads with either. */
+export function readingSource(data: {
+  primary: { name: string } | null;
+  release?: { damName: string } | null;
+}): string | null {
+  return data.release ? `Total release from ${data.release.damName}` : data.primary?.name ?? null;
+}
+
+/**
+ * The newest observation of a dam's total release, from the two places Eddy
+ * keeps it: gauge_readings (written at :00) and the stored dam snapshot
+ * (written at :35). Either can be the newer one, so the river widget and the
+ * dam widget both choose through here and show the same hour of the series.
+ * A daily mean is a different quantity and never competes with a spot reading.
+ * Turbine flow is not total release and is never passed in.
+ */
+export function newestTotalRelease(
+  gauge: { value: number | null; at: string | null } | null | undefined,
+  stored: { value: number; unit: string; at: string; dailyMean?: boolean } | null | undefined,
+): { value: number; at: string; from: 'gauge' | 'snapshot' } | null {
+  const dated = (value: number | null | undefined, at: string | null | undefined) =>
+    typeof value === 'number' && Number.isFinite(value) && at && Number.isFinite(Date.parse(at)) ? { value, at } : null;
+  const g = gauge ? dated(gauge.value, gauge.at) : null;
+  const s = stored && !stored.dailyMean && stored.unit === 'cfs' ? dated(stored.value, stored.at) : null;
+  if (g && s) return Date.parse(s.at) > Date.parse(g.at) ? { ...s, from: 'snapshot' } : { ...g, from: 'gauge' };
+  if (g) return { ...g, from: 'gauge' };
+  return s ? { ...s, from: 'snapshot' } : null;
+}
+
+/**
+ * A dam snapshot with its total release brought up to the gauge table's
+ * reading when that one is newer, so the dam widget and the river widget show
+ * the same hour. Turbine flow, the dam widget's headline, is a different series
+ * and is left alone. The caller re-bands staleness against its own clock.
+ */
+export function withNewestRelease<T extends { metrics: { release?: { value: number; unit: string; at: string; dailyMean?: boolean; staleness: 'fresh' | 'lagging' | 'stale' } } }>(
+  snapshot: T,
+  gauge: { value: number | null; at: string | null } | null | undefined,
+): T {
+  const stored = snapshot.metrics.release;
+  if (stored?.dailyMean) return snapshot;
+  const newest = newestTotalRelease(gauge, stored);
+  if (newest?.from !== 'gauge') return snapshot;
+  if (stored && Number.isFinite(Date.parse(stored.at)) && Date.parse(newest.at) <= Date.parse(stored.at)) return snapshot;
+  return { ...snapshot, metrics: { ...snapshot.metrics, release: { value: newest.value, unit: 'cfs', at: newest.at, staleness: 'fresh' } } };
+}
+
 export function headlineReading(data: {
   river: { thresholdUnit: ReadingUnit | null };
   primary: { unit: ReadingUnit; gaugeHeightFt: number | null; dischargeCfs: number | null } | null;

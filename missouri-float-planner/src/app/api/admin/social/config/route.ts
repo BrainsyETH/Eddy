@@ -6,12 +6,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
+import { dailyReportAutoPublishEnabled } from '@/lib/social/daily-report';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 const LOG_PREFIX = '[SocialConfig]';
+const withRollout = <T extends object>(config: T) => ({ ...config, daily_report_auto_publish_enabled: dailyReportAutoPublishEnabled() });
 
 const CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(`${LOG_PREFIX} GET returning config id=${data.id}, cooldown=${data.highlight_cooldown_hours}, conditions=[${data.highlight_conditions?.join(',')}]`);
-  return NextResponse.json(data, { headers: CACHE_HEADERS });
+  return NextResponse.json(withRollout(data), { headers: CACHE_HEADERS });
 }
 
 // Accept both PUT and POST for saves — POST avoids any edge caching issues
@@ -163,7 +165,7 @@ async function handleSave(request: NextRequest) {
     console.error(`${LOG_PREFIX} SAVE verify read failed: ${verifyError.message}`);
     // Still return the update result even if verify fails
     console.log(`${LOG_PREFIX} SAVE returning update result: cooldown=${data.highlight_cooldown_hours}, conditions=[${data.highlight_conditions?.join(',')}]`);
-    return NextResponse.json(data, { headers: CACHE_HEADERS });
+    return NextResponse.json(withRollout(data), { headers: CACHE_HEADERS });
   }
 
   const cooldownMatch = verify.highlight_cooldown_hours === data.highlight_cooldown_hours;
@@ -180,5 +182,5 @@ async function handleSave(request: NextRequest) {
   }
 
   // Always return the VERIFIED data from the fresh read, not the update response
-  return NextResponse.json(verify, { headers: CACHE_HEADERS });
+  return NextResponse.json(withRollout(verify), { headers: CACHE_HEADERS });
 }

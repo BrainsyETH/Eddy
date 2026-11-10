@@ -1,7 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { SocialPlatform } from './types';
-import { reportCaption, type DailyReport } from './daily-report';
+import { dailyReportAutoPublishEnabled, reportCaption, type DailyReport } from './daily-report';
 
 export async function triggerReportRender(postIds: string[]): Promise<boolean> {
   if (!postIds.length || postIds.some(id => !/^[0-9a-f-]{36}$/i.test(id))) return false;
@@ -19,6 +19,7 @@ export async function triggerReportRender(postIds: string[]): Promise<boolean> {
 
 /** Manual and scheduled paths store the same snapshot before rendering. */
 export async function dispatchDailyReport(report: DailyReport, platforms: SocialPlatform[], autoPublish: boolean) {
+  if (autoPublish && !dailyReportAutoPublishEnabled()) return { rendering: 0, warnings: ['Daily Report automation is paused for rollout; generate a manual draft.'] };
   const supabase = createAdminClient();
   const ids: string[] = [];
   const errors: string[] = [];

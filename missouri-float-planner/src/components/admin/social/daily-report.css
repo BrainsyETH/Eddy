@@ -16,6 +16,8 @@
 .daily-report-slide .ew-support, .daily-report-slide .ew-section-title,
 .daily-report-slide .ew-sched-axis, .daily-report-slide .text-xs { font-size: 15px; }
 .daily-report-slide .ew-dam-header-age { font-size: 14px; }
+.daily-report-slide .ew-reading-age { font-size: 12px; white-space: normal; max-width: 43%; text-align: right; }
+.daily-report-slide .ew-dam-header-age { max-width: 36%; }
 .daily-report-slide .ew-weather, .daily-report-slide .ew-next { font-size: 16px; }
 .daily-report-slide .ew-card { gap: 12px; }
 .daily-report-slide .ew-dam-detail-title { font-size: 15px; }

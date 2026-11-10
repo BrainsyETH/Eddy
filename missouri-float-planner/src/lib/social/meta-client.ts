@@ -416,7 +416,7 @@ export async function publishCarousel(params: {
     for (const imageUrl of params.imageUrls) {
       const body = new URLSearchParams(instagram
         ? { image_url: imageUrl, is_carousel_item: 'true', access_token: accessToken }
-        : { url: imageUrl, published: 'false', temporary: 'true', access_token: accessToken });
+        : { url: imageUrl, published: 'false', access_token: accessToken });
       const response = await fetch(`${META_GRAPH_URL}/${account}/${instagram ? 'media' : 'photos'}`, { method: 'POST', body, signal: timeout() });
       const data = await response.json();
       if (!response.ok || !data.id) return { success: false, error: data.error?.message || 'Carousel image upload failed' };

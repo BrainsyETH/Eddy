@@ -10,6 +10,7 @@ import {
 import { overlayLiveConditions } from './live-conditions';
 import { weekendReadDue } from './weekend-read';
 import { buildPostContext } from './post-context';
+import { dailyReportAutoPublishEnabled } from './daily-report';
 import { getEnabledPlatforms } from './adapters';
 import { tiktokRemainingBudget } from './tiktok-cap';
 
@@ -286,11 +287,13 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
   // Standalone weekly trends are retired; trend context lives in Eddy’s Read.
 
-  // --- Daily Digest ---
-  // Matrix cell is the single source of truth: null cell => skip this day.
+  // --- Daily Report (legacy daily_digest key) ---
+  // After rollout opt-in, the matrix controls days: null cell => skip this day.
   // digest_enabled column is ignored (legacy; kept in schema for back-compat).
   const digestMediaType = resolveMedia(config.media_schedule, 'daily_digest', cstDay);
-  if (!digestMediaType) {
+  if (!dailyReportAutoPublishEnabled()) {
+    diag.skipped_reasons.push('daily_report_rollout_paused');
+  } else if (!digestMediaType) {
     console.log(`${LOG_PREFIX} Daily digest: today's matrix cell is off — skipping`);
   } else {
     const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);

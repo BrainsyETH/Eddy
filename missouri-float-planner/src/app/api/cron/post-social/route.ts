@@ -1,4 +1,5 @@
 import { dispatchDailyReport } from '@/lib/social/daily-report-dispatch';
+import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily-report';
 // src/app/api/cron/post-social/route.ts
 // Cron job: publishes scheduled social media posts to Instagram and Facebook.
 // Runs every 30 min via Vercel Cron.
@@ -465,6 +466,7 @@ async function runSocialPosting(request: NextRequest) {
 
       const { data: fullPost } = await supabase.from('social_posts').select('*').eq('id', post.id).single();
       if (!fullPost || fullPost.status !== 'failed') continue;
+      if (isDailyReport(fullPost.render_request) && !dailyReportAutoPublishEnabled()) continue;
 
       // The saved media, exactly as the admin retry uses it — never rebuilt.
       let media;

@@ -83,6 +83,7 @@ interface MediaSchedule {
 }
 
 interface SocialConfig {
+  daily_report_auto_publish_enabled?: boolean;
   id: string;
   posting_enabled: boolean;
   posting_frequency_hours: number;
@@ -1493,6 +1494,7 @@ export default function SocialAdminPage() {
                 {/* Posting Schedule — single unified grid */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
+                  {!config.daily_report_auto_publish_enabled && <p className="mb-4 text-sm text-amber-300">Automatic Daily Reports are paused for rollout. Generate and approve a draft on Instagram and Facebook before enabling automation. Your saved days and times are kept.</p>}
                   <p className="text-sm text-neutral-400 mb-4">
                     Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Carousel for Daily Report, Off / Video for reels</span>.
                     If every day for a row is Off, that post type is disabled. Set the time each type fires, or choose Generate draft to review a manual post.
