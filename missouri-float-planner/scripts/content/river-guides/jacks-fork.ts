@@ -104,13 +104,31 @@ export default {
       {
         "mile": "9.6",
         "name": "Blue Spring (Jacks Fork)",
-        "note": "Cold spring rising from a cave on river-left near Buck Hollow, half-hidden by boulders. Not the Current's Blue Spring near Powder Mill — the two are routinely confused."
+        "note": "Cold spring rising from a cave on river-left near Buck Hollow, half-hidden by boulders. Not the Current's Blue Spring near Powder Mill — the two are routinely confused.",
+        "photo": {
+          "url": "/images/river-guides/blue-spring-jacks-fork.webp",
+          "alt": "Clear, shallow water of the Jacks Fork with a rock bluff and autumn trees on the far bank at Blue Spring.",
+          "caption": "Blue Spring, seen across the Jacks Fork.",
+          "author": "NPS Photo / Jessica Poppa",
+          "source_url": "https://www.nps.gov/ozar/planyourvisit/blue-spring-campground.htm",
+          "license": "Public domain",
+          "license_url": "https://www.nps.gov/ozar/planyourvisit/blue-spring-campground.htm"
+        }
       },
       {
         "mile": "12.6",
         "name": "Jam Up Cave",
         "note": "An 80-foot-high cave arch visible from the river — one of the most spectacular cave mouths in Missouri. Like all ONSR caves it's closed to entry on foot to slow White-Nose Syndrome among bats.",
-        "rank": "ONSR landmark"
+        "rank": "ONSR landmark",
+        "photo": {
+          "url": "/images/river-guides/jam-up-cave.webp",
+          "alt": "The rock walls and dark opening of Jam Up Cave.",
+          "caption": "Jam Up Cave, on the Jacks Fork between Blue Spring and Rymers.",
+          "author": "National Park Service",
+          "source_url": "https://www.nps.gov/ozar/learn/nature/jam-up-cave.htm",
+          "license": "Public domain",
+          "license_url": "https://www.nps.gov/ozar/learn/nature/jam-up-cave.htm"
+        }
       },
       {
         "mile": "15.9",

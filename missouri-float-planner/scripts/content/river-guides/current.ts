@@ -152,7 +152,16 @@ export default {
         "mile": "57.4",
         "name": "Blue Spring (Current)",
         "note": "Near Powder Mill on the lower river. Not the Jacks Fork's Blue Spring near Buck Hollow — these are routinely conflated.",
-        "rank": "MO #6 — Missouri's deepest at 310 ft"
+        "rank": "MO #6 — Missouri's deepest at 310 ft",
+        "photo": {
+          "url": "/images/river-guides/blue-spring-current.webp",
+          "alt": "The deep blue pool of Blue Spring below a rock bluff, with a wooden viewing platform at its edge.",
+          "caption": "Blue Spring, near Powder Mill, from the viewing platform.",
+          "author": "U.S. Department of the Interior",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Blue_Spring,_Missouri_in_2013.jpg",
+          "license": "CC BY-SA 2.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/2.0"
+        }
       },
       {
         "flow": "~286 MGD avg (~470 cfs avg; 1,170 cfs max)",

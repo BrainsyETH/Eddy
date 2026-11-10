@@ -84,7 +84,16 @@ export default {
         "miles": "6.1",
         "best": "A drift that ends in town",
         "photo": null,
-        "body": "Wildcat Shoals to the ramp at Big Spring Park in Cotter. Cotter also has two walk-in accesses just below the ramp, Armstrong Hole and Roundhouse Shoals, for people on foot."
+        "body": "Wildcat Shoals to the ramp at Big Spring Park in Cotter. Cotter also has two walk-in accesses just below the ramp, Armstrong Hole and Roundhouse Shoals, for people on foot.",
+        "photo_detail": {
+          "url": "/images/river-guides/cotter-big-spring-park.webp",
+          "alt": "A spring flowing across a grassy bank into the White River at Big Spring Park, Cotter.",
+          "caption": "Big Spring running into the White River at Big Spring Park in Cotter, where this float ends.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Cotter,_AR_004.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       },
       {
         "id": 3,

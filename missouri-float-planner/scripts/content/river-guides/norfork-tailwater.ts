@@ -78,7 +78,16 @@ export default {
     "springs": [
       {
         "name": "Dam-Quarry",
-        "note": "A Corps of Engineers boat ramp and campground less than half a mile below the dam."
+        "note": "A Corps of Engineers boat ramp and campground less than half a mile below the dam.",
+        "photo": {
+          "url": "/images/river-guides/dam-quarry.webp",
+          "alt": "The entrance road to Dam-Quarry, with lawn and picnic shelters below wooded hills.",
+          "caption": "The entrance to the Dam-Quarry recreation area.",
+          "author": "U.S. Army Corps of Engineers, Mountain Home Project Office",
+          "source_url": "https://www.recreation.gov/camping/campgrounds/232565",
+          "license": "Public domain",
+          "license_url": "https://www.recreation.gov/camping/campgrounds/232565"
+        }
       },
       {
         "name": "Norfork National Fish Hatchery and Dry Run Creek",

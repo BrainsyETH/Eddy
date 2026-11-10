@@ -110,7 +110,16 @@ export default {
         "mile": "28",
         "name": "Maramec Spring",
         "note": "Missouri's 5th-largest spring, in privately run Maramec Spring Park near St. James — a catch-and-keep trout park (Missouri trout tags required). Spelled 'Maramec' for the spring and park, 'Meramec' for the river.",
-        "rank": "MO #5"
+        "rank": "MO #5",
+        "photo": {
+          "url": "/images/river-guides/maramec-spring.webp",
+          "alt": "Water spilling over a low dam under a footbridge, among mossy rocks, at Maramec Spring Park.",
+          "caption": "A footbridge over the spring branch at Maramec Spring Park.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Maramec_Spring_Park_20140330_151.jpg",
+          "license": "CC BY 3.0",
+          "license_url": "https://creativecommons.org/licenses/by/3.0"
+        }
       },
       {
         "mile": "68",
