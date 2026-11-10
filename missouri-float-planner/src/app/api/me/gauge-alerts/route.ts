@@ -55,7 +55,7 @@ const VALID_COMPARATORS: readonly AlertComparator[] = ['above', 'below', 'betwee
  * bounds notification volume for the user themselves. Twenty-five is well past
  * what anyone floats and well short of what would make a pass expensive.
  */
-export const MAX_RULES_PER_USER = 25;
+const MAX_RULES_PER_USER = 25;
 
 /** USGS parameter code for discharge. A station without it reports no cfs. */
 const DISCHARGE_PARAMETER = '00060';

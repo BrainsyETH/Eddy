@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { lakeReadingIsStale, lakeReadingLabel, sharedObservationAt } from './presentation';
 import { publishedLakes, lakePageHref, damLakeExperienceEnabled } from './public-pages';
 import { LAKES } from './registry';
-import { lakeHealth } from '@/app/api/cron/sync-lake-levels/route';
+import { lakeHealth } from '@/lib/lakes/health';
 import type { LakePoolReading } from '@shared/lake-types';
 
 const now = Date.parse('2026-11-09T18:00:00Z');

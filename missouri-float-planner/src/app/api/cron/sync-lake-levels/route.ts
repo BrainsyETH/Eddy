@@ -35,7 +35,7 @@ import { fetchTrumanDaily } from '@/lib/ameren/osage';
 import { seriesFor } from '@/lib/data/dams';
 import { LAKES, poolDamFor, type LakeEntry } from '@/lib/lakes/registry';
 import { writePoolReadings, type PoolReadingWrite } from '@/lib/lakes/store';
-import { lakeObservationIsCurrent } from '@/lib/lakes/freshness';
+import { lakeHealth } from '@/lib/lakes/health';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -80,14 +80,6 @@ async function readingsFor(lake: LakeEntry, now: Date, backfillHours: number | n
     source: 'USACE CWMS',
     readings: result.points.map((p) => ({ at: new Date(p.timestamp).toISOString(), elevationFt: p.value, datum: lake.datum, source: 'USACE CWMS', daily: false })),
   };
-}
-
-/** Pure so the health rule can be asserted without a network. */
-export function lakeHealth(lake: LakeEntry, readings: Array<{ at: string }>, now: number): { newestAt: string | null; healthy: boolean } {
-  const newest = readings.map((r) => Date.parse(r.at)).filter(Number.isFinite).sort((a, b) => b - a)[0];
-  if (newest === undefined) return { newestAt: null, healthy: false };
-  const newestAt = new Date(newest).toISOString();
-  return { newestAt, healthy: lakeObservationIsCurrent(newestAt, lake.poolCadence, now) };
 }
 
 async function runSync(request: NextRequest) {
