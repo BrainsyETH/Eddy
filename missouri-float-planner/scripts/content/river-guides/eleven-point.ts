@@ -248,7 +248,7 @@ export default {
         ]
       }
     ],
-    "intro_html": "<p>The Eleven Point’s designated Wild & Scenic stretch runs through Mark Twain National Forest country. Greer Spring adds a substantial flow, but it does not remove the need to check conditions. Road access is limited along parts of the river, so the distance between your launch, camps and take-out matters.</p>",
+    "intro_html": "<p><strong>The Eleven Point is the Wild and Scenic one.</strong> Congress protected 44 miles of it in 1968, and it still feels that way: national forest on both banks, few roads and few people. Greer Spring, Missouri’s second-largest, more than doubles the river partway down and keeps it cold and floatable through summer. Start with Greer to Turner Mill, then come back for an overnight at the float camps.</p>",
     "drive_times": [
       {
         "city": "St. Louis",

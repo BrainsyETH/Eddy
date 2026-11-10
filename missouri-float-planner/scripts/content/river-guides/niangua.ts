@@ -259,7 +259,7 @@ export default {
         ]
       }
     ],
-    "intro_html": "<p>The river above Bennett Spring and the river below it respond differently to dry weather. The spring contributes base flow, but it cannot guarantee enough water for every boat on every stretch. Choose a route near the services you need and check its conditions before setting out.</p>",
+    "intro_html": "<p><strong>The Niangua is the float to check when everything else is too low.</strong> Bennett Spring adds roughly 100 million gallons a day, and the 10 miles below it hold most of the river’s outfitters and campgrounds. That makes Bennett Spring to Prosperine one of the easiest floats in Missouri to set up. Above the spring it is a quiet rain-fed stream; far below, it slows down behind Tunnel Dam.</p>",
     "drive_times": [
       {
         "city": "Springfield",

@@ -345,7 +345,7 @@ export default {
         ]
       }
     ],
-    "intro_html": "<p>Springs are part of the trip on the Current, not just scenery on the drive. Some feed the river beside your boat; others are a short walk from an access. The upper floats and the broad lower river offer different days, so start with a pair of endpoints and build the stops around them.</p>",
+    "intro_html": "<p><strong>The Current is the river the others get compared to.</strong> Big springs feed it the whole way down, so it runs cold and clear and stays floatable when rain-fed streams have dried up. It is also a national park: the Ozark National Scenic Riverways, established in 1964, was the first national park area created to protect a river system. New here? Float Akers Ferry to Pulltite and paddle into Cave Spring on the way.</p>",
     "drive_times": [
       {
         "city": "St. Louis",

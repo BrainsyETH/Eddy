@@ -245,7 +245,7 @@ export default {
         ]
       }
     ],
-    "intro_html": "<p>The Huzzah is a smaller gravel-bottomed creek in the Meramec watershed. Rain can change both its depth and pace; a summer date alone tells you little about the upper creek. Red Bluff and the lower outfitter accesses give you different starting points, with Steelville nearby for supplies.</p>",
+    "intro_html": "<p><strong>Huzzah Creek is the easy Steelville day float.</strong> It is a clear, shallow, gravel-bottomed creek with floats short enough for an afternoon, starting beside a red gristmill and ending near the Meramec. Rain runs it: the upper creek is a spring trip, and the lower creek gets thin in a dry summer. Say it HOO-zaw. Most people float Highway Z to Huzzah Valley.</p>",
     "drive_times": [
       {
         "city": "St. Louis",

@@ -228,7 +228,7 @@ export default {
         ]
       }
     ],
-    "intro_html": "<p>The Courtois joins the Huzzah near Scotia. Its small upper stretches can become shallow during dry weather, and access arrangements matter as much as the mileage. Eddy uses a neighboring Huzzah gauge for context; that reading does not measure the water at your Courtois launch.</p>",
+    "intro_html": "<p><strong>The Courtois is the locals’ creek.</strong> It has the same clear water and gravel bars as the Huzzah next door, with fewer people on them. The floats are short, the upper creek only runs in spring, and it has no gauge of its own, so Eddy reads the Huzzah gauge instead. Locals say CODE-a-way. Start with Bass River to Scotia.</p>",
     "drive_times": [
       {
         "city": "St. Louis",

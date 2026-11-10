@@ -266,7 +266,7 @@ export default {
         ]
       }
     ],
-    "intro_html": "<p>The Meramec connects trout water near Maramec Spring with the cave country around Onondaga and Meramec State Park. Springs help sustain its base flow, and rain across the watershed can still change it quickly. Check the part you plan to paddle rather than treating the whole river as one reading.</p>",
+    "intro_html": "<p><strong>The Meramec is St. Louis’s home river.</strong> Steelville and Sullivan are about 90 minutes down I-44, and the bluffs between them are full of caves. Near Maramec Spring it is narrow trout water; by Meramec State Park it is wide, gentle and full of rafts on a summer Saturday. Rain moves it more than springs do, so look at the gauge before you go. The easy first float is Meramec State Park to Sand Ford.</p>",
     "drive_times": [
       {
         "city": "St. Louis",

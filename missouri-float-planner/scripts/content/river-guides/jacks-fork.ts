@@ -251,7 +251,7 @@ export default {
         ]
       }
     ],
-    "intro_html": "<p>Alley Spring is a useful dividing line. Above it, the Jacks Fork depends more on recent rain; below it, the spring adds cold water. The upper canyon has bluff and cave views, while Alley Spring and Eminence give you shorter route choices and nearby services.</p>",
+    "intro_html": "<p><strong>The Jacks Fork is the Current’s wilder little sister.</strong> Above Alley Spring it is a narrow canyon stream that only runs in spring and after rain, past the 80-foot arch of Jam Up Cave. Below the spring, about 81 million gallons a day keep it floating into summer. It ends at Two Rivers, where it joins the Current. For a first trip, float Alley Spring to Eminence.</p>",
     "drive_times": [
       {
         "city": "St. Louis",
