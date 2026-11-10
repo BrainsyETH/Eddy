@@ -3,7 +3,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 export default {
   "slug": "huzzah-creek-float-trips-missouri",
   "title": "Huzzah Creek Float Trip Guide: Dillard Mill, Floats & Outfitters",
-  "description": "Find Huzzah Creek floats near Steelville, with Red Bluff, Dillard Mill, access points, outfitters and the correct Steelville gauge.",
+  "description": "Find Huzzah Creek floats near Steelville, with Red Bluff, Dillard Mill, access points, outfitters and water-level guidance.",
   "river_slug": "huzzah",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772676978230-Screenshot_2026-03-04_at_8.16.06_PM-mytFB6RDFFANRfQlMGYwtlgaWGkHWB.png",
   "read_time_minutes": 6,

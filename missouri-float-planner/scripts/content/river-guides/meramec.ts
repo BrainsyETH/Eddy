@@ -31,7 +31,7 @@ export default {
       },
       {
         "q": "How do I check Meramec River water levels?",
-        "a": "Open the river report and match the gauge to your route. USGS 07013000 is the Meramec near Steelville. USGS 07018500 is on the Big River and must not be used as the Meramec at Sullivan."
+        "a": "Open the river report and match the gauge to your route. USGS 07013000 measures the Meramec near Steelville; its reading does not describe every stretch downstream. Check conditions near your put-in before leaving."
       },
       {
         "q": "What fish can I catch on the Meramec?",
