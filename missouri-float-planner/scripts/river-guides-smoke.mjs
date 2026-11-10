@@ -23,6 +23,7 @@ try {
   await mkdir(fixture, { recursive: true }); await mkdir(out, { recursive: true });
   await writeFile(`${fixture}/page.tsx`, `import { notFound } from 'next/navigation';
 import { reviewedRiverGuides } from '../../../scripts/content/river-guides/reviewed';
+import { tailwaterGuideSeeds } from '../../../scripts/content/river-guides';
 import accesses from '../../../scripts/fixtures/guide-accesses.json';
 import lines from '../../../scripts/fixtures/guide-overview-current.json';
 import { RiverGuideView } from '@/components/blog/RiverGuideLayout';
@@ -34,7 +35,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_GUIDE_SMOKE !== '1') notFound();
   const params = await searchParams;
   if (params.view === 'directory') return <main className="mx-auto max-w-5xl p-4"><h1>River guides</h1><GuideDirectory entries={reviewedRiverGuides.map(seed => ({ slug: seed.slug, state: seed.slug.endsWith('arkansas') ? 'AR' : 'MO', search: seed.title + ' ' + seed.description, card: <article><a href={'/blog/' + seed.slug}>{seed.title}</a></article> }))} /></main>;
-  const seed = reviewedRiverGuides.find(seed => seed.river_slug === (params.river || 'current'));
+  const seed = [...reviewedRiverGuides, ...tailwaterGuideSeeds].find(seed => seed.river_slug === (params.river || 'current'));
   if (!seed) notFound();
   const aps = new Map(accesses.filter(a => a.river_slug === seed.river_slug).map(a => [a.slug, { id: a.id, riverId: a.river_id, imageUrl: null, npsImageUrl: null, endpoint: a.is_float_endpoint !== false, mile: Number(a.river_mile_downstream) }]));
   const map = seed.river_slug === 'current' ? guideOverview(lines.map(line => { const s=seed.guide_data.sections.find(s=>s.id===line.id)!; return {...line, number:line.id, label:s.from+' → '+s.to,miles:s.miles}; })) : [];
@@ -109,6 +110,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       assert.equal(await page.locator('a[href="#outfitters"]').count(),0);
       if(name==='mobile')await page.screenshot({path:`${out}/${river}-mobile.png`});
     }
+    // A dam with a powerhouse draws its live schedule in the guide.
+    await page.goto(`${origin}/guides-layout-check?river=white`,{waitUntil:'networkidle'});
+    assert.equal(await page.locator('iframe[src^="/embed/dam/swl-bull-shoals-dam"]').count(),1);
+    assert.equal(await page.locator('a[href="/dams/swl-bull-shoals-dam"]').count(),1);
+    assert.equal(await page.getByRole('link',{name:'Put this schedule on your site →'}).count(),1);
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} white overflow`);
+    if(name==='mobile')await page.screenshot({path:`${out}/white-mobile.png`,fullPage:true});
     await page.goto(`${origin}/guides-layout-check?view=directory`,{waitUntil:'networkidle'});
     assert.equal(await page.locator('article:visible').count(),25);
     await page.getByRole('searchbox').fill('Spring River');
