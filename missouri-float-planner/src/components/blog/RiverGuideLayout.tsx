@@ -1,7 +1,7 @@
 import GuideOverview from './GuideOverview';
 import { guideDam, type GuideDam } from '@/lib/guides/dam';
 import GuidePhoto from './GuidePhoto';
-import { guideOverview, type GuideMapRoute } from '@/lib/guides/overview';
+import { guideOverviewMap, type GuideMapRoute } from '@/lib/guides/overview';
 import type { ReactNode } from 'react';
 import { guideEditorialDate } from '@/lib/guides/editorial-date';
 // src/components/blog/RiverGuideLayout.tsx
@@ -233,13 +233,20 @@ export default async function RiverGuideLayout({ post }: Props) {
     if (error) return null;
     return { id: section.id, number: index + 1, label: `${section.from} → ${section.to}`, miles: section.miles, geometry: data?.[0]?.segment_geom };
   }));
-  const overview = guideOverview(mapLines.filter((line): line is NonNullable<typeof line> => line !== null));
-  return <RiverGuideView post={post} aps={aps} riverMeta={riverMeta} directory={directory} overview={overview} dam={post.river_slug ? guideDam(post.river_slug) : null} />;
+  const drawn = mapLines.filter((line): line is NonNullable<typeof line> => line !== null);
+  // The whole river, so separated stretches read as parts of one line. Skipped when nothing is drawn.
+  const riverLine = drawn.length && post.river_slug
+    ? (await db.from('rivers').select('geom').eq('slug', post.river_slug).maybeSingle()).data?.geom
+    : null;
+  const map = guideOverviewMap(drawn, riverLine);
+  const overview = map.routes;
+  return <RiverGuideView post={post} aps={aps} riverMeta={riverMeta} directory={directory} overview={overview} riverLine={map.river} dam={post.river_slug ? guideDam(post.river_slug) : null} />;
 }
 
 /** Shared presentation, with independently loaded resources kept on the server. */
-export function RiverGuideView({ post, aps, riverMeta, directory, overview, dam = null }: Props & {
+export function RiverGuideView({ post, aps, riverMeta, directory, overview, riverLine = null, dam = null }: Props & {
   dam?: GuideDam | null;
+  riverLine?: string | null;
   aps: Map<string, GuideAccessInfo>;
   riverMeta: { state: string | null; name: string | null };
   directory: ReactNode;
@@ -568,9 +575,9 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview, dam 
             Pick your float
           </SectionTitle>
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 24, lineHeight: 1.65 }}>
-            Choose a stretch for your group, your time, and today&rsquo;s water. Float times are paddling time in a canoe or kayak at normal water; stops, low water, rafts and tubes all add to them. The planner gives an estimate for today&rsquo;s level.
+            Choose a stretch for your group, your time, and today&rsquo;s water.{g.sections.some(s => s.time) ? ' Float times are paddling time in a canoe or kayak at normal water; stops, low water, rafts and tubes all add to them. The planner gives an estimate for today’s level.' : ''}
           </p>
-          <GuideOverview routes={overview} riverName={riverName} />
+          <GuideOverview routes={overview} riverName={riverName} riverPath={riverLine} />
           {floatSearchLaunch().web && <Link href={`/find-float?river=${encodeURIComponent(slug)}`} className="mb-6 inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">Find a float for your time and vessel →</Link>}
           {(() => {
             // Render section cards with optional segment headers between groups.
