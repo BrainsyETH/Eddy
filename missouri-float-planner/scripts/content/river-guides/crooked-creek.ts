@@ -61,7 +61,16 @@ export default {
         "photo": null,
         "body": "6.7 miles from Lower Pyatt to Snow. Go light and start early so the fishing does not get squeezed. The float time uses the Game and Fish Commission’s pace of about 2 mph at normal water, before stops.",
         "time": "About 3½ hr",
-        "diff": "I"
+        "diff": "I",
+        "photo_detail": {
+          "url": "/images/river-guides/pyatt-bridge.webp",
+          "alt": "An arched concrete bridge over Crooked Creek at Pyatt.",
+          "caption": "The bridge over Crooked Creek at Pyatt, near the start of this float.",
+          "author": "Valis55",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Crooked_Creek_Bridge,_Pyatt,_AR.JPG",
+          "license": "CC BY-SA 3.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
+        }
       },
       {
         "id": 2,

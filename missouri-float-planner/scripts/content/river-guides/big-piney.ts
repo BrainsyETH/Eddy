@@ -61,7 +61,16 @@ export default {
         "photo": null,
         "body": "The short float near Houston: 5.9 miles from Dogs Bluff to Mineral Springs. It is upper-river water and gets thin in dry weather, so look at the first riffle before you unload.",
         "time": "About 2½ hr",
-        "diff": "I–II"
+        "diff": "I–II",
+        "photo_detail": {
+          "url": "/images/river-guides/big-piney-highway.webp",
+          "alt": "The Big Piney River below a low rock bluff near Highway 17.",
+          "caption": "The Big Piney River near Highway 17 in Texas County.",
+          "author": "Inklein",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Big_Piney_River_near_MO-17.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       },
       {
         "id": 2,

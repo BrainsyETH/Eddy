@@ -63,7 +63,16 @@ export default {
         "miles": "5",
         "best": "The river-like water below the dam",
         "photo": null,
-        "body": "From the MDC ramp at the hatchery down to the MDC access at Cooper Creek. This is the stretch that feels a release first and most. There is no float time on this card because the speed of the water depends on how many generators are running."
+        "body": "From the MDC ramp at the hatchery down to the MDC access at Cooper Creek. This is the stretch that feels a release first and most. There is no float time on this card because the speed of the water depends on how many generators are running.",
+        "photo_detail": {
+          "url": "/images/river-guides/taneycomo-below-dam.webp",
+          "alt": "Lake Taneycomo winding away below Table Rock Dam, seen from a hilltop.",
+          "caption": "The upper end of Lake Taneycomo below Table Rock Dam, photographed in 1982.",
+          "author": "Tequask",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Lake_Taneycomo_-_Table_Rock_Dam.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       },
       {
         "id": 2,
@@ -75,7 +84,16 @@ export default {
         "miles": "2.8",
         "best": "A short run that ends in town",
         "photo": null,
-        "body": "A short stretch from Cooper Creek to the city ramp at Branson Lakeside RV Park. The lake is wider here and the pull of a release is weaker than it is upstream."
+        "body": "A short stretch from Cooper Creek to the city ramp at Branson Lakeside RV Park. The lake is wider here and the pull of a release is weaker than it is upstream.",
+        "photo_detail": {
+          "url": "/images/river-guides/taneycomo-branson.webp",
+          "alt": "Lake Taneycomo at Branson.",
+          "caption": "Lake Taneycomo at Branson, April 2018.",
+          "author": "Billy Hathorn",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Lake_Taneycomo,_Branson,_MO_IMG_1720_(2).JPG",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       }
     ],
     "springs": [

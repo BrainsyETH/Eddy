@@ -150,14 +150,32 @@ export default {
         "mile": "61.8",
         "name": "Blue Spring (Current)",
         "note": "Near Powder Mill on the lower river. Not the Jacks Fork's Blue Spring near Buck Hollow — these are routinely conflated.",
-        "rank": "MO #6 — Missouri's deepest at 310 ft"
+        "rank": "MO #6 — Missouri's deepest at 310 ft",
+        "photo": {
+          "url": "/images/river-guides/blue-spring-current.webp",
+          "alt": "The deep blue pool of Blue Spring below a rock bluff, with a wooden viewing platform at its edge.",
+          "caption": "Blue Spring, near Powder Mill, from the viewing platform.",
+          "author": "U.S. Department of the Interior",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Blue_Spring,_Missouri_in_2013.jpg",
+          "license": "CC BY-SA 2.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/2.0"
+        }
       },
       {
         "flow": "~286 MGD avg (~440 cfs)",
         "mile": "90.9",
         "name": "Big Spring",
         "note": "One of the largest single-outlet springs in the United States. Reliably blue, surrounded by old CCC stonework.",
-        "rank": "MO #1"
+        "rank": "MO #1",
+        "photo": {
+          "url": "/images/river-guides/big-spring.webp",
+          "alt": "Blue water welling out from the base of a rock bluff at Big Spring.",
+          "caption": "Big Spring, south of Van Buren.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Big_Spring_Missouri_1-02Aug08.jpg",
+          "license": "CC BY-SA 3.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
+        }
       }
     ],
     "callouts": {

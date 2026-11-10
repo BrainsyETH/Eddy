@@ -99,7 +99,16 @@ export default {
     "springs": [
       {
         "name": "Withrow Springs trails",
-        "note": "The park has trails for after the float. Check its current trail notice first: storm-damage repairs have affected the lower War Eagle Trail."
+        "note": "The park has trails for after the float. Check its current trail notice first: storm-damage repairs have affected the lower War Eagle Trail.",
+        "photo": {
+          "url": "/images/river-guides/withrow-springs-creek.webp",
+          "alt": "A small creek running through woods at Withrow Springs State Park.",
+          "caption": "A creek near the visitor center at Withrow Springs State Park.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Creek_in_Withrow_Springs_State_Park.jpg",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
+        }
       }
     ],
     "seasons": [

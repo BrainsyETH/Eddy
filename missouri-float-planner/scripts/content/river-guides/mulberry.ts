@@ -83,7 +83,16 @@ export default {
         "photo": null,
         "body": "8.3 miles from High Bank to Redding, the rest of the same Class II+ corridor. Set up the Redding take-out before you launch, and choose your water level with care.",
         "time": "About 3½ hr",
-        "diff": "II+"
+        "diff": "II+",
+        "photo_detail": {
+          "url": "/images/river-guides/mulberry-above-redding.webp",
+          "alt": "The Mulberry River running over rocks through forest above Redding.",
+          "caption": "The Mulberry River above Redding, in the Ozark-St. Francis National Forest.",
+          "author": "USDA Forest Service",
+          "source_url": "https://commons.wikimedia.org/wiki/File:2005XXXX-FS-Ozark-St_Francis_National_Forest-Mulberry_R-TP-004_(25631402927).jpg",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:2005XXXX-FS-Ozark-St_Francis_National_Forest-Mulberry_R-TP-004_(25631402927).jpg"
+        }
       }
     ],
     "springs": [],

@@ -104,13 +104,31 @@ export default {
       {
         "mile": "9.6",
         "name": "Blue Spring (Jacks Fork)",
-        "note": "Cold spring rising from a cave on river-left near Buck Hollow, half-hidden by boulders. Not the Current's Blue Spring near Powder Mill — the two are routinely confused."
+        "note": "Cold spring rising from a cave on river-left near Buck Hollow, half-hidden by boulders. Not the Current's Blue Spring near Powder Mill — the two are routinely confused.",
+        "photo": {
+          "url": "/images/river-guides/blue-spring-jacks-fork.webp",
+          "alt": "Clear, shallow water of the Jacks Fork with a rock bluff and autumn trees on the far bank at Blue Spring.",
+          "caption": "Blue Spring, seen across the Jacks Fork.",
+          "author": "NPS Photo / Jessica Poppa",
+          "source_url": "https://www.nps.gov/ozar/planyourvisit/blue-spring-campground.htm",
+          "license": "Public domain",
+          "license_url": "https://www.nps.gov/ozar/planyourvisit/blue-spring-campground.htm"
+        }
       },
       {
         "mile": "12.6",
         "name": "Jam Up Cave",
         "note": "An 80-foot-high cave arch visible from the river — one of the most spectacular cave mouths in Missouri. The Park Service lets you walk in as far as the pool at the base of the waterfall; do not go past it.",
-        "rank": "ONSR landmark"
+        "rank": "ONSR landmark",
+        "photo": {
+          "url": "/images/river-guides/jam-up-cave.webp",
+          "alt": "The rock walls and dark opening of Jam Up Cave.",
+          "caption": "Jam Up Cave, on the Jacks Fork between Blue Spring and Rymers.",
+          "author": "National Park Service",
+          "source_url": "https://www.nps.gov/ozar/learn/nature/jam-up-cave.htm",
+          "license": "Public domain",
+          "license_url": "https://www.nps.gov/ozar/learn/nature/jam-up-cave.htm"
+        }
       },
       {
         "mile": "15.9",
@@ -122,7 +140,16 @@ export default {
         "mile": "31",
         "name": "Alley Spring & Mill",
         "note": "Walk-up NPS interpretive site at the lower put-in — the spring's blue pool and the iconic red 1894 roller mill.",
-        "rank": "MO #7"
+        "rank": "MO #7",
+        "photo": {
+          "url": "/images/river-guides/alley-spring-mill.webp",
+          "alt": "The red Alley Mill beside the blue pool of Alley Spring.",
+          "caption": "Alley Spring and its red mill.",
+          "author": "16porkchops",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Alley_Spring_and_Mill_in_November_2021.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       }
     ],
     "callouts": {

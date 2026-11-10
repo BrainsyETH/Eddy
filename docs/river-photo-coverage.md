@@ -45,3 +45,95 @@ photos can be used on those cards. All 18 social-share images use Eddy artwork.
 Route cards in this batch opt out of the automatic access-photo fallback;
 separately reviewed scene photos can be added later. This review does not grant
 new rights to unrelated uses of the older river-photo catalog.
+
+## Main images for the last four guides — November 10, 2026
+
+The White, Lake Taneycomo, Norfork Tailwater and Elk guides used the Eddy
+illustration. Each now has a credited main image, registered in
+`missouri-float-planner/src/data/guide-photos.json` and resolved at read time
+like the earlier twelve. Licenses were read from each Wikimedia Commons file
+page's metadata on November 10, 2026.
+
+| Guide | Image | Author and license |
+| --- | --- | --- |
+| White River | Anglers drifting below Bull Shoals Dam, September 2017 | Brett Billings / U.S. Fish and Wildlife Service; public domain. [File page](https://commons.wikimedia.org/wiki/File:Group_fishing_in_boat_near_Bull_Shoals_Dam_on_White_River.jpg) |
+| Lake Taneycomo | Morning fog on the lake, May 2007 | Luke Wisley; CC BY 2.0. [File page](https://commons.wikimedia.org/wiki/File:Taneycomo_fog.jpg) |
+| Norfork Tailwater | Norfork Dam with the tailwater in the foreground | Brandonrush; CC0. [File page](https://commons.wikimedia.org/wiki/File:Norfork_Dam_and_Norfork_River.jpg) |
+| Elk River | Linen postcard of the bridge near Noel, about 1930 to 1945 | Ozark Postcard Publishers; public domain. [File page](https://commons.wikimedia.org/wiki/File:Bridge_over_beautiful_Elk_River_near_Noel,_Mo.,_alongside_U.S._Highway_71_(78310).jpg) |
+
+The Elk image is historical, and its caption says so: no reusable modern
+photograph of the Elk was found. Replace it when one is. The copies are 1280
+pixels wide because the image host throttled larger downloads.
+
+Still open: the original seven guides carry 26 images captured from other
+websites with no credit recorded (five main images, twenty float-card photos,
+and a main image loaded directly from nps.gov). They need licensed
+replacements.
+
+## Float-card and sight photos — November 10, 2026
+
+Thirty-three credited photos were added to float cards and sights across the guides, each stored with its author, source page and license in the guide content (`photo_detail` on a float, `photo` on a sight) and shown under the image. A float card gets a photo taken on that stretch or of its put-in or take-out; a sight gets a photo of that sight. Every photo was looked at before use, and two candidates were dropped (a Maramec Spring image that did not show the spring and a Ha Ha Tonka image too dark to read).
+
+Sources: Wikimedia Commons (public domain or Creative Commons, license read from each file page), and four federal photographs already reviewed in `src/data/reviewed-place-photos.json` (Jam Up Cave, Blue Spring on the Jacks Fork, Dam-Quarry, Big Spring Park at Cotter).
+
+State after this change: 21 of 71 float cards have a credited photo, 28 show an image added by hand or an access-point photo (out of scope here), and 22 have none. 19 of 49 sights have a photo.
+
+No located, reusable photograph was found for the following. A generic river photo was not substituted.
+
+| Guide | Float card with no photo |
+| --- | --- |
+| Big Piney River | Mason Bridge Access → Slabtown Recreation Area |
+| Big Piney River | East Gate Access → Crossroads Access |
+| Big River | Washington State Park Access → Mammoth Access |
+| Big River | Mammoth Access → Merrill Horse Access |
+| Big River | Merrill Horse Access → Brown's Ford Access |
+| Black River | Markham Springs Recreation Area → Hammer Access (Bradley A. Hammer Memorial CA) |
+| Bourbeuse River | Mill Rock MDC Access → Wenkel Ford MDC Access |
+| Bourbeuse River | Mayers Landing MDC Access → Union MDC Access |
+| Bryant Creek | Sycamore Access → Warren Bridge Access |
+| Bryant Creek | Warren Bridge Access → Florence C. Cook Access |
+| Caddo River | Swinging Bridge Access (Caddo Gap) → Glenwood Access (City Park Boat Ramp) |
+| Caddo River | Glenwood Access (City Park Boat Ramp) → Hwy 182 Amity Boat Ramp |
+| Crooked Creek | Snow Access → Mark Oliver Access |
+| Gasconade River | Buzzard Bluff Access → Wilbur Allen Memorial Conservation Area |
+| Gasconade River | Rollins Ferry Access → Pointers Creek Access |
+| James River | Delaware Town Access → Shelvin Rock Access |
+| James River | Shelvin Rock Access → Hootentown Access |
+| Kings River | Rockhouse Access → Trigger Gap Landing |
+| Mulberry River | Wolf Pen Recreation Area → High Bank Recreation Area |
+| North Fork River | Highway 14 bridge (Twin Bridges) over North Fork → North Fork Recreation Area (Hammond) |
+| North Fork River | Blair Bridge Access → Patrick Bridge Access |
+| St. Francis River | Roselle Access → Millstream Gardens Fisherman's Access |
+
+| Guide | Sight with no photo |
+| --- | --- |
+| Black River | Markham Springs |
+| Buffalo National River | Tyler Bend trails |
+| Courtois Creek | Upper Courtois bluffs |
+| Courtois Creek | Bass River gravel bars |
+| Courtois Creek | Courtois–Huzzah confluence (Scotia) |
+| Crooked Creek | Fred Berry Crooked Creek Nature Center |
+| Current River | Medlock Cave & Spring |
+| Current River | Welch Spring & Hospital |
+| Current River | Cave Spring |
+| Current River | Pulltite Spring |
+| Eleven Point River | Turner Mill (Turner Spring) |
+| Eleven Point River | Boze Mill Spring |
+| Elk River | Pineville city access |
+| Elk River | Mount Shira Access |
+| Elk River | Cowskin Access |
+| Huzzah Creek | Red Bluff |
+| Huzzah Creek | Huzzah Conservation Area |
+| Jacks Fork River | Ebb and Flow Spring |
+| Meramec River | Green's Cave |
+| Meramec River | Fisher Cave |
+| Niangua River | Berry Bluff |
+| Niangua River | Ha Ha Tonka Spring & Castle |
+| Norfork Tailwater | Bill Ackerman River Ridge Access |
+| North Fork River | Blue Spring Trail at North Fork Recreation Area |
+| Spring River (Missouri) | La Russell Access |
+| St. Francis River | Tiemann Shut-Ins overlook |
+| Lake Taneycomo | Shepherd of the Hills Fish Hatchery |
+| Lake Taneycomo | Rockaway Beach |
+| Lake Taneycomo | Empire Park, Forsyth |
+| White River | The Narrows |

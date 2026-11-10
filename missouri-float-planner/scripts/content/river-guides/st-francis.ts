@@ -82,7 +82,16 @@ export default {
         "best": "A calmer float from the state park",
         "photo": null,
         "body": "3.3 miles from the Sam A. Baker State Park boat launch to the Highway 34 bridge. Confirm the landing and parking at Highway 34 first, and use the Patterson gauge for this stretch.",
-        "time": "About 1½ hr"
+        "time": "About 1½ hr",
+        "photo_detail": {
+          "url": "/images/river-guides/sam-baker-park.webp",
+          "alt": "A stream winding between autumn trees below wooded hills at Sam A. Baker State Park.",
+          "caption": "Fall color at Sam A. Baker State Park, where this float starts.",
+          "author": "Missouri State Parks",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Sam_A._Baker_State_Park.jpg",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:Sam_A._Baker_State_Park.jpg"
+        }
       }
     ],
     "springs": [

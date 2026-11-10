@@ -63,7 +63,16 @@ export default {
         "miles": "5.8",
         "best": "A first drift, starting from the state park",
         "photo": null,
-        "body": "From the state park ramp down past Gaston’s to the Game and Fish ramp at White Hole. This is the stretch that sees a release first and feels it most. There is no float time on this card because the speed of the river depends on how many generators are running."
+        "body": "From the state park ramp down past Gaston’s to the Game and Fish ramp at White Hole. This is the stretch that sees a release first and feels it most. There is no float time on this card because the speed of the river depends on how many generators are running.",
+        "photo_detail": {
+          "url": "/images/river-guides/white-river-state-park.webp",
+          "alt": "Clear water of the White River at Bull Shoals-White River State Park.",
+          "caption": "The White River at Bull Shoals-White River State Park.",
+          "author": "CoreBurn",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Bull_ShoalsWhite_River_State_Park_-_White_River.jpg",
+          "license": "CC BY 2.0",
+          "license_url": "https://creativecommons.org/licenses/by/2.0"
+        }
       },
       {
         "id": 2,
@@ -75,7 +84,16 @@ export default {
         "miles": "6.1",
         "best": "A drift that ends in town",
         "photo": null,
-        "body": "Wildcat Shoals to the ramp at Big Spring Park in Cotter. Cotter also has two walk-in accesses just below the ramp, Armstrong Hole and Roundhouse Shoals, for people on foot."
+        "body": "Wildcat Shoals to the ramp at Big Spring Park in Cotter. Cotter also has two walk-in accesses just below the ramp, Armstrong Hole and Roundhouse Shoals, for people on foot.",
+        "photo_detail": {
+          "url": "/images/river-guides/cotter-big-spring-park.webp",
+          "alt": "A spring flowing across a grassy bank into the White River at Big Spring Park, Cotter.",
+          "caption": "Big Spring running into the White River at Big Spring Park in Cotter, where this float ends.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Cotter,_AR_004.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       },
       {
         "id": 3,
@@ -87,7 +105,16 @@ export default {
         "miles": "4.7",
         "best": "The shortest drift in this guide",
         "photo": null,
-        "body": "A short run from Cotter to the Game and Fish ramp at Rim Shoals. By here the river is more than 17 miles below the dam, so a change in generation shows up later than it does upstream."
+        "body": "A short run from Cotter to the Game and Fish ramp at Rim Shoals. By here the river is more than 17 miles below the dam, so a change in generation shows up later than it does upstream.",
+        "photo_detail": {
+          "url": "/images/river-guides/cotter-bridge.webp",
+          "alt": "The arched concrete Cotter Bridge over the White River.",
+          "caption": "The Cotter Bridge over the White River.",
+          "author": "Archedamian",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Cotter_Bridge,_Baxter_County,_Arkansas.JPG",
+          "license": "CC BY-SA 3.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
+        }
       },
       {
         "id": 4,
@@ -99,17 +126,44 @@ export default {
         "miles": "12.5",
         "best": "A long day on the lower tailwater",
         "photo": null,
-        "body": "The longest drift here, from Buffalo City past Cartney and Shipp’s Ferry to Norfork. At Norfork the North Fork comes in, carrying Norfork Dam’s releases, so below that point two dams are at work and different trout limits apply."
+        "body": "The longest drift here, from Buffalo City past Cartney and Shipp’s Ferry to Norfork. At Norfork the North Fork comes in, carrying Norfork Dam’s releases, so below that point two dams are at work and different trout limits apply.",
+        "photo_detail": {
+          "url": "/images/river-guides/buffalo-city-view.webp",
+          "alt": "A bend of the White River below wooded hills, with fields and cabins on the far bank at Buffalo City.",
+          "caption": "Looking down on Buffalo City and the White River.",
+          "author": "Semipaw",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Looking_Down_at_Buffalo_City_-_panoramio.jpg",
+          "license": "CC BY 3.0",
+          "license_url": "https://creativecommons.org/licenses/by/3.0"
+        }
       }
     ],
     "springs": [
       {
         "name": "Bull Shoals-White River State Park",
-        "note": "The easy place to start: a ramp a mile and a half below the dam, a riverside marina and store that rents boats, 109 campsites and the James A. Gaston Visitor Center."
+        "note": "The easy place to start: a ramp a mile and a half below the dam, a riverside marina and store that rents boats, 109 campsites and the James A. Gaston Visitor Center.",
+        "photo": {
+          "url": "/images/river-guides/bull-shoals-park-river.webp",
+          "alt": "The White River beside Bull Shoals-White River State Park.",
+          "caption": "The White River at Bull Shoals-White River State Park.",
+          "author": "CoreBurn",
+          "source_url": "https://commons.wikimedia.org/wiki/File:White_River_at_BSWR_SP,_Arkansas.jpg",
+          "license": "CC BY 2.0",
+          "license_url": "https://creativecommons.org/licenses/by/2.0"
+        }
       },
       {
         "name": "Cotter",
-        "note": "A river town with a public ramp at Big Spring Park and two walk-in accesses, Armstrong Hole and Roundhouse Shoals, a short way downstream."
+        "note": "A river town with a public ramp at Big Spring Park and two walk-in accesses, Armstrong Hole and Roundhouse Shoals, a short way downstream.",
+        "photo": {
+          "url": "/images/river-guides/cotter-bridge-fog.webp",
+          "alt": "The arched Cotter Bridge over the White River in morning fog.",
+          "caption": "The Cotter Bridge over the White River on a foggy morning.",
+          "author": "Luhsteesay",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Cotter_Bridge_over_White_River._Cotter,_Arkansas.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       },
       {
         "name": "The Narrows",

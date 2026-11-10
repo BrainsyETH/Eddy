@@ -110,7 +110,16 @@ export default {
         "mile": "~17",
         "name": "Greer Spring",
         "note": "Missouri's 2nd-largest spring. It enters through the Greer Spring Branch about a mile below the access and more than doubles the river — colder, clearer, and faster below the confluence. The spring itself is a 0.9-mile hike down from Highway 19.",
-        "rank": "MO #2"
+        "rank": "MO #2",
+        "photo": {
+          "url": "/images/river-guides/greer-spring.webp",
+          "alt": "Greer Spring flowing out among mossy rocks in a wooded hollow.",
+          "caption": "Greer Spring, in Mark Twain National Forest.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Greer_Spring-Oct2013-067.jpg",
+          "license": "CC BY 3.0",
+          "license_url": "https://creativecommons.org/licenses/by/3.0"
+        }
       },
       {
         "mile": "21.5",

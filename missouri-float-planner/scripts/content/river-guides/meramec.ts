@@ -110,12 +110,30 @@ export default {
         "mile": "28",
         "name": "Maramec Spring",
         "note": "Missouri's 5th-largest spring, in privately run Maramec Spring Park near St. James — a catch-and-keep trout park (Missouri trout tags required). Spelled 'Maramec' for the spring and park, 'Meramec' for the river.",
-        "rank": "MO #5"
+        "rank": "MO #5",
+        "photo": {
+          "url": "/images/river-guides/maramec-spring.webp",
+          "alt": "Water spilling over a low dam under a footbridge, among mossy rocks, at Maramec Spring Park.",
+          "caption": "A footbridge over the spring branch at Maramec Spring Park.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Maramec_Spring_Park_20140330_151.jpg",
+          "license": "CC BY 3.0",
+          "license_url": "https://creativecommons.org/licenses/by/3.0"
+        }
       },
       {
         "mile": "68",
         "name": "Onondaga Cave",
-        "note": "A National Natural Landmark show cave at Onondaga Cave State Park, right at the river access. Guided walking tours run April–October, about an hour and 15 minutes underground."
+        "note": "A National Natural Landmark show cave at Onondaga Cave State Park, right at the river access. Guided walking tours run April–October, about an hour and 15 minutes underground.",
+        "photo": {
+          "url": "/images/river-guides/onondaga-cave.webp",
+          "alt": "Lit cave formations inside Onondaga Cave.",
+          "caption": "Inside Onondaga Cave.",
+          "author": "Missouri State Parks",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Onondaga_Cave_State_Park_-_54291159756.jpg",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:Onondaga_Cave_State_Park_-_54291159756.jpg"
+        }
       },
       {
         "mile": "~85",
