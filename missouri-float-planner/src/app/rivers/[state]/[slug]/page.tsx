@@ -75,7 +75,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     // Chat clients can retain metadata indefinitely. Do not publish a condition
     // verdict here; the destination supplies timestamped, current readings.
-    const title = `${river.name} · Float guide & access points`;
+    const title = `${river.name} Levels & Float Conditions`;
     const ogTitle = `${title} | Eddy`;
     const description = `River conditions, access points and float planning for ${river.name}. Open for the latest readings.`;
     const pageUrl = `${BASE_URL}${riverPath(river.state, slug)}`;
@@ -280,8 +280,10 @@ export default async function RiverGuidePage({ params }: Props) {
           className="bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 text-white"
         >
           <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
-            <nav className="text-xs text-white/50 mb-5">
-              <Link href="/rivers" className="hover:text-white">River Reports</Link>
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-y-2 text-xs text-white/70 mb-5">
+              <Link href="/rivers" className="hover:text-white">Conditions</Link>
+              <span className="mx-2" aria-hidden="true">/</span>
+              <Link href={statePath(river.state)} className="hover:text-white">{stateName(river.state)}</Link>
               <span className="mx-2">/</span>
               <span className="text-white/80">{river.name}</span>
             </nav>

@@ -1,4 +1,6 @@
 import Image from 'next/image';
+import { statePath } from '@/lib/navigation/river-path';
+import { stateName } from '@/lib/navigation/states';
 import { publishedLakes } from '@/lib/lakes/public-pages';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -7,6 +9,8 @@ import { buildRiversSummary } from '@/data/eddy-quotes';
 import ConditionsExplorer, { type ConditionsExplorerProps } from './ConditionsExplorer';
 
 export default function ConditionsLayout(props: ConditionsExplorerProps) {
+  const states = [...new Set(props.rivers.map(river => river.state).filter(Boolean))]
+    .sort((a, b) => stateName(a).localeCompare(stateName(b)));
   const summary = buildRiversSummary(props.rivers.map(river => river.currentCondition?.code ?? null));
   return <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
     <header className="bg-primary-900 py-7 text-white md:py-9">
@@ -23,6 +27,12 @@ export default function ConditionsLayout(props: ConditionsExplorerProps) {
     </header>
     <div className="mx-auto max-w-7xl px-4 pb-12 pt-5 sm:px-6 lg:px-8">
       <ConditionsExplorer {...props} />
+      {states.length > 0 && <nav className="mt-6 border-t border-neutral-200 pt-4" aria-label="Rivers by state">
+        <h2 className="font-heading text-lg font-bold text-primary-800">Browse rivers by state</h2>
+        <div className="mt-2 flex flex-wrap gap-x-6">
+          {states.map(state => <Link key={state} href={statePath(state)} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline underline-offset-4">{stateName(state)} rivers →</Link>)}
+        </div>
+      </nav>}
       {publishedLakes().length > 0 && <nav className="mt-6 border-t border-neutral-200 pt-4" aria-label="Lake reports"><h2 className="font-heading text-lg font-bold text-primary-800">Lake levels &amp; launches</h2><div className="mt-2 flex flex-wrap gap-x-6">{publishedLakes().map(lake => <Link key={lake.slug} href={`/lakes/${lake.slug}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline underline-offset-4">{lake.name} →</Link>)}</div></nav>}
       <p className="mt-8 max-w-2xl text-xs text-neutral-500">Readings from USGS, USACE, and Ameren; schedules from SWPA. Releases can change without notice. Follow warning sirens and posted signs below every dam.</p>
       <p className="mt-2 max-w-2xl text-xs text-neutral-500">USGS readings can lag actual river conditions. Check the observation time before heading out.</p>

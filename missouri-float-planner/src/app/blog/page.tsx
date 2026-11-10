@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
 import Image from 'next/image';
 import { optimizeBlogImage } from '@/lib/blog-image';
 import { guideCover, isGuidePlaceholder } from '@/lib/photos/guides';
@@ -186,7 +187,7 @@ export default async function BlogPage() {
           <div className="mt-12 text-center">
             <p className="text-neutral-600 mb-4">Ready to start planning your float?</p>
             <Link
-              href="/"
+              href={floatSearchLaunch().web ? "/find-float" : "/plan"}
               className="inline-flex items-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-lg"
             >
               Plan your float

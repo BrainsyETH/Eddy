@@ -6,6 +6,8 @@
 // HTML, so a schedule bar can never disagree between the two.
 
 import 'server-only';
+import { getRiverContext } from '@/lib/rivers/context';
+import { riverPath } from '@/lib/navigation/river-path';
 import { unstable_cache } from 'next/cache';
 import { getUsaceDam, hasPowerhouse } from '@/lib/flow-providers/usace-registry';
 import { refreshStaleness } from '@/lib/data/dams';
@@ -25,6 +27,8 @@ const readDam = unstable_cache(
 
 export interface DamEmbedData {
   dam: DamSnapshot;
+  /** Canonical downstream report, including the section when available. */
+  riverPath?: string | null;
   /** Registry truth, not the row: a flood-control project has no widget. */
   powerhouse: boolean;
   tailwaterFishery: 'trout' | 'warmwater' | null;
@@ -37,9 +41,15 @@ export async function loadDamEmbed(damId: string): Promise<DamEmbedData | null> 
   if (!registry) return null;
   const snapshot = await readDam(damId);
   if (!snapshot) return null;
+  const context = snapshot.tailwater?.riverSlug
+    ? await getRiverContext(snapshot.tailwater.riverSlug).catch(() => null)
+    : null;
+  const downstreamPath = context ? riverPath(context.state, context.slug) : null;
+  const section = snapshot.tailwater?.sectionSlug;
   const now = Date.now();
   return {
     dam: refreshStaleness(snapshot, now),
+    riverPath: downstreamPath ? `${downstreamPath}${section ? `?section=${encodeURIComponent(section)}` : ''}` : null,
     powerhouse: hasPowerhouse(registry),
     tailwaterFishery: registry.tailwaterFishery ?? null,
     assembledAt: now,

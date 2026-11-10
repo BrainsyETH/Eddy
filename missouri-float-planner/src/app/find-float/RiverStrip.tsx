@@ -151,7 +151,7 @@ export default function RiverStrip({ riverSlug, riverName, points, pointInfo, ro
                   onKeyDown={e => { if (e.key === 'Escape' && open) { e.stopPropagation(); disclosure.close(true); } }}
                   className="absolute rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-text-link)]"
                   style={{ left: target.box.x0, top: target.box.y0, width: target.box.x1 - target.box.x0, height: target.box.y1 - target.box.y0 }} />
-                {open && <StripPointCard id={popupId} target={target} pointInfo={pointInfo} riverSlug={riverSlug} layout={layout}
+                {open && <StripPointCard id={popupId} target={target} pointInfo={pointInfo} layout={layout}
                   selected={selectedRoute} points={points} onEnter={disclosure.hold} onLeave={disclosure.leave} onClose={() => disclosure.close(true)} />}
               </div>;
             })}
@@ -334,10 +334,9 @@ function pointFacilities(info: AccessPoint) {
 }
 
 /** One access in a strip card: what it is, who may use it, what is there, where it sits in the chosen float. */
-function PointFacts({ dot, info, riverSlug, selected, points }: {
+function PointFacts({ dot, info, selected, points }: {
   dot: StripDot;
   info: AccessPoint | undefined;
-  riverSlug: string;
   selected: NumberedRoute | null;
   points: RiverStripPoint[];
 }) {
@@ -366,7 +365,7 @@ function PointFacts({ dot, info, riverSlug, selected, points }: {
       {marks.map(mark => <li key={mark.icon} className="inline-flex items-center gap-1"><EddyIcon name={mark.icon} size={18} />{mark.label}</li>)}
       {fee && <li className="font-semibold text-[var(--color-text-secondary)]">{fee}</li>}
     </ul>}
-    {info?.slug && <Link href={`/rivers/${riverSlug}/access/${info.slug}`} className="mt-1.5 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-[var(--color-text-link)] hover:underline">
+    {info?.path && <Link href={info.path} className="mt-1.5 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-[var(--color-text-link)] hover:underline">
       {dot.name} details<ArrowRight size={12} aria-hidden="true" />
     </Link>}
   </div>;
@@ -378,11 +377,10 @@ function PointFacts({ dot, info, riverSlug, selected, points }: {
  * it, on the side of the river with more room; Escape anywhere in it closes it
  * and returns focus to its dot.
  */
-function StripPointCard({ id, target, pointInfo, riverSlug, layout, selected, points, onEnter, onLeave, onClose }: {
+function StripPointCard({ id, target, pointInfo, layout, selected, points, onEnter, onLeave, onClose }: {
   id: string;
   target: StripDotTarget;
   pointInfo?: Map<string, AccessPoint>;
-  riverSlug: string;
   layout: { width: number; height: number };
   selected: NumberedRoute | null;
   points: RiverStripPoint[];
@@ -407,7 +405,7 @@ function StripPointCard({ id, target, pointInfo, riverSlug, layout, selected, po
     {many && <p className="mb-2 pr-8 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">{target.dots.length} accesses here</p>}
     <ul className={`space-y-3 ${many ? 'max-h-64 overflow-y-auto' : 'pr-8'}`}>
       {target.dots.map(dot => <li key={dot.id} className={many ? 'border-t border-[var(--color-border)] pt-2 first:border-t-0 first:pt-0' : undefined}>
-        <PointFacts dot={dot} info={pointInfo?.get(dot.id)} riverSlug={riverSlug} selected={selected} points={points} />
+        <PointFacts dot={dot} info={pointInfo?.get(dot.id)} selected={selected} points={points} />
       </li>)}
     </ul>
   </div>;

@@ -15,6 +15,7 @@ import { weekendWeather } from './weekend-weather';
 // (quick-post helpers, the cron's buildRenderData, and the scheduler), which is
 // what let them drift (route_draw missing, digest caption source mismatch, etc).
 
+import { getRiverContext } from '@/lib/rivers/context';
 import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
@@ -378,6 +379,7 @@ export async function buildPostContext(
     const slugs = (deduped as any[]).map((u) => u.river_slug as string);
     const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
     if (!trend) return null;
+    const riverState = (await getRiverContext(trend.riverSlug).catch(() => null))?.state;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const latest = (deduped as any[]).find((u) => u.river_slug === trend.riverSlug);
     const conditionCode = latest?.condition_code || 'unknown';
@@ -387,7 +389,7 @@ export async function buildPostContext(
       riverSlug: trend.riverSlug,
       renderData: { ...trend, conditionCode, weather, dateLabel: `Latest reading ${reportStamp(new Date(trend.readingAt))}` },
       caption: (platform, custom) =>
-        formatWeeklyTrendCaption({ ...trend, conditionCode, weather: latest?.weather ?? null }, custom, platform),
+        formatWeeklyTrendCaption({ ...trend, riverState, conditionCode, weather: latest?.weather ?? null }, custom, platform),
       // Pin the river AND the instant: the cover re-derives the seven days as of
       // this post's own asOf (trend-picker honours it), so its delta, range and
       // sparkline match the reel instead of the gauge's later movement. The

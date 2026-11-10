@@ -7,6 +7,7 @@
 
 import ArticleByline from './ArticleByline';
 import Link from 'next/link';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
 import Image from 'next/image';
 import type {
   ArticleGuidePost,
@@ -752,7 +753,7 @@ export default function GuideArticleLayout({ post }: Props) {
                 </p>
               )}
               <Link
-                href={g.cta?.href ?? '/'}
+                href={g.cta?.href && g.cta.href !== '/' ? g.cta.href : floatSearchLaunch().web ? '/find-float' : '/plan'}
                 style={{
                   display: 'inline-block',
                   marginTop: 16,

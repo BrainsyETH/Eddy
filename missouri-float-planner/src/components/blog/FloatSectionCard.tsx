@@ -14,6 +14,8 @@ interface Props {
    *  with this section's put-in and take-out. Built by RiverGuideLayout from
    *  the section's from_slug / to_slug after resolving access point IDs. */
   plannerUrl?: string;
+  fromHref?: string;
+  toHref?: string;
   /** Photo to use when the section has no explicit `photo` — resolved by
    *  RiverGuideLayout from the section's access-point imagery. */
   photoFallback?: string;
@@ -25,7 +27,7 @@ const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
   II:   { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
 };
 
-export default function FloatSectionCard({ section: s, index, plannerUrl, photoFallback }: Props) {
+export default function FloatSectionCard({ section: s, index, plannerUrl, fromHref, toHref, photoFallback }: Props) {
   const dc = DIFF_COLORS[s.diff ?? ''] ?? DIFF_COLORS.I;
   const stats = [['Distance', `${s.miles} mi`], ['Float time', s.time], ['Class', s.diff], ['Crowd', s.crowd]].filter(([, value]) => value);
   const photo = s.photo || photoFallback || null;
@@ -248,6 +250,10 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
           >
             <strong style={{ color: 'var(--color-neutral-900)' }}>Best for:</strong> {s.best}
           </div>
+          {(fromHref || toHref) && <nav aria-label={`Access details for ${s.from} to ${s.to}`} className="mt-3 flex flex-wrap gap-x-4 text-sm">
+            {fromHref && <Link href={fromHref} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.from} access details</Link>}
+            {toHref && <Link href={toHref} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.to} access details</Link>}
+          </nav>}
         </div>
       </div>
     </article>

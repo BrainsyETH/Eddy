@@ -79,6 +79,28 @@ build and enforces a 250ms click-to-painted-state budget under the same throttle
 Development timings are diagnostic only. Production mode uses API fixtures but
 does not create any fixture routes.
 
+## Public page links
+
+Report links use the canonical `/rivers/<state>/<river>` hierarchy. Access APIs
+supply `path` for their detail pages; consumers use it instead of composing the
+retired `/rivers/<river>/access/<access>` form. Legacy links return HTTP 308 in
+`src/proxy.ts`, before page streaming, with query strings preserved. State
+indexes and canonical pages bypass the redirect lookup. Only verified access
+aliases are redirected; an unavailable catalog returns a retryable 503.
+
+Conditions links to the state indexes, and river/access breadcrumbs expose the
+same hierarchy. Access pages offer Start here / End here only for float
+endpoints; every access can open on the planner map. Guide section cards link
+to published access details and their route. General guide planning CTAs open
+Find a Float when discovery is enabled, otherwise the planner. The finder has
+one canonical base URL and joins the sitemap when web discovery is enabled.
+Saved/shared plan URLs keep their existing indexing behavior.
+`PLANNER_ACCESS_LINKS_ONLY=1 npm run test:planner-map` checks incoming access
+links on desktop and mobile, including delayed data, non-launch places, and
+inspection alongside an existing put-in.
+`CONDITIONS_LINKS_ONLY=1 npm run test:conditions` checks the state and footer
+links, report charts, dam timelines, and layout at four viewport sizes.
+
 ## Conditions directory
 
 `/rivers` starts with All: full **Featured** reports for Table Rock, Bull Shoals,

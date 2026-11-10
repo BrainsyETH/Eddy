@@ -20,6 +20,7 @@ export default function PlannerAccessDetails({ point, riverSlug }: { point: Acce
   const query = useAccessPointDetail(riverSlug, point.slug, point.id);
   const detail = query.data?.accessPoint;
   const current = detail ?? point;
+  const detailPath = detail?.path ?? point.path;
   const photos = [...new Set([...current.imageUrls, ...(current.npsCampground?.images.map(photo => photo.url) ?? [])])];
   const [photoIndex, setPhotoIndex] = useState(0);
   const index = photoIndex % Math.max(1, photos.length);
@@ -52,7 +53,7 @@ export default function PlannerAccessDetails({ point, riverSlug }: { point: Acce
       {point.parkingInfo && <PlaceSection title="Parking" icon="parking"><p>{point.parkingInfo}</p></PlaceSection>}
       {point.facilities && <PlaceSection title="Facilities" icon="facilities"><p>{point.facilities}</p></PlaceSection>}
     </>}
-    <Link href={detail?.path ?? `/rivers/${riverSlug}/access/${point.slug}`} className="inline-block text-xs font-semibold text-primary-700 hover:underline">Full access details →</Link>
+    {detailPath && <Link href={detailPath} className="inline-block text-xs font-semibold text-primary-700 hover:underline">Full access details →</Link>}
   </div>;
 }
 

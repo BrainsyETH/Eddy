@@ -266,7 +266,7 @@ function Card(props: Props) {
   const release = full ? dam.metrics.release ?? null : null;
   const utm = utmFor(data, options, branding);
   const links = [{ label: 'View full report', path: `/dams/${dam.id}` }];
-  if (full && dam.tailwater?.riverSlug) links.push({ label: 'River below', path: `/rivers/${dam.tailwater.riverSlug}` });
+  if (full && data.riverPath) links.push({ label: 'River below', path: data.riverPath });
   const checked = moment.scheduleCheckedAt != null ? relativeAge(new Date(moment.scheduleCheckedAt).toISOString(), now) : null;
   const sources = dam.sources.map((s) => SOURCE_NAMES[s] ?? s);
   // Only collapse identical, near-simultaneous spot readings. Daily averages,
