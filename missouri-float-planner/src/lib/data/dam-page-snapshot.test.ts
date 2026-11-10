@@ -57,7 +57,7 @@ function renderPage(dam: DamSnapshot, renderedAt: number): string {
   } finally { client.clear(); }
 }
 
-const todayHeading = (html: string) => html.match(/Today’s generation <span[^>]*>· ([^<]+)/)?.[1];
+const todayHeading = (html: string) => html.match(/Today’s generation schedule <span[^>]*>· ([^<]+)/)?.[1];
 
 test('regression: a render after Central midnight labels the reader’s day as Today, not the day the data was built', async () => {
   // The original bug: HTML rendered on Sat, Nov 7 was still being served on
@@ -71,8 +71,8 @@ test('regression: a render after Central midnight labels the reader’s day as T
 
   const html = renderPage(dam, now);
   assert.equal(todayHeading(html), 'Sun, Nov 8');
-  assert.doesNotMatch(html, /Today’s generation <span[^>]*>· Sat, Nov 7/);
-  assert.match(html, /Tomorrow’s generation <span[^>]*>· Mon, Nov 9/);
+  assert.doesNotMatch(html, /Today’s generation schedule <span[^>]*>· Sat, Nov 7/);
+  assert.match(html, /Tomorrow’s generation schedule <span[^>]*>· Mon, Nov 9/);
 });
 
 test('stored readings are re-banded against the request clock instead of keeping the cron’s staleness', async () => {
@@ -104,7 +104,7 @@ test('with no stored row and a failed live read, the page says unavailable inste
   const { fake } = sources(null, buildSnapshot(DAM, {}, []));
   const html = renderPage((await loadDamPageSnapshot(DAM.id, now, fake))!, now);
   assert.match(html, /Schedule currently unavailable/);
-  assert.doesNotMatch(html, /Today’s generation <span/);
+  assert.doesNotMatch(html, /Today’s generation schedule <span/);
   assert.doesNotMatch(html, /Nov 7/);
 });
 

@@ -1,5 +1,5 @@
 import type { ScheduleAvailability as FullScheduleAvailability } from '@/lib/dam-schedule-availability';
-import { readingStaleness, relativeAge, SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
+import { SCHEDULE_POSTING_NOTE } from '@shared/dam-schedule-copy';
 import type { DamSnapshot } from '@/lib/data/dams';
 import { generationReferenceCitation, RACK_ESTIMATE_NOTE } from '@shared/dam-generation';
 import DamGenerationHero from './DamGenerationHero';
@@ -18,15 +18,8 @@ export default function GenerationCard({ dam, now, availability }: {
   const hasSchedule = dam.schedule.length > 0;
   const release = dam.metrics.release;
   const hasObserved = dam.hasTurbines || Boolean(release);
-  const observed = (hasObserved && <div className="dam-observed p-5 sm:p-6">{dam.hasTurbines ? <DamGenerationHero dam={dam} now={now} /> : release && <div>
-          <h2 className="flex flex-wrap items-center gap-2 pr-8 text-xs font-bold uppercase tracking-wide text-neutral-700">
-            {release.dailyMean ? 'Release at dam · Daily average' : 'Release at dam'}
-            {!release.dailyMean && readingStaleness(release.at, now) !== 'fresh' && <span className="rounded-full bg-accent-100 px-2 py-0.5 normal-case tracking-normal text-accent-900">Outdated reading</span>}
-          </h2>
-          <p className={`mt-4 font-mono text-4xl text-primary-900${readingStaleness(release.at, now) === 'fresh' ? '' : ' opacity-70'}`}>{Math.round(release.value).toLocaleString()} <span className="text-base text-neutral-600">cfs</span></p>
-          <p className="mt-2 text-xs text-neutral-600">{relativeAge(release.at, now) ? `Last reading ${relativeAge(release.at, now)}` : 'Reading time unavailable'}</p>
-        </div>}</div>);
-  const schedule = (<div className="min-w-0 p-5 sm:p-6">
+  const observed = hasObserved && <div className="dam-observed min-w-0 p-4 sm:p-6"><DamGenerationHero dam={dam} now={now} /></div>;
+  const schedule = (<div className="min-w-0 p-4 sm:p-6">
           {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} /> : (
             <div className="flex min-h-28 flex-col justify-center">
               <h2 className="pr-8 text-base font-bold text-neutral-900">{availability.title}</h2>

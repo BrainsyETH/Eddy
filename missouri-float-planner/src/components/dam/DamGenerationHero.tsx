@@ -1,14 +1,10 @@
-// The observed half of the generation card. Plans stay in GenerationSchedule.
-// Generator cells estimate full-load equivalents; they are not unit status.
-// Total release retains its own timestamp and is never inferred from turbine flow.
-
+// Total release leads. Turbine generation remains a separate observation,
+// with its own timestamp and a rack based only on measured turbine flow.
 import { Zap } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 import DamGeneratorRack from './DamGeneratorRack';
-import {
-  relativeAge,
-  readingStaleness,
-} from '@shared/dam-schedule-copy';
+import { relativeAge, readingStaleness } from '@shared/dam-schedule-copy';
 import {
   FULL_GENERATION_SHORT_LABEL,
   generationNow,
@@ -24,115 +20,77 @@ import {
   ABOVE_FULL_GENERATION_LABEL,
 } from '@shared/dam-generation';
 
-function cfs(value: number): string {
-  return `${Math.round(value).toLocaleString()} cfs`;
+const observationClock = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago', timeZoneName: 'short',
+});
+
+function ReadingTime({ at, now }: { at: string; now: number }) {
+  const age = relativeAge(at, now);
+  return <p className="mt-2 text-xs leading-5 text-neutral-600">
+    {age ? <>Last reading <time dateTime={at}>{observationClock.format(new Date(at))}</time> · {age}</> : 'Reading time unavailable'}
+  </p>;
 }
 
 export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now: number }) {
   const state = generationNow(dam, now);
   const status = generationStatusLabel(state);
-
-  // A flood-control project has no powerhouse to report on, and a hero that
-  // said anything at all here would invent one. The page's own no-powerhouse
-  // copy covers it instead.
-  if (!status) return null;
-
+  const release = dam.metrics.release;
   const ref = dam.generationReference;
   const rack = state.kind === 'generating' ? generatorRack(state.turbineCfs, ref) : null;
   const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
-  const comparison = releaseComparison(dam.metrics.generationFlow, dam.metrics.release, ref, {
+  const comparison = releaseComparison(dam.metrics.generationFlow, release, ref, {
     declared: dam.releaseExcludesGeneration, now,
   });
   const voiceOver = generationVoiceOver(state, ref);
   const spill = spillwayRelease(dam, now);
-
-  const observedAt = state.kind === 'unavailable' ? null : relativeAge(state.observedAt, now);
-  // The same rule the phrasing uses, so a reading that stopped saying "now"
-  // also stops looking current. It was gated on `stale` while the copy is
-  // gated on `fresh`, so a four-hour-old reading lost the present tense and
-  // kept full emphasis.
-  const dim = state.kind !== 'unavailable' && !speaksForNow(state.age);
+  const repeatsRelease = releaseRepeatsTurbineFlow(dam.metrics.generationFlow, release);
+  // Equal values alone must not hide an older turbine observation.
+  const sameTime = state.kind !== 'unavailable' && release && !release.dailyMean &&
+    Date.parse(state.observedAt) === Date.parse(release.at);
+  const dimTurbine = state.kind !== 'unavailable' && !speaksForNow(state.age);
+  const dimRelease = release && readingStaleness(release.at, now) !== 'fresh';
 
   return (
-    <section aria-label="Observed generation" className="min-w-0">
-      <h2 className="flex flex-wrap items-center gap-2 pr-8 text-base font-semibold text-primary-900 sm:pr-0">
-        <Zap className="size-4 shrink-0 text-accent-700" aria-hidden="true" /> {status}
-        {dim && <span className="rounded-full bg-accent-100 px-2 py-0.5 text-xs font-bold text-accent-900">Outdated reading</span>}
+    <section aria-label="Reported water release" className="min-w-0">
+      <h2 className="flex items-center gap-2 pr-8 text-base font-semibold text-primary-900 sm:pr-0">
+        <EddyIcon name="release" size={28} /> Latest reported release
       </h2>
-
-      {/* Flow leads; the rack adds scale against the published reference.
-          Its decorative cells are hidden from assistive technology. An old
-          reading also says so in words beside the status. */}
-      <div className={dim ? 'opacity-70' : undefined}>
-        {state.kind !== 'unavailable' && (
-          <p className="mt-3 font-mono text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight text-primary-900">
-            {Math.round(state.turbineCfs).toLocaleString()} <span className="text-base tracking-normal text-neutral-600">cfs</span>
-            <span className="mt-1 block font-sans text-sm font-normal tracking-normal text-neutral-700">through the turbines</span>
-          </p>
-        )}
-        {observedAt && <p className="mt-2 text-xs text-neutral-600">Last reading {observedAt}</p>}
-        {rack && <div className="mt-5 flex flex-wrap items-center gap-3">
-          <DamGeneratorRack rack={rack} />
-          {percent && ref && state.kind === 'generating' && <p className="text-sm font-bold text-primary-900">
-            ~{percent} <span className="font-normal text-neutral-700">{FULL_GENERATION_SHORT_LABEL}</span>
-          </p>}
-        </div>}
-        {rack && state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && <p className="mt-2 text-xs text-neutral-600">{ABOVE_FULL_GENERATION_LABEL}</p>}
-      </div>
-
-      {voiceOver && <p className="sr-only">{voiceOver}</p>}
-
-      {/* Read from the district's spillway series, never inferred from total
-          flow: the gates can open well below full turbine capacity. */}
-      {spill && (
-        <p className="mt-4 rounded-lg border border-accent-500 bg-accent-50 px-3 py-2 text-sm font-semibold text-accent-900">
-          {spillwayReleaseLabel(spill)}
-          <span className="block text-xs font-normal text-neutral-700">
-            Through the spillway gates · {relativeAge(spill.observedAt, now)}
-          </span>
+      {release ? <>
+        <p data-total-release className={`mt-3 flex flex-wrap items-baseline gap-x-2 font-mono text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight text-primary-900${dimRelease ? ' opacity-70' : ''}`}>
+          {Math.round(release.value).toLocaleString()} <span className="text-base tracking-normal text-neutral-600">cfs</span>
         </p>
-      )}
+        <p className="mt-1 text-sm text-neutral-700">{release.dailyMean ? 'Total release at dam · Daily average' : 'Total water released at the dam'}</p>
+        <ReadingTime at={release.at} now={now} />
+        {dimRelease && !release.dailyMean && <p className="mt-1 text-xs font-semibold text-accent-900">Outdated release reading</p>}
+      </> : <p className="mt-3 text-sm text-neutral-700">Total release unavailable.</p>}
 
-      {/* Total release that reads the same as the turbines, at the same time,
-          is said in one line rather than repeated as a second big figure. */}
-      {/* Only when the turbine figure is actually on screen above. */}
-      {dam.metrics.release && state.kind !== 'unavailable' && releaseRepeatsTurbineFlow(dam.metrics.generationFlow, dam.metrics.release) ? (
-        <p className="mt-2 text-xs text-neutral-600">Total release at the dam reads the same.</p>
-      ) : dam.metrics.release && (
-        <div className="mt-6 border-t border-secondary-300 pt-5">
-          {/* The age is not optional. Turbine flow above carries one, and two
-              adjacent measurements with different ages look synchronised when
-              only one of them is dated — which is exactly the impression that
-              makes a reader trust a difference between them. */}
-          <p
-            className={
-              readingStaleness(dam.metrics.release.at, now) === 'fresh'
-                ? 'text-sm text-neutral-700'
-                : 'text-sm text-neutral-700 opacity-70'
-            }
-          >
-            <span className="block text-xs font-medium text-neutral-600">
-              {dam.metrics.release.dailyMean ? 'Total release at dam (daily avg)' : 'Total release at dam'}
-            </span>{' '}
-            <span className="mt-1 block font-mono text-xl text-primary-900">
-              {cfs(dam.metrics.release.value)}
-            </span>
-            <span className="mt-1 block text-xs text-neutral-600">
-              {relativeAge(dam.metrics.release.at, now)}
-            </span>
-          </p>
-          {comparison.kind === 'other-release' && (
-            <>
-              <p className="mt-4 text-sm text-neutral-700">
-                <span className="font-medium">Not through turbines</span>{' '}
-                <span className="font-mono text-primary-900">
-                  {cfs(comparison.otherCfs)}
-                </span>
-              </p>
-            </>
+      {status && <div className="mt-4 border-t border-secondary-300 pt-4">
+        <h3 className="flex items-start gap-2 text-sm font-semibold leading-5 text-primary-900">
+          <Zap className="mt-0.5 size-4 shrink-0 text-primary-700" aria-hidden="true" /> {status}
+        </h3>
+        {state.kind !== 'unavailable' && <div className={dimTurbine ? 'opacity-70' : undefined}>
+          {repeatsRelease ? <p className="mt-1 text-xs text-neutral-600">Turbine flow matches total release.</p> : (
+            <p className="mt-2 text-sm text-neutral-700">Through the turbines <span className="font-mono font-medium text-primary-900">{Math.round(state.turbineCfs).toLocaleString()} cfs</span></p>
           )}
-        </div>
-      )}
+          {!sameTime && <ReadingTime at={state.observedAt} now={now} />}
+          {dimTurbine && <p className="mt-1 text-xs font-semibold text-accent-900">Outdated turbine reading</p>}
+          {rack && <div className="mt-3 flex flex-wrap items-center gap-3">
+            <DamGeneratorRack rack={rack} compact />
+            {percent && <p className="text-sm font-bold text-primary-900">~{percent} <span className="font-normal text-neutral-700">{FULL_GENERATION_SHORT_LABEL}</span></p>}
+          </div>}
+          {rack && state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && <p className="mt-2 text-xs text-neutral-600">{ABOVE_FULL_GENERATION_LABEL}</p>}
+        </div>}
+        {voiceOver && <p className="sr-only">{voiceOver}</p>}
+      </div>}
+
+      {spill && <p className="mt-4 rounded-lg border border-accent-500 bg-accent-50 px-3 py-2 text-sm font-semibold text-accent-900">
+        {spillwayReleaseLabel(spill)}
+        <span className="block text-xs font-normal text-neutral-700">Through the spillway gates · {relativeAge(spill.observedAt, now)}</span>
+      </p>}
+      {comparison.kind === 'other-release' && <p className="mt-3 text-sm text-neutral-700">
+        <span className="font-medium">Not through turbines</span>{' '}
+        <span className="font-mono text-primary-900">{Math.round(comparison.otherCfs).toLocaleString()} cfs</span>
+      </p>}
     </section>
   );
 }
