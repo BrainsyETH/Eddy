@@ -48,7 +48,9 @@ guides, and the iPhone app. Its two report columns reuse the Conditions director
 `RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
 Desktop cards match the taller of the two visible reports, with aligned report
 footers and carousel controls; off-screen slides do not set the height. Stacked
-mobile cards keep their natural height. Dam cards show only Today's generation
+mobile cards keep their natural height. Homepage dam cards use the same three-reading
+banner as `/dams`: release, water temperature, and lake level, with Eddy icons
+and one shared age line. Dam cards show only Today's generation
 schedule, and Eddy Says follows the river chart without a spacer.
 Both shared cards use Eddy's framed surface and teal header.
 Each column shows one report, rotating horizontally every eight seconds while

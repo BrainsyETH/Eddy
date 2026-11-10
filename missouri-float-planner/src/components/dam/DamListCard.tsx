@@ -12,7 +12,7 @@ import { forecastPlanStale, nextForecastChangeSentence } from '@shared/dam-forec
  * Directory and homepage summary of one dam.
  *
  * Reading order: dam, dated today → measured release, temperature (and lake
- * level in the directory) →
+ * level on the homepage and in the directory) →
  * today's schedule → next change → schedule freshness → full report. The
  * header's dateline is the only place the card names the day; the schedule
  * section opens with the plan in words. Navigation stays separate from the

@@ -134,7 +134,7 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
           style={{ contain: index !== positions[kind] ? 'size' : undefined }}
           data-home-report={destination.key} className="flex w-full min-w-0 shrink-0 snap-start snap-always flex-col [&>*]:flex-1">
           {destination.kind === 'dams'
-            ? <DamListCard dam={destination.dam} now={now} href={destination.href} />
+            ? <DamListCard dam={destination.dam} now={now} href={destination.href} showLakeLevel />
             : destination.group
               ? <RiverCard riverGroup={destination.group} href={destination.href} />
               : <RiverReportFallback river={destination.river} loading={isLoading} />}
