@@ -18,7 +18,7 @@ export default function GuideOverview({ routes, riverName }: { routes: GuideMapR
       <circle cx={active.start[0]} cy={active.start[1]} r="7" fill="var(--color-primary-700)" stroke="white" strokeWidth="2" />
       <circle cx={active.end[0]} cy={active.end[1]} r="7" fill="var(--color-accent-600)" stroke="white" strokeWidth="2" />
       {routes.map(route => <path key={`target-${route.id}`} d={route.path} fill="none" stroke="transparent" strokeWidth="24" role="button" tabIndex={0}
-        aria-label={`Show ${route.label}`} aria-pressed={active.id === route.id} className="cursor-pointer focus-visible:stroke-primary-400/30"
+        aria-label={`Show ${route.label}`} aria-pressed={active.id === route.id} className="cursor-pointer outline-none focus-visible:stroke-primary-400/30"
         onClick={() => setSelected(route.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(route.id); } }} />)}
     </svg>
     <p className="px-4 text-xs text-neutral-600">Featured stretches only. Open this float for the full map and access details.</p>

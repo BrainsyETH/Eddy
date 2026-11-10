@@ -260,6 +260,7 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview }: Pr
 
       {/* Top breadcrumb / meta strip */}
       <div
+        data-guide-meta
         style={{
           maxWidth: 1280,
           margin: '0 auto',
@@ -282,13 +283,15 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview }: Pr
         >
           ← View Report
         </Link>
-        {post.read_time_minutes && (
-          <>
-            <span>·</span>
-            <span>{post.read_time_minutes} min read</span>
-          </>
-        )}
-        <ArticleByline publishedAt={post.published_at} editorialDate={guideEditorialDate(g)} />
+        <div data-guide-byline className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          {post.read_time_minutes && (
+            <span className="inline-flex items-baseline gap-3 whitespace-nowrap">
+              <span data-byline-separator aria-hidden="true">·</span>
+              <span>{post.read_time_minutes} min read</span>
+            </span>
+          )}
+          <ArticleByline publishedAt={post.published_at} editorialDate={guideEditorialDate(g)} />
+        </div>
         <span
           style={{
             marginLeft: 'auto',
@@ -1012,6 +1015,16 @@ function ResponsiveStyles() {
       }
     }
     @media (max-width: 767px) {
+      .eddy-guide-root [data-guide-meta] {
+        row-gap: 4px !important;
+      }
+      .eddy-guide-root [data-guide-byline] {
+        order: 1;
+        flex-basis: 100%;
+      }
+      .eddy-guide-root [data-byline-separator] {
+        display: none;
+      }
       .eddy-guide-root [data-guide-section-grid] {
         grid-template-columns: 1fr !important;
       }
