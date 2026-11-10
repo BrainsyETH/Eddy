@@ -15,6 +15,7 @@ import ArticleByline from '../components/blog/ArticleByline';
 import ConditionsLayout from '../components/conditions/ConditionsLayout';
 import GenerationSchedule from '../components/dam/GenerationSchedule';
 import DamTimeline from '../components/dam/DamTimeline';
+import DamGenerationHero from '../components/dam/DamGenerationHero';
 import DamListCard from '../components/dam/DamListCard';
 import type { ConditionsExplorerProps } from '../components/conditions/ConditionsExplorer';
 import { conditionsDamCatalogue } from './conditions/dam-catalogue';
@@ -139,15 +140,15 @@ test('All keeps the river chart and Eddy report alongside the dam schedule and e
     }));
   });
   const textContent = html.replace(/<[^>]*>/g, '');
-  for (const text of ['Eddy says', 'Full river report', 'At Van Buren', 'Van Buren gauge', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  for (const text of ['Eddy says', 'Full river report', 'At Van Buren', 'Van Buren gauge', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation scheduled to increase at 2 PM.', 'Highest scheduled generation: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
   // The card leads its schedule with the next move and the peak window, in
   // place of the hours count, each said once and both above the chart.
   const todaySchedule = scheduleSection(html, 'Today');
   const todayText = todaySchedule.replace(/<[^>]*>/g, ' ');
-  assert.ok(todayText.indexOf('Generation increases at 2 PM.') < todayText.indexOf('Peak window: 2 PM–midnight'), 'the next move leads, the peak window follows');
+  assert.ok(todayText.indexOf('Generation scheduled to increase at 2 PM.') < todayText.indexOf('Highest scheduled generation: 2 PM–midnight'), 'the next move leads, the peak window follows');
   assert.ok(todaySchedule.indexOf('data-peak-window') < todaySchedule.indexOf('role="img"'), 'both sit above the chart');
-  assert.equal((html.match(/Peak window:/g) ?? []).length, 1, 'the chart’s at-rest readout does not repeat the peak');
-  assert.equal((html.match(/Generation increases at 2 PM\./g) ?? []).length, 1, 'the change is not repeated under the chart');
+  assert.equal((html.match(/Highest scheduled generation:/g) ?? []).length, 1, 'the chart’s at-rest readout does not repeat the peak');
+  assert.equal((html.match(/Generation scheduled to increase at 2 PM\./g) ?? []).length, 1, 'the change is not repeated under the chart');
   assert.doesNotMatch(textContent, /Generation scheduled all day/, 'the hours count gives way to the move');
   // Trimmed: no label over the change sentence, no standing instruction, no repeated caveats.
   // River card: the reading is shown once (no chart "Current:" copy), the
@@ -174,6 +175,50 @@ const scheduledDam = {
   generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
 };
 
+test('full dam reports lead with total release and keep turbine observations independent', () => {
+  const now = Date.parse('2026-11-10T14:20:00Z');
+  const at = '2026-11-10T14:00:00Z';
+  const turbineAt = '2026-11-10T13:00:00Z';
+  const metric = (value: number, time = at) => ({ value, unit: 'cfs', at: time, staleness: 'fresh' as const });
+  const dam = { ...scheduledDam, generationFloorCfs: 100,
+    metrics: { release: metric(6200), generationFlow: metric(20, turbineAt) },
+  };
+  const render = (metrics: typeof dam.metrics | { generationFlow: ReturnType<typeof metric>; release?: ReturnType<typeof metric> & { dailyMean?: boolean } }) =>
+    renderToStaticMarkup(createElement(DamGenerationHero, { dam: { ...dam, metrics }, now }));
+  const html = render(dam.metrics);
+  assert.match(html, /data-total-release[^>]*>6,200 /, 'the main value is measured total release, not turbine flow');
+  assert.ok(html.indexOf('data-total-release') < html.indexOf('No turbine generation observed'));
+  assert.match(html, /Through the turbines <span[^>]*>20 cfs/);
+  assert.match(html, /dateTime="2026-11-10T14:00:00Z"/);
+  assert.match(html, /dateTime="2026-11-10T13:00:00Z"/, 'older turbine flow retains its own timestamp');
+
+  const missing = render({ generationFlow: metric(6200) });
+  assert.match(missing, /Total release unavailable/);
+  assert.doesNotMatch(missing, /data-total-release/, 'turbine flow never substitutes for total release');
+  assert.match(missing, /Through the turbines <span[^>]*>6,200 cfs/);
+
+  const matching = render({ release: metric(20), generationFlow: metric(20) });
+  assert.match(matching, /data-total-release[^>]*>20 /);
+  assert.match(matching, /Turbine flow matches total release/);
+  assert.equal((matching.match(/<time /g) ?? []).length, 1, 'synchronized readings share one visible time');
+
+  const daily = render({ release: { ...metric(6200, '2026-11-09T14:00:00Z'), dailyMean: true }, generationFlow: metric(20) });
+  assert.match(daily, /Total release at dam · Daily average/);
+  assert.doesNotMatch(daily, /Turbine flow matches total release/);
+  assert.equal((daily.match(/<time /g) ?? []).length, 2, 'daily mean and current turbine flow keep separate dates');
+});
+
+test('schedule readout distinguishes an unposted hour and an estimated turbine flow', () => {
+  const now = Date.parse('2026-10-27T17:30:00Z'); // noon Central
+  const day = scheduleDay('2026-10-27', 200);
+  const render = (hours: DamScheduleDay['hours']) => renderToStaticMarkup(createElement(DamTimeline, {
+    day: { ...day, hours }, now, reference: scheduledDam.generationReference, plainLanguage: true, peakAtRest: false,
+  }));
+  assert.match(render(day.hours.filter(h => h.hourEnding !== 13)), /12 PM–1 PM · schedule not posted/);
+  assert.match(render(day.hours.map(h => ({ ...h, cfs: 10000 }))), /200 MW scheduled · Est\. turbine flow 10,000 cfs/);
+  assert.doesNotMatch(render(day.hours.map(h => ({ ...h, cfs: 10000, isRamp: true }))), /Est\. turbine flow/);
+});
+
 function scheduleSection(html: string, label: 'Today' | 'Tomorrow'): string {
   const section = html.match(new RegExp(`<section aria-label="${label}’s generation schedule"[\\s\\S]*?<\\/section>`))?.[0];
   assert.ok(section, `${label} schedule is server-rendered`);
@@ -197,7 +242,9 @@ test('low-output schedules retain their capacity-scaled shape and outline the pa
     const height = (hour: number) => Number(html.match(new RegExp(`data-schedule-hour="${hour}"[^>]*style="height:([\\d.]+)%`))?.[1]);
     assert.ok(height(1) < height(13) && height(13) < height(9) && height(9) < height(14), '7, 15, 30 and 40 MW must not collapse to equal-height bars');
     assert.equal(height(14), 40 / 391 * 100, 'the peak stays at 10.2% of capacity, not rescaled to full height');
-    assert.match(html, /Peak window: 1–2 PM/);
+    assert.match(html, /6 PM–7 PM · 15 MW scheduled/);
+    assert.doesNotMatch(html, /Half capacity/);
+    assert.equal(html.includes('data-schedule-scale'), !compact);
     assert.equal((html.match(/data-peak-hour=/g) ?? []).length, 1);
     assert.match(html, /data-peak-hour="14"[^>]*class="[^"]*opacity-75[^"]*ring-1 ring-inset ring-primary-900/);
   }
@@ -210,9 +257,9 @@ test('full dam reports keep the next change and peak together in the coral callo
     }));
     const today = scheduleSection(html, 'Today');
     assert.equal(today.includes('border-accent-500 bg-accent-50'), !compact, 'restore the full-report callout without boxing compact cards');
-    assert.match(today, /Generation stops at 7 PM\. Resumes at 8 PM\./);
-    assert.match(today, /Peak window: 1–2 PM/);
-    assert.equal((html.match(/Generation stops at 7 PM/g) ?? []).length, 1);
+    assert.match(today, /No generation scheduled from 7 PM to 8 PM\./);
+    assert.match(today, /Highest scheduled generation: 1–2 PM/);
+    assert.equal((html.match(/No generation scheduled from 7 PM/g) ?? []).length, 1);
     assert.ok(today.indexOf('data-peak-window') < today.indexOf('role="img"'));
   }
 });
@@ -245,7 +292,7 @@ test('dam cards render only today on the Central calendar across midnight, DST a
     assert.doesNotMatch(section, /Today’s generation <span/, 'no visible heading row above the plan');
     // A flat all-day schedule holds no move, so the day's headline leads.
     assert.ok(section.replace(/<[^>]*>/g, ' ').indexOf('Generation scheduled all day') < section.indexOf('role="img"'), 'the plan in words is the section’s first line');
-    assert.match(section, /data-peak-window[^>]*>Peak window: all day</, 'the peak window follows the headline');
+    assert.match(section, /data-peak-window[^>]*>Highest scheduled generation: all day</, 'the peak window follows the headline');
     assert.equal((section.match(/data-schedule-now/g) ?? []).length, 1);
     assert.doesNotMatch(html, /aria-label="Tomorrow’s generation schedule"/);
     assert.doesNotMatch(html, /<details|role="tab"/);
@@ -281,7 +328,7 @@ test('dam cards distinguish missing Today from idle schedules and retain Today�
   const minimumFlow = { ...scheduleDay('2026-10-27', 7), hours: scheduleDay('2026-10-27', 7).hours.map(h => ({ ...h, minimumFlow: true })) };
   const bullShoals = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [minimumFlow] }], renderedAt });
   const todayText = (html: string) => scheduleSection(html, 'Today').replace(/<[^>]*>/g, ' ');
-  assert.ok(todayText(bullShoals).indexOf('Only minimum flow scheduled') < todayText(bullShoals).indexOf('midnight'), 'minimum flow leads, above the chart');
+  assert.ok(scheduleSection(bullShoals, 'Today').indexOf('Only minimum flow scheduled') < scheduleSection(bullShoals, 'Today').indexOf('role="img"'), 'minimum flow leads, above the chart');
   assert.match(todayText(idle), /No generation scheduled/);
   assert.doesNotMatch(todayText(idle), /minimum flow|unavailable/);
   assert.doesNotMatch(todayText(bullShoals), /No generation scheduled|unavailable/);
@@ -315,7 +362,7 @@ test('only full generation schedules show posted Tomorrow, including zero and pa
       assert.match(scheduleSection(idle, 'Tomorrow'), /No generation scheduled at any hour/);
       assert.match(scheduleSection(partial, 'Tomorrow'), /role="img"/);
       assert.match(scheduleSection(partial, 'Tomorrow'), /border-dashed/, 'missing hours remain gaps in a posted partial day');
-      assert.match(scheduleSection(partial, 'Tomorrow'), /Tomorrow’s generation <span[^>]*>· /);
+      assert.match(scheduleSection(partial, 'Tomorrow'), /Tomorrow’s generation schedule <span[^>]*>· /);
     }
   }
 });

@@ -127,7 +127,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
     .filter(day => day.scheduleDate > tomorrow && day.hours.length > 0)
     .toSorted((a, b) => a.scheduleDate.localeCompare(b.scheduleDate));
 
-  const nextChange = scheduledChangeSummary(schedule, reference, now);
+  const nextChange = scheduledChangeSummary(schedule, reference, now, false);
   // A compact card places this line in its own footer corner; the full report
   // closes the section with it.
   const check = compact ? null : scheduleSectionCheck(schedule, reference, now, compact);
@@ -169,7 +169,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
           <div className="flex min-h-11 items-center justify-between gap-2 pr-10">
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
               <Heading className="font-heading text-lg font-bold text-primary-800">
-                Today’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(today)}</span>
+                Today’s generation schedule <span className="font-normal text-neutral-600">· {scheduleDayLabel(today)}</span>
               </Heading>
               <span className="text-xs leading-4 text-neutral-600">Central time</span>
             </div>
@@ -186,7 +186,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
                 {leadsWithChange ? nextChange : scheduleDayHeadline(todayDay.hours)}
               </p>
               {todayPeakWindow && (
-                <p data-peak-window className="mt-0.5 text-sm font-medium leading-5 tabular-nums text-primary-800">Peak window: {todayPeakWindow}</p>
+                <p data-peak-window className="mt-0.5 text-sm font-medium leading-5 tabular-nums text-primary-800">Highest scheduled generation: {todayPeakWindow}</p>
               )}
             </div>
           ) : (
@@ -210,7 +210,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
           {tomorrowDay && (
             <section aria-label="Tomorrow’s generation schedule" className="py-3">
               <DayHeading className="text-sm font-bold text-primary-800">
-                Tomorrow’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(tomorrow)}</span>
+                Tomorrow’s generation schedule <span className="font-normal text-neutral-600">· {scheduleDayLabel(tomorrow)}</span>
               </DayHeading>
               <p className="mb-2 mt-0.5 text-sm font-semibold text-primary-900">{scheduleDayHeadline(tomorrowDay.hours)}</p>
               <DamTimeline day={tomorrowDay} reference={reference} now={now} plainLanguage compact={compact} />

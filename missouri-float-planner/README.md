@@ -382,8 +382,9 @@ The root HTML declares the site's smooth-scroll behavior to Next so route
 changes can reset immediately instead of retaining the bottom of the old page.
 
 Dam pages keep measured generation and the posted schedule in one card, with
-separate labelled sections. Desktop and landscape phones place the reading
-beside the wider hourly chart; portrait phones stack them. Today keeps an
+separate labelled sections. Screens at least 900px wide place the reading
+beside the wider hourly chart; phones stack the release summary above a full-width chart,
+including in landscape. Today keeps an
 unavailable state when missing; Tomorrow appears only when it has posted hours.
 Later posted days can be opened individually. The generation pattern
 always includes upcoming scheduled hours alongside measured history. Six-hour
@@ -391,14 +392,21 @@ time labels above and below the pattern align with guides in every row; days
 with a clock change also carry their own correctly positioned time labels. Missing observations remain gaps and retain the full day axis.
 
 The detail dashboard uses a static framed generation card with a warm sand
-observed panel, turbine flow as the primary reading, and the next scheduled
+observed panel, total reported release as the primary reading, and the next scheduled
 change in a coral callout above the hourly chart, with the day's peak window
-under the change. Hourly details sit below the chart. Generation uses teal bars
-on the project's fixed capacity scale, with a two-pixel visibility floor so
+under the change. Schedule headings and change sentences explicitly describe a plan.
+Turbine status, flow and the generator rack are secondary; missing total release
+never falls back to turbine flow. Observation times are shown in Central time,
+with separate ages when turbine and total release readings differ. Daily averages
+remain labeled. Hourly details sit below the chart, showing the current scheduled
+hour at rest and retaining tapped selections. Generation uses taller teal bars
+on the project's fixed capacity scale with a numeric MW axis on full charts
+(no half-capacity reference line), with a two-pixel visibility floor so
 small scheduled changes remain distinct. Peak bars keep a teal outline even
 after their hours pass; an orange Now marker matches iOS. Flow
-estimates stay out of ramp hours, and megawatts are spelled out in hourly
-details and explained in the info dialog. Dam and lake measurements sit above
+estimates stay out of ramp hours and are labeled estimated turbine flow;
+measured release is never inferred from the schedule. MW is explained in the info
+dialog. Dam and lake measurements sit above
 the full-width generation pattern at every screen size, on quiet panel cards.
 The header keeps only Share, with its icon, native touch sharing, and desktop
 copy feedback. The bottom phone action reads “Release Line: [number]”.
@@ -444,9 +452,9 @@ Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run just the dam-to-app flow
 
 Truman and Table Rock keep generation first, followed by a shared measurement
 row, Eddy's Read and operational forecasts/patterns. The lake preview follows
-those operations; launch directories live on the dedicated lake page. On portrait
-phones, the pilot generation card puts the schedule above the observed readings. Other
-dam pages keep their existing layout. The compact pilot headers reuse the
+those operations; launch directories live on the dedicated lake page. On phones,
+the generation card puts the latest reported release above the full-width schedule,
+consistently across pilot and other dam pages. The compact pilot headers reuse the
 attributed iOS photographs; web copies and provenance live in `public/lakes/`.
 Photo attribution is shown on `/photo-credits`, available through the shared
 footer, rather than beneath each pilot header image.

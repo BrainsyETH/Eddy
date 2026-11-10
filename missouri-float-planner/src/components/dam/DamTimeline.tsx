@@ -39,11 +39,11 @@ const HOURS = 24;
  * midnight rather than shrinking every label to fit five.
  */
 const TICKS: Array<{ label: string; at: number }> = [
-  { label: 'midnight', at: 0 },
+  { label: '12 AM', at: 0 },
   { label: '6 AM', at: 0.25 },
   { label: 'noon', at: 0.5 },
   { label: '6 PM', at: 0.75 },
-  { label: 'midnight', at: 1 },
+  { label: '12 AM', at: 1 },
 ];
 
 /**
@@ -68,9 +68,10 @@ function hourReadout(hour: ScheduledHour, ref: GenerationReference | null | unde
   if (plainLanguage) {
     // Ramp hours have no reliable flow estimate. Retain the published power
     // figure in full instead of turning it into an unsupported river reading.
-    return !hour.isRamp && hour.cfs !== null
-      ? `${window} · ~${Math.round(hour.cfs).toLocaleString()} cfs scheduled`
-      : `${window} · ${hour.megawatts.toLocaleString()} megawatts scheduled`;
+    const flow = !hour.isRamp && hour.cfs !== null
+      ? ` · Est. turbine flow ${Math.round(hour.cfs).toLocaleString()} cfs`
+      : '';
+    return `${window} · ${hour.megawatts.toLocaleString()} MW scheduled${flow}`;
   }
 
   const bar = scheduledBar(hour.megawatts, ref);
@@ -97,8 +98,7 @@ export default function DamTimeline({
   /** Detail pages put a concise readout below the chart, close to its axis. */
   plainLanguage?: boolean;
   /**
-   * Directory cards use a shorter plot — still the 44px touch floor — and drop
-   * the half-capacity hairline, which has no room for a label at that size.
+    * Directory cards use a shorter plot, above the 44px touch floor.
    */
   compact?: boolean;
   /**
@@ -119,17 +119,19 @@ export default function DamTimeline({
     return Array.from({ length: HOURS }, (_, i) => byHour.get(i + 1) ?? null);
   }, [day.hours]);
 
-  const hoveredHour = hovered === null ? null : hours[hovered];
   const peak = plainLanguage ? schedulePeak(day, reference) : null;
   const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
-  // The schedule section states the day's summary in words above the chart, so
-  // the readout never repeats it. At rest it names the peak or stays empty — no
-  // standing instruction; the row's height is reserved so inspecting an hour
-  // does not shift the card.
-  const defaultReadout = plainLanguage && peakAtRest && peakWindow ? `Peak window: ${peakWindow}` : null;
+  const defaultHour = elapsed !== null ? Math.min(HOURS - 1, Math.floor(elapsed)) : null;
+  const inspected = hovered ?? defaultHour;
+  const inspectedHour = inspected === null ? null : hours[inspected];
+  const capacity = reference?.schedulingCapacityMw;
+  const hasScale = !compact && typeof capacity === 'number' && Number.isFinite(capacity) && capacity > 0;
+  // The current scheduled hour remains visible at rest; touch selection stays
+  // until another hour is picked. A missing hour must not look like zero MW.
+  const defaultReadout = plainLanguage && peakAtRest && peakWindow ? `Highest scheduled generation: ${peakWindow}` : null;
   const readout = (
-    <p aria-live="polite" className={`${plainLanguage ? 'mt-1' : 'mb-1'} min-h-5 text-[13px] leading-5 tabular-nums ${defaultReadout && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-700'}`}>
-      {hoveredHour ? hourReadout(hoveredHour, reference, plainLanguage) : defaultReadout}
+    <p data-schedule-readout aria-live="polite" className={`${plainLanguage ? 'mt-2' : 'mb-1'} min-h-15 text-[13px] leading-5 tabular-nums text-neutral-700`}>
+      {inspectedHour ? hourReadout(inspectedHour, reference, plainLanguage) : inspected !== null ? `${hourEndingLabel(inspected + 1)}–${hourEndingLabel(inspected + 2)} · schedule not posted` : defaultReadout}
     </p>
   );
 
@@ -146,96 +148,100 @@ export default function DamTimeline({
           on the chart's accessible label and reserve this line for exploration. */}
       {!plainLanguage && readout}
 
-      <div
-        ref={rowRef}
-        role="img"
-        aria-label={summary}
-        tabIndex={0}
-        className={`relative flex ${compact ? 'h-11' : 'h-20'} items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
-        onPointerDown={(e) => setHovered(hourFromPointer(e.clientX))}
-        onPointerMove={(e) => setHovered(hourFromPointer(e.clientX))}
-        onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHovered(null); }}
-        onBlur={() => setHovered(null)}
-        onKeyDown={(e) => {
-          if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-          e.preventDefault();
-          const step = e.key === 'ArrowRight' ? 1 : -1;
-          setHovered((prev) =>
-            Math.max(0, Math.min(HOURS - 1, (prev === null ? -1 : prev) + step))
-          );
-        }}
-      >
-        {hours.map((hour, index) => {
-          const bar = hour ? scheduledBar(hour.megawatts, reference) : null;
-          const generating = (hour?.megawatts ?? 0) > 0;
-          const atPeak = Boolean(peak && hour?.megawatts === peak.megawatts);
-          // Elapsed hours are dimmed: the schedule is a forward-looking
-          // document, and the part of today that already happened is context
-          // rather than plan. The observed record of it is the pattern strip.
-          const past = elapsed !== null && index + 1 <= Math.floor(elapsed);
+      <div className={`relative ${compact ? '' : 'mt-6'} ${hasScale ? 'pl-10' : ''}`}>
+        {hasScale && <div data-schedule-scale aria-hidden="true" className="pointer-events-none absolute bottom-5 left-0 top-0 w-8 text-right text-[11px] leading-3 tabular-nums text-neutral-600">
+          <span className="absolute -top-5 right-0 font-medium">MW</span>
+          <span className="absolute -top-1.5 right-0">{capacity.toLocaleString()}</span>
+          <span className="absolute -bottom-1.5 right-0">0</span>
+        </div>}
+        <div
+          ref={rowRef}
+          role="img"
+          aria-label={summary}
+          tabIndex={0}
+          className={`relative flex ${compact ? 'h-16' : 'h-32 sm:h-40'} items-end rounded-sm border-b border-neutral-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
+          onPointerDown={(e) => setHovered(hourFromPointer(e.clientX))}
+          onPointerMove={(e) => setHovered(hourFromPointer(e.clientX))}
+          onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHovered(null); }}
+          onBlur={() => setHovered(null)}
+          onKeyDown={(e) => {
+            if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+            e.preventDefault();
+            if (e.key === 'Home' || e.key === 'End') {
+              setHovered(e.key === 'Home' ? 0 : HOURS - 1);
+              return;
+            }
+            const step = e.key === 'ArrowRight' ? 1 : -1;
+            setHovered((prev) =>
+              Math.max(0, Math.min(HOURS - 1, (prev ?? defaultHour ?? -1) + step))
+            );
+          }}
+        >
+          {hours.map((hour, index) => {
+            const bar = hour ? scheduledBar(hour.megawatts, reference) : null;
+            const generating = (hour?.megawatts ?? 0) > 0;
+            const atPeak = Boolean(peak && hour?.megawatts === peak.megawatts);
+            // Elapsed hours are dimmed: the schedule is a forward-looking
+            // document, and the part of today that already happened is context
+            // rather than plan. The observed record of it is the pattern strip.
+            const past = elapsed !== null && index + 1 <= Math.floor(elapsed);
 
-          return (
-            <div key={index} className="relative z-10 flex h-full flex-1 items-end px-[0.5px]">
-              {hour === null ? (
-                // An hour SWPA did not publish. Neither scheduled nor idle, and
-                // it must not draw like either.
-                <div
-                  className="w-full rounded-sm border border-dashed border-neutral-300"
-                  style={{ height: '12%' }}
-                />
-              ) : (
-                <div
-                  data-schedule-hour={hour.hourEnding}
-                  data-peak-hour={atPeak ? hour.hourEnding : undefined}
-                  className={[
-                    'w-full rounded-sm',
-                    generating ? fillClass(bar?.fraction ?? 0) : 'bg-neutral-200',
-                    past ? (atPeak ? 'opacity-75' : 'opacity-45') : '',
-                    atPeak && hovered !== index ? 'ring-1 ring-inset ring-primary-900' : '',
-                    hovered === index ? 'ring-2 ring-primary-900' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  // A 12% floor flattened Bull Shoals' entire low-output day:
-                  // even its 40 MW peak is only 10.2% of 391 MW capacity.
-                  // Keep the capacity scale, with just a 2px visibility floor.
-                  // Without a reference, retain an unscaled presence marker.
-                  style={{ height: bar ? `${bar.fraction * 100}%` : generating ? '12%' : '0%', minHeight: 2 }}
-                />
-              )}
-            </div>
-          );
-        })}
+            return (
+              <div key={index} className="relative z-10 flex h-full flex-1 items-end px-[0.5px]">
+                {hour === null ? (
+                  // An hour SWPA did not publish. Neither scheduled nor idle, and
+                  // it must not draw like either.
+                  <div
+                    className="w-full rounded-sm border border-dashed border-neutral-300"
+                    style={{ height: '12%' }}
+                  />
+                ) : (
+                  <div
+                    data-schedule-hour={hour.hourEnding}
+                    data-peak-hour={atPeak ? hour.hourEnding : undefined}
+                    className={[
+                      'w-full rounded-sm',
+                      generating ? fillClass(bar?.fraction ?? 0) : 'bg-neutral-200',
+                      past ? (atPeak ? 'opacity-75' : 'opacity-45') : '',
+                      atPeak && inspected !== index ? 'ring-1 ring-inset ring-primary-900' : '',
+                      inspected === index ? 'ring-2 ring-primary-900' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    // A 12% floor flattened Bull Shoals' entire low-output day:
+                    // even its 40 MW peak is only 10.2% of 391 MW capacity.
+                    // Keep the capacity scale, with just a 2px visibility floor.
+                    // Without a reference, retain an unscaled presence marker.
+                    style={{ height: bar ? `${bar.fraction * 100}%` : generating ? '12%' : '0%', minHeight: 2 }}
+                  />
+                )}
+              </div>
+            );
+          })}
 
-        {/* Half-capacity hairline, so a bar's height reads against something.
-            Labelled where it is drawn; a compact card has no room to say what
-            an unlabelled line means, so it draws none. The capacity scale
-            itself is kept either way: a small release must look small. */}
-        {!compact && <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-1/2 h-px bg-neutral-200" />
-          <span aria-hidden="true" className="pointer-events-none absolute bottom-1/2 left-0 z-20 mb-px rounded-sm bg-white/85 px-0.5 text-[11px] leading-3 text-neutral-600">Half capacity</span>
-        </>}
+          {hasScale && <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-neutral-200" />}
 
-        {elapsed !== null && <>
-          <div
-            data-schedule-now
-            className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-accent-600"
-            style={{ left: `${(elapsed / HOURS) * 100}%` }}
-          />
-          <span aria-hidden="true" className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-sm bg-white px-1 text-[11px] font-semibold leading-3 text-accent-800" style={{ left: `clamp(15px, ${(elapsed / HOURS) * 100}%, calc(100% - 15px))` }}>Now</span>
-        </>}
-      </div>
+          {elapsed !== null && <>
+            <div
+              data-schedule-now
+              className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-accent-600"
+              style={{ left: `${(elapsed / HOURS) * 100}%` }}
+            />
+            <span aria-hidden="true" className={`pointer-events-none absolute ${compact ? 'top-0' : '-top-5'} z-20 -translate-x-1/2 rounded-sm bg-white px-1 text-[11px] font-semibold leading-3 text-accent-800`} style={{ left: `clamp(15px, ${(elapsed / HOURS) * 100}%, calc(100% - 15px))` }}>Now</span>
+          </>}
+        </div>
 
-      <div aria-hidden="true" className="relative mt-1 h-4 text-xs leading-4 tabular-nums text-neutral-600">
-        {TICKS.filter((tick) => !compact || tick.at < 1).map((tick) => (
-          <span
-            key={tick.at}
-            className={`absolute top-0 whitespace-nowrap ${tick.at === 0 ? '' : tick.at === 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
-            style={{ left: `${tick.at * 100}%` }}
-          >
-            {tick.label}
-          </span>
-        ))}
+        <div aria-hidden="true" className="relative mt-1 h-4 text-xs leading-4 tabular-nums text-neutral-600">
+          {TICKS.filter((tick) => !compact || tick.at < 1).map((tick) => (
+            <span
+              key={tick.at}
+              className={`absolute top-0 whitespace-nowrap ${tick.at === 0 ? '' : tick.at === 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
+              style={{ left: `${tick.at * 100}%` }}
+            >
+              {tick.label}
+            </span>
+          ))}
+        </div>
       </div>
       {plainLanguage && readout}
     </div>

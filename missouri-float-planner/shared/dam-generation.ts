@@ -759,9 +759,11 @@ function observedClause(
 export function scheduledChangeSummary(
   schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
-  now = Date.now()
+  now = Date.now(),
+  // Standalone callouts must name the schedule in the sentence itself.
+  underScheduleHeading = true
 ): string | null {
-  return scheduledClause(schedule, ref, now, true);
+  return scheduledClause(schedule, ref, now, underScheduleHeading);
 }
 
 function scheduledClause(

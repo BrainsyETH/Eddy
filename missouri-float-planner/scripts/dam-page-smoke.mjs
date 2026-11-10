@@ -124,7 +124,7 @@ export default function Page() {
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
   const errors = [];
-  for (const [name, width, height, wide] of (appOnly ? [] : [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, true], ['small-landscape', 667, 375, true], ['small-portrait', 320, 720, false]])) {
+  for (const [name, width, height, wide] of (appOnly ? [] : [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, false], ['small-landscape', 667, 375, false], ['small-portrait', 320, 720, false]])) {
     const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 900 });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
@@ -140,7 +140,7 @@ export default function Page() {
     assert(!(await page.locator('[data-variant="noTemp"]').innerText()).includes('°F'), 'missing temperature is not fabricated');
     assert(!(await page.locator('[data-variant="noReference"]').innerText()).includes('%'), 'no reference means no percentage');
     assert(!(await page.locator('[data-variant="stale"]').innerText()).includes('Generating now'), 'list does not claim a current turbine state');
-    assert((await page.locator('[data-variant="stale"]').innerText()).includes('may have been revised'), 'old schedule retains its provenance');
+    assert.equal(await page.locator('[data-variant="stale"] [data-schedule-check="stale"]').count(), 1, 'old schedule retains its provenance');
     assert(!(await page.locator('[data-variant="scheduleOnly"]').innerText()).includes('No turbine generation observed'), 'missing readings are not idle');
     assert((await page.locator('[data-variant="gateDaily"]').innerText()).includes('daily avg'), 'daily release is labelled');
     assert(!(await page.locator('[data-variant="gate"]').innerText()).includes('generation'), 'gate-only dam has no generation visual');
@@ -201,18 +201,22 @@ export default function Page() {
       assert(boxes.slice(1).every((box, i) => box.left >= boxes[i].right - 1), `${name}: time labels do not overlap`);
     }
     assert.equal(await pattern.getByRole('img').first().locator('[data-pattern-time-guide]').count(), 3, 'each day has six-hour guides');
-    assert.equal(await days.first().locator('[data-peak-window]').count(), 0, 'no second peak band above the bars');
+    assert.equal(await days.first().locator('[data-peak-window]').count(), 1, 'the peak belongs with the scheduled change');
     assert.deepEqual(await days.first().locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [13, 14, 15, 16, 17, 18, 19, 20]);
-    assert.equal(await days.first().locator('[role="img"] .bg-accent-500').count(), 1, 'orange is reserved for the Now marker, as on iOS');
+    assert.equal(await days.first().locator('[role="img"] [data-schedule-now]').count(), 1, 'orange is reserved for the Now marker, as on iOS');
     assert(await days.first().getByText('Now', { exact: true }).isVisible());
-    assert(await days.first().getByText('Peak window: 12–8 PM', { exact: true }).isVisible());
+    assert(await days.first().getByText('Highest scheduled generation: 12–8 PM', { exact: true }).isVisible());
     const measurements = page.getByRole('heading', { name: 'Dam & lake', exact: true }).locator('..');
     const measurementsBox = await measurements.boundingBox();
     const patternBox = await pattern.boundingBox();
     assert(measurementsBox.y + measurementsBox.height <= patternBox.y, 'dam and lake readings are above the pattern');
     const scheduleText = await page.getByRole('region', { name: 'Generation schedule', exact: true }).innerText();
-    assert(!/Peak scheduled release|\bMW\b|Select an hour|no break in the schedule/.test(scheduleText), 'schedule avoids stacked jargon and instructions');
-    assert.equal(await detail.getByText('Next scheduled change', { exact: true }).count(), 1, 'next change is stated once');
+    assert(!/Half capacity|Select an hour|no break in the schedule/.test(scheduleText), 'schedule avoids arbitrary reference labels');
+    assert(await days.first().locator('[data-schedule-scale]').isVisible(), 'full chart has a numeric MW scale');
+    assert((await days.first().getByRole('img').boundingBox()).height >= 128, 'full chart has readable bar height');
+    assert.match(await days.first().locator('[data-schedule-readout]').innerText(), /11 AM–12 PM · no generation scheduled/, 'current scheduled hour is readable without a tap');
+    assert.match(await detail.locator('[data-total-release]').innerText(), /16,200/, 'total release leads over 13,200 cfs turbine flow');
+    assert.equal(await detail.getByText('Generation scheduled to start at 12 PM.', { exact: true }).count(), 1, 'next change is explicitly scheduled and stated once');
     const share = page.getByRole('button', { name: 'Share Bull Shoals Dam', exact: true });
     assert.equal(await share.locator('svg').count(), 1, 'Share has an icon');
     assert((await share.boundingBox()).height >= 44, 'Share has a touch-sized target');
@@ -263,18 +267,18 @@ export default function Page() {
     }
     const chart = days.first().getByRole('img');
     await chart.focus();
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Home');
     assert(await days.first().getByText('12 AM–1 AM · no generation scheduled', { exact: true }).isVisible(), 'keyboard chart exploration stays available');
     if (width < 900) {
       await chart.scrollIntoViewIfNeeded();
       const box = await chart.boundingBox();
       await page.touchscreen.tap(box.x + box.width * 0.6, box.y + box.height / 2);
-      assert(await days.first().getByText(/2 PM–3 PM · ~13,000 cfs scheduled/).isVisible(), 'tap retains the hourly readout');
+      assert(await days.first().getByText(/2 PM–3 PM · 200 MW scheduled · Est. turbine flow 13,000 cfs/).isVisible(), 'tap retains the hourly readout');
     }
     await laterDay.locator('summary').click();
     const tomorrowChart = days.nth(1).getByRole('img');
     await tomorrowChart.focus();
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Home');
     assert(await days.nth(1).getByText('12 AM–1 AM · no generation scheduled', { exact: true }).isVisible(), 'tomorrow supports keyboard exploration');
     if (name === 'desktop') {
       await page.clock.setFixedTime(new Date('2026-10-17T05:01:00Z'));
@@ -299,26 +303,24 @@ export default function Page() {
     const text = await page.locator('[data-dam-detail]').innerText();
     if (variant === 'splitPeak') {
       assert.deepEqual(await page.locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [7, 8, 17, 18, 19], 'both disconnected peak windows are retained');
-      assert(await page.getByText('Peak window: 6–8 AM and 4–7 PM', { exact: true }).isVisible());
+      assert(await page.getByText('Highest scheduled generation: 6–8 AM and 4–7 PM', { exact: true }).isVisible());
     }
-    if (variant === 'allDayPeak') assert(await page.getByText('Peak window: all day', { exact: true }).isVisible());
+    if (variant === 'allDayPeak') assert(await page.getByText('Highest scheduled generation: all day', { exact: true }).isVisible());
     if (variant === 'noGeneration') assert.equal(await page.locator('[data-peak-hour]').count(), 0, 'an idle day has no peak window');
-    if (variant === 'stale') assert(text.includes('may have been revised'), 'stale schedule provenance visible');
+    if (variant === 'stale') assert.equal(await page.locator('[data-schedule-check="stale"]').count(), 1, 'stale schedule provenance visible');
     if (variant === 'scheduleOnly') assert(text.includes('Generation schedule') && !text.includes('No turbine generation observed'), 'missing readings are not idle');
     if (variant === 'gate') assert(text.includes('2,200') && text.includes('Gate-operated releases'), 'gate-only dam retains its release');
     if (variant === 'gateDaily') assert(/daily average/i.test(text) && text.includes('yesterday'), `daily release remains labelled and dated: ${text}`);
     if (['missingTomorrow', 'emptyTomorrow'].includes(variant)) {
       const tomorrow = page.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true });
-      assert(await tomorrow.getByText('Tomorrow’s generation schedule hasn’t been posted yet.', { exact: true }).isVisible());
-      assert.equal(await tomorrow.getByRole('img').count(), 0, 'missing tomorrow is not replaced with a later date or zero generation');
+      assert.equal(await tomorrow.count(), 0, 'unposted tomorrow is omitted, not replaced by a later day');
     }
     if (variant === 'tomorrowOnly') {
       assert(await page.getByText('Today’s generation schedule is unavailable.', { exact: true }).isVisible());
       assert(await page.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).getByRole('img').isVisible());
     }
     if (variant === 'staleTomorrow') {
-      assert.equal(await page.getByRole('region', { name: 'Today’s generation schedule', exact: true }).getByText(/May have changed/).count(), 0);
-      assert(await page.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).getByText(/May have changed/).isVisible());
+      assert.equal(await page.locator('[data-schedule-check="stale"]').count(), 1, 'the one provenance line covers the oldest displayed schedule');
     }
     if (variant === 'missing') assert(text.includes('Schedule currently unavailable') && text.includes('13,200'), 'missing schedule retains observed readings');
     if (variant === 'forecast') {
