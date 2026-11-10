@@ -66,6 +66,12 @@ const nextConfig = {
     // search engines, equivalent to 301 for ranking transfer). Query params
     // not in destination are forwarded automatically.
     return [
+      // Access lists live on each river page, not on a separate /accesses page.
+      {
+        source: '/rivers/:state/:slug/accesses',
+        destination: '/rivers/:state/:slug#access',
+        permanent: true,
+      },
       // Keep previously shared Buffalo access links working after their slugs
       // changed. Match the exact old URL; do not redirect other Buffalo places.
       {
