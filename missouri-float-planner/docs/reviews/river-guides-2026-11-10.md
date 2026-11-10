@@ -21,6 +21,7 @@ All 25 published guides were reviewed. The original seven received substantial c
 - Huzzah and Jacks Fork low-water answers give the thresholds Eddy's river report uses (`river_gauges`) and no longer refer to earlier advice.
 - The “Season” hero tile gives a season again.
 - Gasconade, Mulberry and St. Francis had no copy change, so they carry no `editorial_updated_at` and are not part of the content batch.
+- Route cards in the original seven have float times, class ratings and crowd levels again, and FAQ answers lead with the answer. Current and Jacks Fork times follow the NPS estimated float times table (updated August 30, 2024); the other five use mapped miles at the planner's 2.5 mph canoe speed. Class and crowd levels are the values the live guides already carry. High-water answers cite the NPS closure rule (two feet above average: 4.0 ft at Akers, 5.0 ft at Van Buren) or the thresholds in `river_gauges`.
 - Open question for the next source review: the NPS park regulations page says all caves are closed to visitation, while the NPS floating page lists exceptions. The cave rows were left as they were.
 
 ## Coverage and remaining image work

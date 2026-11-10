@@ -11,31 +11,31 @@ export default {
     "faq": [
       {
         "q": "How long does a Meramec River float trip take?",
-        "a": "The featured routes range from 7.4 to 19.6 mapped miles. Choose the exact pair of access points and get a planner estimate for your vessel; there is no single Meramec float time."
+        "a": "Meramec State Park to Sand Ford (7.4 miles) is about 3 hours of paddling in a canoe at normal water. Onondaga to Meramec State Park (19.6 miles) is about 8 hours, which is why people camp. Outfitters also sell shorter trips inside these stretches."
       },
       {
         "q": "Is the Meramec River good for beginners?",
-        "a": "Compare a shorter route such as Meramec State Park to Sand Ford with your outfitter. Conditions, obstructions and your group’s experience matter more than a broad beginner label for the whole river."
+        "a": "Meramec State Park to Sand Ford is: wide, gentle Class I water with outfitters close by. The upper river near Maramec Spring is narrower with more riffles, and the 16- and 20-mile floats are too long for a first day."
       },
       {
         "q": "Is the Meramec spring-fed?",
-        "a": "Springs, including Maramec Spring, contribute base flow. Rainfall also affects the river, so spring input does not guarantee suitable water on your chosen day."
+        "a": "Partly. Maramec Spring adds about 96 million gallons a day near the top, which keeps a base flow going. Most of the river’s water is still rain, so it drops in a dry summer and comes up quickly after storms."
       },
       {
         "q": "Do I need my own boat to float the Meramec?",
-        "a": "Outfitters offer rentals and shuttles along parts of the river. Confirm the vessel, actual route and return arrangements with the provider."
+        "a": "No. Outfitters around Steelville and Sullivan rent canoes, kayaks, rafts and tubes and run the shuttle. Ask which put-in and take-out your trip uses; the same trip name can mean different mileage at different outfitters."
       },
       {
         "q": "Can I camp along the Meramec River?",
-        "a": "State-park campgrounds and private outfitters offer different arrangements. Check the specific property’s rules; a gravel bar beside the river is not automatically public camping land."
+        "a": "Yes. Onondaga Cave and Meramec state parks have campgrounds, and many outfitters have their own. Gravel bars are trickier: much of the bank is private, so do not assume."
       },
       {
         "q": "How do I check Meramec River water levels?",
-        "a": "Open the river report and match the gauge to your route. USGS 07013000 measures the Meramec near Steelville; its reading does not describe every stretch downstream. Check conditions near your put-in before leaving."
+        "a": "Use the gauge closest to your float: Steelville (USGS 07013000) for the upper river, Sullivan (07014500) for the state-park stretch, Eureka (07019000) for the lower river. Eddy’s river report rates Steelville best between about 300 and 900 cfs."
       },
       {
         "q": "What fish can I catch on the Meramec?",
-        "a": "MDC lists bass and other stream fish, plus trout in designated upper-river water. Check its special-waterbody regulations for the stretch, season and tackle you plan to use."
+        "a": "Smallmouth and largemouth bass, goggle-eye and catfish through most of the river, plus trout in the Red Ribbon water below Maramec Spring. Special limits apply on several stretches; the regulations section on this page has them."
       }
     ],
     "hero": {
@@ -74,7 +74,7 @@ export default {
     "tldr": {
       "primary_gauge": "Meramec River near Steelville · USGS 07013000",
       "typical_distance": "7.4–19.6 mi featured routes",
-      "best_for_beginners": "Compare the 7.4-mile Meramec State Park → Sand Ford route with longer trips.",
+      "best_for_beginners": "Meramec State Park → Sand Ford (7.4 mi, about 3 hr)",
       "route_label": "Start here"
     },
     "seasons": [
@@ -142,54 +142,66 @@ export default {
       {
         "id": 1,
         "to": "Scotts Ford",
-        "best": "Upper-river fishing and bluffs",
-        "body": "An upper-river route near Maramec Spring, with narrower water and special trout-fishing regulations. Scotts Ford is the planned take-out. Check MDC’s current rules for the exact section if fishing is part of the day.",
+        "best": "Anglers",
+        "body": "The top of the floatable Meramec, just below Maramec Spring. This is the Red Ribbon trout water: 15-inch minimum, two fish a day, artificial lures and flies only. It is narrower than anything downstream and needs more water to float without scraping.",
         "from": "Woodson K. Woods",
         "name": "The Red Ribbon trout run",
         "miles": "8.9",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773856028682-Screenshot_2026-03-18_at_12.47.03_PM-EA0egHdBDVJzVDtMLMxOTn1Nf9yHi3.png",
         "segment": "upper",
         "to_slug": "scotts-ford",
-        "from_slug": "woodson-k-woods-memorial-ca"
+        "from_slug": "woodson-k-woods-memorial-ca",
+        "time": "About 3½ hr",
+        "diff": "I–II",
+        "crowd": "Quiet"
       },
       {
         "id": 2,
         "to": "Meramec State Park",
-        "best": "A long paddle between state parks",
-        "body": "This connects two state-park areas through a long stretch of bluff and cave country. The whole pairing is longer than the shorter trips offered by many outfitters; confirm the actual endpoints when comparing distances or shuttle packages.",
+        "best": "Bluffs and caves, best as an overnight",
+        "body": "The best scenery on the river: limestone bluffs, cave mouths and wide gravel bars for close to 20 miles. It is a long day in a canoe. Most outfitters sell shorter pieces of it, so ask which accesses their trip actually uses. Green’s Cave is the landmark near the end, in the bluff above Meramec State Park.",
         "from": "Onondaga Cave SP",
         "name": "The bluff-and-cave middle",
         "miles": "19.6",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773858468087-Screenshot_2026-03-18_at_1.27.29_PM-uVKsvzoVDelXyLRTr6kBaaWgQNhOvm.png",
         "segment": "middle",
         "to_slug": "meramec-state-park",
-        "from_slug": "onondaga-cave-state-park"
+        "from_slug": "onondaga-cave-state-park",
+        "time": "About 8 hr, or overnight",
+        "diff": "I–II",
+        "crowd": "Moderate"
       },
       {
         "id": 3,
         "to": "Sand Ford",
-        "best": "A shorter route from the state park",
-        "body": "A shorter option below Meramec State Park through the Meramec Caverns area toward Sand Ford. Confirm the landing and arrangements at each end. A broad channel still needs active paddling when wind or slow current adds time.",
+        "best": "Families, rafts and tubes",
+        "body": "The easy, busy one. The river is wide and gentle from the state park, past the Meramec Caverns area, to Sand Ford. Big gravel bars, lots of rafts, and the most crowded summer weekends on the river. Midweek is a different trip.",
         "from": "Meramec State Park",
         "name": "The Meramec Caverns float",
         "miles": "7.4",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773859128396-Screenshot_2026-03-18_at_1.38.30_PM-Og8L0hMXrDCwutLfxqzEDbBDYVC3eJ.png",
         "segment": "lower",
         "to_slug": "sand-ford",
-        "from_slug": "meramec-state-park"
+        "from_slug": "meramec-state-park",
+        "time": "About 3 hr",
+        "diff": "I",
+        "crowd": "Busy summers"
       },
       {
         "id": 4,
         "to": "Red Horse",
-        "best": "A longer trip beyond Sand Ford",
-        "body": "A longer downstream route beyond the state-park corridor. Red Horse is the finish, not a casual extension of the Sand Ford float. Check the relevant downstream reading and allow for time spent paddling the wider pools.",
+        "best": "A long, quiet paddle",
+        "body": "Below Sand Ford the crowds thin and the river goes wide and slow. It is 16.6 miles of mostly flat water, so you will be paddling, not drifting, and a headwind matters. Red Horse is the take-out.",
         "from": "Sand Ford",
         "name": "The quiet lower river",
         "miles": "16.6",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773859281624-Screenshot_2026-03-18_at_1.41.11_PM-Dt4KB4Vx0BGRPlUzRcGpoizRrbvqlI.png",
         "segment": "lower",
         "to_slug": "red-horse-access",
-        "from_slug": "sand-ford"
+        "from_slug": "sand-ford",
+        "time": "6–7 hr",
+        "diff": "I",
+        "crowd": "Sleepy"
       }
     ],
     "segments": [

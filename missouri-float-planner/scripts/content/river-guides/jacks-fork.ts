@@ -11,15 +11,15 @@ export default {
     "faq": [
       {
         "q": "How long does it take to float Alley Spring to Eminence?",
-        "a": "The mapped route is 6.3 miles. Get a planner estimate for your vessel and leave extra time for landing, stops and the shuttle."
+        "a": "About 3 hours of paddling in a canoe or kayak, by the Park Service’s float-time table. Call it 4 with a swim stop, and add 25 to 50 percent in a raft or tube."
       },
       {
         "q": "Can you camp on the Jacks Fork for free?",
-        "a": "Check the NPS backcountry camping rules for your intended spot. Developed campgrounds have their own fees and closures, and an access point is not automatically a campsite."
+        "a": "Yes, on gravel bars. Camping on a park-owned gravel bar is free and needs no reservation. Stay 300 yards from any campground and 50 feet from accesses and cave mouths, and move on after five days. Developed campgrounds such as Alley Spring charge a fee."
       },
       {
-        "q": "Which Jacks Fork route should I compare for a first float?",
-        "a": "Alley Spring to Eminence is one of the shorter featured trips. Ask your outfitter about the day’s water and obstructions before choosing it for your group."
+        "q": "Which Jacks Fork float is best for a first trip?",
+        "a": "Alley Spring to Eminence. It is 6.3 miles of Class I water, the spring keeps water in it, and you finish in town. Eminence to Two Rivers is the same difficulty and a little quieter."
       },
       {
         "q": "When is the upper Jacks Fork too low to float?",
@@ -27,11 +27,11 @@ export default {
       },
       {
         "q": "When is the Jacks Fork too high?",
-        "a": "Use current river alerts, the trend and local advice for your route. A dropping gauge does not mean hazards have cleared."
+        "a": "The Park Service closes the river to canoes, kayaks, rafts and tubes when it is two feet above its average level. Eddy’s river report marks the Alley Spring gauge high above about 640 cfs and dangerous at 1,000. The Jacks Fork comes up fast after rain, and the canyon is the wrong place to find that out."
       },
       {
         "q": "Can I drink the spring water?",
-        "a": "Carry drinking water. Clear spring water should not be treated as a drinking-water supply."
+        "a": "No. Even the clearest springs here are not certified safe to drink. Bring your own water."
       }
     ],
     "hero": {
@@ -70,7 +70,7 @@ export default {
     "tldr": {
       "primary_gauge": "Alley Spring · USGS 07065495",
       "typical_distance": "6.3–14.8 mi featured routes",
-      "best_for_beginners": "Compare Alley Spring → Eminence with the longer upper-canyon trips.",
+      "best_for_beginners": "Alley Spring → Eminence (6.3 mi, about 3 hr)",
       "route_label": "Start here"
     },
     "seasons": [
@@ -139,54 +139,66 @@ export default {
       {
         "id": 1,
         "to": "Rymers",
-        "best": "Upper-canyon scenery",
-        "body": "The upper canyon route passes the Jacks Fork’s Blue Spring and the arch at Jam Up Cave before reaching Rymers. It depends on suitable upper-river water; the flow below Alley Spring cannot establish conditions here. Follow current NPS cave restrictions.",
+        "best": "Experienced paddlers when the water is up",
+        "body": "The canyon. The river squeezes between bluffs past the Jacks Fork’s own Blue Spring (not the one on the Current) and the 80-foot arch of Jam Up Cave, which you look at from your boat. It only runs in spring or after rain; by midsummer most years you would be walking it. Tight turns and downed trees make this the most technical stretch in the guide.",
         "from": "Buck Hollow",
         "name": "The upper canyon",
         "miles": "9.4",
         "photo": null,
         "segment": "upper",
         "to_slug": "rymers-access",
-        "from_slug": "buck-hollow"
+        "from_slug": "buck-hollow",
+        "time": "About 4 hr",
+        "diff": "II",
+        "crowd": "Quiet"
       },
       {
         "id": 2,
         "to": "Alley Spring",
-        "best": "A longer canyon trip to Alley Spring",
-        "body": "A longer stretch that remains above Alley Spring’s contribution for most of the trip. Bay Creek is an intermediate access to consider when planning a shorter route or an overnight. Check the specific camping arrangements rather than assuming any gravel bar is available.",
+        "best": "An overnight when the canyon has water",
+        "body": "Still above the big spring, so still dependent on rain. Bay Creek, 9 miles down, has an access and a primitive campground, and splits the trip into a 4-hour day and a 2-hour morning. Quiet water under bluffs the whole way.",
         "from": "Rymers",
         "name": "Rymers to Alley",
         "miles": "14.8",
         "photo": null,
         "segment": "upper",
         "to_slug": "alley-spring",
-        "from_slug": "rymers-access"
+        "from_slug": "rymers-access",
+        "time": "About 6 hr, or overnight",
+        "diff": "I–II",
+        "crowd": "Quiet"
       },
       {
         "id": 3,
         "to": "Eminence",
-        "best": "A mill visit and a shorter paddle",
-        "body": "Visit the red mill and spring on land, then paddle toward Eminence. This is the shortest featured Jacks Fork route, with spring influence below Alley. Match the trip to current conditions and the group’s skills rather than treating the shorter mileage as a safety rating.",
+        "best": "First-timers and families",
+        "body": "Start on land: the red mill at Alley Spring dates to 1894, and the spring behind it puts out about 81 million gallons a day. That water is why this stretch usually floats in summer when the canyon upstream is dry. Easy current to the Eminence access. The Park Service calls it the most popular summer float on the river, so expect company on weekends.",
         "from": "Alley Spring",
         "name": "The Alley Spring run",
         "miles": "6.3",
         "photo": null,
         "segment": "lower",
         "to_slug": "eminence-city-access",
-        "from_slug": "alley-spring"
+        "from_slug": "alley-spring",
+        "time": "About 3 hr",
+        "diff": "I",
+        "crowd": "Busy summers"
       },
       {
         "id": 4,
         "to": "Two Rivers",
-        "best": "The finish at Two Rivers",
-        "body": "Follow the lower Jacks Fork past the Shawnee Creek area to its meeting with the Current at Two Rivers. Identify the take-out before launch; continuing onto the Current means a different route and shuttle.",
+        "best": "An easy half day",
+        "body": "From town down past Shawnee Creek to Two Rivers, where the Jacks Fork ends in the Current. A relaxed half day. Take out at Two Rivers unless you have planned the next leg: past the confluence you are on the Current, and the next access is Powder Mill, 7 miles on.",
         "from": "Eminence",
         "name": "Eminence to the confluence",
         "miles": "7",
         "photo": null,
         "segment": "lower",
         "to_slug": "two-rivers",
-        "from_slug": "eminence-city-access"
+        "from_slug": "eminence-city-access",
+        "time": "About 3 hr",
+        "diff": "I",
+        "crowd": "Moderate"
       }
     ],
     "segments": [
@@ -354,6 +366,14 @@ export default {
       {
         "label": "NPS: park brochure and river mileage",
         "url": "https://www.nps.gov/ozar/planyourvisit/park-brochure.htm"
+      },
+      {
+        "label": "NPS: estimated float times",
+        "url": "https://www.nps.gov/ozar/planyourvisit/floattimes.htm"
+      },
+      {
+        "label": "NPS: Superintendent’s Compendium (river closure levels)",
+        "url": "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm"
       }
     ],
     "editorial_updated_at": "2026-11-10"

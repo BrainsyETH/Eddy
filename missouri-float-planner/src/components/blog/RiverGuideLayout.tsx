@@ -565,7 +565,7 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview }: Pr
             Pick your float
           </SectionTitle>
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 24, lineHeight: 1.65 }}>
-            Choose a stretch for your group, your time, and today&rsquo;s water. Distances are approximate; use the planner for the current route and time estimate.
+            Choose a stretch for your group, your time, and today&rsquo;s water. Float times are paddling time in a canoe or kayak at normal water; stops, low water, rafts and tubes all add to them. The planner gives an estimate for today&rsquo;s level.
           </p>
           <GuideOverview routes={overview} riverName={riverName} />
           {floatSearchLaunch().web && <Link href={`/find-float?river=${encodeURIComponent(slug)}`} className="mb-6 inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">Find a float for your time and vessel →</Link>}

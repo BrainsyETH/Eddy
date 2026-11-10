@@ -11,11 +11,11 @@ export default {
     "faq": [
       {
         "q": "How long does it take to float Akers to Pulltite?",
-        "a": "Eddy’s mapped route is 9 miles. Use its time-estimate button or open the planner for your vessel, then add time for Cave Spring and any other stops."
+        "a": "About 4 hours of paddling in a canoe or kayak at average water, by the Park Service’s own float-time table. Plan on 5 or 6 once you stop at Cave Spring and swim. Add 25 to 50 percent for a raft or tube."
       },
       {
         "q": "Can you camp on the Current River for free?",
-        "a": "NPS backcountry river camping and developed campgrounds follow different rules. Use the NPS camping page to check your proposed site; Jerktail is a developed campground with a standard-site fee."
+        "a": "Yes, on gravel bars. Camping on a park-owned gravel bar is free and needs no reservation. Stay 300 yards from any campground and 50 feet from accesses and cave mouths, and move on after five days. The developed campgrounds charge a fee, and that includes Jerktail."
       },
       {
         "q": "Which Current River float passes Welch Spring?",
@@ -23,19 +23,19 @@ export default {
       },
       {
         "q": "When is the Current River too high to float?",
-        "a": "Check the route’s current conditions, alerts and local outfitter advice. A single Van Buren gauge number is not a cutoff for the whole river, and falling water can still be dangerous."
+        "a": "The Park Service closes the Current to canoes, kayaks, rafts and tubes when it is two feet above its average level. That is 4.0 feet at the Akers gauge and 5.0 feet at Van Buren. Well before that the water is muddy and fast and shoves boats into bluffs and downed trees, so watch which way the gauge is moving, not just the number."
       },
       {
         "q": "Are motors allowed on the Current?",
-        "a": "NPS motor limits vary by stretch and season. Check its current laws and policies for the exact route before bringing a motor."
+        "a": "Yes, on parts of it, with horsepower limits that change by stretch and season. Paddlers should expect jet boats on the lower river. If you are bringing a motor, read the current NPS rules for your stretch first."
       },
       {
         "q": "How cold is the water?",
-        "a": "Cold spring inflows mix with river water along the way. Water temperature varies by place and conditions; a spring’s temperature is not the temperature of the entire river."
+        "a": "Cold. The springs come out of the ground in the mid-50s all year, and on the upper river that is most of the water. It feels great in August and can put you in real trouble if you swim in March. The river warms as you go downstream."
       },
       {
         "q": "Can I drink the spring water?",
-        "a": "Bring drinking water. Clear water is not proof that untreated spring or river water is safe to drink."
+        "a": "No. Even the clearest springs here are not certified safe to drink. Bring your own water."
       }
     ],
     "hero": {
@@ -74,7 +74,7 @@ export default {
     "tldr": {
       "primary_gauge": "Van Buren · USGS 07067000",
       "typical_distance": "6–36.2 mi featured routes",
-      "best_for_beginners": "Akers → Pulltite for Cave Spring; Cedar Grove → Akers for Welch Spring.",
+      "best_for_beginners": "Akers Ferry → Pulltite (9 mi, about 4 hr)",
       "route_label": "Start here"
     },
     "seasons": [
@@ -176,21 +176,24 @@ export default {
       {
         "id": 1,
         "to": "Cedar Grove",
-        "best": "Upper-river trout water",
-        "body": "An upper-Current outing between Baptist Camp and Cedar Grove. The channel is smaller here than farther downstream, with trout water and wooded banks. Check upper-river depth and fishing rules before choosing this stretch.",
+        "best": "Anglers and a quiet morning",
+        "body": "The practical top of the Current. Tan Vat and Montauk, upstream, are tighter and more technical, and Montauk is a trout park with its own rules. From Baptist Camp the river runs narrow, cold and clear to Cedar Grove. It is a tidy half day, and the stretch fly fishers pick.",
         "from": "Baptist Camp",
         "name": "Trout section",
         "miles": "6",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1770003451989-Montauk-9DBZH6CuKRaiCxQEd6sBa5MWkONotQ.png",
         "segment": "upper",
         "to_slug": "cedargrove",
-        "from_slug": "baptist-camp"
+        "from_slug": "baptist-camp",
+        "time": "About 3 hr",
+        "diff": "I–II",
+        "crowd": "Quiet"
       },
       {
         "id": 2,
         "to": "Akers Ferry",
         "best": "Welch Spring and the hospital ruins",
-        "body": "Welch Spring is the stop to plan around on this stretch. The old hospital ruins beside it make a short shore visit worth leaving time for; check NPS access guidance and stay out of closed areas. Akers Ferry is the finish.",
+        "body": "Bluff country starts at Cedar Grove. Medlock Cave and Spring come up on river-right, and about a mile later is the stop to plan around: Welch Spring, beside the stone ruins of a 1913 sanitarium built so patients could breathe the cave’s “healing” air. Pull over on river-right and walk up. Take out at Akers Ferry.",
         "from": "Cedar Grove",
         "name": "The springs run",
         "miles": "7.6",
@@ -206,59 +209,74 @@ export default {
           "source_url": "https://commons.wikimedia.org/wiki/File:Current_River_MO_2009-06-15_n65_below_Welch_Spring_crop1.jpg",
           "license": "CC BY-SA 3.0",
           "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
-        }
+        },
+        "time": "About 3 hr",
+        "diff": "I–II",
+        "crowd": "Moderate"
       },
       {
         "id": 3,
         "to": "Pulltite",
-        "best": "Cave Spring and a campground finish",
-        "body": "Cave Spring is the distinctive stop between Akers and Pulltite. The spring mouth is on the river; follow current NPS cave-entry guidance. Finish at the Pulltite access, with its campground and nearby spring trail.",
+        "best": "First-timers and families",
+        "body": "The float most people mean when they say they floated the Current. About halfway down, Cave Spring opens right onto the river. It is one of the few park caves you may still enter, and you can paddle your boat inside. Finish at Pulltite, which has a campground, a ramp and a short trail to its own spring. Summer Saturdays are crowded; go on a weekday or launch early.",
         "from": "Akers Ferry",
         "name": "The classic",
         "miles": "9",
         "segment": "middle",
         "to_slug": "pulltite-spring",
         "from_slug": "akers-ferry",
-        "photo": null
+        "photo": null,
+        "time": "About 4 hr",
+        "diff": "I",
+        "crowd": "Busy summers"
       },
       {
         "id": 4,
         "to": "Two Rivers",
-        "best": "Round Spring and the Jacks Fork confluence",
-        "body": "Visit Round Spring on foot before launching, then follow the Current toward its meeting with the Jacks Fork at Two Rivers. Jerktail is along the way, but its developed campground is not free: NPS lists a standard-site fee. Check the campground page when planning an overnight.",
+        "best": "An overnight with room to stop",
+        "body": "Walk to Round Spring from the parking lot before you launch; the blue pool is about 50 feet across. After that it is gravel bars and bluffs to Two Rivers, where the Jacks Fork comes in. For a shorter day the Park Service splits it in three: Round Spring to Williams (about 3 hours), Williams to Jerktail (3) and Jerktail to Two Rivers (2). Jerktail’s campground charges a fee; gravel bars on park land are free.",
         "from": "Round Spring",
         "name": "The middle",
         "miles": "18.1",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1769964210817-Jerktail-yAc9L945aNRrMoORTETdXu0ONpFM2I.png",
         "segment": "middle",
         "to_slug": "two-rivers",
-        "from_slug": "round-spring"
+        "from_slug": "round-spring",
+        "time": "About 8 hr, or overnight",
+        "diff": "I–II",
+        "crowd": "Moderate"
       },
       {
         "id": 5,
         "to": "Big Spring",
-        "best": "A longer trip ending at Big Spring",
-        "body": "A longer lower-Current trip through the Blue Spring and Van Buren area to Big Spring. Break the route into days if needed, with confirmed camps and shuttle arrangements. Big Spring itself is a land visit beside the take-out area, not a place to paddle into.",
+        "best": "A two-day trip past the big springs",
+        "body": "The big-water lower Current, and a two-day trip for most people. Blue Spring, Missouri’s deepest at 310 feet, is near the start. Log Yard and Waymeyer are the usual camps. Day two takes you under the Van Buren bridge to Big Spring, which you visit on foot from the take-out. Expect to share this stretch with motorboats.",
         "from": "Powder Mill",
         "name": "Powder Mill to Big Spring",
         "miles": "29.2",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1769959365528-Roberts_Field_Stilt_House-wJZVnwELX7eEt7a0h9hwGp0QDjGZmr.png",
         "segment": "lower",
         "to_slug": "big-spring",
-        "from_slug": "powder-mill"
+        "from_slug": "powder-mill",
+        "time": "About 12 hr paddling; 2 days",
+        "diff": "I",
+        "crowd": "Quiet midweek"
       },
       {
         "id": 6,
         "to": "Doniphan",
-        "best": "A multi-day lower-river plan",
-        "body": "A long lower-river trip from Big Spring to T. L. Wright Memorial Access in Doniphan. It continues beyond the national riverways corridor, so check access and camping rules for each planned stop. Use the planner’s mapped distance when dividing the trip into days; this is substantially longer than a short afternoon float.",
+        "best": "Long, quiet miles",
+        "body": "Below Big Spring the river goes wide and slow and the crowds disappear. About 15 miles in you leave the national park, and the rest runs through Mark Twain National Forest past Hickory Landing, Gooseneck and Float Camp. Take out at T. L. Wright Memorial Access in Doniphan. Know where you are sleeping each night, because the camping rules change when you leave the park.",
         "from": "Big Spring",
         "name": "Lower river",
         "miles": "36.2",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1769962223099-Float_Camp_Recreation_Area-K11gteQibEJy52EHcx43M0qTFfbTs4.png",
         "segment": "lower",
         "from_slug": "big-spring",
-        "to_slug": "t-l-wright-memorial-access-doniphan"
+        "to_slug": "t-l-wright-memorial-access-doniphan",
+        "time": "About 15 hr paddling; 2–3 days",
+        "diff": "I",
+        "crowd": "Sleepy"
       }
     ],
     "segments": [
@@ -487,6 +505,14 @@ export default {
       {
         "label": "NPS: floating and cave access",
         "url": "https://www.nps.gov/ozar/planyourvisit/floating.htm"
+      },
+      {
+        "label": "NPS: estimated float times",
+        "url": "https://www.nps.gov/ozar/planyourvisit/floattimes.htm"
+      },
+      {
+        "label": "NPS: Superintendent’s Compendium (river closure levels)",
+        "url": "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm"
       }
     ],
     "editorial_updated_at": "2026-11-10"

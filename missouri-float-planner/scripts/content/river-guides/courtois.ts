@@ -11,27 +11,31 @@ export default {
     "faq": [
       {
         "q": "How long does a Courtois Creek float take?",
-        "a": "The featured routes are 5.8, 6.8 and 8.5 mapped miles. Use the planner for the selected access pair and vessel, with extra time for stops or dragging."
+        "a": "The three featured floats are 5.8, 6.8 and 8.5 miles: roughly 2½ to 3½ hours of paddling in a canoe at normal water."
       },
       {
         "q": "Is Courtois Creek good for beginners?",
-        "a": "Discuss a shorter route and the day’s obstructions with the outfitter. A small creek can still have awkward landings, strainers and fast changes after rain."
+        "a": "Yes at normal levels, on the lower creek from Bass River down: easy Class I water. It is shallow, so a kayak or a lightly loaded canoe does better than a raft."
       },
       {
         "q": "How do I check Courtois Creek water levels?",
-        "a": "Eddy uses Huzzah Creek near Steelville, USGS 07014000, as a proxy. It shows conditions on the Huzzah, not the depth at your Courtois launch. Pair it with a recent local report."
+        "a": "The Courtois has no gauge of its own. Eddy uses the one next door, Huzzah Creek near Steelville (USGS 07014000). The two creeks rise and fall together, but that gauge cannot tell you how deep the Courtois is, so ask Bass River Resort or go look at the creek."
       },
       {
         "q": "Courtois or Huzzah — which should I float?",
-        "a": "Choose by the route, available shuttle, group and current water. They share the Steelville area, but a reading on one creek does not establish conditions on the other."
+        "a": "They are about the same water. The Courtois is quieter and feels more tucked away; the Huzzah has more outfitters and more people. If the Huzzah is packed, come here."
       },
       {
         "q": "When is the Courtois too low to float?",
-        "a": "Ask about your exact stretch and vessel. A Huzzah gauge height cannot provide a universal Courtois launch cutoff."
+        "a": "There is no Courtois gauge, so Eddy rates it off the Huzzah gauge next door: too low under about 56 cfs, good from about 110. The upper creek gives out first. Brazil to Highway 8 usually only floats in spring."
       },
       {
         "q": "Can I camp on the Courtois?",
-        "a": "Contact the resort or land manager for your intended campsite. Verify permission and facilities separately from access to the river."
+        "a": "Bass River Resort has the main campground on the creek. Most of the rest of the bank is private."
+      },
+      {
+        "q": "How do you pronounce Courtois?",
+        "a": "Locals say CODE-a-way."
       }
     ],
     "hero": {
@@ -70,7 +74,7 @@ export default {
     "tldr": {
       "primary_gauge": "Huzzah Creek near Steelville · USGS 07014000 · proxy for Courtois",
       "typical_distance": "5.8–8.5 mi featured routes",
-      "best_for_beginners": "Bass River → Scotia is the shortest featured route at 5.8 mapped miles.",
+      "best_for_beginners": "Bass River → Scotia (5.8 mi, about 2½ hr)",
       "route_label": "Start here"
     },
     "seasons": [
@@ -131,41 +135,50 @@ export default {
       {
         "id": 1,
         "to": "Highway 8",
-        "best": "Upper-creek bends",
-        "body": "The upper creek between Brazil and Highway 8 is a small-water outing. Check actual depth and obstructions before unloading; regional rain or a favorable Huzzah reading does not establish a clear route here.",
+        "best": "Spring paddlers who like it empty",
+        "body": "The upper creek: narrow, clear and tight against the woods. It usually only floats in spring or after rain, and by midsummer it is scrapy. Look at the water at the Brazil low-water bridge before you unload.",
         "from": "Brazil Bridge",
         "name": "Brazil to Highway 8",
         "miles": "6.8",
         "photo": null,
         "segment": "upper",
         "to_slug": "highway-8-bridge",
-        "from_slug": "brazil-low-water-bridge-cr-657"
+        "from_slug": "brazil-low-water-bridge-cr-657",
+        "time": "2½–3 hr",
+        "diff": "I",
+        "crowd": "Quiet"
       },
       {
         "id": 2,
         "to": "Bass River",
-        "best": "A longer route from Highway 8",
-        "body": "This middle-creek pairing passes the Blunt bridge area on the way to Bass River Resort. Arrange use of the private landing and confirm whether the group’s boat can get through the shallow sections.",
+        "best": "Bluffs and swimming holes",
+        "body": "The scenic middle, with limestone bluffs and wide gravel bars, past the Blunt low-water bridge to Bass River Resort. The resort landing is private, so set up the take-out with them first.",
         "from": "Highway 8",
         "name": "Highway 8 to Bass River",
         "miles": "8.5",
         "photo": null,
         "segment": "lower",
         "to_slug": "bass-river-resort",
-        "from_slug": "highway-8-bridge"
+        "from_slug": "highway-8-bridge",
+        "time": "About 3½ hr",
+        "diff": "I",
+        "crowd": "Moderate"
       },
       {
         "id": 3,
         "to": "Scotia",
-        "best": "A shorter float toward the Huzzah",
-        "body": "Follow the lower Courtois toward its meeting with the Huzzah near Scotia. Identify the planned landing in advance. Continuing down the Huzzah is a different float, with a different take-out to arrange.",
+        "best": "Families and day-trippers",
+        "body": "The stretch most people float, from Bass River Resort to where the Courtois runs into the Huzzah at the Scotia bridge. Short and easy at normal water. Plenty of groups keep going down the Huzzah; that is a longer day with a different take-out, so decide before you launch.",
         "from": "Bass River",
         "name": "Bass River to the confluence",
         "miles": "5.8",
         "photo": null,
         "segment": "lower",
         "to_slug": "courtois-huzzah-confluence-scotia-bridge",
-        "from_slug": "bass-river-resort"
+        "from_slug": "bass-river-resort",
+        "time": "About 2½ hr",
+        "diff": "I",
+        "crowd": "Busy summers"
       }
     ],
     "segments": [

@@ -11,11 +11,11 @@ export default {
     "faq": [
       {
         "q": "How long does a Huzzah Creek float take?",
-        "a": "The featured routes span 5.4 to 10.1 mapped miles. Get a time estimate for the exact route and vessel, then allow for stops and possible low-water dragging."
+        "a": "The featured floats run 5.4 to 10.1 miles, which is about 2 to 4 hours of paddling in a canoe at normal water. Low water adds time, because you will be getting out to drag."
       },
       {
         "q": "Is Huzzah Creek good for beginners?",
-        "a": "Ask an outfitter about a shorter lower-creek route and current obstructions. Shallow water, strainers and storm rises still matter on a small creek."
+        "a": "The lower creek is: Class I, shallow and forgiving at normal levels, with outfitters at Huzzah Valley. It is still a small creek, so watch for downed trees on the outside of bends, and stay off it after heavy rain."
       },
       {
         "q": "When is the Huzzah too low to float?",
@@ -23,15 +23,19 @@ export default {
       },
       {
         "q": "Can I float the Huzzah and Courtois the same weekend?",
-        "a": "The creeks are close enough to compare for a weekend, but assess each route separately. A Huzzah gauge reading is only a proxy for the Courtois, not proof of matching depth."
+        "a": "Yes, and plenty of people do. The two creeks are a few miles apart and both come out near Steelville. They also rise and fall together, so if one is too low the other usually is too."
       },
       {
         "q": "What is Dillard Mill?",
-        "a": "A preserved gristmill on Huzzah Creek, managed as a Missouri State Historic Site. Check the park page for visitor hours and tours."
+        "a": "A red water-powered gristmill at the top of the creek, preserved as a Missouri State Historic Site with tours in season. It is one of the best-kept mills in the state and worth the stop even if you are floating farther down."
       },
       {
         "q": "Can I camp on the Huzzah?",
-        "a": "Check Red Bluff Recreation Area and private resort options for your dates. Use the specific land manager’s rules instead of treating every riverside access as a campsite."
+        "a": "Yes. Red Bluff has a Forest Service campground with a nightly fee, and Huzzah Valley and the other resorts have their own."
+      },
+      {
+        "q": "How do you pronounce Huzzah?",
+        "a": "HOO-zaw, not huh-ZAH."
       }
     ],
     "hero": {
@@ -70,7 +74,7 @@ export default {
     "tldr": {
       "primary_gauge": "Huzzah Creek near Steelville · USGS 07014000",
       "typical_distance": "5.4–10.1 mi featured routes",
-      "best_for_beginners": "Compare the lower-creek routes near Huzzah Valley with the longer upper trips.",
+      "best_for_beginners": "Highway Z → Huzzah Valley (6.7 mi, about 3 hr)",
       "route_label": "Start here"
     },
     "seasons": [
@@ -131,54 +135,66 @@ export default {
       {
         "id": 1,
         "to": "Red Bluff",
-        "best": "Dillard Mill and an upper-creek trip",
-        "body": "The smaller upper creek between Dillard Mill and Red Bluff needs its own water check. Arrange the exact launch and stay clear of the mill dam; a visit to the historic mill is a separate land stop, not a portage instruction.",
+        "best": "Spring paddlers",
+        "body": "The upper creek, starting beside the red mill at Dillard. It is small and clear and usually only floats in spring or after a good rain; by midsummer it is a hike with a boat. Tour the mill before you launch, and stay clear of the mill dam.",
         "from": "Dillard Mill",
         "name": "Dillard Mill to Red Bluff",
         "miles": "10.1",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772676892504-Screenshot_2026-03-04_at_8.14.21_PM-14mLfdRYWhDjKiuCPETW3ePuwp3dqR.png",
         "segment": "upper",
         "to_slug": "red-bluff-recreation-area",
-        "from_slug": "dillard-mill"
+        "from_slug": "dillard-mill",
+        "time": "About 4 hr",
+        "diff": "I",
+        "crowd": "Quiet"
       },
       {
         "id": 2,
         "to": "Highway Z",
-        "best": "A longer outing below Red Bluff",
-        "body": "Put in at Red Bluff and follow the middle creek to Highway Z. The recreation area makes a useful place to inspect the water before committing. Confirm parking and take-out arrangements at the bridge.",
+        "best": "Swimming and gravel bars",
+        "body": "Red Bluff is the tall red wall over the Forest Service campground, and a good place to look at the water before you commit. From there it is clear water and gravel bars down to the Highway Z bridge. Sort out parking at the bridge ahead of time.",
         "from": "Red Bluff",
         "name": "Red Bluff to Highway Z",
         "miles": "8",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772676325873-C8C9A42A-DEBF-46BB-AF7C-67316B7099A0-h3Vdva6MYQMHe4pEdhfFMUkvIK7Wnt.JPG",
         "segment": "lower",
         "to_slug": "highway-z-bridge",
-        "from_slug": "red-bluff-recreation-area"
+        "from_slug": "red-bluff-recreation-area",
+        "time": "About 3 hr",
+        "diff": "I",
+        "crowd": "Moderate"
       },
       {
         "id": 3,
         "to": "Huzzah Valley",
-        "best": "A float finishing at Huzzah Valley",
-        "body": "This pairing finishes at Huzzah Valley Resort. Arrange permission, parking and the shuttle with the operator before launching from Highway Z. Rentals and private landings may use different endpoints from public-access trips.",
+        "best": "Families and day-trippers",
+        "body": "The outfitter stretch, and the busiest water on the creek. It ends at Huzzah Valley Resort, which is private: arrange the take-out, parking and shuttle with them. Reserve early for a summer weekend.",
         "from": "Highway Z",
         "name": "Highway Z to Huzzah Valley",
         "miles": "6.7",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772677130177-Screenshot_2026-03-04_at_8.18.34_PM-yCOJTSowzl6duhWS7X95DaDTyvYiy0.png",
         "segment": "lower",
         "to_slug": "huzzah-valley-resort",
-        "from_slug": "highway-z-bridge"
+        "from_slug": "highway-z-bridge",
+        "time": "2½–3 hr",
+        "diff": "I",
+        "crowd": "Busy summers"
       },
       {
         "id": 4,
         "to": "Huzzah CA",
-        "best": "A shorter lower-creek route",
-        "body": "A lower-creek route from Huzzah Valley to the conservation-area access. Confirm which landing your shuttle uses before you reach the confluence area; continuing onto the Meramec requires another plan.",
+        "best": "A short, quieter finish",
+        "body": "The last miles before the Huzzah meets the Meramec, ending at the conservation area access. Shorter and quieter than the stretch above. Know your take-out; keep going and you end up on the Meramec.",
         "from": "Huzzah Valley",
         "name": "Huzzah Valley to the confluence",
         "miles": "5.4",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772677224627-Screenshot_2026-03-04_at_8.19.57_PM-3x0uDZV4fXZfi7IBByG00d9BFacuCO.png",
         "segment": "lower",
         "to_slug": "huzzah-conservation-area",
-        "from_slug": "huzzah-valley-resort"
+        "from_slug": "huzzah-valley-resort",
+        "time": "About 2 hr",
+        "diff": "I",
+        "crowd": "Moderate"
       }
     ],
     "segments": [

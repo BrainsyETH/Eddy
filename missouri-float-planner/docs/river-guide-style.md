@@ -200,6 +200,16 @@ holds a fact a reader can use (“Apr–Oct”, “Year-round below Greer Spring
 never an instruction. Do not refer to earlier versions of a guide in reader
 copy; a correction belongs in the PR, not the FAQ.
 
+Route cards carry a float time, a class and a crowd level. Times are paddling
+time for a canoe or kayak at normal water. For the Current and Jacks Fork use
+the NPS estimated float times table; elsewhere divide the mapped miles by the
+planner's 2.5 mph canoe speed (`DEFAULT_CANOE_SPEEDS`) and round to the half
+hour. The page states that assumption above the cards. An FAQ answer starts
+with the answer: a number, a yes or no, or a place name. “Use the planner” and
+“ask your outfitter” can follow an answer but never replace one. High- and
+low-water numbers come from `river_gauges` (attributed to Eddy's river report)
+or from an agency closure level, named as such.
+
 The overview uses real `get_float_segment` geometry and omits missing lines.
 It shows featured stretches, not a continuous navigable river or a basemap.
 Selected stretches are coral/orange, matching the planner. Float times are

@@ -11,31 +11,31 @@ export default {
     "faq": [
       {
         "q": "How long does it take to float Bennett Spring to Prosperine?",
-        "a": "Eddy’s selected access pair is 9.8 mapped miles. Use the planner’s vessel-specific estimate and add time for stops and the shuttle."
+        "a": "About 4 hours of paddling in a canoe at normal water. Most groups stretch it to 5 or 6 with stops."
       },
       {
         "q": "Is the Niangua good for beginners?",
-        "a": "The Bennett Spring area offers several ways to arrange rentals and shuttles. Choose a route with the operator based on your group and the current water, rather than assuming the whole river is beginner water."
+        "a": "Bennett Spring to Prosperine is about as beginner-friendly as Missouri floating gets: Class I, a steady current, and outfitters all along it. Above the spring it gets shallow; below Prosperine the days get long."
       },
       {
         "q": "Does Bennett Spring keep the Niangua floatable all summer?",
-        "a": "It contributes base flow, but that is not a guarantee for every route or vessel. Check current water and local reports, especially during a dry spell."
+        "a": "Usually, below the spring. Bennett adds roughly 100 million gallons a day, which is why the Niangua often floats in August when rain-fed rivers do not. Above the spring you are back to depending on rain."
       },
       {
         "q": "What is at Bennett Spring?",
-        "a": "Bennett Spring State Park includes the spring, trout fishing, trails and visitor facilities. Check the park’s current hours, fishing zones and permit information before visiting."
+        "a": "A state park built around one of Missouri’s biggest springs: a trout-stocked spring branch, a hatchery, trails and campgrounds. To fish it you need a daily trout tag, and the regular season runs March 1 to October 31."
       },
       {
         "q": "What should I know about Tunnel Dam?",
-        "a": "For a trip toward the dam area, confirm the exact take-out and local restrictions before launching. Do not approach the dam or assume a route below it has the same conditions as one above it."
+        "a": "It is a hydroelectric dam at the bottom of the lower river, and the last miles above it are slow, backed-up water. Take out at the Tunnel Dam boat landing and stay away from the dam itself. Water below it can change with power generation."
       },
       {
         "q": "How do I check Niangua water levels?",
-        "a": "The guide uses USGS 06923250 near Windyville. Use the river report to match the available gauges to your route; a station reading is not the depth at every landing."
+        "a": "Windyville (USGS 06923250) is the main gauge; Eddy’s river report rates it best between about 100 and 400 cfs. For the lower river, use the Tunnel Dam gauge (06923950)."
       },
       {
         "q": "Can I camp along the Niangua?",
-        "a": "Private resorts and campgrounds offer different packages near the popular float routes. Confirm the particular property’s overnight rules; do not assume an MDC access permits camping."
+        "a": "Yes, mostly at the private campgrounds between Bennett Spring and Prosperine, and in Bennett Spring State Park. Book ahead for summer weekends."
       }
     ],
     "hero": {
@@ -74,7 +74,7 @@ export default {
     "tldr": {
       "primary_gauge": "Windyville · USGS 06923250",
       "typical_distance": "7.9–16.1 mi featured routes",
-      "best_for_beginners": "Bennett Spring → Prosperine pairs a spring visit with a 9.8-mile route.",
+      "best_for_beginners": "Bennett Spring → Prosperine (9.8 mi, about 4 hr)",
       "route_label": "Start here"
     },
     "seasons": [
@@ -137,54 +137,66 @@ export default {
       {
         "id": 1,
         "to": "Bennett Spring",
-        "best": "A route above Bennett Spring",
-        "body": "This route stays above Bennett Spring for most of the trip. The upper river can have shallow riffles during dry weather even when there is more water below the spring. Finish at the designated river access, not inside the trout-park spring branch.",
+        "best": "A quiet half day",
+        "body": "Above the spring the Niangua is a small rain-fed river. It is quiet and pretty, and it can be too thin to float in a dry summer even when the river below the spring is fine. Take out at the Bennett Spring access on the river, not in the trout park’s spring branch.",
         "from": "Moon Valley",
         "name": "The upper river",
         "miles": "7.9",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773885665110-Screenshot_2026-03-18_at_9.00.49_PM-imK3SGj3Y0OBCbgf7LKhUKAKtyAcAY.png",
         "segment": "upper",
         "to_slug": "bennett-spring-access",
-        "from_slug": "moon-valley"
+        "from_slug": "moon-valley",
+        "time": "About 3 hr",
+        "diff": "I",
+        "crowd": "Quiet"
       },
       {
         "id": 2,
         "to": "Prosperine",
-        "best": "Bennett Spring and nearby outfitters",
-        "body": "A route through the spring-influenced part of the Niangua, passing the Barclay area on the way to Prosperine. Several outfitters and campgrounds serve this corridor; check their actual launch and landing locations when choosing a shuttle.",
+        "best": "First-timers and families",
+        "body": "The float nearly everyone does. Bennett Spring adds about 100 million gallons a day of cold water, so this stretch usually holds up in summer. Almost every outfitter and campground on the river sits along these 10 miles. Expect a crowd on summer weekends.",
         "from": "Bennett Spring",
         "name": "The Bennett Spring run",
         "miles": "9.8",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773883683406-Screenshot_2026-03-18_at_8.27.56_PM-eGuIRDqRYl48mnj12PHcL64vYBzd6F.png",
         "segment": "middle",
         "to_slug": "prosperine",
-        "from_slug": "bennett-spring-access"
+        "from_slug": "bennett-spring-access",
+        "time": "About 4 hr",
+        "diff": "I",
+        "crowd": "Busy summers"
       },
       {
         "id": 3,
         "to": "Berry Bluff",
-        "best": "A longer paddle below Prosperine",
-        "body": "A longer outing through the Lead Mine area toward Berry Bluff. Use the mapped distance to decide whether the trip fits your day, and arrange any overnight site before relying on it.",
+        "best": "Smallmouth anglers and overnighters",
+        "body": "Past Prosperine the outfitters thin out and so do the people. It is a long day through the Lead Mine area to Berry Bluff, a limestone wall that is the best-looking spot on the lower river. Good smallmouth water. Line up a campsite before you count on one.",
         "from": "Prosperine",
         "name": "Prosperine to Berry Bluff",
         "miles": "16.1",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773886269349-Screenshot_2026-03-18_at_9.11.02_PM-phYdeuq0VfX6qRQeIEmPUVIhJJqIiu.png",
         "segment": "lower",
         "to_slug": "berry-bluff-access",
-        "from_slug": "prosperine"
+        "from_slug": "prosperine",
+        "time": "6–7 hr, or overnight",
+        "diff": "I",
+        "crowd": "Moderate"
       },
       {
         "id": 4,
         "to": "Tunnel Dam",
-        "best": "A lower-river trip with a confirmed take-out",
-        "body": "A lower-river route to the designated Tunnel Dam boat landing. Locate that landing from land before the trip and finish before the dam. Do not use the name of the access as an invitation to approach or pass the structure.",
+        "best": "Flat, quiet water",
+        "body": "Slow water backed up by Tunnel Dam, a hydroelectric dam at the end of the float, so you will paddle most of it. Find the Tunnel Dam boat landing from the road before you launch so you recognize it from the water, and take out there. Stay away from the dam.",
         "from": "Berry Bluff",
         "name": "Berry Bluff to Tunnel Dam",
         "miles": "9.9",
         "photo": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773886562660-Screenshot_2026-03-18_at_9.15.28_PM-0P39ym4BtpxkBqj8HdcH8SJd0nahMh.png",
         "segment": "lower",
         "to_slug": "tunnel-dam-boat-launch",
-        "from_slug": "berry-bluff-access"
+        "from_slug": "berry-bluff-access",
+        "time": "4–5 hr",
+        "diff": "I",
+        "crowd": "Sleepy"
       }
     ],
     "segments": [
