@@ -444,7 +444,7 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview, rive
             {g.hero.photo_caption && <figcaption className="mt-2 text-sm leading-relaxed text-neutral-600">{g.hero.photo_caption}</figcaption>}
             {heroCredit && <p className="mt-1 text-xs leading-relaxed text-neutral-600">
               Photo: <a href={heroCredit.source_url} className="underline">{heroCredit.author}</a>{' · '}
-              <a href={heroCredit.license_url} className="underline">{heroCredit.license}</a>. {heroCredit.changes}
+              <a href={heroCredit.license_url} className="underline">{heroCredit.license}</a>
             </p>}
           </figure>
         </div>
