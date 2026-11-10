@@ -1,11 +1,13 @@
 # Lake and dam experience — visual review
 
-## Current review correction
+## Foundation review correction
 
 The latest captures use the actual Eddy components through the development-only
 fixture route in `npm run test:lakes`. **Every reading, schedule and launch in
-these captures is synthetic.** The fixture explicitly enables the pilot UI
-except in the held-release case. Neither public allowlist is enabled.
+these captures is synthetic.** At capture time, the fixture explicitly enabled
+the pilot UI except in the held-release case; both public allowlists were empty.
+The activation change now tests the approved public allowlists directly and
+retains an explicitly disabled fixture for the rollback case.
 
 | Capture | What it verifies |
 | --- | --- |
@@ -56,8 +58,10 @@ records are in
 [`reviewed-pilot`](../../../scripts/ingestion/lakes/2026-11-09/reviewed-pilot/README.md).
 
 `src/lib/lakes/public-pages.ts` independently gates the dam redesign and public
-lake pages. Both allowlists are empty. The hourly collector intentionally
-starts with foundation deployment while the UI stays held. Public lake rollout
-still requires a monitored production sync and release checks. Owner approval
+lake pages. The owner authorized activation after merging PR #1765; the
+activation change enables only Table Rock and Truman. Its merge still requires
+a monitored production sync and release checks, recorded in the activation PR.
+The hourly collector is scheduled independently of the UI gates. Owner approval
 for the six prepared launches is recorded. Once a route is published, a data
-outage shows an unavailable state instead of removing it. Current CI results are recorded in PR #1765.
+outage shows an unavailable state instead of removing it. The foundation CI
+results are recorded in PR #1765.

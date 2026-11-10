@@ -3,12 +3,12 @@ import { getLake, lakeForDam, type LakeEntry } from './registry';
 // Add a slug only after the release checklist in LAKES_DAMS_EXPERIENCE_PLAN
 // records the migration, real history and approved launch coverage. This is
 // an editorial release decision, never a transient database-health check.
-const APPROVED_LAKE_PAGES: readonly string[] = [];
+const APPROVED_LAKE_PAGES: readonly string[] = ['table-rock', 'truman'];
 
 // Existing dam pages are public already. Their lake header, measurements and
 // preview need a separate release decision; registry membership is not approval.
 // Background collection can run while both public UI gates remain closed.
-const APPROVED_DAM_LAKE_EXPERIENCES: readonly string[] = [];
+const APPROVED_DAM_LAKE_EXPERIENCES: readonly string[] = ['table-rock', 'truman'];
 
 export function damLakeExperienceEnabled(damId: string): boolean {
   const lake = lakeForDam(damId);
