@@ -364,9 +364,25 @@ export interface NavLinkSpec {
 }
 
 /**
+ * The Google URL an access point's `directions_override` stands for.
+ *
+ * The column holds whatever an admin typed: usually a place name or street
+ * address ("Akers Ferry Lower Canoe Access, Jadwin, MO"), sometimes a
+ * coordinate pair, occasionally a full Google Maps URL. Only the last is a
+ * link. Anything else is a destination, and used raw as an href it resolves
+ * against the page it sits on and lands on a 404.
+ */
+export function directionsOverrideUrl(directionsOverride?: string | null): string | null {
+  const value = directionsOverride?.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(value)}`;
+}
+
+/**
  * Navigation links for one coordinate, in the order they should be offered.
  *
- * `directionsOverride` is an admin-entered Google Maps URL for the access points
+ * `directionsOverride` is an admin-entered destination (see directionsOverrideUrl) for the access points
  * whose real driving approach a coordinate cannot express — it replaces BOTH of
  * Google's URLs and is ignored by the other three, which have no way to consume
  * someone else's route.
@@ -377,6 +393,7 @@ export function navLinksFor(
 ): NavLinkSpec[] {
   const { lat, lng, label } = coords;
   const encodedLabel = encodeURIComponent(label || 'Access Point');
+  const overrideUrl = directionsOverrideUrl(directionsOverride);
 
   return [
     {
@@ -408,8 +425,8 @@ export function navLinksFor(
       label: 'Google',
       subtitle: 'Maps',
       scheme: 'comgooglemaps',
-      deepLink: directionsOverride || `comgooglemaps://?q=${lat},${lng}&label=${encodedLabel}`,
-      webFallback: directionsOverride || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+      deepLink: overrideUrl || `comgooglemaps://?q=${lat},${lng}&label=${encodedLabel}`,
+      webFallback: overrideUrl || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
       storeUrl: {
         ios: 'https://apps.apple.com/app/google-maps/id585027354',
         android: 'https://play.google.com/store/apps/details?id=com.google.android.apps.maps',
