@@ -7,7 +7,6 @@ import DamStateCard from './DamStateCard';
 import GenerationForecast from './GenerationForecast';
 import DamEddyRead from './DamEddyRead';
 import LakePreview from '@/components/lake/LakePreview';
-import PilotDamConditions from './PilotDamConditions';
 import type { LakeSection } from '@shared/lake-types';
 import { damHasRead } from '@/lib/eddy/dam-read-dams';
 import { useDamPageClock } from './useDamPageClock';
@@ -34,7 +33,7 @@ export default function DamDetail({ dam, renderedAt, availability, lake, lakeHre
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
       <GenerationCard dam={dam} now={now} availability={availability} />
-      {pilot && lake && <PilotDamConditions dam={dam} lake={lake} now={now} />}
+      {pilot && hasMeasurements && <DamStateCard dam={dam} secondary now={now} />}
       {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}
       <div className="dam-support-layout">
