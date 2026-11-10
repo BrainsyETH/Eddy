@@ -46,7 +46,7 @@ function dayChart(day: PacketDay | null) {
   const minimumFlowOnly = Boolean(day && peak === 0
     && day.hours.some((hour: PacketHour) => hour.minimumFlow === true));
   const caption = !day?.hours.some(hour => hour.megawatts !== null) ? null
-    : minimumFlowOnly ? 'Minimum flow' : `${Math.round(peak).toLocaleString()} MW`;
+    : minimumFlowOnly ? 'Minimum flow' : day?.capacityMw ? `0–${day.capacityMw.toLocaleString()} MW` : 'MW · scale unavailable';
   return { peak, caption };
 }
 

@@ -10,6 +10,7 @@ import {
   RACK_ESTIMATE_NOTE,
   schedulePeak,
   schedulePeakWindowLabel,
+  scheduleWindowSummary,
   generationFraction,
   generationNow,
   generationPercentLabel,
@@ -250,7 +251,7 @@ test('the observed clause and the scheduled clause are separate strings', () => 
   assert.equal(clauses.observed, 'About 6 of 8 generators’ worth now.');
   assert.equal(
     clauses.scheduled,
-    'Generation scheduled to stop at 10 PM. Later hours have not been posted.',
+    'Generation scheduled until 10 PM. Later hours have not been posted.',
     'unbounded only because the posted schedule does not reach a restart'
   );
 });
@@ -267,17 +268,17 @@ test('an idle plant with a start ahead of it says both halves', () => {
 test('short next-change copy preserves timing, bounded stops and unpublished hours', () => {
   const summary = (schedule: ReturnType<typeof day>[]) =>
     scheduledChangeSummary(schedule, BULL_SHOALS, NOON_CENTRAL);
-  assert.equal(summary([day('2026-07-28', { 14: 300 })]), 'Generation starts at 1 PM.');
+  assert.equal(summary([day('2026-07-28', { 14: 300 })]), 'Generation scheduled to start at 1 PM.');
   assert.equal(summary([
     day('2026-07-28', {}), day('2026-07-29', { 1: 300 }),
-  ]), 'Generation starts at midnight tonight.');
+  ]), 'Generation scheduled to start at midnight tonight.');
   assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300 })]),
-    'Generation stops at 2 PM. Later hours have not been posted.');
+    'Generation scheduled until 2 PM. Later hours have not been posted.');
   assert.equal(summary([
     day('2026-07-28', { 13: 300, 14: 300 }), day('2026-07-29', { 7: 300 }),
-  ]), 'Generation stops at 2 PM. Resumes at 6 AM tomorrow.');
-  assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Generation increases at 2 PM.');
-  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Generation decreases at 2 PM.');
+  ]), 'Generation scheduled until 2 PM. Resumes at 6 AM tomorrow.');
+  assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Generation scheduled to increase at 2 PM.');
+  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Generation scheduled to decrease at 2 PM.');
   assert.equal(summary([day('2026-07-28', {})]),
     'No more generation in the posted schedule.');
   assert.equal(summary([]), null);
@@ -291,7 +292,7 @@ test('an unreadable feed says so instead of borrowing the schedule', () => {
   assert.equal(clauses.observed, 'Current turbine flow unavailable.');
   assert.equal(
     clauses.scheduled,
-    'Generation scheduled to stop at 8 PM. Later hours have not been posted.'
+    'Generation scheduled until 8 PM. Later hours have not been posted.'
   );
 });
 
@@ -354,7 +355,7 @@ test('a move tomorrow and a move later in the week name their day', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, tomorrow, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'Generation scheduled to stop at 3 AM tomorrow. Later hours have not been posted.'
+    'Generation scheduled until 3 AM tomorrow. Later hours have not been posted.'
   );
 
   const thursday = [
@@ -364,7 +365,7 @@ test('a move tomorrow and a move later in the week name their day', () => {
   ];
   assert.equal(
     nowNextClauses(state, thursday, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'Generation scheduled to stop at 2 AM Thursday. Later hours have not been posted.'
+    'Generation scheduled until 2 AM Thursday. Later hours have not been posted.'
   );
 });
 
@@ -792,7 +793,7 @@ test('a stop is bounded by its restart when the schedule reaches one', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, overnight, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No generation scheduled from 10 PM to 6 AM tomorrow.'
+    'Generation scheduled until 10 PM. Resumes at 6 AM tomorrow.'
   );
 
   const outlook = scheduleOutlook(overnight, BULL_SHOALS, NOON_CENTRAL);
@@ -994,7 +995,7 @@ test('a move at tomorrow’s hour ending 1 is midnight TONIGHT, never tomorrow',
   ];
   assert.equal(
     nowNextClauses(on, nightOff, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No generation scheduled from 10 PM to midnight tonight.'
+    'Generation scheduled until 10 PM. Resumes at midnight tonight.'
   );
 
   // An ordinary tomorrow hour is unaffected.
@@ -1501,4 +1502,22 @@ test('the check line can name a forecast, so its time is not read as a schedule\
   assert.equal(forecast.stale, false);
   assert.equal(scheduleCheckLine([new Date(NOON_CENTRAL - 3 * 3_600_000).toISOString()], NOON_CENTRAL, 'Forecast')!.stale, true);
   assert.equal(scheduleCheckLine([null], NOON_CENTRAL, 'Forecast')!.text, 'Forecast check time unavailable');
+});
+
+
+test('uniform generation windows have no invented peak, including split runs and minimum flow', () => {
+  const flat: Parameters<typeof scheduleWindowSummary>[0] = day('2026-11-10', { 7: 33, 8: 33, 9: 33, 10: 33,
+    14: 33, 15: 33, 16: 33, 17: 33, 18: 33, 19: 33, 20: 33, 21: 33, 22: 33 });
+  assert.equal(scheduleWindowSummary(flat, BULL_SHOALS, 'Today')?.text,
+    'Today’s scheduled generation: 6–10 AM and 1–10 PM');
+  assert.equal(scheduleWindowSummary(flat, BULL_SHOALS)?.varied, false);
+  flat.hours[0] = { ...flat.hours[0], megawatts: 7, minimumFlow: true };
+  assert.equal(scheduleWindowSummary(flat, BULL_SHOALS)?.varied, false, 'minimum flow does not invent a lower generation level');
+  flat.hours[17].megawatts = 66;
+  const higher = scheduleWindowSummary(flat, BULL_SHOALS, 'Today');
+  assert.equal(higher?.text, 'Highest scheduled generation: 5–6 PM');
+  assert.equal(higher?.varied, true);
+  assert.equal(scheduleWindowSummary(day('2026-11-10', {}), BULL_SHOALS), null);
+  const allDay = day('2026-11-10', Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i + 1, 33])));
+  assert.equal(scheduleWindowSummary(allDay, BULL_SHOALS, 'Tomorrow')?.text, 'Tomorrow’s scheduled generation: all day');
 });

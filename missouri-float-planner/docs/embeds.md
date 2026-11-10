@@ -51,7 +51,13 @@ Dam sizes mirror the iOS "Dam generation" Home Screen widget, read off
 hour cannot disagree between the two. The card reads: dam and lake → **observed**
 turbine flow with one dated generation status → the **Central-time date**
 and posted next-change sentence → taller 24-hour MW chart with an Eddy-coral
-Now line → footer. The marker
+Now line → footer. Every day uses the dam's fixed scheduling capacity,
+matching the website and iOS. The packet carries capacity fractions; missing
+references use a small unscaled presence mark. Flat-output days say
+"Scheduled generation"; only varying-output days say "Highest scheduled
+generation". The next-change sentence starts with the current scheduled run
+and names its stop and posted restart. Low bars have only a two-pixel floor;
+elapsed scheduled hours retain 90% opacity. The marker
 is the current Central hour, not a claim that a scheduled bar was observed.
 Missing hours have short outlined marks, not zero-generation bars; minimum
 flow is separate from scheduled generation. Observations and posted plans may

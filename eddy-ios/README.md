@@ -253,6 +253,25 @@ transitive dependencies (`expo-asset` under `node_modules/expo/`). Disabling
 hierarchical lookup makes Metro refuse to look inside them and the bundle fails
 with `Unable to resolve module expo-asset`.
 
+## Dam schedule consistency
+
+Dam detail, Favorites, tailwater cards and the Home Screen widget use the
+project's fixed scheduling capacity, matching the website and embeds. The
+widget packet adds optional `capacityMw`, daily `summary` and hourly `fraction`
+fields to v1; older clients still decode it. New clients draw an unscaled
+presence marker for old cached hours without fractions, never scale to the
+highest output of the day. Known low values have a two-point visibility floor.
+Missing hours remain outlined gaps and minimum flow remains a baseline.
+
+Flat-output days show scheduled generation windows; only varying-output days
+have a highest-generation window. Next-change text names the scheduled run,
+its stop and its posted restart. Favorites and the Home Screen widget display
+that text, including its stale-schedule replacement. Elapsed schedule bars
+retain 90% opacity. The half-capacity reference line is removed.
+
+The Swift widget changes require a new binary. Metro export validates the JS
+bundle; WidgetKit layout and Dynamic Type need Xcode/device verification.
+
 ## Theming
 
 Light and dark follow the system setting (`useColorScheme`). Light keeps the

@@ -88,10 +88,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   await mkdir(`${route}/list`, { recursive: true });
   await writeFile(`${route}/list/page.tsx`, `import { notFound } from 'next/navigation';
 import DamListCard from '@/components/dam/DamListCard';
+import DamEmbed from '@/components/embed/v2/DamEmbed';
+import { parseEmbedOptions } from '@/lib/embed/options';
 const variants = ${JSON.stringify(variants)};
 export default function Page() {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
-  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <div key={key} data-variant={key}><DamListCard href="/dam-layout-check" dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} /></div>)}</div></div>;
+  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <div key={key} data-variant={key}><DamListCard showLakeLevel href="/dam-layout-check" dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} /></div>)}</div><div data-embed-check className="mt-6 max-w-lg"><DamEmbed data={{ dam: variants.normal as import('@shared/dam-types').DamSnapshot, powerhouse: true, tailwaterFishery: 'trout', assembledAt: ${now} }} options={parseEmbedOptions({ size: 'full' })} branding={null} origin="https://eddy.guide" now={${now}} /></div></div>;
 }
 `);
   const ignored = spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]);
@@ -112,7 +114,8 @@ export default function Page() {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let log = '';
-  server.stdout.on('data', c => { log += c; }); server.stderr.on('data', c => { log += c; });
+  server.stdout.on('data', c => { log += c; if (process.env.DAM_SMOKE_VERBOSE) process.stdout.write(c); });
+  server.stderr.on('data', c => { log += c; if (process.env.DAM_SMOKE_VERBOSE) process.stderr.write(c); });
   const url = `${origin}/dam-layout-check`;
   let html = '';
   for (let i = 0; i < 150; i++) {
@@ -131,6 +134,8 @@ export default function Page() {
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
     await page.goto(`${url}/list`, { waitUntil: 'networkidle' });
     const list = page.locator('[data-variant]');
+    assert(await page.locator('[data-embed-check]').getByText('Scheduled generation: 12–8 PM', { exact: true }).first().isVisible());
+    assert(await page.locator('[data-embed-check]').getByText('0–391 MW', { exact: true }).first().isVisible());
     assert.equal(await list.locator('a a, a button, a [tabindex]').count(), 0, 'navigation links do not contain chart controls');
     assert(!(await list.allTextContents()).join(' ').includes('Fishery below dam'), 'fishery stays off list cards');
     const normal = page.locator('[data-variant="normal"]');
@@ -202,10 +207,10 @@ export default function Page() {
     }
     assert.equal(await pattern.getByRole('img').first().locator('[data-pattern-time-guide]').count(), 3, 'each day has six-hour guides');
     assert.equal(await days.first().locator('[data-peak-window]').count(), 1, 'the peak belongs with the scheduled change');
-    assert.deepEqual(await days.first().locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [13, 14, 15, 16, 17, 18, 19, 20]);
+    assert.deepEqual(await days.first().locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [], 'flat-output days have no distinct peak highlight');
     assert.equal(await days.first().locator('[role="img"] [data-schedule-now]').count(), 1, 'orange is reserved for the Now marker, as on iOS');
     assert(await days.first().getByText('Now', { exact: true }).isVisible());
-    assert(await days.first().getByText('Highest scheduled generation: 12–8 PM', { exact: true }).isVisible());
+    assert(await days.first().getByText('Today’s scheduled generation: 12–8 PM', { exact: true }).isVisible());
     const measurements = page.getByRole('heading', { name: 'Dam & lake', exact: true }).locator('..');
     const measurementsBox = await measurements.boundingBox();
     const patternBox = await pattern.boundingBox();
@@ -305,7 +310,7 @@ export default function Page() {
       assert.deepEqual(await page.locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [7, 8, 17, 18, 19], 'both disconnected peak windows are retained');
       assert(await page.getByText('Highest scheduled generation: 6–8 AM and 4–7 PM', { exact: true }).isVisible());
     }
-    if (variant === 'allDayPeak') assert(await page.getByText('Highest scheduled generation: all day', { exact: true }).isVisible());
+    if (variant === 'allDayPeak') assert(await page.getByText('Today’s scheduled generation: all day', { exact: true }).isVisible());
     if (variant === 'noGeneration') assert.equal(await page.locator('[data-peak-hour]').count(), 0, 'an idle day has no peak window');
     if (variant === 'stale') assert.equal(await page.locator('[data-schedule-check="stale"]').count(), 1, 'stale schedule provenance visible');
     if (variant === 'scheduleOnly') assert(text.includes('Generation schedule') && !text.includes('No turbine generation observed'), 'missing readings are not idle');

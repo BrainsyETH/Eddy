@@ -64,7 +64,7 @@ test('the dam image says what the iOS widget says', () => {
   assert.equal(m.status, 'Generating');
   assert.equal(m.reading, '6,600');
   assert.equal(m.unit, 'cfs');
-  assert.match(m.subtitle ?? '', /Generation stops at 2 PM/);
+  assert.match(m.subtitle ?? '', /Generation scheduled until 2 PM/);
   assert.match(m.alt, /Generating now/);
 
   const idle = dam();

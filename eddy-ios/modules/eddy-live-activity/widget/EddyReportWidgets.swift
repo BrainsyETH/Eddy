@@ -42,15 +42,16 @@ struct DamEntry: TimelineEntry {
     calendar.timeZone = formatter.timeZone
     let moment = WidgetDamMoment(date: now.timeIntervalSince1970 * 1000, status: "Generating now",
       turbineCfs: 6600, observedAt: now.timeIntervalSince1970 * 1000, current: true,
-      scheduleSummary: "Stops at 6 PM. Resumes tomorrow at 7 AM.", scheduleCurrent: true,
+      scheduleSummary: "Generation scheduled until 6 PM. Resumes at 7 AM tomorrow.", scheduleCurrent: true,
       scheduleCheckedAt: now.timeIntervalSince1970 * 1000, generationKind: "generating",
       scheduleDate: day, scheduleHour: calendar.component(.hour, from: now) + 1)
     let hours = (1...24).map { hour in
       WidgetDamScheduleHour(hourEnding: hour, label: "\((hour - 1) % 12 == 0 ? 12 : (hour - 1) % 12) \(hour <= 12 ? "AM" : "PM")",
-        megawatts: (8...18).contains(hour) ? ((14...17).contains(hour) ? 200 : 100) : 0)
+        megawatts: (8...18).contains(hour) ? ((14...17).contains(hour) ? 200 : 100) : 0,
+        fraction: (8...18).contains(hour) ? ((14...17).contains(hour) ? 200.0 / 391 : 100.0 / 391) : 0)
     }
     return Self(date: now, choice: choice, packet: WidgetDamPacket(version: 1, id: choice.id, name: choice.name,
-      entries: [moment], scheduleDays: [WidgetDamScheduleDay(date: day, hours: hours)]), isPreview: true)
+      entries: [moment], scheduleDays: [WidgetDamScheduleDay(date: day, hours: hours, capacityMw: 391)]), isPreview: true)
   }
 }
 struct DamGenerationProvider: AppIntentTimelineProvider {
@@ -92,7 +93,8 @@ private struct DamGenerationCard: View {
     if let choice = entry.choice {
       let moment = entry.packet?.moment(at: entry.date)
       GeometryReader { geometry in
-        let compact = typeSize > .large || geometry.size.height < 135
+        // Reserve space for the next scheduled change as well as the chart.
+        let compact = typeSize > .large || geometry.size.height < 160
         VStack(alignment: .leading, spacing: compact ? 4 : 7) {
           HStack(spacing: 7) {
             WidgetArtwork(name: "DamMark").frame(width: 25, height: 25)
@@ -132,6 +134,12 @@ private struct DamGenerationCard: View {
               }
             }.frame(maxWidth: .infinity, alignment: .leading)
           }
+          if let moment {
+            Text(moment.scheduleSummary)
+              .font(.caption2)
+              .foregroundStyle(moment.scheduleCurrent ? Color.secondary : WidgetBrand.coral)
+              .fixedSize(horizontal: false, vertical: true)
+          }
           Spacer(minLength: 0)
           HStack(spacing: 4) {
             Text("At the dam").lineLimit(1)
@@ -162,9 +170,11 @@ private struct DamScheduleChart: View {
         Spacer(minLength: 0)
         if day.minimumFlowOnly {
           Text("Minimum flow").foregroundStyle(.secondary)
-        } else if day.hours.contains(where: { $0.megawatts != nil }) {
-          Text("\(day.peak.formatted(.number.precision(.fractionLength(0)))) MW")
-            .foregroundStyle(.secondary).accessibilityLabel("Schedule peak \(day.peak.formatted()) megawatts")
+        } else if let capacity = day.capacityMw, capacity.isFinite, capacity > 0 {
+          Text("0–\(capacity.formatted(.number.precision(.fractionLength(0)))) MW")
+            .foregroundStyle(.secondary).accessibilityLabel("Schedule scale zero to \(capacity.formatted()) megawatts")
+        } else {
+          Text("MW").foregroundStyle(.secondary).accessibilityLabel("Schedule scale unavailable")
         }
       }.font(.caption2).lineLimit(1)
       HStack(alignment: .bottom, spacing: 2) {
@@ -176,16 +186,17 @@ private struct DamScheduleChart: View {
               Image(systemName: "arrowtriangle.down.fill").font(.system(size: 5))
                 .foregroundStyle(WidgetBrand.coral)
             }
-            if let mw = hour.megawatts {
+            if hour.megawatts != nil {
               RoundedRectangle(cornerRadius: 1.5)
                 // Minimum flow is a low baseline like an idle hour, never a
                 // generation bar.
                 .fill(hour.generating ? WidgetBrand.water(dark: scheme == .dark) : Color.secondary.opacity(0.45))
-                .frame(height: hour.generating ? max(5, height * mw / max(day.peak, 1)) : 3)
+                .frame(height: hour.barHeight(height))
+                .opacity(currentHour.map { hour.hourEnding < $0 } == true ? 0.9 : 1)
             } else {
               // A missing hour is hollow, visibly different from a zero bar.
               RoundedRectangle(cornerRadius: 1.5).strokeBorder(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [2]))
-                .frame(height: height)
+                .frame(height: 12)
             }
           }.frame(maxWidth: .infinity, maxHeight: height + 7, alignment: .bottom)
             .accessibilityElement(children: .ignore)

@@ -11,8 +11,7 @@ import {
 import {
   scheduleCheckLine,
   scheduleOutlook,
-  schedulePeak,
-  schedulePeakWindowLabel,
+  scheduleWindowSummary,
   scheduledChangeSummary,
   type GenerationReference,
   type ScheduleCheckLine,
@@ -142,8 +141,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
   // place under the chart: a minimum-flow day with no move reads "Only
   // minimum flow scheduled", which is the fact, not "no more releases".
   const leadsWithChange = Boolean(todayDay) && Boolean(nextChange) && Boolean(scheduleOutlook(schedule, reference, now)?.move);
-  const todayPeak = todayDay ? schedulePeak(todayDay, reference) : null;
-  const todayPeakWindow = todayPeak ? schedulePeakWindowLabel(todayPeak) : null;
+  const todayWindow = todayDay ? scheduleWindowSummary(todayDay, reference, 'Today') : null;
 
   const Heading = compact ? 'h4' : 'h2';
   const DayHeading = compact ? 'h5' : 'h3';
@@ -185,8 +183,8 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
               <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'text-base' : 'text-xl sm:text-2xl'}`}>
                 {leadsWithChange ? nextChange : scheduleDayHeadline(todayDay.hours)}
               </p>
-              {todayPeakWindow && (
-                <p data-peak-window className="mt-0.5 text-sm font-medium leading-5 tabular-nums text-primary-800">Highest scheduled generation: {todayPeakWindow}</p>
+              {todayWindow && (
+                <p data-peak-window className="mt-0.5 text-sm font-medium leading-5 tabular-nums text-primary-800">{todayWindow.text}</p>
               )}
             </div>
           ) : (
@@ -198,7 +196,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
         </div>
         {todayDay && (
           <div className={compact ? 'mt-2' : 'mt-3'}>
-            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact && !expandedChart} peakAtRest={!todayPeakWindow} />
+            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact && !expandedChart} peakAtRest={!todayWindow} />
           </div>
         )}
       </section>

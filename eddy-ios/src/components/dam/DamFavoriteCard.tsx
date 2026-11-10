@@ -14,8 +14,8 @@ const TICKS = ['12a', '6a', '12p', '6p', '12a'];
 type FavoriteDisplay = ReturnType<typeof damFavoriteDisplay>;
 type ChartDay = NonNullable<FavoriteDisplay['schedule']>;
 
-/** One day's 24 bars on `scale` MW, with the now marker on `nowHour` (null: none). */
-function DayChart({ day, scale, nowHour }: { day: ChartDay; scale: number; nowHour: number | null }) {
+/** Fractions use the same fixed capacity scale as the web and native detail. */
+function DayChart({ day, nowHour }: { day: ChartDay; nowHour: number | null }) {
   const { colors } = useTheme();
   return <>
     <View style={styles.bars}>
@@ -31,10 +31,11 @@ function DayChart({ day, scale, nowHour }: { day: ChartDay; scale: number; nowHo
           <View key={hour.hourEnding} style={styles.slot}>
             {selected ? <View style={[styles.nowMarker, { borderTopColor: colors.accent }]} /> : null}
             <View style={[styles.bar, mw === null ? {
-              height: 44, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textSubtle,
+              height: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textSubtle,
             } : {
-              height: generating ? Math.max(5, 44 * mw / Math.max(scale, 1)) : 3,
+              height: generating ? Math.max(2, 44 * (hour.fraction ?? 0.12)) : 2,
               backgroundColor: generating ? colors.interactive : colors.textSubtle,
+              opacity: nowHour !== null && hour.hourEnding < nowHour ? 0.9 : 1,
             }]} />
           </View>
         );
@@ -52,10 +53,8 @@ function DayChart({ day, scale, nowHour }: { day: ChartDay; scale: number; nowHo
  * observation's age. Shared with a tailwater river's reading card
  * (RiverDamPanel), so a reader learns one drawing of a dam.
  *
- * `withTomorrow` adds Tomorrow's bars under Today's, both on ONE scale — two
- * days each scaled to their own peak would draw a two-hour peak and an
- * all-day run the same height. Only the river card on the dam's own release
- * asks for it; the Favorites card stays Today.
+ * `withTomorrow` adds Tomorrow's bars on the same fixed project capacity
+ * scale. Favorites keeps Today; the tailwater card can show both days.
  */
 export function DamGlance({ dam, onPress, withTomorrow = false }: {
   dam: DamSnapshot;
@@ -67,9 +66,8 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
   const stacked = width < 375 || fontScale >= 1.3;
   const now = useObservationClock();
   const display = useMemo(() => damFavoriteDisplay(dam, now), [dam, now]);
-  const { moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge } = display;
+  const { moment, schedule, scheduleCaption, status, scheduleNotice, observedAge } = display;
   const tomorrow = withTomorrow ? display.tomorrow : null;
-  const scale = tomorrow ? Math.max(peak, display.tomorrowPeak) : peak;
   const value = moment.turbineCfs === null ? '—' : Math.round(moment.turbineCfs).toLocaleString();
   const statusColor = moment.current ? colors.interactive : colors.textSubtle;
 
@@ -77,7 +75,7 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
     <Pressable onPress={onPress} accessibilityRole="button"
       accessibilityLabel={[
         `Observed turbine flow: ${moment.turbineCfs === null ? 'unavailable' : `${value} cubic feet per second`}`,
-        moment.status, observedAge ? `Observed ${observedAge}` : null, 'At the dam', display.scheduleDescription,
+        moment.status, observedAge ? `Observed ${observedAge}` : null, 'At the dam', moment.scheduleSummary, display.scheduleDescription,
         tomorrow ? display.tomorrowDescription : null,
       ].filter(Boolean).join('. ')}
       accessibilityHint="Opens dam details and the full schedule"
@@ -104,7 +102,7 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
                 <Text style={[t.xs, { color: colors.textMuted }]}>{scheduleCaption}</Text>
               ) : null}
             </View>
-            {schedule ? <DayChart day={schedule} scale={scale} nowHour={moment.scheduleHour} /> : <View style={styles.noSchedule}>
+            {schedule ? <DayChart day={schedule} nowHour={moment.scheduleHour} /> : <View style={styles.noSchedule}>
               <ControlIcon name="calendar-outline" size={20} color={colors.textSubtle} />
               <Text style={[styles.notice, { color: colors.textMuted }]}>{scheduleNotice}</Text>
             </View>}
@@ -115,10 +113,11 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
                   <Text style={[t.xs, { color: colors.textMuted }]}>{display.tomorrowCaption}</Text>
                 ) : null}
               </View>
-              <DayChart day={tomorrow} scale={scale} nowHour={null} />
+              <DayChart day={tomorrow} nowHour={null} />
             </View> : null}
           </View>
         </View>
+        <Text style={[t.xs, { color: moment.scheduleCurrent ? colors.textMuted : colors.accent, marginTop: 8 }]}>{moment.scheduleSummary}</Text>
         <View style={styles.footer}>
           <Text style={[t.xs, { color: colors.textSubtle }]}>At the dam</Text>
           <Text style={[t.xs, { color: colors.textSubtle }]}>

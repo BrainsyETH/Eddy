@@ -1,7 +1,7 @@
 // Clocked WidgetKit presentation uses the dam page's canonical rules. Cached
 // timelines carry local expiry transitions even when iOS defers network refresh.
 import type { DamSnapshot } from './dam-types';
-import { generationNow, generationStatusLabel, scheduledChangeSummary } from './dam-generation';
+import { generationNow, generationStatusLabel, scheduledChangeSummary, scheduledBar, scheduleWindowSummary } from './dam-generation';
 import { centralDayKey, hourEndingLabel, hourEndingNow, scheduleHoursElapsed, oldestRetrievedAt, scheduleIsStale, SCHEDULE_STALE_AFTER_MINUTES, READING_LAGGING_AFTER_HOURS } from './dam-schedule-copy';
 
 export function damWidgetSnapshot(dam: DamSnapshot, now = Date.now()) {
@@ -28,6 +28,10 @@ export function damWidgetSnapshot(dam: DamSnapshot, now = Date.now()) {
     // published MW, not estimated cfs; missing hours must never look idle.
     scheduleDays: dam.schedule.slice(0, 3).map(day => ({
       date: day.scheduleDate,
+      // Additive v1 fields. Older clients ignore them; newer clients never
+      // rescale a low-output day to a full-height peak, even with an old cache.
+      capacityMw: scheduledBar(0, dam.generationReference) ? dam.generationReference!.schedulingCapacityMw : null,
+      summary: scheduleWindowSummary(day, dam.generationReference)?.text ?? null,
       hours: Array.from({ length: 24 }, (_, index) => {
         const hourEnding = index + 1;
         const matches = day.hours.filter(hour => hour.hourEnding === hourEnding);
@@ -37,6 +41,7 @@ export function damWidgetSnapshot(dam: DamSnapshot, now = Date.now()) {
         // the required release. It is not scheduled generation and must not be
         // drawn as a generation bar; packets without the key mean "not flagged".
         return { hourEnding, label: hourEndingLabel(hourEnding), megawatts,
+          fraction: megawatts === null ? null : scheduledBar(megawatts, dam.generationReference)?.fraction ?? null,
           ...(megawatts !== null && matches[0].minimumFlow === true ? { minimumFlow: true as const } : {}) };
       }),
     })),

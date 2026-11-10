@@ -97,12 +97,21 @@ struct WidgetDamScheduleHour: Codable, Identifiable {
   var megawatts: Double?
   /// Additive to v1: a minimum-flow hour is not scheduled generation.
   var minimumFlow: Bool? = nil
+  /// Share of the published scheduling capacity; absent in older cached packets.
+  var fraction: Double? = nil
   var id: Int { hourEnding }
   var generating: Bool { (megawatts ?? 0) > 0 && minimumFlow != true }
+  func barHeight(_ height: Double) -> Double {
+    guard generating else { return 2 }
+    let share = fraction.flatMap { $0.isFinite && (0...1).contains($0) ? $0 : nil } ?? 0.12
+    return max(2, height * share)
+  }
 }
 struct WidgetDamScheduleDay: Codable {
   var date: String
   var hours: [WidgetDamScheduleHour]
+  var capacityMw: Double? = nil
+  var summary: String? = nil
   /// Scheduled generation only: minimum-flow hours never set the scale.
   var peak: Double { hours.filter(\.generating).compactMap(\.megawatts).max() ?? 0 }
   var minimumFlowOnly: Bool { peak == 0 && hours.contains { $0.minimumFlow == true } }

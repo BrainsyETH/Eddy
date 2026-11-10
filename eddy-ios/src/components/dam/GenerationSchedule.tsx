@@ -31,10 +31,7 @@ import {
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { DayBars, nowSentence } from '@/components/dam/DayBars';
 import {
-  PEAK_RELEASE_HEADING,
-  schedulePeak,
-  schedulePeakValue,
-  schedulePeakVoiceOver,
+  scheduleWindowSummary,
   type GenerationReference,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -57,11 +54,9 @@ function DayRow({
   // not require opening a section.
   const now = nowSentence(day);
 
-  // THE RIVER NUMBER FIRST. This showed "roughly 500–22,600 cfs" — a 45x range
-  // with no time attached, which answers nothing a reader can act on. The peak
-  // pins magnitude to the hours it actually happens in, and refuses a cfs
-  // estimate built from ramp hours entirely. See schedulePeak.
-  const peak = schedulePeak(day, reference);
+  // All schedule surfaces distinguish a real peak from a flat-output day.
+  const summary = scheduleWindowSummary(day, reference);
+  const peak = summary?.varied ? summary.peak : null;
 
   return (
     <CollapsibleSection
@@ -71,7 +66,7 @@ function DayRow({
       // window ("…: midnight – 6 AM, 8 AM – 9 AM, 11 AM – 4 PM…") restated
       // the bars in a harder-to-read form. The web schedule shows none either;
       // the hour summary stays for VoiceOver, which cannot see the bars.
-      accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), peak ? schedulePeakVoiceOver(peak) : null, 'Central time'].filter(Boolean).join('. ')}
+      accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), summary?.text, 'Central time'].filter(Boolean).join('. ')}
       defaultExpanded={defaultExpanded}
       trailing={now ? (
         <Text
@@ -85,27 +80,17 @@ function DayRow({
         </Text>
       ) : null}
     >
-      {/* ── HOW BIG, AND WHEN. Nothing else. ─────────────────────────────
-          A technical line used to sit under this — "335 MW · 86% of scheduling
-          capacity" — and it lost its place to the two facts a reader acts on.
-          Megawatts are the unit the schedule is PUBLISHED in, not the unit
-          anybody fishes in, and the capacity share is a fact about the plant
-          rather than about the river.
-
-          The heading says SCHEDULED because "Peak release" alone reads as a
-          measurement taken downstream, and this is SWPA's plan — the hero above
-          is what the turbines are actually doing, and the two may legitimately
-          disagree. */}
-      {peak ? (
+      {/* This is the posted plan. Observed flow remains in the hero above. */}
+      {summary ? (
         <View
           style={styles.peakBlock}
           accessible
-          accessibilityLabel={schedulePeakVoiceOver(peak)}
+          accessibilityLabel={summary.text}
         >
           <Text style={[styles.peakHeading, { color: colors.textMuted }]}>
-            {PEAK_RELEASE_HEADING}
+            {summary.heading}
           </Text>
-          <Text style={[styles.peak, { color: colors.text }]}>{schedulePeakValue(peak)}</Text>
+          <Text style={[styles.peak, { color: colors.text }]}>{summary.window}</Text>
         </View>
       ) : null}
       <DayBars day={day} reference={reference} peakSchedule={peak} />
