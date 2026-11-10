@@ -3,7 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
+import { csvRow } from '@/lib/security/csv';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,19 +31,10 @@ const EXPORT_CONFIGS: Record<string, { table: string; columns: string }> = {
   },
 };
 
-function toCsvRow(values: unknown[]): string {
-  return values
-    .map((val) => {
-      if (val === null || val === undefined) return '';
-      const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-      // Escape quotes and wrap in quotes if contains comma, quote, or newline
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    })
-    .join(',');
-}
+// One export is a bounded download, not a table dump of unknown size.
+const MAX_EXPORT_ROWS = 10_000;
+
+const DOWNLOAD_HEADERS = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,7 +67,8 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from(config.table)
       .select(config.columns)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(MAX_EXPORT_ROWS);
 
     if (error) {
       console.error(`Error exporting ${type}:`, error);
@@ -86,21 +79,31 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = data || [];
+
+    // Exports can carry personal data (feedback includes names and emails), so
+    // each one is recorded. Awaited so the record is not lost after the response.
+    const audit = await logAdminAction({
+      action: 'export',
+      entityType: type,
+      details: { format, rows: rows.length, truncated: rows.length === MAX_EXPORT_ROWS },
+    });
+    if (!audit.ok) console.error('[AdminExport] audit log not written:', audit.error);
     const filename = `${type}_export_${new Date().toISOString().slice(0, 10)}`;
 
     if (format === 'csv') {
       // Build CSV
       const columns = config.columns.split(',').map((c) => c.trim());
-      const headerRow = toCsvRow(columns);
+      const headerRow = csvRow(columns);
       const dataRows = rows.map((row) =>
-        toCsvRow(columns.map((col) => (row as unknown as Record<string, unknown>)[col]))
+        csvRow(columns.map((col) => (row as unknown as Record<string, unknown>)[col]))
       );
       const csv = [headerRow, ...dataRows].join('\n');
 
       return new NextResponse(csv, {
         status: 200,
         headers: {
-          'Content-Type': 'text/csv',
+          ...DOWNLOAD_HEADERS,
+          'Content-Type': 'text/csv; charset=utf-8',
           'Content-Disposition': `attachment; filename="${filename}.csv"`,
         },
       });
@@ -110,6 +113,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(JSON.stringify(rows, null, 2), {
       status: 200,
       headers: {
+        ...DOWNLOAD_HEADERS,
         'Content-Type': 'application/json',
         'Content-Disposition': `attachment; filename="${filename}.json"`,
       },
