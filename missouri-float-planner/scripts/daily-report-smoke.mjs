@@ -18,12 +18,17 @@ try {
 import DailyReportSlide from '@/components/admin/social/DailyReportSlide';
 import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { reportFixture } from '../../../../scripts/fixtures/daily-report';
-export default async function Page({ searchParams }: { searchParams: Promise<{ index?: string; long?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ index?: string; long?: string; release?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_REPORT_SMOKE !== '1') notFound();
   const p = await searchParams;
   if (p.index === 'preview') return <div style={{maxWidth: 540, padding: 16, background: '#163f4a'}}><CarouselPreview urls={['/icons/eddy-wave.png','/icons/eddy-release.png']} /></div>;
   const report = structuredClone(reportFixture);
   if (p.long && report.slides[0].kind === 'river') { report.slides[0].data.river.name = 'Eleven Point River'; report.slides[0].data.primary!.name = 'Eleven Point River near Bardley, Missouri'; }
+  if (p.release && report.slides[1].kind === 'dam') {
+    const metrics = report.slides[1].data.dam.metrics;
+    metrics.release = { ...metrics.generationFlow!, value: 15000, dailyMean: true };
+    metrics.spillwayFlow = { ...metrics.generationFlow!, value: 1800 };
+  }
   return <DailyReportSlide report={report} index={Number(p.index ?? 0)} />;
 }`);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', '3152'], {
@@ -42,8 +47,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
   const page = await browser.newPage({ viewport: { width: 540, height: 675 }, deviceScaleFactor: 2 });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  for (const [index, long, name] of [[0, false, 'river'], [1, false, 'dam'], [0, true, 'long-name']]) {
-    await page.goto(`${origin}/embed/report-check?index=${index}${long ? '&long=1' : ''}`, { waitUntil: 'networkidle', timeout: 90_000 });
+  for (const [index, long, name] of [[0, false, 'river'], [1, false, 'dam'], [0, true, 'long-name'], [1, false, 'dam-with-release']]) {
+    await page.goto(`${origin}/embed/report-check?index=${index}${long ? '&long=1' : ''}${name === 'dam-with-release' ? '&release=1' : ''}`, { waitUntil: 'networkidle', timeout: 90_000 });
     const slide = page.locator('[data-report-slide]');
     await slide.waitFor();
     await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.querySelectorAll('[data-report-slide] img')].map(img => img.decode())); });
@@ -60,6 +65,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
     assert.equal(await slide.locator('.ew-credit, .ew-about').count(), 0, 'static export has no dead controls');
     assert.equal(await slide.locator(index ? '.ew-sched' : 'svg[role="img"]').count(), 1, 'one actual widget chart');
     if (index) assert.equal(await slide.locator('.ew-dam-detail').count(), 3, 'dam measurements stay together');
+    if (name === 'dam-with-release') {
+      assert.match(await slide.innerText(), /Spillway release: 1,800 cfs/);
+      assert.match(await slide.innerText(), /Total release · daily average/);
+    }
     console.log(`PASS ${name}: actual widget fits 1080 × 1350 export`);
   }
   for (const width of [390, 320]) {

@@ -1,11 +1,11 @@
 .daily-report-slide {
-  width: 540px; height: 675px; box-sizing: border-box; padding: 24px 26px;
+  width: 540px; height: 675px; box-sizing: border-box; padding: 20px 26px;
   background: var(--color-neutral-50, #faf9f6); color: var(--color-primary-800, #163f4a);
-  display: flex; flex-direction: column; gap: 10px; font-family: var(--font-body), sans-serif;
+  display: flex; flex-direction: column; gap: 8px; font-family: var(--font-body), sans-serif;
 }
 .daily-report-heading { display: flex; justify-content: space-between; align-items: baseline; font-family: 'Fredoka Variable', sans-serif; font-size: 29px; font-weight: 600; line-height: 1.1; }
 .daily-report-count { font-family: var(--font-body), sans-serif; font-size: 16px; font-weight: 500; }
-.daily-report-stamp { font-size: 14px; margin: 0 0 6px; }
+.daily-report-stamp { font-size: 14px; margin: 0; }
 .daily-report-widget { flex: none; }
 /* The full dam widget carries more measurements. Keep its complete hierarchy
    in the portrait canvas, with at least 24px supporting text in the JPEG. */
