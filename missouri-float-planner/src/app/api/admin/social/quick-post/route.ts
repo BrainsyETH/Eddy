@@ -1,3 +1,4 @@
+import { dispatchDailyReport } from '@/lib/social/daily-report-dispatch';
 // src/app/api/admin/social/quick-post/route.ts
 // POST — Quick-post any registered post type with auto-generated caption + media.
 // All assembly (render data, caption, image) is unified in buildPostContext;
@@ -13,6 +14,7 @@ import { buildPostContext, type PostContext } from '@/lib/social/post-context';
 import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 const BASE_URL = 'https://eddy.guide';
 
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
 
   // TikTok is video-only (draft / inbox upload), so allow it for the video reel
   // types but never for the image-only `tip` path — its adapter rejects images.
-  const tiktokAllowed = type !== 'tip';
+  const tiktokAllowed = type !== 'tip' && type !== 'digest';
   const validPlatforms = (platforms || []).filter(
     (p): p is SocialPlatform =>
       p === 'facebook' || p === 'instagram' || (p === 'tiktok' && tiktokAllowed)
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Map the admin "type" to a canonical PostKind.
-    const kind: VideoPostKind =
+    const kind: Exclude<PostKind, 'tip'> =
       type === 'digest' ? 'daily_digest'
       : type === 'highlight' ? 'river_highlight'
       : type; // weekly_forecast | section_guide | weekly_trend
@@ -81,7 +83,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // All non-tip formats are video-only.
+    if (kind === 'daily_digest') {
+      if (!ctx.carousel) throw new Error('Daily Report has no widget snapshots');
+      const result = await dispatchDailyReport(ctx.carousel, validPlatforms, false);
+      return NextResponse.json({ ...result, reviewRequired: true }, { status: result.rendering ? 200 : 502 });
+    }
+
     return await dispatchVideo(supabase, kind, ctx, validPlatforms, customContent);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

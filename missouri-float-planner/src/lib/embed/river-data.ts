@@ -64,6 +64,7 @@ export interface EmbedGauge {
   ladder: EmbedLadder;
   optimalRange: string | null;
   trend: TrendDirection | null;
+  trendWindowHours?: number | null;
   coordinates: { lat: number; lng: number } | null;
 }
 
@@ -323,6 +324,7 @@ async function assembleRiverEmbed(slug: string, days: EmbedChartDays): Promise<R
     // A peaking dam swings hourly, so "rising over six hours" says nothing
     // about the next hour; the dam's schedule answers that.
     primary.trend = release ? null : trend?.direction ?? null;
+    primary.trendWindowHours = release ? null : trend?.windowHours ?? null;
     const sampled = sampleChartReadings(history, CHART_MAX_POINTS);
     const readings = sampled
       .map((r) => ({ timestamp: r.timestamp, value: primary.unit === 'cfs' ? r.dischargeCfs : r.gaugeHeightFt }))

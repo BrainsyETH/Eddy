@@ -92,13 +92,6 @@ const HIGHLIGHT_HOOKS: Record<string, string[]> = {
   ],
 };
 
-const DIGEST_HOOKS: string[] = [
-  'Here\u2019s your Ozarks river rundown for {day}.',
-  '{count} rivers checked \u2014 here\u2019s where to float {timeframe}.',
-  'Which Ozarks rivers are floating good right now? Let\u2019s find out.',
-  'Your {day} river report is in. Here\u2019s the rundown.',
-];
-
 // Weekend engagement questions (appended to flowing/good posts Thu-Sun)
 const ENGAGEMENT_QUESTIONS: string[] = [
   'Where are you putting in this weekend?',
@@ -131,12 +124,6 @@ const RIVER_CTAS: string[] = [
   'Check live conditions \u2192 {reportUrl}',
   'Plan your float \u2192 {plannerUrl}',
   'See the full report \u2192 {reportUrl}',
-];
-
-const DIGEST_CTAS: string[] = [
-  'Check all rivers \u2192 https://eddy.guide',
-  'See live conditions for every river \u2192 https://eddy.guide',
-  'Plan your next float \u2192 https://eddy.guide',
 ];
 
 // ---------------------------------------------------------------------------
@@ -543,69 +530,6 @@ export function formatWeeklyTrendCaption(
   }
 
   return { caption: lines.join('\n'), hashtags: [] };
-}
-
-// ---------------------------------------------------------------------------
-// Daily Digest Caption
-// ---------------------------------------------------------------------------
-
-export function formatDailyDigestCaption(
-  updates: EddyUpdate[],
-  globalSummary: string | null,
-  customContent: SocialCustomContent[],
-  platform: SocialPlatform
-): { caption: string; hashtags: string[] } {
-  const lines: string[] = [];
-  const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  const seed = `digest-${new Date().toISOString().split('T')[0]}`;
-  const isWeekend = isWeekendWindow();
-  const timeframe = isWeekend ? 'this weekend' : 'today';
-
-  // 1. Hook line
-  const hook = interpolate(pickTemplate(DIGEST_HOOKS, seed), {
-    day: dayName,
-    count: String(updates.length),
-    timeframe,
-  });
-  lines.push(hook);
-  lines.push('');
-
-  // 2. Global summary from Eddy — shown on both platforms
-  if (globalSummary) {
-    const trimmed = globalSummary.length > 200
-      ? globalSummary.slice(0, 197) + '...'
-      : globalSummary;
-    lines.push(`\u201C${trimmed}\u201D`);
-    lines.push('');
-  }
-
-  // 3. Per-river conditions — clean, scannable format with emoji
-  for (const update of updates) {
-    const riverName = riverDisplayLong(update.river_slug);
-    const shortLabel = SHORT_CONDITION_LABELS[update.condition_code] || '?';
-    const emoji = CONDITION_EMOJI[update.condition_code] || '';
-    const gaugeNum = toNum(update.gauge_height_ft);
-    const gauge = gaugeNum !== null
-      ? ` (${gaugeNum.toFixed(1)} ft)`
-      : '';
-    lines.push(`${emoji} ${riverName} \u2014 ${shortLabel}${gauge}`);
-  }
-
-  lines.push('');
-
-  // 4. CTA
-  lines.push(pickTemplate(DIGEST_CTAS, seed + '-cta'));
-
-  // 5. Custom content
-  const snippets = getActiveSnippets(customContent, platform);
-  if (snippets.length > 0) {
-    lines.push('');
-    lines.push(snippets.join('\n'));
-  }
-
-  const caption = lines.join('\n');
-
-  return { caption, hashtags: [] };
 }
 
 // ---------------------------------------------------------------------------
