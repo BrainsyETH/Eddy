@@ -24,6 +24,8 @@ import RiverNotesSection from '@/components/access-point/sections/RiverNotesSect
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
+import { stateCodeFromSlug, stateName } from '@/lib/navigation/states';
+import Button from '@/components/ui/Button';
 
 // Detail section icons, served from public/ rather than the Vercel blob URLs
 // these used to be. The art is in the repo now (design/eddy-emoji, emitted by
@@ -54,16 +56,21 @@ export default async function AccessPointDetailPage({ params }: Props) {
   }
 
   const { accessPoint, nearbyAccessPoints, gaugeStatus } = result.data;
+  if (accessPoint.path !== `${riverHref}/access/${accessSlug}`) permanentRedirect(accessPoint.path);
+  const stateHref = riverHref.slice(0, riverHref.lastIndexOf('/'));
+  const state = stateCodeFromSlug(stateSegment);
+  const plannerUrl = `/plan?${new URLSearchParams({ river: riverSlug, access: accessPoint.id })}`;
 
   return (
     <div className="min-h-screen bg-neutral-100">
       {/* Sticky sub-header — pinned at top-14 so it sits BELOW the 56px site
           header (sticky top-0 z-50) instead of being occluded behind it. */}
       <div className="sticky top-14 z-40 bg-white border-b border-neutral-200">
-        <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="max-w-xl mx-auto px-4 min-h-14 py-3 flex items-center justify-between gap-3">
           <Breadcrumbs
             items={[
-              { label: 'Rivers', href: '/rivers' },
+              { label: 'Conditions', href: '/rivers' },
+              { label: state ? stateName(state) : stateSegment, href: stateHref },
               { label: accessPoint.river.name, href: riverHref },
               { label: accessPoint.name },
             ]}
@@ -77,6 +84,14 @@ export default async function AccessPointDetailPage({ params }: Props) {
       <div className="max-w-xl mx-auto px-4 py-6 space-y-4">
         {/* Header Card with Hero, Quick Stats, and Gauge */}
         <AccessPointHeader accessPoint={accessPoint} gaugeStatus={gaugeStatus} />
+
+        <nav aria-label="Plan with this access" className="flex flex-wrap gap-2">
+          {accessPoint.isFloatEndpoint !== false && <>
+            <Button href={`/plan?${new URLSearchParams({ river: riverSlug, putIn: accessPoint.id })}`} size="sm">Start here</Button>
+            <Button href={`/plan?${new URLSearchParams({ river: riverSlug, takeOut: accessPoint.id })}`} size="sm" variant="secondary">End here</Button>
+          </>}
+          <Link href={plannerUrl} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-primary-700 underline underline-offset-4">View on the map</Link>
+        </nav>
 
         {/* Community photos, this access point first, matched to the current level */}
         <RiverVisualGallery riverSlug={riverSlug} accessPointId={accessPoint.id} addPhotoHref={`${riverHref}/add-photo`} />

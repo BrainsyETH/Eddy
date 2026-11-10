@@ -541,7 +541,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
             {/* Plan Trip CTA */}
             {riverSlug && (
               <Link
-                href={`/rivers/${riverSlug}`}
+                href={`/plan?river=${encodeURIComponent(riverSlug)}`}
                 className="flex-shrink-0 self-center px-5 py-2.5 bg-primary-800 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
               >
                 Plan Trip

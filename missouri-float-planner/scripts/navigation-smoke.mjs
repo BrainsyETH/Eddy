@@ -171,9 +171,9 @@ try {
       const activeRiver = riverCarousel.locator('[data-home-report]:not([inert])');
       const activeDam = damCarousel.locator('[data-home-report]:not([inert])');
       await activeRiver.getByRole('img', { name: /Flow.*trend chart/ }).waitFor();
-      assert.equal(await activeRiver.getByText('Eddy says', { exact: true }).count(), 1);
+      assert.equal(await activeRiver.getByText('Eddy says:', { exact: true }).locator('..').count(), 1);
       assert(await activeDam.getByText('10,500 cfs', { exact: true }).isVisible());
-      assert(await activeDam.getByRole('heading', { name: 'Generation schedule' }).isVisible());
+      assert(await activeDam.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
       assert(await activeDam.getByRole('region', { name: 'Today’s generation schedule', exact: true }).getByRole('img').isVisible());
       assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).count(), 0);
       assert.equal(await page.getByRole('button', { name: /pause|resume rotation/i }).count(), 0);

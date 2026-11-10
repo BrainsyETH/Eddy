@@ -1,6 +1,7 @@
 import { guideCover, resolveGuideHero, publicGuideImage } from '@/lib/photos/guides';
 import ArticleByline from '@/components/blog/ArticleByline';
 import Link from 'next/link';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
@@ -340,7 +341,7 @@ export default async function BlogPostPage({
               access points, and float time estimates.
             </p>
             <Link
-              href="/"
+              href={floatSearchLaunch().web ? "/find-float" : "/plan"}
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors shadow-lg"
             >
               Start Planning

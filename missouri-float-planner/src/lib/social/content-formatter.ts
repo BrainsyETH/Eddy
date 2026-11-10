@@ -1,3 +1,4 @@
+import { riverPath } from '@/lib/navigation/river-path';
 import { LABELS } from '@shared/social-brand';
 import { trendMeaning } from '@shared/social-editorial';
 // src/lib/social/content-formatter.ts
@@ -14,12 +15,17 @@ import { toNum } from '@/lib/utils/num';
 import { riverDisplayCasual, riverDisplayLong } from './river-display';
 
 // ---------------------------------------------------------------------------
-// Canonical link builder — river pages live at /rivers/<slug>. Building bare
-// `eddy.guide/<slug>` links 404s, so every per-river CTA routes through here.
+// Public report URLs include the river's state. The legacy URL remains a
+// working fallback for older callers or an unavailable river catalog.
 // ---------------------------------------------------------------------------
 const BASE_URL = 'https://eddy.guide';
-function riverUrl(slug: string): string {
-  return `${BASE_URL}/rivers/${slug}`;
+function riverUrl(slug: string, state?: string | null): string {
+  return `${BASE_URL}${state ? riverPath(state, slug) : `/rivers/${slug}`}`;
+}
+function plannerUrl(slug: string, putIn?: string | null, takeOut?: string | null): string {
+  const params = new URLSearchParams({ river: slug });
+  if (putIn && takeOut) { params.set('putIn', putIn); params.set('takeOut', takeOut); }
+  return `${BASE_URL}/plan?${params}`;
 }
 
 // River display names — long forms ("Current River") come from the shared
@@ -122,9 +128,9 @@ const RECOVERY_SHARE_PROMPTS: string[] = [
 // ---------------------------------------------------------------------------
 
 const RIVER_CTAS: string[] = [
-  'Check live conditions \u2192 https://eddy.guide/rivers/{slug}',
-  'Plan your float \u2192 https://eddy.guide/rivers/{slug}',
-  'See the full report \u2192 https://eddy.guide/rivers/{slug}',
+  'Check live conditions \u2192 {reportUrl}',
+  'Plan your float \u2192 {plannerUrl}',
+  'See the full report \u2192 {reportUrl}',
 ];
 
 const DIGEST_CTAS: string[] = [
@@ -186,6 +192,7 @@ function isWeekendWindow(): boolean {
 
 interface EddyUpdate {
   river_slug: string;
+  river_state?: string | null;
   condition_code: string;
   gauge_height_ft: number | null;
   quote_text: string;
@@ -250,7 +257,8 @@ export function formatRiverHighlightCaption(
 
   // 5. CTA with deep link
   const cta = interpolate(pickTemplate(RIVER_CTAS, seed + '-cta'), {
-    slug: update.river_slug,
+    reportUrl: riverUrl(update.river_slug, update.river_state),
+    plannerUrl: plannerUrl(update.river_slug),
   });
   lines.push(cta);
 
@@ -395,7 +403,7 @@ export function formatSectionGuideCaption(
   }
 
   lines.push('');
-  lines.push(`Plan this float → ${riverUrl(section.riverSlug)}${section.putInId && section.takeOutId ? `?putIn=${encodeURIComponent(section.putInId)}&takeOut=${encodeURIComponent(section.takeOutId)}` : ''}`);
+  lines.push(`Plan this float → ${plannerUrl(section.riverSlug, section.putInId, section.takeOutId)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -474,7 +482,7 @@ export function formatFavoriteFloatCaption(
   }
 
   lines.push('');
-  lines.push(`Plan this float → ${riverUrl(fav.riverSlug)}${fav.putInId && fav.takeOutId ? `?putIn=${encodeURIComponent(fav.putInId)}&takeOut=${encodeURIComponent(fav.takeOutId)}` : ''}`);
+  lines.push(`Plan this float → ${plannerUrl(fav.riverSlug, fav.putInId, fav.takeOutId)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -492,6 +500,7 @@ export function formatFavoriteFloatCaption(
 export function formatWeeklyTrendCaption(
   trend: {
     riverSlug: string;
+    riverState?: string | null;
     riverName: string;
     currentHeightFt: number | null;
     sevenDayFirstFt: number | null;
@@ -525,7 +534,7 @@ export function formatWeeklyTrendCaption(
   lines.push('');
   lines.push(trendMeaning(trend.direction, trend.conditionCode));
   lines.push('');
-  lines.push(`Full 7-day chart → ${riverUrl(trend.riverSlug)}`);
+  lines.push(`Full 7-day chart → ${riverUrl(trend.riverSlug, trend.riverState)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -605,6 +614,7 @@ export function formatDailyDigestCaption(
 
 export function formatConditionChangeCaption(params: {
   riverSlug: string;
+  riverState?: string | null;
   oldCondition: string;
   newCondition: string;
   gaugeHeightFt: number | null;
@@ -674,7 +684,7 @@ export function formatConditionChangeCaption(params: {
   lines.push('');
 
   // CTA — live conditions (core value) + the growth follow CTA.
-  lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug)}`);
+  lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug, params.riverState)}`);
   lines.push(`${FOLLOW_CTA} 🦦`);
 
   return { caption: lines.join('\n'), hashtags: [] };

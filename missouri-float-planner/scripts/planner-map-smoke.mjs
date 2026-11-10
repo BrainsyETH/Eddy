@@ -38,6 +38,7 @@ const points = riverMeta.map((river, i) => ['Put-in', 'Take-out', 'Riverside par
     riverId: river.id,
     name: `${named[i]} ${suffix}`,
     slug: suffix.toLowerCase().replaceAll(' ', '-'),
+    path: `${river.path}/access/${suffix.toLowerCase().replaceAll(' ', '-')}`,
     coordinates: {
       lng: c[0],
       lat: c[1]
@@ -242,7 +243,7 @@ try {
     await new Promise(r => setTimeout(r, 500));
   }
   assert(ready, log.slice(-5000));
-  assert((await fetch(`${origin}/river-map/ozarks`)).ok, 'Prewarm the second map before browser hydration');
+  if (!process.env.PLANNER_ACCESS_LINKS_ONLY) assert((await fetch(`${origin}/river-map/ozarks`)).ok, 'Prewarm the second map before browser hydration');
   browser = await chromium.launch({
     headless: true,
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH,
@@ -419,6 +420,30 @@ try {
     });
   };
   if (!process.env.NATIONAL_GAUGES_ONLY) {
+  // Access-page deep links open the chosen place without inventing endpoints,
+  // including non-launches and an inspection alongside an existing put-in.
+  for (const size of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    const accessPage = await browser.newPage({ viewport: size });
+    accessPage.on('pageerror', error => errors.push(String(error)));
+    await accessPage.route('**/*', routeHandler);
+    for (const [id, suffix] of [['p-0-2', ''], ['p-0-3', '&putIn=p-0-0']]) {
+      const release = holdAccess('current');
+      await accessPage.goto(`${origin}/planner-map-layout-check?river=current&access=${id}${suffix}`, { waitUntil: 'domcontentloaded' });
+      assert.equal(new URL(accessPage.url()).searchParams.get('access'), id, 'retain the requested place while access data loads');
+      release();
+      const card = accessPage.getByRole('region', { name: 'Selected access point', exact: true });
+      await card.getByRole('heading', { name: points[0].find(point => point.id === id).name, exact: true }).waitFor();
+      assert.equal(new URL(accessPage.url()).searchParams.get('takeOut'), null, 'inspection must not auto-select a take-out');
+      assert.equal(new URL(accessPage.url()).searchParams.get('putIn'), suffix ? 'p-0-0' : null);
+      if (id === 'p-0-2') assert.equal(await card.getByRole('button', { name: 'Use as put-in', exact: true }).count(), 0);
+      await card.getByRole('button', { name: 'Close access details', exact: true }).click();
+      await accessPage.waitForFunction(() => !new URLSearchParams(location.search).has('access'));
+    }
+    await accessPage.close();
+  }
+  console.log('Access deep links preserve endpoints, wait for data, and open non-launch places on desktop and mobile');
+  }
+  if (!process.env.NATIONAL_GAUGES_ONLY && !process.env.PLANNER_ACCESS_LINKS_ONLY) {
   await page.route('**/*', routeHandler);
   await page.goto(`${origin}/planner-map-layout-check`, {
     waitUntil: 'domcontentloaded'
@@ -1192,10 +1217,12 @@ try {
   await mobile.screenshot({ path: `${out}/mobile-restored-route.png` });
   console.log('Mobile details-first planning, persistent search results, zoom controls, fullscreen, route fit and Undo passed');
   }
-  nationalFixture = true;
-  await runNationalGaugeChecks({ browser, origin, out, routeHandler, accessPoints: points[0] });
+  if (!process.env.PLANNER_ACCESS_LINKS_ONLY) {
+    nationalFixture = true;
+    await runNationalGaugeChecks({ browser, origin, out, routeHandler, accessPoints: points[0] });
+  }
   assert.deepEqual(errors, []);
-  console.log('Desktop/mobile map and national gauge checks passed');
+  console.log(process.env.PLANNER_ACCESS_LINKS_ONLY ? 'Access link checks passed' : 'Desktop/mobile map and national gauge checks passed');
 } catch (error) {
   console.error(error);
   console.error(log.slice(-4500));

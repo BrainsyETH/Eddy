@@ -52,3 +52,18 @@ test('rivers with no modification date still contribute their state index', asyn
   assert.ok(entries.some(entry => entry.url.endsWith('/rivers/missouri/current')));
   assert.ok(!entries.some(entry => entry.url.endsWith('/add-photo')));
 });
+
+
+test('finder sitemap discovery follows the web launch switch', async (t) => {
+  const previous = process.env.FLOAT_SEARCH_ENABLED;
+  t.after(() => { if (previous === undefined) delete process.env.FLOAT_SEARCH_ENABLED; else process.env.FLOAT_SEARCH_ENABLED = previous; });
+  t.mock.method(console, 'warn', () => {});
+  t.mock.method(console, 'error', () => {});
+  t.mock.method(globalThis, 'fetch', async () => Response.json([]));
+  for (const enabled of ['true', 'false']) {
+    process.env.FLOAT_SEARCH_ENABLED = enabled;
+    const entries = await sitemap();
+    assert.equal(entries.some(entry => new URL(entry.url).pathname === '/find-float'), enabled === 'true');
+    assert.ok(entries.every(entry => !new URL(entry.url).search), 'the sitemap lists canonical base pages, not filter combinations');
+  }
+});

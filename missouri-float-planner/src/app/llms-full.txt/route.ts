@@ -1,3 +1,4 @@
+import { riverPath } from '@/lib/navigation/river-path';
 import { X402_ENABLED } from '@/lib/x402/config';
 // GET /llms-full.txt
 // Extended version of llms.txt with dynamically populated river data,
@@ -25,7 +26,7 @@ export async function GET() {
   ] = await Promise.all([
     supabase
       .from('rivers')
-      .select('id, name, slug, length_miles, description, difficulty_rating, region')
+      .select('id, name, slug, state, length_miles, description, difficulty_rating, region')
       .eq('active', true)
       .order('name'),
     supabase
@@ -95,7 +96,7 @@ export async function GET() {
     const parts: string[] = [];
     parts.push(`### ${river.name}`);
     parts.push(`- Slug: ${river.slug}`);
-    parts.push(`- URL: ${BASE_URL}/rivers/${river.slug}`);
+    parts.push(`- URL: ${BASE_URL}${riverPath(river.state, river.slug)}`);
     parts.push(`- API: ${BASE_URL}/api/rivers/${river.slug}`);
     if (river.length_miles) parts.push(`- Length: ${parseFloat(String(river.length_miles)).toFixed(1)} miles`);
     if (river.difficulty_rating) parts.push(`- Difficulty: ${river.difficulty_rating}`);

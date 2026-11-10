@@ -8,7 +8,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { riverPath } from '@/lib/navigation/river-path';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
+import { riverPath, riverAccessPath } from '@/lib/navigation/river-path';
 import { npsHeroImage } from '@/lib/services/npsCampground';
 import { optimizeBlogImage } from '@/lib/blog-image';
 import SectionTitle from './SectionTitle';
@@ -132,6 +133,7 @@ async function resolveAccessPoints(
     .from('access_points')
     .select('slug, id, image_urls, nps_campground_id')
     .eq('river_id', river.id)
+    .eq('approved', true)
     .in('slug', Array.from(slugs));
 
   const apRows = (aps ?? []) as {
@@ -213,7 +215,7 @@ export default async function RiverGuideLayout({ post }: Props) {
     : { state: null, name: null };
   const riverState = riverMeta.state;
   const reportHref = post.river_slug
-    ? (riverState ? riverPath(riverState, post.river_slug) : `/rivers/${post.river_slug}`)
+    ? (riverState ? riverPath(riverState, post.river_slug) : '/rivers')
     : '/blog';
 
   return (
@@ -520,6 +522,7 @@ export default async function RiverGuideLayout({ post }: Props) {
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 24, lineHeight: 1.65 }}>
             Choose a stretch for your group, your time, and today&rsquo;s water. Distances are approximate; use the planner for the current route and time estimate.
           </p>
+          {floatSearchLaunch().web && <Link href={`/find-float?river=${encodeURIComponent(slug)}`} className="mb-6 inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">Find a float for your time and vessel →</Link>}
           {(() => {
             // Render section cards with optional segment headers between groups.
             // The index prop on FloatSectionCard stays globally sequential so the
@@ -536,6 +539,8 @@ export default async function RiverGuideLayout({ post }: Props) {
                       section={s}
                       index={idx}
                       plannerUrl={buildPlannerUrl(slug, s, aps)}
+                      fromHref={riverState && s.from_slug && aps.has(s.from_slug) ? riverAccessPath(riverState, slug, s.from_slug) : undefined}
+                      toHref={riverState && s.to_slug && aps.has(s.to_slug) ? riverAccessPath(riverState, slug, s.to_slug) : undefined}
                       photoFallback={g.use_access_photos === false ? undefined : resolveSectionPhoto(s, aps)}
                     />
                   );
