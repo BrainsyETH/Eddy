@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/pois/route.ts
 // GET /api/admin/pois - List all POIs for admin editing
 // POST /api/admin/pois - Create a new POI
@@ -7,25 +8,26 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
+import { listPage, literalContains } from '@/lib/admin/list-filters';
+
 export const dynamic = 'force-dynamic';
 
 const VALID_POI_TYPES = ['spring', 'cave', 'historical_site', 'scenic_viewpoint', 'waterfall', 'geological', 'campground', 'float_camp', 'other'];
 
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const supabase = createAdminClient();
 
     // Pagination params
     const url = new URL(request.url);
-    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    const { page, limit, from, to } = listPage(url.searchParams);
+    const search = (url.searchParams.get('q') ?? '').trim().slice(0,200);
+    const type = url.searchParams.get('type') ?? 'all';
 
-    const { data: pois, error, count } = await supabase
+    let query = supabase
       .from('points_of_interest')
       .select(`
         id,
@@ -48,8 +50,15 @@ export async function GET(request: NextRequest) {
         created_at,
         rivers(id, name, slug)
       `, { count: 'exact' })
-      .order('name', { ascending: true })
-      .range(from, to);
+      .order('name', { ascending: true }).order('id');
+    if(type !== 'all') { if(!VALID_POI_TYPES.includes(type)) return NextResponse.json({error:'Invalid place type'},{status:400}); query=query.eq('type',type); }
+    const river = url.searchParams.get('river') ?? 'all';
+    if(river !== 'all') { if(!/^[a-f0-9-]{36}$/i.test(river)) return NextResponse.json({error:'Invalid river'},{status:400}); query=query.eq('river_id',river); }
+    if(search) { const value=literalContains(search);query=query.or(`name.ilike.${value},description.ilike.${value}`); }
+    const [{data:pois,error,count},{data:rivers,error:riverError}] = await Promise.all([
+      query.range(from,to),supabase.from('rivers').select('id,name').order('name').limit(1000)
+    ]);
+    if(riverError) return NextResponse.json({error:'Could not load river choices.'},{status:500});
 
     if (error) {
       console.error('Error fetching POIs:', error);
@@ -92,6 +101,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       pois: formatted,
+      rivers: rivers ?? [],
       total: count ?? formatted.length,
       page,
       limit,
@@ -105,9 +115,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const body = await request.json();
@@ -208,3 +218,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

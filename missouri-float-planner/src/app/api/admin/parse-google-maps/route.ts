@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/parse-google-maps/route.ts
 // POST /api/admin/parse-google-maps - Parse Google Maps URL to extract name and coordinates
 
@@ -108,9 +109,9 @@ function extractPlaceId(url: string): string | null {
   return null;
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const body = await request.json();
@@ -215,3 +216,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

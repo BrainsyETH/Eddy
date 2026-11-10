@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/social/publish/route.ts
 // POST /api/admin/social/publish — Publish a manual/ad-hoc post to selected platforms
 
@@ -20,8 +21,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const body = await request.json().catch(() => null);
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
 
   // Awaited: an un-awaited write can be dropped when the function is frozen
   // after the response, and this is the record of a public post.
-  const audit = await logAdminAction({
+  const audit = await logAdminAction({ request,
     action: 'publish_manual_post',
     entityType: 'social_post',
     details: {
@@ -171,3 +172,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ results });
 }
+
+export const POST = withAdminMutation(handlePOST);

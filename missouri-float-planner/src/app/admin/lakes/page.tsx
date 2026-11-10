@@ -5,7 +5,9 @@
 // place already is. Nothing here moves a pin; a wrong location is a note for
 // the data, not an edit in a form.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import AccessPointPicker from '@/components/admin/AccessPointPicker';
+import { useAdminInteractions, useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { adminFetch } from '@/hooks/useAdminAuth';
 
@@ -24,10 +26,12 @@ interface LaunchRow {
   ramp_closure_elev_ft: number | null;
   elev_datum: string | null;
   access_point_id: string | null;
+  access_points?: { name: string } | null;
   sources: Array<{ provider: string; source_id: string; type?: string | null; waterbody?: string | null; agency?: string | null }>;
   review_note: string | null;
   approved: boolean;
   approved_at: string | null;
+  updated_at: string;
 }
 
 interface Draft {
@@ -57,13 +61,18 @@ function draftFor(row: LaunchRow): Draft {
 function LaunchEditor({ row, onSaved }: { row: LaunchRow; onSaved: (row: LaunchRow) => void }) {
   const [draft, setDraft] = useState<Draft>(() => draftFor(row));
   const [busy, setBusy] = useState(false);
+  const {confirm}=useAdminInteractions();
+  const dirty=JSON.stringify(draft)!==JSON.stringify(draftFor(row));
+  useUnsavedAdminChanges(dirty);
   const [message, setMessage] = useState<string | null>(null);
 
   const save = useCallback(async (approved?: boolean) => {
+    if(approved !== undefined && !await confirm(approved ? `Publish ${row.name}? It will appear on Eddy.` : `Unpublish ${row.name}? It will be hidden from Eddy.`,{confirmLabel:approved?'Publish launch':'Unpublish launch',danger:!approved}))return;
     setBusy(true);
     setMessage(null);
     const methods = [draft.trailer ? 'trailer' : null, draft.hand ? 'hand' : null].filter(Boolean);
     const body: Record<string, unknown> = {
+      expectedUpdatedAt: row.updated_at,
       launch_methods: methods,
       amenities: draft.amenities.split(',').map((s) => s.trim()).filter(Boolean),
       managing_agency: draft.managing_agency.trim() || null,
@@ -82,10 +91,12 @@ function LaunchEditor({ row, onSaved }: { row: LaunchRow; onSaved: (row: LaunchR
       onSaved(json.launch);
       setDraft(draftFor(json.launch));
       setMessage(approved === true ? 'Approved and published.' : approved === false ? 'Unpublished.' : 'Saved.');
+    } catch {
+      setMessage('Could not save. Check your connection and retry; your changes are kept.');
     } finally {
       setBusy(false);
     }
-  }, [draft, row.id, onSaved]);
+  }, [draft, row.id, row.name, row.updated_at, onSaved, confirm]);
 
   const mapHref = `https://www.google.com/maps/@?api=1&map_action=map&center=${row.latitude},${row.longitude}&zoom=17&basemap=satellite`;
 
@@ -131,17 +142,15 @@ function LaunchEditor({ row, onSaved }: { row: LaunchRow; onSaved: (row: LaunchR
             <option value="true">Fee</option>
           </select>
         </label>
-        <label className="text-sm sm:col-span-2">
-          <span className="block text-xs font-medium text-neutral-500">Existing access point id (when this place is already one; keeps one identity)</span>
-          <input className="mt-1 w-full rounded border border-neutral-300 px-2 py-1 font-mono text-xs" value={draft.access_point_id} onChange={(e) => setDraft({ ...draft, access_point_id: e.target.value })} placeholder="uuid or blank" />
-        </label>
+        <div className="text-sm sm:col-span-2"><AccessPointPicker currentName={draft.access_point_id === row.access_point_id ? row.access_points?.name : undefined} value={draft.access_point_id} onChange={value=>setDraft({...draft,access_point_id:value})}/></div>
         <label className="text-sm sm:col-span-2">
           <span className="block text-xs font-medium text-neutral-500">Review note</span>
           <textarea className="mt-1 w-full rounded border border-neutral-300 px-2 py-1" rows={2} value={draft.review_note} onChange={(e) => setDraft({ ...draft, review_note: e.target.value })} />
         </label>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="admin-save-bar">
+        <span className="admin-save-status">{busy ? 'Saving…' : dirty ? 'Unsaved changes' : 'No unsaved changes'}</span>
         <button type="button" disabled={busy} onClick={() => save()} className="rounded border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50">Save</button>
         {row.approved ? (
           <button type="button" disabled={busy} onClick={() => save(false)} className="rounded border border-accent-300 px-3 py-1 text-sm text-accent-900 hover:bg-accent-50 disabled:opacity-50">Unpublish</button>
@@ -155,6 +164,9 @@ function LaunchEditor({ row, onSaved }: { row: LaunchRow; onSaved: (row: LaunchR
 }
 
 export default function AdminLakesPage() {
+  const generation=useRef(0);
+  const invalidateRequests=useCallback(()=>{generation.current++;},[]);
+  const {canDiscardChanges}=useAdminInteractions();
   const [lakes, setLakes] = useState<Array<{ slug: string; name: string }>>([]);
   const [lake, setLake] = useState<string>('');
   const [rows, setRows] = useState<LaunchRow[]>([]);
@@ -164,29 +176,29 @@ export default function AdminLakesPage() {
   const load = useCallback(async (slug: string) => {
     setStatus('loading');
     setError(null);
-    const response = await adminFetch(`/api/admin/lake-launches${slug ? `?lake=${encodeURIComponent(slug)}` : ''}`);
-    const json = (await response.json().catch(() => ({}))) as { lakes?: Array<{ slug: string; name: string }>; launches?: LaunchRow[]; error?: string };
-    if (!response.ok) {
-      setError(json.error ?? `Request failed (${response.status})`);
-      setStatus('error');
-      return;
-    }
-    setLakes(json.lakes ?? []);
-    setRows(json.launches ?? []);
-    setStatus('ready');
+    const current=++generation.current;
+    try {
+      const response=await adminFetch(`/api/admin/lake-launches${slug?`?lake=${encodeURIComponent(slug)}`:''}`);
+      const json=await response.json();
+      if(current!==generation.current)return;
+      if(!response.ok)throw Error(json.error ?? `Request failed (${response.status})`);
+      setLakes(json.lakes ?? []);setRows(json.launches ?? []);setStatus('ready');
+    } catch(error){if(current!==generation.current)return;setError(error instanceof Error?error.message:'Could not load launches. Check your connection.');setStatus('error');}
+
   }, []);
 
-  useEffect(() => { void load(lake); }, [lake, load]);
+  useEffect(() => { void load(lake); return invalidateRequests; }, [lake, load, invalidateRequests]);
 
   const onSaved = useCallback((saved: LaunchRow) => setRows((prev) => prev.map((r) => (r.id === saved.id ? saved : r))), []);
   const counts = useMemo(() => ({ published: rows.filter((r) => r.approved).length, pending: rows.filter((r) => !r.approved).length }), [rows]);
 
   return (
     <AdminLayout title="Lake launches" description="Review the places staged from the launch queues. A launch publishes only with a method and a source, and links to an existing access point when it already is one.">
+      <div className="p-6">
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm">
           <span className="mr-2 text-xs font-medium text-neutral-500">Lake</span>
-          <select className="rounded border border-neutral-300 px-2 py-1" value={lake} onChange={(e) => setLake(e.target.value)}>
+          <select className="rounded border border-neutral-300 px-2 py-1" value={lake} onChange={async(e)=>{const value=e.target.value;if(await canDiscardChanges())setLake(value);}}>
             <option value="">All lakes</option>
             {lakes.map((l) => <option key={l.slug} value={l.slug}>{l.name}</option>)}
           </select>
@@ -194,13 +206,14 @@ export default function AdminLakesPage() {
         <span className="text-xs text-neutral-600">{counts.published} published · {counts.pending} pending review</span>
       </div>
       {status === 'loading' && <p className="mt-4 text-sm text-neutral-600">Loading…</p>}
-      {status === 'error' && <p className="mt-4 text-sm text-accent-900" role="alert">{error}</p>}
-      {status === 'ready' && rows.length === 0 && <p className="mt-4 text-sm text-neutral-600">No launch rows. Stage the queue first (scripts/ingestion/lakes/2026-11-09/stage-launch-candidates.sql).</p>}
+      {status === 'error' && <p className="mt-4 text-sm text-accent-900" role="alert">{error} <button className="admin-link" onClick={()=>void load(lake)}>Try again</button></p>}
+      {status === 'ready' && rows.length === 0 && <p className="mt-4 text-sm text-neutral-600">No launches are waiting here. Choose another lake or return after the next data import.</p>}
       {status === 'ready' && rows.length > 0 && (
         <ul className="mt-4 space-y-3">
           {rows.map((row) => <LaunchEditor key={row.id} row={row} onSaved={onSaved} />)}
         </ul>
       )}
+      </div>
     </AdminLayout>
   );
 }

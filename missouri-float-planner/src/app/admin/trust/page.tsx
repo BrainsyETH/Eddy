@@ -17,7 +17,7 @@
 // is clearing the list instead of fixing the river. Snooze is the dismiss.
 
 import { useCallback, useEffect, useState } from 'react';
-import { adminFetch } from '@/hooks/useAdminAuth';
+import { adminFetch, useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   AlertTriangle,
@@ -104,6 +104,8 @@ function daysSince(iso: string): number {
 }
 
 export default function TrustAdminPage() {
+  const {identity}=useAdminAuth();
+  const canManage=identity?.role === 'owner';
   const [findings, setFindings] = useState<Finding[]>([]);
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState<Status>('open');
@@ -425,6 +427,7 @@ export default function TrustAdminPage() {
         </button>
       </div>
 
+      {!canManage && <p className="admin-panel">You can review findings here. Running checks and changing their disposition requires owner access.</p>}
       {checks.length > 0 && (
         <div className="mb-6 bg-neutral-800 border border-neutral-700 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -439,7 +442,7 @@ export default function TrustAdminPage() {
               <button
                 key={c.id}
                 onClick={() => runCheck(c.id)}
-                disabled={runningCheck !== null}
+                disabled={!canManage || runningCheck !== null}
                 className="flex items-center gap-2 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                 title={
                   c.lastSuppressedReason
@@ -521,7 +524,7 @@ export default function TrustAdminPage() {
                         resolution: 'fixed',
                       })
                     }
-                    disabled={updating !== null}
+                    disabled={!canManage || updating !== null}
                     className="ml-1 px-2 py-1 bg-primary-500 hover:bg-primary-600 text-white rounded text-xs transition-colors disabled:opacity-50"
                     title="All of these were repaired"
                   >
@@ -537,7 +540,7 @@ export default function TrustAdminPage() {
                         resolution: 'false_positive',
                       })
                     }
-                    disabled={updating !== null}
+                    disabled={!canManage || updating !== null}
                     className="px-2 py-1 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-xs transition-colors disabled:opacity-50"
                     title="None of these were real — the check was wrong"
                   >
@@ -609,7 +612,7 @@ export default function TrustAdminPage() {
           <div className="flex items-center gap-2 mt-3">
             <button
               onClick={confirmPending}
-              disabled={updating !== null || pendingReason.trim().length < MIN_REASON_LENGTH}
+              disabled={!canManage || updating !== null || pendingReason.trim().length < MIN_REASON_LENGTH}
               className="px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm transition-colors disabled:opacity-40"
             >
               Confirm
@@ -845,7 +848,7 @@ export default function TrustAdminPage() {
                       <>
                         <button
                           onClick={() => act(finding.id, 'snooze', 7)}
-                          disabled={updating === finding.id}
+                          disabled={!canManage || updating === finding.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                           title="Snooze for 7 days"
                         >
@@ -863,7 +866,7 @@ export default function TrustAdminPage() {
                           onClick={() =>
                             startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'fixed' })
                           }
-                          disabled={updating === finding.id}
+                          disabled={!canManage || updating === finding.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                           title="The underlying problem was repaired"
                         >
@@ -874,7 +877,7 @@ export default function TrustAdminPage() {
                           onClick={() =>
                             startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'false_positive' })
                           }
-                          disabled={updating === finding.id}
+                          disabled={!canManage || updating === finding.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                           title="There was nothing to fix — the check was wrong"
                         >
@@ -885,7 +888,7 @@ export default function TrustAdminPage() {
                           onClick={() =>
                             startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'accepted' })
                           }
-                          disabled={updating === finding.id}
+                          disabled={!canManage || updating === finding.id}
                           className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-lg text-sm transition-colors disabled:opacity-50"
                           title="Real, understood, and being lived with"
                         >
@@ -895,7 +898,7 @@ export default function TrustAdminPage() {
                     ) : (
                       <button
                         onClick={() => startAction({ kind: 'single', id: finding.id, action: 'reopen' })}
-                        disabled={updating === finding.id}
+                        disabled={!canManage || updating === finding.id}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                       >
                         <RotateCcw className="w-4 h-4" />

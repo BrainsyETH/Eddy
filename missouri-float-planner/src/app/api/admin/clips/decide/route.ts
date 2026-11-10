@@ -8,7 +8,7 @@ import { decideNextPost } from '@/lib/social/content-decision-engine';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   try {

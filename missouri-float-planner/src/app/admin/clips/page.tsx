@@ -1,10 +1,11 @@
 'use client';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/clips/page.tsx
 // Admin dashboard for ClipEngine — clip library, pipeline triggers, brand checks,
 // montage compilation, content decision preview, and weekly review.
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
@@ -129,6 +130,7 @@ const TAB_ITEMS: { key: Tab; label: string; icon: typeof Film }[] = [
 ];
 
 export default function ClipsAdminPage() {
+  const { confirm, alert } = useAdminInteractions();
   const [activeTab, setActiveTab] = useState<Tab>('library');
   const [loading, setLoading] = useState(false);
 
@@ -214,7 +216,7 @@ export default function ClipsAdminPage() {
 
   // ─── Trigger pipeline ───
   const triggerPipeline = async () => {
-    if (!pipelineUrl && !confirm('No URL provided. This will run the scheduled channel scan. Continue?')) return;
+    if (!pipelineUrl && !await confirm('No URL provided. This will run the scheduled channel scan. Continue?')) return;
     setPipelineStatus('dispatching');
     try {
       const res = await adminFetch('/api/admin/clips/trigger-pipeline', {
@@ -288,7 +290,7 @@ export default function ClipsAdminPage() {
     const confirmMsg = already
       ? `This clip was already posted${clip.last_posted_at ? ' on ' + new Date(clip.last_posted_at).toLocaleDateString() : ''}. Post it again anyway?`
       : 'Post this clip to the connected platforms (Facebook, Instagram, and TikTok when connected) now?';
-    if (!confirm(confirmMsg)) return;
+    if (!await confirm(confirmMsg)) return;
     setPostingClip(clip.id);
     try {
       const res = await adminFetch('/api/admin/clips/post', {
@@ -340,6 +342,9 @@ export default function ClipsAdminPage() {
   };
   const setClipStatus = (id: string, status: string) => patchClip(id, { brand_check_status: status });
 
+  const [montageJob,setMontageJob]=useState<{id:string;state:string;error?:string;output?:{videoUrl?:string;runUrl?:string}}|null>(null);
+  const montageRequest=useRef<string|null>(null);
+  useEffect(()=>{if(!montageJob || ['completed','failed','partial'].includes(montageJob.state))return;let disposed=false;const poll=async()=>{try{const res=await adminFetch(`/api/admin/clips/jobs/${montageJob.id}`);const data=await res.json();if(res.ok&&!disposed)setMontageJob(data.job);else if(!disposed)setMontageStatus('Could not check job status. It may still be running.');}catch{if(!disposed)setMontageStatus('Connection lost. Your compilation may still be running.');}};const timer=setInterval(()=>void poll(),5000);return()=>{disposed=true;clearInterval(timer);};},[montageJob]);
   // ─── Compile montage ───
   const compileMontage = async () => {
     const ids = Array.from(selectedClips.keys());
@@ -347,19 +352,21 @@ export default function ClipsAdminPage() {
       setMontageStatus('Select at least 2 clips');
       return;
     }
+    if(!montageRequest.current)montageRequest.current=crypto.randomUUID();
     setMontageStatus('dispatching');
     try {
       const res = await adminFetch('/api/admin/clips/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          jobId: montageRequest.current,
           clipIds: ids,
           title: montageTitle || undefined,
         }),
       });
       if (res.ok) {
-        setMontageStatus('dispatched');
-        setSelectedClips(new Map());
+        const data=await res.json();setMontageJob(data.job);
+        setMontageStatus('');
       } else {
         const err = await res.json();
         setMontageStatus(`error: ${err.error || 'Unknown error'}`);
@@ -654,8 +661,8 @@ export default function ClipsAdminPage() {
                                 )}
                                 {clip.brand_check_status !== 'rejected' && (
                                   <button
-                                    onClick={() => {
-                                      if (confirm('Reject this clip? It will not be posted.')) setClipStatus(clip.id, 'rejected');
+                                    onClick={async () => {
+                                      if (await confirm('Reject this clip? It will not be posted.')) setClipStatus(clip.id, 'rejected');
                                     }}
                                     disabled={savingClip === clip.id}
                                     className="p-1.5 text-neutral-400 hover:text-red-400 transition-colors disabled:opacity-40"
@@ -896,7 +903,7 @@ export default function ClipsAdminPage() {
 
                 <button
                   onClick={compileMontage}
-                  disabled={selectedClips.size < 2 || montageStatus === 'dispatching'}
+                  disabled={selectedClips.size < 2 || montageStatus === 'dispatching' || !!montageJob}
                   className="flex items-center gap-2 px-6 py-2.5 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
                 >
                   <Layers className="w-4 h-4" />
@@ -905,27 +912,9 @@ export default function ClipsAdminPage() {
                     : `Compile ${selectedClips.size} Clips`}
                 </button>
 
-                {montageStatus && montageStatus !== 'dispatching' && (
-                  <div
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm ${
-                      montageStatus === 'dispatched'
-                        ? 'bg-green-500/10 text-green-400 border border-green-500/30'
-                        : 'bg-red-500/10 text-red-400 border border-red-500/30'
-                    }`}
-                  >
-                    {montageStatus === 'dispatched' ? (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        Montage compilation dispatched! The video will be ready in a few minutes.
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="w-4 h-4" />
-                        {montageStatus}
-                      </>
-                    )}
-                  </div>
-                )}
+                {montageStatus && montageStatus !== 'dispatching' && <p role="status" className="text-sm">{montageStatus}</p>}
+                {montageJob && <div className="admin-panel" role="status"><strong>{({queued:'Queued',running:'Running',completed:'Completed',partial:'Partially completed',failed:'Failed',unknown:'Status unknown'} as Record<string,string>)[montageJob.state] ?? montageJob.state}</strong><p className="text-sm">{montageJob.error ?? (montageJob.state === 'queued'?'Waiting for the compilation worker.':montageJob.state === 'running'?'The worker is building your video.':'Your selected clips are kept.')}</p>{montageJob.output?.videoUrl && <a className="admin-link mr-4" href={montageJob.output.videoUrl} target="_blank" rel="noreferrer">Open video</a>}{montageJob.output?.runUrl && <a className="admin-link" href={montageJob.output.runUrl} target="_blank" rel="noreferrer">View workflow</a>}{['completed','failed','partial','unknown'].includes(montageJob.state)&&<button className="admin-secondary block mt-3" onClick={async()=>{if(await confirm('Start a new compilation with these clips? Check that the previous run has stopped first.',{confirmLabel:'New compilation'})){montageRequest.current=null;setMontageJob(null);setMontageStatus('');}}}>Prepare another compilation</button>}</div>}
+
               </div>
             </div>
           </div>
@@ -1135,8 +1124,8 @@ export default function ClipsAdminPage() {
                     )}
                     {previewClip.brand_check_status !== 'rejected' && (
                       <button
-                        onClick={() => {
-                          if (confirm('Reject this clip? It will not be posted.')) setClipStatus(previewClip.id, 'rejected');
+                        onClick={async () => {
+                          if (await confirm('Reject this clip? It will not be posted.')) setClipStatus(previewClip.id, 'rejected');
                         }}
                         disabled={savingClip === previewClip.id}
                         className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40"

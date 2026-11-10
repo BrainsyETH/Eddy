@@ -1,122 +1,72 @@
 'use client';
 
-// src/hooks/useAdminAuth.ts
-// Admin authentication hook — validates credentials server-side and relies on
-// an HttpOnly cookie that browser JavaScript cannot read.
+import {
+  useAdminSession,
+  ADMIN_AUTH_EXPIRED_EVENT,
+  ADMIN_AUTH_RESTORED_EVENT,
+  ADMIN_CHANGED_EVENT,
+} from '@/components/admin/AdminSessionProvider';
 
-import { useState, useEffect, useCallback } from 'react';
+export const useAdminAuth = useAdminSession;
 
-// Dispatched when an admin API call is rejected with 401, so AdminLayout can
-// drop back to the login screen instead of leaving the page stuck on a raw
-// "Unauthorized" error with a token the server no longer accepts.
-const ADMIN_AUTH_EXPIRED_EVENT = 'admin-auth-expired';
-
-export function useAdminAuth() {
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    fetch('/api/admin/session', { cache: 'no-store', credentials: 'same-origin' })
-      .then((response) => {
-        if (active) setIsAuthorized(response.ok);
-      })
-      .catch(() => {
-        if (active) setIsAuthorized(false);
-      });
-    return () => {
-      active = false;
+function waitForSignIn(signal?: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      window.removeEventListener(ADMIN_AUTH_RESTORED_EVENT, restored);
+      window.removeEventListener('admin-signed-out', cancelled);
+      signal?.removeEventListener('abort', cancelled);
     };
-  }, []);
-
-  // When any admin API call 401s, adminFetch clears the token and fires this
-  // event — flip straight to the login screen so the user can re-auth.
-  useEffect(() => {
-    function handleExpired() {
-      setIsAuthorized(false);
-      setPassword('');
-    }
-    window.addEventListener(ADMIN_AUTH_EXPIRED_EVENT, handleExpired);
-    return () => window.removeEventListener(ADMIN_AUTH_EXPIRED_EVENT, handleExpired);
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      // Validate password on the server — password is NEVER in client JS bundle
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        if (response.status === 429) {
-          setError('Too many login attempts. Please wait and try again.');
-        } else {
-          setError(data.error || 'Invalid password');
-        }
-        return;
-      }
-
-      setIsAuthorized(true);
-      setPassword('');
-    } catch {
-      setError('Network error — please try again');
-    }
-  };
-
-  const logout = useCallback(async () => {
-    await fetch('/api/admin/session', {
-      method: 'DELETE',
-      credentials: 'same-origin',
-    }).catch(() => undefined);
-    setIsAuthorized(false);
-    setPassword('');
-  }, []);
-
-  return {
-    isAuthorized,
-    password,
-    setPassword,
-    error,
-    handleSubmit,
-    logout,
-  };
+    const restored = () => {
+      cleanup();
+      resolve();
+    };
+    const cancelled = () => {
+      cleanup();
+      reject(
+        new Error('Sign in to continue. Your changes have not been saved.'),
+      );
+    };
+    const timer = setTimeout(cancelled, 10 * 60_000);
+    window.addEventListener(ADMIN_AUTH_RESTORED_EVENT, restored, {
+      once: true,
+    });
+    window.addEventListener('admin-signed-out', cancelled, { once: true });
+    signal?.addEventListener('abort', cancelled, { once: true });
+    if (signal?.aborted) cancelled();
+  });
 }
 
-/**
- * Wrapper for authenticated admin requests. The browser attaches the HttpOnly
- * same-origin session cookie; no credential is accessible to client code.
- */
+/** A 401 is rejected before any write, so it is safe to retry once after sign-in. */
 export async function adminFetch(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> {
-  const headers = new Headers(options.headers);
-  // Admin data must never come from the browser cache: a river or access point
-  // created since the tab loaded has to appear on the next fetch, not after a
-  // hard refresh. (This is why newly-added rivers were invisible in the
-  // geography editor's river list.)
-  const response = await fetch(url, {
-    cache: 'no-store',
-    credentials: 'same-origin',
-    ...options,
-    headers,
-  });
-
-  // Auto-recover from a rejected token (expired session, or a token signed with
-  // a rotated/other-environment secret): drop it and signal AdminLayout to show
-  // the login screen. Without this the caller just renders "Unauthorized"
-  // forever while re-sending the same dead token on every retry.
+  const request = () =>
+    fetch(url, {
+      ...options,
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: new Headers(options.headers),
+    });
+  let response = await request();
   if (response.status === 401 && typeof window !== 'undefined') {
+    const signedIn = waitForSignIn(options.signal);
     window.dispatchEvent(new Event(ADMIN_AUTH_EXPIRED_EVENT));
+    await signedIn;
+    response = await request();
   }
-
+  if (
+    response.ok &&
+    !['GET', 'HEAD'].includes((options.method ?? 'GET').toUpperCase()) &&
+    typeof window !== 'undefined'
+  ) {
+    window.dispatchEvent(new Event(ADMIN_CHANGED_EVENT));
+  }
+  if (
+    response.headers.get('X-Admin-Audit') === 'unavailable' &&
+    typeof window !== 'undefined'
+  )
+    window.dispatchEvent(new Event('admin-audit-warning'));
   return response;
 }

@@ -3,7 +3,11 @@
 // src/app/admin/blog/page.tsx
 // Admin blog management page with list and editor
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAdminDraft } from '@/hooks/useAdminDraft';
+import BlogPreview from '@/components/admin/BlogPreview';
+import { BLOG_CATEGORIES } from '@/lib/admin/blog-publication';
+import { useAdminInteractions, useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import RichTextEditor from '@/components/admin/RichTextEditor';
@@ -38,9 +42,10 @@ interface BlogPost {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  structuredGuide?: boolean;
 }
 
-const CATEGORIES = ['Guides', 'Tips', 'News', 'Safety', 'River Profiles', 'Gear Reviews', 'Trip Reports'];
+const CATEGORIES = BLOG_CATEGORIES;
 
 const STATUS_COLORS = {
   draft: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
@@ -49,6 +54,12 @@ const STATUS_COLORS = {
 };
 
 export default function AdminBlogPage() {
+  const { confirm } = useAdminInteractions();
+  const [previewIsSaved,setPreviewIsSaved] = useState(false);
+  const [hasConflict,setHasConflict] = useState(false);
+  const [preview,setPreview]=useState<Record<string,unknown>|null>(null);
+  const baseline=useRef('');
+  const [savedMessage,setSavedMessage]=useState('');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +89,9 @@ export default function AdminBlogPage() {
     publishedAt: '',
   });
 
+  const dirty = !!(editingPost || isCreating) && JSON.stringify(formData) !== baseline.current;
+  const discard = useUnsavedAdminChanges(dirty);
+  const draftRecovery=useAdminDraft('blog',{formData,editingPost,isCreating,baseline:baseline.current},dirty);
   const fetchPosts = useCallback(async () => {
     try {
       setLoading(true);
@@ -114,6 +128,7 @@ export default function AdminBlogPage() {
   };
 
   const openEditor = async (listRow?: BlogPost) => {
+    setHasConflict(false);
     if (listRow) {
       if (openingId) return;
       setOpeningId(listRow.id);
@@ -136,7 +151,7 @@ export default function AdminBlogPage() {
       setEditingPost(post);
       setLoadedContent(post.content || '');
       setSlugTouched(true);
-      setFormData({
+      const initial = {
         title: post.title,
         slug: post.slug,
         description: post.description || '',
@@ -148,13 +163,15 @@ export default function AdminBlogPage() {
         readTimeMinutes: post.readTimeMinutes?.toString() || '',
         status: post.status,
         publishedAt: post.publishedAt ? toLocalInputValue(post.publishedAt) : '',
-      });
+      };
+      baseline.current = JSON.stringify(initial);
+      setFormData(initial);
       setIsCreating(false);
     } else {
       setLoadedContent(null);
       setSlugTouched(false);
       setEditingPost(null);
-      setFormData({
+      const initial = {
         title: '',
         slug: '',
         description: '',
@@ -164,14 +181,17 @@ export default function AdminBlogPage() {
         ogImageUrl: '',
         metaKeywords: '',
         readTimeMinutes: '',
-        status: 'draft',
+        status: 'draft' as const,
         publishedAt: '',
-      });
+      };
+      baseline.current = JSON.stringify(initial);
+      setFormData(initial);
       setIsCreating(true);
     }
   };
 
   const closeEditor = () => {
+    draftRecovery.clear();
     setEditingPost(null);
     setIsCreating(false);
     setFormData({
@@ -190,12 +210,14 @@ export default function AdminBlogPage() {
   };
 
   const handleSave = async () => {
+    if (formData.status !== 'draft' && !await confirm(formData.status === 'scheduled' ? `Schedule this post for ${formData.publishedAt || 'the selected time'}?` : 'Publish these changes on Eddy?', {confirmLabel:formData.status === 'scheduled' ? 'Schedule post' : 'Publish now'})) return;
     try {
       setSaving(true);
       setError(null);
 
       const contentUnchanged = editingPost !== null && formData.content === loadedContent;
       const payload = {
+        expectedUpdatedAt: editingPost?.updatedAt,
         title: formData.title,
         slug: formData.slug || generateSlug(formData.title),
         description: formData.description || null,
@@ -225,11 +247,14 @@ export default function AdminBlogPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        setHasConflict(response.status === 409 && !!editingPost);
         throw new Error(data.error || 'Failed to save post');
       }
 
-      await fetchPosts();
+      baseline.current = JSON.stringify(formData);
+      setSavedMessage(formData.status === 'draft' ? 'Draft saved.' : formData.status === 'scheduled' ? 'Post scheduled.' : 'Post published.');
       closeEditor();
+      await fetchPosts();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -238,12 +263,12 @@ export default function AdminBlogPage() {
   };
 
   const handleDelete = async (post: BlogPost) => {
-    if (!confirm(`Are you sure you want to delete "${post.title}"? This cannot be undone.`)) {
+    if (!await confirm(`Are you sure you want to delete "${post.title}"? This cannot be undone.`)) {
       return;
     }
 
     try {
-      const response = await adminFetch(`/api/admin/blog/${post.id}`, {
+      const response = await adminFetch(`/api/admin/blog/${post.id}?version=${encodeURIComponent(post.updatedAt)}`, {
         method: 'DELETE',
       });
 
@@ -319,51 +344,56 @@ export default function AdminBlogPage() {
           {error && (
             <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
               {error}
+              {hasConflict && editingPost && <div className="flex flex-wrap gap-3 mt-3">
+                <button className="admin-secondary" onClick={async () => {
+                  try {
+                    const response = await adminFetch(`/api/admin/blog/${editingPost.id}`);
+                    if (!response.ok) throw new Error('Could not load the saved version. Your draft is kept.');
+                    const { post } = await response.json();
+                    setPreviewIsSaved(true);
+                    setPreview({ ...post, readTimeMinutes: String(post.readTimeMinutes ?? '') });
+                  } catch (error) { setError(error instanceof Error ? error.message : 'Could not load the saved version.'); }
+                }}>Preview saved version</button>
+                <button className="admin-secondary" onClick={async () => { if (await discard()) await openEditor(editingPost); }}>Discard draft and load latest</button>
+              </div>}
             </div>
           )}
 
           {/* Header actions */}
-          <div className="flex items-center justify-between">
+          <div className="admin-save-bar admin-blog-actions">
+            <span className="admin-save-status" role="status">{saving ? 'Saving…' : error ? 'Save failed — changes kept' : dirty ? 'Unsaved changes' : 'No unsaved changes'}</span>
             <button
-              onClick={closeEditor}
+              onClick={async () => { if(await discard()) closeEditor(); }}
               className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
               Cancel
             </button>
             <div className="flex items-center gap-3">
-              {editingPost && (
-                <a
-                  href={`/blog/${editingPost.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 text-neutral-300 hover:text-white transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Preview
-                </a>
-              )}
+              <button className="admin-secondary" onClick={() => {setPreviewIsSaved(false);setPreview({...formData,id:editingPost?.id});}}><Eye size={16}/>Preview</button>
               <button
                 onClick={handleSave}
                 disabled={saving || !formData.title}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? 'Saving…' : formData.status === 'published' ? 'Publish now' : formData.status === 'scheduled' ? 'Schedule' : 'Save draft'}
               </button>
             </div>
           </div>
 
+          {preview && <BlogPreview label={previewIsSaved ? 'Saved version' : 'Unsaved preview'} post={preview} onClose={() => setPreview(null)}/>}
+          {editingPost?.structuredGuide && <div className="admin-panel"><h2 className="font-bold">Structured guide</h2><p>You can edit the title, description, publishing and SEO fields here. Guide sections and river data are preserved. Section changes use the reviewed guide refresh workflow; they are not stored in this body editor.</p><a className="admin-link" href="https://github.com/BrainsyETH/Eddy/blob/main/missouri-float-planner/docs/river-guide-style.md" target="_blank" rel="noreferrer">Open the guide editing workflow</a></div>}
           {/* Main editor grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Content area - 2 columns */}
             <div className="lg:col-span-2 space-y-6">
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label htmlFor="blog-title" className="block text-sm font-medium text-neutral-300 mb-2">
                   Title *
                 </label>
-                <input
+                <input id="blog-title"
                   type="text"
                   value={formData.title}
                   onChange={(e) => {
@@ -380,10 +410,10 @@ export default function AdminBlogPage() {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label htmlFor="blog-description" className="block text-sm font-medium text-neutral-300 mb-2">
                   Description (for SEO and cards)
                 </label>
-                <textarea
+                <textarea id="blog-description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
@@ -397,12 +427,12 @@ export default function AdminBlogPage() {
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
                   Content
                 </label>
-                <RichTextEditor
+                {!editingPost?.structuredGuide && <RichTextEditor
                   content={formData.content}
                   onChange={(content) => setFormData({ ...formData, content })}
                   placeholder="Start writing your blog post..."
                   onImageUpload={handleImageUpload}
-                />
+                />}
               </div>
             </div>
 
@@ -417,14 +447,15 @@ export default function AdminBlogPage() {
 
                 {/* Status */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  <label htmlFor="blog-status" className="block text-sm font-medium text-neutral-300 mb-2">
                     Status
                   </label>
-                  <select
+                  <select id="blog-status"
                     value={formData.status}
                     onChange={(e) => setFormData({
                       ...formData,
                       status: e.target.value as 'draft' | 'published' | 'scheduled',
+                      publishedAt: e.target.value === 'published' && editingPost?.status !== 'published' ? '' : formData.publishedAt,
                     })}
                     className="w-full px-4 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
@@ -436,11 +467,11 @@ export default function AdminBlogPage() {
 
                 {/* Publish date */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
+                  <label htmlFor="blog-publishedAt" className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    Publish Date
+                    Publish date · {Intl.DateTimeFormat().resolvedOptions().timeZone}
                   </label>
-                  <input
+                  <input id="blog-publishedAt"
                     type="datetime-local"
                     value={formData.publishedAt}
                     onChange={(e) => setFormData({ ...formData, publishedAt: e.target.value })}
@@ -450,11 +481,11 @@ export default function AdminBlogPage() {
 
                 {/* Read time */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
+                  <label htmlFor="blog-readTimeMinutes" className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
                     <Clock className="w-4 h-4" />
                     Read Time (minutes)
                   </label>
-                  <input
+                  <input id="blog-readTimeMinutes"
                     type="number"
                     value={formData.readTimeMinutes}
                     onChange={(e) => setFormData({ ...formData, readTimeMinutes: e.target.value })}
@@ -471,10 +502,11 @@ export default function AdminBlogPage() {
 
                 {/* Category */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  <label htmlFor="blog-category" className="block text-sm font-medium text-neutral-300 mb-2">
                     Category
                   </label>
-                  <select
+                  <select id="blog-category"
+                    disabled={!!editingPost?.structuredGuide}
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-4 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -487,10 +519,10 @@ export default function AdminBlogPage() {
 
                 {/* Slug */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  <label htmlFor="blog-slug" className="block text-sm font-medium text-neutral-300 mb-2">
                     URL Slug
                   </label>
-                  <input
+                  <input id="blog-slug"
                     type="text"
                     value={formData.slug}
                     onChange={(e) => {
@@ -515,11 +547,11 @@ export default function AdminBlogPage() {
 
                 {/* Featured image */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  <label htmlFor="blog-featuredImageUrl" className="block text-sm font-medium text-neutral-300 mb-2">
                     Featured Image URL
                   </label>
                   <div className="flex gap-2">
-                    <input
+                    <input id="blog-featuredImageUrl"
                       type="url"
                       value={formData.featuredImageUrl}
                       onChange={(e) => setFormData({ ...formData, featuredImageUrl: e.target.value })}
@@ -551,11 +583,11 @@ export default function AdminBlogPage() {
 
                 {/* OG image */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  <label htmlFor="blog-ogImageUrl" className="block text-sm font-medium text-neutral-300 mb-2">
                     Social Share Image URL
                   </label>
                   <div className="flex gap-2">
-                    <input
+                    <input id="blog-ogImageUrl"
                       type="url"
                       value={formData.ogImageUrl}
                       onChange={(e) => setFormData({ ...formData, ogImageUrl: e.target.value })}
@@ -585,10 +617,10 @@ export default function AdminBlogPage() {
 
                 {/* Keywords */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  <label htmlFor="blog-metaKeywords" className="block text-sm font-medium text-neutral-300 mb-2">
                     Meta Keywords
                   </label>
-                  <textarea
+                  <textarea id="blog-metaKeywords"
                     value={formData.metaKeywords}
                     onChange={(e) => setFormData({ ...formData, metaKeywords: e.target.value })}
                     rows={2}
@@ -614,12 +646,14 @@ export default function AdminBlogPage() {
       description="Manage your blog posts"
     >
       <div className="p-6">
+        {savedMessage && <p role="status" className="mb-4 text-primary-700">{savedMessage}</p>}
         {error && (
           <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
             {error}
           </div>
         )}
 
+        {draftRecovery.recovered && <div className="admin-panel"><p>There is an unsaved blog draft from this browser session.</p><button className="admin-primary mt-3" onClick={()=>{const recovered=draftRecovery.recovered!;baseline.current=recovered.baseline;setFormData(recovered.formData);setEditingPost(recovered.editingPost);setIsCreating(recovered.isCreating);setLoadedContent(recovered.editingPost?.content ?? null);setSlugTouched(true);}}>Recover draft</button><button className="admin-link ml-4" onClick={async()=>{if(await confirm('Discard this recovered draft?',{confirmLabel:'Discard draft',danger:true}))draftRecovery.clear();}}>Discard</button></div>}
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-neutral-400">

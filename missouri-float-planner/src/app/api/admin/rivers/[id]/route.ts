@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/rivers/[id]/route.ts
 // PUT /api/admin/rivers/[id] - Update river geometry and/or floating info
 
@@ -15,14 +16,14 @@ const CACHE_HEADERS = {
 };
 
 // Accept both PUT and POST to avoid edge/CDN caching of writes
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   return handleUpdate(request, params);
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -34,7 +35,7 @@ async function handleUpdate(
   params: Promise<{ id: string }>
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -175,3 +176,6 @@ async function handleUpdate(
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const PUT = withAdminMutation(handlePUT);

@@ -1,4 +1,5 @@
 'use client';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
 
 // src/components/admin/InboundEmailList.tsx
 // Admin view for mail received at *@eddy.guide (Resend inbound webhook).
@@ -85,6 +86,7 @@ interface Props {
 }
 
 export default function InboundEmailList({ onUnreadChange }: Props) {
+  const { alert } = useAdminInteractions();
   const [emails, setEmails] = useState<InboundEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

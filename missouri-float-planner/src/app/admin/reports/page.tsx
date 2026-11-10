@@ -3,8 +3,11 @@
 // src/app/admin/reports/page.tsx
 // Admin page for moderating community reports (hazards, water levels, debris)
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { adminFetch } from '@/hooks/useAdminAuth';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAdminListState } from '@/hooks/useAdminListState';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
+import { visibleSelection } from '@/lib/admin/list-filters';
+import { adminFetch, useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   AlertTriangle,
@@ -167,17 +170,23 @@ function formatTime(dateStr: string): string {
 }
 
 export default function AdminReportsPage() {
+  const { confirm } = useAdminInteractions();
+  const {identity}=useAdminAuth();
+  const requestGeneration = useRef(0);
+  const invalidateRequests = useCallback(() => { requestGeneration.current++; }, []);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useAdminListState('status');
+  const [typeFilter, setTypeFilter] = useAdminListState('type');
+  const [searchQuery, setSearchQuery] = useAdminListState('q', '');
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const [pageText, setPageText] = useAdminListState('page', '1');
+  const page = Math.max(1, Number(pageText) || 1);
+  const setPage = (next: number | ((old: number) => number)) => setPageText(String(typeof next === 'function' ? next(page) : next));
   const [totalReports, setTotalReports] = useState(0);
   const [pageLimit] = useState(50);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -188,53 +197,35 @@ export default function AdminReportsPage() {
   const [banConfirm, setBanConfirm] = useState<string | null>(null);
   const [banning, setBanning] = useState<string | null>(null);
 
-  const fetchReports = useCallback(async (p: number = page) => {
+  const fetchReports = useCallback(async (p: number = page, background = false) => {
+    const generation = ++requestGeneration.current;
     try {
-      setLoading(true);
-      const res = await adminFetch(`/api/admin/reports?page=${p}&limit=${pageLimit}`);
+      if(!background)setLoading(true);
+      const res = await adminFetch(`/api/admin/reports?${new URLSearchParams({ page: String(p), limit: String(pageLimit), q: searchQuery, type: typeFilter, status: statusFilter })}`);
       if (!res.ok) throw new Error('Failed to fetch reports');
       const data = await res.json();
+      if (generation !== requestGeneration.current) return;
+      setError(null);
       setReports(data.reports);
       setTotalReports(data.total ?? data.reports.length);
     } catch (err) {
+      if (generation !== requestGeneration.current) return;
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setLoading(false);
+      if (generation === requestGeneration.current) setLoading(false);
     }
-  }, [page, pageLimit]);
+  }, [page, pageLimit, searchQuery, typeFilter, statusFilter]);
 
   useEffect(() => {
-    fetchReports(page);
-  }, [page, fetchReports]);
+    const timer = setTimeout(() => void fetchReports(page), 200);
+    return () => { clearTimeout(timer); invalidateRequests(); };
+  }, [page, fetchReports, invalidateRequests]);
 
-  const filteredReports = useMemo(() => {
-    let result = reports;
+  const filteredReports = reports;
+  useEffect(() => { setSelectedIds(new Set()); setExpandedReport(null); }, [page, statusFilter, typeFilter, searchQuery, viewMode]);
 
-    // Show pending reports first
-    result = [...result].sort((a, b) => {
-      if (a.status === 'pending' && b.status !== 'pending') return -1;
-      if (a.status !== 'pending' && b.status === 'pending') return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-
-    if (statusFilter !== 'all') {
-      result = result.filter(r => r.status === statusFilter);
-    }
-    if (typeFilter !== 'all') {
-      result = result.filter(r => r.type === typeFilter);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(r =>
-        r.riverName?.toLowerCase().includes(q) ||
-        r.description?.toLowerCase().includes(q) ||
-        r.hazardName?.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [reports, statusFilter, typeFilter, searchQuery]);
-
-  const updateReport = async (report: Report, newStatus: 'verified' | 'rejected') => {
+  const updateReport = async (report: Report, newStatus: 'verified' | 'rejected' | 'pending') => {
+    if (newStatus === 'rejected' && !await confirm('Reject this report? Its stored photo will be removed and cannot be restored.', {confirmLabel:'Reject report',danger:true})) return;
     try {
       setUpdating(report.id);
       setError(null);
@@ -247,9 +238,10 @@ export default function AdminReportsPage() {
         const data = await res.json();
         throw new Error(data.error || `Failed to ${newStatus} report`);
       }
+      setExpandedReport(reports.find(r => r.id !== report.id && r.status === 'pending')?.id ?? null);
       setSuccessMessage(`Report ${newStatus}`);
       setTimeout(() => setSuccessMessage(null), 3000);
-      await fetchReports();
+      await fetchReports(page,true);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${newStatus} report`);
     } finally {
@@ -258,7 +250,7 @@ export default function AdminReportsPage() {
   };
 
   const deleteReport = async (report: Report) => {
-    if (!confirm('Delete this report? This cannot be undone.')) return;
+    if (!await confirm('Delete this report? This cannot be undone.')) return;
     try {
       setDeleting(report.id);
       const res = await adminFetch(`/api/admin/reports/${report.id}`, { method: 'DELETE' });
@@ -268,7 +260,7 @@ export default function AdminReportsPage() {
       }
       setSuccessMessage('Report deleted');
       setTimeout(() => setSuccessMessage(null), 3000);
-      await fetchReports();
+      await fetchReports(page,true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');
     } finally {
@@ -292,7 +284,7 @@ export default function AdminReportsPage() {
       );
       setTimeout(() => setSuccessMessage(null), 4000);
       setBanConfirm(null);
-      await fetchReports();
+      await fetchReports(page,true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to ban submitter');
     } finally {
@@ -310,8 +302,9 @@ export default function AdminReportsPage() {
   }, []);
 
   const bulkUpdate = async (newStatus: 'verified' | 'rejected') => {
-    const ids = [...selectedIds];
-    if (ids.length === 0) return;
+    const ids = visibleSelection(selectedIds, viewMode === 'grid' ? filteredReports.filter(r => r.imageUrl) : filteredReports);
+    if (ids.length === 0 || loading) return;
+    if (!await confirm(`${newStatus === 'verified' ? 'Publish' : 'Reject'} ${ids.length} selected reports on this page? ${newStatus === 'rejected' ? 'Their stored photos will be removed and cannot be restored.' : 'Verified photos become public.'}`, {confirmLabel:newStatus === 'verified' ? 'Verify reports' : 'Reject reports',danger:newStatus === 'rejected'})) return;
     try {
       setBulkUpdating(true);
       setError(null);
@@ -331,8 +324,9 @@ export default function AdminReportsPage() {
         setError(`${data.notVerified.length} report${data.notVerified.length !== 1 ? 's' : ''} left unverified: the photo could not be published. Try again.`);
       }
       setTimeout(() => setSuccessMessage(null), 3000);
-      setSelectedIds(new Set());
-      await fetchReports();
+      setSelectedIds(new Set(data.failedIds ?? data.notVerified ?? []));
+      if (data.failed > 0 && newStatus === 'rejected') setError(`${data.failed} photo removals did not finish. Open Rejected and retry those reports.`);
+      await fetchReports(page,true);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${newStatus} reports`);
     } finally {
@@ -396,8 +390,8 @@ export default function AdminReportsPage() {
             <label className="flex items-center gap-1.5 text-xs text-neutral-400 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={filteredReports.length > 0 && filteredReports.every((r) => selectedIds.has(r.id))}
-                onChange={(e) => setSelectedIds(e.target.checked ? new Set(filteredReports.map((r) => r.id)) : new Set())}
+                checked={filteredReports.length > 0 && filteredReports.filter(r => viewMode !== 'grid' || r.imageUrl).every((r) => selectedIds.has(r.id))}
+                onChange={(e) => setSelectedIds(e.target.checked ? new Set(filteredReports.filter(r => viewMode !== 'grid' || r.imageUrl).map((r) => r.id)) : new Set())}
               />
               Select all
             </label>
@@ -423,14 +417,14 @@ export default function AdminReportsPage() {
             <span className="text-sm font-medium text-white">{selectedIds.size} selected</span>
             <button
               onClick={() => bulkUpdate('verified')}
-              disabled={bulkUpdating}
+              disabled={bulkUpdating || loading}
               className="flex items-center gap-1.5 px-3 py-1.5 text-green-400 hover:bg-green-500/10 rounded-lg text-sm disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4" /> Verify selected
             </button>
             <button
               onClick={() => bulkUpdate('rejected')}
-              disabled={bulkUpdating}
+              disabled={bulkUpdating || loading}
               className="flex items-center gap-1.5 px-3 py-1.5 text-red-400 hover:bg-red-500/10 rounded-lg text-sm disabled:opacity-50"
             >
               <XCircle className="w-4 h-4" /> Reject selected
@@ -447,10 +441,10 @@ export default function AdminReportsPage() {
         ) : (
           <>
             <p className="text-sm text-neutral-400">
-              {filteredReports.length} of {reports.length} reports
+              {totalReports} matching reports · {filteredReports.length} on this page
             </p>
             {viewMode === 'list' && (
-            <div className="space-y-2">
+            <div className="admin-review-layout"><div className="space-y-2">
               {filteredReports.map(report => (
                 <div
                   key={report.id}
@@ -458,11 +452,14 @@ export default function AdminReportsPage() {
                 >
                   <div
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-neutral-750"
+                    role="button" tabIndex={0} aria-pressed={expandedReport===report.id}
+                    onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setExpandedReport(report.id);}}}
                     onClick={() => setExpandedReport(expandedReport === report.id ? null : report.id)}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <input
                         type="checkbox"
+                        aria-label={`Select report for ${report.riverName ?? 'unknown river'}`}
                         checked={selectedIds.has(report.id)}
                         onClick={(e) => e.stopPropagation()}
                         onChange={() => toggleSelect(report.id)}
@@ -501,7 +498,10 @@ export default function AdminReportsPage() {
                     </div>
                   </div>
 
-                  {expandedReport === report.id && (
+
+                </div>
+              ))}
+            </div><aside id="report-detail" tabIndex={-1} className="admin-review-detail" aria-label="Report details">{!expandedReport && <p>Select a report to review its photo, location and evidence.</p>}{filteredReports.filter(r=>r.id===expandedReport).map(report=><section key={report.id}><h2 className="font-bold text-lg">{report.riverName ?? 'River report'}</h2>
                     <div className="border-t border-neutral-700 p-4 space-y-3">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
@@ -613,17 +613,19 @@ export default function AdminReportsPage() {
                           <img
                             src={report.imageUrl}
                             alt="Report image"
-                            className="max-w-xs max-h-48 object-cover rounded border border-neutral-700"
+                            className="w-full max-h-96 object-contain rounded border border-neutral-700"
                           />
                         </div>
                       )}
+                      {report.coordinates && <a className="admin-link" href={`https://www.google.com/maps/search/?api=1&query=${report.coordinates.lat},${report.coordinates.lng}`} target="_blank" rel="noreferrer">Check this location on the map</a>}
+                      <p className="text-sm">Verify makes this report and its photo public. Reject removes stored photos permanently.</p>
                       {report.verifiedAt && (
                         <div>
                           <span className="text-neutral-400 text-xs">Verified At</span>
                           <p className="text-white text-sm">{new Date(report.verifiedAt).toLocaleString()}</p>
                         </div>
                       )}
-                      <div className="flex justify-end gap-2 pt-2">
+                      <div className="admin-save-bar">
                         {report.status === 'pending' && (
                           <>
                             <button
@@ -644,7 +646,8 @@ export default function AdminReportsPage() {
                             </button>
                           </>
                         )}
-                        {report.userId && (
+                        {report.status === 'verified' && <button className="admin-secondary" disabled={updating===report.id} onClick={()=>updateReport(report,'pending')}>Return to review</button>}
+                        {identity?.role === 'owner' && report.userId && (
                           banConfirm === report.id ? (
                             <>
                               <span className="self-center text-xs text-neutral-400">
@@ -686,10 +689,7 @@ export default function AdminReportsPage() {
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+</section>)}</aside></div>
             )}
 
             {viewMode === 'grid' && (
@@ -701,6 +701,7 @@ export default function AdminReportsPage() {
                     <div key={report.id} className="relative bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden">
                       <input
                         type="checkbox"
+                        aria-label={`Select report for ${report.riverName ?? 'unknown river'}`}
                         checked={selectedIds.has(report.id)}
                         onChange={() => toggleSelect(report.id)}
                         className="absolute top-2 left-2 z-10"

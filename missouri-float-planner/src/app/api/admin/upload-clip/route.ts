@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 /**
  * Admin API: Upload clip to permanent Vercel Blob storage
  *
@@ -22,9 +23,9 @@ const MAX_SIZE = 100 * 1024 * 1024;
  * Optional query params: ?river=current&date=2026-03-25
  * Returns: { url: "https://<blob>.public.blob.vercel-storage.com/reels/2026-03-25/<hash>.mp4" }
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
@@ -120,3 +121,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

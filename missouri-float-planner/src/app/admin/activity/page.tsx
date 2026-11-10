@@ -23,6 +23,8 @@ interface ActivityEntry {
   entityName: string;
   details: Record<string, unknown> | null;
   createdAt: string;
+  actor: {name:string;role:string;legacy:boolean}|null;
+  outcome:string|null;
 }
 
 const ENTITY_TYPES = [
@@ -157,7 +159,7 @@ export default function AdminActivityPage() {
   return (
     <AdminLayout
       title="Activity Log"
-      description="View a log of all admin actions and changes"
+      description="Actor and outcome are recorded for authenticated admin writes. Older entries may not identify an actor. View a log of all admin actions and changes"
     >
       <div className="p-6 space-y-4 max-w-6xl">
         {error && (
@@ -211,6 +213,8 @@ export default function AdminActivityPage() {
                 >
                   <div
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-neutral-750"
+                    role="button" tabIndex={0} aria-expanded={expandedEntry === entry.id}
+                    onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setExpandedEntry(expandedEntry === entry.id ? null : entry.id);}}}
                     onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -227,7 +231,7 @@ export default function AdminActivityPage() {
                           {entry.entityName || entry.entityId}
                         </h3>
                         <p className="text-xs text-neutral-400">
-                          {getEntityTypeLabel(entry.entityType)}
+                          {getEntityTypeLabel(entry.entityType)} · {entry.actor?.name ?? 'Actor not recorded'}{entry.outcome ? ` · ${entry.outcome}` : ''}
                         </p>
                       </div>
                     </div>

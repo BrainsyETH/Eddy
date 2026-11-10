@@ -38,7 +38,7 @@ const DOWNLOAD_HEADERS = { 'Cache-Control': 'private, no-store', 'X-Content-Type
 
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     // Exports can carry personal data (feedback includes names and emails), so
     // each one is recorded. Awaited so the record is not lost after the response.
-    const audit = await logAdminAction({
+    const audit = await logAdminAction({ request,
       action: 'export',
       entityType: type,
       details: { format, rows: rows.length, truncated: rows.length === MAX_EXPORT_ROWS },

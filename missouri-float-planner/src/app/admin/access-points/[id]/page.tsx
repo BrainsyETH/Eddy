@@ -1,4 +1,5 @@
 'use client';
+import { useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/access-points/[id]/page.tsx
 // Comprehensive access point editor with all detail fields
@@ -148,6 +149,7 @@ export default function AdminAccessPointEditPage() {
   // this and carry its version, so a background refetch can neither wipe
   // edits in progress nor quietly re-base them onto newer data.
   const [loaded, setLoaded] = useState<AccessPointData | null>(null);
+  useUnsavedAdminChanges(hasChanges);
   const dirtyRef = useRef(false);
   const setHasChanges = (value: boolean) => {
     dirtyRef.current = value;

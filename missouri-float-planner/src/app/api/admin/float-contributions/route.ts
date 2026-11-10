@@ -5,7 +5,7 @@ import { jsonPrivate } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
-  const denied = requireAdminAuth(request);
+  const denied = await requireAdminAuth(request);
   if (denied) return denied;
   try {
     const page = Math.max(0, Math.min(10000, Number(request.nextUrl.searchParams.get('page')) || 0));

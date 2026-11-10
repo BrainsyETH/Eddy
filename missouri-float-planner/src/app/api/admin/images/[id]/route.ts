@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/images/[id]/route.ts
 // DELETE /api/admin/images/[id] - Delete an uploaded image
 
@@ -9,12 +10,12 @@ export const dynamic = 'force-dynamic';
 
 const BUCKET_NAME = 'images';
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -53,3 +54,5 @@ export async function DELETE(
     );
   }
 }
+
+export const DELETE = withAdminMutation(handleDELETE);

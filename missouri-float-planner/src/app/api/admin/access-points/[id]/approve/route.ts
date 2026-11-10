@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/access-points/[id]/approve/route.ts
 // POST /api/admin/access-points/[id]/approve - Approve an access point for public visibility
 // DELETE /api/admin/access-points/[id]/approve - Unapprove an access point
@@ -8,12 +9,12 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -79,12 +80,12 @@ export async function POST(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -123,3 +124,6 @@ export async function DELETE(
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const DELETE = withAdminMutation(handleDELETE);

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/trust/findings/bulk/route.ts
 // POST — resolve or snooze every open finding under one check+rule.
 //
@@ -25,8 +26,8 @@ const MAX_SNOOZE_DAYS = 90;
 /** Long enough to be a sentence, short enough not to be a chore. */
 const MIN_REASON_LENGTH = 8;
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   try {
@@ -225,3 +226,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

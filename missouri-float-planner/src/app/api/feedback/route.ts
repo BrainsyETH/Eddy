@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Admin-only: enforce the shared-secret bearer token (same model as /api/admin/*).
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     // Service-role client: RLS hides feedback rows from the anon client.

@@ -190,6 +190,7 @@ export async function triggerClipPipeline(params: ClipPipelineParams): Promise<{
 }
 
 interface CompileHighlightsParams {
+  jobId?: string;
   clipIds: string;
   title: string;
   postIds: string;
@@ -215,6 +216,7 @@ export async function triggerCompileHighlights(params: CompileHighlightsParams):
 
   const response = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(15000),
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github.v3+json',
@@ -227,6 +229,7 @@ export async function triggerCompileHighlights(params: CompileHighlightsParams):
         title: params.title,
         post_ids: params.postIds,
         output_filename: params.outputFilename,
+        ...(params.jobId ? { admin_job_id: params.jobId } : {}),
       },
     }),
   });
@@ -238,6 +241,7 @@ export async function triggerCompileHighlights(params: CompileHighlightsParams):
 
   const errorBody = await response.text();
   console.error(`${LOG_PREFIX} Highlights dispatch failed (${response.status}): ${errorBody}`);
+  if (response.status >= 500) throw new Error('GitHub dispatch outcome is unknown.');
   return false;
 }
 

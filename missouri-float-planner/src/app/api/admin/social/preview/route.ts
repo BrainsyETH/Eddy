@@ -13,7 +13,7 @@ import { getScheduledPosts } from '@/lib/social/post-scheduler';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   try {

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/social/config/route.ts
 // GET + POST (save) for social posting configuration (single-row table)
 // Uses POST instead of PUT to prevent any edge/CDN caching of write operations.
@@ -22,7 +23,7 @@ const CACHE_HEADERS = {
 };
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const supabase = createAdminClient();
@@ -38,11 +39,11 @@ export async function GET(request: NextRequest) {
 }
 
 // Accept both PUT and POST for saves — POST avoids any edge caching issues
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return handleSave(request);
 }
 
-export async function PUT(request: NextRequest) {
+async function handlePUT(request: NextRequest) {
   return handleSave(request);
 }
 
@@ -50,8 +51,8 @@ export async function PUT(request: NextRequest) {
 // reaches for to stop automatic posts, so it must take effect the moment it is
 // flipped — not after a Save button further down the page — and it must not
 // carry the rest of the form's unsaved edits along with it.
-export async function PATCH(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePATCH(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const body = await request.json().catch(() => null);
@@ -78,7 +79,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Could not save the posting switch' }, { status: 500, headers: CACHE_HEADERS });
   }
 
-  await logAdminAction({
+  await logAdminAction({ request,
     action: data.posting_enabled ? 'social_posting_resumed' : 'social_posting_paused',
     entityType: 'social_config',
     entityId: existing.id,
@@ -90,7 +91,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 async function handleSave(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const body = await request.json();
@@ -182,3 +183,7 @@ async function handleSave(request: NextRequest) {
   // Always return the VERIFIED data from the fresh read, not the update response
   return NextResponse.json(verify, { headers: CACHE_HEADERS });
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const PUT = withAdminMutation(handlePUT);
+export const PATCH = withAdminMutation(handlePATCH);

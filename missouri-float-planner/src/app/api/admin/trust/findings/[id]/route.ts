@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/trust/findings/[id]/route.ts
 // PATCH — snooze, resolve, or reopen one finding.
 //
@@ -36,8 +37,8 @@ const MIN_REASON_LENGTH = 8;
  */
 const REASON_REQUIRED: ReadonlySet<Action> = new Set<Action>(['resolve', 'reopen']);
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const authError = requireAdminAuth(request);
+async function handlePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const { id } = await params;
@@ -140,7 +141,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // flight. Every manual resolve, snooze and reopen could therefore leave no
     // record at all, and the one action whose entire purpose is to record a
     // human judgement was the one most likely to lose it.
-    const audit = await logAdminAction({
+    const audit = await logAdminAction({ request,
       action: `trust_finding_${action}`,
       entityType: 'trust_finding',
       entityId: id,
@@ -174,3 +175,5 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

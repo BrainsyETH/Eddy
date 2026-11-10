@@ -1,3 +1,5 @@
+import { revalidatePath } from 'next/cache';
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/blog/[id]/route.ts
 // GET /api/admin/blog/[id] - Get single blog post for editing
 // PUT /api/admin/blog/[id] - Update blog post
@@ -5,8 +7,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
+import { requireAdminAuth, logAdminAction, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { sanitizeRichText } from '@/lib/sanitize';
+
+import { BLOG_CATEGORIES, publicationState, formatAdminPost } from '@/lib/admin/blog-publication';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -42,22 +46,7 @@ export async function GET(
       );
     }
 
-    const formatted = {
-      id: data.id,
-      slug: data.slug,
-      title: data.title,
-      description: data.description,
-      content: data.content,
-      category: data.category,
-      featuredImageUrl: data.featured_image_url,
-      ogImageUrl: data.og_image_url,
-      metaKeywords: data.meta_keywords,
-      readTimeMinutes: data.read_time_minutes,
-      status: data.status,
-      publishedAt: data.published_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    const formatted = formatAdminPost(data);
 
     return NextResponse.json({ post: formatted });
   } catch (error) {
@@ -69,12 +58,12 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -95,6 +84,12 @@ export async function PUT(
     } = body;
 
     const supabase = createAdminClient();
+
+    if (typeof body.expectedUpdatedAt !== 'string') return NextResponse.json({ error: 'Reload this post before saving.' }, { status: 428 });
+    const { data: existing, error: readError } = await supabase.from('blog_posts').select('*').eq('id', id).maybeSingle();
+    if (readError) return NextResponse.json({ error: 'Could not load the current post.' }, { status: 500 });
+    if (!existing) return NextResponse.json({ error: 'Post not found.' }, { status: 404 });
+    if (existing.updated_at !== body.expectedUpdatedAt) return NextResponse.json({ error: 'This post changed in another session. Your draft is kept here. Open the latest post in another tab to compare before saving.' }, { status: 409 });
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {};
@@ -128,35 +123,14 @@ export async function PUT(
         return NextResponse.json({ error: 'Content must be text' }, { status: 400 });
       }
       const sanitized = content ? sanitizeRichText(content) : null;
-      if (!sanitized) {
-        // An empty body on a public post is a blank article page. The admin
-        // editor omits untouched content, so this only fires on a real attempt
-        // to clear it; move the post to draft first if that is intended.
-        let resultingStatus = status;
-        if (resultingStatus === undefined) {
-          const { data: existing, error: existingError } = await supabase
-            .from('blog_posts')
-            .select('status')
-            .eq('id', id)
-            .maybeSingle();
-          if (existingError) {
-            console.error('Error checking blog post status:', existingError);
-            return NextResponse.json({ error: 'Could not update blog post' }, { status: 500 });
-          }
-          resultingStatus = existing?.status;
-        }
-        if (resultingStatus === 'published' || resultingStatus === 'scheduled') {
-          return NextResponse.json(
-            { error: 'A published or scheduled post needs body content. Set it to draft to clear the body.' },
-            { status: 400 },
-          );
-        }
-      }
       updateData.content = sanitized;
     }
 
     if (category !== undefined) {
-      const validCategories = ['Guides', 'Tips', 'News', 'Safety', 'River Profiles', 'Gear Reviews', 'Trip Reports'];
+      if (existing.guide_data && category !== existing.category) {
+        return NextResponse.json({ error: 'Keep the category of this structured guide. Use the guide editing workflow to change its format.' }, { status: 400 });
+      }
+      const validCategories = BLOG_CATEGORIES;
       if (!validCategories.includes(category)) {
         return NextResponse.json(
           { error: `Invalid category. Must be one of: ${validCategories.join(', ')}` },
@@ -182,34 +156,14 @@ export async function PUT(
       updateData.read_time_minutes = readTimeMinutes === '' || readTimeMinutes === null ? null : parseInt(readTimeMinutes, 10);
     }
 
-    if (status !== undefined) {
-      const validStatuses = ['draft', 'published', 'scheduled'];
-      if (!validStatuses.includes(status)) {
-        return NextResponse.json(
-          { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
-          { status: 400 }
-        );
-      }
-      updateData.status = status;
-
-      // Auto-set published_at when publishing if not already set
-      if (status === 'published' && publishedAt === undefined) {
-        // Check current post to see if it already has a published_at
-        const { data: currentPost } = await supabase
-          .from('blog_posts')
-          .select('published_at')
-          .eq('id', id)
-          .single();
-
-        if (!currentPost?.published_at) {
-          updateData.published_at = new Date().toISOString();
-        }
-      }
+    try {
+      Object.assign(updateData, publicationState(status ?? existing.status, publishedAt, existing.published_at));
+      const resultingContent = content === undefined ? existing.content : updateData.content;
+      if (updateData.status !== 'draft' && !resultingContent && !existing.guide_data) throw new Error('Add body content before publishing.');
+    } catch (error) {
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
     }
-
-    if (publishedAt !== undefined) {
-      updateData.published_at = publishedAt === '' || publishedAt === null ? null : publishedAt;
-    }
+    updateData.updated_at = new Date().toISOString();
 
     // Check if we have anything to update
     if (Object.keys(updateData).length === 0) {
@@ -223,9 +177,11 @@ export async function PUT(
       .from('blog_posts')
       .update(updateData)
       .eq('id', id)
+      .eq('updated_at', body.expectedUpdatedAt)
       .select()
       .single();
 
+    if (error?.code === 'PGRST116') return NextResponse.json({ error: 'This post changed while you were saving. Your draft is still here.' }, { status: 409 });
     if (error) {
       console.error('Error updating blog post:', error);
       if (error.code === '23505') {
@@ -240,22 +196,9 @@ export async function PUT(
       );
     }
 
-    const formatted = {
-      id: data.id,
-      slug: data.slug,
-      title: data.title,
-      description: data.description,
-      content: data.content,
-      category: data.category,
-      featuredImageUrl: data.featured_image_url,
-      ogImageUrl: data.og_image_url,
-      metaKeywords: data.meta_keywords,
-      readTimeMinutes: data.read_time_minutes,
-      status: data.status,
-      publishedAt: data.published_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    revalidatePath(`/blog/${existing.slug}`); revalidatePath(`/blog/${data.slug}`); revalidatePath('/blog'); revalidatePath('/sitemap.xml');
+    await logAdminAction({ request, action: 'update', entityType: 'blog_post', entityId: id, entityName: data.title, details: { before: existing, after: updateData } });
+    const formatted = formatAdminPost(data);
 
     return NextResponse.json({ post: formatted });
   } catch (error) {
@@ -267,21 +210,26 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
-    const { error } = await supabase
+    const { data: existing, error: readError } = await supabase.from('blog_posts').select('*').eq('id', id).single();
+    if (readError) return NextResponse.json({ error: 'Could not load the post to delete.' }, { status: 500 });
+    const expected = request.nextUrl.searchParams.get('version');
+    if (!expected || expected !== existing.updated_at) return NextResponse.json({ error: 'This post changed. Reload before deleting.' }, { status: 409 });
+    const { data: removed, error } = await supabase
       .from('blog_posts')
       .delete()
-      .eq('id', id);
+      .eq('id', id).eq('updated_at', expected).select('id');
 
     if (error) {
       console.error('Error deleting blog post:', error);
@@ -291,6 +239,9 @@ export async function DELETE(
       );
     }
 
+    if (!removed?.length) return NextResponse.json({ error: 'Post changed. Reload before deleting.' }, { status: 409 });
+    revalidatePath(`/blog/${existing.slug}`); revalidatePath('/blog'); revalidatePath('/sitemap.xml');
+    await logAdminAction({ request, action: 'delete', entityType: 'blog_post', entityId: id, entityName: existing.title, details: { before: existing } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error in delete blog post endpoint:', error);
@@ -300,3 +251,6 @@ export async function DELETE(
     );
   }
 }
+
+export const PUT = withAdminMutation(handlePUT);
+export const DELETE = withAdminMutation(handleDELETE);

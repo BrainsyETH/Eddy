@@ -1,4 +1,5 @@
 'use client';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/images/page.tsx
 // Admin image library page
@@ -44,6 +45,7 @@ const CATEGORIES = [
 ];
 
 export default function AdminImagesPage() {
+  const { confirm } = useAdminInteractions();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -126,9 +128,9 @@ export default function AdminImagesPage() {
     setTimeout(() => setCopiedUrl(null), 2000);
   };
 
-  const handleDelete = (image: ImageItem) => {
+  const handleDelete = async (image: ImageItem) => {
     if (image.isSystem) return;
-    if (confirm(`Delete "${image.name}"?`)) {
+    if (await confirm(`Delete "${image.name}"?`)) {
       deleteMutation.mutate(image.id);
     }
   };

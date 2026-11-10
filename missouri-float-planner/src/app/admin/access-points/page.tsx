@@ -1,4 +1,5 @@
 'use client';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/access-points/page.tsx
 // Admin page for managing access point images (supports multiple images)
@@ -6,6 +7,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAdminListState } from '@/hooks/useAdminListState';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -34,9 +36,12 @@ interface River {
 interface AccessPointAdmin {
   id: string;
   name: string;
-  riverMile: number;
+  riverMile: number | null;
   type: string;
   imageUrls: string[];
+  description?:string|null;
+  drivingLat?:number|null;
+  drivingLng?:number|null;
   riverId: string;
 }
 
@@ -71,6 +76,8 @@ interface BackfillSummary {
 const EDDY_PLACEHOLDER = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png';
 
 export default function AdminAccessPointsPage() {
+  const { confirm } = useAdminInteractions();
+  const [missing,setMissing]=useAdminListState('missing');
   const queryClient = useQueryClient();
   const [selectedRiver, setSelectedRiver] = useState<string | null>(null);
   const [imagePickerOpen, setImagePickerOpen] = useState<{ pointId: string; currentImages: string[] } | null>(null);
@@ -92,21 +99,14 @@ export default function AdminAccessPointsPage() {
   const { data: accessPoints, isLoading: accessPointsLoading } = useQuery<AccessPointAdmin[]>({
     queryKey: ['admin-access-points', selectedRiver],
     queryFn: async () => {
-      if (!selectedRiver) return [];
-      const river = rivers?.find(r => r.id === selectedRiver);
-      if (!river) return [];
-
-      // Cache-bust so the admin sees fresh image_urls right after an
-      // Auto-fetch backfill — the shared endpoint is CDN-cached (s-maxage=300).
-      const response = await fetch(
-        `/api/rivers/${river.slug}/access-points?t=${Date.now()}`,
-        { cache: 'no-store' },
-      );
+      const query=new URLSearchParams({limit:'1000'});
+      if(selectedRiver)query.set('river',selectedRiver);
+      const response=await adminFetch(`/api/admin/access-points?${query}`);
       if (!response.ok) throw new Error('Failed to fetch access points');
       const data = await response.json();
       return data.accessPoints || [];
     },
-    enabled: !!selectedRiver && !!rivers,
+    enabled: !!selectedRiver || missing !== 'all',
   });
 
   // Fetch images for picker
@@ -158,15 +158,15 @@ export default function AdminAccessPointsPage() {
     },
   });
 
-  const runBackfill = () => {
+  const runBackfill = async () => {
     if (!selectedRiver) return;
     const missing = accessPoints?.filter((a) => a.imageUrls.length === 0).length ?? 0;
     if (missing === 0) {
-      if (!confirm('Every access point on this river already has an image. Nothing to auto-fetch.')) return;
+      if (!await confirm('Every access point on this river already has an image. Nothing to auto-fetch.')) return;
       return;
     }
     if (
-      !confirm(
+      !await confirm(
         `Auto-fetch imagery for ${missing} access point(s) without images?\n\n` +
           'Photos are pulled from official agency sources (MDC, NPS, Recreation.gov, ' +
           'USFS, State Parks) and outfitter sites, and stored as external links ' +
@@ -199,7 +199,7 @@ export default function AdminAccessPointsPage() {
   };
 
   const filteredAccessPoints = accessPoints?.filter(ap =>
-    ap.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ap.name.toLowerCase().includes(searchTerm.toLowerCase()) && (missing === 'images' ? ap.imageUrls.length===0 : missing === 'descriptions' ? !ap.description?.trim() : missing === 'driving' ? ap.drivingLat == null || ap.drivingLng == null : true)
   ) || [];
 
   const images = imagesData?.images || [];
@@ -210,6 +210,7 @@ export default function AdminAccessPointsPage() {
       description="Manage images for access points"
     >
       <div className="p-6">
+        <label className="block mb-4 text-sm">Show<select className="ml-3 border rounded p-2" value={missing} onChange={e=>setMissing(e.target.value)}><option value="all">All access points</option><option value="images">Missing photos</option><option value="descriptions">Missing descriptions</option><option value="driving">Missing directions</option></select></label>
         {/* River Selector */}
         <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4 mb-6">
           <label className="block text-sm font-medium text-neutral-300 mb-2">
@@ -238,7 +239,7 @@ export default function AdminAccessPointsPage() {
         </div>
 
         {/* Access Points List */}
-        {selectedRiver && (
+        {(selectedRiver || missing !== 'all') && (
           <>
             {/* Search + Auto-fetch */}
             <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -340,7 +341,7 @@ export default function AdminAccessPointsPage() {
                       <div>
                         <h3 className="font-semibold text-white">{point.name}</h3>
                         <p className="text-sm text-neutral-400">
-                          Mile {point.riverMile.toFixed(1)} • {point.type.replace('_', ' ')}
+                          Mile {point.riverMile?.toFixed(1) ?? 'unknown'} • {point.type.replace('_', ' ')}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -411,7 +412,7 @@ export default function AdminAccessPointsPage() {
           </>
         )}
 
-        {!selectedRiver && (
+        {!selectedRiver && missing === 'all' && (
           <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-12 text-center">
             <MapPin className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
             <p className="text-neutral-400">Select a river to manage access point images.</p>
