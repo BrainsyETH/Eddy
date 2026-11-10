@@ -1,5 +1,15 @@
 # Eddy Says delivery: public summaries, server-gated full reads
 
+## Web river outlook presentation (2026-11-10)
+
+The river report's **Eddy's take** panel presents the Read, Weather interpretation
+and Bottom line as blurred previews, with visible section labels and one branded
+app CTA for Eddy Premium. The 72-hour forecast above stays readable. The preview
+uses only existing public summary/deterministic copy; the full report remains
+server-gated. Blurred text is excluded from assistive technology and search
+snippets, with a readable explanation of access. Loading and dam-Read availability
+messages stay readable. Other public summary surfaces and API contracts are unchanged.
+
 ## Current index-card decision (2026-09-14)
 
 Product direction: no free summary on Today/Reads index cards, including the
