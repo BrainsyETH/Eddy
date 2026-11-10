@@ -1,6 +1,7 @@
 import GuideOverview from './GuideOverview';
 import { guideDam, type GuideDam } from '@/lib/guides/dam';
 import GuidePhoto from './GuidePhoto';
+import PhotoCreditOverlay from './PhotoCreditOverlay';
 import { guideOverviewMap, type GuideMapRoute } from '@/lib/guides/overview';
 import type { ReactNode } from 'react';
 import { guideEditorialDate } from '@/lib/guides/editorial-date';
@@ -440,12 +441,9 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview, rive
               sizes="(max-width: 1023px) 100vw, 580px"
               style={{ objectFit: g.hero.photo_url ? 'cover' : 'contain' }}
             />
+            {heroCredit && <PhotoCreditOverlay author={heroCredit.author} sourceUrl={heroCredit.source_url} license={heroCredit.license} licenseUrl={heroCredit.license_url} />}
           </div>
             {g.hero.photo_caption && <figcaption className="mt-2 text-sm leading-relaxed text-neutral-600">{g.hero.photo_caption}</figcaption>}
-            {heroCredit && <p className="mt-1 text-xs leading-relaxed text-neutral-600">
-              Photo: <a href={heroCredit.source_url} className="underline">{heroCredit.author}</a>{' · '}
-              <a href={heroCredit.license_url} className="underline">{heroCredit.license}</a>
-            </p>}
           </figure>
         </div>
 
