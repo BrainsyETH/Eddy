@@ -650,6 +650,98 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--color-neutral-200);
 }
 
+/* ===== RIVER GUIDE ROUTE ACTIONS =====
+   Compact chunky buttons for the "Pick your float" cards: same offset-shadow
+   press as .btn-primary, sized to sit in a wrapping row. */
+.guide-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0 0.95rem;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  border: var(--border-base) solid var(--color-neutral-900);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+.guide-action:hover { transform: translate(-1px, -1px); }
+.guide-action:active { transform: translate(2px, 2px); box-shadow: none; }
+.guide-action:disabled { cursor: progress; transform: none; }
+.guide-action--plan {
+  color: #fff;
+  background: var(--color-accent-500);
+  box-shadow: 2px 2px 0 var(--color-neutral-900);
+}
+.guide-action--plan:hover { background: var(--color-accent-600); box-shadow: 3px 3px 0 var(--color-neutral-900); }
+.guide-action--plan:focus-visible { outline: 3px solid var(--color-accent-300); outline-offset: 2px; }
+.guide-action--time {
+  color: var(--color-primary-800);
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-700);
+  box-shadow: 2px 2px 0 var(--color-primary-700);
+}
+.guide-action--time:hover { background: var(--color-primary-100); box-shadow: 3px 3px 0 var(--color-primary-700); }
+.guide-action--time:focus-visible { outline: 3px solid var(--color-primary-300); outline-offset: 2px; }
+
+.guide-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  padding: 0 0.8rem 0 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary-800);
+  text-decoration: none;
+  background: #fff;
+  border: 1.5px solid var(--color-neutral-300);
+  border-radius: 999px;
+  transition: border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
+}
+.guide-pill svg { color: var(--color-accent-500); flex-shrink: 0; }
+.guide-pill:hover { border-color: var(--color-primary-500); background: var(--color-primary-50); }
+.guide-pill:focus-visible { outline: 3px solid var(--color-primary-300); outline-offset: 2px; }
+
+.guide-estimate {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--color-primary-50);
+  border: var(--border-base) solid var(--color-primary-200);
+  border-left: 4px solid var(--color-primary-500);
+  border-radius: 8px;
+}
+.guide-estimate[data-tone='warn'] {
+  background: var(--color-accent-50);
+  border-color: var(--color-accent-200);
+  border-left-color: var(--color-accent-600);
+}
+.guide-estimate-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary-800);
+  background: #fff;
+  border: 1px solid var(--color-primary-200);
+  border-radius: 999px;
+}
+.guide-spin { animation: guide-spin 0.9s linear infinite; }
+@keyframes guide-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .guide-action, .guide-action:hover, .guide-action:active { transform: none; transition: none; }
+  .guide-spin { animation: none; }
+}
+
 /* Icon Button */
 .btn-icon {
   display: inline-flex;
