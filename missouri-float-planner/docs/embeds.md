@@ -246,3 +246,14 @@ that mill, so a host can pass back a break's `next` and resume the tour; an
 unknown or filtered-out id opens on the first mill). These, and the message
 types above, are the contract: `display-events.test.ts` fails if this section
 stops naming them.
+
+## Daily Report exports
+
+The social Daily Report captures `RiverEmbed` and `DamEmbed` directly. Their
+optional `report` prop removes interactive footers and the dam disclosure;
+it also limits dam schedules to today. Normal embeds keep their existing
+layout. A scoped export frame adjusts type sizes, adds the capture time in
+Central time and one short factual takeaway, and keeps the chart and dam
+measurement row intact. Report observations show an absolute Central date/time;
+the river header also labels its recent trend window. Normal live embeds retain
+relative ages. See [Daily Report](social-daily-report.md).

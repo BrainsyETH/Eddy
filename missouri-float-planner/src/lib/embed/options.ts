@@ -264,6 +264,13 @@ export function formatRange(min: number | null, max: number | null, unit: Readin
   return `${formatReading(min, unit)}–${formatReading(max, unit)} ${unit}`;
 }
 
+/** An observation time that remains meaningful in a saved social image. */
+export function formatObservedTimestamp(iso: string | null | undefined): string {
+  const at = Date.parse(iso ?? '');
+  if (!Number.isFinite(at)) return 'Observation unavailable';
+  return `Observed ${new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(at))} CT`;
+}
+
 /** "Observed 12 min ago" style ages. Null timestamp → "time unavailable". */
 export function formatObservedAge(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return 'Observation time unavailable';

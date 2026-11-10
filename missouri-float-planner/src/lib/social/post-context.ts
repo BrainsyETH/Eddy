@@ -1,6 +1,7 @@
+import { reportCaption, type DailyReport } from './daily-report';
 import { selectWeekendReads, weekendReadExclusion, weekendReadScenes, weekendReadCaption } from './weekend-read';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
-import { shortSummary, reportStamp } from '@shared/social-editorial';
+import { reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
 // src/lib/social/post-context.ts
 //
@@ -37,7 +38,6 @@ import { hasRainComing, weatherChip, type WeatherChip } from '@/lib/weather/open
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { upcomingHolidayWeekend } from './holiday-weekends';
 import {
-  formatDailyDigestCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
   formatFavoriteFloatCaption,
@@ -135,6 +135,7 @@ async function loadCoverHistory(
 
 export interface PostContext {
   postType: PostKind;
+  carousel?: DailyReport;
   /** Composition input props (consumed by POST_TYPES[kind].renderProps). */
   renderData: RenderData;
   riverSlug: string | null;
@@ -195,38 +196,18 @@ export async function buildPostContext(
   }
 
   if (postType === 'daily_digest') {
-    const deduped = await freshRivers();
-    const { data: globalUpdate } = await supabase
-      .from('eddy_updates')
-      .select('summary_text')
-      .eq('river_slug', 'global')
-      .is('section_slug', null)
-      .gt('expires_at', nowIso)
-      .order('generated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const globalSummary: string | null = globalUpdate?.summary_text || null;
-    const digestHistory = await loadCoverHistory(supabase, new Date(nowIso));
-    const digestArt = illustrationArt(dayIndex(new Date(nowIso)), digestHistory.recentArt);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rivers = (deduped as any[]).map((u) => ({
-      riverName: riverDisplayShort(u.river_slug),
-      conditionCode: u.condition_code,
-      gaugeHeightFt: u.gauge_height_ft,
-    }));
-    // Pin the exact rivers/conditions into the cover URL so Meta's crawl-time
-    // render matches this post instead of re-picking whatever is live then.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pinned = (deduped as any[])
-      .map((u) => `${u.river_slug}:${u.condition_code}:${u.gauge_height_ft ?? ''}`)
-      .join(',');
-    return {
-      postType,
-      riverSlug: null,
-      renderData: { rivers, dateLabel: longDate(), globalQuote: shortSummary(globalSummary) || undefined },
-      caption: (platform, custom) => formatDailyDigestCaption(deduped, globalSummary, custom, platform),
-      imageUrl: (platform) =>
-        og('digest', platform, `&rivers=${encodeURIComponent(pinned)}&art=${artParam(digestArt)}`),
+    const { buildDailyReport } = await import('./daily-report-data');
+    let config = opts.config;
+    if (!config) {
+      const result = await supabase.from('social_config').select('enabled_rivers, disabled_rivers').limit(1).maybeSingle();
+      if (result.error) throw new Error('Daily Report settings could not be loaded');
+      config = result.data ?? {};
+    }
+    const carousel = await buildDailyReport(config ?? {});
+    if (!carousel) return null;
+    return { postType, riverSlug: null, renderData: {}, carousel,
+      caption: () => reportCaption(carousel), imageUrl: () => '',
+      riverSlugs: carousel.slides.flatMap(s => s.kind === 'river' ? [s.data.river.slug] : []),
     };
   }
 

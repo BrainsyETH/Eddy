@@ -21,6 +21,7 @@ import type { EmbedBrandingRecord } from '@/lib/embed/cards';
 import { embedVarPalette } from '@/lib/embed/theme';
 import {
   formatObservedAge,
+  formatObservedTimestamp,
   formatReading,
   headlineReading,
   impressionType,
@@ -50,6 +51,8 @@ interface Props {
   branding: EmbedBrandingRecord | null;
   origin: string;
   now: number;
+  /** Static Daily Report export: keep the chart, omit interactive footer. */
+  report?: boolean;
 }
 
 function utmFor(data: RiverEmbedData, options: EmbedOptions, branding: EmbedBrandingRecord | null) {
@@ -191,9 +194,9 @@ function Card(props: Props) {
           {reading.value != null && <span className="ew-unit">{reading.unit}</span>}
         </span>
         {trend && (
-          <span className="ew-trend-text"><span aria-hidden="true">{TREND_GLYPH[trend]}</span> {TREND_WORD[trend]}</span>
+          <span className="ew-trend-text"><span aria-hidden="true">{TREND_GLYPH[trend]}</span> {TREND_WORD[trend]}{props.report ? ` · ${primary?.trendWindowHours ? `${primary.trendWindowHours}h` : 'recent'}` : ''}</span>
         )}
-        <span className="ew-support ew-reading-age">{formatObservedAge(primary?.readingTimestamp, now)}</span>
+        <span className="ew-support ew-reading-age">{props.report ? formatObservedTimestamp(primary?.readingTimestamp) : formatObservedAge(primary?.readingTimestamp, now)}</span>
       </div>
 
       {primary && (
@@ -239,7 +242,7 @@ function Card(props: Props) {
         </section>
       )}
 
-      <EmbedCredit
+      {!props.report && <EmbedCredit
         origin={origin}
         widget={utm.widget}
         widgetKey={data.river.slug}
@@ -247,7 +250,7 @@ function Card(props: Props) {
         partner={options.partner}
         branding={branding}
         embedId={options.embedId}
-      />
+      />}
     </EmbedFrame>
   );
 }

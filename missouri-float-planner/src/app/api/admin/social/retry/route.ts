@@ -1,4 +1,7 @@
 import { withAdminMutation } from '@/lib/admin/mutation-audit';
+
+import { isDailyReport, reportIsCurrent } from '@/lib/social/daily-report';
+import { triggerReportRender } from '@/lib/social/daily-report-dispatch';
 // Review, retry publication, or rerender the saved composition without changing media type.
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -42,6 +45,15 @@ async function handlePOST(request: NextRequest) {
 
   if (action === 'render') {
     const saved = post.render_request;
+    if (isDailyReport(saved)) {
+      if (!reportIsCurrent(saved)) return NextResponse.json({ error: 'This Daily Report is out of date. Generate a new draft with current readings.' }, { status: 409 });
+      const report = { ...saved, imageUrls: undefined };
+      const { data, error } = await supabase.from('social_posts').update({ status: 'rendering', auto_publish: false, image_url: null, render_request: JSON.parse(JSON.stringify(report)), error_message: null, updated_at: new Date().toISOString() }).eq('id', post.id).eq('status', expected).select('id');
+      if (error || !data?.length) return NextResponse.json({ error: 'Already handled' }, { status: 409 });
+      const dispatched = await triggerReportRender([post.id]).catch(() => false);
+      if (!dispatched) await supabase.from('social_posts').update({ status: 'failed', error_message: 'Carousel render could not start' }).eq('id', post.id).eq('status', 'rendering');
+      return NextResponse.json({ success: dispatched, rendering: dispatched }, { status: dispatched ? 200 : 502 });
+    }
     if (post.media_type !== 'video' || !saved?.compositionId || !saved.inputProps || !saved.outputFilename) {
       return NextResponse.json({ error: 'This older post has no saved render. Generate a new draft; the original remains in history.' }, { status: 409 });
     }
