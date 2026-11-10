@@ -434,6 +434,27 @@ page.
 
 ### Step 2 — Pilot on Table Rock and Truman, web first
 
+*Foundation implemented 2026-11-09: the lake registry
+(`src/lib/lakes/registry.ts`), Eddy's pool record (`lake_pool_readings`,
+written hourly by `/api/cron/sync-lake-levels`), the reviewed-launch table
+(`lake_launches`, migration `20261109224918`, applied to production 2026-11-09), the
+section builder and the "On the lake" card on the two dam pages, below the
+tailwater content. The 43 queue places are staged as unapproved rows by
+`scripts/ingestion/lakes/2026-11-09/stage-launch-candidates.sql`; nothing
+renders until a reviewer approves a row in `/admin/lakes`, which requires a
+method and a source and links the place to an existing access point where
+it is one (the database refuses an approval without a method or a source).
+The card draws a seven-day level chart with the conservation pool as a
+reference, offers directions to each launch, and does not render at all
+without a reading or a reviewed launch. Elevation cautions stay off behind
+`rampCautionsVerified: false` until the Phase 0 item 2 check is recorded,
+and even then require a pool younger than six hours (hourly) or thirty-six
+(daily). The cron calls a lake healthy only with a recent observation and
+takes `?backfillHours=` to fill the chart on its first run. Agency status
+lines wait for the status step (areas and links tables). Previews of both
+pages from a production build are in `docs/visuals/lakes-pilot-2026-11-09/`,
+with what in them is real and what is fixture stated in its README.*
+
 Two lakes, chosen because together they exercise everything the first wave
 will meet. Table Rock has the busiest dam page, strong generation data, and
 ramps that come from three sources at once (MDC on the Missouri side, AGFC
@@ -604,7 +625,7 @@ purpose before it publishes:
 | Corps status freshness | Modified | An unchanged value observed for three weeks is not evidence it is current. Three timestamps (§3); display "Agency lists as <status> · update date unavailable" when the agency gives no date; `Partial` is "Limited access". |
 | Implementation order | Approved | Phase 0 runs now, alongside the dam audit's items 1–3; the pilot follows them. |
 | Hand-launch vocabulary | Approved with changes | Add `hand_launch`; do not reclassify existing gravel bars automatically. |
-| Tailwater versus lake priority | Approved | Tailwater leads on the trout dams; lake leads on lake-focused destinations; neither buries the other, and the two destinations link both ways. |
+| Tailwater versus lake priority | Superseded by experience review | Dam pages always lead with available operations; dedicated lake pages lead with conditions and reviewed launches. Follow LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md. |
 | Rollout size | Modified | Table Rock and Truman first, web first; the other four and iOS after the contract is stable; dedicated lake pages on content and demand, not on status-source coverage. |
 | Launch model | Modified | One physical launch, one identity: `lake_launches` links to an existing access point where the place already exists; launch methods (`trailer`, `hand`) are separate from amenities. |
 | Gates | Modified | Required: verified identity, trustworthy measurements, reviewed launches. Optional: operating range, status source, launch count. Missing optional features render honestly or are omitted. |

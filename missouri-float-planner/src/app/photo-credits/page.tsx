@@ -4,6 +4,7 @@ import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { guidePhotos } from '@/lib/photos/guides';
 import { reviewedPhotos } from '@/lib/photos/reviewed';
+import lakePhotoCredits from '../../../public/lakes/credits.json';
 
 export const metadata: Metadata = publicPageMetadata(
   'Photo credits',
@@ -20,6 +21,18 @@ export default function PhotoCreditsPage() {
         <h1 className="text-4xl font-bold text-neutral-900 mt-6 mb-4">Photo credits</h1>
         <p className="text-neutral-700 mb-8">Place photographs show scenery, not current water or campground conditions. Images may be resized and cropped for display. Government photography does not imply endorsement.</p>
         <div className="space-y-6">
+          {Object.entries(lakePhotoCredits).map(([id, photo]) => (
+            <section key={id} id={id} className="bg-white border border-neutral-200 rounded-lg p-5">
+              <h2 className="text-xl font-semibold text-neutral-900">{photo.title}</h2>
+              <p className="text-neutral-700 mt-2">{photo.credit}</p>
+              <p className="text-sm text-neutral-600 mt-2">{photo.changes}. Adapted copies retain the source photograph’s usage terms.</p>
+              <div className="flex flex-wrap gap-5 mt-3 text-primary-700 underline">
+                <a href={photo.url} target="_blank" rel="noopener noreferrer">Original photograph and rights record</a>
+                <a href={photo.license} target="_blank" rel="noopener noreferrer">License and usage terms</a>
+                <a href={`/lakes/${photo.asset}`}>Eddy’s image copy</a>
+              </div>
+            </section>
+          ))}
           {guidePhotos.map(photo => (
             <section key={photo.riverSlug} id={`guide-${photo.riverSlug}`} className="bg-white border border-neutral-200 rounded-lg p-5">
               <h2 className="text-xl font-semibold text-neutral-900">{photo.caption}</h2>

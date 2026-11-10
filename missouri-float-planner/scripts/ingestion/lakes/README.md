@@ -1,8 +1,11 @@
 # Lakes — Phase 0 records and the recreation-status ledger
 
 Evidence for `docs/LAKES_AND_LAUNCHES_PLAN_2026-11-09.md` step 1 (Phase 0) and
-the audit that reads it, `docs/LAKES_PHASE0_AUDIT_2026-11-09.md`. Nothing in
-this directory is published, approved, pinned, or written to the database.
+the audit that reads it, `docs/LAKES_PHASE0_AUDIT_2026-11-09.md`. The original
+queues are unapproved candidates. The later `2026-11-09/reviewed-pilot/`
+record identifies six source/imagery-researched locations subsequently approved
+by explicit owner instruction, plus real pool history written to production; it does not imply that public lake routes
+have been released.
 
 ## `usace-recreation-ledger.json`
 
@@ -39,8 +42,20 @@ reader is shown the agency's date or "update date unavailable"
 | `nwk-boat-ramps-snapshot.json` | The complete Kansas City District ramp layer as retrieved (224 ramps) |
 | `nwk-ramps-summary.md`, `nwk-ramps-<lake>.md/.json` | Ramp-bottom and closure elevations checked against each lake's documented pools; a flag is a question, not a verdict |
 | `launch-queue-table-rock.*`, `launch-queue-truman.*` | Launch review queues: agency and district ramp features within 500 m of the 3DHP lake polygon, clustered into places, matched to Corps areas and to access points Eddy already carries |
+| `stage-launch-candidates.sql` | The two queues as UNAPPROVED `lake_launches` rows with no launch method (`scripts/lakes/stage-launch-candidates.ts`); approval, methods, amenities and the access-point link are a reviewer's work. Execute only against the confirmed Eddy project, after migration `20261109224918` |
 | `lake-polygons/*.geojson` | USGS 3DHP waterbody polygons (layer 60) for Table Rock, Truman and Stockton, generalised to 0.0001° |
 | `existing-access-points-near-pilot-lakes.json` | A read-only production query of access points inside the two lakes' bounding boxes, recorded with the query |
+
+## Reviewing launches
+
+Once migration `20261109224918` is applied and `stage-launch-candidates.sql`
+has run, `/admin/lakes` lists every staged place by lake. For each row the
+human reviewer checks the location on imagery (link on the row), sets the launch
+method (trailer, hand, or both), the amenities and the agency, pastes the id
+of the access point the place already is when it is one, and publishes. The
+API and the table both refuse to publish a row with no method or no source.
+The lake page shows approved launches only. A separate dam-experience gate
+controls the compact lake preview; data availability does not release it.
 
 ## Reproduce
 

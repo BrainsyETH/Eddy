@@ -14,6 +14,8 @@
  * (docs/LAKES_AND_LAUNCHES_PLAN_2026-11-09.md §5).
  */
 
+import { rampCaution as sharedRampCaution, type RampCaution } from '../../shared/lake-status';
+
 export const NWK_BOAT_RAMPS_SOURCE = {
   url: 'https://geospatial.sec.usace.army.mil/server/rest/services/Hosted/NWK_Boat_Ramps/FeatureServer/0',
   objectId: 'objectid',
@@ -127,32 +129,17 @@ export function assessRamp(ramp: Ramp, lake: LakePoolReference): RampFlag[] {
   return flags;
 }
 
-export type RampCaution = 'low_water' | 'high_water';
-
-export const RAMP_CAUTION_COPY: Record<RampCaution, { title: string; body: string; basis: string }> = {
-  low_water: {
-    title: 'Low-water caution',
-    body: "The latest lake level is below this ramp's published lower elevation. Launching may be difficult or unavailable.",
-    basis: 'Based on published elevation thresholds, not an official closure report.',
-  },
-  high_water: {
-    title: 'High-water caution',
-    body: 'The latest lake level is above the elevation at which this ramp is closed.',
-    basis: 'Based on published elevation thresholds, not an official closure report.',
-  },
-};
+export { RAMP_CAUTION_COPY, type RampCaution } from '../../shared/lake-status';
 
 /**
- * The caution a pool reading produces for a ramp, or null. Requires both
- * thresholds and a pool in the same datum; a missing threshold is "no
- * thresholds published", never a caution and never a clearance.
+ * The caution a pool reading produces for a ramp, or null: the shared rule
+ * (shared/lake-status.ts, the one the page uses) applied to a layer row.
  */
 export function rampCaution(pool: { elevation_ft: number; datum: LakePoolReference['datum'] }, ramp: Ramp, rampDatum: LakePoolReference['datum']): RampCaution | null {
-  if (pool.datum !== rampDatum) throw new Error('Pool and ramp thresholds are in different datums');
-  if (ramp.ramp_bottom_elev_ft === null || ramp.ramp_closure_elev_ft === null) return null;
-  if (pool.elevation_ft < ramp.ramp_bottom_elev_ft) return 'low_water';
-  if (pool.elevation_ft > ramp.ramp_closure_elev_ft) return 'high_water';
-  return null;
+  return sharedRampCaution(
+    { elevationFt: pool.elevation_ft, datum: pool.datum },
+    { bottomFt: ramp.ramp_bottom_elev_ft, closureFt: ramp.ramp_closure_elev_ft, datum: rampDatum },
+  );
 }
 
 /**

@@ -21,8 +21,15 @@ status nobody has looked at since 2022.
 1. **A lake is an entity, separate from its dam.** A code registry carries its
    identity, controlling structures (a list with roles), pool source, datum
    and optional operating range. Dam URLs, titles and charts are unchanged.
-   Dam pages lead with generation and the water below; lake surfaces lead with
-   elevation, launches, facilities and restrictions; they link both ways.
+   Dam pages always lead with their available operations, including on Truman.
+   Conditions and operational interpretation precede the compact lake preview.
+   Lake pages put conditions then reviewed launches first. Both destinations
+   link only when the dedicated lake page has passed its public release gate.
+   The dam photo header, replacement conditions card and lake preview have
+   their own explicit release gate. Registry membership or recorded history
+   never enables them. Background collection may run while both UI gates
+   remain closed. See
+   `missouri-float-planner/docs/LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md`.
 2. **Three timestamps, never conflated.** `source_updated_at` is the agency's
    date and the only one a reader sees as such. `first_observed_at` is when
    Eddy first saw a value; `last_checked_at` is the fetch. A status with no
@@ -39,12 +46,19 @@ status nobody has looked at since 2022.
    published bottom and closure elevations against the pool, in one named
    datum, yield a low-water or a high-water caution in fixed wording that says
    it is based on published thresholds and not an official closure report.
-   Missing thresholds mean "not published", not "fine".
+   Threshold values, calculated cautions and the caution explanation are
+   withheld until the lake passes threshold review. Missing thresholds mean
+   "not published", not "fine".
 6. **One physical launch has one identity.** A lake launch that is already an
    access point links to it and borrows its name, photos, favorites and
    facilities. Launch methods (`trailer`, `hand`) are a human decision and are
    separate from amenities; existing river access points are not reclassified
-   by machine.
+   by machine. Agent source and imagery research may prepare proposals, but
+   a human decision is required to set methods and approve a location, normally
+   through `/admin/lakes`. An explicit owner instruction accepting specified
+   prepared records and methods may also be applied by an agent, with the
+   approval basis and executor recorded in the review notes and admin audit.
+   Do not describe that acceptance as an independent human inspection.
 7. **Gates require identity, measurements and reviewed launches.** An
    operating range, a status source and a launch count are optional and render
    honestly or are omitted.

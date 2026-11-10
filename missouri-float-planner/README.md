@@ -417,6 +417,37 @@ Screenshots go to
 `/tmp/eddy-dam-page` (override with `DAM_SMOKE_OUTPUT`); no live dam data is needed.
 Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run just the dam-to-app flow.
 
+### Lake and dam pilots
+
+Truman and Table Rock keep generation first, followed by a shared measurement
+row, Eddy's Read and operational forecasts/patterns. The lake preview follows
+those operations; launch directories live on the dedicated lake page. On portrait
+phones, the pilot generation card puts the schedule above the observed readings. Other
+dam pages keep their existing layout. The compact pilot headers reuse the
+attributed iOS photographs; web copies and provenance live in `public/lakes/`.
+Photo attribution is shown on `/photo-credits`, available through the shared
+footer, rather than beneath each pilot header image.
+
+`/lakes/[slug]` combines the same dam pool observation with recorded history and
+reviewed launch locations. Daily reports use a 36-hour freshness limit; hourly
+observations use six hours. Movement ends at the displayed observation, and
+stale observations cannot produce current movement or elevation cautions.
+Reviewed launch locations are not live opening/closure reports.
+
+`src/lib/lakes/public-pages.ts` is the shared publication gate for lake routes,
+dam links, Conditions discovery and the sitemap. It starts empty. Add a pilot
+only after the migration, real history and useful reviewed launch coverage
+meet `docs/LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md`. Publication is a release
+decision: a later data outage renders unavailable states, not a disappearing
+route. Existing dam canonical URLs and the embed/iOS contracts are retained.
+
+`npm run test:lakes` checks fixture pages at 1440, 768, 390 and 320 pixels,
+including the generation-first order, shared observation times, daily cadence,
+launch filters, map keyboard selection, chart controls and missing/stale data.
+It uses port 3141 and the same Chromium setup as `test:dam-page`. Temporary
+fixtures are development-only and removed on exit; screenshots are clearly
+labelled as fixtures and written to `/tmp/eddy-lakes` (`LAKES_SMOKE_OUTPUT`).
+
 ## Supported Rivers
 
 The launch set was eight Missouri rivers (Meramec, Current, Eleven Point,

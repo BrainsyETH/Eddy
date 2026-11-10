@@ -5,6 +5,7 @@ import { MetadataRoute } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
 import { listDamIds } from '@/lib/data/dams';
+import { publishedLakes } from '@/lib/lakes/public-pages';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -32,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily' as const,
       priority: 0.6,
     })),
+    ...publishedLakes().map(lake => ({ url: `${BASE_URL}/lakes/${lake.slug}`, changeFrequency: 'daily' as const, priority: 0.6 })),
     { url: `${BASE_URL}/blog`, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/about`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/coverage`, changeFrequency: 'monthly', priority: 0.5 },
