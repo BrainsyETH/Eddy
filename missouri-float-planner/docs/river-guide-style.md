@@ -217,6 +217,31 @@ requested explicitly from the existing planner; reading a guide does not run
 a calculation for every route. Dangerous/regulated responses withhold the
 estimate; missing current readings are labelled as planning estimates.
 
+A guide for a river that a dam controls gets a “Dam releases” section after the
+gauge, with no per-guide content: `guideDam()` reads the static dam registry.
+A dam with a powerhouse shows the live `/embed/dam` schedule and a link to the
+embed page; one without (Clearwater, on the Black) shows a link to its dam
+report only, because it has no hourly schedule to draw. The section states
+what the dam is doing and never says the water is safe to wade or float.
+
+### Tailwater guides
+
+A guide for a river below a hydro dam (`tailwaterGuideSeeds`, starting with the
+White below Bull Shoals) leads with the dam, not the calendar. The rules that
+differ from a float guide:
+
+- Route cards carry mapped miles and no float time. Speed depends on the
+  release, and the planner withholds a time on a regulated river too.
+- “When to go” rows describe the river by what the dam is doing (generators
+  off, coming up, generating), not by month.
+- State what the dam does and what Eddy has measured. Never say the water is
+  safe, wadeable at a given release, or fine at a given hour.
+  `tailwater-guide.test.ts` guards the disclaimer and the banned phrasings.
+- Give fishing limits only from a dated agency notice, with the effective date
+  in the sentence. Tailwater trout rules have changed more than once.
+- The seed script inserts these as new posts (`insertableGuideSeeds`); they are
+  not part of the refresh baseline until they are published.
+
 Run `npm run test:guides` for fixture-backed desktop, 390px and 320px checks.
 App CI runs it using its existing Chromium installation and uploads the previews.
 It exercises the actual guide presentation, map selection, planner estimates,
