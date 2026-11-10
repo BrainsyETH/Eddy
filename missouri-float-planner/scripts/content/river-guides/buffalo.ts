@@ -69,7 +69,16 @@ export default {
         "photo": null,
         "body": "Eight miles under the upper river’s bluffs, from Steel Creek to Kyles Landing. It needs rain, so this is mostly a spring float; do not count on it in summer. Save directions to both accesses before you lose signal, and allow time for the shuttle through the hills.",
         "time": "About 3 hr",
-        "diff": "I–II"
+        "diff": "I–II",
+        "photo_detail": {
+          "url": "/images/river-guides/buffalo-canoe-roark.webp",
+          "alt": "The bow of a canoe on the Buffalo River with Roark Bluff ahead.",
+          "caption": "A canoe on the Buffalo River below Roark Bluff, near Steel Creek.",
+          "author": "National Park Service",
+          "source_url": "https://commons.wikimedia.org/wiki/File:The_front_of_a_canoe_with_the_murky_Buffalo_River_and_glimmering_Roark_Bluff_ahead_(ba99f71e-4317-4e13-a37f-c3303610944b).JPG",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:The_front_of_a_canoe_with_the_murky_Buffalo_River_and_glimmering_Roark_Bluff_ahead_(ba99f71e-4317-4e13-a37f-c3303610944b).JPG"
+        }
       },
       {
         "id": 2,
@@ -83,7 +92,16 @@ export default {
         "photo": null,
         "body": "5.4 miles from Tyler Bend to Gilbert, in the middle of the park. Short enough for long gravel-bar stops. Use the St. Joe gauge.",
         "time": "About 2 hr",
-        "diff": "I–II"
+        "diff": "I–II",
+        "photo_detail": {
+          "url": "/images/river-guides/tyler-bend-bluff.webp",
+          "alt": "Green water below a bluff and autumn trees at Tyler Bend.",
+          "caption": "Fall color along the bluff at Tyler Bend.",
+          "author": "National Park Service",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Fall_colors_along_Tyler_Bend_bluff._(75786def-fbef-46ec-9d00-b4c17c8ef716).JPG",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:Fall_colors_along_Tyler_Bend_bluff._(75786def-fbef-46ec-9d00-b4c17c8ef716).JPG"
+        }
       },
       {
         "id": 3,
@@ -97,13 +115,31 @@ export default {
         "photo": null,
         "body": "8.9 miles from Dillards Ferry, past Buffalo Point, to Rush. Take out at Rush. Below it the river runs a long, remote stretch to the White River, and that is a different trip.",
         "time": "About 3½ hr",
-        "diff": "I–II"
+        "diff": "I–II",
+        "photo_detail": {
+          "url": "/images/river-guides/buffalo-point-aerial.webp",
+          "alt": "Aerial view of the Buffalo River curving past wooded hills at Buffalo Point.",
+          "caption": "Buffalo Point from the air.",
+          "author": "National Park Service",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Aerial_view_of_Buffalo_Point._(b0d84010-0d11-4271-adcd-86b6d1b358f3).jpg",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:Aerial_view_of_Buffalo_Point._(b0d84010-0d11-4271-adcd-86b6d1b358f3).jpg"
+        }
       }
     ],
     "springs": [
       {
         "name": "Steel Creek bluffs",
-        "note": "You can see the bluffs from the campground and the river bank without floating at all. Get there early, before the shuttle traffic."
+        "note": "You can see the bluffs from the campground and the river bank without floating at all. Get there early, before the shuttle traffic.",
+        "photo": {
+          "url": "/images/river-guides/roark-bluff.webp",
+          "alt": "The Buffalo River running over a shallow shoal below Roark Bluff.",
+          "caption": "The Buffalo River at the base of Roark Bluff, at Steel Creek.",
+          "author": "National Park Service",
+          "source_url": "https://commons.wikimedia.org/wiki/File:The_Buffalo_River_runs_along_a_shallow_shoal_at_the_base_of_Roark_Bluff_at_Steel_Creek_(53922189-8abb-46f6-8988-d646bcbeabdf).JPG",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:The_Buffalo_River_runs_along_a_shallow_shoal_at_the_base_of_Roark_Bluff_at_Steel_Creek_(53922189-8abb-46f6-8988-d646bcbeabdf).JPG"
+        }
       },
       {
         "name": "Tyler Bend trails",

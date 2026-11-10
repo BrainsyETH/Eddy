@@ -110,7 +110,16 @@ export default {
         "mile": "30",
         "name": "Bennett Spring",
         "note": "Missouri's 4th-largest spring at about 100 million gallons a day, at Bennett Spring State Park — one of the state's four trout parks, stocked daily in season. Its spring branch adds cold water to the Niangua.",
-        "rank": "MO #4"
+        "rank": "MO #4",
+        "photo": {
+          "url": "/images/river-guides/bennett-spring.webp",
+          "alt": "An angler fly-fishing in clear water below the stone bridge at Bennett Spring State Park.",
+          "caption": "Fishing below the stone bridge at Bennett Spring State Park.",
+          "author": "Missouri State Parks",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Bennett_-_bridge.jpg",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:Bennett_-_bridge.jpg"
+        }
       },
       {
         "mile": "56",

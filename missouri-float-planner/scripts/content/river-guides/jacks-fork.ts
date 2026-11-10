@@ -122,7 +122,16 @@ export default {
         "mile": "31",
         "name": "Alley Spring & Mill",
         "note": "Walk-up NPS interpretive site at the lower put-in — the spring's blue pool and the iconic red 1894 roller mill.",
-        "rank": "MO #7"
+        "rank": "MO #7",
+        "photo": {
+          "url": "/images/river-guides/alley-spring-mill.webp",
+          "alt": "The red Alley Mill beside the blue pool of Alley Spring.",
+          "caption": "Alley Spring and its red mill.",
+          "author": "16porkchops",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Alley_Spring_and_Mill_in_November_2021.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       }
     ],
     "callouts": {

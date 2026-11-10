@@ -95,7 +95,16 @@ export default {
     "springs": [
       {
         "name": "Washington State Park petroglyphs",
-        "note": "The park’s rock carvings are a short walk on marked trails. See them on foot, before or after the float."
+        "note": "The park’s rock carvings are a short walk on marked trails. See them on foot, before or after the float.",
+        "photo": {
+          "url": "/images/river-guides/washington-petroglyphs.webp",
+          "alt": "Rock carvings on a flat stone surface at Washington State Park.",
+          "caption": "Petroglyphs at Washington State Park.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Washington_State_Park_MO_petroglyphs-04.jpg",
+          "license": "CC BY-SA 3.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
+        }
       }
     ],
     "seasons": [

@@ -76,7 +76,16 @@ export default {
     "springs": [
       {
         "name": "Mammoth Spring State Park",
-        "note": "See the spring and the historic park buildings on foot. The dam at the spring is for looking at, not launching from."
+        "note": "See the spring and the historic park buildings on foot. The dam at the spring is for looking at, not launching from.",
+        "photo": {
+          "url": "/images/river-guides/mammoth-spring.webp",
+          "alt": "Water flowing downstream from the spillway at Mammoth Spring State Park.",
+          "caption": "Looking downstream from the spillway at Mammoth Spring State Park.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Mammoth_Spring_SP_005.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        }
       }
     ],
     "seasons": [

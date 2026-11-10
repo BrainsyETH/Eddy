@@ -63,7 +63,16 @@ export default {
         "miles": "4.6",
         "best": "The one boat drift, top to bottom",
         "photo": null,
-        "body": "From the Corps of Engineers ramp at Dam-Quarry to the Norfork ramp on the White, just below where the two rivers meet. It is the whole tailwater in one drift. There is no float time on this card because the speed of the river depends on how many generators are running."
+        "body": "From the Corps of Engineers ramp at Dam-Quarry to the Norfork ramp on the White, just below where the two rivers meet. It is the whole tailwater in one drift. There is no float time on this card because the speed of the river depends on how many generators are running.",
+        "photo_detail": {
+          "url": "/images/river-guides/norfork-tailwater-river.webp",
+          "alt": "The North Fork River running between wooded banks below Norfork Dam.",
+          "caption": "The Norfork Tailwater, downstream from Norfork Dam.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:North_Fork_White_River_downstream_from_Norfork_Dam.jpg",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
+        }
       }
     ],
     "springs": [
@@ -73,7 +82,16 @@ export default {
       },
       {
         "name": "Norfork National Fish Hatchery and Dry Run Creek",
-        "note": "The federal hatchery just below the dam, with an access on Dry Run Creek beside it."
+        "note": "The federal hatchery just below the dam, with an access on Dry Run Creek beside it.",
+        "photo": {
+          "url": "/images/river-guides/norfork-hatchery.webp",
+          "alt": "Long concrete raceways full of water at the Norfork National Fish Hatchery.",
+          "caption": "Raceways at the Norfork National Fish Hatchery.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Norfork_National_Fish_Hatchery_raceways.jpg",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
+        }
       },
       {
         "name": "Bill Ackerman River Ridge Access",

@@ -159,7 +159,16 @@ export default {
         "mile": "90.2",
         "name": "Big Spring",
         "note": "One of the largest single-outlet springs in the United States. Reliably blue, surrounded by old CCC stonework.",
-        "rank": "MO #1"
+        "rank": "MO #1",
+        "photo": {
+          "url": "/images/river-guides/big-spring.webp",
+          "alt": "Blue water welling out from the base of a rock bluff at Big Spring.",
+          "caption": "Big Spring, south of Van Buren.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Big_Spring_Missouri_1-02Aug08.jpg",
+          "license": "CC BY-SA 3.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
+        }
       }
     ],
     "callouts": {

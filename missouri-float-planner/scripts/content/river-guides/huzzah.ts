@@ -108,7 +108,16 @@ export default {
       {
         "mile": "0.1",
         "name": "Dillard Mill",
-        "note": "One of Missouri's best-preserved water-powered gristmills — a red mill on Huzzah Creek run as a State Historic Site, with tours in season. The headwater put-in."
+        "note": "One of Missouri's best-preserved water-powered gristmills — a red mill on Huzzah Creek run as a State Historic Site, with tours in season. The headwater put-in.",
+        "photo": {
+          "url": "/images/river-guides/dillard-mill.webp",
+          "alt": "The dark red Dillard Mill above the rocky bank of Huzzah Creek.",
+          "caption": "Dillard Mill, seen from the bank of Huzzah Creek.",
+          "author": "Grey Wanderer",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Dillard_Mill_State_Historic_site_exterior_taken_on_9-24-17.jpg",
+          "license": "CC BY-SA 3.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
+        }
       },
       {
         "mile": "8.3",

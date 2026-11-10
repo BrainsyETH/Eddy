@@ -97,7 +97,16 @@ export default {
         "photo": null,
         "body": "4.9 miles from H. L. Kerr to the Ralph Cox Memorial Access at Galena’s Y-Bridge. The ramp is the take-out, not the bridge itself.",
         "time": "About 2 hr",
-        "diff": "I"
+        "diff": "I",
+        "photo_detail": {
+          "url": "/images/river-guides/galena-y-bridge.webp",
+          "alt": "The Y-Bridge over the James River at Galena.",
+          "caption": "The Y-Bridge at Galena, looking toward town, in 2002.",
+          "author": "Rt66lt",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Y-Bridge_2.JPG",
+          "license": "CC BY-SA 3.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/3.0"
+        }
       }
     ],
     "springs": [],

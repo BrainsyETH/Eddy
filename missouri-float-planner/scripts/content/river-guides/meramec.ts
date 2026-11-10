@@ -115,7 +115,16 @@ export default {
       {
         "mile": "68",
         "name": "Onondaga Cave",
-        "note": "A National Natural Landmark show cave at Onondaga Cave State Park, right at the river access. Guided walking tours run April–October, about an hour underground."
+        "note": "A National Natural Landmark show cave at Onondaga Cave State Park, right at the river access. Guided walking tours run April–October, about an hour underground.",
+        "photo": {
+          "url": "/images/river-guides/onondaga-cave.webp",
+          "alt": "Lit cave formations inside Onondaga Cave.",
+          "caption": "Inside Onondaga Cave.",
+          "author": "Missouri State Parks",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Onondaga_Cave_State_Park_-_54291159756.jpg",
+          "license": "Public domain",
+          "license_url": "https://commons.wikimedia.org/wiki/File:Onondaga_Cave_State_Park_-_54291159756.jpg"
+        }
       },
       {
         "mile": "~85",
