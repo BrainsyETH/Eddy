@@ -3,7 +3,7 @@
 // src/components/admin/GeographyEditor.tsx
 // Main geography editor component with improved state management
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Plus, MousePointer2, X, Save, Trash2, ExternalLink, MapPin, Navigation, Eye, EyeOff, ImagePlus, Link2, Loader2, Upload, Pencil, Landmark } from 'lucide-react';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import Link from 'next/link';
@@ -16,13 +16,13 @@ import CreatePOIModal from './CreatePOIModal';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 import { POI_TYPES } from '@/constants';
+import { stageMove, type StagedMove } from '@/lib/access-points/edit-diff';
 
 type EditMode = 'access-points' | 'river-visibility' | 'pois';
 
 interface EditState {
   mode: EditMode;
   selectedRiverId: string | null;
-  unsavedChanges: Set<string>;
 }
 
 interface River {
@@ -36,6 +36,8 @@ interface River {
 
 interface AccessPoint {
   id: string;
+  /** Version marker from the API, echoed back so a stale save is refused. */
+  updatedAt?: string | null;
   riverId: string;
   name: string;
   slug: string;
@@ -76,13 +78,21 @@ export default function GeographyEditor() {
   const [editState, setEditState] = useState<EditState>({
     mode: 'access-points',
     selectedRiverId: null,
-    unsavedChanges: new Set(),
   });
   const [rivers, setRivers] = useState<River[]>([]);
   const [accessPoints, setAccessPoints] = useState<AccessPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Marker drags wait here until the operator presses Save. Nothing in this
+  // map is written to the database until then, and Cancel simply drops it.
+  const [stagedMoves, setStagedMoves] = useState<Map<string, StagedMove>>(new Map());
+  const [savingMoveIds, setSavingMoveIds] = useState<Set<string>>(new Set());
+  const [moveErrors, setMoveErrors] = useState<Map<string, string>>(new Map());
+  // River awaiting a "hide from the public app" confirmation, and any failure.
+  const [confirmHideRiverId, setConfirmHideRiverId] = useState<string | null>(null);
+  const [visibilityBusyId, setVisibilityBusyId] = useState<string | null>(null);
+  const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const [addMode, setAddMode] = useState(false);
   const [pendingCoords, setPendingCoords] = useState<{ lng: number; lat: number } | null>(null);
   const [selectedAccessPoint, setSelectedAccessPoint] = useState<AccessPoint | null>(null);
@@ -187,11 +197,19 @@ export default function GeographyEditor() {
         const dataChanged =
           updatedPoint.name !== selectedAccessPoint.name ||
           updatedPoint.riverMile !== selectedAccessPoint.riverMile ||
-          updatedPoint.approved !== selectedAccessPoint.approved;
+          updatedPoint.approved !== selectedAccessPoint.approved ||
+          updatedPoint.updatedAt !== selectedAccessPoint.updatedAt;
 
         if (coordsChanged || dataChanged) {
           setSelectedAccessPoint(updatedPoint);
-          setEditingDetails(prev => prev ? { ...prev, ...updatedPoint } : { ...updatedPoint });
+          // Fold in only what the server owns. Spreading the whole row here
+          // overwrote text the operator was still typing in the side panel
+          // whenever the list reloaded.
+          setEditingDetails(prev =>
+            prev
+              ? { ...prev, coordinates: updatedPoint.coordinates, approved: updatedPoint.approved, updatedAt: updatedPoint.updatedAt }
+              : { ...updatedPoint }
+          );
         }
       }
     }
@@ -201,31 +219,132 @@ export default function GeographyEditor() {
     loadData(true);
   }, [loadData]);
 
-  const handleSave = async () => {
-    // Save all unsaved changes
-    // This will be implemented in child components
-    setEditState((prev) => ({
-      ...prev,
-      unsavedChanges: new Set(),
-    }));
-    await loadData(true);
-  };
+  const handleStageAccessPointMove = useCallback(
+    (point: AccessPoint, to: { lng: number; lat: number }) => {
+      setMoveErrors((prev) => {
+        if (!prev.has(point.id)) return prev;
+        const next = new Map(prev);
+        next.delete(point.id);
+        return next;
+      });
+      setStagedMoves((prev) =>
+        stageMove(prev, point.id, {
+          kind: 'access-point',
+          name: point.name,
+          from: point.coordinates.orig,
+          to,
+          expectedUpdatedAt: point.updatedAt,
+        })
+      );
+    },
+    []
+  );
 
-  const handleCancel = () => {
-    setEditState((prev) => ({
-      ...prev,
-      unsavedChanges: new Set(),
-    }));
-    loadData(true);
-  };
-
-  const handleUpdate = useCallback((id: string) => {
-    setEditState((prev) => {
-      const newSet = new Set(prev.unsavedChanges);
-      newSet.add(id);
-      return { ...prev, unsavedChanges: newSet };
+  const handleStagePOIMove = useCallback((poi: POI, to: { lng: number; lat: number }) => {
+    setMoveErrors((prev) => {
+      if (!prev.has(poi.id)) return prev;
+      const next = new Map(prev);
+      next.delete(poi.id);
+      return next;
     });
+    setStagedMoves((prev) =>
+      stageMove(prev, poi.id, {
+        kind: 'poi',
+        name: poi.name,
+        from: { lng: poi.longitude, lat: poi.latitude },
+        to,
+      })
+    );
   }, []);
+
+  // Writes each staged move. A move that saves leaves the staged set; one that
+  // fails stays staged with its reason shown, so nothing is silently dropped.
+  const handleSaveMoves = async () => {
+    const moves = Array.from(stagedMoves.entries());
+    if (moves.length === 0) return;
+    setSavingMoveIds(new Set(moves.map(([id]) => id)));
+    const errors = new Map<string, string>();
+    const saved: string[] = [];
+
+    for (const [id, move] of moves) {
+      try {
+        const response = await adminFetch(
+          move.kind === 'poi' ? `/api/admin/pois/${id}` : `/api/admin/access-points/${id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              latitude: move.to.lat,
+              longitude: move.to.lng,
+              ...(move.kind === 'access-point' && move.expectedUpdatedAt
+                ? { expectedUpdatedAt: move.expectedUpdatedAt }
+                : {}),
+            }),
+          }
+        );
+        if (response.ok) {
+          saved.push(id);
+        } else {
+          const data = await response.json().catch(() => ({}));
+          errors.set(id, data.error || `Save failed (${response.status})`);
+        }
+      } catch {
+        errors.set(id, 'Network error — not saved');
+      }
+    }
+
+    setStagedMoves((prev) => {
+      const next = new Map(prev);
+      saved.forEach((id) => next.delete(id));
+      return next;
+    });
+    setMoveErrors(errors);
+    setSavingMoveIds(new Set());
+    if (saved.length > 0) await loadData(true);
+  };
+
+  // Cancel is exact: the saved coordinates were never touched, so dropping the
+  // staged set puts every marker back where the database has it.
+  const handleCancelMoves = () => {
+    setStagedMoves(new Map());
+    setMoveErrors(new Map());
+  };
+
+  // Warn before a reload or tab close throws away staged moves.
+  useEffect(() => {
+    if (stagedMoves.size === 0) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [stagedMoves.size]);
+
+  const setRiverVisibility = async (river: River, active: boolean) => {
+    setVisibilityBusyId(river.id);
+    setVisibilityError(null);
+    try {
+      const response = await adminFetch(`/api/admin/rivers/${river.id}/visibility`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed (${response.status})`);
+      }
+      setRivers((prev) => prev.map((r) => (r.id === river.id ? { ...r, active } : r)));
+    } catch (err) {
+      setVisibilityError(
+        `${river.name} is still ${river.active ? 'visible' : 'hidden'}: ${err instanceof Error ? err.message : 'could not update visibility'}`
+      );
+    } finally {
+      setVisibilityBusyId(null);
+      setConfirmHideRiverId(null);
+    }
+  };
+
+  const failedMoveIds = useMemo(() => new Set(moveErrors.keys()), [moveErrors]);
 
   const handleMapClick = useCallback((coords: { lng: number; lat: number }) => {
     if (addMode) {
@@ -326,6 +445,8 @@ export default function GeographyEditor() {
           officialSiteUrl: editingDetails.officialSiteUrl,
           localTips: editingDetails.localTips,
           nearbyServices: editingDetails.nearbyServices,
+          // Refused with a 409 if the record changed since this panel loaded it.
+          ...(selectedAccessPoint.updatedAt ? { expectedUpdatedAt: selectedAccessPoint.updatedAt } : {}),
         }),
       });
 
@@ -942,26 +1063,35 @@ export default function GeographyEditor() {
             </div>
           )}
 
-          {editState.unsavedChanges.size > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-sm text-amber-800">
-                {editState.unsavedChanges.size} unsaved change
-                {editState.unsavedChanges.size > 1 ? 's' : ''}
+          {stagedMoves.size > 0 && (
+            <div role="status" className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-amber-800">
+                {stagedMoves.size} location {stagedMoves.size > 1 ? 'changes' : 'change'} not saved yet
               </p>
+              <ul className="mt-1 space-y-1 text-xs text-amber-900">
+                {Array.from(stagedMoves.entries()).map(([id, move]) => (
+                  <li key={id}>
+                    {move.name}
+                    {moveErrors.has(id) && (
+                      <span className="block text-red-700">Not saved: {moveErrors.get(id)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
               <div className="flex gap-2 mt-2">
                 <button
-                  onClick={handleSave}
-                  disabled={refreshing}
+                  onClick={handleSaveMoves}
+                  disabled={savingMoveIds.size > 0}
                   className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Save All
+                  {savingMoveIds.size > 0 ? 'Saving…' : stagedMoves.size > 1 ? 'Save locations' : 'Save location'}
                 </button>
                 <button
-                  onClick={handleCancel}
-                  disabled={refreshing}
+                  onClick={handleCancelMoves}
+                  disabled={savingMoveIds.size > 0}
                   className="px-3 py-1.5 bg-neutral-200 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Cancel
+                  Cancel — put markers back
                 </button>
               </div>
             </div>
@@ -994,7 +1124,10 @@ export default function GeographyEditor() {
       {editState.mode === 'access-points' && (
         <AccessPointEditor
           accessPoints={filteredAccessPoints}
-          onUpdate={handleUpdate}
+          stagedMoves={stagedMoves}
+          onStageMove={handleStageAccessPointMove}
+          savingMoveIds={savingMoveIds}
+          failedMoveIds={failedMoveIds}
           onRefresh={handleRefresh}
           addMode={addMode}
           onMapClick={handleMapClick}
@@ -1007,7 +1140,9 @@ export default function GeographyEditor() {
       {editState.mode === 'pois' && (
         <POIEditor
           pois={filteredPois}
-          onRefresh={handleRefresh}
+          stagedMoves={stagedMoves}
+          onStageMove={handleStagePOIMove}
+          savingMoveIds={savingMoveIds}
           addMode={addMode}
           onMapClick={handlePOIMapClick}
           onSelectPOI={handleSelectPOI}
@@ -1029,6 +1164,12 @@ export default function GeographyEditor() {
             Control which rivers are visible in the public app. Only active rivers will appear in the river selector and on the map.
           </p>
 
+          {visibilityError && (
+            <p role="alert" className="mb-3 rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+              {visibilityError}
+            </p>
+          )}
+
           <div className="space-y-2">
             {rivers.map((river) => (
               <div
@@ -1049,39 +1190,42 @@ export default function GeographyEditor() {
                     {river.lengthMiles.toFixed(1)} mi
                   </p>
                 </div>
-                <button
-                  onClick={async () => {
-                    try {
-                      const response = await adminFetch(`/api/admin/rivers/${river.id}/visibility`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ active: !river.active }),
-                      });
-
-                      if (!response.ok) {
-                        throw new Error('Failed to update visibility');
-                      }
-
-                      // Update local state
-                      setRivers((prev) =>
-                        prev.map((r) =>
-                          r.id === river.id ? { ...r, active: !r.active } : r
-                        )
-                      );
-                    } catch (err) {
-                      console.error('Error updating river visibility:', err);
-                      alert('Failed to update river visibility');
-                    }
-                  }}
-                  className={`ml-3 p-2 rounded-lg transition-colors ${
-                    river.active
-                      ? 'bg-green-500 text-white hover:bg-green-600'
-                      : 'bg-bluff-300 text-bluff-600 hover:bg-bluff-400'
-                  }`}
-                  title={river.active ? 'Hide river' : 'Show river'}
-                >
-                  {river.active ? <Eye size={16} /> : <EyeOff size={16} />}
-                </button>
+                {confirmHideRiverId === river.id ? (
+                  <div className="ml-3 flex flex-col items-end gap-1">
+                    <span className="text-xs text-red-700 text-right">Hide from the public app?</span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setRiverVisibility(river, false)}
+                        disabled={visibilityBusyId === river.id}
+                        className="px-2 py-1 rounded bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Hide {river.name}
+                      </button>
+                      <button
+                        onClick={() => setConfirmHideRiverId(null)}
+                        className="px-2 py-1 rounded bg-neutral-200 text-neutral-700 text-xs font-medium hover:bg-neutral-300"
+                      >
+                        Keep visible
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    // Hiding removes the river from the public app, so it asks
+                    // first. Showing one again is harmless and immediate.
+                    onClick={() => (river.active ? setConfirmHideRiverId(river.id) : setRiverVisibility(river, true))}
+                    disabled={visibilityBusyId === river.id}
+                    aria-label={river.active ? `Hide ${river.name} from the public app` : `Show ${river.name} in the public app`}
+                    className={`ml-3 p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                      river.active
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-bluff-300 text-bluff-600 hover:bg-bluff-400'
+                    }`}
+                    title={river.active ? 'Hide river' : 'Show river'}
+                  >
+                    {river.active ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                )}
               </div>
             ))}
           </div>
