@@ -3,11 +3,12 @@
 // src/app/admin/access-points/[id]/page.tsx
 // Comprehensive access point editor with all detail fields
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminFetch } from '@/hooks/useAdminAuth';
+import { changedFields } from '@/lib/access-points/edit-diff';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
@@ -64,7 +65,20 @@ interface AccessPointData {
   officialSiteUrl: string | null;
   localTips: string | null;
   nearbyServices: NearbyService[];
+  /** Version marker returned by the API; echoed back on save. */
+  updatedAt?: string | null;
 }
+
+// The fields this form edits. Anything else it loaded (ids, derived names,
+// approval, coordinates) is never sent back.
+const EDITABLE_FIELDS = [
+  'name', 'riverId', 'riverMile', 'type', 'types', 'isPublic', 'ownership', 'description',
+  'parkingInfo', 'roadAccess', 'facilities', 'feeRequired', 'directionsOverride',
+  'drivingLat', 'drivingLng', 'imageUrls', 'googleMapsUrl', 'roadSurface',
+  'parkingCapacity', 'managingAgency', 'officialSiteUrl', 'localTips',
+] as const satisfies ReadonlyArray<keyof AccessPointData>;
+
+class StaleSaveError extends Error {}
 
 const ACCESS_POINT_TYPE_OPTIONS = [
   { value: 'boat_ramp', label: 'Boat Ramp' },
@@ -129,7 +143,16 @@ export default function AdminAccessPointEditPage() {
   // Form state
   const [formData, setFormData] = useState<Partial<AccessPointData>>({});
   const [nearbyServices, setNearbyServices] = useState<NearbyService[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [hasChanges, setHasChangesState] = useState(false);
+  // The record as it was when the form was filled. Saves are diffed against
+  // this and carry its version, so a background refetch can neither wipe
+  // edits in progress nor quietly re-base them onto newer data.
+  const [loaded, setLoaded] = useState<AccessPointData | null>(null);
+  const dirtyRef = useRef(false);
+  const setHasChanges = (value: boolean) => {
+    dirtyRef.current = value;
+    setHasChangesState(value);
+  };
 
   // Fetch access point data
   const { data, isLoading, error } = useQuery<{ accessPoint: AccessPointData }>({
@@ -144,7 +167,8 @@ export default function AdminAccessPointEditPage() {
 
   // Initialize form when data loads
   useEffect(() => {
-    if (data?.accessPoint) {
+    if (data?.accessPoint && !dirtyRef.current) {
+      setLoaded(data.accessPoint);
       setFormData(data.accessPoint);
       setNearbyServices(data.accessPoint.nearbyServices || []);
     }
@@ -159,7 +183,10 @@ export default function AdminAccessPointEditPage() {
         body: JSON.stringify(updates),
       });
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
+        if (response.status === 409 && error.reason === 'stale') {
+          throw new StaleSaveError(error.error);
+        }
         throw new Error(error.error || 'Failed to save');
       }
       return response.json();
@@ -215,10 +242,20 @@ export default function AdminAccessPointEditPage() {
 
   // Save all changes
   const handleSave = () => {
-    saveMutation.mutate({
-      ...formData,
-      nearbyServices: nearbyServices.filter((s) => s.name.trim()),
-    });
+    if (!loaded) return;
+    // Send only what changed since load, plus the version it was loaded at.
+    // An untouched field stays out of the request, and the API refuses the
+    // save outright if the record has changed underneath this tab.
+    const updates: Record<string, unknown> = changedFields<AccessPointData>(loaded, formData, EDITABLE_FIELDS);
+    const services = nearbyServices.filter((s) => s.name.trim());
+    if (JSON.stringify(services) !== JSON.stringify(loaded.nearbyServices || [])) {
+      updates.nearbyServices = services;
+    }
+    if (Object.keys(updates).length === 0) {
+      setHasChanges(false);
+      return;
+    }
+    saveMutation.mutate({ ...updates, expectedUpdatedAt: loaded.updatedAt ?? undefined });
   };
 
   if (isLoading) {
@@ -283,7 +320,22 @@ export default function AdminAccessPointEditPage() {
             Changes saved successfully!
           </div>
         )}
-        {saveMutation.isError && (
+        {saveMutation.error instanceof StaleSaveError && (
+          <div role="alert" className="mb-6 p-3 bg-amber-900/50 border border-amber-700 rounded-lg text-amber-200 text-sm flex flex-wrap items-center gap-3">
+            <span className="flex-1 min-w-[16rem]">{saveMutation.error.message}</span>
+            <button
+              onClick={() => {
+                setHasChanges(false);
+                saveMutation.reset();
+                queryClient.invalidateQueries({ queryKey: ['admin-access-point', id] });
+              }}
+              className="px-3 py-1.5 bg-amber-700 hover:bg-amber-600 text-white rounded-lg"
+            >
+              Discard my edits and load the latest
+            </button>
+          </div>
+        )}
+        {saveMutation.isError && !(saveMutation.error instanceof StaleSaveError) && (
           <div className="mb-6 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
             Error: {saveMutation.error?.message || 'Failed to save'}
           </div>

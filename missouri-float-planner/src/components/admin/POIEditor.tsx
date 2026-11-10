@@ -3,12 +3,11 @@
 // src/components/admin/POIEditor.tsx
 // POI editor with draggable markers on the geography editor map
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { useMap } from '@/components/map/MapContainer';
 import { Landmark } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
-import { adminFetch } from '@/hooks/useAdminAuth';
 import React from 'react';
 
 export interface POI {
@@ -34,7 +33,10 @@ export interface POI {
 
 interface POIEditorProps {
   pois: POI[];
-  onRefresh?: () => void;
+  /** Drags are staged in the parent until Save; this component never writes a location. */
+  stagedMoves?: ReadonlyMap<string, { to: { lng: number; lat: number } }>;
+  onStageMove: (poi: POI, to: { lng: number; lat: number }) => void;
+  savingMoveIds?: ReadonlySet<string>;
   addMode?: boolean;
   onMapClick?: (coords: { lng: number; lat: number }) => void;
   onSelectPOI?: (poi: POI | null) => void;
@@ -55,7 +57,9 @@ const POI_TYPE_COLORS: Record<string, string> = {
 
 export default function POIEditor({
   pois,
-  onRefresh,
+  stagedMoves,
+  onStageMove,
+  savingMoveIds,
   addMode = false,
   onMapClick,
   onSelectPOI,
@@ -64,7 +68,6 @@ export default function POIEditor({
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const rootsRef = useRef<Root[]>([]);
-  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
 
   // Handle map click for adding new POIs
   useEffect(() => {
@@ -97,14 +100,18 @@ export default function POIEditor({
       if (!poi.latitude || !poi.longitude) return;
 
       const isSelected = selectedPOIId === poi.id;
-      const isSaving = savingIds.has(poi.id);
+      const isSaving = savingMoveIds?.has(poi.id) ?? false;
+      const staged = stagedMoves?.get(poi.id)?.to;
       const color = POI_TYPE_COLORS[poi.type] || POI_TYPE_COLORS.other;
 
       const el = document.createElement('div');
       el.className = 'poi-editor-marker';
 
       const markerSize = isSelected ? '38px' : '30px';
-      const markerBorder = isSelected ? `4px solid ${color}` : `3px solid ${poi.active ? '#ffffff' : '#fef3c7'}`;
+      // A dashed amber border marks a move that has not been saved yet.
+      const markerBorder = staged
+        ? '3px dashed #f59e0b'
+        : isSelected ? `4px solid ${color}` : `3px solid ${poi.active ? '#ffffff' : '#fef3c7'}`;
       const markerShadow = isSelected
         ? `0 0 0 3px ${color}40, 0 6px 20px ${color}80`
         : '0 4px 12px rgba(0,0,0,0.3)';
@@ -141,39 +148,13 @@ export default function POIEditor({
         draggable: true,
         anchor: 'center',
       })
-        .setLngLat([poi.longitude, poi.latitude])
+        .setLngLat(staged ? [staged.lng, staged.lat] : [poi.longitude, poi.latitude])
         .addTo(map);
 
       // Handle drag to reposition
-      marker.on('dragend', async () => {
+      marker.on('dragend', () => {
         const newLngLat = marker.getLngLat();
-
-        setSavingIds((prev) => new Set(prev).add(poi.id));
-        try {
-          const response = await adminFetch(`/api/admin/pois/${poi.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              latitude: newLngLat.lat,
-              longitude: newLngLat.lng,
-            }),
-          });
-
-          if (response.ok) {
-            onRefresh?.();
-          } else {
-            // Revert on failure
-            marker.setLngLat([poi.longitude, poi.latitude]);
-          }
-        } catch {
-          marker.setLngLat([poi.longitude, poi.latitude]);
-        } finally {
-          setSavingIds((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(poi.id);
-            return newSet;
-          });
-        }
+        onStageMove(poi, { lng: newLngLat.lng, lat: newLngLat.lat });
       });
 
       // Click to select
@@ -191,7 +172,7 @@ export default function POIEditor({
       markersRef.current = [];
       rootsRef.current = [];
     };
-  }, [map, pois, savingIds, onRefresh, onSelectPOI, selectedPOIId]);
+  }, [map, pois, stagedMoves, savingMoveIds, onStageMove, onSelectPOI, selectedPOIId]);
 
   return null;
 }

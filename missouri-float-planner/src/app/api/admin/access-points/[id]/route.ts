@@ -57,6 +57,7 @@ export async function GET(
         official_site_url,
         local_tips,
         nearby_services,
+        updated_at,
         rivers(id, name, slug)
       `)
       .eq('id', id)
@@ -108,6 +109,8 @@ export async function GET(
       officialSiteUrl: data.official_site_url,
       localTips: data.local_tips,
       nearbyServices: data.nearby_services || [],
+      // Version marker: send it back as expectedUpdatedAt to detect a stale save.
+      updatedAt: data.updated_at ?? null,
     };
 
     return NextResponse.json({ accessPoint: formatted });
@@ -159,7 +162,12 @@ export async function PUT(
       officialSiteUrl,
       localTips,
       nearbyServices,
+      expectedUpdatedAt,
     } = body;
+
+    if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null && typeof expectedUpdatedAt !== 'string') {
+      return NextResponse.json({ error: 'expectedUpdatedAt must be a timestamp' }, { status: 400 });
+    }
 
     const supabase = createAdminClient();
 
@@ -366,11 +374,12 @@ export async function PUT(
       );
     }
 
-    // Update access point
-    const { error: updateError } = await supabase
-      .from('access_points')
-      .update(updateData)
-      .eq('id', id);
+    // Update access point. When the editor says which version it loaded, the
+    // write only lands on that version: a tab left open while someone else (or
+    // the same person in another tab) saved must not overwrite the newer data.
+    let updateQuery = supabase.from('access_points').update(updateData).eq('id', id);
+    if (expectedUpdatedAt) updateQuery = updateQuery.eq('updated_at', expectedUpdatedAt);
+    const { data: updatedRows, error: updateError } = await updateQuery.select('id');
 
     if (updateError) {
       console.error('Error updating access point:', updateError);
@@ -384,6 +393,26 @@ export async function PUT(
       return NextResponse.json(
         { error: 'Could not update access point' },
         { status: 500 }
+      );
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      const { data: current } = await supabase
+        .from('access_points')
+        .select('id, updated_at')
+        .eq('id', id)
+        .maybeSingle();
+      if (!current) {
+        return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
+      }
+      return NextResponse.json(
+        {
+          error:
+            'This access point was changed after you loaded it, so nothing was saved. Reload to see the latest version, then make your change again.',
+          reason: 'stale',
+          updatedAt: current.updated_at ?? null,
+        },
+        { status: 409 }
       );
     }
 
@@ -420,6 +449,7 @@ export async function PUT(
         official_site_url,
         local_tips,
         nearby_services,
+        updated_at,
         rivers(id, name, slug)
       `)
       .eq('id', id)
@@ -484,6 +514,8 @@ export async function PUT(
       officialSiteUrl: data.official_site_url,
       localTips: data.local_tips,
       nearbyServices: data.nearby_services || [],
+      // Version marker: send it back as expectedUpdatedAt to detect a stale save.
+      updatedAt: data.updated_at ?? null,
     };
 
     return NextResponse.json({
