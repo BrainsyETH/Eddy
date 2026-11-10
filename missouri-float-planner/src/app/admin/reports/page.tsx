@@ -181,7 +181,7 @@ export default function AdminReportsPage() {
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useAdminListState('status');
   const [typeFilter, setTypeFilter] = useAdminListState('type');
-  const [searchQuery, setSearchQuery] = useAdminListState('q', '');
+  const [searchQuery, setSearchQuery] = useAdminListState('q', '', 'replace');
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [pageText, setPageText] = useAdminListState('page', '1');
@@ -222,6 +222,14 @@ export default function AdminReportsPage() {
   }, [page, fetchReports, invalidateRequests]);
 
   const filteredReports = reports;
+  const visibleReports = viewMode === 'grid' ? filteredReports.filter(r => r.imageUrl) : filteredReports;
+  const visibleSelectedIds = visibleSelection(selectedIds, visibleReports);
+  useEffect(() => {
+    if (!expandedReport || viewMode !== 'list' || !window.matchMedia('(max-width: 1100px)').matches) return;
+    const detail = document.getElementById('report-detail');
+    detail?.focus({ preventScroll: true });
+    detail?.scrollIntoView({ block: 'start', behavior: 'instant' });
+  }, [expandedReport, viewMode]);
   useEffect(() => { setSelectedIds(new Set()); setExpandedReport(null); }, [page, statusFilter, typeFilter, searchQuery, viewMode]);
 
   const updateReport = async (report: Report, newStatus: 'verified' | 'rejected' | 'pending') => {
@@ -302,7 +310,7 @@ export default function AdminReportsPage() {
   }, []);
 
   const bulkUpdate = async (newStatus: 'verified' | 'rejected') => {
-    const ids = visibleSelection(selectedIds, viewMode === 'grid' ? filteredReports.filter(r => r.imageUrl) : filteredReports);
+    const ids = visibleSelectedIds;
     if (ids.length === 0 || loading) return;
     if (!await confirm(`${newStatus === 'verified' ? 'Publish' : 'Reject'} ${ids.length} selected reports on this page? ${newStatus === 'rejected' ? 'Their stored photos will be removed and cannot be restored.' : 'Verified photos become public.'}`, {confirmLabel:newStatus === 'verified' ? 'Verify reports' : 'Reject reports',danger:newStatus === 'rejected'})) return;
     try {
@@ -390,8 +398,8 @@ export default function AdminReportsPage() {
             <label className="flex items-center gap-1.5 text-xs text-neutral-400 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={filteredReports.length > 0 && filteredReports.filter(r => viewMode !== 'grid' || r.imageUrl).every((r) => selectedIds.has(r.id))}
-                onChange={(e) => setSelectedIds(e.target.checked ? new Set(filteredReports.filter(r => viewMode !== 'grid' || r.imageUrl).map((r) => r.id)) : new Set())}
+                checked={visibleReports.length > 0 && visibleSelectedIds.length === visibleReports.length}
+                onChange={(e) => setSelectedIds(e.target.checked ? new Set(visibleReports.map((r) => r.id)) : new Set())}
               />
               Select all
             </label>
@@ -412,9 +420,9 @@ export default function AdminReportsPage() {
           </div>
         </div>
 
-        {selectedIds.size > 0 && (
+        {visibleSelectedIds.length > 0 && (
           <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 p-3 bg-neutral-900 border border-primary-600/60 rounded-lg">
-            <span className="text-sm font-medium text-white">{selectedIds.size} selected</span>
+            <span className="text-sm font-medium text-white">{visibleSelectedIds.length} selected</span>
             <button
               onClick={() => bulkUpdate('verified')}
               disabled={bulkUpdating || loading}
@@ -450,21 +458,22 @@ export default function AdminReportsPage() {
                   key={report.id}
                   className="bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden"
                 >
-                  <div
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-neutral-750"
-                    role="button" tabIndex={0} aria-pressed={expandedReport===report.id}
-                    onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setExpandedReport(report.id);}}}
-                    onClick={() => setExpandedReport(expandedReport === report.id ? null : report.id)}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center">
                       <input
                         type="checkbox"
                         aria-label={`Select report for ${report.riverName ?? 'unknown river'}`}
                         checked={selectedIds.has(report.id)}
-                        onClick={(e) => e.stopPropagation()}
                         onChange={() => toggleSelect(report.id)}
-                        className="shrink-0"
+                        className="shrink-0 ml-4"
                       />
+                    <button
+                      type="button"
+                      className="p-4 flex flex-1 min-w-0 items-center justify-between gap-3 text-left hover:bg-neutral-700"
+                      aria-expanded={expandedReport === report.id}
+                      aria-controls="report-detail"
+                      onClick={() => setExpandedReport(current => current === report.id ? null : report.id)}
+                    >
+                    <span className="flex items-center gap-3 min-w-0">
                       {expandedReport === report.id ? (
                         <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
                       ) : (
@@ -473,21 +482,21 @@ export default function AdminReportsPage() {
                       <span className={`px-2 py-0.5 text-xs rounded-full shrink-0 ${getTypeBadgeClasses(report.type)}`}>
                         {getTypeLabel(report.type)}
                       </span>
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-white truncate">
+                      <span className="min-w-0">
+                        <span className="block font-medium text-white truncate">
                           {report.riverName || 'Unknown River'}
                           {report.riverMile != null && ` \u2022 Mile ${report.riverMile.toFixed(1)}`}
-                        </h3>
-                        <p className="text-xs text-neutral-400 truncate">
+                        </span>
+                        <span className="block text-xs text-neutral-400 truncate">
                           {report.description
                             ? report.description.length > 80
                               ? report.description.slice(0, 80) + '...'
                               : report.description
                             : 'No description'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                        </span>
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0">
                       <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusClasses(report.status)}`}>
                         {report.status}
                       </span>
@@ -495,7 +504,8 @@ export default function AdminReportsPage() {
                         <Clock className="w-3 h-3 inline mr-1" />
                         {formatTime(report.createdAt)}
                       </span>
-                    </div>
+                    </span>
+                    </button>
                   </div>
 
 
@@ -754,14 +764,14 @@ export default function AdminReportsPage() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page <= 1}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setPage(p => p + 1)}
                     disabled={page >= Math.ceil(totalReports / pageLimit)}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Next
                   </button>

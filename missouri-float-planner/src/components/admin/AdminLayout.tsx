@@ -301,7 +301,7 @@ export default function AdminLayout({
           children
         ) : (
           <div className="admin-panel">
-            <h2>This page needs owner access</h2>
+            <h2>This page isn’t available to your role</h2>
             <p>
               Your {role} account can use the sections listed in navigation.
             </p>

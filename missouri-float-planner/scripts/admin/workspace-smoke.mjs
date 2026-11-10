@@ -60,7 +60,7 @@ try {
     await new Promise((r) => setTimeout(r, 1000));
   }
   browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
+    executablePath: process.env.CHROMIUM_PATH || chromium.executablePath(),
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
@@ -143,6 +143,8 @@ try {
         signedIn ? 200 : 401,
       );
     if (path === '/api/admin/login') {
+      if (request.postDataJSON().password === 'wrong-password')
+        return reply({ error: 'Invalid password' }, 401);
       signedIn = true;
       const expiry = Date.now() + 4 * 3600000;
       const token = `${expiry}.${createHmac('sha256', secret).update(`admin:${expiry}`).digest('hex')}`;
@@ -220,6 +222,13 @@ try {
     .waitFor();
   assert.equal(blogRequests, 0, 'subpage must not request data before sign-in');
   await page.getByRole('button', { name: 'Use owner recovery access' }).click();
+  await page.getByLabel('Password', { exact: true }).fill('wrong-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByText('Invalid password', { exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole('button', { name: 'Check connection again' }).count(),
+    0,
+  );
   await page.getByLabel('Password', { exact: true }).fill('test-only-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page
@@ -260,7 +269,15 @@ try {
   await page
     .getByRole('checkbox', { name: 'Select report for Buffalo River' })
     .check();
-  await page.getByPlaceholder('Search...').fill('Buffalo');
+  const historyBeforeSearch = await page.evaluate(() => history.length);
+  await page.getByPlaceholder('Search...').pressSequentially('Buffalo');
+  assert.equal(await page.evaluate(() => history.length), historyBeforeSearch);
+  await page.getByRole('combobox').first().selectOption('pending');
+  assert.equal(
+    await page.evaluate(() => history.length),
+    historyBeforeSearch + 1,
+  );
+  await page.goBack();
   await page.waitForURL('**q=Buffalo');
   await page.getByText('1 matching reports · 1 on this page').waitFor();
   assert.equal(
@@ -275,7 +292,27 @@ try {
     .getByText('Tree across the channel', { exact: true })
     .waitFor();
   await page.screenshot({ path: out + '/reports-desktop.png', fullPage: true });
+  const reportButton = page.getByRole('button', {
+    name: /Hazard Buffalo River/,
+  });
+  await reportButton.focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await reportButton.getAttribute('aria-expanded'), 'false');
   await page.setViewportSize({ width: 390, height: 844 });
+  await reportButton.click();
+  assert.equal(
+    await page.evaluate(() => document.activeElement?.id),
+    'report-detail',
+  );
+  assert.ok(
+    await page
+      .locator('#report-detail')
+      .evaluate(
+        (el) =>
+          el.getBoundingClientRect().top >= 0 &&
+          el.getBoundingClientRect().top < innerHeight,
+      ),
+  );
   await page.getByRole('button', { name: 'Open admin navigation' }).click();
   const drawer = page.getByRole('dialog', { name: 'Admin navigation' });
   await drawer
@@ -297,12 +334,223 @@ try {
   );
   await page.goto(origin + '/admin/lakes');
   await page.getByRole('button', { name: 'Try again' }).waitFor();
+  await checkAccessChanges(browser, origin, post, reports);
   assert.deepEqual(pageErrors, []);
   console.log(
-    'PASS: direct subpage login, save conflict, discard, session renewal, global filters, scoped selections, detail panel, mobile drawer and network recovery.',
+    'PASS: direct subpage login, save conflict, discard, session renewal, search history, scoped selections, responsive detail focus, mobile drawer, role changes, revocation, sign-out and network recovery.',
   );
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
   await writeFile(out + '/server.log', log);
+}
+
+// Browser fixtures exercise the UI; real permission enforcement is also covered
+// by workspace.test.ts/admin-auth.test.ts and still requires a staging role pass.
+async function checkAccessChanges(browser, origin, post, reports) {
+  for (const initialRole of ['owner', 'editor', 'moderator']) {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    let role = initialRole,
+      revoked = false,
+      signedOut = false,
+      deletedImage = false;
+    const identity = () => ({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Named administrator',
+      role,
+      legacy: false,
+    });
+    const imagePath = 'blog/1730000000-photo.jpg';
+    await context.route('**/api/admin/**', async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      const reply = (body, status = 200) =>
+        route.fulfill({
+          status,
+          contentType: 'application/json',
+          body: JSON.stringify(body),
+        });
+      if (path === '/api/admin/session' && request.method() === 'DELETE') {
+        signedOut = true;
+        return reply(
+          {
+            error: 'This account no longer has admin access.',
+            reason: 'access-revoked',
+          },
+          403,
+        );
+      }
+      if (revoked)
+        return reply(
+          {
+            error: 'This account no longer has admin access.',
+            reason: 'access-revoked',
+          },
+          403,
+        );
+      if (signedOut) return reply({ error: 'Unauthorized' }, 401);
+      if (path === '/api/admin/session') return reply({ identity: identity() });
+      if (path === '/api/admin/stats') return reply({ stats: {} });
+      if (path === '/api/admin/team' && request.method() === 'PUT') {
+        role = request.postDataJSON().role;
+        return reply({ auditRecorded: true });
+      }
+      if (path === '/api/admin/team')
+        return reply({
+          recoveryEnabled: false,
+          members: [
+            {
+              user_id: identity().id,
+              name: identity().name,
+              email: 'owner@example.invalid',
+              role,
+              active: true,
+              updated_at: '2026-11-10T12:00:00Z',
+            },
+          ],
+        });
+      if (path === '/api/admin/blog') {
+        if (role === 'moderator')
+          return reply(
+            {
+              error: 'Your role cannot perform this action.',
+              reason: 'role-forbidden',
+              identity: identity(),
+            },
+            403,
+          );
+        return reply({ posts: [post] });
+      }
+      if (path === `/api/admin/blog/${post.id}`) return reply({ post });
+      if (path === '/api/admin/reports')
+        return reply({ reports, total: reports.length });
+      if (
+        path === `/api/admin/images/${encodeURIComponent(imagePath)}` &&
+        request.method() === 'DELETE'
+      ) {
+        assert.equal(role, 'editor');
+        deletedImage = true;
+        return reply({ success: true });
+      }
+      if (path === '/api/admin/images')
+        return reply({
+          bucketExists: true,
+          images: deletedImage
+            ? []
+            : [
+                {
+                  id: imagePath,
+                  name: 'River photo',
+                  url: '/favicon.ico',
+                  category: 'general',
+                  isSystem: false,
+                },
+              ],
+        });
+      return reply({ error: 'Unmocked admin endpoint' }, 500);
+    });
+    if (initialRole === 'owner') {
+      await page.goto(origin + '/admin/team');
+      await page.getByRole('button', { name: 'Edit access' }).click();
+      await page.getByLabel('Role', { exact: true }).selectOption('editor');
+      await page.getByRole('button', { name: 'Save access' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByText(/You will lose owner controls/).waitFor();
+      await dialog.getByRole('button', { name: 'Change my access' }).click();
+      await page
+        .getByRole('heading', {
+          name: 'This page isn’t available to your role',
+        })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByRole('link', { name: 'Team & access', exact: true })
+          .count(),
+        0,
+      );
+      role = 'moderator';
+    } else if (initialRole === 'editor') {
+      await page.goto(origin + '/admin/images');
+      const category = page.getByRole('button', {
+        name: 'Rivers',
+        exact: true,
+      });
+      await category.hover();
+      assert.deepEqual(
+        await category.evaluate((el) => ({
+          background: getComputedStyle(el).backgroundColor,
+          text: getComputedStyle(el).color,
+        })),
+        { background: 'rgb(229, 236, 234)', text: 'rgb(22, 63, 73)' },
+      );
+      await page.getByTitle('Delete', { exact: true }).click();
+      await page
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Continue', exact: true })
+        .click();
+      await page.getByText('No images found in this category.').waitFor();
+      assert.equal(deletedImage, true);
+      // A different owner changes our role while this tab remains open.
+      role = 'moderator';
+      await page
+        .getByRole('link', { name: 'Blog & river guides', exact: true })
+        .click();
+      await page
+        .getByRole('heading', {
+          name: 'This page isn’t available to your role',
+        })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByRole('link', { name: 'Blog & river guides', exact: true })
+          .count(),
+        0,
+      );
+    }
+    await page.goto(origin + '/admin/reports');
+    await page
+      .getByRole('checkbox', { name: 'Select report for Current River' })
+      .waitFor();
+    await page.evaluate(() =>
+      sessionStorage.setItem('eddy-admin-draft:test', 'private draft'),
+    );
+    revoked = true;
+    await page.getByPlaceholder('Search...').fill('Current');
+    await page
+      .getByText('This account no longer has admin access.', { exact: true })
+      .waitFor();
+    assert.equal(await page.locator('.admin-workspace').count(), 0);
+    assert.equal(
+      await page.evaluate(() =>
+        sessionStorage.getItem('eddy-admin-draft:test'),
+      ),
+      null,
+    );
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Check connection again' })
+        .count(),
+      0,
+    );
+    await page.reload();
+    await page
+      .getByText('This account no longer has admin access.', { exact: true })
+      .waitFor();
+    revoked = false;
+    await page.reload();
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Sign out', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor();
+    assert.equal(await page.getByText(/Sign-out did not finish/).count(), 0);
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
 }

@@ -21,7 +21,8 @@ begin
   select id into target from auth.users where lower(email)=lower(trim(p_email)) and email_confirmed_at is not null and deleted_at is null;
   if target is null then raise exception 'Use the email of an existing, verified Eddy account'; end if;
   select * into current_row from public.admin_memberships where user_id=target;
-  if current_row.user_id is not null and (p_expected is null or current_row.updated_at::text::timestamptz <> p_expected::timestamptz) then raise exception 'Access changed. Reload before saving'; end if;
+  if current_row.user_id is not null and p_expected is null then raise exception 'This account already has access — use Edit access'; end if;
+  if current_row.user_id is not null and current_row.updated_at::text::timestamptz <> p_expected::timestamptz then raise exception 'Access changed. Reload before saving'; end if;
   if current_row.role='owner' and current_row.active and (p_role<>'owner' or not p_active) and not exists(select 1 from public.admin_memberships where user_id<>target and role='owner' and active) then raise exception 'Keep at least one active owner'; end if;
   if not exists(select 1 from public.admin_memberships where role='owner' and active) and (p_role<>'owner' or not p_active) then raise exception 'Add an active owner first'; end if;
   insert into public.admin_memberships(user_id,name,email,role,active) values(target,trim(p_name),lower(trim(p_email)),p_role,p_active)

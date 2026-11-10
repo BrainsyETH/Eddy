@@ -276,6 +276,16 @@
   color: white;
   border-color: #a33122;
 }
+.admin-primary:hover:not(:disabled) {
+  background: #163f49 !important;
+}
+.admin-secondary:hover:not(:disabled) {
+  background: #e5ecea;
+  color: #163f49;
+}
+.admin-danger:hover:not(:disabled) {
+  background: #82271b;
+}
 .admin-link {
   color: #1d525f;
   text-decoration: underline;
@@ -508,6 +518,7 @@
   margin-top: 14px;
 }
 .admin-review-detail {
+  scroll-margin-top: 80px;
   position: sticky;
   top: 16px;
   max-height: calc(100dvh - 32px);

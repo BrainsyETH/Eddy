@@ -350,7 +350,7 @@ export default function AdminAccessPointsPage() {
                         </span>
                         <Link
                           href={`/admin/access-points/${point.id}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white text-sm rounded-lg transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors admin-secondary"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                           Edit

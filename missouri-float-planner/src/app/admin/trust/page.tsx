@@ -420,7 +420,7 @@ export default function TrustAdminPage() {
         <button
           onClick={fetchFindings}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -443,7 +443,7 @@ export default function TrustAdminPage() {
                 key={c.id}
                 onClick={() => runCheck(c.id)}
                 disabled={!canManage || runningCheck !== null}
-                className="flex items-center gap-2 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
                 title={
                   c.lastSuppressedReason
                     ? `${c.heartbeat} — last run refused to reconcile (${c.lastSuppressedReason})`
@@ -622,7 +622,7 @@ export default function TrustAdminPage() {
                 setPending(null);
                 setPendingReason('');
               }}
-              className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors"
+              className="px-3 py-1.5 rounded-lg text-sm transition-colors admin-secondary"
             >
               Cancel
             </button>
@@ -849,7 +849,7 @@ export default function TrustAdminPage() {
                         <button
                           onClick={() => act(finding.id, 'snooze', 7)}
                           disabled={!canManage || updating === finding.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
                           title="Snooze for 7 days"
                         >
                           <BellOff className="w-4 h-4" />
@@ -878,7 +878,7 @@ export default function TrustAdminPage() {
                             startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'false_positive' })
                           }
                           disabled={!canManage || updating === finding.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
                           title="There was nothing to fix — the check was wrong"
                         >
                           <ShieldCheck className="w-4 h-4" />
@@ -889,7 +889,7 @@ export default function TrustAdminPage() {
                             startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'accepted' })
                           }
                           disabled={!canManage || updating === finding.id}
-                          className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-lg text-sm transition-colors disabled:opacity-50"
+                          className="px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
                           title="Real, understood, and being lived with"
                         >
                           Accept
@@ -899,7 +899,7 @@ export default function TrustAdminPage() {
                       <button
                         onClick={() => startAction({ kind: 'single', id: finding.id, action: 'reopen' })}
                         disabled={!canManage || updating === finding.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
                       >
                         <RotateCcw className="w-4 h-4" />
                         Reopen

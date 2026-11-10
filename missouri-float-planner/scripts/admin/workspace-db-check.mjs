@@ -33,6 +33,10 @@ await assert.rejects(
 );
 const owner = await member('owner@example.invalid', 'Owner', 'owner');
 await assert.rejects(
+  member('owner@example.invalid', 'Duplicate', 'editor'),
+  /This account already has access — use Edit access/,
+);
+await assert.rejects(
   member(
     'owner@example.invalid',
     'Owner',

@@ -12,7 +12,21 @@ Named accounts sign in through Supabase Auth. The server verifies the user and
 reads the service-only `admin_memberships` table. Role checks happen on every
 request and default to Owner for unlisted endpoints. Roles are never taken from
 user-editable profile metadata. Tokens contain an HMAC-protected user ID and
-four-hour expiry; revoking membership takes effect on the next request.
+four-hour expiry; revoking membership takes effect on the next request. An
+`access-revoked` response clears the workspace, admin cache and browser drafts
+and returns to sign-in with an access-removed message. A `role-forbidden` response
+refreshes the signed-in role without treating an ordinary denied action as logout.
+Changing your own role/access requires an explicit warning and refreshes the
+session immediately; the database still protects the final active owner.
+
+Every named-account admin request depends on a membership database read with a
+five-second timeout. A missing migration, database outage or timeout fails closed
+with 503 across admin endpoints, including sign-out. The sign-out endpoint clears
+the browser cookie even on an error; the UI accepts revoked/expired sessions
+(403/401) as completed sign-out. A 503 sign-out still displays a retry message;
+reload checks the cleared cookie. Keep recovery access available until staging
+has verified the migration and named accounts. This dependency is part of deploy
+ordering, not just a Team & access requirement.
 
 | Role      | Working areas                                                                                  |
 | --------- | ---------------------------------------------------------------------------------------------- |
@@ -59,7 +73,7 @@ Vercel environment; the latest attempted deployment has a separate history link.
   labelled timezone; visibility can lag the chosen minute by up to five minutes.
 - One category catalog includes River Guides. Metadata can be edited without
   touching structured guide data. Guide sections continue through the supported
-  reviewed content workflow linked from the editor. The generic rich-text body
+  reviewed content workflow. Editors see instructions for requesting section corrections from an owner; the repository workflow link is owner-only. The generic rich-text body
   is hidden for structured guides because it does not drive their public layout.
 - Blog and launch writes carry a version; conflicts retain the local draft.
   Blog preview renders the current unsaved fields through the same article/guide
@@ -71,9 +85,9 @@ Vercel environment; the latest attempted deployment has a separate history link.
   use before-unload and in-app-link guards. These guards do not intercept every
   browser-history transition; do not describe all forms as autosaved.
 - Reports/POIs apply search and filters before pagination. Matching totals are
-  server counts. URL state supports Back. POI river choices are independent of
+  server counts. Search replaces the current URL entry; filters and pages add history entries for Back. POI river choices are independent of
   the results page. Bulk report payloads are intersected with visible selected
-  records; changing filters, page or view clears selections. Reject/delete
+  records, and the bulk bar shows that same visible count. On narrow screens, opening a report focuses and scrolls to its details. Checkboxes and detail buttons are separate keyboard controls; changing filters, page or view clears selections. Reject/delete
   confirmations disclose permanent photo removal. Verified reports may return
   to review; rejected photos cannot be restored by changing their status.
 - The mobile navigation uses a bounded native dialog with Escape/focus handling.
@@ -109,12 +123,17 @@ compliance ledger.
 `npm run typecheck`, `npm run lint`, and `npm test` cover the normal web checks.
 `npm run test:admin-browser` runs local fixture journeys with Chromium/Playwright
 and never sends production writes. Set `CHROMIUM_PATH` if Chromium is elsewhere;
-`ADMIN_SMOKE_OUTPUT` controls screenshot/log output. The browser suite covers
+`ADMIN_SMOKE_OUTPUT` controls screenshot/log output. App CI runs both admin
+fixture suites on Node 20 and uploads browser screenshots/server logs; it uses
+Playwright’s installed Chromium unless `CHROMIUM_PATH` is set. The browser suite covers
 signing into a direct subpage, conflicts, discard, session renewal, filtering,
 selection, moderation details, mobile navigation and request failure recovery.
+Role fixtures also cover editor image deletion, revoked access on live requests
+and reload, 403 sign-out, owner self-demotion, role refresh, search history,
+keyboard toggling, narrow-screen detail focus and secondary-button hover colors.
 
 `npm run test:admin-db` applies the migration to an ephemeral PGlite PostgreSQL
-database with minimal fixtures. It exercises final-owner protection, stale writes,
+database with minimal fixtures. It exercises duplicate-member guidance, final-owner protection, stale writes,
 public-role denial, incident recovery and search outside the first 50 records.
 It does not replace staging checks against the complete Supabase schema.
 

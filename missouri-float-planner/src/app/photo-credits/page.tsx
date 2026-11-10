@@ -37,7 +37,7 @@ export default function PhotoCreditsPage() {
             <section key={photo.riverSlug} id={`guide-${photo.riverSlug}`} className="bg-white border border-neutral-200 rounded-lg p-5">
               <h2 className="text-xl font-semibold text-neutral-900">{photo.caption}</h2>
               <p className="text-neutral-700 mt-2">{photo.author} · {photo.license}</p>
-              <p className="text-sm text-neutral-600 mt-2">{photo.changes} Adapted copies retain the source photograph’s license.</p>
+              <p className="text-sm text-neutral-600 mt-2">{photo.changes}. Adapted copies retain the source photograph’s license.</p>
               <div className="flex flex-wrap gap-5 mt-3 text-primary-700 underline">
                 <a href={photo.sourceUrl}>Original photograph and rights record</a>
                 <a href={photo.licenseUrl}>License and usage terms</a>

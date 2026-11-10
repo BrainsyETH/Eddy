@@ -347,7 +347,7 @@ export default function DataSyncPage() {
             <button
               onClick={() => runSync(true)}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 disabled:opacity-50 rounded-lg font-medium transition-colors admin-primary"
             >
               <Eye className="w-4 h-4" />
               {loading ? 'Running...' : 'Preview (Dry Run)'}

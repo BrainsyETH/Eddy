@@ -232,7 +232,7 @@ export default function AdminImagesPage() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   selectedCategory === cat.value
                     ? 'bg-primary-600 text-white'
-                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                    : 'admin-secondary'
                 }`}
               >
                 {cat.label}

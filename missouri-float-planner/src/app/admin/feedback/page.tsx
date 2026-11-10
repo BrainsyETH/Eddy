@@ -218,7 +218,7 @@ export default function FeedbackAdminPage() {
           <button
             onClick={fetchFeedback}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -365,7 +365,7 @@ export default function FeedbackAdminPage() {
                             className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                               item.status === opt.value
                                 ? `${opt.color} text-white`
-                                : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                                : 'admin-secondary'
                             }`}
                           >
                             {opt.value === 'resolved' && <CheckCircle className="w-3 h-3" />}

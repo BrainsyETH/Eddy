@@ -181,12 +181,12 @@ export async function requireAdminAuth(request: NextRequest): Promise<NextRespon
       const { createAdminClient } = await import('@/lib/supabase/admin');
       const { data, error } = await createAdminClient().from('admin_memberships').select('user_id,name,role,active').eq('user_id', token.split('.')[2]).abortSignal(AbortSignal.timeout(5000)).maybeSingle();
       if (error) return NextResponse.json({ error: 'Access verification is unavailable. Try again.' }, { status: 503, headers: { 'Cache-Control': 'private, no-store' } });
-      if (!data?.active || !['owner','editor','moderator'].includes(data.role)) return NextResponse.json({ error: 'This account no longer has admin access.' }, { status: 403 });
+      if (!data?.active || !['owner','editor','moderator'].includes(data.role)) return NextResponse.json({ error: 'This account no longer has admin access.', reason: 'access-revoked' }, { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
       identity = { id: data.user_id, name: data.name, role: data.role, legacy: false };
     } catch { return NextResponse.json({ error: 'Access verification is unavailable. Try again.' }, { status: 503 }); }
   }
   identities.set(request, identity);
-  if (!adminPermission(identity.role, path, request.method)) return NextResponse.json({ error: 'Your role cannot perform this action.' }, { status: 403 });
+  if (!adminPermission(identity.role, path, request.method)) return NextResponse.json({ error: 'Your role cannot perform this action.', reason: 'role-forbidden', identity }, { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
   identities.set(request, identity);
   authorizedRequests.add(request);
   return null;

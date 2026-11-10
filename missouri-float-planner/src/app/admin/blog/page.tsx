@@ -8,7 +8,7 @@ import { useAdminDraft } from '@/hooks/useAdminDraft';
 import BlogPreview from '@/components/admin/BlogPreview';
 import { BLOG_CATEGORIES } from '@/lib/admin/blog-publication';
 import { useAdminInteractions, useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
-import { adminFetch } from '@/hooks/useAdminAuth';
+import { adminFetch, useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import {
@@ -54,6 +54,8 @@ const STATUS_COLORS = {
 };
 
 export default function AdminBlogPage() {
+  const { identity } = useAdminAuth();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const { confirm } = useAdminInteractions();
   const [previewIsSaved,setPreviewIsSaved] = useState(false);
   const [hasConflict,setHasConflict] = useState(false);
@@ -91,6 +93,7 @@ export default function AdminBlogPage() {
 
   const dirty = !!(editingPost || isCreating) && JSON.stringify(formData) !== baseline.current;
   const discard = useUnsavedAdminChanges(dirty);
+  useEffect(() => { if (dirty) setSavedMessage(''); }, [dirty]);
   const draftRecovery=useAdminDraft('blog',{formData,editingPost,isCreating,baseline:baseline.current},dirty);
   const fetchPosts = useCallback(async () => {
     try {
@@ -129,6 +132,7 @@ export default function AdminBlogPage() {
 
   const openEditor = async (listRow?: BlogPost) => {
     setHasConflict(false);
+    setSavedMessage('');
     if (listRow) {
       if (openingId) return;
       setOpeningId(listRow.id);
@@ -210,7 +214,17 @@ export default function AdminBlogPage() {
   };
 
   const handleSave = async () => {
-    if (formData.status !== 'draft' && !await confirm(formData.status === 'scheduled' ? `Schedule this post for ${formData.publishedAt || 'the selected time'}?` : 'Publish these changes on Eddy?', {confirmLabel:formData.status === 'scheduled' ? 'Schedule post' : 'Publish now'})) return;
+    const publishing = formData.status === 'published' && editingPost?.status !== 'published';
+    const scheduling = formData.status === 'scheduled' &&
+      (editingPost?.status !== 'scheduled' || formData.publishedAt !== toLocalInputValue(editingPost.publishedAt ?? ''));
+    const publishDate = new Date(formData.publishedAt);
+    const scheduledTime = Number.isNaN(publishDate.getTime()) ? 'the selected time' :
+      `${publishDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone })} (${timeZone})`;
+    if ((publishing || scheduling) && !await confirm(
+      scheduling ? `Schedule this post for ${scheduledTime}?` : 'Publish this post on Eddy?',
+      { confirmLabel: scheduling ? 'Schedule post' : 'Publish now' },
+    )) return;
+    setSavedMessage('');
     try {
       setSaving(true);
       setError(null);
@@ -252,7 +266,7 @@ export default function AdminBlogPage() {
       }
 
       baseline.current = JSON.stringify(formData);
-      setSavedMessage(formData.status === 'draft' ? 'Draft saved.' : formData.status === 'scheduled' ? 'Post scheduled.' : 'Post published.');
+      setSavedMessage(formData.status === 'draft' ? 'Draft saved.' : formData.status === 'scheduled' ? 'Post scheduled.' : editingPost?.status === 'published' ? 'Changes saved.' : 'Post published.');
       closeEditor();
       await fetchPosts();
     } catch (err) {
@@ -377,13 +391,13 @@ export default function AdminBlogPage() {
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving…' : formData.status === 'published' ? 'Publish now' : formData.status === 'scheduled' ? 'Schedule' : 'Save draft'}
+                {saving ? 'Saving…' : formData.status === 'published' ? (editingPost?.status === 'published' ? 'Save changes' : 'Publish now') : formData.status === 'scheduled' ? 'Schedule' : 'Save draft'}
               </button>
             </div>
           </div>
 
           {preview && <BlogPreview label={previewIsSaved ? 'Saved version' : 'Unsaved preview'} post={preview} onClose={() => setPreview(null)}/>}
-          {editingPost?.structuredGuide && <div className="admin-panel"><h2 className="font-bold">Structured guide</h2><p>You can edit the title, description, publishing and SEO fields here. Guide sections and river data are preserved. Section changes use the reviewed guide refresh workflow; they are not stored in this body editor.</p><a className="admin-link" href="https://github.com/BrainsyETH/Eddy/blob/main/missouri-float-planner/docs/river-guide-style.md" target="_blank" rel="noreferrer">Open the guide editing workflow</a></div>}
+          {editingPost?.structuredGuide && <div className="admin-panel"><h2 className="font-bold">Structured guide</h2><p>You can edit the title, description, publishing and SEO fields here. Guide sections and river data are preserved. To change guide sections or river data, send the guide title, section name and correction to an owner. An owner can run a reviewed guide refresh. The body editor does not change these sections.</p>{identity?.role === 'owner' && <a className="admin-link" href="https://github.com/BrainsyETH/Eddy/blob/main/missouri-float-planner/docs/river-guide-style.md" target="_blank" rel="noreferrer">Open the owner guide workflow</a>}</div>}
           {/* Main editor grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Content area - 2 columns */}
@@ -469,7 +483,7 @@ export default function AdminBlogPage() {
                 <div className="mb-4">
                   <label htmlFor="blog-publishedAt" className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    Publish date · {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                    Publish date · {timeZone}
                   </label>
                   <input id="blog-publishedAt"
                     type="datetime-local"
@@ -566,7 +580,7 @@ export default function AdminBlogPage() {
                           setFormData({ ...formData, featuredImageUrl: url });
                         }
                       }}
-                      className="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
+                      className="px-3 py-2 rounded-lg transition-colors admin-secondary"
                       title="Upload image"
                     >
                       <Upload className="w-4 h-4" />
@@ -602,7 +616,7 @@ export default function AdminBlogPage() {
                           setFormData({ ...formData, ogImageUrl: url });
                         }
                       }}
-                      className="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
+                      className="px-3 py-2 rounded-lg transition-colors admin-secondary"
                       title="Upload image"
                     >
                       <Upload className="w-4 h-4" />

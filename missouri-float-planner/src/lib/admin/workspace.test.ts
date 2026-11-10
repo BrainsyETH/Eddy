@@ -1,4 +1,10 @@
 import test from 'node:test';
+import {
+  adminFetch,
+  ADMIN_ACCESS_CHANGED_EVENT,
+  ADMIN_AUTH_EXPIRED_EVENT,
+  ADMIN_AUTH_RESTORED_EVENT,
+} from './session-client';
 import assert from 'node:assert/strict';
 import { publicationState, BLOG_CATEGORIES } from './blog-publication';
 import { adminPermission } from './permissions';
@@ -33,9 +39,20 @@ test('scheduling requires an actual future date and publishing cannot silently s
   assert.ok(BLOG_CATEGORIES.includes('River Guides'));
 });
 test('roles deny unlisted actions and owner controls on the server', () => {
-  assert.equal(adminPermission('editor', '/api/admin/blog/00000000-0000-4000-8000-000000000001', 'PUT'), true);
   assert.equal(
-    adminPermission('moderator', '/api/admin/blog/00000000-0000-4000-8000-000000000001', 'PUT'),
+    adminPermission(
+      'editor',
+      '/api/admin/blog/00000000-0000-4000-8000-000000000001',
+      'PUT',
+    ),
+    true,
+  );
+  assert.equal(
+    adminPermission(
+      'moderator',
+      '/api/admin/blog/00000000-0000-4000-8000-000000000001',
+      'PUT',
+    ),
     false,
   );
   assert.equal(
@@ -100,4 +117,109 @@ test('pagination is finite and PostgREST search treats punctuation/wildcards as 
     JSON.parse(literalContains('50% _test, ("name")')),
     '%50\\% \\_test, ("name")%',
   );
+});
+
+test('editors delete URL-encoded storage image paths without broadening other record grants', () => {
+  for (const path of [
+    'blog/1730000000-photo.jpg',
+    'blog/river photo.jpg',
+    'image.png',
+  ]) {
+    const url = `/api/admin/images/${encodeURIComponent(path)}`;
+    assert.equal(adminPermission('editor', url, 'DELETE'), true);
+    assert.equal(adminPermission('moderator', url, 'DELETE'), false);
+    assert.equal(adminPermission('editor', url, 'PUT'), false);
+  }
+  assert.equal(
+    adminPermission('editor', '/api/admin/images/blog/photo.jpg', 'DELETE'),
+    false,
+  );
+  assert.equal(
+    adminPermission('editor', '/api/admin/images/', 'DELETE'),
+    false,
+  );
+  assert.equal(
+    adminPermission('editor', '/api/admin/blog/not-a-uuid', 'DELETE'),
+    false,
+  );
+});
+
+test('admin requests distinguish revoked access, role changes and ordinary forbidden actions', async (t) => {
+  const events = new EventTarget();
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: events,
+  });
+  t.after(() => {
+    if (originalWindow)
+      Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  });
+  const changes: unknown[] = [];
+  events.addEventListener(ADMIN_ACCESS_CHANGED_EVENT, (event) =>
+    changes.push((event as CustomEvent).detail),
+  );
+  let expired = 0;
+  events.addEventListener(ADMIN_AUTH_EXPIRED_EVENT, () => {
+    expired++;
+  });
+  for (const reason of [
+    'access-revoked',
+    'role-forbidden',
+    'origin-mismatch',
+    undefined,
+  ]) {
+    const payload = {
+      error: 'Forbidden',
+      reason,
+      ...(reason === 'role-forbidden'
+        ? { identity: { id: 'member', role: 'editor' } }
+        : {}),
+    };
+    t.mock.method(globalThis, 'fetch', async () =>
+      Response.json(payload, { status: 403 }),
+    );
+    const response = await adminFetch('/api/admin/team', { method: 'PUT' });
+    assert.equal(response.status, 403);
+    assert.deepEqual(
+      await response.json(),
+      JSON.parse(JSON.stringify(payload)),
+      'callers can still read the response',
+    );
+  }
+  assert.equal(changes.length, 2);
+  assert.equal(
+    expired,
+    0,
+    'forbidden requests must not wait for reauthentication',
+  );
+});
+
+test('revocation cancels pending expired-session writes instead of replaying them', async (t) => {
+  const events = new EventTarget();
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: events,
+  });
+  t.after(() => {
+    if (originalWindow)
+      Object.defineProperty(globalThis, 'window', originalWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  });
+  let attempts = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    attempts++;
+    return Response.json({}, { status: 401 });
+  });
+  events.addEventListener(ADMIN_AUTH_EXPIRED_EVENT, () =>
+    events.dispatchEvent(new Event('admin-signed-out')),
+  );
+  await assert.rejects(
+    adminFetch('/api/admin/blog', { method: 'POST' }),
+    /Sign in to continue/,
+  );
+  events.dispatchEvent(new Event(ADMIN_AUTH_RESTORED_EVENT));
+  assert.equal(attempts, 1);
 });

@@ -239,7 +239,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
         <button
           onClick={fetchEmails}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -417,7 +417,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                               className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                 active
                                   ? `${STATUS_BADGE[action.value].color} text-white`
-                                  : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                                  : 'admin-secondary'
                               }`}
                             >
                               <Icon className="w-3 h-3" />
@@ -450,7 +450,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                               </span>
                               <button
                                 onClick={cancelReply}
-                                className="px-3 py-1.5 rounded text-xs font-medium bg-neutral-700 text-neutral-200 hover:bg-neutral-600"
+                                className="px-3 py-1.5 rounded text-xs font-medium admin-secondary"
                               >
                                 Close
                               </button>
@@ -510,7 +510,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                                 <button
                                   onClick={cancelReply}
                                   disabled={sending}
-                                  className="px-4 py-2 rounded-lg text-sm font-medium bg-neutral-700 text-neutral-200 hover:bg-neutral-600 transition-colors disabled:opacity-50"
+                                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 admin-secondary"
                                 >
                                   Cancel
                                 </button>

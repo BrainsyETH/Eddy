@@ -1044,7 +1044,7 @@ export default function SocialAdminPage() {
           </button>
           <button
             onClick={() => loadPreview()}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-700 text-white rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors admin-secondary"
           >
             <Eye className="w-4 h-4" />
             Preview Next Posts

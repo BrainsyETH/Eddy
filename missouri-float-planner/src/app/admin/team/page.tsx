@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { adminFetch } from '@/hooks/useAdminAuth';
+import { adminFetch, useAdminAuth } from '@/hooks/useAdminAuth';
 import {
   useAdminInteractions,
   useUnsavedAdminChanges,
@@ -16,6 +16,7 @@ interface Member {
 }
 const empty = { name: '', email: '', role: 'editor', active: true };
 export default function TeamPage() {
+  const { identity, refreshSession } = useAdminAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [draft, setDraft] = useState(empty);
   const [editing, setEditing] = useState<Member | null>(null);
@@ -51,10 +52,23 @@ export default function TeamPage() {
     void load();
   }, [load]);
   const save = async () => {
+    const changingOwnAccess =
+      !!editing &&
+      editing.user_id === identity?.id &&
+      (!draft.active || draft.role !== identity.role);
     if (
       !(await confirm(
-        `${draft.active ? 'Grant' : 'Remove'} ${draft.role} access for ${draft.email}?`,
-        { confirmLabel: 'Update access', danger: !draft.active },
+        changingOwnAccess
+          ? draft.active
+            ? `Change your own access to ${draft.role}? You will lose owner controls, including Team & access. Another owner must restore your access.`
+            : 'Remove your own admin access? You will be signed out. Another owner must restore your access.'
+          : `${draft.active ? 'Grant' : 'Remove'} ${draft.role} access for ${draft.email}?`,
+        {
+          confirmLabel: changingOwnAccess
+            ? 'Change my access'
+            : 'Update access',
+          danger: changingOwnAccess || !draft.active,
+        },
       ))
     )
       return;
@@ -78,7 +92,8 @@ export default function TeamPage() {
           ? 'Access updated.'
           : 'Access updated, but the activity record failed.',
       );
-      await load();
+      if (changingOwnAccess) await refreshSession();
+      else await load();
     } catch (e) {
       setMessage((e as Error).message);
     } finally {

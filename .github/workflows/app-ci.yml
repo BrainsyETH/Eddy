@@ -127,6 +127,23 @@ jobs:
       - name: Check browser analytics
         run: npm run test:analytics-browser
 
+      - name: Check admin migration safeguards
+        run: npm run test:admin-db
+
+      - name: Check admin workspace roles and interactions
+        env:
+          ADMIN_SMOKE_OUTPUT: ${{ runner.temp }}/admin-workspace-previews
+        run: npm run test:admin-browser
+
+      - name: Upload admin workspace previews
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: admin-workspace-previews-${{ github.sha }}
+          path: ${{ runner.temp }}/admin-workspace-previews
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Check river guides on desktop and mobile
         env:
           GUIDE_SMOKE_OUTPUT: ${{ runner.temp }}/river-guide-previews

@@ -28,7 +28,7 @@ const editorPermissions: Permission[] = [
   ['/api/admin/blog', 'GET POST'],
   ['/api/admin/blog/:id', 'GET PUT DELETE'],
   ['/api/admin/images', 'GET POST'],
-  ['/api/admin/images/:id', 'DELETE'],
+  ['/api/admin/images/:path', 'DELETE'],
   ['/api/admin/clips', 'GET PATCH'],
   ['/api/admin/clips/compile', 'POST'],
   ['/api/admin/clips/trigger-pipeline', 'POST'],
@@ -69,7 +69,11 @@ const moderatorPermissions: Permission[] = [
 ];
 const compile = (rules: Permission[]) =>
   rules.map(([path, methods]) => ({
-    path: new RegExp(`^${path.replace(':id', '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')}$`),
+    // Image IDs are URL-encoded storage paths in a single route segment.
+    // All other record routes retain their UUID-only permission boundary.
+    path: new RegExp(
+      `^${path.replace(':id', '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}').replace(':path', '[^/]+')}$`,
+    ),
     methods: methods.split(' '),
   }));
 const roles = {

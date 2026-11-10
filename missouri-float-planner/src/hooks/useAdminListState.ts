@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 export function useAdminListState(
   key: string,
   initial = 'all',
+  historyMode: 'push' | 'replace' = 'push',
 ): [string, (value: string | ((old: string) => string)) => void] {
   const [value, setValue] = useState(initial);
   useEffect(() => {
@@ -25,10 +26,13 @@ export function useAdminListState(
       if (resolved === initial) url.searchParams.delete(key);
       else url.searchParams.set(key, resolved);
       if (key !== 'page') url.searchParams.delete('page');
-      if (url.href !== location.href) history.pushState(null, '', url);
+      if (url.href !== location.href) {
+        if (historyMode === 'replace') history.replaceState(null, '', url);
+        else history.pushState(null, '', url);
+      }
       window.dispatchEvent(new Event('admin-list-state'));
     },
-    [key, initial],
+    [key, initial, historyMode],
   );
   return [value, change];
 }

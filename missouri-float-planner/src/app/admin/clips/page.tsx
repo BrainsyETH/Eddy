@@ -1136,7 +1136,7 @@ export default function ClipsAdminPage() {
                     <button
                       onClick={() => triggerBrandCheck(previewClip.id)}
                       disabled={brandCheckingClip === previewClip.id}
-                      className="flex items-center gap-2 px-3 py-2 bg-neutral-700 text-white rounded-lg text-sm font-medium hover:bg-neutral-600 transition-colors disabled:opacity-40"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 admin-secondary"
                     >
                       <RefreshCw className={`w-4 h-4 ${brandCheckingClip === previewClip.id ? 'animate-spin' : ''}`} />
                       {brandCheckingClip === previewClip.id ? 'Dispatching…' : 'Re-run brand check'}
@@ -1205,7 +1205,7 @@ export default function ClipsAdminPage() {
                       href={previewClip.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-neutral-700 text-white rounded-lg text-sm font-medium hover:bg-neutral-600 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors admin-secondary"
                     >
                       <ExternalLink className="w-4 h-4" />
                       View Source

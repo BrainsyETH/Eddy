@@ -331,7 +331,7 @@ export default function AdminAccessPointEditPage() {
                 saveMutation.reset();
                 queryClient.invalidateQueries({ queryKey: ['admin-access-point', id] });
               }}
-              className="px-3 py-1.5 bg-amber-700 hover:bg-amber-600 text-white rounded-lg"
+              className="px-3 py-1.5 rounded-lg admin-primary"
             >
               Discard my edits and load the latest
             </button>
@@ -359,7 +359,7 @@ export default function AdminAccessPointEditPage() {
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       (formData.types || []).includes(option.value)
                         ? 'bg-primary-600 text-white'
-                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                        : 'admin-secondary'
                     }`}
                   >
                     {option.label}
@@ -388,7 +388,7 @@ export default function AdminAccessPointEditPage() {
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                         (formData.roadSurface || []).includes(option.value)
                           ? 'bg-primary-600 text-white'
-                          : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                          : 'admin-secondary'
                       }`}
                     >
                       {option.label}

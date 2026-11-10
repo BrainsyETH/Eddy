@@ -67,7 +67,7 @@ export default function AdminPOIsPage() {
   const [expandedPOI, setExpandedPOI] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useAdminListState('type');
   const [riverFilter, setRiverFilter] = useAdminListState('river');
-  const [searchQuery, setSearchQuery] = useAdminListState('q', '');
+  const [searchQuery, setSearchQuery] = useAdminListState('q', '', 'replace');
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -441,14 +441,14 @@ export default function AdminPOIsPage() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page <= 1}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setPage(p => p + 1)}
                     disabled={page >= Math.ceil(totalPois / pageLimit)}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Next
                   </button>

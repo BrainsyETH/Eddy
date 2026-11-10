@@ -1700,7 +1700,7 @@ export default function GeographyEditor() {
                   }}
                   className={`px-2 py-1 text-xs font-medium rounded ${
                     selectedAccessPoint.approved
-                      ? 'bg-orange-500 text-white hover:bg-orange-600'
+                      ? 'admin-primary'
                       : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
                 >
@@ -1734,7 +1734,7 @@ export default function GeographyEditor() {
             {/* Full Editor Link */}
             <Link
               href={`/admin/access-points/${selectedAccessPoint.id}`}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors admin-primary"
             >
               <Pencil size={16} />
               Open Full Editor
