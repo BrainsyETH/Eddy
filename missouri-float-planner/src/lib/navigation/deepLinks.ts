@@ -34,10 +34,26 @@ export interface NavLink {
 }
 
 /**
+ * The Google URL an access point's `directions_override` stands for.
+ *
+ * The column holds whatever an admin typed: usually a place name or street
+ * address ("Akers Ferry Lower Canoe Access, Jadwin, MO"), sometimes a
+ * coordinate pair, occasionally a full Google Maps URL. Only the last is a
+ * link. Anything else is a destination, and used raw as an href it resolves
+ * against the page it sits on and lands on a 404.
+ */
+export function directionsOverrideUrl(directionsOverride?: string | null): string | null {
+  const value = directionsOverride?.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(value)}`;
+}
+
+/**
  * Generate navigation links for all supported apps
  *
  * @param coords - Latitude, longitude, and optional label for the location
- * @param directionsOverride - Optional Google Maps URL that overrides coordinate-based link
+ * @param directionsOverride - Optional destination (place name, address, or Google Maps URL) that overrides the coordinate-based Google link
  * @returns Array of NavLink objects for each supported app
  */
 export function generateNavLinks(
@@ -46,6 +62,7 @@ export function generateNavLinks(
 ): NavLink[] {
   const { lat, lng, label } = coords;
   const encodedLabel = encodeURIComponent(label || 'Access Point');
+  const overrideUrl = directionsOverrideUrl(directionsOverride);
 
   return [
     {
@@ -78,8 +95,8 @@ export function generateNavLinks(
       subtitle: 'Maps',
       icon: '📍',
       // Use directionsOverride if provided, otherwise generate from coordinates
-      deepLink: directionsOverride || `comgooglemaps://?q=${lat},${lng}&label=${encodedLabel}`,
-      webFallback: directionsOverride || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+      deepLink: overrideUrl || `comgooglemaps://?q=${lat},${lng}&label=${encodedLabel}`,
+      webFallback: overrideUrl || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
       storeUrl: {
         ios: 'https://apps.apple.com/app/google-maps/id585027354',
         android: 'https://play.google.com/store/apps/details?id=com.google.android.apps.maps',
