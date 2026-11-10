@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "big-piney-river-float-trips-missouri",
-  "title": "Big Piney River Float Trip Guide: Bluffs, Fishing & Public Access",
+  "title": "Big Piney River Float Trip Guide: Bluffs & Fishing",
   "description": "Pine-topped bluffs, fishing stops, and room to take your time. Get to know the Big Piney from the Houston accesses to its separate lower stretch.",
   "river_slug": "big-piney",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

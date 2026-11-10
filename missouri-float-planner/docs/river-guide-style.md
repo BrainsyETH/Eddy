@@ -157,7 +157,12 @@ river guides remain separate from the time-sensitive Eddy’s Reads feed.
 
 ## Refreshing existing guides
 
-`reviewed.ts` includes the seven original guides and the eighteen later guides.
+`reviewed.ts` includes the seven original guides, the eighteen later guides and
+the three tailwater guides. `refresh-baseline.json` holds the fingerprint of each
+guide as it stands in production; after a refresh is applied and verified,
+regenerate it from the applied seeds so the next refresh has something to
+compare against. Titles stay at 53 characters or fewer (the site appends
+“ | Eddy”); a test enforces it.
 `refresh-river-guides.ts` updates existing posts; the insert-only seed script
 continues to preserve existing articles.
 
@@ -245,8 +250,9 @@ differ from a float guide:
 - Give fishing limits only from an agency page, with a date in the sentence:
   the notice's effective date, or the day the page was checked when the agency
   gives none (as MDC's Lake Taneycomo page does). Tailwater trout rules have changed more than once.
-- The seed script inserts these as new posts (`insertableGuideSeeds`); they are
-  not part of the refresh baseline until they are published.
+- The seed script inserts a new one as a post (`insertableGuideSeeds`). Once it
+  is published, add it to `reviewed.ts` and the baseline so later edits go
+  through the refresh script.
 
 Run `npm run test:guides` for fixture-backed desktop, 390px and 320px checks.
 App CI runs it using its existing Chromium installation and uploads the previews.

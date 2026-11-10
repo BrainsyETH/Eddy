@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "mulberry-river-float-trips-arkansas",
-  "title": "Mulberry River Float Trip Guide: Forest Floats & Moving Water",
+  "title": "Mulberry River Float Trip Guide: Whitewater Runs",
   "description": "A moving-water trip through the Boston Mountains. Pick a Mulberry reach for your paddling experience and today’s flow, with the forest as the backdrop.",
   "river_slug": "mulberry",
   "featured_image_url": "https://live.staticflickr.com/4619/25631401007_d4f96050b4_b.jpg",

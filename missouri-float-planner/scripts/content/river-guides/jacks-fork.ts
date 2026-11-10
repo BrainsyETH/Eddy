@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "jacks-fork-river-float-trips-missouri",
-  "title": "Jacks Fork River Float Trip Guide: Springs, Floats & Outfitters",
+  "title": "Jacks Fork Float Trip Guide: Alley Spring & Floats",
   "description": "Choose a Jacks Fork float above or below Alley Spring, with routes, Jam Up Cave, camping, access points and outfitters.",
   "river_slug": "jacks-fork",
   "featured_image_url": "https://www.nps.gov/common/uploads/cropped_image/4E240289-EB97-9CDB-81F98A50145B568B.jpg",

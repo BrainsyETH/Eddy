@@ -23,7 +23,6 @@ try {
   await mkdir(fixture, { recursive: true }); await mkdir(out, { recursive: true });
   await writeFile(`${fixture}/page.tsx`, `import { notFound } from 'next/navigation';
 import { reviewedRiverGuides } from '../../../scripts/content/river-guides/reviewed';
-import { tailwaterGuideSeeds } from '../../../scripts/content/river-guides';
 import accesses from '../../../scripts/fixtures/guide-accesses.json';
 import lines from '../../../scripts/fixtures/guide-overview-current.json';
 import { RiverGuideView } from '@/components/blog/RiverGuideLayout';
@@ -35,7 +34,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_GUIDE_SMOKE !== '1') notFound();
   const params = await searchParams;
   if (params.view === 'directory') return <main className="mx-auto max-w-5xl p-4"><h1>River guides</h1><GuideDirectory entries={reviewedRiverGuides.map(seed => ({ slug: seed.slug, state: seed.slug.endsWith('arkansas') ? 'AR' : 'MO', search: seed.title + ' ' + seed.description, card: <article><a href={'/blog/' + seed.slug}>{seed.title}</a></article> }))} /></main>;
-  const seed = [...reviewedRiverGuides, ...tailwaterGuideSeeds].find(seed => seed.river_slug === (params.river || 'current'));
+  const seed = reviewedRiverGuides.find(seed => seed.river_slug === (params.river || 'current'));
   if (!seed) notFound();
   const aps = new Map(accesses.filter(a => a.river_slug === seed.river_slug).map(a => [a.slug, { id: a.id, riverId: a.river_id, imageUrl: null, npsImageUrl: null, endpoint: a.is_float_endpoint !== false, mile: Number(a.river_mile_downstream) }]));
   const map = seed.river_slug === 'current' ? guideOverview(lines.map(line => { const s=seed.guide_data.sections.find(s=>s.id===line.id)!; return {...line, number:line.id, label:s.from+' → '+s.to,miles:s.miles}; })) : [];
@@ -118,7 +117,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} white overflow`);
     if(name==='mobile')await page.screenshot({path:`${out}/white-mobile.png`,fullPage:true});
     await page.goto(`${origin}/guides-layout-check?view=directory`,{waitUntil:'networkidle'});
-    assert.equal(await page.locator('article:visible').count(),25);
+    assert.equal(await page.locator('article:visible').count(),28);
     await page.getByRole('searchbox').fill('Spring River');
     assert.equal(await page.locator('article:visible').count(),2);
     await page.getByRole('combobox').selectOption('AR');
@@ -126,12 +125,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     await page.getByRole('searchbox').fill('[');
     assert.equal(await page.locator('article:visible').count(),0);
     await page.getByRole('button',{name:'Clear search and filters'}).click();
-    assert.equal(await page.locator('article:visible').count(),25);
+    assert.equal(await page.locator('article:visible').count(),28);
     await page.close(); console.log(`${name}: layout, map, estimates, empty states and search passed`);
   }
   const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();
   await page.goto(`${origin}/guides-layout-check?view=directory`);
-  assert.equal(await page.locator('a[href^="/blog/"]').count(),25,'Crawlable links without JavaScript');
+  assert.equal(await page.locator('a[href^="/blog/"]').count(),28,'Crawlable links without JavaScript');
   await context.close(); assert.deepEqual(errors,[]);
   await writeFile(`${out}/result.json`,JSON.stringify({passed:true,widths:[1440,390,320],browserErrors:errors,fixtures:'Reviewed copy; public endpoint/geometry snapshot; mocked live embeds and planner responses.'},null,2));
   console.log('Guide smoke passed; screenshots: '+out);

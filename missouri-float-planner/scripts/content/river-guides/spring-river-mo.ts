@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "spring-river-float-trips-missouri",
-  "title": "Spring River (Missouri) Guide: La Russell, Carthage & Public Access",
+  "title": "Spring River (Missouri) Guide: La Russell & Carthage",
   "description": "Get to know southwest Missouri’s Spring River near La Russell and Carthage, with public-access information, local gauges, and practical planning tips.",
   "river_slug": "spring-river-mo",
   "featured_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Spring_River%2C_La_Russell_Mo.JPG?width=1280",

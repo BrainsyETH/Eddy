@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "norfork-tailwater-north-fork-river-arkansas",
-  "title": "Norfork Tailwater Guide: Trout Water Below Norfork Dam",
+  "title": "Norfork Tailwater Guide: Trout Below Norfork Dam",
   "description": "How the Norfork Tailwater works: today’s generation schedule at Norfork Dam, the public accesses in its five miles, and the current trout rules.",
   "river_slug": "norfork-tailwater",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

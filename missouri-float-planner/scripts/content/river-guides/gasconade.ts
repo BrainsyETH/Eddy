@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "gasconade-river-float-trips-missouri",
-  "title": "Gasconade River Float Trip Guide: Bluffs, Bends & Day Floats",
+  "title": "Gasconade River Float Trip Guide: Bluffs & Bends",
   "description": "Long bends, bluff views, and plenty of ways to make a quiet river day. Choose a piece of the Gasconade instead of trying to do it all.",
   "river_slug": "gasconade",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "war-eagle-creek-float-trips-arkansas",
-  "title": "War Eagle Creek Float Trip Guide: Withrow Springs & Seasonal Floats",
+  "title": "War Eagle Creek Float Trip Guide: Withrow Springs",
   "description": "A spring-season creek day near Withrow Springs, with bluff scenery and a mill visit to round out the weekend.",
   "river_slug": "war-eagle-creek",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

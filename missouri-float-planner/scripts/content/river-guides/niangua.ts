@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "niangua-river-float-trips-missouri",
-  "title": "Niangua River Float Trip Guide: Bennett Spring, Floats & Outfitters",
+  "title": "Niangua River Float Trip Guide: Bennett Spring",
   "description": "Compare Niangua floats around Bennett Spring and Prosperine, with access points, outfitters, camping and Tunnel Dam planning notes.",
   "river_slug": "niangua",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773883574106-Screenshot_2026-03-18_at_8.26.06_PM-KvQqnT3PZJtQeXmQ2woqigz7Jnui8B.png",

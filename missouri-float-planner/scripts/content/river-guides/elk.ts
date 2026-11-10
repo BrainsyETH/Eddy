@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "elk-river-float-trips-missouri",
-  "title": "Elk River Float Trip Guide: Pineville, Noel & Public Access",
+  "title": "Elk River Float Trip Guide: Pineville & Noel",
   "description": "Get to know the Elk around Pineville and Noel: gravel-bar scenery, summer river weekends, and the access details that make a trip work.",
   "river_slug": "elk",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

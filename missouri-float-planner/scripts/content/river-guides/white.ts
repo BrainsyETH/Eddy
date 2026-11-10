@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "white-river-bull-shoals-tailwater-arkansas",
-  "title": "White River Below Bull Shoals Dam: Trout Water & Dam Releases",
+  "title": "White River Guide: Trout Below Bull Shoals Dam",
   "description": "How the White River works below Bull Shoals Dam: today’s generation schedule, public ramps from the dam to Norfork, and the current trout rules.",
   "river_slug": "white",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

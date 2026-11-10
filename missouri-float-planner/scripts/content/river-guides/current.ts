@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "current-river-float-trips-missouri",
-  "title": "Current River Float Trip Guide: Springs, Floats, and Outfitters",
+  "title": "Current River Float Trip Guide: Springs & Floats",
   "description": "Compare Current River floats, access points and outfitters, with stops at Welch Spring, Cave Spring and Big Spring.",
   "river_slug": "current",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1770003451989-Montauk-9DBZH6CuKRaiCxQEd6sBa5MWkONotQ.png",

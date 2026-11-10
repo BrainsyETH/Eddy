@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "buffalo-river-float-trips-arkansas",
-  "title": "Buffalo National River Float Trip Guide: Upper, Middle & Lower Floats",
+  "title": "Buffalo River Float Trip Guide: Upper to Lower Floats",
   "description": "Big bluffs, gravel-bar lunches, and three very different stretches of river. Pick the Buffalo reach that has water for the day you actually have.",
   "river_slug": "buffalo",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

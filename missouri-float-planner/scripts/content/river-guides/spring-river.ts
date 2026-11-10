@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "spring-river-float-trips-arkansas",
-  "title": "Spring River (Arkansas) Float Trip Guide: Mammoth Spring, Hardy & Day Floats",
+  "title": "Spring River (Arkansas) Float Trip Guide: Hardy",
   "description": "Start with Mammoth Spring, then choose the Arkansas Spring River reach that fits your group. Cold water, ledges, and Hardy each shape the trip.",
   "river_slug": "spring-river",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
