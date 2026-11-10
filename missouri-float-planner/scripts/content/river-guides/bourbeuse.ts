@@ -16,32 +16,36 @@ export default {
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Missouri"
+          "label": "Length",
+          "value": "149 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I"
         },
         {
-          "label": "In this guide",
-          "value": "2 float routes"
+          "label": "Good water",
+          "value": "360–960 cfs"
+        },
+        {
+          "label": "Gauge",
+          "value": "Union"
         }
       ]
     },
     "intro_html": "<p><strong>The Bourbeuse takes the scenic route even when it has somewhere to be.</strong> Its bends work through the country west of Union, and a short distance on the road can hide a much longer trip on the water. This is a good river to approach with a paddle and a modest plan: a few hours exploring pools can be more satisfying than chasing a big mileage number.</p><p>Do not come expecting the clear, spring-fed look of the Current. The Bourbeuse has its own character, with runoff shaping its color and level. Public accesses offer several ways to break the river into outings. The routes below focus on named MDC endpoints and stop above the lower Guths Mill dam corridor.</p>",
     "why_different": [
       {
-        "strong": "The bends are the attraction.",
-        "body": "Long meanders make an unhurried fishing float feel far removed from the next road crossing."
+        "strong": "It never goes straight.",
+        "body": "The Bourbeuse loops so much that two accesses a few miles apart by road can be a full day apart by water."
       },
       {
-        "strong": "A different Ozark river.",
-        "body": "Water clarity varies with runoff. Enjoy the Bourbeuse for its own pools and wooded banks rather than comparing every bend with a spring river."
+        "strong": "It is not a spring river.",
+        "body": "The water takes its color from runoff, so do not expect the clear look of the Current. Come for the quiet pools and wooded banks."
       },
       {
-        "strong": "Named public endpoints.",
-        "body": "Mill Rock, Wenkel Ford, Mayers Landing, and Union make useful anchors for planning your shuttle."
+        "strong": "Public ramps at both ends.",
+        "body": "Mill Rock, Wenkel Ford, Mayers Landing and Union are all MDC accesses, so you can plan a float without a private landing."
       }
     ],
     "sections": [
@@ -53,9 +57,11 @@ export default {
         "from": "Mill Rock MDC Access",
         "to": "Wenkel Ford MDC Access",
         "miles": "7.2",
-        "best": "Unhurried paddling through the middle river’s bends",
+        "best": "An unhurried day of bends",
         "photo": null,
-        "body": "Use Mill Rock and Wenkel Ford for a day of bends and pools. Keep the put-in and take-out pinned before leaving home; two places that look close together by road can be a real day on this river."
+        "body": "7.2 miles of bends and slow pools between two MDC accesses. Plan on paddling most of it.",
+        "time": "About 3 hr",
+        "diff": "I"
       },
       {
         "id": 2,
@@ -65,27 +71,29 @@ export default {
         "from": "Mayers Landing MDC Access",
         "to": "Union MDC Access",
         "miles": "8.4",
-        "best": "A lower-river day ending near Union",
+        "best": "A float that ends in town",
         "photo": null,
-        "body": "Mayers Landing to Union is a lower-river option with a named MDC take-out. Finish at Union as planned rather than drifting on toward Guths Mill Dam downstream."
+        "body": "8.4 miles down to the MDC access at Union. Take out there: Guths Mill Dam is downstream.",
+        "time": "About 3½ hr",
+        "diff": "I"
       }
     ],
     "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "Rain writes the plan.",
-        "note": "Runoff can make the Bourbeuse higher and muddy. Check the trend and conditions at your actual launch."
+        "t": "Rain decides.",
+        "note": "Runoff brings the river up and turns it muddy. Check the gauge and look at the launch."
       },
       {
         "m": "Jun–Aug",
-        "t": "Choose a shorter reach.",
-        "note": "The upper river can run thin in a dry summer. Expect slower travel through the pools."
+        "t": "Slow water.",
+        "note": "The upper river gets thin in a dry summer and the pools barely move. Give yourself extra time."
       },
       {
         "m": "Sep–Feb",
         "t": "Quiet bends, short days.",
-        "note": "Allow extra time for the shuttle and finish with daylight to spare."
+        "note": "Start early and leave a margin for the shuttle."
       }
     ],
     "what_to_bring": [
@@ -97,16 +105,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Budget for actual paddling.",
-        "body": "The current will not do all the work in long pools. Headwinds make a conservative distance more appealing."
+        "strong": "You will be paddling.",
+        "body": "The current does little in the long pools, and a headwind makes it less. Seven miles is a real day here."
       },
       {
         "strong": "The Union gauge is downstream.",
-        "body": "USGS 07016500 is a useful reference, but it cannot promise enough water on the smaller upper reaches."
+        "body": "USGS 07016500 reads the lower river; Eddy rates it best between about 360 and 960 cfs. It cannot tell you how much water is in the smaller river upstream."
       },
       {
-        "strong": "Keep the overnight separate.",
-        "body": "If you want to camp, find a designated site and confirm its rules before adding it to the float."
+        "strong": "Camping needs a plan.",
+        "body": "Do not count on camping on a gravel bar. Find a campground and confirm it before you add a night."
       }
     ],
     "callouts": {
@@ -116,27 +124,27 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "The Bourbeuse takes the long way around. Plan from river miles, leave lunch within reach, and give those bends more time than the road map suggests."
+        "quote": "The Bourbeuse takes the long way around. Plan by river miles, keep lunch within reach, and give the bends more time than the road map suggests."
       }
     },
     "faq": [
       {
         "q": "Is the Bourbeuse a tubing river?",
-        "a": "A paddle craft is a better fit for these public-access routes. Slow pools and longer gaps between exits can turn an unguided tube trip into a very long day."
+        "a": "Not on these floats. The pools are slow and the accesses are far apart, so a tube turns seven miles into a very long day. Bring a canoe or kayak."
       },
       {
         "q": "Why are the road and river distances so different?",
-        "a": "The river meanders. Use Eddy’s river route distance rather than the straight line between launch and take-out."
+        "a": "Because the river loops back on itself. Use the river miles in Eddy, not the straight line between the two accesses."
       },
       {
         "q": "Can I continue past Union?",
-        "a": "Plan that separately. Guths Mill Dam lies downstream, and this guide’s Union route ends above it."
+        "a": "Not on this float. Guths Mill Dam is downstream of Union, and this guide stops above it."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Arrange a self-shuttle.",
-        "body": "Do not count on finding transport after you reach the take-out."
+        "strong": "Arrange your own ride.",
+        "body": "These are public ramps with no shuttle. Leave a car at the take-out."
       }
     ],
     "related_rivers": [
@@ -150,9 +158,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "7.2–8.4 mi featured routes",
-      "best_for_beginners": "Neither featured route is a quick sampler: both exceed seven miles. Allow for steady paddling through pools.",
-      "primary_gauge": "Bourbeuse River at Union, MO · USGS 07016500"
+      "typical_distance": "7.2–8.4 mi featured floats",
+      "best_for_beginners": "Mill Rock → Wenkel Ford (7.2 mi, about 3 hr)",
+      "primary_gauge": "Bourbeuse River at Union, MO · USGS 07016500",
+      "route_label": "Shortest float"
     },
     "sources": [
       {
@@ -185,7 +194,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

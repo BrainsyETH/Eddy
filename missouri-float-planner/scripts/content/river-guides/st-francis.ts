@@ -16,16 +16,20 @@ export default {
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Saint_Francis_River%2C_USA_04-09.jpg?width=1200",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Missouri"
+          "label": "Length",
+          "value": "123 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The specific reach"
+          "label": "Difficulty",
+          "value": "Class II–IV on the upper river"
         },
         {
-          "label": "In this guide",
-          "value": "2 float routes"
+          "label": "Good water",
+          "value": "4.0–5.0 ft"
+        },
+        {
+          "label": "Gauge",
+          "value": "Roselle"
         }
       ],
       "photo_credit": {
@@ -40,16 +44,16 @@ export default {
     "intro_html": "<p><strong>The St. Francis is where the Ozarks show you a rockier face.</strong> At Millstream Gardens, the Tiemann Shut-Ins make the river’s whitewater identity plain. Farther downstream around Sam A. Baker State Park, a different outing comes into view. The name on the map is the same; the paddling decision is not.</p><p>Choose which experience you actually want. Watching the shut-ins from land, arranging a whitewater trip with the right skills, and paddling a quieter reach are three different plans. This guide features shorter outings outside the main shut-ins run, while keeping the Millstream Gardens visit as a worthwhile part of the weekend.</p>",
     "why_different": [
       {
-        "strong": "The shut-ins are a destination.",
-        "body": "Millstream Gardens gives the river a character unlike the broad gravel-bed floats elsewhere in Missouri."
+        "strong": "Granite, not gravel.",
+        "body": "At Millstream Gardens the river drops through the Tiemann Shut-Ins, a granite channel unlike anything on Missouri’s gravel-bar rivers."
       },
       {
-        "strong": "The lower river offers another starting point.",
-        "body": "Sam A. Baker State Park is a useful base for researching a calmer reach and a campground stay."
+        "strong": "Two different rivers.",
+        "body": "The upper river is whitewater. Around Sam A. Baker State Park, downstream, it is a calmer float that starts at the park’s boat launch."
       },
       {
-        "strong": "The gauge needs a location.",
-        "body": "Roselle describes the upper river; Patterson is a separate downstream reference. Do not swap their thresholds."
+        "strong": "Two gauges.",
+        "body": "Roselle reads the upper river and Patterson the lower. Their numbers are not interchangeable."
       }
     ],
     "sections": [
@@ -61,10 +65,11 @@ export default {
         "from": "Roselle Access",
         "to": "Millstream Gardens Fisherman's Access",
         "miles": "2",
-        "best": "Paddlers with moving-water skills who can identify the upper-run take-out",
+        "best": "Moving-water paddlers who know the take-out",
         "photo": null,
-        "body": "Start at Roselle and finish at Millstream Gardens Fisherman’s Access, mile 19.7 in Eddy. Identify that take-out from land first: the Tiemann Shut-Ins put-in is only about 0.5 mile farther downstream at mile 20.2. Beyond it is a separate whitewater run; Silver Mine Dam is farther down at mile 22.7. This two-mile outing does not include either. American Whitewater rates the upper corridor Class II and the shut-ins II–IV, with difficulty increasing as water rises. Those are separate runs, not interchangeable finishes.",
-        "diff": "II"
+        "body": "Two miles of Class II water from Roselle to Fisherman’s Access at Millstream Gardens. Find the take-out on foot before you launch: the put-in for the Tiemann Shut-Ins is only about 0.5 mile farther down, and that is a Class II–IV whitewater run that gets harder as the water rises. Silver Mine Dam is below that. Neither is part of this float.",
+        "diff": "II",
+        "time": "About 1 hr"
       },
       {
         "id": 2,
@@ -74,32 +79,33 @@ export default {
         "from": "Sam A. Baker State Park boat launch (Campground 1)",
         "to": "Hwy 34 bridge (Patterson gauge)",
         "miles": "3.3",
-        "best": "A separate lower-river outing based around Sam A. Baker State Park",
+        "best": "A calmer float from the state park",
         "photo": null,
-        "body": "Start at Sam A. Baker State Park’s boat launch and plan a finish at the Highway 34 access. Confirm the landing and parking arrangements first. The Patterson reading is the relevant downstream reference for this part of the guide."
+        "body": "3.3 miles from the Sam A. Baker State Park boat launch to the Highway 34 bridge. Confirm the landing and parking at Highway 34 first, and use the Patterson gauge for this stretch.",
+        "time": "About 1½ hr"
       }
     ],
     "springs": [
       {
         "name": "Tiemann Shut-Ins overlook",
-        "note": "Walk the designated overlook trail at Millstream Gardens to see the granite channel and whitewater. The land visit is separate from a run through the shut-ins."
+        "note": "A marked trail at Millstream Gardens leads to an overlook of the granite channel and its whitewater. You do not need a boat to see it."
       }
     ],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "A changing-water season.",
-        "note": "Rain drives the upper river. Whitewater interest is not a reason to ignore the group’s skill limits."
+        "t": "Whitewater season.",
+        "note": "Rain brings the upper river up. Pick the day for your group’s skills, not for the biggest water."
       },
       {
         "m": "Jun–Aug",
-        "t": "Look at the lower reach.",
-        "note": "Low upper water can change the options. Check Patterson and the actual lower launch before planning a day there."
+        "t": "The lower river.",
+        "note": "The upper river is often too low. Check Patterson and look at the launch at Sam A. Baker."
       },
       {
         "m": "Sep–Feb",
-        "t": "Rock scenery and cold water.",
-        "note": "A park walk may be the better outing when water or weather does not suit the group."
+        "t": "Rock scenery, cold water.",
+        "note": "When the water or the weather is wrong, the shut-ins trail is the better trip."
       }
     ],
     "what_to_bring": [
@@ -111,16 +117,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "See the whitewater from the trail first.",
-        "body": "A visit to Millstream Gardens can be satisfying without putting a recreational canoe into the shut-ins."
+        "strong": "Walk it first.",
+        "body": "The overlook at Millstream Gardens shows you the shut-ins without putting a canoe in them."
       },
       {
-        "strong": "Keep upper and lower plans separate.",
-        "body": "Roselle and Sam A. Baker belong to different outings. Choose the base camp and shuttle accordingly."
+        "strong": "Two bases.",
+        "body": "Roselle and Sam A. Baker are different trips. Camp and shuttle for the one you are doing."
       },
       {
-        "strong": "Give the take-out a recognizable landmark.",
-        "body": "On a short route above harder water, missing the finish changes the day. Study it from land before you start."
+        "strong": "Learn the take-out by sight.",
+        "body": "On the Roselle float, missing Fisherman’s Access puts you at the top of the shut-ins. Pick out a landmark from the bank beforehand."
       }
     ],
     "callouts": {
@@ -130,31 +136,31 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "On the Roselle outing, Fisherman’s Access is the finish—not the Tiemann put-in. The whitewater reach begins only about half a mile farther downstream. Identify the take-out before launching."
+        "quote": "On the Roselle float the finish is Fisherman’s Access, not the Tiemann put-in. The whitewater starts about half a mile farther down. Find the take-out before you launch."
       }
     },
     "faq": [
       {
         "q": "Is the entire St. Francis a whitewater run?",
-        "a": "No. Character varies by reach. The Tiemann Shut-Ins corridor is a different proposition from the featured lower outing."
+        "a": "No. The upper river around the Tiemann Shut-Ins is whitewater. The lower river near Sam A. Baker State Park is a calmer float."
       },
       {
         "q": "Does this guide recommend paddling the shut-ins?",
-        "a": "The route cards stop outside that run. A whitewater trip requires its own current assessment, equipment, and skills."
+        "a": "No. Both floats in this guide stop outside the shut-ins. Running them takes whitewater skills, the right boat and gear, and a look at that day’s level."
       },
       {
         "q": "Which gauge should I check?",
-        "a": "Roselle, USGS 07034000, for the upper river; Patterson, USGS 07037500, for the lower reach near Sam A. Baker and Highway 34."
+        "a": "Roselle (USGS 07034000) for the upper river; Eddy rates it best between about 4.0 and 5.0 feet. Patterson (07037500) for the lower river near Sam A. Baker and Highway 34."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Know which experience you booked.",
-        "body": "A shut-ins whitewater run is not interchangeable with a lower-river float."
+        "strong": "Know which trip you booked.",
+        "body": "A whitewater run through the shut-ins and the lower-river float are not the same thing."
       },
       {
-        "strong": "Identify the upper take-out.",
-        "body": "Fisherman’s Access (mile 19.7) is about half a mile above the Tiemann Shut-Ins put-in. Locate the take-out before launching; do not drift on into the whitewater run."
+        "strong": "Find Fisherman’s Access first.",
+        "body": "It is about half a mile above the shut-ins put-in. Locate it from land before you launch, and do not drift past it."
       }
     ],
     "related_rivers": [
@@ -168,9 +174,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "2–3.3 mi featured routes",
-      "best_for_beginners": "Look at the separate Sam A. Baker reach first; the Roselle run and nearby shut-ins need moving-water judgment.",
-      "primary_gauge": "St. Francis River near Roselle, MO · USGS 07034000"
+      "typical_distance": "2–3.3 mi featured floats",
+      "best_for_beginners": "Sam A. Baker State Park → Highway 34 (3.3 mi, about 1½ hr)",
+      "primary_gauge": "St. Francis River near Roselle, MO · USGS 07034000",
+      "route_label": "Start here"
     },
     "sources": [
       {
@@ -208,7 +215,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

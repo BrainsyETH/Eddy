@@ -1,3 +1,5 @@
+import GuideRouteTime from './GuideRouteTime';
+import { GuidePhotoCaption } from './GuidePhoto';
 // src/components/blog/FloatSectionCard.tsx
 // Photo-left card used in the "Pick your float" section list. Stacks photo
 // above text under 768px via the [data-stack] attribute + CSS variables.
@@ -19,6 +21,7 @@ interface Props {
   /** Photo to use when the section has no explicit `photo` — resolved by
    *  RiverGuideLayout from the section's access-point imagery. */
   photoFallback?: string;
+  estimateEndpoints?: { riverId: string; startId: string; endId: string };
 }
 
 const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
@@ -27,10 +30,10 @@ const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
   II:   { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
 };
 
-export default function FloatSectionCard({ section: s, index, plannerUrl, fromHref, toHref, photoFallback }: Props) {
+export default function FloatSectionCard({ section: s, index, plannerUrl, fromHref, toHref, photoFallback, estimateEndpoints }: Props) {
   const dc = DIFF_COLORS[s.diff ?? ''] ?? DIFF_COLORS.I;
   const stats = [['Distance', `${s.miles} mi`], ['Float time', s.time], ['Class', s.diff], ['Crowd', s.crowd]].filter(([, value]) => value);
-  const photo = s.photo || photoFallback || null;
+  const photo = s.photo_detail?.url || s.photo || photoFallback || null;
   const titleContent = (
     <>
       {s.from} <span style={{ color: 'var(--color-neutral-400)' }}>→</span> {s.to}
@@ -38,8 +41,10 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
   );
   return (
     <article
+      id={`guide-float-${s.id}`}
       data-guide-section-card
       style={{
+        scrollMarginTop: 100,
         background: '#fff',
         border: '2px solid var(--color-primary-700)',
         borderRadius: 8,
@@ -68,7 +73,7 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
             <Image
               src={photo}
               unoptimized={!optimizeBlogImage(photo)}
-              alt={`${s.from} → ${s.to}`}
+              alt={s.photo_detail?.alt ?? `${s.from} → ${s.to}`}
               fill
               loading="lazy"
               sizes="(max-width: 767px) 100vw, 260px"
@@ -140,6 +145,8 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
             {plannerUrl ? (
               <Link
                 href={plannerUrl}
+                data-ga-event="guide_planner_click"
+                data-ga-label={`${s.from} → ${s.to}`}
                 style={{
                   color: 'inherit',
                   textDecoration: 'none',
@@ -156,6 +163,8 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
           {plannerUrl && (
             <Link
               href={plannerUrl}
+              data-ga-event="guide_planner_click"
+              data-ga-label={`${s.from} → ${s.to}`}
               style={{
                 fontSize: 12,
                 fontWeight: 600,
@@ -250,9 +259,11 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, fromHr
           >
             <strong style={{ color: 'var(--color-neutral-900)' }}>Best for:</strong> {s.best}
           </div>
+          {s.photo_detail && <figure className="m-0 mt-3"><GuidePhotoCaption photo={s.photo_detail} /></figure>}
+          {estimateEndpoints && <GuideRouteTime {...estimateEndpoints} />}
           {(fromHref || toHref) && <nav aria-label={`Access details for ${s.from} to ${s.to}`} className="mt-3 flex flex-wrap gap-x-4 text-sm">
-            {fromHref && <Link href={fromHref} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.from} access details</Link>}
-            {toHref && <Link href={toHref} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.to} access details</Link>}
+            {fromHref && <Link href={fromHref} data-ga-event="guide_access_click" data-ga-label={s.from} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.from} access details</Link>}
+            {toHref && <Link href={toHref} data-ga-event="guide_access_click" data-ga-label={s.to} className="inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">{s.to} access details</Link>}
           </nav>}
         </div>
       </div>

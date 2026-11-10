@@ -8,14 +8,14 @@ This is the canonical playbook for authoring or revising any **River Guide** blo
 
 Four rules. Every revision has to clear all four.
 
-1. **Specific over generic.** Always: "the Akers gauge (USGS 07064533) is your primary reference," never "check water levels." Always: "first night at Jerktail Landing (mile 47.5) — gravel-bar camp, no fee," never "camp on a gravel bar overnight."
-2. **Named over anonymous.** Always: "Jadwin Canoe Rental at Cedargrove," never "an outfitter near Salem." Always: "Cave Spring at mile 21.9 — the flooded cave you can paddle into," never "famous spring where you can paddle into a cave."
-3. **Bounded over absolute.** Always: "one of the largest single-outlet springs in the United States," never "the largest spring in the world." Always: "Missouri's deepest spring at 310 ft," never "the deepest in the U.S."
-4. **Segment-aware over river-wide.** Always: "the Upper Current floats year-round below Welch Spring; the headwaters above Cedargrove can be bony in late summer," never "the Current is floatable year-round."
+1. **Specific over generic.** Name the route and the decision: “Cedar Grove to Akers passes Welch Spring; Akers to Pulltite passes Cave Spring.” Avoid interchangeable promises about unforgettable adventures, hidden gems or perfect days.
+2. **Useful details earn their space.** Explain what makes a stop interesting or changes the plan. Name a business only when its identity, offering and current relevance are established; the directory is a listing, not a guarantee of availability.
+3. **Bound claims to their evidence.** A spring's temperature is not the whole river's temperature. A gauge height is not launch depth. Do not turn historical averages into today's conditions.
+4. **Let each river sound like itself.** Distinguish routes, land visits and seasons with concrete details. Keep the invitation to explore; avoid copying the same safety paragraph into every section or labelling every short trip “beginner-friendly.”
 
 ## Locked phrasing for high-error claims
 
-Use these strings verbatim. They've been picked over and verified — drift breaks SEO, breaks consistency across rivers, and most importantly is wrong.
+These claims need particular care. Verify agency sources before retaining numbers or entry rules; this runbook is not evidence that an older fact remains current.
 
 | Claim | Locked text |
 |---|---|
@@ -29,7 +29,7 @@ Use these strings verbatim. They've been picked over and verified — drift brea
 | Welch Spring flow | **"~78–120 MGD (sources vary)."** Don't pick a single number; the disagreement is real. |
 | HP / motor limits | **Do not memorialize specific HP numbers.** Link to nps.gov/ozar/learn/management/laws-and-policies.htm and let NPS be the source of truth. |
 | Spring water | **"Even crystal-clear ONSR springs are not certified potable. Carry your own water."** No exceptions. |
-| Caves on foot | **Closed to entry on foot to slow White-Nose Syndrome among bats. Paddling into Cave Spring's mouth is allowed; walking in is not.** |
+| Cave access | NPS generally restricts cave access but lists exceptions, including Cave Spring, Devils Well and guided Round Spring Cave tours. Check [current floating guidance](https://www.nps.gov/ozar/planyourvisit/floating.htm) and closures; do not repeat the old blanket claim that walking into Cave Spring is prohibited. |
 | Wildlife | **"May spot,"** never "will see." Wild horses, hellbenders, river otters, bald eagles all qualify. |
 
 ## Fact-checking checklist
@@ -70,8 +70,8 @@ Renderer is `src/components/blog/RiverGuideLayout.tsx`. New optional fields rend
 ## When in doubt
 
 - **Pull from the DB, not from blog memory.** `access_points.river_mile_downstream` and `river_gauges` are the source of truth for access miles and thresholds; `get_river_pois()` supplies scenic POIs. The DB matches what the on-site planner shows readers; if your guide disagrees with the DB, the guide is wrong.
-- **Three sources or none.** A claim that only appears on one outfitter blog isn't a fact.
-- **Soften before you delete.** If a beloved claim won't pass fact-check, "may," "one of," or "approximately" is usually closer to the truth and still useful to the reader.
+- **Use the source that owns the fact.** A current agency page can establish a rule. A single outfitter blog cannot establish a river-wide threshold; collect further evidence or omit the claim.
+- **Do not hedge an unsupported fact into publication.** “May” and “approximately” do not repair a wrong gauge, invented timing estimate or unverified access. Remove it or clearly identify the actual uncertainty.
 
 ## Repository-authored guides and publishing
 
@@ -150,6 +150,80 @@ river guides remain separate from the time-sensitive Eddy’s Reads feed.
   `/photo-credits`, linked from the website footer and the app's account screen.
   Register each guide photo in `src/lib/photos/guides.ts` so its credit appears
   on that page.
-  Guide cards and article hero images do not repeat that credit block.
+  Article heroes show their caption and exact-image credit inline. Route and sight photos carry their own caption, author, source and license; the shared credits page remains available for catalogued hero images.
   The batch sets `use_access_photos: false` so unresolved access photos cannot
   silently re-enter through the route-card fallback.
+
+
+## Refreshing existing guides
+
+`reviewed.ts` includes the seven original guides and the eighteen later guides.
+`refresh-river-guides.ts` updates existing posts; the insert-only seed script
+continues to preserve existing articles.
+
+```sh
+npx tsx scripts/refresh-river-guides.ts                 # read-only full before/after preview
+npx tsx scripts/refresh-river-guides.ts --river=current # one-river preview
+# After reviewing the diff, with the authorized target pinned in the shell:
+npx tsx scripts/refresh-river-guides.ts --river=current --apply
+```
+
+The refresh validates approved endpoint pairs and mapped mileage before any
+write. A content fingerprint must match the reviewed baseline, or already match
+the desired content. Any intervening editor change aborts the preflight.
+Updates also compare `updated_at` immediately before each write and read the
+result back. A later collision stops the batch; already completed rows remain
+valid and are skipped on rerun. Save the preview externally before applying so
+its `before` fields are available for a reviewed rollback.
+
+Only title, description, structured guide data and read time are updated.
+Permanent slugs, publication dates, status and image overrides stay intact.
+The detail API exposes structured river articles as `guideData` plus
+`articleUrl`; it does not return the stale legacy HTML body for those guides.
+General articles keep their existing `content` response.
+Deploy the shared renderer and locally hosted photos before applying content
+that refers to those assets. Recheck the published pages after the five-minute
+cache window. No schema migration or new scheduled job is involved.
+
+`editorial_updated_at` is the substantive copy-edit date used by the visible
+byline, Article/OG metadata and sitemap. `checked_at` records a source review;
+it is not changed just because wording was edited. Neither is derived from
+operational `blog_posts.updated_at`.
+Set `editorial_updated_at` only on a guide whose reader-facing copy changed in
+that edit. A guide that was reviewed and left alone keeps its earlier date, or
+none.
+
+A regulations row states the rule: the limit, the boundary, the fee, the date.
+“Check the agency page” is not a rule; if the rule cannot be verified, delete
+the row and keep the link in `sources`. Hero stats follow the same test. A tile
+holds a fact a reader can use (“Apr–Oct”, “Year-round below Greer Spring”),
+never an instruction. Do not refer to earlier versions of a guide in reader
+copy; a correction belongs in the PR, not the FAQ.
+
+Route cards carry a float time, a class and a crowd level. Times are paddling
+time for a canoe or kayak at normal water. For the Current and Jacks Fork use
+the NPS estimated float times table; elsewhere divide the mapped miles by the
+planner's 2.5 mph canoe speed (`DEFAULT_CANOE_SPEEDS`) and round to the half
+hour. The page states that assumption above the cards. An FAQ answer starts
+with the answer: a number, a yes or no, or a place name. “Use the planner” and
+“ask your outfitter” can follow an answer but never replace one. High- and
+low-water numbers come from `river_gauges` (attributed to Eddy's river report)
+or from an agency closure level, named as such.
+
+The overview uses real `get_float_segment` geometry and omits missing lines.
+It shows featured stretches, not a continuous navigable river or a basemap.
+Selected stretches are coral/orange, matching the planner. Float times are
+requested explicitly from the existing planner; reading a guide does not run
+a calculation for every route. Dangerous/regulated responses withhold the
+estimate; missing current readings are labelled as planning estimates.
+
+Run `npm run test:guides` for fixture-backed desktop, 390px and 320px checks.
+App CI runs it using its existing Chromium installation and uploads the previews.
+It exercises the actual guide presentation, map selection, planner estimates,
+empty states and search; live condition embeds and planner API responses are
+explicit fixtures. No production credentials or writes are needed.
+
+`guide_planner_click` and `guide_access_click` reuse the site's delegated GA4
+listener and its production/preview exclusions. Compare page-level Search
+Console clicks, impressions and queries over complete date windows after
+release; guide filters retain crawlable links and create no new URL variants.

@@ -127,6 +127,20 @@ jobs:
       - name: Check browser analytics
         run: npm run test:analytics-browser
 
+      - name: Check river guides on desktop and mobile
+        env:
+          GUIDE_SMOKE_OUTPUT: ${{ runner.temp }}/river-guide-previews
+        run: npm run test:guides
+
+      - name: Upload river guide previews
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: river-guide-previews-${{ github.sha }}
+          path: ${{ runner.temp }}/river-guide-previews
+          if-no-files-found: ignore
+          retention-days: 7
+
   mobile-app:
     runs-on: ubuntu-latest
     timeout-minutes: 20

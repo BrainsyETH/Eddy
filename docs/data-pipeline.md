@@ -131,6 +131,7 @@ when running the write phases.
 | Script | Run | Writes (Supabase) | Guard |
 | --- | --- | --- | --- |
 | `seed-river-guides.ts` | direct | `blog_posts` insert for missing rivers; preserves existing posts and validates route endpoints/miles | dry-default; `--apply` inserts drafts, `--apply --publish` inserts published posts; honors `EXPECTED_SUPABASE_REF`. See [guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing) |
+| `refresh-river-guides.ts` | direct | reviewed editorial fields on existing `blog_posts`; fingerprints, endpoint/mileage validation and compare-and-set writes | dry-default; `--apply` and optional `--river=slug`; honors `EXPECTED_SUPABASE_REF`. See [refresh runbook](../missouri-float-planner/docs/river-guide-style.md#refreshing-existing-guides) |
 | `import-usgs-gauges.ts` | direct | `gauge_stations` upsert (national OGC import) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `audit-national-coverage.ts` | direct | none — per-state coverage report for the national River Map (inventory, fresh readings, seasonal comparisons, NWS matches, seam and antimeridian gaps); `--out <file>` writes the report locally | read-only |

@@ -16,32 +16,36 @@ export default {
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Missouri"
+          "label": "Length",
+          "value": "142 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I"
         },
         {
-          "label": "In this guide",
-          "value": "3 float routes"
+          "label": "Good water",
+          "value": "100–400 cfs"
+        },
+        {
+          "label": "Gauge",
+          "value": "Richwoods"
         }
       ]
     },
     "intro_html": "<p><strong>Big River is for the group that wants a river day without turning the drive into an expedition.</strong> Around Washington State Park, the appeal is straightforward: wooded banks, room to paddle, and public accesses that let you choose a shorter outing. Bring lunch, leave time for the pools, and resist measuring the day by how fast you finish.</p><p>The park gives this float a second chapter. Its petroglyph sites and stone buildings are worth keeping some daylight for. Farther downriver, old mill dams change the route planning; the trips below stay in the Washington State Park–Brown’s Ford corridor rather than treating the whole river as one continuous beginner run.</p>",
     "why_different": [
       {
-        "strong": "A useful park base.",
-        "body": "Washington State Park combines river access with camping and trails, making it easy to add a land-based morning or evening."
+        "strong": "A state park at the put-in.",
+        "body": "Washington State Park has river access, camping and trails, so the float can start where you slept."
       },
       {
-        "strong": "Short trips make sense here.",
-        "body": "Slow pools are part of the experience. Washington State Park to Mammoth is an option when a long mileage target would feel like work."
+        "strong": "Slow pools.",
+        "body": "Big River is mostly long, quiet pools with short riffles between them. You paddle more than you drift, which is a good reason to keep the mileage short."
       },
       {
-        "strong": "History beyond the riverbank.",
-        "body": "The park’s petroglyph sites give you something memorable to see after the boats are loaded."
+        "strong": "Petroglyphs after the float.",
+        "body": "The park protects rock carvings you can walk to. Keep an hour and a pair of dry shoes for them."
       }
     ],
     "sections": [
@@ -53,9 +57,11 @@ export default {
         "from": "Washington State Park Access",
         "to": "Mammoth Access",
         "miles": "3.2",
-        "best": "Combining a park visit with a short paddle",
+        "best": "A short float with a park visit",
         "photo": null,
-        "body": "Launch at the park and finish at Mammoth. This shorter pairing leaves room for breaks and a park visit afterward. Even a modest distance can take time when the current is slow."
+        "body": "3.2 miles from the state park to Mammoth: the shortest float here, and the easy one to pair with the petroglyphs. The current is slow, so expect to paddle the pools.",
+        "time": "About 1½ hr",
+        "diff": "I"
       },
       {
         "id": 2,
@@ -65,9 +71,11 @@ export default {
         "from": "Mammoth Access",
         "to": "Merrill Horse Access",
         "miles": "6.2",
-        "best": "A longer paddle starting at Mammoth",
+        "best": "A longer day in the pools",
         "photo": null,
-        "body": "Mammoth to Merrill Horse adds more river without reaching the lower mill-dam corridor. Plan on paddling the long pools, particularly if the wind is in your face."
+        "body": "6.2 miles from Mammoth to Merrill Horse. The long pools take steady paddling, more so into a headwind. It stays well above the old mill dams downstream.",
+        "time": "About 2½ hr",
+        "diff": "I"
       },
       {
         "id": 3,
@@ -77,32 +85,34 @@ export default {
         "from": "Merrill Horse Access",
         "to": "Brown's Ford Access",
         "miles": "5",
-        "best": "A five-mile outing farther downstream",
+        "best": "A fishing float",
         "photo": null,
-        "body": "Keep the day between Merrill Horse and Brown’s Ford. It is a sensible distance to stretch out with fishing stops rather than turning a short trip into an afternoon sprint."
+        "body": "Five miles from Merrill Horse to Brown’s Ford. Short enough to stop at every good pool and still finish early.",
+        "time": "About 2 hr",
+        "diff": "I"
       }
     ],
     "springs": [
       {
         "name": "Washington State Park petroglyphs",
-        "note": "Set aside time ashore for the park’s rock-carving sites. Use the designated viewing areas and trails rather than adding a riverbank scramble to the float."
+        "note": "The park’s rock carvings are a short walk on marked trails. See them on foot, before or after the float."
       }
     ],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "A changing river.",
-        "note": "Rain can raise Big River quickly. Look at the Richwoods trend, not just the calendar."
+        "t": "Up and down with the rain.",
+        "note": "Big River rises quickly after rain. Check which way the Richwoods gauge is moving."
       },
       {
         "m": "Jun–Aug",
-        "t": "Bring a paddle, not a deadline.",
-        "note": "Low summer current makes the pools slower. Shorter routes keep the day pleasant."
+        "t": "Paddle, don’t drift.",
+        "note": "Summer current is slow and the pools take work. Keep it short."
       },
       {
         "m": "Sep–Feb",
-        "t": "Leave room for daylight.",
-        "note": "Fall park visits pair well with a shorter float. Winter water calls for cold-weather preparation."
+        "t": "Short float, long walk.",
+        "note": "A fall morning on the river and an afternoon at the petroglyphs make a good day. Dress for cold water in winter."
       }
     ],
     "what_to_bring": [
@@ -114,16 +124,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Build around the park.",
-        "body": "Save a change of clothes and shoes for the petroglyph walk after your float."
+        "strong": "Pack for the park.",
+        "body": "Leave dry clothes and walking shoes in the car for the petroglyphs."
       },
       {
-        "strong": "Take the pools seriously.",
-        "body": "Less current means more paddling. A short mileage number does not automatically mean a quick finish."
+        "strong": "Short does not mean quick.",
+        "body": "With so little current, three miles can take a couple of hours."
       },
       {
-        "strong": "Use the current fish advisory.",
-        "body": "Big River drains the Old Lead Belt. Consult Missouri’s current fish-consumption guidance before keeping a catch."
+        "strong": "Check the fish advisory.",
+        "body": "Big River drains the Old Lead Belt mining district. Read Missouri’s current fish-consumption advisory before you keep anything."
       }
     ],
     "callouts": {
@@ -133,7 +143,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Washington State Park can fill the dry-land half of the day. Leave the petroglyph visit on the itinerary, and keep the paddle between the two accesses you picked."
+        "quote": "Float in the morning, walk to the petroglyphs in the afternoon, and take out where you planned to. The mill dams are downstream."
       }
     },
     "faq": [
@@ -143,21 +153,21 @@ export default {
       },
       {
         "q": "Which gauge matches Washington State Park?",
-        "a": "Use Big River near Richwoods, USGS 07018100, as a reference for this corridor. Byrnesville is much farther downstream."
+        "a": "Big River near Richwoods (USGS 07018100). Eddy rates it best between about 100 and 400 cfs. The Byrnesville gauge is much farther downstream."
       },
       {
         "q": "Can I extend the trip through the old mill sites?",
-        "a": "Treat that as a separate plan. Morse Mill, Cedar Hill, and Byrnes Mill have dams; do not assume a clear through-route or improvise a landing at the structure."
+        "a": "Not as part of these floats. Morse Mill, Cedar Hill and Byrnes Mill each have a dam, and this guide has no verified way around them."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Stay within your chosen reach.",
-        "body": "The lower mill dams are not part of these featured routes."
+        "strong": "Stop above the mill dams.",
+        "body": "Morse Mill, Cedar Hill and Byrnes Mill all have dams downstream. None of the floats here go that far."
       },
       {
-        "strong": "Plan the return ride.",
-        "body": "Public accesses provide endpoints, not a shuttle reservation."
+        "strong": "Arrange your own ride.",
+        "body": "Public ramps do not come with a shuttle. Leave a car at the take-out or book a ride ahead."
       }
     ],
     "related_rivers": [
@@ -171,9 +181,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "3.2–6.2 mi featured routes",
-      "best_for_beginners": "Washington State Park → Mammoth: the shortest featured option at 3.2 miles, subject to the day’s water.",
-      "primary_gauge": "Big River near Richwoods, MO · USGS 07018100"
+      "typical_distance": "3.2–6.2 mi featured floats",
+      "best_for_beginners": "Washington State Park → Mammoth (3.2 mi, about 1½ hr)",
+      "primary_gauge": "Big River near Richwoods, MO · USGS 07018100",
+      "route_label": "Start here"
     },
     "sources": [
       {
@@ -207,7 +218,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

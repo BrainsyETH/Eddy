@@ -1,3 +1,4 @@
+import GuideDirectory from '@/components/blog/GuideDirectory';
 import Link from 'next/link';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
 import Image from 'next/image';
@@ -10,8 +11,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 const blogMetadata = publicPageMetadata(
-  "Eddy's Thoughts - Float Trip Guides & Resources",
-  'Expert guides and tips for planning the perfect float trip. Learn about water conditions, access points, and the best times to float.',
+  'Missouri & Arkansas River Guides',
+  'Find Missouri and Arkansas river guides with float routes, access points, springs, camping and outfitters. Choose a river and plan your day.',
   '/blog',
   SHARE_IMAGES.site,
 );
@@ -63,21 +64,21 @@ async function getBlogPosts(): Promise<BlogPost[]> {
 
 // Look up display names for the rivers referenced by the posts, so cards can
 // lead with the river name (e.g. "Current River") instead of burying it in the title.
-async function getRiverNames(slugs: string[]): Promise<Record<string, string>> {
+async function getRiverNames(slugs: string[]): Promise<Record<string, { name: string; state: string | null }>> {
   const unique = Array.from(new Set(slugs.filter(Boolean)));
   if (unique.length === 0) return {};
 
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from('rivers').select('slug, name').in('slug', unique);
+  const { data, error } = await supabase.from('rivers').select('slug, name, state').in('slug', unique);
 
   if (error) {
     console.error('Error fetching river names:', error);
     return {};
   }
 
-  const map: Record<string, string> = {};
+  const map: Record<string, { name: string; state: string | null }> = {};
   for (const river of data || []) {
-    if (river.slug && river.name) map[river.slug] = river.name;
+    if (river.slug && river.name) map[river.slug] = { name: river.name, state: river.state };
   }
   return map;
 }
@@ -110,10 +111,10 @@ export default async function BlogPage() {
             </div>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
-            Eddy&apos;s Thoughts
+            Missouri &amp; Arkansas River Guides
           </h1>
           <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto">
-            Tips, guides, and planning advice for your next float trip
+            Find a stretch to paddle, a spring to visit, and the details to get you there.
           </p>
         </div>
       </section>
@@ -126,12 +127,12 @@ export default async function BlogPage() {
               <p className="text-neutral-500">No blog posts yet. Check back soon!</p>
             </div>
           ) : (
-            <div className="grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {blogPosts.map((post) => {
-                const riverName = post.river_slug ? riverNames[post.river_slug] ?? null : null;
+            <GuideDirectory entries={blogPosts.map((post) => {
+                const riverName = post.river_slug ? riverNames[post.river_slug]?.name ?? null : null;
                 const displayTitle = stripRiverName(post.title, riverName);
                 const cover = guideCover(post);
-                return (
+                return { slug: post.slug, state: post.river_slug ? riverNames[post.river_slug]?.state ?? null : null,
+                  search: [riverName, post.title, post.description, post.river_slug].filter(Boolean).join(' '), card: (
                   <article key={post.slug} className="group flex flex-col overflow-hidden bg-white border-2 border-neutral-200 rounded-xl shadow-sm hover:border-primary-400 hover:shadow-md transition-all">
                     <Link href={`/blog/${post.slug}`} className="flex flex-col flex-1 p-4 sm:p-6 no-underline">
                       {cover.src && (
@@ -178,9 +179,8 @@ export default async function BlogPage() {
                       </div>
                     </Link>
                   </article>
-                );
-              })}
-            </div>
+                ) };
+              })} />
           )}
 
           {/* CTA to main app */}

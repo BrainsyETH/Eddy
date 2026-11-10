@@ -12,20 +12,24 @@ export default {
       "eyebrow": "James River · Missouri",
       "title_top": "James River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Delaware Town, Shelvin Rock, and the old Y-Bridge give the James several ways into a river day. Pick one stretch and leave the rest for the next visit.",
+      "lede": "The James offers consecutive floats near Delaware Town and Shelvin Rock, plus a separate lower outing to Galena’s Y-Bridge. Choose a single leg or plan a longer connection.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/James_River_in_Springfield_Missouri_USA.jpg?width=1280",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Missouri"
+          "label": "Length",
+          "value": "93 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I"
         },
         {
-          "label": "In this guide",
-          "value": "3 float routes"
+          "label": "Good water",
+          "value": "360–920 cfs"
+        },
+        {
+          "label": "Gauge",
+          "value": "Galena"
         }
       ],
       "photo_credit": {
@@ -40,16 +44,16 @@ export default {
     "intro_html": "<p><strong>The James is a reminder that a satisfying float does not have to start with a long drive into the deep Ozarks.</strong> South of Springfield, public accesses break the river into days of wooded banks, pools, and fishing stops. Pick a modest distance, sort the shuttle, and you can spend more of the day on the water than getting there.</p><p>The Galena stretch and the river near Springfield are different planning choices. Water and runoff change along the way toward Table Rock Lake. Match the gauge and local observations to the reach you picked, rather than treating the entire James as one uniform float.</p>",
     "why_different": [
       {
-        "strong": "Several practical public-access pairs.",
-        "body": "Delaware Town, Shelvin Rock, and Hootentown let you plan separate outings instead of committing to one long trip."
+        "strong": "Close to Springfield.",
+        "body": "The accesses are south of the city, so you spend the day on the water instead of in the car."
       },
       {
-        "strong": "A fishing-friendly pace.",
-        "body": "Leave time for the pools. A shorter route is often the better fit when the fishing is the reason to go."
+        "strong": "Three short floats.",
+        "body": "Delaware Town, Shelvin Rock and Hootentown break the river into 5- and 6-mile pieces you can do one at a time or link."
       },
       {
-        "strong": "Galena has its own river day.",
-        "body": "The H. L. Kerr–Galena pairing is a separate lower outing, with a recognizable town at the finish."
+        "strong": "Galena is its own trip.",
+        "body": "The lower float ends at the Y-Bridge in Galena, well downstream of the other two."
       }
     ],
     "sections": [
@@ -61,9 +65,11 @@ export default {
         "from": "Delaware Town Access",
         "to": "Shelvin Rock Access",
         "miles": "5.7",
-        "best": "A modest-mileage paddle starting at Delaware Town",
+        "best": "A short float south of Springfield",
         "photo": null,
-        "body": "Delaware Town to Shelvin Rock is a useful first route to inspect. Set up the shuttle before launch and keep the day loose enough for a lunch or fishing stop."
+        "body": "5.7 miles from Delaware Town to Shelvin Rock: wooded banks, pools and room to fish.",
+        "time": "About 2½ hr",
+        "diff": "I"
       },
       {
         "id": 2,
@@ -73,9 +79,11 @@ export default {
         "from": "Shelvin Rock Access",
         "to": "Hootentown Access",
         "miles": "6",
-        "best": "Continuing the James experience on a separate reach toward Hootentown",
+        "best": "The next piece downstream",
         "photo": null,
-        "body": "Shelvin Rock to Hootentown makes another self-contained outing. Choosing this pair instead of linking both upper sections leaves more time to enjoy the river."
+        "body": "Six miles from Shelvin Rock to Hootentown. It starts where the first float ends, so the two link into an 11.7-mile day if you want one.",
+        "time": "About 2½ hr",
+        "diff": "I"
       },
       {
         "id": 3,
@@ -85,9 +93,11 @@ export default {
         "from": "H.L. Kerr Access",
         "to": "Galena Y-Bridge Access (Ralph Cox Memorial Access)",
         "miles": "4.9",
-        "best": "A shorter Galena outing ending at the Y-Bridge",
+        "best": "A short float ending in Galena",
         "photo": null,
-        "body": "H. L. Kerr to the Galena access is a compact lower-river plan. Confirm the exact ramp and downstream water conditions rather than assuming the road bridge itself is your take-out."
+        "body": "4.9 miles from H. L. Kerr to the Ralph Cox Memorial Access at Galena’s Y-Bridge. The ramp is the take-out, not the bridge itself.",
+        "time": "About 2 hr",
+        "diff": "I"
       }
     ],
     "springs": [],
@@ -95,17 +105,17 @@ export default {
       {
         "m": "Mar–May",
         "t": "Runoff sets the pace.",
-        "note": "Check recent rain in the watershed and the trend at the gauge nearest your trip."
+        "note": "Check recent rain and the gauge nearest your float."
       },
       {
         "m": "Jun–Aug",
         "t": "A local river day.",
-        "note": "Short public-access routes suit a relaxed outing when the water is suitable. Expect slower progress in low flows."
+        "note": "Short floats suit summer. Low water slows everything down."
       },
       {
         "m": "Sep–Feb",
-        "t": "Keep the daylight margin.",
-        "note": "A familiar nearby river still needs dry layers and an early enough finish in colder months."
+        "t": "Short days.",
+        "note": "Bring dry layers and finish early."
       }
     ],
     "what_to_bring": [
@@ -117,16 +127,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Keep the Galena pin precise.",
-        "body": "Use the named Ralph Cox Memorial access in your directions, not a generic search for the bridge."
+        "strong": "Search for the access, not the bridge.",
+        "body": "Use “Ralph Cox Memorial Access” for the Galena take-out."
       },
       {
-        "strong": "Watch rain around Springfield.",
-        "body": "An upstream storm can change the river even when your launch has blue sky."
+        "strong": "Watch the rain around Springfield.",
+        "body": "A storm upstream can raise the river under a clear sky at your launch."
       },
       {
-        "strong": "Choose distance after choosing the group.",
-        "body": "Kids, fishing, and long stops are all good reasons to keep two appealing sections as two different days."
+        "strong": "Two short floats can be two days.",
+        "body": "With kids or fishing rods along, 5.7 miles is plenty."
       }
     ],
     "callouts": {
@@ -136,27 +146,27 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Keep Galena’s Y-Bridge outing separate from the Delaware Town and Hootentown reaches. Each has its own shuttle, and the James has plenty left for another day."
+        "quote": "The Galena float is separate from the two near Springfield, with its own shuttle. Save one for next time."
       }
     },
     "faq": [
       {
         "q": "Which route is closest to the Springfield side of the guide?",
-        "a": "Look first at Delaware Town to Shelvin Rock, then compare the launch directions and current water with your group’s needs."
+        "a": "Delaware Town to Shelvin Rock. It is 5.7 miles, about 2½ hours of paddling."
       },
       {
         "q": "Is the Galena float connected to Table Rock Lake?",
-        "a": "The James continues toward the lake, but this guide’s lower route ends at Galena. Lake-influenced water farther downstream is a separate plan."
+        "a": "No. The river goes on to Table Rock Lake, but this float ends at Galena. Below that you are getting into lake water, which is a different trip."
       },
       {
         "q": "Do public accesses include a shuttle?",
-        "a": "No. Arrange a second vehicle or confirm a shuttle service before launching."
+        "a": "No. Leave a second car at the take-out or book a shuttle before you launch."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Choose one pair of accesses.",
-        "body": "Linking multiple short sections can turn a casual outing into a long paddling day."
+        "strong": "Linking adds up.",
+        "body": "Delaware Town to Hootentown is 11.7 miles, about 4½ hours of paddling before stops."
       }
     ],
     "related_rivers": [
@@ -170,9 +180,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "4.9–6 mi featured routes",
-      "best_for_beginners": "H.L. Kerr → Galena Y-Bridge is the shortest featured option at 4.9 miles; check the Galena reading and access.",
-      "primary_gauge": "James River at Galena, MO · USGS 07052500"
+      "typical_distance": "4.9–6 mi featured floats",
+      "best_for_beginners": "H. L. Kerr → Galena Y-Bridge (4.9 mi, about 2 hr)",
+      "primary_gauge": "James River at Galena, MO · USGS 07052500",
+      "route_label": "Start here"
     },
     "sources": [
       {
@@ -205,7 +216,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

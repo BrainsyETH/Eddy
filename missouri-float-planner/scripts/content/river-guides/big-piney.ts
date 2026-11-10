@@ -12,36 +12,40 @@ export default {
       "eyebrow": "Big Piney River · Missouri",
       "title_top": "Big Piney River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Pine-topped bluffs, fishing pools, and room for a gravel-bar lunch. Choose a short outing near Houston or give the forest reach below Mason Bridge more of your day.",
+      "lede": "Pine-topped bluffs and fishing pools line the Big Piney. Compare the Houston-area routes with the separate lower river; access through the military stretch needs its own arrangements.",
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Missouri"
+          "label": "Length",
+          "value": "108 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I–II"
         },
         {
-          "label": "In this guide",
-          "value": "3 float routes"
+          "label": "Good water",
+          "value": "520–1,010 cfs"
+        },
+        {
+          "label": "Gauge",
+          "value": "Big Piney"
         }
       ]
     },
     "intro_html": "<p><strong>The Big Piney rewards the person who packs a fishing rod and forgets to watch the clock.</strong> This is a river of wooded bends, gravel shallows, and limestone bluffs, with public accesses that let you build a day around a manageable piece of it. Dogs Bluff and Mineral Springs make a short pairing; Mason Bridge and Slabtown leave more room for a full river day.</p><p>Think in reaches here. The river passes through Fort Leonard Wood between the upper and lower public-access groups. East Gate and Crossroads belong to a separate lower outing, not an invitation to connect everything on the map. Pick your endpoints first, then sort the shuttle and current access arrangements.</p>",
     "why_different": [
       {
-        "strong": "A fishing day with scenery.",
-        "body": "The pools and riffles give smallmouth anglers plenty of reasons to slow down. A shorter route leaves time to actually fish them."
+        "strong": "Smallmouth water.",
+        "body": "Pools and riffles the whole way, with smallmouth bass in most of them. Pick a short float and you have time to fish it properly."
       },
       {
-        "strong": "Several ways to keep it short.",
-        "body": "Dogs Bluff to Mineral Springs and East Gate to Crossroads are useful starting points when the group wants a modest distance."
+        "strong": "Fort Leonard Wood splits it.",
+        "body": "The river runs through the Army post between the upper accesses near Houston and the lower ones at East Gate. They are two separate trips; do not plan to paddle through without permission."
       },
       {
-        "strong": "Forest time off the water.",
-        "body": "Slabtown is a Forest Service recreation area on the river, so a float and a stay in the national forest can be part of the same trip."
+        "strong": "Slabtown is in the national forest.",
+        "body": "The Forest Service recreation area at Slabtown sits right on the river, so a float and a night in the national forest fit into one trip."
       }
     ],
     "sections": [
@@ -52,10 +56,12 @@ export default {
         "to_slug": "mineral-springs",
         "from": "Dogs Bluff Access",
         "to": "Mineral Springs Access",
-        "miles": "2.9",
-        "best": "A short upper-river outing with a modest mileage target",
+        "miles": "5.9",
+        "best": "A short first float near Houston",
         "photo": null,
-        "body": "Start at Dogs Bluff and finish at Mineral Springs. Keep this one deliberately unhurried: stop for lunch, work a promising pool, and give first-time canoe partners time to find their rhythm. Check the upper river before committing in a dry spell."
+        "body": "The short float near Houston: 5.9 miles from Dogs Bluff to Mineral Springs. It is upper-river water and gets thin in dry weather, so look at the first riffle before you unload.",
+        "time": "About 2½ hr",
+        "diff": "I–II"
       },
       {
         "id": 2,
@@ -65,9 +71,11 @@ export default {
         "from": "Mason Bridge Access",
         "to": "Slabtown Recreation Area",
         "miles": "8.6",
-        "best": "A longer forest float with time for fishing and a gravel-bar lunch",
+        "best": "A full day with a forest take-out",
         "photo": null,
-        "body": "Mason Bridge to Slabtown gives you a longer run with a clearly named Forest Service take-out. Finish at Slabtown rather than casually extending the day downstream, where additional obstructions and access questions change the plan."
+        "body": "Mason Bridge to Slabtown is 8.6 miles: a full, unhurried day with a gravel-bar lunch. Take out at Slabtown. The river below it has more obstructions and harder access.",
+        "time": "About 3½ hr",
+        "diff": "I–II"
       },
       {
         "id": 3,
@@ -77,27 +85,29 @@ export default {
         "from": "East Gate Access",
         "to": "Crossroads Access",
         "miles": "3.1",
-        "best": "A short paddle in the East Gate area",
+        "best": "A quick paddle below the post",
         "photo": null,
-        "body": "Start fresh below the military reach at East Gate and paddle to Crossroads. It is a compact introduction to the lower Big Piney and a useful alternative to a long through-trip."
+        "body": "East Gate to Crossroads is 3.1 miles on the lower river, below Fort Leonard Wood. Good for a first look at the Big Piney or a short evening paddle.",
+        "time": "About 1 hr",
+        "diff": "I–II"
       }
     ],
     "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "Watch the rain.",
-        "note": "Spring can put water in the upper reaches, but cold water and changing levels deserve a fresh look each morning."
+        "t": "Best water up top.",
+        "note": "Spring rain fills the upper river. The water is cold and levels change overnight, so look again the morning you go."
       },
       {
         "m": "Jun–Aug",
-        "t": "Shorten the plan if it is low.",
-        "note": "Summer gravel shallows can slow a loaded canoe. Compare the Houston and Big Piney gauges for the reach you want."
+        "t": "Low and slow.",
+        "note": "Gravel shallows drag on a loaded canoe in summer. Float a shorter stretch and use the gauge nearest it."
       },
       {
         "m": "Sep–Feb",
-        "t": "Quieter, with less daylight.",
-        "note": "Fall is a fine time to linger at the bluffs. Cold-season trips need dry insulation and a daylight margin."
+        "t": "Quiet bluffs.",
+        "note": "Fall is the best season for the bluffs. In winter, bring dry clothes and plan to be off the water well before dark."
       }
     ],
     "what_to_bring": [
@@ -109,16 +119,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Separate the shuttle from the float.",
-        "body": "Driving between nearby-looking river bends can take more effort than the map suggests. Save directions to the exact ramps."
+        "strong": "The shuttle is slower than it looks.",
+        "body": "River bends that sit close together on the map can be a long drive apart on forest roads. Save directions to both ramps."
       },
       {
-        "strong": "Keep lunch accessible.",
-        "body": "A small dry bag up front beats unpacking the whole canoe whenever a good gravel stop appears."
+        "strong": "Keep lunch within reach.",
+        "body": "A small dry bag up front beats unpacking the whole canoe every time a good gravel bar turns up."
       },
       {
-        "strong": "Know which Boiling Spring you mean.",
-        "body": "There is a Boiling Spring on the Big Piney and another on the Gasconade. Use the river name with your destination."
+        "strong": "Two Boiling Springs.",
+        "body": "There is one on the Big Piney and another on the Gasconade. Put the river name in your map search."
       }
     ],
     "callouts": {
@@ -128,31 +138,31 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Pick the Big Piney stretch before packing the truck: Dogs Bluff is a different day from Mason Bridge to Slabtown. Save the right take-out, then leave a little time for the bluffs."
+        "quote": "Dogs Bluff, Mason Bridge and East Gate are three different days. Pick one, save the take-out, and leave time for the bluffs."
       }
     },
     "faq": [
       {
         "q": "Which gauge should I use?",
-        "a": "Eddy links the Houston station to the upper river and USGS 06930000 near Big Piney to the main river. Look at the station nearest your route; a downstream reading is not a promise about an upstream riffle."
+        "a": "Houston for the floats near Houston; Big Piney (USGS 06930000) for the lower river. Eddy rates the Big Piney gauge best between about 520 and 1,010 cfs, and too low under about 165."
       },
       {
         "q": "Can I float straight through Fort Leonard Wood?",
-        "a": "Do not build a public-access trip through the military reach without confirming permission and current restrictions. The featured routes keep the upper and lower outings separate."
+        "a": "Not without permission. The river crosses the military post between the upper and lower accesses, which is why this guide treats them as separate trips."
       },
       {
         "q": "Where can I camp?",
-        "a": "Start with the Forest Service information for Slabtown and Paddy Creek, and Eddy’s campground listings. A public boat access by itself is not a campsite."
+        "a": "Slabtown and Paddy Creek, both Forest Service recreation areas, are the places to start. A boat ramp by itself is not a campsite."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Mind the military reach.",
-        "body": "Do not connect Ross and East Gate into a through-float without confirmed access permission."
+        "strong": "Do not float through the post.",
+        "body": "Ross to East Gate crosses Fort Leonard Wood. It is not a public float without permission."
       },
       {
-        "strong": "Start with the right gauge.",
-        "body": "Houston describes the upper river; the Big Piney station is farther downstream."
+        "strong": "Use the right gauge.",
+        "body": "Houston reads the upper river. The Big Piney gauge is farther downstream; Eddy rates it best between about 520 and 1,010 cfs."
       }
     ],
     "related_rivers": [
@@ -166,9 +176,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "2.9–8.6 mi featured routes",
-      "best_for_beginners": "Dogs Bluff → Mineral Springs: 2.9 miles to consider when the upper river has suitable water.",
-      "primary_gauge": "Big Piney River near Big Piney, MO · USGS 06930000"
+      "typical_distance": "3.1–8.6 mi featured floats",
+      "best_for_beginners": "Dogs Bluff → Mineral Springs (5.9 mi, about 2½ hr)",
+      "primary_gauge": "Big Piney River near Big Piney, MO · USGS 06930000",
+      "route_label": "Start here"
     },
     "sources": [
       {
@@ -209,7 +220,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

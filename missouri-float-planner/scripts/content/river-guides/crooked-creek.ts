@@ -12,36 +12,40 @@ export default {
       "eyebrow": "Crooked Creek · Arkansas",
       "title_top": "Crooked Creek",
       "title_accent": "Float Trip Guide.",
-      "lede": "Smallmouth pools, quick riffles, and a shorter paddle by Yellville: Crooked Creek gives you good reasons to stop rushing. Pick a leg of the water trail and leave room to explore.",
+      "lede": "Pick a leg of the Crooked Creek water trail for smallmouth pools and riffles. Around Yellville, a short route can leave more of the day for fishing.",
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Arkansas Ozarks"
+          "label": "Length",
+          "value": "87 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I"
         },
         {
-          "label": "In this guide",
-          "value": "3 float routes"
+          "label": "Good water",
+          "value": "10.5–12.5 ft"
+        },
+        {
+          "label": "Gauge",
+          "value": "Yellville"
         }
       ]
     },
     "intro_html": "<p><strong>Crooked Creek is an invitation to float less distance and notice more of it.</strong> A good pool can hold your attention for a while, and the gravel bends make it easy to see why smallmouth anglers keep coming back. The Arkansas Game and Fish Commission’s water trail provides a useful framework; you do not need to paddle its whole length to get the point.</p><p>Start with Lower Pyatt, Snow, or Mark Oliver and work out a day that leaves time for fishing. Water here depends on rain. The nearby Buffalo may be the bigger name, but neither river’s reputation tells you whether this creek has enough water for your loaded boat today.</p>",
     "why_different": [
       {
-        "strong": "A water trail you can break into days.",
-        "body": "Named accesses between Pyatt and Yellville make shorter outings possible."
+        "strong": "A water trail in pieces.",
+        "body": "The Arkansas Game and Fish Commission’s water trail has named accesses between Pyatt and Yellville, so you can float it a few miles at a time."
       },
       {
-        "strong": "The fishing can be the main event.",
-        "body": "Give promising pools time. A modest distance is a feature when half the group came to cast."
+        "strong": "Smallmouth first.",
+        "body": "People come here to fish. A short float is the point, because the good pools take time."
       },
       {
-        "strong": "A nature-center stop at Yellville.",
-        "body": "Fred Berry Crooked Creek Nature Center offers another way to spend time around the creek."
+        "strong": "A nature center at the end.",
+        "body": "The Fred Berry Crooked Creek Nature Center, near Kelley’s Slab at Yellville, has trails along the creek."
       }
     ],
     "sections": [
@@ -53,10 +57,11 @@ export default {
         "from": "Lower Pyatt Access",
         "to": "Snow Access",
         "miles": "6.7",
-        "best": "A longer water-trail leg with time for fishing",
+        "best": "A longer leg with time to fish",
         "photo": null,
-        "body": "Lower Pyatt to Snow is a useful first segment to consider. A light boat and an early start leave room to fish instead of spending every break calculating how far you still have to go. The paddling estimate uses AGFC’s normal-condition pace of about 2 mph; add time for fishing and stops, and reassess when flow changes.",
-        "time": "About 3½ hr"
+        "body": "6.7 miles from Lower Pyatt to Snow. Go light and start early so the fishing does not get squeezed. The float time uses the Game and Fish Commission’s pace of about 2 mph at normal water, before stops.",
+        "time": "About 3½ hr",
+        "diff": "I"
       },
       {
         "id": 2,
@@ -66,10 +71,11 @@ export default {
         "from": "Snow Access",
         "to": "Mark Oliver Access",
         "miles": "5.4",
-        "best": "A middle water-trail leg between developed accesses",
+        "best": "The middle of the water trail",
         "photo": null,
-        "body": "Snow to Mark Oliver keeps the outing to a manageable piece of the creek. Brooksher is a float-in camping location along this part of the water trail, not a road-access take-out for your shuttle. The paddling estimate uses AGFC’s normal-condition pace of about 2 mph; add time for fishing and stops, and reassess when flow changes. AGFC lists this leg as 5.2 miles; Eddy’s mapped access points measure about 5.4.",
-        "time": "About 2¾ hr"
+        "body": "5.4 miles from Snow to Mark Oliver (the Game and Fish Commission lists it as 5.2). Brooksher, along the way, is a float-in campsite with no road, so it cannot be your take-out.",
+        "time": "About 2¾ hr",
+        "diff": "I"
       },
       {
         "id": 3,
@@ -79,33 +85,43 @@ export default {
         "from": "Kelley’s Slab Access",
         "to": "Yellville City Park Access",
         "miles": "3.5",
-        "best": "A shorter Yellville outing paired with Fred Berry Nature Center",
+        "best": "A short float into Yellville",
         "photo": null,
-        "body": "Use the designated launch downstream of Kelley’s Slab and finish at Yellville City Park. Confirm where to put in; this trip is not a suggestion to paddle over the slab crossing. The paddling estimate uses AGFC’s normal-condition pace of about 2 mph; add time for fishing and stops, and reassess when flow changes.",
-        "time": "About 1¾ hr"
+        "body": "3.5 miles ending at Yellville City Park. Put in at the access just downstream of Kelley’s Slab; do not paddle over the slab.",
+        "time": "About 1¾ hr",
+        "photo_detail": {
+          "url": "/images/river-guides/crooked-creek.webp",
+          "alt": "Crooked Creek at Highway 14 in Yellville.",
+          "caption": "Crooked Creek at Highway 14 in Yellville.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Yellville,_AR_021.jpg",
+          "license": "CC BY-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+        },
+        "diff": "I"
       }
     ],
     "springs": [
       {
         "name": "Fred Berry Crooked Creek Nature Center",
-        "note": "Interpretive trails and learning areas follow the creek’s bend near Kelley’s Slab. Keep dry shoes handy if you want to turn the short Yellville float into a longer visit."
+        "note": "Interpretive trails along a bend of the creek near Kelley’s Slab. Bring dry shoes and turn the short Yellville float into a longer visit."
       }
     ],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "Rain makes the difference.",
-        "note": "A recent storm can change depth and speed quickly. Watch the Kelly Crossing gauge and forecast."
+        "t": "Rain makes it.",
+        "note": "The creek runs on rain. A storm changes depth and speed quickly, so watch the Yellville gauge and the forecast."
       },
       {
         "m": "Jun–Aug",
-        "t": "Be willing to shorten the float.",
-        "note": "Dry weather can leave shallow riffles between the pools. Choose the day’s plan after checking the creek."
+        "t": "Thin riffles.",
+        "note": "In dry weather the riffles between the pools get shallow. Float a shorter leg."
       },
       {
         "m": "Sep–Feb",
-        "t": "A quieter fishing trip.",
-        "note": "Cold water and limited daylight favor compact outings with transport settled in advance."
+        "t": "Quiet fishing.",
+        "note": "Cold water and short days. Keep it short and set the shuttle ahead."
       }
     ],
     "what_to_bring": [
@@ -117,16 +133,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Do the shuttle before the fishing.",
-        "body": "Once someone finds a promising pool, nobody wants the day limited by an uncertain ride."
+        "strong": "Set the shuttle before you fish.",
+        "body": "Once someone finds a good pool, nobody wants to leave it to go sort out a ride."
       },
       {
-        "strong": "Save the agency map.",
-        "body": "The AGFC water-trail map complements Eddy’s route and helps distinguish road accesses from float-in stops."
+        "strong": "Carry the water-trail map.",
+        "body": "The Game and Fish Commission’s map shows which stops have road access and which are float-in only."
       },
       {
-        "strong": "Match the load to the creek.",
-        "body": "A heavily loaded canoe needs more depth. Keep the summer packing list modest when water is thin."
+        "strong": "Go light in a dry summer.",
+        "body": "A heavy canoe needs more water than the riffles will have."
       }
     ],
     "callouts": {
@@ -136,31 +152,31 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Kelley’s Slab to Yellville leaves more room in the day than trying to cover the whole water trail. Launch below the slab, check the creek, and keep a little time for Fred Berry."
+        "quote": "Kelley’s Slab to Yellville is the easy one. Launch below the slab, look at the creek, and keep an hour for Fred Berry."
       }
     },
     "faq": [
       {
         "q": "Is Brooksher a road-access take-out?",
-        "a": "No. Treat it as a float-in stop, not the place to leave the shuttle vehicle."
+        "a": "No. It is a float-in campsite with no road access. Do not plan to leave a car there."
       },
       {
         "q": "Which gauge does Eddy use?",
-        "a": "Crooked Creek at Kelly Crossing at Yellville, USGS 07055607. It describes that location, so check conditions upstream too."
+        "a": "Crooked Creek at Kelly Crossing at Yellville (USGS 07055607). Eddy rates it best between about 10.5 and 12.5 feet. It sits at the lower end, so the creek upstream can be thinner than it suggests."
       },
       {
         "q": "Can I camp wherever I stop?",
-        "a": "Use the AGFC water-trail guidance and designated sites. Much of the bank is private property; a gravel bar is not automatic camping permission."
+        "a": "No. Much of the bank is private. Use the designated sites on the Game and Fish Commission’s water trail."
       }
     ],
     "pre_launch_notes": [
       {
         "strong": "Launch below Kelley’s Slab.",
-        "body": "Use the designated access rather than running the crossing."
+        "body": "Use the access downstream of the crossing. Do not run the slab."
       },
       {
-        "strong": "Keep float camps out of the shuttle plan.",
-        "body": "Brooksher has no road access."
+        "strong": "Brooksher has no road.",
+        "body": "It is a float-in camp, not a place to leave a car."
       }
     ],
     "related_rivers": [
@@ -174,9 +190,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "3.5–6.7 mi featured routes",
-      "best_for_beginners": "Kelley’s Slab → Yellville: 3.5 miles, launching downstream of the slab after checking conditions.",
-      "primary_gauge": "Crooked Creek at Kelly Crossing at Yellville, AR · USGS 07055607"
+      "typical_distance": "3.5–6.7 mi featured floats",
+      "best_for_beginners": "Kelley’s Slab → Yellville City Park (3.5 mi, about 1¾ hr)",
+      "primary_gauge": "Crooked Creek at Kelly Crossing at Yellville, AR · USGS 07055607",
+      "route_label": "Start here"
     },
     "sources": [
       {
@@ -194,7 +211,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

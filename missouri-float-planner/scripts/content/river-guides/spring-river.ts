@@ -10,38 +10,42 @@ export default {
   "guide_data": {
     "hero": {
       "eyebrow": "Spring River · Northern Arkansas",
-      "title_top": "Spring River",
+      "title_top": "Spring River (Arkansas)",
       "title_accent": "Float Trip Guide.",
       "lede": "Visit the big spring on land, then choose your paddle downstream. The Arkansas Spring River changes character between Mammoth Spring and Hardy; the name alone doesn’t describe the trip.",
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Arkansas Ozarks"
+          "label": "Length",
+          "value": "58 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I–II"
         },
         {
-          "label": "In this guide",
-          "value": "1 float route"
+          "label": "Good water",
+          "value": "475–690 cfs"
+        },
+        {
+          "label": "Gauge",
+          "value": "Hardy"
         }
       ]
     },
     "intro_html": "<p><strong>The Arkansas Spring River begins with a spring worth seeing before you ever unload a boat.</strong> Mammoth Spring State Park makes a memorable stop, and the cold water flowing out of that area sets the tone downstream. Around Hardy, the river has a long-established floating identity, but its different reaches deserve different plans.</p><p>Do not mistake steady spring inflow for an effortless float. The upper river includes dams and ledges, while the water below Hardy has its own current and access pattern. This guide’s featured outing begins below Hardy; the park visit at Mammoth Spring is a separate stop, not a suggestion to launch through the dam.</p>",
     "why_different": [
       {
-        "strong": "A real spring-country visit.",
-        "body": "Mammoth Spring State Park adds an easy focal point for the weekend, even if you float farther downstream."
+        "strong": "It starts at a giant spring.",
+        "body": "Mammoth Spring State Park, at the head of the river, is worth an hour before you float."
       },
       {
-        "strong": "Cold water is part of the character.",
-        "body": "The spring-fed setting makes a dry layer worthwhile even on a sunny day."
+        "strong": "Cold all summer.",
+        "body": "The spring keeps the water cold. Bring a dry layer even on a hot day."
       },
       {
-        "strong": "Hardy divides the planning conversation.",
-        "body": "An upper-river ledge run and a downstream float are different choices. Get the exact endpoint names before agreeing to a trip."
+        "strong": "Above Hardy and below Hardy are different trips.",
+        "body": "The upper river has dams and ledges. The float in this guide is the water below town."
       }
     ],
     "sections": [
@@ -53,32 +57,43 @@ export default {
         "from": "Hardy Beach Access",
         "to": "LB Access (Harold E. Alexander Spring River WMA)",
         "miles": "6.4",
-        "best": "A downstream-Hardy outing kept separate from the upper river’s dams and falls",
+        "best": "A day float below Hardy",
         "photo": null,
-        "body": "Use Hardy Beach as the starting point and LB Access in Harold E. Alexander Spring River WMA as the planned finish. Confirm current access directions and the reach’s conditions. This route does not describe the upper ledges between Mammoth Spring and Hardy."
+        "body": "6.4 miles from Hardy Beach to LB Access in the Harold E. Alexander Spring River Wildlife Management Area. It stays clear of the dams and falls between Mammoth Spring and Hardy.",
+        "photo_detail": {
+          "url": "/images/river-guides/spring-river.webp",
+          "alt": "Spring River at LB Access in Arkansas.",
+          "caption": "Spring River at LB Access in Arkansas.",
+          "author": "Brandonrush",
+          "source_url": "https://commons.wikimedia.org/wiki/File:LB_Access,_Spring_River.jpg",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en"
+        },
+        "time": "About 2½ hr",
+        "diff": "I–II"
       }
     ],
     "springs": [
       {
         "name": "Mammoth Spring State Park",
-        "note": "Visit the spring and historic park features on foot. The dam at the spring belongs to the sightseeing plan, not to the Hardy-to-LB paddle."
+        "note": "See the spring and the historic park buildings on foot. The dam at the spring is for looking at, not launching from."
       }
     ],
     "seasons": [
       {
         "m": "Mar–May",
         "t": "Rain still matters.",
-        "note": "Spring inflow supports the river, but watershed rain can change it substantially."
+        "note": "The spring gives a steady base, but rain can raise the river a lot."
       },
       {
         "m": "Jun–Aug",
-        "t": "Cold water in a summer setting.",
-        "note": "Make transport and lodging arrangements early, and keep a dry layer despite the heat."
+        "t": "Cold water, hot days.",
+        "note": "Book the shuttle and a place to stay early, and bring a dry layer anyway."
       },
       {
         "m": "Sep–Feb",
-        "t": "Shorter, quieter outings.",
-        "note": "Check seasonal access arrangements and plan a daylight finish with cold-water clothing."
+        "t": "Quiet.",
+        "note": "Check your access is open, dress for cold water and finish in daylight."
       }
     ],
     "what_to_bring": [
@@ -90,16 +105,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Visit the spring on land.",
-        "body": "Keep the park’s dam and spillway out of your paddling plan. Enjoy the spring as a separate stop."
+        "strong": "See the spring on foot.",
+        "body": "The dam and spillway at Mammoth Spring are not part of any float."
       },
       {
-        "strong": "Spell out Arkansas when searching.",
-        "body": "Missouri also has a Spring River, near Carthage. An access or level report from that river will not help here."
+        "strong": "Say Arkansas.",
+        "body": "Missouri has a Spring River too, near Carthage. Its gauges and accesses will not help you here."
       },
       {
-        "strong": "Ask about the specific ledges.",
-        "body": "If booking an upper run, ask which drops it includes and how the trip suits your group at the current level."
+        "strong": "Ask which ledges.",
+        "body": "If you book an upper-river trip, ask which drops it runs and whether they suit your group at that day’s level."
       }
     ],
     "callouts": {
@@ -109,31 +124,31 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "A Mammoth Spring visit and a Hardy float belong on separate parts of the itinerary. Follow the named Hardy-to-LB route, and leave upper-river dams and falls out of an improvised extension."
+        "quote": "Mammoth Spring is a stop; Hardy to LB is the float. Leave the upper river’s dams and falls out of it."
       }
     },
     "faq": [
       {
         "q": "Is this the Missouri Spring River?",
-        "a": "No. This river runs from Mammoth Spring through Hardy in Arkansas. The Missouri river near Carthage has its own guide."
+        "a": "No. This one runs from Mammoth Spring through Hardy, in Arkansas. The Missouri river near Carthage has its own guide."
       },
       {
         "q": "Does a spring-fed river mean the level never changes?",
-        "a": "No. Rainfall can raise the river and alter ledges and current. Check the live reading and trend."
+        "a": "No. The spring keeps a steady base flow, but rain still raises the river and changes the ledges and the current."
       },
       {
         "q": "What gauge matches Hardy?",
-        "a": "Eddy uses USGS 07069305 at the Spring Street Bridge in Hardy. The Imboden station is farther downstream."
+        "a": "USGS 07069305, at the Spring Street Bridge in Hardy. Eddy rates it best between about 475 and 690 cfs. The Imboden gauge is farther downstream."
       },
       {
         "q": "Can beginners use every upper-river route?",
-        "a": "No blanket rating fits the whole river. Upper dams and ledges need route-specific advice and appropriate experience; choose the trip with that in mind."
+        "a": "No. The river above Hardy has dams and ledges and needs experience or a guide. Hardy to LB, below town, is the float in this guide."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Name the reach, not just the river.",
-        "body": "An upper ledge trip and the below-Hardy outing are different plans."
+        "strong": "Name the stretch.",
+        "body": "An upper-river ledge trip and the float below Hardy are different plans."
       }
     ],
     "related_rivers": [
@@ -147,9 +162,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "6.4 mi featured route",
-      "best_for_beginners": "Hardy → LB is 6.4 miles. Confirm that reach with a local operator; spring water does not make every stretch easy.",
-      "primary_gauge": "Spring River at Spring Street Bridge at Hardy, AR · USGS 07069305"
+      "typical_distance": "6.4 mi featured floats",
+      "best_for_beginners": "Hardy Beach → LB Access (6.4 mi, about 2½ hr)",
+      "primary_gauge": "Spring River at Spring Street Bridge at Hardy, AR · USGS 07069305",
+      "route_label": "The float"
     },
     "sources": [
       {
@@ -167,7 +183,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

@@ -12,36 +12,40 @@ export default {
       "eyebrow": "Kings River · Arkansas",
       "title_top": "Kings River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Rockhouse to Trigger Gap is a day for clear pools, gravel bends, and lunch that lasts a little longer. Keep the schedule loose enough to enjoy the Kings between paddle strokes.",
+      "lede": "Rockhouse to Trigger Gap follows the Kings through pools and gravel bends. Arrange the specific Trigger Gap landing before launching—the rapid near the finish is part of the decision.",
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Arkansas Ozarks"
+          "label": "Length",
+          "value": "111 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I"
         },
         {
-          "label": "In this guide",
-          "value": "1 float route"
+          "label": "Good water",
+          "value": "3.5–5.0 ft"
+        },
+        {
+          "label": "Gauge",
+          "value": "Berryville"
         }
       ]
     },
     "intro_html": "<p><strong>The Kings makes a strong case for bringing lunch and leaving your afternoon open.</strong> Its clear pools and gravel bends give a northwest Arkansas float a satisfying rhythm: paddle a little, look around, stop when the spot suits the group. Around Rockhouse and Trigger Gap, the river is the centerpiece of a day that does not need many other plans.</p><p>Think of the Kings as a set of distinct reaches. Upper crossings, the preserve corridor, and the lower water toward Table Rock Lake each bring different access and flow questions. The Rockhouse–Trigger Gap route below is a place to start, not a blanket recommendation for every mile with “Kings River” on the map.</p>",
     "why_different": [
       {
-        "strong": "The river flows north.",
-        "body": "Keep the put-in and take-out order straight when looking at a map. Screen position is not downstream direction."
+        "strong": "It flows north.",
+        "body": "The Kings runs north to Table Rock Lake, so downstream is up the map. Check the order of your put-in and take-out."
       },
       {
-        "strong": "A conservation story along the banks.",
-        "body": "The Nature Conservancy’s Kings River Preserve protects part of this watershed and makes the river itself a way to see the landscape."
+        "strong": "A preserve on the banks.",
+        "body": "The Nature Conservancy’s Kings River Preserve protects part of this stretch. You can float through it, but the land is closed to the public."
       },
       {
-        "strong": "A natural place to slow down.",
-        "body": "A modest route leaves time for a picnic and fishing without needing to make a long mileage target."
+        "strong": "Clear pools and gravel bends.",
+        "body": "It is a river for a slow day: paddle a little, stop on a gravel bar, fish."
       }
     ],
     "sections": [
@@ -53,27 +57,29 @@ export default {
         "from": "Rockhouse Access",
         "to": "Trigger Gap Landing",
         "miles": "7.7",
-        "best": "A full day of scenery and fishing stops in the preserve corridor",
+        "best": "A full day through the preserve",
         "photo": null,
-        "body": "Rockhouse is the AGFC public access just upstream of the preserve. Arrange the specific Trigger Gap landing, parking, and shuttle before launching. The outfitter describes a rapid at the finish; check its current condition and your take-out location before committing to the trip."
+        "body": "7.7 miles from the Game and Fish Commission’s Rockhouse access to Trigger Gap. Arrange the Trigger Gap landing, parking and shuttle before you launch. The outfitter describes a rapid at the finish, so ask about it and about exactly where you take out.",
+        "time": "About 3 hr",
+        "diff": "I"
       }
     ],
     "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "Watch the spring water.",
-        "note": "Rain can create floating opportunities and rapid changes. Check the gauge trend and local observations."
+        "t": "Spring water.",
+        "note": "Rain makes the float and changes it quickly. Check which way the gauge is moving."
       },
       {
         "m": "Jun–Aug",
-        "t": "Keep an eye on shallow riffles.",
-        "note": "Dry spells can make loaded boats work for their miles. Shorten the route if the group would rather stop than drag."
+        "t": "Shallow riffles.",
+        "note": "In a dry spell a loaded boat drags. Go light."
       },
       {
         "m": "Sep–Feb",
-        "t": "Quieter bends.",
-        "note": "A shorter day with a settled shuttle is a better cold-season plan than relying on a quick float."
+        "t": "Quiet bends.",
+        "note": "Set the shuttle ahead and do not count on a fast float."
       }
     ],
     "what_to_bring": [
@@ -85,16 +91,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Treat the preserve as a guest visit.",
-        "body": "The Nature Conservancy invites daytime exploration by river, but the preserve’s land is closed to the public and has no hiking trails. Keep the visit on the river corridor and follow posted access rules."
+        "strong": "Stay on the river in the preserve.",
+        "body": "The Nature Conservancy welcomes paddlers by day, but the preserve’s land is closed and has no trails."
       },
       {
-        "strong": "Do not swap upper and lower gauge assumptions.",
-        "body": "The Berryville station is a useful reference, but the smaller upper river can have less water."
+        "strong": "The gauge is downstream.",
+        "body": "Berryville is a good reference; Eddy rates it best between about 3.5 and 5.0 feet. The smaller river upstream can have less water than it suggests."
       },
       {
-        "strong": "Know where the boat leaves the river.",
-        "body": "Save the exact Trigger Gap directions and confirm parking before unloading at Rockhouse."
+        "strong": "Know where you get out.",
+        "body": "Save the exact Trigger Gap directions and confirm parking before you unload at Rockhouse."
       }
     ],
     "callouts": {
@@ -104,27 +110,27 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Trigger Gap is the finish for this outing. Sort out the landing and shuttle before Rockhouse, then spend the day enjoying the river instead of negotiating the last mile."
+        "quote": "Sort out the Trigger Gap landing and the shuttle before you get to Rockhouse. Then the only decision left is where to stop for lunch."
       }
     },
     "faq": [
       {
         "q": "Does the Kings run toward the Buffalo?",
-        "a": "No. It flows north toward Table Rock Lake. Use the actual downstream access order when building a route."
+        "a": "No. It flows north into Table Rock Lake."
       },
       {
         "q": "Which gauge does Eddy use?",
-        "a": "Kings River near Berryville, USGS 07050500. Consider its location relative to your intended reach."
+        "a": "Kings River near Berryville (USGS 07050500). Eddy rates it best between about 3.5 and 5.0 feet, and too low under 3.0."
       },
       {
         "q": "Can I add Marble to Marshall Ford?",
-        "a": "That is a separate reach with low-water crossings. Do not add it to this outing without a specific current access and crossing plan."
+        "a": "Not as part of this float. That stretch has low-water crossings, and this guide has no verified plan for them."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Confirm launch and landing arrangements.",
-        "body": "Do this before setting the shuttle, particularly where public and private access names overlap."
+        "strong": "Settle the landing first.",
+        "body": "Sort out the Trigger Gap take-out before you set the shuttle."
       }
     ],
     "related_rivers": [
@@ -138,9 +144,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "7.7 mi featured route",
-      "best_for_beginners": "The featured Rockhouse → Trigger Gap trip is 7.7 miles; confirm suitable flow and allow a full river outing.",
-      "primary_gauge": "Kings River near Berryville, AR · USGS 07050500"
+      "typical_distance": "7.7 mi featured floats",
+      "best_for_beginners": "Rockhouse → Trigger Gap (7.7 mi, about 3 hr)",
+      "primary_gauge": "Kings River near Berryville, AR · USGS 07050500",
+      "route_label": "The float"
     },
     "sources": [
       {
@@ -157,7 +164,8 @@ export default {
       }
     ],
     "checked_at": "2026-10-11",
-    "use_access_photos": false
+    "use_access_photos": false,
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

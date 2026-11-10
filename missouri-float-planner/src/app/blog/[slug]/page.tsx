@@ -1,3 +1,4 @@
+import { guideEditorialDate } from '@/lib/guides/editorial-date';
 import { guideCover, resolveGuideHero, publicGuideImage } from '@/lib/photos/guides';
 import ArticleByline from '@/components/blog/ArticleByline';
 import Link from 'next/link';
@@ -93,6 +94,7 @@ export async function generateMetadata(
       url: `${BASE_URL}/blog/${slug}`,
       siteName: 'Eddy',
       publishedTime: post.published_at || undefined,
+      modifiedTime: guideEditorialDate(post.guide_data),
       // Share image comes from the branded opengraph-image.tsx in this segment.
     },
     twitter: {
@@ -124,6 +126,7 @@ export default async function BlogPostPage({
     headline: post.title,
     description: post.description || undefined,
     datePublished: post.published_at || undefined,
+    dateModified: guideEditorialDate(post.guide_data),
     author: { '@type': 'Organization', name: 'Eddy', url: `${BASE_URL}/about` },
     image: publicGuideImage(post.featured_image_url) || undefined,
     url: `${BASE_URL}/blog/${post.slug}`,

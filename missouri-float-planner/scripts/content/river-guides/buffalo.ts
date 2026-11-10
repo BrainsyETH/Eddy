@@ -12,20 +12,24 @@ export default {
       "eyebrow": "Buffalo National River · Arkansas",
       "title_top": "Buffalo National River",
       "title_accent": "Float Trip Guide.",
-      "lede": "The bluffs are the invitation; the water decides which district gets your day. Start with the upper, middle, or lower Buffalo, then choose the float that fits.",
+      "lede": "Steel Creek’s bluffs, a shorter middle-river float, or the lower trip to Rush: the Buffalo offers different days in different districts. Let the available water help choose yours.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Misty_Bluff_along_the_Buffalo_River.jpg?width=1200",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Arkansas Ozarks"
+          "label": "Length",
+          "value": "148 mi"
         },
         {
-          "label": "Plan around",
-          "value": "Your river district"
+          "label": "Difficulty",
+          "value": "Class I–II"
         },
         {
-          "label": "In this guide",
-          "value": "3 float routes"
+          "label": "Manager",
+          "value": "National Park Service"
+        },
+        {
+          "label": "Upper river runs",
+          "value": "Spring, after rain"
         }
       ],
       "photo_credit": {
@@ -40,16 +44,16 @@ export default {
     "intro_html": "<p><strong>The Buffalo is the kind of river that makes you stop paddling just to look up.</strong> In the upper valley, the bluffs do much of the talking. Farther downstream, broader water and longer bends change the pace. It is tempting to pick a photograph and build the trip around it; a better start is to decide which district has suitable water, then choose the view.</p><p>Ponca is not a stand-in for the whole Buffalo. The upper river can be too thin while a middle or lower stretch offers a different picture. Eddy carries gauges along the river, so compare the one near your route with the National Park Service’s current river information. A memorable day does not have to be the famous upper run.</p>",
     "why_different": [
       {
-        "strong": "Different districts, different trips.",
-        "body": "Steel Creek, Tyler Bend, and Buffalo Point each make a useful starting point for thinking about a different part of the river."
+        "strong": "Three rivers by district.",
+        "body": "The upper river around Steel Creek has the big bluffs and only runs after rain. The middle around Tyler Bend and the lower around Buffalo Point hold water longer."
       },
       {
-        "strong": "Bluffs without a huge mileage target.",
-        "body": "A shorter middle-river route can leave room for lunch, swimming where appropriate, and actually looking around."
+        "strong": "Bluffs you stop paddling for.",
+        "body": "Even the short middle float has gravel bars under bluffs. Keep the mileage low and you have time to sit and look."
       },
       {
-        "strong": "A park trip beyond the paddle.",
-        "body": "Campgrounds, trails, and river overlooks make it worth keeping part of the weekend unscheduled."
+        "strong": "A national park around it.",
+        "body": "Campgrounds, trails and overlooks line the river, so a weekend here is more than the float."
       }
     ],
     "sections": [
@@ -61,9 +65,11 @@ export default {
         "from": "Steel Creek",
         "to": "Kyles Landing",
         "miles": "8",
-        "best": "An upper-river bluff outing when seasonal water levels permit",
+        "best": "The big bluffs, when there is water",
         "photo": null,
-        "body": "Start at Steel Creek and finish at Kyles Landing when the upper river has suitable water. Save directions for both access roads before losing service, and allow time for the shuttle through the hills. This is a seasonal choice, not a guaranteed summer float."
+        "body": "Eight miles under the upper river’s bluffs, from Steel Creek to Kyles Landing. It needs rain, so this is mostly a spring float; do not count on it in summer. Save directions to both accesses before you lose signal, and allow time for the shuttle through the hills.",
+        "time": "About 3 hr",
+        "diff": "I–II"
       },
       {
         "id": 2,
@@ -73,9 +79,11 @@ export default {
         "from": "Tyler Bend",
         "to": "Gilbert",
         "miles": "5.4",
-        "best": "A shorter middle-district paddle with room for a lunch stop",
+        "best": "A short float that holds water longer",
         "photo": null,
-        "body": "Tyler Bend to Gilbert gives you a shorter mileage target in the middle district. Check the St. Joe-area reading and current NPS advice, then leave room for gravel-bar breaks instead of trying to cover every nearby access."
+        "body": "5.4 miles from Tyler Bend to Gilbert, in the middle of the park. Short enough for long gravel-bar stops. Use the St. Joe gauge.",
+        "time": "About 2 hr",
+        "diff": "I–II"
       },
       {
         "id": 3,
@@ -85,36 +93,38 @@ export default {
         "from": "Dillards Ferry",
         "to": "Rush",
         "miles": "8.9",
-        "best": "A lower-district day with Rush as the definite finish",
+        "best": "A lower-river day ending at Rush",
         "photo": null,
-        "body": "Dillards Ferry to Rush is a separate lower-river day, passing the Buffalo Point area. Rush is the planned finish; continuing into the lower wilderness would turn this into a much longer and more remote trip."
+        "body": "8.9 miles from Dillards Ferry, past Buffalo Point, to Rush. Take out at Rush. Below it the river runs a long, remote stretch to the White River, and that is a different trip.",
+        "time": "About 3½ hr",
+        "diff": "I–II"
       }
     ],
     "springs": [
       {
         "name": "Steel Creek bluffs",
-        "note": "The bluff view is reason enough to arrive before the shuttle rush. Enjoy it from the campground and public river area without making an ambitious float the price of admission."
+        "note": "You can see the bluffs from the campground and the river bank without floating at all. Get there early, before the shuttle traffic."
       },
       {
         "name": "Tyler Bend trails",
-        "note": "Leave a little dry-land time for the middle district. Pick a park trail that fits the daylight left after the paddle."
+        "note": "The middle district has park trails for after the float. Pick one that fits the daylight you have left."
       }
     ],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "Upper-river season, when flows cooperate.",
-        "note": "Rainfall often creates opportunities around Ponca and Steel Creek. Conditions still change quickly."
+        "t": "Upper-river season.",
+        "note": "Rain puts water in the Ponca and Steel Creek stretch. It also changes fast."
       },
       {
         "m": "Jun–Aug",
-        "t": "Look farther downstream.",
-        "note": "Upper reaches may become too shallow. Check middle and lower gauges instead of assuming the entire park has the same water."
+        "t": "Go downstream.",
+        "note": "The upper river is usually too shallow. Check the middle and lower gauges."
       },
       {
         "m": "Sep–Feb",
         "t": "A quieter park.",
-        "note": "Fall color and fewer people are appealing; colder water and fewer daylight hours change the packing list."
+        "note": "Fall color and few people, with cold water and short days."
       }
     ],
     "what_to_bring": [
@@ -126,16 +136,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Choose the district before the campsite.",
-        "body": "Booking near Ponca is inconvenient if your float ends up far downriver. Let water and access shape the base camp."
+        "strong": "Pick the float, then the campsite.",
+        "body": "A campsite near Ponca is a long drive from a float that ends at Rush. Decide where the water is first."
       },
       {
-        "strong": "Save the shuttle route.",
-        "body": "NPS warns that some access roads are rough and navigation can be unreliable. Download directions and check road conditions."
+        "strong": "Download the shuttle route.",
+        "body": "The Park Service warns that some access roads are rough and phone navigation is unreliable."
       },
       {
-        "strong": "Treat Rush as a real decision point.",
-        "body": "The river below Rush has a long remote stretch before the White River. Do not turn a day float into that trip by accident."
+        "strong": "Rush is the last easy exit.",
+        "body": "Below Rush there is a long, remote stretch before the White River. Do not drift into it."
       }
     ],
     "callouts": {
@@ -145,31 +155,31 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "If Ponca is too low, let the plan move downstream. Tyler Bend and the lower district are different trips worth considering in their own right—after checking their conditions."
+        "quote": "If Ponca is too low, go downstream. Tyler Bend and the lower river are good floats, not consolation prizes."
       }
     },
     "faq": [
       {
         "q": "Which Buffalo gauge should I check?",
-        "a": "Use the gauge near your reach: Boxley or Ponca for the upper valley, Pruitt farther downstream, St. Joe for the middle river, and Harriet for the lower district. The river does not share one uniform condition."
+        "a": "The one nearest your float: Boxley or Ponca for the upper valley, Pruitt below that, St. Joe for the middle river and Harriet for the lower. Eddy rates Ponca best between about 430 and 900 cfs."
       },
       {
         "q": "Can I count on a summer float at Ponca?",
-        "a": "No. Upper-river availability depends on rainfall. Have a middle- or lower-river alternative and confirm current conditions before the drive."
+        "a": "No. The upper river depends on rain and is usually too low in summer. Plan on the middle or lower river and treat Ponca as a bonus."
       },
       {
         "q": "Where do I check camping rules?",
-        "a": "Use the NPS Buffalo National River camping pages for the particular campground or backcountry plan. Reservation systems and services differ by location."
+        "a": "On the National Park Service’s Buffalo National River camping pages. Each campground has its own reservation rules and services, and backcountry camping has separate ones."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Pick the gauge for your district.",
-        "body": "A middle-river reading cannot establish floatability at Ponca."
+        "strong": "One gauge per district.",
+        "body": "Ponca for the upper river, St. Joe for the middle, Harriet for the lower. They often disagree."
       },
       {
-        "strong": "Keep the shuttle map offline.",
-        "body": "Road access is part of the plan, especially at Kyles Landing and Rush."
+        "strong": "Keep the map offline.",
+        "body": "Especially for Kyles Landing and Rush."
       }
     ],
     "related_rivers": [
@@ -183,9 +193,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "5.4–8.9 mi featured routes",
-      "best_for_beginners": "Tyler Bend → Gilbert is the shorter featured route at 5.4 miles; confirm middle-river conditions with NPS.",
-      "primary_gauge": "Buffalo River near St. Joe, AR · USGS 07056000"
+      "typical_distance": "5.4–8.9 mi featured floats",
+      "best_for_beginners": "Tyler Bend → Gilbert (5.4 mi, about 2 hr)",
+      "primary_gauge": "Buffalo River near St. Joe, AR · USGS 07056000",
+      "route_label": "Start here"
     },
     "sources": [
       {
@@ -215,7 +226,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

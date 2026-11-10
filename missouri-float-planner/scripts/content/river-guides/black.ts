@@ -12,36 +12,40 @@ export default {
       "eyebrow": "Black River · Missouri",
       "title_top": "Black River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Lesterville’s upper river and the water below Clearwater make two different Black River trips. Pick one stretch, find its gauge, and give the day room to unfold.",
+      "lede": "Lesterville’s upper river and the water below Clearwater are two different Black River trips. Choose your side of the dam, then check the gauge and access for that stretch.",
       "photo_url": "",
       "mile_stats": [
         {
-          "label": "Region",
-          "value": "Missouri"
+          "label": "Length",
+          "value": "195 mi"
         },
         {
-          "label": "Plan around",
-          "value": "The day’s flow"
+          "label": "Difficulty",
+          "value": "Class I–II"
         },
         {
-          "label": "In this guide",
-          "value": "2 float routes"
+          "label": "Good water",
+          "value": "290–960 cfs"
+        },
+        {
+          "label": "Gauge",
+          "value": "Annapolis"
         }
       ]
     },
     "intro_html": "<p><strong>Say “Black River weekend” and many Missouri floaters picture Lesterville.</strong> The upper river’s gravel bars and bluff-lined bends make a convincing case for packing the cooler and taking the whole day. The East, Middle, and West Forks meet in this part of the state, but the main-stem float is its own trip; the rocky headwater shut-ins are not simply extra miles to add upstream.</p><p>Clearwater Lake is the big dividing line. Below the dam, the Black changes pace and its flow depends partly on releases. Decide which side of the lake your trip belongs to before comparing gauges or booking a shuttle. The routes in this guide are separate outings, not a route across the lake and dam.</p>",
     "why_different": [
       {
-        "strong": "Lesterville has the classic summer feel.",
-        "body": "Above Clearwater Lake, the river brings together gravel stops, bluffs, and a well-known floating area."
+        "strong": "Lesterville is the summer float.",
+        "body": "Above Clearwater Lake the Black is gravel bars and bluff-lined bends, and Lesterville is where most people put in."
       },
       {
-        "strong": "The lower river has its own appeal.",
-        "body": "Markham Springs and Hammer make a different kind of day, below the lake and away from the upper-river route."
+        "strong": "Below the dam it is a different river.",
+        "body": "Markham Springs to Hammer runs on water released from Clearwater Dam. It is short and quiet."
       },
       {
-        "strong": "The headwaters make good side trips.",
-        "body": "Johnson’s Shut-Ins is a place to visit separately. Its rocks and channels are not a casual extension of a Lesterville canoe trip."
+        "strong": "Johnson’s Shut-Ins is a side trip.",
+        "body": "The shut-ins are upstream on the East Fork, in a state park. Go on foot; it is not canoe water."
       }
     ],
     "sections": [
@@ -53,9 +57,20 @@ export default {
         "from": "Lesterville Access",
         "to": "Highway K Recreation Area (Clearwater Lake)",
         "miles": "12.9",
-        "best": "A longer upper-Black day for paddlers prepared to cover nearly 13 miles",
+        "best": "A long day above the lake",
         "photo": null,
-        "body": "Start at Lesterville Access and finish at Highway K above Clearwater Lake. This is a substantial day, so arrange the shuttle and confirm how lake backwater affects the final miles. Do not continue toward the dam as an afterthought."
+        "body": "12.9 miles from Lesterville to the Highway K recreation area at the top of Clearwater Lake. That is a full day of paddling, and the last miles can be slack water when the lake is up. Take out at Highway K; the dam is farther down the lake.",
+        "photo_detail": {
+          "url": "/images/river-guides/black.webp",
+          "alt": "Canoes on the Black River near Lesterville.",
+          "caption": "Canoes on the Black River near Lesterville.",
+          "author": "Kbh3rd",
+          "source_url": "https://commons.wikimedia.org/wiki/File:Black_River_Missouri_20140720_206b.jpg",
+          "license": "CC BY 4.0",
+          "license_url": "https://creativecommons.org/licenses/by/4.0"
+        },
+        "time": "About 5 hr",
+        "diff": "I–II"
       },
       {
         "id": 2,
@@ -65,32 +80,34 @@ export default {
         "from": "Markham Springs Recreation Area",
         "to": "Hammer Access (Bradley A. Hammer Memorial CA)",
         "miles": "2.7",
-        "best": "A short lower-Black outing based around Markham Springs",
+        "best": "A short float below the dam",
         "photo": null,
-        "body": "Markham Springs to Hammer gives you a compact outing below Clearwater Dam. Check release information as well as the downstream river reading; the upper-river Annapolis gauge alone does not describe this reach."
+        "body": "2.7 miles from Markham Springs to Hammer, below Clearwater Dam. The water here depends on what the dam is releasing, so the Annapolis gauge upstream tells you nothing about it. Check the downstream gauge and the release.",
+        "time": "About 1 hr",
+        "diff": "I–II"
       }
     ],
     "springs": [
       {
         "name": "Markham Springs",
-        "note": "Make the spring and wooded recreation area a visit in their own right before or after the lower-Black paddle."
+        "note": "A spring and a wooded recreation area at the put-in for the lower float. Worth an hour before or after."
       }
     ],
     "seasons": [
       {
         "m": "Mar–May",
-        "t": "Watch runoff and the lake.",
-        "note": "Spring rain can affect the upper river and Clearwater operations. Recheck both before a trip."
+        "t": "Runoff and the lake.",
+        "note": "Spring rain changes the upper river and what the dam releases. Check both."
       },
       {
         "m": "Jun–Aug",
         "t": "Lesterville season.",
-        "note": "Reserve your arrangements early for busy summer weekends, then check actual water conditions close to departure."
+        "note": "Summer weekends book up. Reserve early, then look at the gauge the week you go."
       },
       {
         "m": "Sep–Feb",
-        "t": "A quieter river day.",
-        "note": "Shorter days suit shorter routes. Cold water and changing dam releases still matter below Clearwater."
+        "t": "Quiet.",
+        "note": "Short days suit the short lower float. The water is cold and the releases still change."
       }
     ],
     "what_to_bring": [
@@ -102,16 +119,16 @@ export default {
     ],
     "pro_tips": [
       {
-        "strong": "Ask which Black River trip is being sold.",
-        "body": "An outfitter’s mileage may use private endpoints. Match the named put-in and take-out, not just the river name."
+        "strong": "Ask which trip you are buying.",
+        "body": "Outfitters often use their own landings, so their mileage may not match these floats. Ask for the put-in and take-out by name."
       },
       {
-        "strong": "Save a dry afternoon for the shut-ins.",
-        "body": "A park visit is easier to enjoy when it is planned as its own stop, with shoes and dry clothes ready."
+        "strong": "Give the shut-ins their own afternoon.",
+        "body": "Bring dry shoes and clothes, and go when you are not also trying to float."
       },
       {
-        "strong": "Keep the two gauge stories separate.",
-        "body": "Annapolis is useful above Clearwater; downstream releases and readings matter below it."
+        "strong": "Two gauges.",
+        "body": "Annapolis for the river above Clearwater Lake; the Poplar Bluff gauge and the dam release for the river below. Eddy rates Annapolis best between about 290 and 960 cfs."
       }
     ],
     "callouts": {
@@ -121,27 +138,27 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "A Clearwater release tells you about the river below the dam, not the water at Lesterville. Keep those two Black River trips separate, including the gauge and shuttle."
+        "quote": "Lesterville and Markham Springs are two different rivers that share a name. Check the gauge for the one you are floating."
       }
     },
     "faq": [
       {
         "q": "Is Johnson’s Shut-Ins on the float route?",
-        "a": "No. Treat the state park on the East Fork as a separate visit, not a canoe route through the shut-ins."
+        "a": "No. Johnson’s Shut-Ins is a state park on the East Fork. Visit it on foot."
       },
       {
         "q": "Can I paddle from Lesterville to the lower Black in one trip?",
-        "a": "Clearwater Lake and its dam separate those outings. This guide does not describe a through-route across them."
+        "a": "No. Clearwater Lake and its dam sit between them."
       },
       {
         "q": "Where does the upper featured trip end?",
-        "a": "At Highway K Recreation Area. Check lake levels and the exact take-out before launching from Lesterville."
+        "a": "At the Highway K recreation area, where the river enters Clearwater Lake. Check the lake level first; high water changes the last miles and the take-out."
       }
     ],
     "pre_launch_notes": [
       {
-        "strong": "Pick a side of Clearwater Lake.",
-        "body": "The upper and lower floats need different flow checks and separate shuttle plans."
+        "strong": "Pick a side of the lake.",
+        "body": "The upper and lower floats use different gauges and different shuttles. They do not connect."
       }
     ],
     "related_rivers": [
@@ -155,9 +172,10 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "2.7–12.9 mi featured routes",
-      "best_for_beginners": "Markham Springs → Hammer is the shorter option at 2.7 miles; check downstream releases and current conditions.",
-      "primary_gauge": "Black River near Annapolis, MO · USGS 07061500"
+      "typical_distance": "2.7–12.9 mi featured floats",
+      "best_for_beginners": "Markham Springs → Hammer (2.7 mi, about 1 hr)",
+      "primary_gauge": "Black River near Annapolis, MO · USGS 07061500",
+      "route_label": "Shortest float"
     },
     "sources": [
       {
@@ -187,7 +205,8 @@ export default {
     ],
     "checked_at": "2026-10-11",
     "use_access_photos": false,
-    "sights_heading": "Places to explore ashore"
+    "sights_heading": "Places to explore ashore",
+    "editorial_updated_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

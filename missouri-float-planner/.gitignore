@@ -66,3 +66,6 @@ tmp/
 
 # Development-only lake/dam experience preview.
 /src/app/lakes-layout-check/
+
+# Temporary guide preview route, removed by its smoke runner.
+/src/app/guides-layout-check/

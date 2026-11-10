@@ -1,3 +1,8 @@
+import GuideOverview from './GuideOverview';
+import GuidePhoto from './GuidePhoto';
+import { guideOverview, type GuideMapRoute } from '@/lib/guides/overview';
+import type { ReactNode } from 'react';
+import { guideEditorialDate } from '@/lib/guides/editorial-date';
 // src/components/blog/RiverGuideLayout.tsx
 // Field Notebook layout for River Guide blog posts. Pulls structured data
 // from blog_posts.guide_data and renders the design from variation-a.jsx in
@@ -11,7 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
 import { riverPath, riverAccessPath } from '@/lib/navigation/river-path';
 import { npsHeroImage } from '@/lib/services/npsCampground';
-import { optimizeBlogImage } from '@/lib/blog-image';
+import { optimizeBlogImage, guidePhotoCredit } from '@/lib/blog-image';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
 import EddySaysCallout from './EddySaysCallout';
@@ -31,7 +36,7 @@ import RelatedRiversStrip from './RelatedRiversStrip';
 const EDDY_CANOE =
   'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
-function buildToc(post: RiverGuidePost): TocItem[] {
+function buildToc(post: RiverGuidePost, hasDirectory: boolean): TocItem[] {
   const g = post.guide_data;
   const items: TocItem[] = [];
   if (g.tldr) items.push({ id: 'tldr', label: 'TL;DR' });
@@ -42,10 +47,8 @@ function buildToc(post: RiverGuidePost): TocItem[] {
   );
   if (g.sections.length) items.push({ id: 'pick', label: 'Pick your float' });
   if (g.springs.length) items.push({ id: 'springs', label: g.sights_heading ?? 'Springs & sights' });
-  items.push(
-    { id: 'outfitters', label: 'Outfitters & lodging' },
-    { id: 'gauge',      label: 'Water levels & gauge' },
-  );
+  if (hasDirectory) items.push({ id: 'outfitters', label: 'Outfitters & lodging' });
+  items.push({ id: 'gauge', label: 'Water levels & gauge' });
   if (g.regulations?.length)        items.push({ id: 'regulations', label: 'Regulations' });
   items.push({ id: 'when', label: 'When to go' });
   if (g.drive_times?.length)        items.push({ id: 'drive', label: 'Drive times' });
@@ -82,10 +85,13 @@ interface Props {
   post: RiverGuidePost;
 }
 
-interface ApInfo {
+export interface GuideAccessInfo {
   id: string;
   imageUrl: string | null;
   npsImageUrl: string | null;
+  endpoint: boolean;
+  mile: number | null;
+  riverId: string;
 }
 
 // Resolve each section's put-in/take-out access points: the access point id
@@ -113,7 +119,7 @@ async function getRiverMeta(
 async function resolveAccessPoints(
   riverSlug: string,
   sections: FloatSection[],
-): Promise<Map<string, ApInfo>> {
+): Promise<Map<string, GuideAccessInfo>> {
   const slugs = new Set<string>();
   for (const s of sections) {
     if (s.from_slug) slugs.add(s.from_slug);
@@ -131,13 +137,15 @@ async function resolveAccessPoints(
 
   const { data: aps } = await supabase
     .from('access_points')
-    .select('slug, id, image_urls, nps_campground_id')
+    .select('slug, id, image_urls, nps_campground_id, is_float_endpoint, river_mile_downstream')
     .eq('river_id', river.id)
     .eq('approved', true)
     .in('slug', Array.from(slugs));
 
   const apRows = (aps ?? []) as {
     slug: string;
+    is_float_endpoint: boolean | null;
+    river_mile_downstream: number | null;
     id: string;
     image_urls: string[] | null;
     nps_campground_id: string | null;
@@ -160,10 +168,13 @@ async function resolveAccessPoints(
   }
 
   return new Map(
-    apRows.map((a): [string, ApInfo] => [
+    apRows.map((a): [string, GuideAccessInfo] => [
       a.slug,
       {
         id: a.id,
+        endpoint: a.is_float_endpoint !== false,
+        mile: a.river_mile_downstream == null ? null : Number(a.river_mile_downstream),
+        riverId: river.id,
         imageUrl: a.image_urls && a.image_urls.length > 0 ? a.image_urls[0] : null,
         npsImageUrl: a.nps_campground_id ? cgHero.get(a.nps_campground_id) ?? null : null,
       },
@@ -174,10 +185,12 @@ async function resolveAccessPoints(
 function buildPlannerUrl(
   riverSlug: string,
   section: FloatSection,
-  aps: Map<string, ApInfo>,
+  aps: Map<string, GuideAccessInfo>,
 ): string | undefined {
   if (!section.from_slug || !section.to_slug) return undefined;
-  const putIn = aps.get(section.from_slug)?.id;
+  const from = aps.get(section.from_slug), to = aps.get(section.to_slug);
+  if (!from?.endpoint || !to?.endpoint || from.mile == null || to.mile == null || to.mile <= from.mile) return undefined;
+  const putIn = from.id;
   const takeOut = aps.get(section.to_slug)?.id;
   if (!putIn || !takeOut) return undefined;
   return `/plan?river=${riverSlug}&putIn=${putIn}&takeOut=${takeOut}`;
@@ -188,7 +201,7 @@ function buildPlannerUrl(
 // NPS campground photo.
 function resolveSectionPhoto(
   section: FloatSection,
-  aps: Map<string, ApInfo>,
+  aps: Map<string, GuideAccessInfo>,
 ): string | undefined {
   if (section.photo) return section.photo;
   const order = [section.from_slug, section.to_slug].filter(Boolean) as string[];
@@ -206,13 +219,35 @@ function resolveSectionPhoto(
 export default async function RiverGuideLayout({ post }: Props) {
   const g = post.guide_data;
   const slug = post.river_slug ?? post.slug;
+  const [directory, aps, riverMeta] = await Promise.all([
+    DirectoryCards({ riverSlug: slug }),
+    resolveAccessPoints(slug, g.sections),
+    post.river_slug ? getRiverMeta(post.river_slug) : Promise.resolve({ state: null, name: null }),
+  ]);
+  const db = createAdminClient();
+  const mapLines = await Promise.all(g.sections.map(async (section, index) => {
+    if (!buildPlannerUrl(slug, section, aps)) return null;
+    const { data, error } = await db.rpc('get_float_segment', { p_start_access_id: aps.get(section.from_slug!)!.id, p_end_access_id: aps.get(section.to_slug!)!.id });
+    if (error) return null;
+    return { id: section.id, number: index + 1, label: `${section.from} → ${section.to}`, miles: section.miles, geometry: data?.[0]?.segment_geom };
+  }));
+  const overview = guideOverview(mapLines.filter((line): line is NonNullable<typeof line> => line !== null));
+  return <RiverGuideView post={post} aps={aps} riverMeta={riverMeta} directory={directory} overview={overview} />;
+}
+
+/** Shared presentation, with independently loaded resources kept on the server. */
+export function RiverGuideView({ post, aps, riverMeta, directory, overview }: Props & {
+  aps: Map<string, GuideAccessInfo>;
+  riverMeta: { state: string | null; name: string | null };
+  directory: ReactNode;
+  overview: GuideMapRoute[];
+}) {
+  const g = post.guide_data;
+  const slug = post.river_slug ?? post.slug;
   const riverName = g.hero.title_top;
-  const toc = buildToc(post);
+  const heroCredit = guidePhotoCredit(g.hero);
+  const toc = buildToc(post, directory != null);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
-  const aps = await resolveAccessPoints(slug, g.sections);
-  const riverMeta = post.river_slug
-    ? await getRiverMeta(post.river_slug)
-    : { state: null, name: null };
   const riverState = riverMeta.state;
   const reportHref = post.river_slug
     ? (riverState ? riverPath(riverState, post.river_slug) : '/rivers')
@@ -225,6 +260,7 @@ export default async function RiverGuideLayout({ post }: Props) {
 
       {/* Top breadcrumb / meta strip */}
       <div
+        data-guide-meta
         style={{
           maxWidth: 1280,
           margin: '0 auto',
@@ -247,13 +283,15 @@ export default async function RiverGuideLayout({ post }: Props) {
         >
           ← View Report
         </Link>
-        {post.read_time_minutes && (
-          <>
-            <span>·</span>
-            <span>{post.read_time_minutes} min read</span>
-          </>
-        )}
-        <ArticleByline publishedAt={post.published_at} />
+        <div data-guide-byline className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          {post.read_time_minutes && (
+            <span className="inline-flex items-baseline gap-3 whitespace-nowrap">
+              <span data-byline-separator aria-hidden="true">·</span>
+              <span>{post.read_time_minutes} min read</span>
+            </span>
+          )}
+          <ArticleByline publishedAt={post.published_at} editorialDate={guideEditorialDate(g)} />
+        </div>
         <span
           style={{
             marginLeft: 'auto',
@@ -341,6 +379,7 @@ export default async function RiverGuideLayout({ post }: Props) {
               {g.hero.lede}
             </p>
           </div>
+          <figure style={{ margin: 0 }}>
           <div
             style={{
               position: 'relative',
@@ -362,6 +401,12 @@ export default async function RiverGuideLayout({ post }: Props) {
               style={{ objectFit: g.hero.photo_url ? 'cover' : 'contain' }}
             />
           </div>
+            {g.hero.photo_caption && <figcaption className="mt-2 text-sm leading-relaxed text-neutral-600">{g.hero.photo_caption}</figcaption>}
+            {heroCredit && <p className="mt-1 text-xs leading-relaxed text-neutral-600">
+              Photo: <a href={heroCredit.source_url} className="underline">{heroCredit.author}</a>{' · '}
+              <a href={heroCredit.license_url} className="underline">{heroCredit.license}</a>. {heroCredit.changes}
+            </p>}
+          </figure>
         </div>
 
         {/* Mile-marker stat strip */}
@@ -471,15 +516,15 @@ export default async function RiverGuideLayout({ post }: Props) {
           <div id="today" style={{ scrollMarginTop: 80 }}>
             <SectionTitle eyebrow="Live conditions">Today on the {riverName}</SectionTitle>
             <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 6, lineHeight: 1.65 }}>
-              Eddy reads the gauge, the trend, and the forecast and writes a fresh take a few times a day. Use it as one input alongside your own judgment, the outfitter you&rsquo;re renting from, and current advisories from the agency that manages your stretch.
+              Check the latest reading and trend, then confirm conditions on your stretch with the land manager or outfitter.
             </p>
           </div>
 
           <EddySaysCallout callout={g.callouts.hero} riverSlug={slug} />
 
           {/* Why different */}
-          <SectionTitle id="different" eyebrow="The pitch">
-            Why the {riverName} is different
+          <SectionTitle id="different" eyebrow="Get to know the river">
+            What to expect on the {riverName}
           </SectionTitle>
           <div
             style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--color-neutral-800)' }}
@@ -520,8 +565,9 @@ export default async function RiverGuideLayout({ post }: Props) {
             Pick your float
           </SectionTitle>
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 24, lineHeight: 1.65 }}>
-            Choose a stretch for your group, your time, and today&rsquo;s water. Distances are approximate; use the planner for the current route and time estimate.
+            Choose a stretch for your group, your time, and today&rsquo;s water. Float times are paddling time in a canoe or kayak at normal water; stops, low water, rafts and tubes all add to them. The planner gives an estimate for today&rsquo;s level.
           </p>
+          <GuideOverview routes={overview} riverName={riverName} />
           {floatSearchLaunch().web && <Link href={`/find-float?river=${encodeURIComponent(slug)}`} className="mb-6 inline-flex min-h-11 items-center font-semibold text-primary-700 underline underline-offset-4">Find a float for your time and vessel →</Link>}
           {(() => {
             // Render section cards with optional segment headers between groups.
@@ -538,6 +584,7 @@ export default async function RiverGuideLayout({ post }: Props) {
                       key={s.id}
                       section={s}
                       index={idx}
+                      estimateEndpoints={buildPlannerUrl(slug, s, aps) ? { riverId: aps.get(s.from_slug!)!.riverId, startId: aps.get(s.from_slug!)!.id, endId: aps.get(s.to_slug!)!.id } : undefined}
                       plannerUrl={buildPlannerUrl(slug, s, aps)}
                       fromHref={riverState && s.from_slug && aps.has(s.from_slug) ? riverAccessPath(riverState, slug, s.from_slug) : undefined}
                       toHref={riverState && s.to_slug && aps.has(s.to_slug) ? riverAccessPath(riverState, slug, s.to_slug) : undefined}
@@ -601,6 +648,7 @@ export default async function RiverGuideLayout({ post }: Props) {
                   <div style={{ fontSize: 14, color: 'var(--color-neutral-700)', lineHeight: 1.5 }}>
                     {sp.note}
                   </div>
+                  {sp.photo && <GuidePhoto photo={sp.photo} />}
                 </div>
               </div>
             ))}
@@ -608,19 +656,13 @@ export default async function RiverGuideLayout({ post }: Props) {
 
           </>}
 
-          {/* Outfitters — full inline directory, no off-page redirects */}
-          <SectionTitle id="outfitters" eyebrow="Directory">
-            Outfitters, campgrounds &amp; lodging
-          </SectionTitle>
-          <p style={{ fontSize: 15, color: 'var(--color-neutral-600)', marginBottom: 18, lineHeight: 1.55 }}>
-            Every active service that operates on the {riverName}. Call or reserve straight from the list.
-          </p>
-          <DirectoryCards riverSlug={slug} />
+          {directory}
 
           {/* Gauge */}
           <SectionTitle id="gauge" eyebrow="USGS data">
             Water levels &amp; gauge
           </SectionTitle>
+          <Link href={reportHref} className="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline">Open the full river report →</Link>
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 18, lineHeight: 1.65 }}>
             Check the gauge before you load the truck. Look at the current level, its trend, and recent rain together. A falling gauge alone does not establish suitable conditions; check the reach and current local advisories too.
           </p>
@@ -973,6 +1015,16 @@ function ResponsiveStyles() {
       }
     }
     @media (max-width: 767px) {
+      .eddy-guide-root [data-guide-meta] {
+        row-gap: 4px !important;
+      }
+      .eddy-guide-root [data-guide-byline] {
+        order: 1;
+        flex-basis: 100%;
+      }
+      .eddy-guide-root [data-byline-separator] {
+        display: none;
+      }
       .eddy-guide-root [data-guide-section-grid] {
         grid-template-columns: 1fr !important;
       }
