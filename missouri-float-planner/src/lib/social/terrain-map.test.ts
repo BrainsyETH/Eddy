@@ -91,7 +91,7 @@ test('destination renders of one Float Pick share a single terrain preparation',
 
   const single = await shareTerrainMap([requests[0]], async () => { assert.fail('one dispatch prepares inline'); });
   assert.equal(single[0].inputProps.terrainMapUrl, undefined);
-  const digest = [getCompositionForPost('daily_digest', {}), getCompositionForPost('daily_digest', {})];
+  const digest = [getCompositionForPost('weekly_forecast', {}), getCompositionForPost('weekly_forecast', {})];
   assert.deepEqual(await shareTerrainMap(digest, async () => { assert.fail('non-geographic formats never fetch terrain'); }), digest);
   const failed = await shareTerrainMap(requests, async () => { throw new Error('provider down'); });
   assert.deepEqual(failed, requests, 'a failed shared preparation falls back to per-dispatch preparation');
@@ -128,7 +128,7 @@ test('Float Picks dispatch destination props and filenames; legacy retries adopt
     assert.equal(request.inputs.post_ids, props.platform + '-id');
     assert.ok(request.inputs.output_filename.endsWith(`-${props.platform}-reel`));
   }
-  const digest = getCompositionForPost('daily_digest', {});
+  const digest = getCompositionForPost('weekly_forecast', {});
   assert.deepEqual(destinationRenderRequest(digest, 'facebook'), digest);
-  assert.equal(videoRenderGroup('daily_digest', null, 'facebook'), videoRenderGroup('daily_digest', null, 'instagram'));
+  assert.equal(videoRenderGroup('weekly_forecast', null, 'facebook'), videoRenderGroup('weekly_forecast', null, 'instagram'));
 });

@@ -48,6 +48,8 @@ interface Props {
   branding: EmbedBrandingRecord | null;
   origin: string;
   now: number;
+  /** Static Daily Report export: keep the chart, omit interactive footer. */
+  report?: boolean;
 }
 
 function utmFor(data: RiverEmbedData, options: EmbedOptions, branding: EmbedBrandingRecord | null) {
@@ -234,7 +236,7 @@ function Card(props: Props) {
         </section>
       )}
 
-      <EmbedCredit
+      {!props.report && <EmbedCredit
         origin={origin}
         widget={utm.widget}
         widgetKey={data.river.slug}
@@ -242,7 +244,7 @@ function Card(props: Props) {
         partner={options.partner}
         branding={branding}
         embedId={options.embedId}
-      />
+      />}
     </EmbedFrame>
   );
 }

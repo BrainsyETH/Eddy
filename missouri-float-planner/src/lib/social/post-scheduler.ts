@@ -5,7 +5,6 @@
 import { MAY_HAVE_PUBLISHED } from './publish-outcome';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  formatDailyDigestCaption,
   formatWeeklyForecastCaption,
 } from './content-formatter';
 import { overlayLiveConditions } from './live-conditions';
@@ -157,20 +156,6 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     console.log(`${LOG_PREFIX} Rivers: ${diag.rivers.join(', ')}`);
   }
 
-  // Load global summary (summary_text — unified with buildPostContext so the
-  // digest caption reads the same on the cron and manual quick-post paths).
-  const { data: globalUpdate } = await supabase
-    .from('eddy_updates')
-    .select('summary_text')
-    .eq('river_slug', 'global')
-    .is('section_slug', null)
-    .gt('expires_at', new Date().toISOString())
-    .order('generated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const globalSummary = globalUpdate?.summary_text || null;
-
   const posts: ScheduledPost[] = [];
   const baseUrl = 'https://eddy.guide';
 
@@ -314,25 +299,10 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     } else if (!isDueNow(config.digest_time_cst) && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_cst} CST), skipping digest`);
     } else {
-      const platforms = platformsForPost();
-      for (const platform of platforms) {
-        const { caption, hashtags } = formatDailyDigestCaption(
-          updates,
-          globalSummary,
-          customContent,
-          platform
-        );
-
-        posts.push({
-          postType: 'daily_digest',
-          platform,
-          riverSlug: null,
-          caption,
-          imageUrl: `${baseUrl}/api/og/social?type=digest&platform=${platform}`,
-          mediaType: 'video', // video-only; digest matrix cell is the on/off gate
-          hashtags,
-          eddyUpdateId: null,
-        });
+      // The existing TikTok connector supports video only; do not spend its budget.
+      for (const platform of nonTiktokPlatforms) {
+        posts.push({ postType: 'daily_digest', platform, riverSlug: null,
+          caption: '', imageUrl: '', mediaType: 'image', hashtags: [], eddyUpdateId: null });
       }
     }
   }

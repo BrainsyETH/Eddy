@@ -9,7 +9,7 @@
 
 import { prepareTerrainMap } from './terrain-map';
 import type { LngLat } from '../../../shared/social-route-journey';
-import { POST_TYPES, type RenderData } from './post-types';
+import { POST_TYPES, type RenderData, type VideoPostKind } from './post-types';
 import type { SocialPlatform } from './types';
 
 const LOG_PREFIX = '[VideoRenderer]';
@@ -294,12 +294,7 @@ export async function triggerBrandCheck(params: BrandCheckParams): Promise<boole
  * Thin lookup over POST_TYPES (the single source of truth in post-types.ts).
  */
 export function getCompositionForPost(
-  postType:
-    | 'daily_digest'
-    | 'river_highlight'
-    | 'weekly_forecast'
-    | 'section_guide'
-    | 'weekly_trend',
+  postType: VideoPostKind,
   data: RenderData,
   platform?: SocialPlatform,
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {

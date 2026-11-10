@@ -3,6 +3,8 @@
 // src/app/admin/social/page.tsx
 // Admin dashboard for social media posting — settings, filters, custom content, post history
 
+import CarouselPreview from '@/components/admin/social/CarouselPreview';
+import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
 import { videoSafeInsets } from '@shared/social-brand';
 import { useEffect, useState, useCallback } from 'react';
@@ -215,7 +217,7 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
   },
   {
     key: 'daily_digest',
-    label: 'Daily Digest',
+    label: 'Daily Report',
     time: {
       get: (c) => c.digest_time_cst,
       set: (c, v, set) => set({ ...c, digest_time_cst: v }),
@@ -253,7 +255,7 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
 // eddy_says / favorite_float / route_draw are retired types kept only so
 // historical rows in the post table still render a label.
 const POST_TYPE_LABELS: Record<string, string> = {
-  daily_digest: 'Digest',
+  daily_digest: 'Daily Report',
   river_highlight: 'Eddy’s Read',
   eddy_says: 'Eddy Says (legacy)',
   weekly_forecast: 'Weekend Forecast',
@@ -599,9 +601,8 @@ export default function SocialAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: apiType,
-          // Post Now rows are all video reel types; include TikTok (draft) when
-          // an account is connected. The route ignores tiktok for image `tip`s.
-          platforms: ['facebook', 'instagram', ...(tiktokStatus?.connected ? ['tiktok'] : [])],
+          // TikTok supports our reels; the Daily Report is an image carousel.
+          platforms: ['facebook', 'instagram', ...(tiktokStatus?.connected && postType !== 'digest' ? ['tiktok'] : [])],
           asVideo,
         }),
       });
@@ -819,13 +820,13 @@ export default function SocialAdminPage() {
         body: JSON.stringify({
           type: quickPostType,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
-          platforms: quickPostPlatforms,
+          platforms: quickPostPlatforms.filter(p => quickPostType !== 'digest' || p !== 'tiktok'),
         }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.rendering) {
-          showToast(`Video render dispatched for ${data.rendering} platform(s) — will be ready for review after rendering`, 'success');
+          showToast(`Media render dispatched for ${data.rendering} platform(s) — will be ready for review after rendering`, 'success');
         } else {
           const successes = data.results?.filter((r: { status: string }) => r.status === 'review').length || 0;
           const failures = data.results?.filter((r: { status: string }) => r.status === 'failed') || [];
@@ -920,8 +921,9 @@ export default function SocialAdminPage() {
                             {post.platform}
                           </span>
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
-                            {post.postType === 'daily_digest' ? 'Digest' : post.postType === 'river_highlight' ? 'Eddy’s Read' : post.postType}
+                            {post.postType === 'daily_digest' ? 'Daily Report' : post.postType === 'river_highlight' ? 'Eddy’s Read' : post.postType}
                           </span>
+                          {post.postType === 'daily_digest' && <span className="text-xs text-primary-300">Carousel</span>}
                           {post.mediaType === 'video' && (
                             <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
                               Video
@@ -934,6 +936,7 @@ export default function SocialAdminPage() {
                         {post.imageUrl && <details className="mb-3 text-sm text-neutral-300"><summary className="cursor-pointer">Inspect cover</summary>{/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={post.imageUrl} alt="Scheduled post cover" className="mt-2 max-h-96 object-contain" /></details>}
                         <p className="text-sm text-neutral-200 whitespace-pre-line break-words">{post.caption}</p>
+                        {post.postType === 'daily_digest' && <p className="mt-2 text-xs text-neutral-400">Generate a draft to review every widget slide.</p>}
                       </div>
                     ))
                   )}
@@ -980,7 +983,7 @@ export default function SocialAdminPage() {
               {/* The cover beside the video: on Instagram the OG image IS the
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
-              <div className={`grid gap-4 ${videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
                 {videoPreviewPost.video_url && <div>
                   <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Reel</p>
                   <div className="relative bg-black rounded-lg overflow-hidden aspect-[9/16]">
@@ -1007,6 +1010,7 @@ export default function SocialAdminPage() {
                     .map(p => p.image_url as string)}
                 />
               </div>
+              }
               <p className="mt-4 text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
               {videoPreviewPost.platform === 'tiktok' && <p className="mt-3 text-sm text-neutral-400">Inbox delivery requires finishing the post in TikTok. Check the resulting status after delivery.</p>}
               {videoPreviewPost.status === 'review' && <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>}
@@ -1066,7 +1070,7 @@ export default function SocialAdminPage() {
                 }}
                 className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
               >
-                <option value="digest">Daily Digest (all rivers)</option>
+                <option value="digest">Daily Report (widget carousel)</option>
                 <option value="highlight">Eddy’s Read (2–3 rivers for the weekend)</option>
                 <option value="weekly_forecast">Weekend Forecast</option>
                 <option value="section_guide">Float Pick</option>
@@ -1076,6 +1080,7 @@ export default function SocialAdminPage() {
             </div>
 
             {/* Content selector (for tips) */}
+            {quickPostType === 'digest' && <p className="text-sm text-neutral-400">A carousel of river and dam widgets for Instagram and Facebook. TikTok is skipped for this format.</p>}
             {quickPostType === 'tip' && (
               <div>
                 <label className="block text-sm text-neutral-300 mb-1">Content</label>
@@ -1122,7 +1127,7 @@ export default function SocialAdminPage() {
                 />
                 Instagram
               </label>
-              {tiktokStatus?.connected && quickPostType !== 'tip' && (
+              {tiktokStatus?.connected && quickPostType !== 'tip' && quickPostType !== 'digest' && (
                 <label className="flex items-center gap-2 text-sm text-neutral-300">
                   <input
                     type="checkbox"
@@ -1139,9 +1144,11 @@ export default function SocialAdminPage() {
               )}
             </div>
 
-            {/* Media note — Digest/Highlight post as animated video; Tip is an image. */}
+            {/* Explain what will be ready for review. */}
             <div className="p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg text-xs text-neutral-400">
-              {quickPostType === 'tip'
+              {quickPostType === 'digest'
+                ? 'Creates a carousel draft with 2–5 widget slides. Review every slide and the caption in posting history, then publish.'
+                : quickPostType === 'tip'
                 ? 'Creates a static image draft for review.'
                 : 'Creates a video draft. Rendering usually takes 3–5 minutes. Review the finished video and caption in posting history, then publish.'}
             </div>
@@ -1152,7 +1159,7 @@ export default function SocialAdminPage() {
                 onClick={publishQuickPost}
                 disabled={
                   quickPosting ||
-                  quickPostPlatforms.length === 0 ||
+                  quickPostPlatforms.filter(p => quickPostType !== 'digest' || p !== 'tiktok').length === 0 ||
                   (quickPostType === 'tip' && !quickPostContentId)
                 }
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
@@ -1487,7 +1494,7 @@ export default function SocialAdminPage() {
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
                   <p className="text-sm text-neutral-400 mb-4">
-                    Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Video</span>.
+                    Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Carousel for Daily Report, Off / Video for reels</span>.
                     If every day for a row is Off, that post type is disabled. Set the time each type fires, or choose Generate draft to review a manual post.
                   </p>
                   <div className="overflow-x-auto">
@@ -1518,8 +1525,8 @@ export default function SocialAdminPage() {
                                 // read as Video (posts are video-only now).
                                 if (row.key === 'river_highlight' && day !== 'thu') return <td key={day} className="text-center text-neutral-600">—</td>;
                                 const raw = cells?.[day] ?? null;
-                                const current: 'video' | null = raw ? 'video' : null;
-                                const next: 'video' | null = current === 'video' ? null : 'video';
+                                const current = Boolean(raw);
+                                const next = current ? null : row.key === 'daily_digest' ? 'image' : 'video';
                                 return (
                                   <td key={day} className="px-1 py-2 text-center">
                                     <button
@@ -1534,13 +1541,13 @@ export default function SocialAdminPage() {
                                           },
                                         },
                                       })}
-                                      className={`w-[52px] px-1 py-1 rounded text-xs font-medium transition-colors ${
-                                        current === 'video'
+                                      className={`min-w-[62px] px-1 py-1 rounded text-xs font-medium transition-colors ${
+                                        current
                                           ? 'bg-primary-500 text-white hover:bg-primary-600'
                                           : 'bg-neutral-900 border border-dashed border-neutral-600 text-neutral-500 hover:border-neutral-400'
                                       }`}
                                     >
-                                      {current === 'video' ? 'Video' : 'Off'}
+                                      {current ? row.key === 'daily_digest' ? 'Carousel' : 'Video' : 'Off'}
                                     </button>
                                   </td>
                                 );
@@ -2007,7 +2014,7 @@ export default function SocialAdminPage() {
                                   {post.media_type === 'video' ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">Video</span>
                                   ) : (
-                                    <span className="text-neutral-400">Image</span>
+                                    <span className="text-neutral-400">{isDailyReport(post.render_request) ? `Carousel · ${post.render_request.slides.length}` : 'Image'}</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">{post.river_slug || '-'}</td>
@@ -2070,11 +2077,11 @@ export default function SocialAdminPage() {
                                     )}
                                     {post.status === 'failed' && (
                                       <button
-                                        onClick={() => retryPost(post.id, post.media_type === 'video' && !post.video_url ? 'render' : 'retry')}
+                                        onClick={() => retryPost(post.id, reportNeedsRender(post) ? 'render' : 'retry')}
                                         className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors"
                                       >
                                         <RotateCcw className="w-3 h-3" />
-                                        {post.media_type === 'video' && !post.video_url ? 'Render again' : 'Retry delivery'}
+                                        {reportNeedsRender(post) ? 'Render again' : 'Retry delivery'}
                                       </button>
                                     )}
                                   </div>

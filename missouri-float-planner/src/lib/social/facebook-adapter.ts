@@ -2,12 +2,17 @@
 // Facebook platform adapter implementing PlatformAdapter interface
 
 import type { PlatformAdapter, PublishParams, PublishResult } from './types';
-import { publishToFacebook, publishVideoToFacebook, hasMetaCredentials, validateToken } from './meta-client';
+import { publishCarousel, publishToFacebook, publishVideoToFacebook, hasMetaCredentials, validateToken } from './meta-client';
 
 export class FacebookAdapter implements PlatformAdapter {
   platform = 'facebook' as const;
 
   async publishPost(params: PublishParams): Promise<PublishResult> {
+    if (params.imageUrls !== undefined) {
+      const result = await publishCarousel({ platform: 'facebook', caption: params.caption,
+        imageUrls: params.imageUrls, onContainer: params.onProviderAttempt });
+      return { success: result.success, platformPostId: result.postId, error: result.error, ambiguous: result.ambiguous };
+    }
     // Video posts use the /{page-id}/videos endpoint. If the caller asked
     // for video but did not provide a videoUrl (e.g. retry of a post whose
     // render failed), refuse — do NOT silently downgrade to an image feed

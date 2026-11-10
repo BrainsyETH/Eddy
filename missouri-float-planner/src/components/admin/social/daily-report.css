@@ -1,0 +1,21 @@
+.daily-report-slide {
+  width: 540px; height: 675px; box-sizing: border-box; padding: 24px 26px;
+  background: var(--color-neutral-50, #faf9f6); color: var(--color-primary-800, #163f4a);
+  display: flex; flex-direction: column; gap: 10px; font-family: var(--font-body), sans-serif;
+}
+.daily-report-heading { display: flex; justify-content: space-between; align-items: baseline; font-family: 'Fredoka Variable', sans-serif; font-size: 29px; font-weight: 600; line-height: 1.1; }
+.daily-report-count { font-family: var(--font-body), sans-serif; font-size: 16px; font-weight: 500; }
+.daily-report-stamp { font-size: 14px; margin: 0 0 6px; }
+.daily-report-widget { flex: none; }
+.daily-report-slide .ew-title { font-size: 24px; }
+.daily-report-slide .ew-support, .daily-report-slide .ew-section-title,
+.daily-report-slide .ew-sched-axis, .daily-report-slide .text-xs { font-size: 15px; }
+.daily-report-slide .ew-dam-header-age { font-size: 14px; }
+.daily-report-slide .ew-weather, .daily-report-slide .ew-next { font-size: 16px; }
+.daily-report-slide .ew-card { gap: 12px; }
+.daily-report-slide .ew-dam-detail-title { font-size: 15px; }
+.daily-report-slide .ew-dam-detail-heading { flex-direction: column; }
+.daily-report-slide .ew-dam-details { align-items: start; }
+.daily-report-takeaway { margin: 2px 0 0; font-size: 18px; line-height: 1.4; font-weight: 500; }
+.daily-report-footer { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--color-primary-200, #b8d7dd); font-size: 14px; }
+.daily-report-footer strong { font-size: 19px; font-family: 'Fredoka Variable', sans-serif; font-weight: 600; }

@@ -69,3 +69,6 @@ tmp/
 
 # Temporary guide preview route, removed by its smoke runner.
 /src/app/guides-layout-check/
+
+# Development-only Daily Report widget fixtures (browser smoke test)
+/src/app/embed/report-check/

@@ -46,6 +46,8 @@ interface Props {
   branding: EmbedBrandingRecord | null;
   origin: string;
   now: number;
+  /** Static Daily Report export: keep the chart, omit interactive footer. */
+  report?: boolean;
 }
 
 const SOURCE_NAMES: Record<string, string> = {
@@ -339,7 +341,7 @@ function Card(props: Props) {
         />
       )}
 
-      {full && tomorrow && (
+      {full && !props.report && tomorrow && (
         <ScheduleBars day={tomorrow} currentHour={null} compact label={`${scheduleDayLabel(tomorrow.date)} · CT`} />
       )}
 
@@ -432,7 +434,7 @@ function Card(props: Props) {
         </div>
       )}
 
-      <details className="ew-about">
+      {!props.report && <details className="ew-about">
         <summary className="ew-link">About this data</summary>
         <ul className="ew-support">
           <li>Turbine flow is measured at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}. The header age applies to turbine flow only; downstream, lake and temperature measurements have independent timestamps.</li>
@@ -443,9 +445,9 @@ function Card(props: Props) {
           {spillway && <li>Spillway release: {formatObservedAge(spillway.observedAt, now)}.</li>}
           <li>Hourly bars show posted power generation in MW, not measured river flow. The schedule may differ from observed turbine flow. Schedules are in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
         </ul>
-      </details>
+      </details>}
 
-      <EmbedCredit
+      {!props.report && <EmbedCredit
         origin={origin}
         widget={utm.widget}
         widgetKey={dam.id}
@@ -453,7 +455,7 @@ function Card(props: Props) {
         partner={options.partner}
         branding={branding}
         embedId={options.embedId}
-      />
+      />}
     </EmbedFrame>
   );
 }

@@ -128,6 +128,8 @@ export interface PlatformAdapter {
 export interface PublishParams {
   caption: string;
   imageUrl?: string;
+  /** Ordered carousel images; never fall back to the cover alone. */
+  imageUrls?: string[];
   videoUrl?: string;
   coverUrl?: string;
   mediaType?: MediaType;

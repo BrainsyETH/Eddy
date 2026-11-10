@@ -397,6 +397,57 @@ export async function publishVideoToFacebook(params: {
   }
 }
 
+// Instagram carousel children are private until the parent is published.
+// Facebook attaches unpublished photos to one feed post in the same order.
+export async function publishCarousel(params: {
+  platform: 'instagram' | 'facebook'; caption: string; imageUrls: string[];
+  onContainer?: (id: string) => void | Promise<void>;
+}): Promise<MetaPublishResult> {
+  if (params.imageUrls.length < 2 || params.imageUrls.length > 10
+    || new Set(params.imageUrls).size !== params.imageUrls.length) {
+    return { success: false, error: 'A carousel requires 2–10 distinct images' };
+  }
+  const { accessToken, pageId, instagramAccountId } = getCredentials();
+  const instagram = params.platform === 'instagram';
+  const account = instagram ? instagramAccountId : pageId;
+  if (!accessToken || !account) return { success: false, error: 'Missing platform credentials' };
+  try {
+    const ids: string[] = [];
+    for (const imageUrl of params.imageUrls) {
+      const body = new URLSearchParams(instagram
+        ? { image_url: imageUrl, is_carousel_item: 'true', access_token: accessToken }
+        : { url: imageUrl, published: 'false', temporary: 'true', access_token: accessToken });
+      const response = await fetch(`${META_GRAPH_URL}/${account}/${instagram ? 'media' : 'photos'}`, { method: 'POST', body, signal: timeout() });
+      const data = await response.json();
+      if (!response.ok || !data.id) return { success: false, error: data.error?.message || 'Carousel image upload failed' };
+      ids.push(data.id);
+    }
+    if (!instagram) {
+      const body = new URLSearchParams({ message: params.caption, access_token: accessToken });
+      ids.forEach((id, index) => body.set(`attached_media[${index}]`, JSON.stringify({ media_fbid: id })));
+      return await finalPublish(`${META_GRAPH_URL}/${account}/feed`, { method: 'POST', body }, 'Facebook multi-photo post');
+    }
+    const children = await Promise.all(ids.map(id => waitForContainer(id, accessToken)));
+    if (children.some(c => !c.success)) return { success: false, error: 'A carousel image is not ready; no post was published' };
+    const response = await fetch(`${META_GRAPH_URL}/${account}/media`, {
+      method: 'POST', signal: timeout(),
+      body: new URLSearchParams({ media_type: 'CAROUSEL', children: ids.join(','), caption: params.caption, access_token: accessToken }),
+    });
+    const parent = await response.json();
+    if (!response.ok || !parent.id) return { success: false, error: parent.error?.message || 'Carousel container failed' };
+    await params.onContainer?.(parent.id);
+    const ready = await waitForContainer(parent.id, accessToken);
+    if (!ready.success) return { success: false, error: ready.error };
+    return await finalPublish(`${META_GRAPH_URL}/${account}/media_publish`, {
+      method: 'POST', body: new URLSearchParams({ creation_id: parent.id, access_token: accessToken }),
+    }, 'Instagram carousel publish');
+  } catch (error) {
+    // finalPublish classifies ambiguous final-call failures itself. Errors here
+    // occurred while preparing private media, so no public post was made.
+    return { success: false, error: error instanceof Error ? error.message : 'Carousel preparation failed' };
+  }
+}
+
 // Validate that the access token is still valid
 export async function validateToken(): Promise<{ valid: boolean; error?: string }> {
   const { accessToken } = getCredentials();
