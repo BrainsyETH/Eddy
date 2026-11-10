@@ -1,0 +1,110 @@
+{
+  "scope": "Six prepared pilot launch candidates only",
+  "approval_authority": "owner",
+  "approval_channel": "ChatGPT conversation",
+  "owner_instruction": "yeah lets just approve them all now",
+  "applied_by": "Codex",
+  "basis": "Owner accepted the supplied agency and imagery research and proposed trailer classification. No independent human imagery review or field inspection is asserted.",
+  "approved_at": "2026-11-10T00:44:37.813096+00:00",
+  "production_project": "ilefwfpvphadsbptiaur",
+  "counts": [
+    {
+      "total": 9,
+      "pending": 6,
+      "approved": 3,
+      "lake_slug": "table-rock"
+    },
+    {
+      "total": 37,
+      "pending": 34,
+      "approved": 3,
+      "lake_slug": "truman"
+    }
+  ],
+  "launches": [
+    {
+      "id": "70fd6828-2989-4ee8-a46a-68a2aaced37b",
+      "slug": "cow-creek",
+      "approved": true,
+      "latitude": 36.566355,
+      "lake_slug": "table-rock",
+      "longitude": -93.3884,
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "source_count": 3,
+      "launch_methods": [
+        "trailer"
+      ],
+      "audit_record_id": "3e695b84-1291-49d6-aa50-fd7a9cd0c204"
+    },
+    {
+      "id": "34ba4064-d390-4564-a314-ad9ebbe66d2a",
+      "slug": "moonshine-beach",
+      "approved": true,
+      "latitude": 36.608153,
+      "lake_slug": "table-rock",
+      "longitude": -93.311509,
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "source_count": 3,
+      "launch_methods": [
+        "trailer"
+      ],
+      "audit_record_id": "d257e10c-2eec-4243-847a-e1ae25dd9dc8"
+    },
+    {
+      "id": "92467ef6-2bf4-4a76-a1a3-ac8214189ee1",
+      "slug": "table-rock-state-park",
+      "approved": true,
+      "latitude": 36.581494,
+      "lake_slug": "table-rock",
+      "longitude": -93.310995,
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "source_count": 3,
+      "launch_methods": [
+        "trailer"
+      ],
+      "audit_record_id": "3d4e6434-d10e-4079-ac50-5c1fc7f6d8b4"
+    },
+    {
+      "id": "06fdf5fc-e6cd-42cd-bbf4-9fe6bc52ed76",
+      "slug": "long-shoal",
+      "approved": true,
+      "latitude": 38.2667671632838,
+      "lake_slug": "truman",
+      "longitude": -93.4736680724086,
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "source_count": 2,
+      "launch_methods": [
+        "trailer"
+      ],
+      "audit_record_id": "fa2962ab-8f2f-4955-a485-3a3f12af2123"
+    },
+    {
+      "id": "99638840-def3-4069-937f-040295570761",
+      "slug": "sparrowfoot",
+      "approved": true,
+      "latitude": 38.3077678830279,
+      "lake_slug": "truman",
+      "longitude": -93.7372740491418,
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "source_count": 2,
+      "launch_methods": [
+        "trailer"
+      ],
+      "audit_record_id": "788b26f4-27a2-42c4-b650-198a3cd8ba3b"
+    },
+    {
+      "id": "54afadb9-ef27-4fa3-8439-b6bff935baea",
+      "slug": "thibaut-point",
+      "approved": true,
+      "latitude": 38.2983114276794,
+      "lake_slug": "truman",
+      "longitude": -93.4008905925417,
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "source_count": 2,
+      "launch_methods": [
+        "trailer"
+      ],
+      "audit_record_id": "0dfed1c4-39e5-4946-b21b-28efe483f3a6"
+    }
+  ]
+}

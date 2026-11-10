@@ -36,9 +36,10 @@ The [Table Rock desktop](table-rock-real-1440.png) and
 [Truman phone](truman-real-390.png) `*-real-*` images are also **superseded**.
 They used captured production snapshots, 200 backfilled pool observations
 and six launches that an agent had approved. The Truman image exposes
-unreviewed ramp thresholds. The six approvals have since been withdrawn;
-these images and [their earlier checks](real-data-browser-checks.txt) are not
-evidence of current approval or publication. They were local renders, never
+unreviewed ramp thresholds. Those agent approvals were withdrawn; the owner
+later explicitly approved the six prepared records. These images and
+[their earlier checks](real-data-browser-checks.txt) are not evidence of that
+later owner decision or of public release. They were local renders, never
 screenshots of released public lake pages.
 
 The older oversized lake-on-dam iteration remains in
@@ -48,14 +49,15 @@ differs too.
 ## Production data and publication
 
 The schema and 200 real pool readings remain in production. There are 46
-pending launch candidates and **zero approved launches**; six have prepared
-research for a human to review in `/admin/lakes`. The correction and source
+launch records: **six owner-approved trailer ramps and 40 pending candidates**.
+The owner accepted the six prepared proposals in conversation; this does not
+claim an independent human inspection. The correction and source
 records are in
 [`reviewed-pilot`](../../../scripts/ingestion/lakes/2026-11-09/reviewed-pilot/README.md).
 
 `src/lib/lakes/public-pages.ts` independently gates the dam redesign and public
 lake pages. Both allowlists are empty. The hourly collector intentionally
 starts with foundation deployment while the UI stays held. Public lake rollout
-still requires human launch approval, a monitored production sync and release
-checks. Once a route is published, a data outage shows an unavailable state
-instead of removing it. Current CI results are recorded in PR #1765.
+still requires a monitored production sync and release checks. Owner approval
+for the six prepared launches is recorded. Once a route is published, a data
+outage shows an unavailable state instead of removing it. Current CI results are recorded in PR #1765.

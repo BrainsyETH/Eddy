@@ -154,7 +154,7 @@ These are release requirements, not optional polish.
 
 **Respect ramp verification.** Hide the elevation values themselves and their explanatory footer until threshold review passes. Published elevation thresholds can support cautions only after review, with a sufficiently recent lake level and matching vertical datum. A calculated caution is not an official closure or opening declaration.
 
-**Only show approved launches.** Preserve human approval through `/admin/lakes` and existing canonical access-point relationships. Agent research supplies proposals, not approval. An agency recreation-area entrance must not become a launch coordinate without verification.
+**Only show approved launches.** Preserve human approval and existing canonical access-point relationships. Use `/admin/lakes`, or record an explicit owner decision on specified prepared records and methods with its basis and executor in the admin audit (ADR 0019). Agent research supplies proposals, not approval. An agency recreation-area entrance must not become a launch coordinate without verification.
 
 **Migration sequencing matters.** Migration `20261109224918` was applied to production on 2026-11-09. Never reapply its former pending version `20261109210000` based on an old plan. Reconcile its filename and ledger under the project's procedure, stage and review launch records, and validate the pool-history job before depending on that data publicly. Public launch approval and production data changes require their normal review; fixture records are never promoted as evidence.
 

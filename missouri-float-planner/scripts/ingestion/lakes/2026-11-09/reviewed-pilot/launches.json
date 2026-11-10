@@ -1,6 +1,6 @@
 {
   "reviewed_at": "2026-11-09T23:01:30.115873+00:00",
-  "reviewer": "Codex (source/imagery research only; human approval required)",
+  "reviewer": "Codex (agency/source and imagery research); listing and proposed trailer methods subsequently approved by the owner",
   "locations": [
     {
       "lake_slug": "truman",
@@ -30,11 +30,16 @@
           "image_sha256": "f6fb54c5be46dd6db96ba3744ff5f24c85d5467e1c78335d5675d595f909f9de"
         }
       ],
-      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
+      "review_note": "Owner approved this prepared pilot candidate with trailer launch method in conversation; applied by Codex. Approval accepts the supplied agency/imagery research and does not claim an independent human inspection. Research: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
       "proposed_launch_methods": [
         "trailer"
       ],
-      "approval_status": "pending_human_review"
+      "approval_status": "owner_approved",
+      "approved_launch_methods": [
+        "trailer"
+      ],
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "audit_record_id": "fa2962ab-8f2f-4955-a485-3a3f12af2123"
     },
     {
       "lake_slug": "truman",
@@ -64,11 +69,16 @@
           "image_sha256": "3fb052e322936c51fb45d85be0e138a6aa3764eadc226cb32b6a382ae489a5e6"
         }
       ],
-      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
+      "review_note": "Owner approved this prepared pilot candidate with trailer launch method in conversation; applied by Codex. Approval accepts the supplied agency/imagery research and does not claim an independent human inspection. Research: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
       "proposed_launch_methods": [
         "trailer"
       ],
-      "approval_status": "pending_human_review"
+      "approval_status": "owner_approved",
+      "approved_launch_methods": [
+        "trailer"
+      ],
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "audit_record_id": "788b26f4-27a2-42c4-b650-198a3cd8ba3b"
     },
     {
       "lake_slug": "truman",
@@ -98,11 +108,16 @@
           "image_sha256": "e12f1c4412abef11baced8160c7e4f8a09e48b9be0506ea38f37aff734b4a6f3"
         }
       ],
-      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
+      "review_note": "Owner approved this prepared pilot candidate with trailer launch method in conversation; applied by Codex. Approval accepts the supplied agency/imagery research and does not claim an independent human inspection. Research: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review.",
       "proposed_launch_methods": [
         "trailer"
       ],
-      "approval_status": "pending_human_review"
+      "approval_status": "owner_approved",
+      "approved_launch_methods": [
+        "trailer"
+      ],
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "audit_record_id": "0dfed1c4-39e5-4946-b21b-28efe483f3a6"
     },
     {
       "lake_slug": "table-rock",
@@ -135,11 +150,16 @@
           "reviewed_at": "2026-11-09T23:01:30.115873+00:00"
         }
       ],
-      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. Official park page supplies these ramp coordinates, paved surfaces, restroom icon and no-fee information.",
+      "review_note": "Owner approved this prepared pilot candidate with trailer launch method in conversation; applied by Codex. Approval accepts the supplied agency/imagery research and does not claim an independent human inspection. Research: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. Official park page supplies these ramp coordinates, paved surfaces, restroom icon and no-fee information.",
       "proposed_launch_methods": [
         "trailer"
       ],
-      "approval_status": "pending_human_review"
+      "approval_status": "owner_approved",
+      "approved_launch_methods": [
+        "trailer"
+      ],
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "audit_record_id": "3d4e6434-d10e-4079-ac50-5c1fc7f6d8b4"
     },
     {
       "lake_slug": "table-rock",
@@ -172,11 +192,16 @@
           "image_sha256": "65eb7d9f9cf0cdb459de10d1aed3bcdc30985df74c0beb73a7b34d97083a1de0"
         }
       ],
-      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (320,455), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed.",
+      "review_note": "Owner approved this prepared pilot candidate with trailer launch method in conversation; applied by Codex. Approval accepts the supplied agency/imagery research and does not claim an independent human inspection. Research: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (320,455), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed.",
       "proposed_launch_methods": [
         "trailer"
       ],
-      "approval_status": "pending_human_review"
+      "approval_status": "owner_approved",
+      "approved_launch_methods": [
+        "trailer"
+      ],
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "audit_record_id": "d257e10c-2eec-4243-847a-e1ae25dd9dc8"
     },
     {
       "lake_slug": "table-rock",
@@ -209,12 +234,18 @@
           "image_sha256": "8141839330adb2ca6ef5468f0ce38b980ad4c57913fa9b5b8fc8bedd3c3ad970"
         }
       ],
-      "review_note": "Pending human review. Proposed launch method: trailer. The following agent research is supporting evidence, not approval: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (795,486), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed.",
+      "review_note": "Owner approved this prepared pilot candidate with trailer launch method in conversation; applied by Codex. Approval accepts the supplied agency/imagery research and does not claim an independent human inspection. Research: Source and imagery review by Codex on 2026-11-09; not a field inspection or a current opening/closure report. Trailer ramp and parking visible. Existing Eddy access points checked; no canonical duplicate found. Elevation cautions remain disabled pending threshold review. The agency recreation-area coordinate was NOT used as the launch pin. Ramp mapped from georeferenced 1000x1000 imagery at pixel (795,486), covering 600m; coordinate is on the paved ramp, away from the entrance. Agency map independently identifies this launch. Fees and other amenities unconfirmed.",
       "proposed_launch_methods": [
         "trailer"
       ],
-      "approval_status": "pending_human_review"
+      "approval_status": "owner_approved",
+      "approved_launch_methods": [
+        "trailer"
+      ],
+      "approved_at": "2026-11-10T00:44:37.813096+00:00",
+      "audit_record_id": "3e695b84-1291-49d6-aa50-fd7a9cd0c204"
     }
   ],
-  "approval_status": "pending_human_review"
+  "approval_status": "owner_approved",
+  "owner_approval_record": "owner-approval.json"
 }

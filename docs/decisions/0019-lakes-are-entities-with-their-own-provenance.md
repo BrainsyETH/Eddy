@@ -54,7 +54,11 @@ status nobody has looked at since 2022.
    facilities. Launch methods (`trailer`, `hand`) are a human decision and are
    separate from amenities; existing river access points are not reclassified
    by machine. Agent source and imagery research may prepare proposals, but
-   a human reviewer must set methods and approve them in `/admin/lakes`.
+   a human decision is required to set methods and approve a location, normally
+   through `/admin/lakes`. An explicit owner instruction accepting specified
+   prepared records and methods may also be applied by an agent, with the
+   approval basis and executor recorded in the review notes and admin audit.
+   Do not describe that acceptance as an independent human inspection.
 7. **Gates require identity, measurements and reviewed launches.** An
    operating range, a status source and a launch count are optional and render
    honestly or are omitted.
