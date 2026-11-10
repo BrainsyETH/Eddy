@@ -425,7 +425,9 @@ export default function PlanPageClient({
     setSelectedPoi(null); resetOtherInspection();
     setExpandedEndpointId(null);
     setFocusPlace(null);
-    setFocusMode(source === 'map' ? 'none' : 'bounds');
+    // "All rivers" only drops the river filter. It keeps the camera: refitting
+    // to the whole service area threw away the spot the user was looking at.
+    setFocusMode(source === 'map' || !slug ? 'none' : 'bounds');
     setFocusRequest(value => value + 1);
     if (!slug) {
       setShowAllRivers(true);
