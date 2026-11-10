@@ -45,3 +45,27 @@ photos can be used on those cards. All 18 social-share images use Eddy artwork.
 Route cards in this batch opt out of the automatic access-photo fallback;
 separately reviewed scene photos can be added later. This review does not grant
 new rights to unrelated uses of the older river-photo catalog.
+
+## Main images for the last four guides — November 10, 2026
+
+The White, Lake Taneycomo, Norfork Tailwater and Elk guides used the Eddy
+illustration. Each now has a credited main image, registered in
+`missouri-float-planner/src/data/guide-photos.json` and resolved at read time
+like the earlier twelve. Licenses were read from each Wikimedia Commons file
+page's metadata on November 10, 2026.
+
+| Guide | Image | Author and license |
+| --- | --- | --- |
+| White River | Anglers drifting below Bull Shoals Dam, September 2017 | Brett Billings / U.S. Fish and Wildlife Service; public domain. [File page](https://commons.wikimedia.org/wiki/File:Group_fishing_in_boat_near_Bull_Shoals_Dam_on_White_River.jpg) |
+| Lake Taneycomo | Morning fog on the lake, May 2007 | Luke Wisley; CC BY 2.0. [File page](https://commons.wikimedia.org/wiki/File:Taneycomo_fog.jpg) |
+| Norfork Tailwater | Norfork Dam with the tailwater in the foreground | Brandonrush; CC0. [File page](https://commons.wikimedia.org/wiki/File:Norfork_Dam_and_Norfork_River.jpg) |
+| Elk River | Linen postcard of the bridge near Noel, about 1930 to 1945 | Ozark Postcard Publishers; public domain. [File page](https://commons.wikimedia.org/wiki/File:Bridge_over_beautiful_Elk_River_near_Noel,_Mo.,_alongside_U.S._Highway_71_(78310).jpg) |
+
+The Elk image is historical, and its caption says so: no reusable modern
+photograph of the Elk was found. Replace it when one is. The copies are 1280
+pixels wide because the image host throttled larger downloads.
+
+Still open: the original seven guides carry 26 images captured from other
+websites with no credit recorded (five main images, twenty float-card photos,
+and a main image loaded directly from nps.gov). They need licensed
+replacements.
