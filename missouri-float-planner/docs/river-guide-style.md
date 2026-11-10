@@ -204,14 +204,19 @@ Route cards carry a float time, a class and a crowd level. Times are paddling
 time for a canoe or kayak at normal water. For the Current and Jacks Fork use
 the NPS estimated float times table; elsewhere divide the mapped miles by the
 planner's 2.5 mph canoe speed (`DEFAULT_CANOE_SPEEDS`) and round to the half
-hour. The page states that assumption above the cards. An FAQ answer starts
+hour. The page states that assumption above the cards, and only on a guide whose
+cards carry times. An FAQ answer starts
 with the answer: a number, a yes or no, or a place name. “Use the planner” and
 “ask your outfitter” can follow an answer but never replace one. High- and
 low-water numbers come from `river_gauges` (attributed to Eddy's river report)
 or from an agency closure level, named as such.
 
 The overview uses real `get_float_segment` geometry and omits missing lines.
-It shows featured stretches, not a continuous navigable river or a basemap.
+Featured stretches are drawn in color over the river's own stored line in grey,
+so separated stretches read as parts of one river; it is still not a basemap.
+The stored line sometimes steps past a bend and back, which showed as a stray
+tick beside an endpoint; `withoutSpurs` drops those vertices and never moves an
+endpoint.
 Selected stretches are coral/orange, matching the planner. Float times are
 requested explicitly from the existing planner; reading a guide does not run
 a calculation for every route. Dangerous/regulated responses withhold the
@@ -237,8 +242,9 @@ differ from a float guide:
 - State what the dam does and what Eddy has measured. Never say the water is
   safe, wadeable at a given release, or fine at a given hour.
   `tailwater-guide.test.ts` guards the disclaimer and the banned phrasings.
-- Give fishing limits only from a dated agency notice, with the effective date
-  in the sentence. Tailwater trout rules have changed more than once.
+- Give fishing limits only from an agency page, with a date in the sentence:
+  the notice's effective date, or the day the page was checked when the agency
+  gives none (as MDC's Lake Taneycomo page does). Tailwater trout rules have changed more than once.
 - The seed script inserts these as new posts (`insertableGuideSeeds`); they are
   not part of the refresh baseline until they are published.
 
