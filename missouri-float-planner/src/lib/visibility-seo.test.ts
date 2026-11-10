@@ -328,7 +328,7 @@ test('dam cards distinguish missing Today from idle schedules and retain Todayâ€
   const minimumFlow = { ...scheduleDay('2026-10-27', 7), hours: scheduleDay('2026-10-27', 7).hours.map(h => ({ ...h, minimumFlow: true })) };
   const bullShoals = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [minimumFlow] }], renderedAt });
   const todayText = (html: string) => scheduleSection(html, 'Today').replace(/<[^>]*>/g, ' ');
-  assert.ok(todayText(bullShoals).indexOf('Only minimum flow scheduled') < todayText(bullShoals).indexOf('midnight'), 'minimum flow leads, above the chart');
+  assert.ok(scheduleSection(bullShoals, 'Today').indexOf('Only minimum flow scheduled') < scheduleSection(bullShoals, 'Today').indexOf('role="img"'), 'minimum flow leads, above the chart');
   assert.match(todayText(idle), /No generation scheduled/);
   assert.doesNotMatch(todayText(idle), /minimum flow|unavailable/);
   assert.doesNotMatch(todayText(bullShoals), /No generation scheduled|unavailable/);

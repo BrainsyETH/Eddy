@@ -45,7 +45,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
   const spill = spillwayRelease(dam, now);
   const repeatsRelease = releaseRepeatsTurbineFlow(dam.metrics.generationFlow, release);
   // Equal values alone must not hide an older turbine observation.
-  const sameTime = state.kind !== 'unavailable' && release && !release.dailyMean &&
+  const sameTime = state.kind !== 'unavailable' && release && !release.dailyMean && !dam.metrics.generationFlow?.dailyMean &&
     Date.parse(state.observedAt) === Date.parse(release.at);
   const dimTurbine = state.kind !== 'unavailable' && !speaksForNow(state.age);
   const dimRelease = release && readingStaleness(release.at, now) !== 'fresh';

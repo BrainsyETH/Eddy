@@ -405,7 +405,8 @@ on the project's fixed capacity scale with a numeric MW axis on full charts
 small scheduled changes remain distinct. Peak bars keep a teal outline even
 after their hours pass; an orange Now marker matches iOS. Flow
 estimates stay out of ramp hours and are labeled estimated turbine flow;
-measured release is never inferred from the schedule. MW is explained in the info dialog. Dam and lake measurements sit above
+measured release is never inferred from the schedule. MW is explained in the info
+dialog. Dam and lake measurements sit above
 the full-width generation pattern at every screen size, on quiet panel cards.
 The header keeps only Share, with its icon, native touch sharing, and desktop
 copy feedback. The bottom phone action reads “Release Line: [number]”.
@@ -451,8 +452,9 @@ Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run just the dam-to-app flow
 
 Truman and Table Rock keep generation first, followed by a shared measurement
 row, Eddy's Read and operational forecasts/patterns. The lake preview follows
-those operations; launch directories live on the dedicated lake page. On phones, the generation card puts the latest reported release above
-the full-width schedule, consistently across pilot and other dam pages. The compact pilot headers reuse the
+those operations; launch directories live on the dedicated lake page. On phones,
+the generation card puts the latest reported release above the full-width schedule,
+consistently across pilot and other dam pages. The compact pilot headers reuse the
 attributed iOS photographs; web copies and provenance live in `public/lakes/`.
 Photo attribution is shown on `/photo-credits`, available through the shared
 footer, rather than beneath each pilot header image.

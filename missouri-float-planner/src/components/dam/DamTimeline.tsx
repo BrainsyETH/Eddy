@@ -39,11 +39,11 @@ const HOURS = 24;
  * midnight rather than shrinking every label to fit five.
  */
 const TICKS: Array<{ label: string; at: number }> = [
-  { label: 'midnight', at: 0 },
+  { label: '12 AM', at: 0 },
   { label: '6 AM', at: 0.25 },
   { label: 'noon', at: 0.5 },
   { label: '6 PM', at: 0.75 },
-  { label: 'midnight', at: 1 },
+  { label: '12 AM', at: 1 },
 ];
 
 /**
