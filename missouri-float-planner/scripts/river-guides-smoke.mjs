@@ -113,6 +113,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     await page.goto(`${origin}/guides-layout-check?river=white`,{waitUntil:'networkidle'});
     assert.equal(await page.locator('iframe[src^="/embed/dam/swl-bull-shoals-dam"]').count(),1);
     assert.equal(await page.locator('a[href="/dams/swl-bull-shoals-dam"]').count(),1);
+    // The release leads on a hydro tailwater: above the route cards, not under the gauge.
+    assert.equal(await page.evaluate(()=>Boolean(document.querySelector('#dam').compareDocumentPosition(document.querySelector('#different'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
+    assert.equal(await page.getByText('does not rate it good, low or too high',{exact:false}).count(),1);
     assert.equal(await page.getByRole('link',{name:'Put this schedule on your site →'}).count(),1);
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} white overflow`);
     if(name==='mobile')await page.screenshot({path:`${out}/white-mobile.png`,fullPage:true});

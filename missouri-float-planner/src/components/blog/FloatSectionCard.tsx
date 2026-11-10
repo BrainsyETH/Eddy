@@ -32,7 +32,7 @@ const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
 
 export default function FloatSectionCard({ section: s, index, plannerUrl, fromHref, toHref, photoFallback, estimateEndpoints }: Props) {
   const dc = DIFF_COLORS[s.diff ?? ''] ?? DIFF_COLORS.I;
-  const stats = [['Distance', `${s.miles} mi`], ['Float time', s.time], ['Class', s.diff], ['Crowd', s.crowd]].filter(([, value]) => value);
+  const stats = [['Distance', `${s.miles} mi`], ['Typical paddling time', s.time], ['Class', s.diff], ['Crowd', s.crowd]].filter(([, value]) => value);
   const photo = s.photo_detail?.url || s.photo || photoFallback || null;
   const titleContent = (
     <>

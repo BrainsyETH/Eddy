@@ -96,7 +96,7 @@ export default {
       {
         "m": "Oct",
         "t": "Color and quiet.",
-        "note": "Fall color and almost nobody on the water."
+        "note": "Fall color and very few people on the water."
       },
       {
         "m": "Nov–Feb",

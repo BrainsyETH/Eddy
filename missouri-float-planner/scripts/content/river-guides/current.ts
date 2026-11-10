@@ -91,12 +91,12 @@ export default {
       {
         "m": "Jul–Aug",
         "t": "Busy on top, quiet below.",
-        "note": "Akers to Pulltite is packed on weekends, while the lower river stays quiet. Reserve boats and campsites weeks ahead."
+        "note": "Akers to Pulltite is packed on weekends, while the lower river stays quiet. Reserve boats and campsites well ahead."
       },
       {
         "m": "Sep–Oct",
         "t": "Eddy’s favorite.",
-        "note": "Fall color, cool mornings and half the traffic. The springs keep the river floatable through autumn."
+        "note": "Fall color, cool mornings and a river that is usually quieter. The springs keep the river floatable through autumn."
       },
       {
         "m": "Nov–Feb",

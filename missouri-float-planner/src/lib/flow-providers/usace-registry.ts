@@ -377,8 +377,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     minimumFlowThroughTurbine: true,
     // No sectionSlug: the White below this dam is its own river, not a reach of
     // one. gaugeSiteId is this dam's own release, because USGS publishes no
-    // discharge or stage anywhere in the tailwater — the three sites below the
-    // dam are water-quality monitors.
+    // discharge or stage between the dam and Norfork — the sites near the dam
+    // are water-quality monitors. The first flow gauge is 07057370 near
+    // Norfork, 43 miles down (then 07060500 at Calico Rock); both are linked to
+    // the river in river_gauges.
     // 07054501 is the water-quality monitor AT the dam (temp + dissolved
     // oxygen, no flow). 5.2 mg/L on 2026-08-24, against 7.3 at Fairview a few
     // miles down — the release re-aerates as it runs.
