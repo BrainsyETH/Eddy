@@ -18,6 +18,7 @@
 
 import { fetchNPSPlaces, fetchNPSCampgrounds } from '@/lib/nps/client';
 import { fetchFacilityMedia } from '@/lib/usfs/ridb';
+import { fetchPublicUrl } from '@/lib/security/public-url';
 
 /** Minimal shape shared by NPS place images and campground images. */
 interface NpsImage {
@@ -71,17 +72,22 @@ const PLACEHOLDER_PATTERNS =
 
 async function fetchHtml(url: string): Promise<string | null> {
   try {
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: {
-        // A real browser UA is required — several sources (notably MDC) sit
-        // behind a WAF that 403s non-browser agents and throttles bursts.
-        'User-Agent': BROWSER_UA,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+    // The URL is whatever an admin saved as the official site. Every hop is
+    // checked so it cannot be pointed (directly or by redirect) at loopback,
+    // a private range or a metadata endpoint.
+    const { response: res } = await fetchPublicUrl(url, {
+      allowHttp: true,
+      init: {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        headers: {
+          // A real browser UA is required — several sources (notably MDC) sit
+          // behind a WAF that 403s non-browser agents and throttles bursts.
+          'User-Agent': BROWSER_UA,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        cache: 'no-store',
       },
-      cache: 'no-store',
     });
     if (!res.ok) return null;
     const ct = res.headers.get('content-type') || '';

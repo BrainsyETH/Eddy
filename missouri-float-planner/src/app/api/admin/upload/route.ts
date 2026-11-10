@@ -4,14 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { safeStem, sniffImage } from '@/lib/uploads/sniff';
 
 export const dynamic = 'force-dynamic';
 
 // Max file size: 4.5MB (Vercel Blob limit is 4.5MB for Hobby plan)
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
 
-// Allowed image types
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+// One request uploads a handful of photos, not an unbounded batch.
+const MAX_FILES = 20;
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,16 +29,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (files.length > MAX_FILES) {
+      return NextResponse.json(
+        { error: `Too many files. Upload at most ${MAX_FILES} at a time.` },
+        { status: 400 }
+      );
+    }
+
     // Validate and upload each file
     const uploadedUrls: string[] = [];
     const errors: string[] = [];
 
     for (const file of files) {
-      // Validate file type
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        errors.push(`${file.name}: Invalid file type. Allowed: JPEG, PNG, WebP, GIF`);
-        continue;
-      }
+      if (typeof file === 'string') continue;
 
       // Validate file size
       if (file.size > MAX_FILE_SIZE) {
@@ -46,15 +50,23 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Generate a unique filename with timestamp
-        const timestamp = Date.now();
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const pathname = `access-points/${timestamp}-${sanitizedName}`;
+        // The type comes from the file's own bytes. The browser-supplied
+        // file.type and the filename's extension are both the uploader's
+        // claim, and are not used for the stored name or Content-Type.
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const sniffed = sniffImage(bytes);
+        if (!sniffed) {
+          errors.push(`${file.name}: Not a JPEG, PNG, WebP or GIF image`);
+          continue;
+        }
+
+        const pathname = `access-points/${Date.now()}-${safeStem(file.name)}.${sniffed.ext}`;
 
         // Upload to Vercel Blob
-        const blob = await put(pathname, file, {
+        const blob = await put(pathname, Buffer.from(bytes), {
           access: 'public',
           addRandomSuffix: true,
+          contentType: sniffed.mime,
         });
 
         uploadedUrls.push(blob.url);
