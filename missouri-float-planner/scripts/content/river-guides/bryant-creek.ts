@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "bryant-creek-float-trips-missouri",
-  "title": "Bryant Creek Float Trip Guide: Sycamore, Warren Bridge & Fishing",
+  "title": "Bryant Creek Float Trip Guide: Floats & Fishing",
   "description": "Clear pools, smaller water, and time to fish. Plan a Bryant Creek day around Sycamore and Warren Bridge, with a realistic look at the upstream water.",
   "river_slug": "bryant-creek",
   "featured_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/BryantCreek_02.jpg?width=1280",

@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "black-river-float-trips-missouri",
-  "title": "Black River Float Trip Guide: Lesterville & Clearwater Reaches",
+  "title": "Black River Float Trip Guide: Lesterville Floats",
   "description": "Choose your Black River: a Lesterville float above Clearwater Lake or a separate, quieter outing below the dam.",
   "river_slug": "black",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "eleven-point-river-float-trips-missouri",
-  "title": "Eleven Point River Float Trip Guide: Greer Spring, Floats & Outfitters",
+  "title": "Eleven Point River Float Trip Guide: Greer Spring",
   "description": "Plan an Eleven Point float around Greer Spring, Turner Mill and the USFS float camps, with route distances and access information.",
   "river_slug": "eleven-point",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772685020904-Screenshot_2026-03-04_at_8.27.42_PM-mJ3OpnZe9jVmj3ROMqwZya2bjj3471.png",
@@ -96,7 +96,7 @@ export default {
       {
         "m": "Oct",
         "t": "Color and quiet.",
-        "note": "Fall color and almost nobody on the water."
+        "note": "Fall color and very few people on the water."
       },
       {
         "m": "Nov–Feb",

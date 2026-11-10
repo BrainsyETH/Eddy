@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "big-river-float-trips-missouri",
-  "title": "Big River Float Trip Guide: Washington State Park & Day Floats",
+  "title": "Big River Float Trip Guide: Washington State Park",
   "description": "A relaxed Big River day starts around Washington State Park: long pools, short riffles, and a little history after the take-out.",
   "river_slug": "big-river",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

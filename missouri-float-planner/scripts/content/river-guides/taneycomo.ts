@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "lake-taneycomo-table-rock-tailwater-missouri",
-  "title": "Lake Taneycomo Guide: Trout Water Below Table Rock Dam",
+  "title": "Lake Taneycomo Guide: Trout Below Table Rock Dam",
   "description": "How Lake Taneycomo works below Table Rock Dam: today’s generation schedule, public ramps from the hatchery to Forsyth, and the trout rules by zone.",
   "river_slug": "taneycomo",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

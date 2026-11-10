@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "north-fork-river-float-trips-missouri",
-  "title": "North Fork River Float Trip Guide: Blue Spring & Missouri Floats",
+  "title": "North Fork River Float Trip Guide: Blue Spring",
   "description": "Cold spring water, wooded bluffs, and a Blue Spring stop. Plan the Missouri North Fork around Twin Bridges, Hammond, and the lower public accesses.",
   "river_slug": "north-fork-white",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "courtois-creek-float-trips-missouri",
-  "title": "Courtois Creek Float Trip Guide: Floats, Outfitters & Conditions",
+  "title": "Courtois Creek Float Trip Guide: Floats & Access",
   "description": "Plan a Courtois Creek float from Brazil, Highway 8 or Bass River, with access details and an explanation of the Huzzah proxy gauge.",
   "river_slug": "courtois",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772677224627-Screenshot_2026-03-04_at_8.19.57_PM-3x0uDZV4fXZfi7IBByG00d9BFacuCO.png",

@@ -1,5 +1,13 @@
 export interface GuideMapRoute { id: number; number: number; label: string; miles: string; path: string; start: number[]; end: number[] }
-export interface GuideMap { routes: GuideMapRoute[]; /** The rest of the river, drawn faintly behind the featured stretches. */ river: string | null }
+export interface GuideMap {
+  routes: GuideMapRoute[];
+  /** The rest of the river, drawn faintly behind the featured stretches. */
+  river: string | null;
+  /** The same stretches as longitude/latitude, for the interactive map. */
+  geo: { id: number; coordinates: number[][] }[];
+  /** [west, south, east, north] of the featured stretches, padded a little. */
+  bounds: [number, number, number, number] | null;
+}
 
 type Line = { id: number; number: number; label: string; miles: string; geometry: unknown };
 
@@ -41,7 +49,7 @@ const toPath = (coords: number[][]) => coords.map((p, i) => `${i ? 'L' : 'M'}${p
  * geometry too and is simply clipped by the frame. */
 export function guideOverviewMap(lines: Line[], riverGeometry?: unknown): GuideMap {
   const valid = lines.flatMap(line => { const coords = lineCoords(line.geometry); return coords ? [{ ...line, coords }] : []; });
-  if (!valid.length) return { routes: [], river: null };
+  if (!valid.length) return { routes: [], river: null, geo: [], bounds: null };
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const line of valid) for (const [x, y] of line.coords) {
     minX = Math.min(minX, x); maxX = Math.max(maxX, x);
@@ -49,7 +57,7 @@ export function guideOverviewMap(lines: Line[], riverGeometry?: unknown): GuideM
   }
   const cos = Math.cos((minY + maxY) / 2 * Math.PI / 180);
   const width = (maxX - minX) * cos, height = maxY - minY;
-  if (!(width > 0 || height > 0)) return { routes: [], river: null };
+  if (!(width > 0 || height > 0)) return { routes: [], river: null, geo: [], bounds: null };
   const scale = Math.min(550 / Math.max(width, 0.000001), 260 / Math.max(height, 0.000001));
   const project = (p: number[]) => [300 + ((p[0] - (minX + maxX) / 2) * cos * scale), 150 - (p[1] - (minY + maxY) / 2) * scale];
   // Limit client payload while retaining endpoints. This is an overview,
@@ -64,7 +72,12 @@ export function guideOverviewMap(lines: Line[], riverGeometry?: unknown): GuideM
       path: toPath(coords), start: coords[0], end: coords[coords.length - 1] };
   });
   const riverCoords = lineCoords(riverGeometry);
-  return { routes, river: riverCoords ? toPath(withoutSpurs(thin(riverCoords, 1500).map(project))) : null };
+  const round = (n: number) => Math.round(n * 1e5) / 1e5;
+  const geo = valid.map(line => ({ id: line.id, coordinates: thin(line.coords, 400).map(p => [round(p[0]), round(p[1])]) }));
+  const padX = Math.max((maxX - minX) * 0.08, 0.005), padY = Math.max((maxY - minY) * 0.08, 0.005);
+  return { routes, river: riverCoords ? toPath(withoutSpurs(thin(riverCoords, 1500).map(project))) : null,
+    // Extra room to the south keeps the plan button, which sits at the bottom of the map, off the floats.
+    geo, bounds: [round(minX - padX), round(minY - padY * 4), round(maxX + padX), round(maxY + padY)] };
 }
 
 export function guideOverview(lines: Line[]): GuideMapRoute[] {

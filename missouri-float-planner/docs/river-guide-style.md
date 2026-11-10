@@ -157,7 +157,12 @@ river guides remain separate from the time-sensitive Eddy’s Reads feed.
 
 ## Refreshing existing guides
 
-`reviewed.ts` includes the seven original guides and the eighteen later guides.
+`reviewed.ts` includes the seven original guides, the eighteen later guides and
+the three tailwater guides. `refresh-baseline.json` holds the fingerprint of each
+guide as it stands in production; after a refresh is applied and verified,
+regenerate it from the applied seeds so the next refresh has something to
+compare against. Titles stay at 53 characters or fewer (the site appends
+“ | Eddy”); a test enforces it.
 `refresh-river-guides.ts` updates existing posts; the insert-only seed script
 continues to preserve existing articles.
 
@@ -200,8 +205,10 @@ holds a fact a reader can use (“Apr–Oct”, “Year-round below Greer Spring
 never an instruction. Do not refer to earlier versions of a guide in reader
 copy; a correction belongs in the PR, not the FAQ.
 
-Route cards carry a float time, a class and a crowd level. Times are paddling
-time for a canoe or kayak at normal water. For the Current and Jacks Fork use
+Route cards carry a typical paddling time, a class and a crowd level, labelled
+“Typical paddling time” so it is not mistaken for the planner’s estimate for
+today. Times are for a canoe or kayak at normal water. Do not dress an
+impression up as a measurement: “usually quieter”, not “half the traffic”. For the Current and Jacks Fork use
 the NPS estimated float times table; elsewhere divide the mapped miles by the
 planner's 2.5 mph canoe speed (`DEFAULT_CANOE_SPEEDS`) and round to the half
 hour. The page states that assumption above the cards, and only on a guide whose
@@ -210,6 +217,14 @@ with the answer: a number, a yes or no, or a place name. “Use the planner” a
 “ask your outfitter” can follow an answer but never replace one. High- and
 low-water numbers come from `river_gauges` (attributed to Eddy's river report)
 or from an agency closure level, named as such.
+
+The overview is the river page's map (`MapContainer`, `AccessPointMarkers`)
+with the featured floats pre-drawn by `GuideRoutesLayer`: every float in teal,
+the selected one in the planner's route color, selectable from the map or the
+list. A “Plan [put-in] → [take-out]” button in the map opens the planner with
+that float loaded. The engine mounts only when the reader scrolls near it. The
+SVG drawing described next stays underneath as the placeholder, the
+no-JavaScript view and the fallback if the map engine fails.
 
 The overview uses real `get_float_segment` geometry and omits missing lines.
 Featured stretches are drawn in color over the river's own stored line in grey,
@@ -222,8 +237,11 @@ requested explicitly from the existing planner; reading a guide does not run
 a calculation for every route. Dangerous/regulated responses withhold the
 estimate; missing current readings are labelled as planning estimates.
 
-A guide for a river that a dam controls gets a “Dam releases” section after the
-gauge, with no per-guide content: `guideDam()` reads the static dam registry.
+A guide for a river that a dam controls gets a “Dam releases” section with no
+per-guide content. For a dam with a schedule it sits at the top, directly under
+the live conditions; for one without, after the gauge. The gauge section also
+explains that Eddy does not rate a dam-controlled river, which is why its report
+can read “Unknown” beside valid flow numbers. The lookup: `guideDam()` reads the static dam registry.
 A dam with a powerhouse shows the live `/embed/dam` schedule and a link to the
 embed page; one without (Clearwater, on the Black) shows a link to its dam
 report only, because it has no hourly schedule to draw. The section states
@@ -245,8 +263,9 @@ differ from a float guide:
 - Give fishing limits only from an agency page, with a date in the sentence:
   the notice's effective date, or the day the page was checked when the agency
   gives none (as MDC's Lake Taneycomo page does). Tailwater trout rules have changed more than once.
-- The seed script inserts these as new posts (`insertableGuideSeeds`); they are
-  not part of the refresh baseline until they are published.
+- The seed script inserts a new one as a post (`insertableGuideSeeds`). Once it
+  is published, add it to `reviewed.ts` and the baseline so later edits go
+  through the refresh script.
 
 Run `npm run test:guides` for fixture-backed desktop, 390px and 320px checks.
 App CI runs it using its existing Chromium installation and uploads the previews.

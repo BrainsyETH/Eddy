@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "bourbeuse-river-float-trips-missouri",
-  "title": "Bourbeuse River Float Trip Guide: Quiet Floats & Public Access",
+  "title": "Bourbeuse River Float Trip Guide: Quiet Day Floats",
   "description": "Slow bends, fishing stops, and a float close to home. The Bourbeuse is a river for paddling at your own pace.",
   "river_slug": "bourbeuse",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

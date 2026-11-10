@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "james-river-float-trips-missouri",
-  "title": "James River Float Trip Guide: Springfield-Area Floats & Galena",
+  "title": "James River Float Trip Guide: Springfield to Galena",
   "description": "A southwest Missouri river day within reach of Springfield: start around Delaware Town, Shelvin Rock, or the Galena stretch and leave time to linger.",
   "river_slug": "james",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

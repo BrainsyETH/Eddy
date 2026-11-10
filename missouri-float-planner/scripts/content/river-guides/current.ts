@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "current-river-float-trips-missouri",
-  "title": "Current River Float Trip Guide: Springs, Floats, and Outfitters",
+  "title": "Current River Float Trip Guide: Springs & Floats",
   "description": "Compare Current River floats, access points and outfitters, with stops at Welch Spring, Cave Spring and Big Spring.",
   "river_slug": "current",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1770003451989-Montauk-9DBZH6CuKRaiCxQEd6sBa5MWkONotQ.png",
@@ -91,12 +91,12 @@ export default {
       {
         "m": "Jul–Aug",
         "t": "Busy on top, quiet below.",
-        "note": "Akers to Pulltite is packed on weekends, while the lower river stays quiet. Reserve boats and campsites weeks ahead."
+        "note": "Akers to Pulltite is packed on weekends, while the lower river stays quiet. Reserve boats and campsites well ahead."
       },
       {
         "m": "Sep–Oct",
         "t": "Eddy’s favorite.",
-        "note": "Fall color, cool mornings and half the traffic. The springs keep the river floatable through autumn."
+        "note": "Fall color, cool mornings and a river that is usually quieter. The springs keep the river floatable through autumn."
       },
       {
         "m": "Nov–Feb",

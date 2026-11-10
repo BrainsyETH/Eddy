@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "meramec-river-float-trips-missouri",
-  "title": "Meramec River Float Trip Guide: Caves, Floats & Outfitters",
+  "title": "Meramec River Float Trip Guide: Caves & Floats",
   "description": "Compare Meramec floats near Steelville and Sullivan, with cave stops, public accesses, campgrounds, outfitters and water-level guidance.",
   "river_slug": "meramec",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773858582004-Screenshot_2026-03-18_at_1.29.34_PM-hApumthKHhRumeFQN6QpYRYgesNWve.png",

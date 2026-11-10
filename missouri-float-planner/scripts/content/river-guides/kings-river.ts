@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "kings-river-float-trips-arkansas",
-  "title": "Kings River Float Trip Guide: Rockhouse, Trigger Gap & Local Tips",
+  "title": "Kings River Float Trip Guide: Rockhouse & Trigger Gap",
   "description": "Gravel bends, bluff scenery, and a river that runs north. Get to know the Kings around Rockhouse and Trigger Gap.",
   "river_slug": "kings-river",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

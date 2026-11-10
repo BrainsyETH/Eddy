@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "st-francis-river-float-trips-missouri",
-  "title": "St. Francis River Float Trip Guide: Shut-Ins Country & Quieter Reaches",
+  "title": "St. Francis River Float Trip Guide: Shut-Ins",
   "description": "Granite country and two very different kinds of river day. Get to know the St. Francis without confusing its shut-ins with a casual float.",
   "river_slug": "st-francis",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

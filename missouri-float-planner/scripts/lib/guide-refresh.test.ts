@@ -30,17 +30,19 @@ test('fingerprints ignore JSON key order and operational timestamps, not content
   assert.notEqual(editorialFingerprint({ ...row, description: 'changed' }), editorialFingerprint(row));
 });
 
-test('all 25 reviewed guides have baselines, resolved endpoint slugs and distinct route descriptions', () => {
-  assert.equal(reviewedRiverGuides.length, 25);
+test('all 28 reviewed guides have baselines, resolved endpoint slugs, distinct route descriptions and titles that fit a search result', () => {
+  assert.equal(reviewedRiverGuides.length, 28);
   for (const guide of reviewedRiverGuides) {
     assert.match(baseline[guide.slug as keyof typeof baseline], /^[a-f0-9]{64}$/);
     // A date is claimed only for a guide whose copy changed; it is never required.
     if (guide.guide_data.editorial_updated_at) assert.match(guide.guide_data.editorial_updated_at, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(guide.guide_data.sources?.length);
+    // The site appends " | Eddy"; past about 60 characters a search result cuts the title off.
+    assert.ok(guide.title.length <= 53, `${guide.slug} title is ${guide.title.length} characters`);
     for (const route of guide.guide_data.sections) {
       assert.ok(route.from_slug && route.to_slug);
       assert.ok(Number(route.miles) > 0);
     }
   }
-  assert.equal(reviewedRiverGuides.reduce((n, g) => n + g.guide_data.sections.length, 0), 64);
+  assert.equal(reviewedRiverGuides.reduce((n, g) => n + g.guide_data.sections.length, 0), 71);
 });

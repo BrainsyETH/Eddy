@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "crooked-creek-float-trips-arkansas",
-  "title": "Crooked Creek Float Trip Guide: Pyatt, Yellville & the Water Trail",
+  "title": "Crooked Creek Float Trip Guide: Pyatt to Yellville",
   "description": "Make a little room for the fishing rod. Crooked Creek’s water trail turns the Pyatt-to-Yellville corridor into a string of manageable river days.",
   "river_slug": "crooked-creek",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",

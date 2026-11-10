@@ -2,7 +2,7 @@ import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
   "slug": "white-river-bull-shoals-tailwater-arkansas",
-  "title": "White River Below Bull Shoals Dam: Trout Water & Dam Releases",
+  "title": "White River Guide: Trout Below Bull Shoals Dam",
   "description": "How the White River works below Bull Shoals Dam: today’s generation schedule, public ramps from the dam to Norfork, and the current trout rules.",
   "river_slug": "white",
   "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
@@ -12,7 +12,7 @@ export default {
       "eyebrow": "White River · Arkansas",
       "title_top": "White River",
       "title_accent": "Below Bull Shoals Dam.",
-      "lede": "Ninety miles of cold trout water, and one dam decides what all of it looks like today. Start with the generation schedule, then pick your ramp.",
+      "lede": "Ninety miles of cold trout water, shaped by what Bull Shoals Dam released a few hours ago. Start with the generation schedule, then pick your ramp.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -33,7 +33,7 @@ export default {
         }
       ]
     },
-    "intro_html": "<p><strong>The White below Bull Shoals is a river with a switch.</strong> With the generators off it runs at a minimum flow of about 800 cfs, over shoals and gravel. When the dam generates, the same river turns fast and deep from bank to bank. Just below the dam, Eddy has recorded the water rising more than seven feet between idle and full generation.</p><p>That is why this guide leads with the dam and not the calendar. The water is cold enough for trout from the dam to the Highway 58 bridge at Guion, about 90 miles, with public ramps all the way down. What you can do at any of them depends on what Bull Shoals released a few hours ago.</p>",
+    "intro_html": "<p><strong>The White below Bull Shoals is a river with a switch.</strong> With the generators off it runs at a minimum flow of about 800 cfs, over shoals and gravel. When the dam generates, the same river turns fast and deep from bank to bank. Just below the dam, Eddy has recorded the water rising more than seven feet between idle and full generation.</p><p>That is why this guide leads with the dam and not the calendar. The water is cold enough for trout from the dam to the Highway 58 bridge at Guion, about 90 miles, with public ramps all the way down. Down to Norfork, what you find at each ramp depends on what Bull Shoals released a few hours earlier. Below Norfork, the North Fork adds Norfork Dam’s releases as well.</p>",
     "why_different": [
       {
         "strong": "The dam sets the river.",
@@ -44,8 +44,8 @@ export default {
         "body": "A release reaches the ramps near the dam first and the ones downstream later. Cotter is 17 river miles below the dam and Norfork is 43, so the river in front of you is running on an earlier hour of the schedule."
       },
       {
-        "strong": "There is no river gauge.",
-        "body": "USGS publishes no flow or stage anywhere in this tailwater; its sites below the dam measure water quality. Eddy reads the dam’s own release instead."
+        "strong": "No flow gauge for the first 43 miles.",
+        "body": "The USGS site at the dam measures water quality, not flow. The first USGS gauge with flow and stage is near Norfork (07057370), 43 miles down, and the next is at Calico Rock (07060500). Above Norfork, Eddy reads the dam’s own release."
       },
       {
         "strong": "Ramps the whole way down.",
@@ -162,7 +162,7 @@ export default {
     "pre_launch_notes": [
       {
         "strong": "The trout rules changed in 2026.",
-        "body": "From February 1, 2026: between the dam and Norfork Access you may keep two rainbow trout under 14 inches and must release every other trout. From Norfork Access to the Highway 58 bridge the limit is two trout, one of them over 14 inches. The Game and Fish Commission says these stay in effect until further notice, so read its current rules before you keep a fish."
+        "body": "From February 1, 2026: between the dam and Norfork Access you may keep two rainbow trout under 14 inches and must release every other trout. From Norfork Access to the Highway 58 bridge the limit is two trout, only one over 14 inches, and the minimum lengths still apply there: 24 inches for brown, cutthroat and tiger trout, 14 inches for brook trout. The Game and Fish Commission says these stay in effect until further notice, so read its current rules before you keep a fish."
       },
       {
         "strong": "Know your way out.",
@@ -187,7 +187,7 @@ export default {
       },
       {
         "topic": "Trout limits, Norfork Access to Highway 58",
-        "rule": "Two trout of any species a day, only one over 14 inches. In effect from February 1, 2026 until further notice.",
+        "rule": "Two trout a day, only one over 14 inches. Brown, cutthroat and tiger trout must be at least 24 inches to keep, and brook trout 14 inches. In effect from February 1, 2026 until further notice.",
         "url": "https://www.agfc.com/news/agfc-passes-new-trout-regulations-for-2026/"
       }
     ],
@@ -205,12 +205,12 @@ export default {
         "a": "Fastest near the dam. Just below Bull Shoals, Eddy has recorded the water more than seven feet higher at full generation than with the generators idle. Downstream the rise arrives later and is more gradual."
       },
       {
-        "q": "Why is there no gauge reading for the White River here?",
-        "a": "Because USGS does not publish flow or stage in this tailwater. Its sites below the dam measure water temperature and oxygen. Eddy uses the dam’s own release figures."
+        "q": "Is there a river gauge on the White below Bull Shoals Dam?",
+        "a": "Not near the dam. USGS measures flow and stage near Norfork (07057370) and at Calico Rock (07060500), but nothing between the dam and Norfork. For that stretch Eddy uses the dam’s own release figures."
       },
       {
         "q": "What are the trout limits?",
-        "a": "As of February 1, 2026: two rainbow trout under 14 inches between the dam and Norfork Access, with all other trout released; and two trout, one over 14 inches, from Norfork Access to the Highway 58 bridge. These rules have changed recently, so check the Game and Fish Commission before you keep a fish."
+        "a": "As of February 1, 2026: two rainbow trout under 14 inches between the dam and Norfork Access, with all other trout released; and two trout, only one over 14 inches, from Norfork Access to the Highway 58 bridge, where brown, cutthroat and tiger trout must also be at least 24 inches and brook trout 14. These rules have changed recently, so check the Game and Fish Commission before you keep a fish."
       },
       {
         "q": "Where can I camp?",
@@ -221,7 +221,7 @@ export default {
       "typical_distance": "4.7–12.5 mi between ramps",
       "best_for_beginners": "Bull Shoals-White River State Park: ramp, marina, campground and visitor center in one place.",
       "route_label": "Start here",
-      "primary_gauge": "Bull Shoals Dam release. USGS has no flow gauge in this tailwater.",
+      "primary_gauge": "Bull Shoals Dam release above Norfork. USGS gauges near Norfork and at Calico Rock below.",
       "gauge_label": "What Eddy reads"
     },
     "sources": [
@@ -232,6 +232,14 @@ export default {
       {
         "label": "Arkansas State Parks: Bull Shoals-White River State Park",
         "url": "https://www.arkansas.com/state-parks/parks/bull-shoals-white-river-state-park"
+      },
+      {
+        "label": "Arkansas Game and Fish Commission: 2026-27 regulation changes (July 1, 2026)",
+        "url": "https://www.agfc.com/news/arkansas-2026-27-fishing-regulations-changes-in-effect-new-guidebook-released/"
+      },
+      {
+        "label": "USGS: White River near Norfork (flow and stage)",
+        "url": "https://waterdata.usgs.gov/monitoring-location/USGS-07057370/"
       },
       {
         "label": "USGS: White River at Bull Shoals Dam near Flippin (water quality)",
