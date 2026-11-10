@@ -33,4 +33,9 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/social/generate-og-backgrounds.mjs ${{ inputs.keys }}
+          KEYS: ${{ inputs.keys }}
+        # The keys are split into arguments by the shell from an env value;
+        # the input is never pasted into the command line itself.
+        run: |
+          read -ra KEY_ARGS <<< "$KEYS"
+          node scripts/social/generate-og-backgrounds.mjs "${KEY_ARGS[@]}"

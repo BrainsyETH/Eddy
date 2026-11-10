@@ -55,6 +55,13 @@ export default function AdminBlogPage() {
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The list rows carry no body, so an edit loads the full post first.
+  // `loadedContent` is the body as it was loaded: an unchanged body is left out
+  // of the save, so nothing this page does can blank an article by accident.
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [loadedContent, setLoadedContent] = useState<string | null>(null);
+  // Once the operator edits the slug themselves, the title stops driving it.
+  const [slugTouched, setSlugTouched] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -98,9 +105,37 @@ export default function AdminBlogPage() {
       .replace(/^-|-$/g, '');
   };
 
-  const openEditor = (post?: BlogPost) => {
-    if (post) {
+  // <input type="datetime-local"> speaks local wall time; toISOString() is UTC,
+  // which shifted the publish date by the UTC offset on every edit.
+  const toLocalInputValue = (iso: string) => {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  };
+
+  const openEditor = async (listRow?: BlogPost) => {
+    if (listRow) {
+      if (openingId) return;
+      setOpeningId(listRow.id);
+      setError(null);
+      let post: BlogPost;
+      try {
+        const response = await adminFetch(`/api/admin/blog/${listRow.id}`);
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.post) {
+          throw new Error(data?.error || 'Could not load the post');
+        }
+        post = data.post as BlogPost;
+      } catch (err) {
+        // Do not open an editor we could not fill: saving it would lose the body.
+        setError(`${err instanceof Error ? err.message : 'Could not load the post'} — the editor was not opened.`);
+        return;
+      } finally {
+        setOpeningId(null);
+      }
       setEditingPost(post);
+      setLoadedContent(post.content || '');
+      setSlugTouched(true);
       setFormData({
         title: post.title,
         slug: post.slug,
@@ -112,10 +147,12 @@ export default function AdminBlogPage() {
         metaKeywords: post.metaKeywords?.join(', ') || '',
         readTimeMinutes: post.readTimeMinutes?.toString() || '',
         status: post.status,
-        publishedAt: post.publishedAt ? new Date(post.publishedAt).toISOString().slice(0, 16) : '',
+        publishedAt: post.publishedAt ? toLocalInputValue(post.publishedAt) : '',
       });
       setIsCreating(false);
     } else {
+      setLoadedContent(null);
+      setSlugTouched(false);
       setEditingPost(null);
       setFormData({
         title: '',
@@ -157,11 +194,13 @@ export default function AdminBlogPage() {
       setSaving(true);
       setError(null);
 
+      const contentUnchanged = editingPost !== null && formData.content === loadedContent;
       const payload = {
         title: formData.title,
         slug: formData.slug || generateSlug(formData.title),
         description: formData.description || null,
-        content: formData.content || null,
+        // Omitted when untouched; the API only writes fields it is given.
+        ...(contentUnchanged ? {} : { content: formData.content || null }),
         category: formData.category,
         featuredImageUrl: formData.featuredImageUrl || null,
         ogImageUrl: formData.ogImageUrl || null,
@@ -331,7 +370,7 @@ export default function AdminBlogPage() {
                     setFormData({
                       ...formData,
                       title: e.target.value,
-                      slug: formData.slug || generateSlug(e.target.value),
+                      slug: slugTouched ? formData.slug : generateSlug(e.target.value),
                     });
                   }}
                   className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white text-lg placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -454,7 +493,10 @@ export default function AdminBlogPage() {
                   <input
                     type="text"
                     value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: generateSlug(e.target.value) })}
+                    onChange={(e) => {
+                      setSlugTouched(true);
+                      setFormData({ ...formData, slug: generateSlug(e.target.value) });
+                    }}
                     className="w-full px-4 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     placeholder="url-friendly-slug"
                   />
@@ -670,8 +712,11 @@ export default function AdminBlogPage() {
                     )}
                     <button
                       onClick={() => openEditor(post)}
-                      className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg transition-colors"
-                      title="Edit post"
+                      disabled={openingId !== null}
+                      aria-label={`Edit ${post.title}`}
+                      aria-busy={openingId === post.id}
+                      className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg transition-colors disabled:opacity-50"
+                      title={openingId === post.id ? 'Loading post…' : 'Edit post'}
                     >
                       <Edit2 className="w-5 h-5" />
                     </button>

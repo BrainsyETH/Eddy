@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +44,49 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   return handleSave(request);
+}
+
+// PATCH saves the posting switch on its own. It is the control an operator
+// reaches for to stop automatic posts, so it must take effect the moment it is
+// flipped — not after a Save button further down the page — and it must not
+// carry the rest of the form's unsaved edits along with it.
+export async function PATCH(request: NextRequest) {
+  const authError = requireAdminAuth(request);
+  if (authError) return authError;
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.posting_enabled !== 'boolean') {
+    return NextResponse.json({ error: 'posting_enabled must be true or false' }, { status: 400, headers: CACHE_HEADERS });
+  }
+
+  const supabase = createAdminClient();
+  const { data: existing, error: selectError } = await getOrCreateConfig(supabase);
+  if (selectError || !existing) {
+    console.error(`${LOG_PREFIX} PATCH config load error: ${selectError}`);
+    return NextResponse.json({ error: 'Failed to load config' }, { status: 500, headers: CACHE_HEADERS });
+  }
+
+  const { data, error } = await supabase
+    .from('social_config')
+    .update({ posting_enabled: body.posting_enabled, updated_at: new Date().toISOString() })
+    .eq('id', existing.id)
+    .select('posting_enabled, updated_at')
+    .single();
+
+  if (error || !data) {
+    console.error(`${LOG_PREFIX} PATCH update error: ${error?.message}`);
+    return NextResponse.json({ error: 'Could not save the posting switch' }, { status: 500, headers: CACHE_HEADERS });
+  }
+
+  await logAdminAction({
+    action: data.posting_enabled ? 'social_posting_resumed' : 'social_posting_paused',
+    entityType: 'social_config',
+    entityId: existing.id,
+    details: { old: { posting_enabled: existing.posting_enabled }, new: { posting_enabled: data.posting_enabled } },
+  });
+
+  // The stored value, read back from the row that was written.
+  return NextResponse.json({ posting_enabled: data.posting_enabled, updated_at: data.updated_at }, { headers: CACHE_HEADERS });
 }
 
 async function handleSave(request: NextRequest) {

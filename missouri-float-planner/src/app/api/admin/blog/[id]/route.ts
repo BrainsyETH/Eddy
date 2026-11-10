@@ -124,7 +124,35 @@ export async function PUT(
     }
 
     if (content !== undefined) {
-      updateData.content = content === '' ? null : sanitizeRichText(content);
+      if (content !== null && typeof content !== 'string') {
+        return NextResponse.json({ error: 'Content must be text' }, { status: 400 });
+      }
+      const sanitized = content ? sanitizeRichText(content) : null;
+      if (!sanitized) {
+        // An empty body on a public post is a blank article page. The admin
+        // editor omits untouched content, so this only fires on a real attempt
+        // to clear it; move the post to draft first if that is intended.
+        let resultingStatus = status;
+        if (resultingStatus === undefined) {
+          const { data: existing, error: existingError } = await supabase
+            .from('blog_posts')
+            .select('status')
+            .eq('id', id)
+            .maybeSingle();
+          if (existingError) {
+            console.error('Error checking blog post status:', existingError);
+            return NextResponse.json({ error: 'Could not update blog post' }, { status: 500 });
+          }
+          resultingStatus = existing?.status;
+        }
+        if (resultingStatus === 'published' || resultingStatus === 'scheduled') {
+          return NextResponse.json(
+            { error: 'A published or scheduled post needs body content. Set it to draft to clear the body.' },
+            { status: 400 },
+          );
+        }
+      }
+      updateData.content = sanitized;
     }
 
     if (category !== undefined) {

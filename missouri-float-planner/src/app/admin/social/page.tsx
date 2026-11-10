@@ -305,6 +305,16 @@ export default function SocialAdminPage() {
     platforms: ['facebook', 'instagram'] as string[],
   });
   const [publishing, setPublishing] = useState(false);
+  // Publish Now posts publicly at once, so it takes a second, explicit click.
+  const [confirmingPublish, setConfirmingPublish] = useState(false);
+  // What each platform actually did with the last publish. Kept on screen
+  // (not a 4-second toast) until the operator acts on it.
+  const [publishOutcome, setPublishOutcome] = useState<{
+    sent: string[];
+    notSent: Array<{ platform: string; error: string }>;
+    requestError?: string;
+  } | null>(null);
+  const [savingPostingSwitch, setSavingPostingSwitch] = useState(false);
 
   // Quick post state
   const [showQuickPost, setShowQuickPost] = useState(false);
@@ -709,6 +719,8 @@ export default function SocialAdminPage() {
   const publishManualPost = async () => {
     if (!composeForm.caption.trim()) return;
     setPublishing(true);
+    setConfirmingPublish(false);
+    setPublishOutcome(null);
     try {
       const res = await adminFetch('/api/admin/social/publish', {
         method: 'POST',
@@ -719,27 +731,66 @@ export default function SocialAdminPage() {
           platforms: composeForm.platforms,
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        const successes = data.results?.filter((r: { status: string }) => r.status === 'review').length || 0;
-        const failures = data.results?.filter((r: { status: string }) => r.status === 'failed') || [];
-        if (failures.length > 0) {
-          showToast(`Drafts ready for ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
-        } else {
-          showToast(`Drafts ready for ${successes} platform(s)`, 'success');
-        }
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data?.results)) {
+        // Nothing is known to have been sent; keep the draft exactly as typed.
+        setPublishOutcome({ sent: [], notSent: [], requestError: data?.error || `Publish failed (${res.status})` });
+        return;
+      }
+
+      // The route reports one { platform, success, error } per platform.
+      const results = data.results as Array<{ platform: string; success: boolean; error?: string }>;
+      const sent = results.filter((r) => r.success).map((r) => r.platform);
+      const notSent = results
+        .filter((r) => !r.success)
+        .map((r) => ({ platform: r.platform, error: r.error || 'No reason given' }));
+      fetchPosts();
+
+      if (notSent.length === 0) {
+        showToast(`Published to ${sent.join(' and ')}`, 'success');
         setShowCompose(false);
         setComposeForm({ caption: '', imageUrl: '', platforms: ['facebook', 'instagram'] });
-        fetchPosts();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || `Publish failed (${res.status})`, 'error');
+        return;
       }
-    } catch (err) {
-      console.error('Failed to publish:', err);
-      showToast('Network error — could not publish', 'error');
+
+      // Something did not go out: keep the draft, and leave only the platforms
+      // that still need it selected so a retry cannot re-send the ones that worked.
+      setPublishOutcome({ sent, notSent });
+      setComposeForm((form) => ({ ...form, platforms: notSent.map((r) => r.platform) }));
+    } catch {
+      setPublishOutcome({
+        sent: [],
+        notSent: [],
+        requestError: 'Network error — the outcome is not known. Check Post History before trying again.',
+      });
     } finally {
       setPublishing(false);
+    }
+  };
+
+  // The posting switch saves the moment it is flipped, and shows the value the
+  // server stored. Other unsaved settings on the page are left untouched.
+  const togglePosting = async () => {
+    if (!config || savingPostingSwitch) return;
+    const wanted = !config.posting_enabled;
+    setSavingPostingSwitch(true);
+    try {
+      const res = await adminFetch('/api/admin/social/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ posting_enabled: wanted }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || typeof data?.posting_enabled !== 'boolean') {
+        showToast(data?.error || `Could not ${wanted ? 'resume' : 'pause'} posting (${res.status}) — nothing changed`, 'error');
+        return;
+      }
+      setConfig((current) => (current ? { ...current, posting_enabled: data.posting_enabled } : current));
+      showToast(data.posting_enabled ? 'Automatic posting resumed' : 'Automatic posting paused', 'success');
+    } catch {
+      showToast(`Network error — posting is still ${config.posting_enabled ? 'active' : 'paused'}`, 'error');
+    } finally {
+      setSavingPostingSwitch(false);
     }
   };
 
@@ -1176,22 +1227,63 @@ export default function SocialAdminPage() {
                 Instagram
               </label>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={publishManualPost}
-                disabled={publishing || !composeForm.caption.trim() || composeForm.platforms.length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                <Send className="w-4 h-4" />
-                {publishing ? 'Publishing...' : 'Publish Now'}
-              </button>
-              <button
-                onClick={() => setShowCompose(false)}
-                className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+            {publishOutcome && (
+              <div role="alert" className="rounded-lg border border-red-700 bg-red-900/40 p-3 text-sm text-red-100 space-y-1">
+                {publishOutcome.requestError && <p>{publishOutcome.requestError}</p>}
+                {publishOutcome.sent.length > 0 && (
+                  <p className="text-green-200">Published to {publishOutcome.sent.join(' and ')}.</p>
+                )}
+                {publishOutcome.notSent.map((r) => (
+                  <p key={r.platform}>
+                    <span className="font-semibold capitalize">{r.platform}</span> was not published: {r.error}
+                  </p>
+                ))}
+                <p className="text-red-200/80">Your draft is kept below.</p>
+              </div>
+            )}
+            {confirmingPublish ? (
+              <div role="group" aria-label="Confirm publish" className="rounded-lg border border-amber-600 bg-amber-900/30 p-3 space-y-3">
+                <p className="text-sm text-amber-100">
+                  This posts publicly to {composeForm.platforms.join(' and ')} right now. It cannot be undone from here.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={publishManualPost}
+                    disabled={publishing}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4" />
+                    Yes, publish
+                  </button>
+                  <button
+                    onClick={() => setConfirmingPublish(false)}
+                    className="px-4 py-2 text-neutral-300 hover:text-white transition-colors"
+                  >
+                    Back to editing
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmingPublish(true)}
+                  disabled={publishing || !composeForm.caption.trim() || composeForm.platforms.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                  {publishing ? 'Publishing...' : 'Publish Now'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCompose(false);
+                    setConfirmingPublish(false);
+                  }}
+                  className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1306,11 +1398,17 @@ export default function SocialAdminPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-white">Posting Status</h3>
-                      <p className="text-sm text-neutral-400">Enable or disable all social media posting</p>
+                      <p className="text-sm text-neutral-400">Turn automatic social posting on or off. Saves immediately.</p>
                     </div>
                     <button
-                      onClick={() => setConfig({ ...config, posting_enabled: !config.posting_enabled })}
-                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                      type="button"
+                      role="switch"
+                      aria-checked={config.posting_enabled}
+                      aria-label="Automatic social posting"
+                      aria-busy={savingPostingSwitch}
+                      disabled={savingPostingSwitch}
+                      onClick={togglePosting}
+                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors disabled:opacity-60 ${
                         config.posting_enabled ? 'bg-green-500' : 'bg-neutral-600'
                       }`}
                     >
@@ -1323,7 +1421,11 @@ export default function SocialAdminPage() {
                   </div>
 
                   <div className={`text-sm font-medium ${config.posting_enabled ? 'text-green-400' : 'text-red-400'}`}>
-                    {config.posting_enabled ? 'Active - Posts will be published automatically' : 'Paused - No posts will be published'}
+                    {savingPostingSwitch
+                      ? 'Saving…'
+                      : config.posting_enabled
+                        ? 'Active — saved. Scheduled posts publish automatically.'
+                        : 'Paused — saved. No scheduled or automatic posts will go out. Posts you publish by hand still do.'}
                   </div>
                 </div>
 
