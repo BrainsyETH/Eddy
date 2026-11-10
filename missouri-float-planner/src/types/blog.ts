@@ -32,7 +32,7 @@ export interface GuideBullet {
   body: string;
 }
 
-export type FloatDifficulty = 'I' | 'I–II' | 'II';
+export type FloatDifficulty = 'I' | 'I–II' | 'II' | 'II+';
 
 export type SegmentId = 'upper' | 'middle' | 'lower';
 

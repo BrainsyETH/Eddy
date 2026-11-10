@@ -28,7 +28,7 @@ export default {
           "value": "About 800 cfs"
         },
         {
-          "label": "Public accesses",
+          "label": "Accesses",
           "value": "26"
         }
       ]
@@ -37,19 +37,19 @@ export default {
     "why_different": [
       {
         "strong": "The dam sets the river.",
-        "body": "Bull Shoals has eight generators. The schedule further down this page shows how much they are running now and what is planned for the rest of the day."
+        "body": "Bull Shoals has eight generators. The schedule at the top of this page shows how much they are running now and what is planned for the rest of the day."
       },
       {
         "strong": "Water takes time to arrive.",
         "body": "A release reaches the ramps near the dam first and the ones downstream later. Cotter is 17 river miles below the dam and Norfork is 43, so the river in front of you is running on an earlier hour of the schedule."
       },
       {
-        "strong": "No flow gauge for the first 43 miles.",
-        "body": "The USGS site at the dam measures water quality, not flow. The first USGS gauge with flow and stage is near Norfork (07057370), 43 miles down, and the next is at Calico Rock (07060500). Above Norfork, Eddy reads the dam’s own release."
+        "strong": "No river gauge for the first 42 miles.",
+        "body": "The flow figure Eddy shows for the White is the total release from Bull Shoals Dam, reported by the Corps of Engineers at the dam. It is not a river gauge. The USGS site at the dam measures water quality, not flow. The first USGS gauge with flow and stage is near Norfork (07057370), about 42 miles down and just above Norfork Access, and the next is at Calico Rock (07060500). Eddy lists both under “Other gauges”."
       },
       {
         "strong": "Ramps the whole way down.",
-        "body": "Eddy lists 26 public accesses between the dam and Guion, most of them Arkansas Game and Fish Commission boat ramps."
+        "body": "Eddy lists 26 accesses between the dam and Guion. All but the private ramp at Gaston’s are public, and most are Arkansas Game and Fish Commission boat ramps."
       }
     ],
     "sections": [
@@ -138,7 +138,7 @@ export default {
       "A life jacket for everyone, worn. The water is cold all year.",
       "A charged phone with this page open, so you can re-check the schedule.",
       "Warm, dry clothes in a dry bag, even in summer.",
-      "Your Arkansas fishing license and trout permit if you plan to fish.",
+      "Your Arkansas fishing license and trout permit if you plan to fish. The permit is required to fish this water.",
       "A plan for getting off the water quickly at the access you are using."
     ],
     "pro_tips": [
@@ -162,7 +162,7 @@ export default {
     "pre_launch_notes": [
       {
         "strong": "The trout rules changed in 2026.",
-        "body": "From February 1, 2026: between the dam and Norfork Access you may keep two rainbow trout under 14 inches and must release every other trout. From Norfork Access to the Highway 58 bridge the limit is two trout, only one over 14 inches, and the minimum lengths still apply there: 24 inches for brown, cutthroat and tiger trout, 14 inches for brook trout. The Game and Fish Commission says these stay in effect until further notice, so read its current rules before you keep a fish."
+        "body": "From February 1, 2026: between the dam and Norfork Access you may keep two rainbow trout under 14 inches and must release every other trout. That does not apply in the two catch-and-release areas, below the dam and at Rim Shoals, where every trout goes back, and from November 1 to January 31 the water from the dam down to the state park trout dock is closed to fishing. From Norfork Access to the Highway 58 bridge the limit is two trout, only one over 14 inches, and the minimum lengths still apply there: 24 inches for brown, cutthroat and tiger trout, 14 inches for brook trout. The Game and Fish Commission says these stay in effect until further notice, so read its current rules before you keep a fish."
       },
       {
         "strong": "Know your way out.",
@@ -186,9 +186,19 @@ export default {
         "url": "https://www.agfc.com/news/agfc-passes-new-trout-regulations-for-2026/"
       },
       {
+        "topic": "Catch-and-release areas and the closed water below the dam",
+        "rule": "No fishing within 100 yards of Bull Shoals Dam. From there to the upstream boundary of Bull Shoals-White River State Park, and at Rim Shoals from the sign above Jenkins Creek to the first power line downstream, every trout must be released and only barbless artificial lures or flies are allowed. From November 1 to January 31 the upper area is closed to fishing and reaches down to the wing dike at the state park trout dock, and from that wing dike to the park’s downstream boundary brown trout must be released. These are the rules in the 2026-27 guidebook; the areas are marked by signs.",
+        "url": "https://www.agfc.com/regulations/guidebooks/"
+      },
+      {
         "topic": "Trout limits, Norfork Access to Highway 58",
         "rule": "Two trout a day, only one over 14 inches. Brown, cutthroat and tiger trout must be at least 24 inches to keep, and brook trout 14 inches. In effect from February 1, 2026 until further notice.",
-        "url": "https://www.agfc.com/news/agfc-passes-new-trout-regulations-for-2026/"
+        "url": "https://www.agfc.com/news/arkansas-2026-27-fishing-regulations-changes-in-effect-new-guidebook-released/"
+      },
+      {
+        "topic": "Permit and night fishing",
+        "rule": "A trout permit is required to fish anywhere from the dam to the Highway 58 bridge at Guion. From 30 minutes after sunset to 30 minutes before sunrise, no trout other than rainbow trout may be kept.",
+        "url": "https://www.agfc.com/regulations/guidebooks/"
       }
     ],
     "faq": [
@@ -206,11 +216,11 @@ export default {
       },
       {
         "q": "Is there a river gauge on the White below Bull Shoals Dam?",
-        "a": "Not near the dam. USGS measures flow and stage near Norfork (07057370) and at Calico Rock (07060500), but nothing between the dam and Norfork. For that stretch Eddy uses the dam’s own release figures."
+        "a": "Not near the dam. USGS measures flow and stage near Norfork (07057370) and at Calico Rock (07060500), but nothing in the 42 miles above the Norfork gauge. The flow figure Eddy shows for the river is the dam’s release, measured at the dam, not a gauge reading."
       },
       {
         "q": "What are the trout limits?",
-        "a": "As of February 1, 2026: two rainbow trout under 14 inches between the dam and Norfork Access, with all other trout released; and two trout, only one over 14 inches, from Norfork Access to the Highway 58 bridge, where brown, cutthroat and tiger trout must also be at least 24 inches and brook trout 14. These rules have changed recently, so check the Game and Fish Commission before you keep a fish."
+        "a": "As of February 1, 2026: two rainbow trout under 14 inches between the dam and Norfork Access, with all other trout released, except in the catch-and-release areas below the dam and at Rim Shoals, where every trout goes back; and two trout, only one over 14 inches, from Norfork Access to the Highway 58 bridge, where brown, cutthroat and tiger trout must also be at least 24 inches and brook trout 14. These rules have changed recently, so check the Game and Fish Commission before you keep a fish."
       },
       {
         "q": "Where can I camp?",
@@ -244,6 +254,10 @@ export default {
       {
         "label": "USGS: White River at Bull Shoals Dam near Flippin (water quality)",
         "url": "https://waterdata.usgs.gov/monitoring-location/07054501/"
+      },
+      {
+        "label": "Arkansas Game and Fish Commission: 2026-27 Fishing Guidebook (trout waters)",
+        "url": "https://www.agfc.com/regulations/guidebooks/"
       }
     ],
     "checked_at": "2026-11-10",

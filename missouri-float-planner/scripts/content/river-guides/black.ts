@@ -37,7 +37,7 @@ export default {
     "why_different": [
       {
         "strong": "Lesterville is the summer float.",
-        "body": "Above Clearwater Lake the Black is gravel bars and bluff-lined bends, and Lesterville is where most people put in."
+        "body": "Above Clearwater Lake the Black is gravel bars and bluff-lined bends, and Lesterville is where most people put in. The MDC access there is walk-in only."
       },
       {
         "strong": "Below the dam it is a different river.",
@@ -59,7 +59,7 @@ export default {
         "miles": "12.9",
         "best": "A long day above the lake",
         "photo": null,
-        "body": "12.9 miles from Lesterville to the Highway K recreation area at the top of Clearwater Lake. That is a full day of paddling, and the last miles can be slack water when the lake is up. Take out at Highway K; the dam is farther down the lake.",
+        "body": "12.9 miles from Lesterville to the Highway K recreation area, a few miles above Clearwater Lake. MDC’s Lesterville Access is walk-in only: the channel has moved, and boats have to be carried about a third of a mile along the old gravel channel. That is a full day of paddling, and the last miles can be slack water when the lake is up. Take out at Highway K; the dam is farther down the lake.",
         "photo_detail": {
           "url": "/images/river-guides/black.webp",
           "alt": "Canoes on the Black River near Lesterville.",
@@ -152,7 +152,7 @@ export default {
       },
       {
         "q": "Where does the upper featured trip end?",
-        "a": "At the Highway K recreation area, where the river enters Clearwater Lake. Check the lake level first; high water changes the last miles and the take-out."
+        "a": "At the Highway K recreation area, a few miles upstream of Clearwater Lake and the last take-out above it. Check the lake level first; high water changes the last miles and the take-out."
       }
     ],
     "pre_launch_notes": [
@@ -203,7 +203,7 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/07061500/"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "sights_heading": "Places to explore ashore",
     "editorial_updated_at": "2026-11-10"

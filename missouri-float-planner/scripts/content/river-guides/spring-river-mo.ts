@@ -170,7 +170,7 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/07186000/"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "sights_heading": "Public access near La Russell",
     "editorial_updated_at": "2026-11-10"

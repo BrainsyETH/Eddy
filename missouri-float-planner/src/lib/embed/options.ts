@@ -303,6 +303,36 @@ export const TREND_GLYPH: Record<'rising' | 'falling' | 'steady', string> = {
  * cfs with a 2.8 ft tile up front was the widget's most-read mistake.
  */
 /** The live, headline reading the badge/strip/card print: rated unit first. */
+/** An unrated gauge has a reading and no verdict; "Unknown" reads as a fault. */
+export function statusLabel(code: string, rated: boolean | undefined, fallback: string): string {
+  return code === 'unknown' && rated === false ? 'Not rated' : fallback;
+}
+
+/** What the headline number is. A dam's total release is not a river gauge, and
+ * is not the turbine flow the dam widget leads with either. */
+export function readingSource(data: {
+  primary: { name: string } | null;
+  release?: { damName: string } | null;
+}): string | null {
+  return data.release ? `Total release from ${data.release.damName}` : data.primary?.name ?? null;
+}
+
+/**
+ * The stored dam release, when it is a spot reading newer than the gauge's.
+ * A daily mean is a different quantity and never replaces an hourly reading.
+ */
+export function newerRelease(
+  gaugeAt: string | null,
+  stored: { value: number; unit: string; at: string; dailyMean?: boolean } | null | undefined,
+): { value: number; at: string } | null {
+  if (!stored || stored.dailyMean || stored.unit !== 'cfs' || !Number.isFinite(stored.value)) return null;
+  const at = Date.parse(stored.at);
+  if (!Number.isFinite(at)) return null;
+  const current = gaugeAt ? Date.parse(gaugeAt) : NaN;
+  if (Number.isFinite(current) && at <= current) return null;
+  return { value: stored.value, at: stored.at };
+}
+
 export function headlineReading(data: {
   river: { thresholdUnit: ReadingUnit | null };
   primary: { unit: ReadingUnit; gaugeHeightFt: number | null; dischargeCfs: number | null } | null;

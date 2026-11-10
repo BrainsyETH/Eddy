@@ -4,6 +4,7 @@ import type { DamSnapshot } from '../../../shared/dam-types';
 import { badgeLayout, damImageModel, riverImageModel } from './image-model';
 import { badgeSvg, stripSvg } from './image-svg';
 import type { RiverEmbedData } from './river-data';
+import { newerRelease } from './options';
 
 const now = Date.parse('2026-10-30T17:30:00Z');
 
@@ -14,12 +15,13 @@ function river(): RiverEmbedData {
       lengthMiles: 135, accessPointCount: 20, conditionCode: 'low', conditionLabel: 'Low', thresholdUnit: 'cfs',
     },
     primary: {
-      id: 'g1', siteId: '07056000', name: 'Buffalo River near St. Joe, AR', isPrimary: true, unit: 'cfs',
+      id: 'g1', siteId: '07056000', name: 'Buffalo River near St. Joe, AR', isPrimary: true, provider: 'usgs', rated: true, unit: 'cfs',
       gaugeHeightFt: 2.8, dischargeCfs: 51.9, readingTimestamp: new Date(now - 65 * 60_000).toISOString(),
       readingSuspect: false, qualifierNote: null, conditionCode: 'low', conditionLabel: 'Low',
       ladder: { levelTooLow: 100, levelLow: 356, levelOptimalMin: 356, levelOptimalMax: 2000, levelHigh: 5000, levelDangerous: 12000, unit: 'cfs' },
       optimalRange: '356–2,000 cfs', trend: 'falling', coordinates: null,
     },
+    release: null,
     secondary: [],
     take: { text: 'Low but floatable near St. Joe; expect some dragging.', generatedAt: null, conditionCode: null },
     weather: null,
@@ -93,4 +95,28 @@ test('svg renders are well formed, sized to their text, and escape the data', ()
   assert.ok(strip.includes('fill="none"'), 'transparent background');
   assert.ok(strip.includes('>52<'), 'the reading is printed');
   assert.ok(strip.includes('textLength='), 'runs are pinned so a fallback font cannot overflow');
+});
+
+test('an unrated dam release is named as the dam\'s release and not called Unknown', () => {
+  const data = river();
+  data.river.conditionCode = 'unknown';
+  data.primary = { ...data.primary!, name: 'White River below Bull Shoals Dam', provider: 'usace', rated: false, conditionCode: 'unknown', trend: null };
+  data.release = { damId: 'swl-bull-shoals-dam', damName: 'Bull Shoals Dam' };
+  const model = riverImageModel(data, { theme: 'light', accent: null }, now);
+  assert.equal(model.subtitle, 'Total release from Bull Shoals Dam');
+  assert.equal(model.status, 'Not rated');
+  assert.doesNotMatch(model.alt, /Unknown/);
+  // A rated river whose reading is missing is still Unknown.
+  assert.equal(riverImageModel({ ...river(), river: { ...river().river, conditionCode: 'unknown' } }, { theme: 'light', accent: null }, now).status, 'Unknown');
+});
+
+test('the stored dam release replaces the gauge reading only when it is a newer spot reading', () => {
+  const stored = { value: 1807, unit: 'cfs', at: '2026-11-10T20:00:00.000Z' };
+  assert.deepEqual(newerRelease('2026-11-10T19:00:00Z', stored), { value: 1807, at: stored.at });
+  assert.deepEqual(newerRelease(null, stored), { value: 1807, at: stored.at });
+  assert.equal(newerRelease('2026-11-10T20:00:00Z', stored), null);
+  assert.equal(newerRelease('2026-11-10T21:00:00Z', stored), null);
+  assert.equal(newerRelease('2026-11-10T19:00:00Z', { ...stored, dailyMean: true }), null);
+  assert.equal(newerRelease('2026-11-10T19:00:00Z', { ...stored, at: 'soon' }), null);
+  assert.equal(newerRelease('2026-11-10T19:00:00Z', null), null);
 });

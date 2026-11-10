@@ -28,8 +28,11 @@ import { fetchForecast, fetchWeather, getWeatherPointForRiver } from '@/lib/weat
 import { getEmbedBranding, type EmbedBrandingRecord } from '@/lib/embed/cards';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { toNum } from '@/lib/utils/num';
+import { damReleaseTab } from '@shared/dam-release-tab';
+import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
+import { readStoredSnapshot } from '@/lib/data/dam-snapshot-store';
 import type { ConditionCode } from '@/types/api';
-import { formatRange, type EmbedChartDays, type ReadingUnit } from './options';
+import { formatRange, newerRelease, type EmbedChartDays, type ReadingUnit } from './options';
 
 export interface EmbedLadder {
   levelTooLow: number | null;
@@ -46,6 +49,9 @@ export interface EmbedGauge {
   siteId: string;
   name: string;
   isPrimary: boolean;
+  provider: string | null;
+  /** False when this gauge has no ladder for the river: its chip reads "Not rated", not "Unknown". */
+  rated: boolean;
   /** The unit this gauge's ladder for the river is graded in. */
   unit: ReadingUnit;
   gaugeHeightFt: number | null;
@@ -99,6 +105,12 @@ export interface RiverEmbedData {
     thresholdUnit: ReadingUnit | null;
   };
   primary: EmbedGauge | null;
+  /**
+   * Set when the primary reading is a dam's own release and carries no ladder
+   * (shared/dam-release-tab.ts). The card then names the dam instead of
+   * presenting the number as a river gauge, and shows no float verdict.
+   */
+  release: { damId: string; damName: string } | null;
   secondary: EmbedGauge[];
   take: EmbedTake | null;
   weather: EmbedWeather | null;
@@ -187,6 +199,8 @@ async function loadGauges(
       siteId: station.usgs_site_id || station.site_id_external || station.id,
       name: station.name || 'Gauge',
       isPrimary: row.is_primary === true,
+      provider: station.provider,
+      rated: Object.entries(ladder).some(([key, value]) => key !== 'unit' && value !== null),
       unit,
       gaugeHeightFt,
       dischargeCfs,
@@ -280,13 +294,35 @@ async function assembleRiverEmbed(slug: string, days: EmbedChartDays): Promise<R
   const secondary = gauges.slice(1);
   let chart: EmbedChart | null = null;
 
+  const tab = primary
+    ? damReleaseTab({ siteId: primary.siteId, provider: primary.provider, rated: primary.rated, heldDamId: primary.siteId })
+    : null;
+  const releaseDam = tab ? getUsaceDam(tab.damId) : null;
+  const release = tab && releaseDam ? { damId: releaseDam.id, damName: releaseDam.name } : null;
+
   if (primary) {
     // One stored-history read serves both the chart and the six-hour trend —
     // the widget used to issue a separate ?days=1 request per gauge for the
     // arrow alone.
     const history = await loadHistory(supabase, primary.id, days, now);
+    if (release) {
+      // The dam widget reads dam_snapshots (written at :35); this reading comes
+      // from gauge_readings (written at :00). Both are the Corps' release
+      // series, so between the two crons the widgets used to show different
+      // hours of it side by side: 1,971 cfs here, 1,807 on the dam card. Take
+      // whichever observation is newer.
+      const stored = (await readStoredSnapshot(release.damId, { now }))?.metrics.release;
+      const newer = newerRelease(primary.readingTimestamp, stored);
+      if (newer) {
+        primary.dischargeCfs = newer.value;
+        primary.readingTimestamp = newer.at;
+        history.push({ timestamp: newer.at, gaugeHeightFt: null, dischargeCfs: newer.value });
+      }
+    }
     const trend = computeTrend(history, primary.unit, 6);
-    primary.trend = trend?.direction ?? null;
+    // A peaking dam swings hourly, so "rising over six hours" says nothing
+    // about the next hour; the dam's schedule answers that.
+    primary.trend = release ? null : trend?.direction ?? null;
     const sampled = sampleChartReadings(history, CHART_MAX_POINTS);
     const readings = sampled
       .map((r) => ({ timestamp: r.timestamp, value: primary.unit === 'cfs' ? r.dischargeCfs : r.gaugeHeightFt }))
@@ -296,7 +332,14 @@ async function assembleRiverEmbed(slug: string, days: EmbedChartDays): Promise<R
 
   const liveCode = river.currentCondition?.code ?? primary?.conditionCode ?? 'unknown';
   let take: EmbedTake | null = null;
-  if (update.state === 'ok' && update.update?.summaryText) {
+  if (release) {
+    // The river Read on an unrated release can only say no assessment exists.
+    take = {
+      text: `${release.damName} sets the water here, so Eddy does not rate this river. Check the dam’s generation schedule before you go.`,
+      generatedAt: null,
+      conditionCode: null,
+    };
+  } else if (update.state === 'ok' && update.update?.summaryText) {
     take = {
       text: update.update.summaryText,
       generatedAt: update.update.generatedAt,
@@ -323,6 +366,7 @@ async function assembleRiverEmbed(slug: string, days: EmbedChartDays): Promise<R
       thresholdUnit: river.currentCondition?.thresholdUnit ?? primary?.unit ?? null,
     },
     primary,
+    release,
     secondary,
     take,
     weather,
@@ -333,7 +377,7 @@ async function assembleRiverEmbed(slug: string, days: EmbedChartDays): Promise<R
 
 const cachedRiverEmbed = unstable_cache(
   (slug: string, days: EmbedChartDays) => assembleRiverEmbed(slug, days),
-  ['embed-river-v1'],
+  ['embed-river-v2'],
   { revalidate: 120 },
 );
 

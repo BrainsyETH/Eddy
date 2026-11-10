@@ -41,7 +41,7 @@ export default {
       },
       {
         "strong": "A spring-season creek.",
-        "body": "The park gives spring into early summer as the usual floating season, and only when there has been rain."
+        "body": "The park says the creek is typically floatable in spring and fall, depending on rainfall. Eddy’s data has it running best from March through June."
       },
       {
         "strong": "The mill is a drive, not a paddle.",
@@ -106,7 +106,7 @@ export default {
       {
         "m": "Mar–Jun",
         "t": "The floating season.",
-        "note": "The park calls this the usual window, when rain has put water in the creek."
+        "note": "The usual window, when rain has put water in the creek."
       },
       {
         "m": "Jul–Aug",
@@ -208,7 +208,7 @@ export default {
         "url": "https://www.arkansas.com/state-parks/explore/trails/war-eagle-trail"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "sights_heading": "Places to explore ashore",
     "editorial_updated_at": "2026-11-10"

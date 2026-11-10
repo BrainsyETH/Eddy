@@ -202,7 +202,7 @@ export default {
         "url": "https://ozarkcountytimes.com/dam-comes-down-more-photos-and-information-about-dawt-dam-removal"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "sights_heading": "Places to explore ashore",
     "editorial_updated_at": "2026-11-10"

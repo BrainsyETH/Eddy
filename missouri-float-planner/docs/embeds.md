@@ -31,6 +31,18 @@ call to action.
 | `card` | River name + condition → gauge location → reading + plain trend → the ladder (`RangeMeter`) → Eddy's take → one weather line → "Full report" and credit. | ~300px |
 | `full` | Card + high/low weather, the trend chart, and other gauges as flat rows. | ~550px |
 
+**A river whose primary reading is an unrated dam release** (the White,
+Lake Taneycomo, the Norfork tailwater; `shared/dam-release-tab.ts`) is not
+presented as a river gauge. The gauge line reads "Total release from <dam>",
+the chip reads "Not rated" in place of "Unknown" (as it does for any gauge with
+no ladder), there is no trend word, and Eddy's take is one fixed sentence that
+points to the dam's schedule. The reading is the newer of `gauge_readings`
+(written at :00) and the stored dam snapshot's `release` (written at :35), so
+this widget and the dam widget cannot show different hours of one series
+(`newerRelease` in `src/lib/embed/options.ts`). Total release and the dam
+widget's turbine flow are different quantities and can differ when a dam spills
+or passes minimum flow outside the turbines; the labels say which is which.
+
 Dam sizes mirror the iOS "Dam generation" Home Screen widget, read off
 `shared/dam-widget.ts` — the same posted MW packet the phone draws, so an
 hour cannot disagree between the two. The card reads: dam and lake → **observed**

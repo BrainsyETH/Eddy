@@ -42,11 +42,9 @@ function buildToc(post: RiverGuidePost, hasDirectory: boolean, dam: GuideDam | n
   const items: TocItem[] = [];
   if (g.tldr) items.push({ id: 'tldr', label: 'TL;DR' });
   if (g.pre_launch_notes?.length) items.push({ id: 'pre-launch', label: 'Before you launch' });
-  items.push(
-    { id: 'today',      label: 'Today on the river' },
-  );
-  // A dam with a schedule is the first thing to read; one without is a link further down.
-  if (dam?.hydro) items.push({ id: 'dam', label: 'Dam releases' });
+  // A dam with a schedule is the first thing to read, in place of the river
+  // card; one without is a link further down.
+  items.push(dam?.hydro ? { id: 'dam', label: 'Dam releases' } : { id: 'today', label: 'Today on the river' });
   items.push({ id: 'different', label: 'Why this river is different' });
   if (g.sections.length) items.push({ id: 'pick', label: 'Pick your float' });
   if (g.springs.length) items.push({ id: 'springs', label: g.sights_heading ?? 'Springs & sights' });
@@ -554,18 +552,22 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview, rive
         <GuideTOC items={toc} riverSlug={post.river_slug} riverName={riverName} />
 
         <main style={{ maxWidth: 760, minWidth: 0 }}>
-          {/* Today — Eddy's live take, condition-aware */}
-          <div id="today" style={{ scrollMarginTop: 80 }}>
-            <SectionTitle eyebrow="Live conditions">Today on the {riverName}</SectionTitle>
-            <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 6, lineHeight: 1.65 }}>
-              Check the latest reading and trend, then confirm conditions on your stretch with the land manager or outfitter.
-            </p>
-          </div>
+          {/* On a river run by a hydro dam, the dam card is today's reading. The
+              river card under it showed the same release an hour apart, labelled
+              as a gauge, with an "Unknown" verdict. The dam card replaces it. */}
+          {dam?.hydro ? damSection : (
+            <>
+              {/* Today — Eddy's live take, condition-aware */}
+              <div id="today" style={{ scrollMarginTop: 80 }}>
+                <SectionTitle eyebrow="Live conditions">Today on the {riverName}</SectionTitle>
+                <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 6, lineHeight: 1.65 }}>
+                  Check the latest reading and trend, then confirm conditions on your stretch with the land manager or outfitter.
+                </p>
+              </div>
 
-          <EddySaysCallout callout={g.callouts.hero} riverSlug={slug} />
-
-          {/* On a river run by a hydro dam, the release is the first thing to read. */}
-          {dam?.hydro && damSection}
+              <EddySaysCallout callout={g.callouts.hero} riverSlug={slug} />
+            </>
+          )}
 
           {/* Why different */}
           <SectionTitle id="different" eyebrow="Get to know the river">
@@ -705,16 +707,19 @@ export function RiverGuideView({ post, aps, riverMeta, directory, overview, rive
           {directory}
 
           {/* Gauge */}
-          <SectionTitle id="gauge" eyebrow="USGS data">
+          <SectionTitle id="gauge" eyebrow={dam?.hydro ? 'Dam release and river gauges' : 'River gauges'}>
             Water levels &amp; gauge
           </SectionTitle>
           <Link href={reportHref} className="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline">Open the full river report →</Link>
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 18, lineHeight: 1.65 }}>
-            Check the gauge before you load the truck. Look at the current level, its trend, and recent rain together. A falling gauge alone does not establish suitable conditions; check the reach and current local advisories too.
+            {dam?.hydro
+              ? `The first number in this report is the total release from ${dam.name}, reported by the Corps of Engineers at the dam. It is not a river gauge, and it tells you what left the dam, not what has reached your access. Gauges on the river itself are listed under “Other gauges”.`
+              : 'Check the gauge before you load the truck. Look at the current level, its trend, and recent rain together. A falling gauge alone does not establish suitable conditions; check the reach and current local advisories too.'}
           </p>
-          {dam && (
+          {/* Hydro tailwaters only: the Black below Clearwater Dam is rated. */}
+          {dam?.hydro && (
             <p style={{ fontSize: 15, color: 'var(--color-neutral-700)', marginBottom: 18, lineHeight: 1.6 }}>
-              {dam.name} controls this river, so Eddy does not rate it good, low or too high the way it rates a free-flowing river. Where the report below says “Unknown” or that no assessment is available, that is why. Read the flow numbers together with the dam’s release.
+              {dam.name} controls this river, so Eddy does not rate it good, low or too high the way it rates a free-flowing river. That is why the readings below say “Not rated”.
             </p>
           )}
           <iframe

@@ -37,7 +37,7 @@ export default {
     "why_different": [
       {
         "strong": "Five miles, one dam.",
-        "body": "Norfork Dam has two generators. The schedule further down this page shows what they are doing now and what is planned for the rest of the day."
+        "body": "Norfork Dam has two generators. The schedule at the top of this page shows what they are doing now and what is planned for the rest of the day."
       },
       {
         "strong": "Nowhere is far from the dam.",
@@ -45,7 +45,7 @@ export default {
       },
       {
         "strong": "There is no river gauge.",
-        "body": "The one USGS site in this tailwater measures temperature and oxygen, not flow. Eddy reads the dam’s own release instead."
+        "body": "The flow figure Eddy shows is the total release from Norfork Dam, reported by the Corps of Engineers at the dam. The one USGS site in this tailwater measures temperature and oxygen, not flow."
       },
       {
         "strong": "A hatchery at the top.",
@@ -73,7 +73,7 @@ export default {
       },
       {
         "name": "Norfork National Fish Hatchery and Dry Run Creek",
-        "note": "The federal hatchery just below the dam, with an access on Dry Run Creek beside it."
+        "note": "The federal hatchery just below the dam. Dry Run Creek beside it is open only to anglers under 16 and mobility-impaired anglers, and every trout caught there must be released."
       },
       {
         "name": "Bill Ackerman River Ridge Access",
@@ -122,7 +122,7 @@ export default {
     "pre_launch_notes": [
       {
         "strong": "The trout rules changed in 2026.",
-        "body": "From February 1, 2026, in the whole Norfork Tailwater you may keep two rainbow trout under 14 inches and must release every other trout. The Game and Fish Commission says this stays in effect until further notice, so read its current rules before you keep a fish."
+        "body": "From February 1, 2026, in the Norfork Tailwater you may keep two rainbow trout under 14 inches and must release every other trout. From the downstream end of Long Hole to the Bill Ackerman River Ridge access is a catch-and-release area, where every trout goes back. The Game and Fish Commission says this stays in effect until further notice, so read its current rules before you keep a fish."
       },
       {
         "strong": "Know your way out.",
@@ -141,9 +141,14 @@ export default {
     },
     "regulations": [
       {
-        "topic": "Trout limits, whole tailwater",
+        "topic": "Trout limits",
         "rule": "Two rainbow trout under 14 inches a day. All other trout must be released immediately. In effect from February 1, 2026 until further notice.",
         "url": "https://www.agfc.com/news/agfc-passes-new-trout-regulations-for-2026/"
+      },
+      {
+        "topic": "Catch-and-release area, Dry Run Creek and the dam",
+        "rule": "No fishing within 100 yards of Norfork Dam. From the downstream end of Long Hole to the Bill Ackerman River Ridge walk-in access every trout must be released, with barbless artificial lures or flies only. Dry Run Creek is open only to anglers under 16 and mobility-impaired anglers, catch-and-release with a single barbless hook. A trout permit is required to fish the tailwater. These are the rules in the 2026-27 guidebook; the areas are marked by signs.",
+        "url": "https://www.agfc.com/regulations/guidebooks/"
       }
     ],
     "faq": [
@@ -165,7 +170,7 @@ export default {
       },
       {
         "q": "What are the trout limits?",
-        "a": "As of February 1, 2026: two rainbow trout under 14 inches, with every other trout released. The rules have changed recently, so check the Game and Fish Commission before you keep a fish."
+        "a": "As of February 1, 2026: two rainbow trout under 14 inches, with every other trout released. In the catch-and-release area, from Long Hole down to the Bill Ackerman River Ridge access, every trout goes back. The rules have changed recently, so check the Game and Fish Commission before you keep a fish."
       },
       {
         "q": "Where can I camp?",
@@ -191,6 +196,10 @@ export default {
       {
         "label": "USGS: North Fork River below Norfork Dam (water quality)",
         "url": "https://waterdata.usgs.gov/monitoring-location/07060000/"
+      },
+      {
+        "label": "Arkansas Game and Fish Commission: 2026-27 Fishing Guidebook (trout waters)",
+        "url": "https://www.agfc.com/regulations/guidebooks/"
       }
     ],
     "checked_at": "2026-11-10",
