@@ -74,6 +74,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`${origin}/embed/report-check?index=preview`, { waitUntil: 'networkidle' });
+    assert((await page.getByRole('button', { name: 'Next' }).boundingBox()).height >= 44, 'touch target');
     await page.getByRole('button', { name: 'Next' }).click();
     assert.match(await page.locator('[aria-live]').innerText(), /Slide 2 of 2/);
     assert.equal(await page.getByRole('button', { name: 'Next' }).isDisabled(), true);

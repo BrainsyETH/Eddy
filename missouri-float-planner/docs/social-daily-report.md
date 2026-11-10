@@ -59,7 +59,8 @@ using the existing reconciliation rules.
 
 `npm run test:daily-report` runs the actual widget and carousel-preview components
 with explicitly synthetic fixtures. It verifies 4:5 export bounds, a single
-chart, the dam measurement row, capture time, mobile controls and keyboard
+chart, long gauge names, dam measurement and additional release rows, capture time,
+mobile controls with 44px touch targets and keyboard
 navigation. Screenshots go to `/tmp/eddy-daily-report` (REPORT_SMOKE_OUTPUT can
 override this). The generated fixture route is ignored, development-gated and
 removed afterward. It never publishes or reads production data.

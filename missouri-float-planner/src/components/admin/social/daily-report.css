@@ -10,6 +10,8 @@
 /* The full dam widget carries more measurements. Keep its complete hierarchy
    in the portrait canvas, with at least 24px supporting text in the JPEG. */
 .daily-report-slide[data-report-kind="dam"] .daily-report-widget { zoom: .8; }
+/* Keep the additional release rows when the agency supplies them. */
+.daily-report-slide[data-report-kind="dam"] .daily-report-widget:has(.ew-dam-additional, .ew-dam-spill) { zoom: .74; }
 .daily-report-slide .ew-title { font-size: 24px; }
 .daily-report-slide .ew-support, .daily-report-slide .ew-section-title,
 .daily-report-slide .ew-sched-axis, .daily-report-slide .text-xs { font-size: 15px; }
