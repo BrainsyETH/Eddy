@@ -159,7 +159,7 @@ export default {
       },
       {
         "q": "Which gauge should I check?",
-        "a": "Roselle (USGS 07034000) for the upper river; Eddy rates it best between about 4.0 and 5.0 feet. Patterson (07037500) for the lower river near Sam A. Baker and Highway 34."
+        "a": "Roselle (National Weather Service gauge ROZM7; USGS no longer reports its old 07034000 site there) for the upper river; Eddy rates it best between about 4.0 and 5.0 feet. Patterson (07037500) for the lower river near Sam A. Baker and Highway 34."
       }
     ],
     "pre_launch_notes": [
@@ -185,7 +185,7 @@ export default {
     "tldr": {
       "typical_distance": "2–3.3 mi featured floats",
       "best_for_beginners": "Sam A. Baker State Park → Highway 34 (3.3 mi, about 1½ hr)",
-      "primary_gauge": "St. Francis River near Roselle, MO · USGS 07034000",
+      "primary_gauge": "St. Francis River near Roselle, MO · NWS ROZM7",
       "route_label": "Start here"
     },
     "sources": [
@@ -202,8 +202,8 @@ export default {
         "url": "https://mdc.mo.gov/discover-nature/places/roselle-access"
       },
       {
-        "label": "USGS: station 07034000",
-        "url": "https://waterdata.usgs.gov/monitoring-location/07034000/"
+        "label": "NWS: St. Francis River near Roselle (ROZM7)",
+        "url": "https://water.noaa.gov/gauges/rozm7"
       },
       {
         "label": "Missouri Whitewater Association: upper and lower St. Francis runs",
@@ -222,7 +222,7 @@ export default {
         "url": "https://mdc.mo.gov/discover-nature/places/natural-areas/st-francis-river"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "sights_heading": "Places to explore ashore",
     "editorial_updated_at": "2026-11-10"

@@ -44,8 +44,8 @@ export default {
         "body": "The water takes its color from runoff, so do not expect the clear look of the Current. Come for the quiet pools and wooded banks."
       },
       {
-        "strong": "Public ramps at both ends.",
-        "body": "Mill Rock, Wenkel Ford, Mayers Landing and Union are all MDC accesses, so you can plan a float without a private landing."
+        "strong": "Public accesses at both ends.",
+        "body": "Mill Rock, Wenkel Ford, Mayers Landing and Union are all MDC accesses, so you can plan a float without a private landing. Wenkel Ford is a gravel launch, not a built ramp, and the channel has moved away from the Mayers Landing ramp."
       }
     ],
     "sections": [
@@ -73,7 +73,7 @@ export default {
         "miles": "8.4",
         "best": "A float that ends in town",
         "photo": null,
-        "body": "8.4 miles down to the MDC access at Union. Take out there: Guths Mill Dam is downstream.",
+        "body": "8.4 miles down to the MDC access at Union. MDC warns that the main channel has shifted away from the Mayers Landing ramp, so expect to carry or drag to the water, and look before you unload. Take out at Union: Guths Mill Dam is downstream.",
         "time": "About 3½ hr",
         "diff": "I"
       }
@@ -144,7 +144,7 @@ export default {
     "pre_launch_notes": [
       {
         "strong": "Arrange your own ride.",
-        "body": "These are public ramps with no shuttle. Leave a car at the take-out."
+        "body": "These are public accesses with no shuttle. Leave a car at the take-out."
       }
     ],
     "related_rivers": [
@@ -193,7 +193,7 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/07016500/"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "editorial_updated_at": "2026-11-10"
   },

@@ -41,7 +41,7 @@ export default {
       },
       {
         "strong": "A preserve on the banks.",
-        "body": "The Nature Conservancy’s Kings River Preserve protects part of this stretch. You can float through it, but the land is closed to the public."
+        "body": "The Nature Conservancy’s Kings River Preserve protects part of this stretch. You can float through it by day and stop on the gravel bars. There are no hiking trails, and the land beyond the river corridor is private."
       },
       {
         "strong": "Clear pools and gravel bends.",
@@ -92,7 +92,7 @@ export default {
     "pro_tips": [
       {
         "strong": "Stay on the river in the preserve.",
-        "body": "The Nature Conservancy welcomes paddlers by day, but the preserve’s land is closed and has no trails."
+        "body": "The Nature Conservancy welcomes paddlers by day on the river and its gravel bars. There are no hiking trails, and the surrounding land is private."
       },
       {
         "strong": "The gauge is downstream.",
@@ -163,7 +163,7 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/07050500/"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "editorial_updated_at": "2026-11-10"
   },

@@ -37,7 +37,7 @@ export default {
     "why_different": [
       {
         "strong": "Table Rock sets the water.",
-        "body": "The dam has four generators. The schedule further down this page shows how much they are running now and what is planned for the rest of the day."
+        "body": "The dam has four generators. The schedule at the top of this page shows how much they are running now and what is planned for the rest of the day."
       },
       {
         "strong": "River on top, lake below.",
@@ -49,7 +49,7 @@ export default {
       },
       {
         "strong": "Two sets of trout rules.",
-        "body": "From just below the dam to the mouth of Fall Creek the rules are stricter: flies and artificial lures only, and a protected size range for rainbows."
+        "body": "From just below the dam to the mouth of Fall Creek the rules are stricter: flies and artificial lures only, no soft plastic or scented baits, and a protected size range for rainbows."
       }
     ],
     "sections": [
@@ -146,7 +146,7 @@ export default {
       },
       {
         "strong": "Call the dam.",
-        "body": "The Corps of Engineers information line for Table Rock is 866-494-1993."
+        "body": "Southwestern Power Administration’s recorded generation schedule line is 866-494-1993."
       },
       {
         "strong": "Powersite ends it.",
@@ -156,7 +156,7 @@ export default {
     "pre_launch_notes": [
       {
         "strong": "Know which zone you are fishing.",
-        "body": "From the closed zone below the dam to the mouth of Fall Creek: flies and artificial lures only, and rainbow trout from 12 to 20 inches must be released. These are the rules MDC listed when this guide was checked on November 10, 2026."
+        "body": "From the closed zone below the dam to the mouth of Fall Creek: pole and line only, flies and artificial lures only, no soft plastic, natural or scented baits, and rainbow trout from 12 to 20 inches must be released. These are the rules MDC listed when this guide was checked on November 10, 2026."
       },
       {
         "strong": "A trout permit is needed above Highway 65.",
@@ -181,12 +181,17 @@ export default {
       },
       {
         "topic": "Dam to the mouth of Fall Creek",
-        "rule": "No fishing within 760 feet of Table Rock Dam. Below that, flies and artificial lures only, and rainbow trout between 12 and 20 inches must be released.",
+        "rule": "No fishing within 760 feet of Table Rock Dam. Below that, pole and line only, with flies and artificial lures only. Soft plastic, natural and scented baits are prohibited when fishing for any species. Rainbow trout between 12 and 20 inches must be released.",
         "url": "https://mdc.mo.gov/fishing/regulations/special-waterbody-regulations/lake-taneycomo"
       },
       {
         "topic": "Trout permit",
         "rule": "Required, along with a fishing permit, to fish for any species upstream of the U.S. Highway 65 bridge.",
+        "url": "https://mdc.mo.gov/fishing/regulations/special-waterbody-regulations/lake-taneycomo"
+      },
+      {
+        "topic": "Waders",
+        "rule": "Porous-soled waders, such as felt soles, are prohibited on Lake Taneycomo.",
         "url": "https://mdc.mo.gov/fishing/regulations/special-waterbody-regulations/lake-taneycomo"
       }
     ],
@@ -201,7 +206,7 @@ export default {
       },
       {
         "q": "How do I know when Table Rock Dam is generating?",
-        "a": "The Dam releases section on this page shows what the dam is releasing now and the schedule for the rest of the day. You can also call the Corps of Engineers information line at 866-494-1993."
+        "a": "The Dam releases section on this page shows what the dam is releasing now and the schedule for the rest of the day. You can also call Southwestern Power Administration’s recorded schedule line at 866-494-1993."
       },
       {
         "q": "How much does the water rise?",
@@ -209,7 +214,7 @@ export default {
       },
       {
         "q": "What are the trout limits?",
-        "a": "Four trout a day in total, only one of them a brown, and browns must be at least 20 inches. Between the dam and Fall Creek, only flies and artificial lures are allowed and rainbows from 12 to 20 inches go back. That is what MDC listed on November 10, 2026; check its page before you keep a fish."
+        "a": "Four trout a day in total, only one of them a brown, and browns must be at least 20 inches. Between the dam and Fall Creek, only flies and artificial lures are allowed, with no soft plastic or scented baits, and rainbows from 12 to 20 inches go back. That is what MDC listed on November 10, 2026; check its page before you keep a fish."
       },
       {
         "q": "Do I need a trout permit?",

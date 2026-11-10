@@ -180,7 +180,7 @@ export default {
         "url": "https://www.americanwhitewater.org/content/River/view/river-detail/91/main"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "editorial_updated_at": "2026-11-10"
   },

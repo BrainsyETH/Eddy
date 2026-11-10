@@ -4,6 +4,7 @@ import type { DamSnapshot } from '../../../shared/dam-types';
 import { badgeLayout, damImageModel, riverImageModel } from './image-model';
 import { badgeSvg, stripSvg } from './image-svg';
 import type { RiverEmbedData } from './river-data';
+import { newestTotalRelease, withNewestRelease } from './options';
 
 const now = Date.parse('2026-10-30T17:30:00Z');
 
@@ -14,12 +15,13 @@ function river(): RiverEmbedData {
       lengthMiles: 135, accessPointCount: 20, conditionCode: 'low', conditionLabel: 'Low', thresholdUnit: 'cfs',
     },
     primary: {
-      id: 'g1', siteId: '07056000', name: 'Buffalo River near St. Joe, AR', isPrimary: true, unit: 'cfs',
+      id: 'g1', siteId: '07056000', name: 'Buffalo River near St. Joe, AR', isPrimary: true, provider: 'usgs', rated: true, unit: 'cfs',
       gaugeHeightFt: 2.8, dischargeCfs: 51.9, readingTimestamp: new Date(now - 65 * 60_000).toISOString(),
       readingSuspect: false, qualifierNote: null, conditionCode: 'low', conditionLabel: 'Low',
       ladder: { levelTooLow: 100, levelLow: 356, levelOptimalMin: 356, levelOptimalMax: 2000, levelHigh: 5000, levelDangerous: 12000, unit: 'cfs' },
       optimalRange: '356–2,000 cfs', trend: 'falling', coordinates: null,
     },
+    release: null,
     secondary: [],
     take: { text: 'Low but floatable near St. Joe; expect some dragging.', generatedAt: null, conditionCode: null },
     weather: null,
@@ -93,4 +95,57 @@ test('svg renders are well formed, sized to their text, and escape the data', ()
   assert.ok(strip.includes('fill="none"'), 'transparent background');
   assert.ok(strip.includes('>52<'), 'the reading is printed');
   assert.ok(strip.includes('textLength='), 'runs are pinned so a fallback font cannot overflow');
+});
+
+test('an unrated dam release is named as the dam\'s release and not called Unknown', () => {
+  const data = river();
+  data.river.conditionCode = 'unknown';
+  data.primary = { ...data.primary!, name: 'White River below Bull Shoals Dam', provider: 'usace', rated: false, conditionCode: 'unknown', trend: null };
+  data.release = { damId: 'swl-bull-shoals-dam', damName: 'Bull Shoals Dam' };
+  const model = riverImageModel(data, { theme: 'light', accent: null }, now);
+  assert.equal(model.subtitle, 'Total release from Bull Shoals Dam');
+  assert.equal(model.status, 'Not rated');
+  assert.doesNotMatch(model.alt, /Unknown/);
+  // A rated river whose reading is missing is still Unknown.
+  assert.equal(riverImageModel({ ...river(), river: { ...river().river, conditionCode: 'unknown' } }, { theme: 'light', accent: null }, now).status, 'Unknown');
+});
+
+test('both widgets pick the newest total release, whichever table has it', () => {
+  const stored = { value: 1807, unit: 'cfs', at: '2026-11-10T20:00:00.000Z' };
+  // Snapshot ahead (the :35 cron ran last): the river widget moves to it.
+  assert.deepEqual(newestTotalRelease({ value: 1971, at: '2026-11-10T19:00:00Z' }, stored), { value: 1807, at: stored.at, from: 'snapshot' });
+  // Gauge table ahead (the :00 cron ran last): the dam widget moves to it.
+  assert.deepEqual(newestTotalRelease({ value: 2400, at: '2026-11-10T21:00:00Z' }, stored), { value: 2400, at: '2026-11-10T21:00:00Z', from: 'gauge' });
+  // Same hour in both: no change, and the gauge's own figure stands.
+  assert.equal(newestTotalRelease({ value: 1807, at: '2026-11-10T20:00:00Z' }, stored)?.from, 'gauge');
+  assert.equal(newestTotalRelease(null, stored)?.from, 'snapshot');
+  assert.equal(newestTotalRelease({ value: null, at: null }, stored)?.from, 'snapshot');
+  assert.equal(newestTotalRelease({ value: 1971, at: '2026-11-10T19:00:00Z' }, { ...stored, dailyMean: true })?.from, 'gauge');
+  assert.equal(newestTotalRelease({ value: 1971, at: '2026-11-10T19:00:00Z' }, { ...stored, at: 'soon' })?.from, 'gauge');
+  assert.equal(newestTotalRelease(null, null), null);
+});
+
+test('the dam widget takes the gauge table\'s release only when it is the newer one, and never touches turbine flow', () => {
+  const at = '2026-11-10T20:00:00.000Z';
+  const snapshot = { ...dam(), metrics: {
+    generationFlow: { value: 1807, unit: 'cfs', at, staleness: 'fresh' as const },
+    release: { value: 1807, unit: 'cfs', at, staleness: 'fresh' as const },
+  } };
+  const ahead = withNewestRelease(snapshot, { value: 2400, at: '2026-11-10T21:00:00Z' });
+  assert.equal(ahead.metrics.release?.value, 2400);
+  assert.equal(ahead.metrics.release?.at, '2026-11-10T21:00:00Z');
+  assert.deepEqual(ahead.metrics.generationFlow, snapshot.metrics.generationFlow);
+  // Gauge table behind or level: the snapshot stands, untouched.
+  assert.equal(withNewestRelease(snapshot, { value: 1971, at: '2026-11-10T19:00:00Z' }), snapshot);
+  assert.equal(withNewestRelease(snapshot, { value: 1807, at }), snapshot);
+  assert.equal(withNewestRelease(snapshot, null), snapshot);
+  // A daily-mean release is a different quantity; an hourly reading does not replace it.
+  const daily = { ...snapshot, metrics: { ...snapshot.metrics, release: { ...snapshot.metrics.release, dailyMean: true } } };
+  assert.equal(withNewestRelease(daily, { value: 2400, at: '2026-11-10T21:00:00Z' }), daily);
+  // Both widgets land on the same reading in both update orders.
+  for (const gauge of [{ value: 1971, at: '2026-11-10T19:00:00Z' }, { value: 2400, at: '2026-11-10T21:00:00Z' }]) {
+    const river = newestTotalRelease(gauge, snapshot.metrics.release)!;
+    const damSide = withNewestRelease(snapshot, gauge).metrics.release!;
+    assert.deepEqual([river.value, Date.parse(river.at)], [damSide.value, Date.parse(damSide.at)]);
+  }
 });

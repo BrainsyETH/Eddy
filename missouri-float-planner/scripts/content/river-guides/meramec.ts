@@ -124,7 +124,7 @@ export default {
       {
         "mile": "68",
         "name": "Onondaga Cave",
-        "note": "A National Natural Landmark show cave at Onondaga Cave State Park, right at the river access. Guided walking tours run April–October, about an hour underground.",
+        "note": "A National Natural Landmark show cave at Onondaga Cave State Park, right at the river access. Guided walking tours run April–October, about an hour and 15 minutes underground.",
         "photo": {
           "url": "/images/river-guides/onondaga-cave.webp",
           "alt": "Lit cave formations inside Onondaga Cave.",
@@ -179,7 +179,7 @@ export default {
         "id": 1,
         "to": "Scotts Ford",
         "best": "Anglers",
-        "body": "The top of the floatable Meramec, just below Maramec Spring. This is the Red Ribbon trout water: 15-inch minimum, two fish a day, artificial lures and flies only. It is narrower than anything downstream and needs more water to float without scraping.",
+        "body": "The upper Meramec from the Highway 8 bridge, just above where the Maramec Spring branch comes in. This is the Red Ribbon trout water: 15-inch minimum, two fish a day, artificial lures and flies only. It is narrower than anything downstream and needs more water to float without scraping.",
         "from": "Woodson K. Woods",
         "name": "The Red Ribbon trout run",
         "miles": "8.9",
@@ -424,7 +424,8 @@ export default {
         "url": "https://mdc.mo.gov/your-property/watershed-inventory/meramec-river"
       }
     ],
-    "editorial_updated_at": "2026-11-10"
+    "editorial_updated_at": "2026-11-10",
+    "checked_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773858582004-Screenshot_2026-03-18_at_1.29.34_PM-hApumthKHhRumeFQN6QpYRYgesNWve.png"
 } satisfies RiverGuideSeed;

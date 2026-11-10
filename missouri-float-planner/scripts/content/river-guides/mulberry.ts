@@ -69,7 +69,7 @@ export default {
         "photo": null,
         "body": "4.3 miles from Wolf Pen to High Bank. Short, but not easy: American Whitewater rates the Wolf Pen to Redding corridor Class II+, and it gets harder as the water rises. Everyone in the group should be able to handle moving water and get themselves out of a swim.",
         "time": "About 1½ hr",
-        "diff": "II"
+        "diff": "II+"
       },
       {
         "id": 2,
@@ -83,7 +83,7 @@ export default {
         "photo": null,
         "body": "8.3 miles from High Bank to Redding, the rest of the same Class II+ corridor. Set up the Redding take-out before you launch, and choose your water level with care.",
         "time": "About 3½ hr",
-        "diff": "II",
+        "diff": "II+",
         "photo_detail": {
           "url": "/images/river-guides/mulberry-above-redding.webp",
           "alt": "The Mulberry River running over rocks through forest above Redding.",
@@ -206,7 +206,7 @@ export default {
         "url": "https://www.americanwhitewater.org/content/River/view/river-detail/103/main"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "editorial_updated_at": "2026-11-10"
   },

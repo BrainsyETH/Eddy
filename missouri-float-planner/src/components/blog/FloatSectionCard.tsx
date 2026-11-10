@@ -28,6 +28,7 @@ const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
   I:    { bg: 'var(--color-support-100)', fg: 'var(--color-support-700)', bd: 'var(--color-support-500)' },
   'I–II': { bg: 'var(--color-support-100)', fg: 'var(--color-support-700)', bd: 'var(--color-support-500)' },
   II:   { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
+  'II+': { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
 };
 
 export default function FloatSectionCard({ section: s, index, plannerUrl, fromHref, toHref, photoFallback, estimateEndpoints }: Props) {

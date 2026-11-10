@@ -41,7 +41,7 @@ export default {
       },
       {
         "strong": "A spring-season creek.",
-        "body": "The park gives spring into early summer as the usual floating season, and only when there has been rain."
+        "body": "The park says the creek is typically floatable in spring and fall, depending on rainfall. Eddy’s data has it running best from March through June."
       },
       {
         "strong": "The mill is a drive, not a paddle.",
@@ -59,7 +59,7 @@ export default {
         "miles": "4.5",
         "best": "A short float ending at the park",
         "photo": null,
-        "body": "4.5 miles from the Highway 412 bridge to the park’s boating access at the Highway 23 bridge. Confirm you can launch and park at Highway 412 first. You finish at the park with the afternoon left.",
+        "body": "4.5 miles from the Highway 412 bridge to the park’s boating access at the Highway 23 bridge. Confirm you can launch and park at Highway 412 first. You finish at the park with the afternoon left. Eddy has not confirmed that the Highway 23 access is open after the bridge replacement there. Call the park at 479-559-2593 before you go.",
         "photo_detail": {
           "url": "/images/river-guides/war-eagle-creek.webp",
           "alt": "War Eagle Creek at Withrow Springs State Park.",
@@ -82,7 +82,7 @@ export default {
         "miles": "6.2",
         "best": "A longer float with a carry at the end",
         "photo": null,
-        "body": "6.2 miles from the park’s boating access to the walk-in access known as the Chicken House Access. There is no ramp there: you carry the boat out. Check the carry and the parking before you commit, more so with a heavy canoe.",
+        "body": "6.2 miles from the park’s boating access to the walk-in access known as the Chicken House Access. There is no ramp there: you carry the boat out. Check the carry and the parking before you commit, more so with a heavy canoe. Eddy has not confirmed that the Highway 23 access is open after the bridge replacement there. Call the park at 479-559-2593 before you go.",
         "photo_detail": {
           "url": "/images/river-guides/war-eagle-creek.webp",
           "alt": "War Eagle Creek at Withrow Springs State Park.",
@@ -115,7 +115,7 @@ export default {
       {
         "m": "Mar–Jun",
         "t": "The floating season.",
-        "note": "The park calls this the usual window, when rain has put water in the creek."
+        "note": "The usual window, when rain has put water in the creek."
       },
       {
         "m": "Jul–Aug",
@@ -217,7 +217,7 @@ export default {
         "url": "https://www.arkansas.com/state-parks/explore/trails/war-eagle-trail"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "sights_heading": "Places to explore ashore",
     "editorial_updated_at": "2026-11-10"

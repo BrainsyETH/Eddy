@@ -106,7 +106,6 @@ export default {
     ],
     "springs": [
       {
-        "mile": "0.1",
         "name": "Dillard Mill",
         "note": "One of Missouri's best-preserved water-powered gristmills — a red mill on Huzzah Creek run as a State Historic Site, with tours in season. The headwater put-in.",
         "photo": {
@@ -127,7 +126,7 @@ export default {
       {
         "mile": "28.4",
         "name": "Huzzah Conservation Area",
-        "note": "An MDC conservation area along the lower creek near the Meramec, with gravel-bar access and primitive camping."
+        "note": "An MDC conservation area along the lower creek near the Meramec, with gravel-bar access. Primitive camping there is allowed from September 15 to May 15 only."
       }
     ],
     "callouts": {
@@ -163,7 +162,7 @@ export default {
         "id": 1,
         "to": "Red Bluff",
         "best": "Spring paddlers",
-        "body": "The upper creek, starting beside the red mill at Dillard. It is small and clear and usually only floats in spring or after a good rain; by midsummer it is a hike with a boat. Tour the mill before you launch, and stay clear of the mill dam.",
+        "body": "The upper creek, starting beside the red mill at Dillard. It is small and clear and usually only floats in spring or after a good rain; by midsummer it is a hike with a boat. Tour the mill before you launch, and stay clear of the mill dam. In November 2026 the Forest Service said the river at Red Bluff could only be reached on foot after flood damage. Check before you plan to move a boat there.",
         "from": "Dillard Mill",
         "name": "Dillard Mill to Red Bluff",
         "miles": "10.1",
@@ -179,7 +178,7 @@ export default {
         "id": 2,
         "to": "Highway Z",
         "best": "Swimming and gravel bars",
-        "body": "Red Bluff is the tall red wall over the Forest Service campground, and a good place to look at the water before you commit. From there it is clear water and gravel bars down to the Highway Z bridge. Sort out parking at the bridge ahead of time.",
+        "body": "Red Bluff is the tall red wall over the Forest Service campground, and a good place to look at the water before you commit. From there it is clear water and gravel bars down to the Highway Z bridge. Sort out parking at the bridge ahead of time. In November 2026 the Forest Service said the river at Red Bluff could only be reached on foot after flood damage. Check before you plan to move a boat there.",
         "from": "Red Bluff",
         "name": "Red Bluff to Highway Z",
         "miles": "8",
@@ -275,12 +274,12 @@ export default {
     ],
     "regulations": [
       {
-        "url": "https://mostateparks.com/park/dillard-mill-state-historic-site",
-        "rule": "Three different managers in 28 miles. Dillard Mill is a State Historic Site, Red Bluff is a Forest Service recreation area, and Huzzah Conservation Area belongs to MDC. Each posts its own rules at the access.",
+        "url": "https://mostateparks.com/historic-site/dillard-mill-state-historic-site",
+        "rule": "Three different managers in 30 miles. Dillard Mill is a State Historic Site, Red Bluff is a Forest Service recreation area, and Huzzah Conservation Area belongs to MDC. Each posts its own rules at the access.",
         "topic": "Mixed management"
       },
       {
-        "url": "https://www.fs.usda.gov/mtnf",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/red-bluff-recreation-area",
         "rule": "Red Bluff has a Forest Service campground with a nightly fee. Huzzah Valley and the other resorts run their own campgrounds, so book those with the resort.",
         "topic": "Camping"
       },
@@ -344,17 +343,21 @@ export default {
       {
         "strong": "Private landings need a call.",
         "body": "Huzzah Valley and the other resort landings are private. Set up access, fees and pickup with them before you drive out."
+      },
+      {
+        "strong": "Check Red Bluff before you count on it.",
+        "body": "In November 2026 the Forest Service listed Red Bluff Recreation Area as closed for the season and said the river there could only be reached on foot after flood damage. Read its page before you plan to launch or land a boat at Red Bluff."
       }
     ],
     "nearby_attractions": [
       {
-        "url": "https://mostateparks.com/park/dillard-mill-state-historic-site",
+        "url": "https://mostateparks.com/historic-site/dillard-mill-state-historic-site",
         "kind": "Historic site",
         "name": "Dillard Mill State Historic Site",
         "note": "A red water-powered gristmill on Huzzah Creek, beautifully preserved, with guided tours and a millpond — right at the upper put-in."
       },
       {
-        "url": "https://www.fs.usda.gov/mtnf",
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/red-bluff-recreation-area",
         "kind": "USFS rec area",
         "name": "Red Bluff Recreation Area",
         "note": "Campground and picnic area beneath a tall red bluff, a Mark Twain National Forest favorite and a popular swimming hole."
@@ -379,18 +382,19 @@ export default {
       },
       {
         "label": "Mixed management",
-        "url": "https://mostateparks.com/park/dillard-mill-state-historic-site"
+        "url": "https://mostateparks.com/historic-site/dillard-mill-state-historic-site"
       },
       {
         "label": "Camping",
-        "url": "https://www.fs.usda.gov/mtnf"
+        "url": "https://www.fs.usda.gov/r09/marktwain/recreation/red-bluff-recreation-area"
       },
       {
         "label": "Missouri statute 306.325: glass, coolers and trash on vessels",
         "url": "https://revisor.mo.gov/main/OneSection.aspx?section=306.325"
       }
     ],
-    "editorial_updated_at": "2026-11-10"
+    "editorial_updated_at": "2026-11-10",
+    "checked_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1772676978230-Screenshot_2026-03-04_at_8.16.06_PM-mytFB6RDFFANRfQlMGYwtlgaWGkHWB.png"
 } satisfies RiverGuideSeed;

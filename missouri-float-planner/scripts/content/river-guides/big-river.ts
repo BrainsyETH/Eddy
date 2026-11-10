@@ -138,7 +138,7 @@ export default {
       },
       {
         "strong": "Short does not mean quick.",
-        "body": "With so little current, three miles can take a couple of hours."
+        "body": "With so little current, three miles can take an hour and a half or more."
       },
       {
         "strong": "Check the fish advisory.",
@@ -225,7 +225,7 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/07018100/"
       }
     ],
-    "checked_at": "2026-10-11",
+    "checked_at": "2026-11-10",
     "use_access_photos": false,
     "sights_heading": "Places to explore ashore",
     "editorial_updated_at": "2026-11-10"
