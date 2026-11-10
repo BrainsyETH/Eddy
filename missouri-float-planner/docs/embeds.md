@@ -65,7 +65,8 @@ Today's chart does not repeat a "Posted generation schedule" or "Today's posted
 generation · CT" heading. Its date appears once, where the schedule title
 used to sit, above the next-change sentence; the chart retains an accessible
 day/date label, its MW context, and the coral Now marker. Tomorrow retains
-its own distinct date heading when the full embed includes it.
+its own distinct date heading when the full embed includes it, directly after
+today's chart and before the water measurements at every embed width.
 
 The full card has one visible `Observed … ago` line at the header's top-right,
 referring **only to turbine flow**. It is not a single timestamp for all
