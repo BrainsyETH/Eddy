@@ -12,6 +12,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put, del, list } from '@vercel/blob';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { randomUUID } from 'crypto';
+import { sniffVideo } from '@/lib/uploads/sniff';
+
+const TEMP_PREFIX = 'tmp-reels/';
 
 // Max video size: 100MB (Instagram Reels limit)
 const MAX_SIZE = 100 * 1024 * 1024;
@@ -37,9 +40,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!videoFile.type.startsWith('video/')) {
+    if (typeof videoFile === 'string') {
+      return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
+    }
+
+    // Decide what this is from its first bytes, not from the type or filename
+    // the uploader supplied.
+    const sniffed = sniffVideo(new Uint8Array(await videoFile.slice(0, 16).arrayBuffer()));
+    if (!sniffed) {
       return NextResponse.json(
-        { error: 'File must be a video' },
+        { error: 'File must be an MP4, MOV or WebM video' },
         { status: 400 }
       );
     }
@@ -52,14 +62,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique path in blob storage
-    const ext = videoFile.name.split('.').pop() || 'mp4';
-    const filename = `${randomUUID()}.${ext}`;
-    const pathname = `tmp-reels/${filename}`;
+    const filename = `${randomUUID()}.${sniffed.ext}`;
+    const pathname = `${TEMP_PREFIX}${filename}`;
 
     // Upload to Vercel Blob Storage
     const blob = await put(pathname, videoFile, {
       access: 'public',
       addRandomSuffix: false,
+      contentType: sniffed.mime,
     });
 
     console.log(`[TempVideo] Uploaded to Blob: ${blob.url} (${(videoFile.size / 1024 / 1024).toFixed(2)} MB)`);
@@ -132,7 +142,28 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await del(blobUrl);
+    // This endpoint removes temporary reels only. Without the folder check it
+    // would delete any blob in the store: published clips, access point photos.
+    let target: URL;
+    try {
+      target = new URL(blobUrl);
+    } catch {
+      return NextResponse.json({ error: 'url must be a blob URL' }, { status: 400 });
+    }
+    const path = decodeURIComponent(target.pathname);
+    if (
+      target.protocol !== 'https:' ||
+      !target.hostname.endsWith('.blob.vercel-storage.com') ||
+      !path.startsWith(`/${TEMP_PREFIX}`) ||
+      path.includes('..')
+    ) {
+      return NextResponse.json(
+        { error: `Only files under ${TEMP_PREFIX} can be deleted here` },
+        { status: 400 }
+      );
+    }
+
+    await del(target.toString());
 
     console.log(`[TempVideo] Deleted: ${blobUrl}`);
 
