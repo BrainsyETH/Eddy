@@ -10,6 +10,7 @@ import RiverMapFeature from '@/components/home/RiverMapFeature';
 import EddyHeroBubble from '@/components/home/EddyHeroBubble';
 import SiteFooter from '@/components/ui/SiteFooter';
 import HomeRiverReports from '@/components/home/HomeRiverReports';
+import type { DamCardReading } from '@/components/dam/DamCardParts';
 import type { RiverListItem } from '@/types/api';
 import type { DamSnapshot } from '@shared/dam-types';
 
@@ -32,12 +33,13 @@ const SIDE_RIVERS = [
 ];
 export const FEATURED_RIVER_SLUGS = [FEATURE_RIVER.slug, ...SIDE_RIVERS.map((r) => r.slug)];
 
-export default function HomePage({ riverGuides, featuredReports, featuredDams, renderedAt, damsUnavailable, floatSearchEnabled }: {
+export default function HomePage({ riverGuides, featuredReports, featuredDams, renderedAt, damsUnavailable, damUnsupported, floatSearchEnabled }: {
   riverGuides: Record<string, RiverGuide | null>;
   featuredReports: RiverListItem[];
   featuredDams: DamSnapshot[];
   renderedAt: number;
   damsUnavailable?: boolean;
+  damUnsupported?: Record<string, readonly DamCardReading[]>;
   floatSearchEnabled: boolean;
 }) {
   const guideHref = (slug: string) => {
@@ -131,7 +133,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
 
       <section aria-labelledby="river-dam-conditions" className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-8 md:pt-10">
         <h2 id="river-dam-conditions" className="mb-5 text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>River and Dam Conditions</h2>
-        <HomeRiverReports rivers={featuredReports} dams={featuredDams} renderedAt={renderedAt} damsUnavailable={damsUnavailable} />
+        <HomeRiverReports rivers={featuredReports} dams={featuredDams} renderedAt={renderedAt} damsUnavailable={damsUnavailable} damUnsupported={damUnsupported} />
       </section>
 
       <section aria-labelledby="plan-your-float" className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-10 md:pt-12">

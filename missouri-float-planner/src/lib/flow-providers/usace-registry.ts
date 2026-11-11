@@ -1108,6 +1108,20 @@ export function declaresCardMetric(dam: UsaceDam, metric: DamCardMetric): boolea
     : Boolean(dam.resolvedSnapshotMetrics?.includes('poolElevation'));
 }
 
+/** The three readings a dam card's band can show. */
+const DAM_CARD_METRICS: DamCardMetric[] = ['release', 'tailwaterTempF', 'poolElevation'];
+
+/**
+ * The card readings Eddy has no source configured for at this dam, which a
+ * card words "Not available in Eddy" and not "Unavailable". Empty for an id
+ * the registry does not carry: nothing is known about it, so nothing is
+ * claimed.
+ */
+export function unsupportedDamReadings(damId: string): DamCardMetric[] {
+  const dam = USACE_DAMS[damId];
+  return dam ? DAM_CARD_METRICS.filter(metric => !declaresCardMetric(dam, metric)) : [];
+}
+
 /**
  * Whether the hourly history cron will read this project at all.
  *

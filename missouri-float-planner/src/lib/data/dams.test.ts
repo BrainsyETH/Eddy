@@ -200,8 +200,11 @@ function storedDetail(now: number, overrides?: Partial<DamSnapshot>): DamSnapsho
         tailwaterElevation: reading(now, 704.2, 'ft'),
         tailwaterTempF: reading(now, 56, 'F'),
         spillwayFlow: reading(now, 0, 'cfs'),
-        // Detail-only: must not survive into a summary.
+        // The cards' third reading: must survive into a summary.
         poolElevation: reading(now, 917.3, 'ft'),
+        // Detail-only: must not survive into a summary.
+        pctFloodPool: reading(now, 12, '%'),
+        inflow: reading(now, 2_900, 'cfs'),
       } satisfies Partial<Record<UsaceMetric, DamMetricValue>>,
       [scheduleDay('2026-08-31'), scheduleDay('2026-09-01'), scheduleDay('2026-09-02')],
     ),
@@ -216,8 +219,11 @@ test('a summary carries only what a list shows', () => {
   assert.deepEqual(summary.metrics.tailwaterTempF, storedDetail(now).metrics.tailwaterTempF,
     'water temperature and its original timestamp must survive into the list');
 
-  // SUMMARY_METRICS, and nothing beyond them. Pool elevation is the detail
-  // page's number and would be ~20 extra readings on a twenty-row list.
+  // SUMMARY_METRICS, and nothing beyond them. Lake level is in: the homepage
+  // card, the directory card and the river page's dam panel all show it, and
+  // dropping it here is what made the homepage say "Unavailable" over a
+  // reading the stored snapshot held. Flood pool and inflow stay detail-only.
+  assert.equal(summary.metrics.poolElevation?.value, 917.3, 'lake level must reach the list cards');
   for (const metric of SUMMARY_METRICS) {
     assert.ok(summary.metrics[metric], `${metric} must survive the narrowing`);
   }
