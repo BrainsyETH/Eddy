@@ -37,6 +37,7 @@ import { pickNotableTrend } from './trend-picker';
 import { hasRainComing, weatherChip, type WeatherChip } from '@/lib/weather/openweather';
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { upcomingHolidayWeekend } from './holiday-weekends';
+import { signCoverUrl } from './cover-signature';
 import {
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
@@ -61,8 +62,10 @@ export function truncateForVideo(text: string | null): string {
 
 const longDate = () => `Prepared ${reportStamp()}`;
 
+// Signed: the route honours pinned facts only on a URL Eddy wrote
+// (cover-signature.ts). Every cover this file builds goes through here.
 const og = (type: string, platform: SocialPlatform, extra = '') =>
-  `${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`;
+  signCoverUrl(`${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`);
 
 /** The weather chip as a cover URL param (`wx=high|low|precip|condition`), or
  *  '' when there is no chip. Parsed back by the OG route's parseWeatherParam. */

@@ -67,7 +67,9 @@
     "test:guides": "node scripts/river-guides-smoke.mjs",
     "test:admin-browser": "node scripts/admin/workspace-smoke.mjs",
     "test:admin-db": "node scripts/admin/workspace-db-check.mjs",
-    "test:daily-report": "node --import tsx scripts/daily-report-smoke.mjs"
+    "test:daily-report": "node --import tsx scripts/daily-report-smoke.mjs",
+    "test:camping-browser": "node scripts/camping-smoke.mjs",
+    "test:camping-capacity": "node --import tsx scripts/camping-capacity-check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

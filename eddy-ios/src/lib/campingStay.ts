@@ -1,4 +1,5 @@
 import { nextCampingDate, type CampsiteStay, type CampingStayResult } from '@eddy/conditions/camping-stay';
+import { currentPolicyStay } from '@eddy/conditions/camping-policy';
 import type { CampsiteNightState } from '@eddy/types';
 import { campsiteTags, SITE_FILTERS, type SiteFilter } from '../components/map-sheet/siteList';
 
@@ -57,6 +58,7 @@ export function campsiteStayFilterCounts(entries: CampsiteStay[]): Record<SiteFi
 export function currentCampingStay(result: CampingStayResult | null, maxAgeSeconds: number, now: number): CampsiteStay[] {
   if (!result) return [];
   const age = result.fetchedAt ? now - Date.parse(result.fetchedAt) : NaN;
-  if (Number.isFinite(age) && age >= 0 && age < maxAgeSeconds * 1000) return result.sites;
-  return result.sites.map((entry) => ({ ...entry, state: 'unknown', nights: entry.nights.map((night) => ({ ...night, state: 'unknown' })) }));
+  const fresh = Number.isFinite(age) && age >= 0 && age < maxAgeSeconds * 1000;
+  if (fresh && result.sites.every(entry => !entry.site.policy)) return result.sites;
+  return result.sites.map(entry => currentPolicyStay(entry, fresh, now));
 }

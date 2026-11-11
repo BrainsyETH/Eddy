@@ -19,13 +19,13 @@ export function navigationRiver(pathname: string, search = ''): string | null {
     }
     return riverSlug(parts[1]); // Legacy /rivers/current redirects remain usable.
   }
-  if (['/plan', '/find-float', '/river-map/ozarks'].includes(pathname)) {
+  if (['/plan', '/find-float', '/river-map/ozarks', '/camping'].includes(pathname)) {
     return riverSlug(new URLSearchParams(search).get('river'));
   }
   return null;
 }
 
-export function siteNavigation(pathname: string, search: string, floatSearchEnabled: boolean): SiteNavLink[] {
+export function siteNavigation(pathname: string, search: string, floatSearchEnabled: boolean, campingEnabled = false): SiteNavLink[] {
   const [planner, finder] = floatNavigation(pathname, search);
   return [
     { href: planner.href, label: 'Map', active: belongsTo(pathname, '/plan') },
@@ -35,6 +35,7 @@ export function siteNavigation(pathname: string, search: string, floatSearchEnab
       label: 'Floats',
       active: belongsTo(pathname, '/find-float'),
     }] : []),
+    ...(campingEnabled ? [{ href: `/camping${navigationRiver(pathname, search) ? `?river=${navigationRiver(pathname, search)}` : ''}`, label: 'Camping', active: belongsTo(pathname, '/camping') }] : []),
     { href: '/blog', label: 'Guides', active: belongsTo(pathname, '/blog') },
   ];
 }

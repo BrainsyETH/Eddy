@@ -47,6 +47,7 @@ import {
 } from '@/lib/stays';
 import { FilterChips } from '@/components/FilterChips';
 import { useCampsiteSites } from '@/hooks/useCampsiteSites';
+import { useObservationClock } from '@/hooks/useObservationClock';
 import {
   filterCounts,
   listsRows,
@@ -593,6 +594,7 @@ function NightStatus({ night }: { night: NightChoice | null }) {
 }
 
 export function AccessCampingTab({ accessPoint, detail, status, active = false, pinAvailability, onRetry }: TabProps) {
+  const now = useObservationClock();
   const { colors } = useTheme();
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
@@ -656,11 +658,12 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
     active ? (availability?.facilityId ?? null) : null,
   );
 
-  const entries = useMemo(
-    () =>
-      sites ? sitesOnNight(sites.sites, sites.window.nights, selectedDate) : [],
-    [sites, selectedDate],
-  );
+  const entries = useMemo(() => {
+    if (!sites) return [];
+    const age = sites.fetchedAt ? now - Date.parse(sites.fetchedAt) : NaN;
+    const fresh = Number.isFinite(age) && age >= 0 && age < 72 * 3600000;
+    return sitesOnNight(sites.sites, sites.window.nights, selectedDate, now, fresh);
+  }, [sites, selectedDate, now]);
   const counts = useMemo(() => filterCounts(entries), [entries]);
 
   // ── HIDDEN CHIPS MUST NOT KEEP FILTERING ────────────────────────────────

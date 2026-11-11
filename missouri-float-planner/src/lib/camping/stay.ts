@@ -8,6 +8,7 @@ import type {
 } from '../../../shared/camping-stay';
 import { stayNights } from '../../../shared/camping-stay';
 import { MAX_AGE_MS } from './freshness';
+import { currentPolicyStay } from '../../../shared/camping-policy';
 
 const STATES: Record<string, CampingNightState> = {
   A: 'open',
@@ -74,7 +75,7 @@ export function searchCampingStay(
             )
           ? 'unavailable'
           : 'unknown';
-    return { site, nights, state };
+    return site.policy ? currentPolicyStay({ site, nights, state }, true, now.getTime()) : { site, nights, state };
   });
   const availableSites = sites
     .filter((s) => s.state === 'available')
