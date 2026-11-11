@@ -533,6 +533,18 @@ export function decodeCampsiteNights(nights: string): CampsiteNightState[] {
 
 /** One individual campsite. */
 export interface CampsiteSite {
+  /** Mirrors the shared camping policy contract; absent on older servers. */
+  policy?: {
+    sourceUrl: string;
+    checkedAt: string;
+    reviewBy: string;
+    periods: {
+      startDate: string;
+      endDateExclusive: string;
+      bookingMethod: 'first_come' | 'reservation';
+      operation: 'open' | 'closed';
+    }[];
+  };
   id: string;
   /** What the booking page prints — `RTL3`, `Electric 50 amp #178`. */
   name: string | null;

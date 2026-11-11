@@ -256,6 +256,8 @@ export function CampsiteList({
         <Text style={[styles.taken, { color: colors.textMuted }]}>
           {outcome === 'none_open'
             ? `${lead} — nothing open.`
+            : outcome === 'no_confirmed_openings'
+              ? `${lead} — no confirmed openings. Some sites haven’t been updated.`
             : outcome === 'filtered_out'
               ? `${lead} — no sites match those filters.`
               : // Not a claim about the campground. Most nights outside the
