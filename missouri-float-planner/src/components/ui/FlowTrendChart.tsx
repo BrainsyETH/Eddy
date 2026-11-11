@@ -59,8 +59,8 @@ import {
 } from '@shared/chart-model';
 import { chartView, chartReferences } from '@shared/chart-view';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
-import { chartStamp } from '@shared/chart-calendar';
-import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh, type RainSummary } from '@shared/rainfall';
+import { chartStamp, chartShortStamp } from '@shared/chart-calendar';
+import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh, rainHistoryStart, type RainSummary } from '@shared/rainfall';
 import type { ChartScaleMode } from '@shared/chart-share';
 import {
   FLOOD_STAGE_ORDER,
@@ -513,6 +513,8 @@ export default function FlowTrendChart({
     return rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6);
   }, [rain, history?.requestedWindow, days]);
   const rainSpace = rainRows.length ? 84 : 0;
+  const rainStart = rainSpace && rain && history?.requestedWindow
+    ? rainHistoryStart(rain.hourly, Date.parse(history.requestedWindow.from), Date.parse(history.requestedWindow.to), days === 1 ? 1 : 6) : null;
   const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -886,7 +888,7 @@ export default function FlowTrendChart({
       <div className="flex">
         {/* Y-axis labels, positioned by VALUE rather than spread evenly: the
             ticks are round numbers now, so they do not sit at even fractions. */}
-        <div className={`relative flex-shrink-0 w-10 pr-1.5 text-right ${chartClassName ?? 'h-32'}`}>
+        <div className={`relative flex-shrink-0 w-10 pr-1.5 text-right ${chartClassName ?? 'h-32'}`} style={{ boxSizing: 'content-box', paddingTop: rainSpace }}>
           <div className="absolute inset-x-0 bottom-0" style={{ top: rainSpace }}>
           {chartData.yTicks.map((tick) => (
             <span
@@ -902,6 +904,7 @@ export default function FlowTrendChart({
 
         {/* Chart SVG area */}
         <div
+          style={{ boxSizing: 'content-box', paddingTop: rainSpace }}
           className={`relative flex-1 min-w-0 ${chartClassName ?? 'h-32'} ${
             interactive
               ? 'cursor-crosshair rounded-sm focus-within:ring-2 focus-within:ring-primary-500'
@@ -927,7 +930,7 @@ export default function FlowTrendChart({
               {hovered && <line x1={chartData.x(hovered.point.t)} x2={chartData.x(hovered.point.t)} y1={0} y2={18} stroke="var(--color-neutral-600)" strokeWidth="0.2" />}
             </svg>
           </div>}
-          <div ref={chartContainerRef} className="absolute inset-x-0 bottom-0" style={{ top: rainSpace }} {...scrubProps}>
+          <div ref={chartContainerRef} data-river-plot className="absolute inset-x-0 bottom-0" style={{ top: rainSpace }} {...scrubProps}>
           {/* When the wrapper is a slider, the SVG is hidden from the
               accessibility tree rather than labelled: two nested announcements —
               a summary of the whole series and the value under the scrub — read
@@ -1325,7 +1328,7 @@ export default function FlowTrendChart({
 
         {/* Threshold labels (right column, outside chart) */}
         {chartData.thresholdLabels.length > 0 && (
-          <div className={`relative flex-shrink-0 w-16 pl-1.5 ${chartClassName ?? 'h-32'}`}>
+          <div className={`relative flex-shrink-0 w-16 pl-1.5 ${chartClassName ?? 'h-32'}`} style={{ boxSizing: 'content-box', paddingTop: rainSpace }}>
             <div className="absolute inset-x-0 bottom-0" style={{ top: rainSpace }}>
             {chartData.thresholdLabels.map((t) => (
               <div
@@ -1375,6 +1378,7 @@ export default function FlowTrendChart({
         ))}
       </div>
 
+      {rainStart && <p className="mt-2 ml-10 text-xs text-neutral-600">Rain record starts <time dateTime={rainStart} title={chartStamp(rainStart, history?.timeZone ?? 'UTC')} aria-label={chartStamp(rainStart, history?.timeZone ?? 'UTC')}>{chartShortStamp(rainStart, history?.timeZone ?? 'UTC')}</time></p>}
       {interactive && <div className="sm:hidden mt-2 min-h-16 text-xs leading-5 text-neutral-700" aria-hidden="true">
         {hovered ? <>
           <div className="flex flex-wrap items-baseline gap-x-2"><strong className="font-mono text-primary-800">{formatTooltipVal(hovered.point.v)} {unitLabel}</strong><span>{formatTooltipDate(hovered.point.t)}{hovered.kind === 'forecast' ? ' · forecast' : ''}</span></div>

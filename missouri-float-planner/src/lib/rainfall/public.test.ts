@@ -2,13 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
-import { multiPolygon, toWgs84 } from '@turf/turf';
-import { normalizeRain, rainAmount, rainAt, rainBars, rainReadout, rainMaximum, RAIN_HOUR, type RainSummary } from '@shared/rainfall';
+import { area, bboxPolygon, featureCollection, intersect, multiPolygon, toMercator, toWgs84 } from '@turf/turf';
+import type { MultiPolygon, Polygon } from 'geojson';
+import { normalizeRain, rainAmount, rainAt, rainBars, rainReadout, rainMaximum, rainHistoryStart, RAIN_HOUR, type RainSummary } from '@shared/rainfall';
+import { chartShortStamp } from '@shared/chart-calendar';
 import { normalizeRainDetail, rainfallMap } from '@shared/rainfall-map';
 import { distinctReadContext, readPreview } from '@shared/read-presentation';
 import { basinWeights, nativePixels, weightedRain } from './native-grid';
 import { publicRainSite, RAIN_RELEASE } from './public-policy';
 import type { Tile } from './research-contract';
+import { loadPreparedWeights, savePreparedWeights, weightKey } from './weight-store';
 
 const end = Date.parse('2026-11-11T18:00:00Z');
 const rows = Array.from({ length: 24 }, (_, i) => ({ start: new Date(end - (24 - i) * RAIN_HOUR).toISOString(),
@@ -53,6 +56,28 @@ test('weighted rain clips partial boundary pixels and includes missing area in t
   const missing = weightedRain([0, null], weights);
   assert.ok(Math.abs(missing.coverage - 2 / 3) < 1e-6); assert.equal(missing.inches, null);
   assert.equal(weightedRain([0, 0], weights).inches, 0);
+});
+test('fast weights match full clipping for holes, concave edges, islands and tile boundaries', () => {
+  const tile: Tile = { xmin: 0, ymin: 0, xmax: 6000, ymax: 5000, dx: 1000, dy: 1000, width: 6, height: 5 };
+  const rectangle = (x0: number, y0: number, x1: number, y1: number) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+  const shapes = [
+    multiPolygon([[rectangle(-100, -100, 6100, 5100), rectangle(2200, 2200, 2300, 2300)]]),
+    multiPolygon([[[[0, 0], [5500, 4500], [5500, 0], [0, 0]]], [rectangle(0, 3000, 1000, 4000)]]),
+    multiPolygon([[[[0, 0], [6000, 0], [6000, 2000], [2000, 2000], [2000, 5000], [0, 5000], [0, 0]]]]),
+    multiPolygon([[rectangle(2100, 2100, 2200, 2200)], [rectangle(7000, 7000, 8000, 8000)]]),
+  ];
+  for (const shape of shapes) {
+    const boundary = toWgs84(shape), projected = toMercator(boundary), weights = basinWeights(boundary, tile);
+    const expected = new Map<number, number>();
+    for (let y = 0; y < tile.height; y++) for (let x = 0; x < tile.width; x++) {
+      const clipped = intersect(featureCollection<Polygon | MultiPolygon>([projected,
+        bboxPolygon([x * tile.dx, tile.ymax - (y + 1) * tile.dy, (x + 1) * tile.dx, tile.ymax - y * tile.dy])]));
+      if (clipped && area(toWgs84(clipped)) > 0) expected.set(y * tile.width + x, area(toWgs84(clipped)));
+    }
+    assert.equal(weights.cells.length, expected.size);
+    for (const cell of weights.cells) assert.ok(Math.abs(cell.area - expected.get(cell.index)!) < 0.01, `same clipped area for cell ${cell.index}`);
+    assert.equal(weights.totalArea, area(boundary), 'outside-tile area stays in the denominator');
+  }
 });
 test('native captured TIFF decodes sparse blocks as zero when no nodata tag is present', () => {
   const directory = '../docs/validation/rainfall/2026-11-11-review/';
@@ -100,6 +125,15 @@ test('current six-hour bar includes complete hours so far without hiding rain or
   assert.equal(rainMaximum([{ ...bar, inches: 0.13 }], 6), 1);
   assert.equal(rainMaximum([{ ...bar, inches: 0.13 }], 1), 0.25);
   assert.equal(rainMaximum([{ ...bar, inches: 2.1 }], 6), 3);
+});
+test('short history is explained without erasing gaps; compact dates retain station timezone and older years', () => {
+  assert.equal(rainHistoryStart(rows, end - 24 * RAIN_HOUR, end, 6), null);
+  assert.equal(rainHistoryStart(rows.slice(1), end - 24 * RAIN_HOUR, end, 6), rows[1].start);
+  assert.equal(rainHistoryStart(rows.filter((_, i) => i !== 5), end - 24 * RAIN_HOUR, end, 6), null);
+  assert.equal(rainHistoryStart([], end - 24 * RAIN_HOUR, end, 6), null);
+  assert.equal(chartShortStamp('2026-11-11T22:00:00Z', 'America/Chicago', end), 'Nov 11 · 4 PM CST');
+  assert.equal(chartShortStamp('2025-11-11T22:30:00Z', 'America/Chicago', end), 'Nov 11, 2025 · 4:30 PM CST');
+  assert.equal(chartShortStamp('2026-07-11T22:00:00Z', 'America/Chicago', end), 'Jul 11 · 5 PM CDT');
 });
 
 function withNodata(bytes: Uint8Array, raw: string) {
@@ -163,26 +197,76 @@ test('publisher replays missed hours and chooses the latest revision without los
     metadata: { tile, basinIds: ['test-basin'] }, object_path: 'test', sha256: hash(compressed) });
   const captures = [capture(1, 0, 'new'), { ...capture(1, 0, 'old'), sha256: 'obsolete' }, capture(24, 0, '24'), capture(72, 0, '72'), capture(1, 1, 'missed'), capture(1, 6, 'outage')];
   const uploads: Uint8Array[] = [], downloads: string[] = [], pages: number[] = [];
+  const objects = new Map<string, Uint8Array>([['test', compressed]]);
+  let failUpload = '';
   const query = { select: () => query, eq: () => query, in: () => query, gte: () => query, lte: () => query, order: () => query,
     range: async (offset: number, last: number) => { pages.push(offset); return { data: captures.slice(offset, last + 1), error: null }; } };
   const river = { select: () => river, eq: () => river, single: async () => ({ data: { id: 'river', name: 'Test river' }, error: null }) };
   const places = { select: () => places, eq: () => places, order: () => places, limit: async () => ({ data: [], error: null }) };
   const db = { from: (table: string) => table === 'rivers' ? river : table === 'access_points' ? places : query,
     rpc: async () => ({ data: { type: 'LineString', coordinates: boundary.geometry.coordinates[0][0].slice(0, 2) }, error: null }),
-    storage: { from: () => ({ download: async (path: string) => { downloads.push(path); return { data: new Blob([compressed]), error: null }; },
-      upload: async (_path: string, bytes: Uint8Array) => { uploads.push(bytes); return { error: null }; } }) } } as unknown as import('@supabase/supabase-js').SupabaseClient;
+    storage: { from: () => ({ download: async (path: string) => { downloads.push(path); return objects.has(path)
+      ? { data: new Blob([new Uint8Array(objects.get(path)!)]), error: null } : { data: null, error: { message: 'Object not found', statusCode: '404' } }; },
+      upload: async (path: string, bytes: Uint8Array, options: { upsert: boolean }) => {
+        if (path === failUpload) return { error: { message: 'Upload failed' } };
+        if (!options.upsert && objects.has(path)) return { error: { message: 'Already exists', statusCode: '409' } };
+        objects.set(path, bytes); if (path.startsWith('published/')) uploads.push(bytes); return { error: null };
+      } }) } } as unknown as import('@supabase/supabase-js').SupabaseClient;
   const oldPolicy = { ...RAIN_RELEASE }, oldFlag = process.env.RAINFALL_PUBLIC_ENABLED;
   Object.assign(RAIN_RELEASE, { unitsEvidence: 'test', coverageEvidence: 'test', sites: { test: { basinId: 'test-basin', riverSlug: 'test', name: 'Test', gauge: [-94, 36] } } });
   process.env.RAINFALL_PUBLIC_ENABLED = 'true';
   try {
     const basins = [{ id: 'test-basin', gauge_id: 'gauge', usgs_site_id: 'test', geometry: boundary, provenance: {}, forecast_points: [], review_status: 'reviewed' }];
-    assert.equal(await publishRain(db, basins, new AbortController().signal), 1);
+    const weights = basinWeights(boundary, tile);
+    const key = await savePreparedWeights(db, boundary, tile, weights);
+    assert.equal(key, weightKey(boundary, tile));
+    assert.deepEqual(await loadPreparedWeights(db, boundary, tile), weights);
+    const savedBytes = objects.get(key)!;
+    const corrupt = JSON.parse(gunzipSync(savedBytes).toString());
+    corrupt.weights.cells[0].area += 1;
+    objects.set(key, gzipSync(JSON.stringify(corrupt)));
+    await assert.rejects(loadPreparedWeights(db, boundary, tile), /Invalid prepared/);
+    objects.set(key, savedBytes);
+    await savePreparedWeights(db, boundary, tile, weights); // immutable retry/readback
+    downloads.length = 0;
+    assert.deepEqual(await publishRain(db, basins, new AbortController().signal), { published: 1, failures: [] });
     const data = JSON.parse(gunzipSync(uploads[0]).toString()).data;
     assert.equal(data.hourly.length, 3, 'recovers a six-hour-old capture missed by the former three-hour query');
     assert.ok(data.hourly.every((row: { inches: number }) => row.inches === 0));
-    assert.equal(data.totals.length, 2); assert.equal(downloads.length, 5, 'skips obsolete revision');
-    assert.equal(await publishRain(db, basins, new AbortController().signal), 1);
+    assert.equal(data.totals.length, 2); assert.equal(downloads.filter(path => path === 'test').length, 5, 'skips obsolete revision');
+    assert.equal(downloads.filter(path => path === key).length, 1, 'loads weights once per grid, not once per capture');
+    assert.deepEqual(await publishRain(db, basins, new AbortController().signal), { published: 1, failures: [] });
     assert.deepEqual(uploads[0], uploads[1], 'replaying the same archive is idempotent');
+    const shifted = structuredClone(boundary);
+    shifted.geometry.coordinates[0][0][1][0] += 0.001;
+    assert.notEqual(weightKey(shifted, tile), key, 'exact geometry invalidates weights');
+    assert.notEqual(weightKey(boundary, { ...tile, xmin: tile.xmin + 1, xmax: tile.xmax + 1 }), key, 'grid origin invalidates weights');
+    const bad = { ...basins[0], id: 'bad-basin', usgs_site_id: 'bad', geometry: shifted };
+    RAIN_RELEASE.sites.bad = { ...RAIN_RELEASE.sites.test, basinId: bad.id };
+    captures.forEach(capture => capture.metadata.basinIds.push(bad.id));
+    const badPath = 'published/v1/bad.json.gz', previous = new Uint8Array([1, 2, 3]);
+    objects.set(badPath, previous);
+    let result = await publishRain(db, [bad, ...basins], new AbortController().signal);
+    assert.equal(result.published, 1); assert.equal(result.failures[0].siteId, 'bad');
+    assert.match(result.failures[0].reason, /weights unavailable/);
+    assert.deepEqual(objects.get(badPath), previous, 'cache miss keeps last publication, without synchronous calculation');
+    const badKey = weightKey(shifted, tile);
+    objects.set(badKey, objects.get(key)!);
+    result = await publishRain(db, [bad, ...basins], new AbortController().signal);
+    assert.equal(result.published, 1); assert.match(result.failures[0].reason, /Invalid prepared/);
+    objects.delete(badKey);
+    await savePreparedWeights(db, shifted, tile, basinWeights(shifted, tile));
+    failUpload = badPath;
+    result = await publishRain(db, [bad, ...basins], new AbortController().signal);
+    assert.deepEqual(result, { published: 1, failures: [{ siteId: 'bad', reason: 'Upload failed' }] });
+    assert.deepEqual(objects.get(badPath), previous);
+    failUpload = '';
+    captures.unshift({ ...capture(1, 0, 'broken'), metadata: { tile, basinIds: [bad.id] }, sha256: 'bad checksum' });
+    result = await publishRain(db, [bad, ...basins], new AbortController().signal);
+    assert.deepEqual(result, { published: 1, failures: [{ siteId: 'bad', reason: 'Rain archive checksum mismatch' }] });
+    assert.deepEqual(objects.get(badPath), previous, 'corrupt latest data must not fall back to an older revision');
+    const aborted = new AbortController(); aborted.abort();
+    await assert.rejects(publishRain(db, basins, aborted.signal), /abort/i, 'global cancellation still stops work');
     captures.length = 0;
     for (let i = 0; i < 251; i++) captures.push(capture(1, 0, String(i)));
     pages.length = 0;

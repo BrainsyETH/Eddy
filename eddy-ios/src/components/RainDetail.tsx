@@ -1,12 +1,22 @@
 import { useId, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Path, Pattern, Rect, Text as SvgText } from 'react-native-svg';
-import { chartStamp } from '@eddy/conditions/chart-calendar';
+import { chartStamp, chartShortStamp } from '@eddy/conditions/chart-calendar';
 import { rainAmount, usableRain } from '@eddy/conditions/rainfall';
 import { rainfallMap, RAIN_MAP_BANDS } from '@eddy/conditions/rainfall-map';
 import { useRainDetail } from '@/hooks/useRainfall';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+
+// Two passes give native SVG the same halo as web without relying on paintOrder.
+function MapLabel({ x, y, label, size, color, halo, anchor = 'middle' }: {
+  x: number; y: number; label: string; size: number; color: string; halo: string; anchor?: 'start' | 'middle' | 'end';
+}) {
+  return <G accessible={false}>
+    <SvgText x={x} y={y} textAnchor={anchor} fontSize={size} fill={halo} stroke={halo} strokeWidth={3} strokeLinejoin="round">{label}</SvgText>
+    <SvgText x={x} y={y} textAnchor={anchor} fontSize={size} fill={color}>{label}</SvgText>
+  </G>;
+}
 
 /** Rendered inside the chart's existing sheet/full-screen modal. */
 export function RainDetail({ siteId, timeZone }: { siteId: string; timeZone: string }) {
@@ -29,13 +39,17 @@ export function RainDetail({ siteId, timeZone }: { siteId: string; timeZone: str
         <G clipPath={`url(#${id})`}><Path d={map.shading.join('')} fill={colors.card} />{map.shading.map((d, i) => <Path key={i} d={d} fill={i === 0 ? colors.card : colors.rainHeavy} fillOpacity={i === 0 ? 1 : 0.15 + i * 0.16} />)}</G>
         <Path d={map.path} fill="none" stroke={colors.interactive} strokeWidth={1.5} />
         {map.river ? <G clipPath={`url(#${id})`}><Path d={map.river} fill="none" stroke={colors.card} strokeWidth={3.5} /><Path d={map.river} fill="none" stroke={colors.text} strokeWidth={1.5} /></G> : null}
-        {map.places.map(place => <G key={place.name}><Circle cx={place.x} cy={place.y} r={2} fill={colors.text} /><SvgText x={place.x} y={place.y - 7} textAnchor={place.x > 210 ? 'end' : place.x < 110 ? 'start' : 'middle'} fill={colors.text} fontSize={10}>{place.name.length > 22 ? `${place.name.slice(0, 21)}…` : place.name}</SvgText></G>)}
-        <SvgText x={map.gauge.x} y={Math.min(260, map.gauge.y + 16)} textAnchor="middle" fill={colors.text} fontSize={11}>Gauge</SvgText>
+        {map.places.map(place => <G key={place.name}><Circle cx={place.x} cy={place.y} r={2} fill={colors.text} stroke={colors.card} strokeWidth={1} />
+          <MapLabel x={place.x} y={place.y - 7} anchor={place.x > 210 ? 'end' : place.x < 110 ? 'start' : 'middle'} color={colors.text} halo={colors.card} size={10}
+            label={place.name.length > 22 ? `${place.name.slice(0, 21)}…` : place.name} /></G>)}
+        <MapLabel x={map.gauge.x} y={Math.min(260, map.gauge.y + 16)} color={colors.text} halo={colors.card} size={11} label="Gauge" />
         <Circle cx={map.gauge.x} cy={map.gauge.y} r={4} fill={colors.accent} stroke={colors.card} strokeWidth={2} />
         <SvgText x={300} y={22} textAnchor="middle" fill={colors.textMuted} fontSize={12}>N ↑</SvgText>
       </Svg>
     </View>
-    <Text style={[styles.caption, { color: colors.textMuted }]}>{data.shading ? `24-hour rain · through ${chartStamp(data.shading.end, timeZone)}` : 'Rainfall shading unavailable'} · Dot: gauge{map.riverName ? ` · Line: ${map.riverName}` : ''}</Text>
+    <Text style={[styles.caption, { color: colors.textMuted }]}
+      accessibilityLabel={`${data.shading ? `24-hour rain through ${chartStamp(data.shading.end, timeZone)}` : 'Rainfall shading unavailable'}. Dot: gauge${map.riverName ? `. Line: ${map.riverName}` : ''}`}>
+      {data.shading ? `24-hour rain · ${chartShortStamp(data.shading.end, timeZone)}` : 'Rainfall shading unavailable'} · Dot: gauge{map.riverName ? ` · Line: ${map.riverName}` : ''}</Text>
     {data.shading ? <View style={styles.legend}>{RAIN_MAP_BANDS.map((label, i) => <View key={label} style={styles.legendItem}>
       <View style={[styles.swatch, { backgroundColor: i === 0 ? colors.card : colors.rainHeavy, borderWidth: 1, borderColor: colors.textSubtle, opacity: i === 0 ? 1 : 0.15 + i * 0.16 }]} />
       <Text style={[styles.caption, { color: colors.textMuted }]}>{label} in</Text></View>)}
@@ -44,7 +58,9 @@ export function RainDetail({ siteId, timeZone }: { siteId: string; timeZone: str
     <View style={styles.totals}>{[24, 72].map(hours => { const total = data.totals.find(row => row.hours === hours); return <View key={hours} style={[styles.total, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Text style={[styles.caption, { color: colors.textMuted }]}>Past {hours} hours</Text>
       <Text style={[styles.amount, { color: colors.text }]}>{rainAmount(total?.inches)}</Text>
-      {total ? <Text style={[styles.caption, { color: colors.textMuted }]}>Through {chartStamp(total.end, timeZone)}{total.coverage < 1 ? ` · ${Math.round(total.coverage * 100)}% coverage` : ''}</Text> : null}
+      {total ? <Text style={[styles.caption, { color: colors.textMuted }]}
+        accessibilityLabel={`Through ${chartStamp(total.end, timeZone)}${total.coverage < 1 ? `, ${Math.round(total.coverage * 100)}% coverage` : ''}`}>
+        {chartShortStamp(total.end, timeZone)}{total.coverage < 1 ? ` · ${Math.round(total.coverage * 100)}% coverage` : ''}</Text> : null}
     </View>; })}</View>
     <Text style={[styles.caption, { color: colors.textMuted }]}>Radar estimates can differ from rain measured on the ground. Gaps mean missing data.</Text>
     <Pressable accessibilityRole="button" accessibilityState={{ expanded: hoursOpen }} onPress={() => setHoursOpen(value => !value)} style={styles.action}>

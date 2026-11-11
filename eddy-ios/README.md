@@ -1241,19 +1241,34 @@ and before the safety disclaimer.
 Gauge detail omits the routine provisional-data footnote. Source-flagged suspect
 readings still show their specific qualifier note.
 
-Where a river has distinct hydrology above and below a dam, **Choose your
-section** replaces the gauge picker and the separate Reaches panel. Upper/Lower
-Black use the same short labels and endpoints as the website. Each selection
+Where a river has distinct hydrology above and below a dam, a section
+**segmented control** (Upper Black | Lower Black) replaces the gauge picker and
+the separate Reaches panel. It is one compact row with 44pt minimum touch
+targets on the `cardRaised` track; the selected segment adds a `card` fill,
+teal outline and teal semibold label, so
+selection never rests on fill alone. One muted line beneath it gives the
+selected section's endpoints, using the website's short labels. Past three
+sections the row scrolls instead of shrinking. Each selection
 owns the readings, chart, weather and Eddy’s Read; the level and flow share one
 card with the chart, and Clearwater context closes only the Lower Black report.
+On Upper Black a single row, "Clearwater Dam · View Lower Black", switches to
+that section instead, so the dam is never lost from the river.
 Ordinary rivers retain their gauge picker and the existing Premium flow stays.
 
 The reaches API carries the configured `gaugeStationId`. Missing mappings,
-including old cached responses, never borrow another section’s station.
+including old cached responses, never borrow another section’s station. The
+one exception is the river's own primary stretch (`differsFromRiver: false`,
+with no station or the river's primary one): if its station cannot be joined to
+`/api/gauges` (that request failed, or the reach was cached before it carried
+the id), it reads the river's primary report rather than "Report unavailable".
 An explicit `section` link wins over `gauge`; a matching gauge-only arrival
-selects its section. Share carries the selected section back to the website.
-Selectors grow with Dynamic Type, expose radio selection to VoiceOver, and use
-the existing light/dark palette. Device verification is separate from CI.
+selects its section. An unresolved gauge-only arrival stays loading while its
+data loads, then unavailable if the mapping is still missing; it never selects
+or reads the primary section by default. The reader can retry or pick a section.
+Share carries the selected section back to the website.
+Segment labels wrap and the row grows with uncapped Dynamic Type, keeping both
+choices side by side. Segments expose radio selection with endpoints to VoiceOver
+and use the existing light/dark palette. Device verification is separate from CI.
 
 ## Favorites
 
@@ -2403,10 +2418,12 @@ privacy rules and the outstanding physical-device share gates.
 
 River reports explicitly open at 7d. The shared gauge chart retains its 30d
 default for other callers; shared links retain their requested range. Reviewed
-rain can appear on 24h/7d inside the existing chart height, with an independent
+rain can appear on 24h/7d, adding its own height above the existing river plot, with an independent
 inches scale and a shared cursor. Compare contains the remembered Rain switch;
 tapping Rain upstream opens the existing chart sheet (full screen when expanded).
 The native SVG map, totals and hourly list share data/formatting rules with web.
+Map labels have theme-aware halos. Compact visible timestamps retain full
+VoiceOver labels; a short archive is labelled “Rain record starts…”.
 No new native dependency or permission is required.
 
 Eddy's Read follows the chart and precedes the free Will it hold? forecast.
@@ -2415,8 +2432,8 @@ and Bottom line visible immediately. Read more expands only longer prose.
 Locked previews have no expand button; one accessible Premium offer explains access. Existing Premium authorization and
 the single shared lock remain in force. Switching gauge resets expanded prose.
 
-Before distribution, verify the rain switch persists, toggling does not move the
-report below the chart, rain/gauge values scrub together, and opening/closing the
+Before distribution, verify the rain switch persists, toggling preserves the
+river plot height while adding/removing the rain track, rain/gauge values scrub together, and opening/closing the
 watershed preserves chart state. Repeat in dark/light, large text, VoiceOver and
 expanded-chart landscape. Verify section changes, missing/stale rain and offline
 failures do not substitute another basin or turn missing amounts into zero.

@@ -93,6 +93,14 @@ export function rainMaximum(rows: readonly RainInterval[], hours: 1 | 6 = 6): nu
   const maximum = Math.max(floor, ...rows.filter(usableRain).map(row => row.inches!));
   return Math.ceil(maximum / floor) * floor;
 }
+/** Explain a short archive separately from interior outages. Alignment matters:
+ * the leftmost six-hour bar may need hours just before the visible window. */
+export function rainHistoryStart(rows: readonly RainInterval[], from: number, to: number, hours: 1 | 6): string | null {
+  const first = Math.min(...rows.filter(row => Date.parse(row.end) - Date.parse(row.start) === RAIN_HOUR)
+    .map(row => Date.parse(row.start)).filter(Number.isFinite));
+  return first > Math.floor(from / (hours * RAIN_HOUR)) * hours * RAIN_HOUR && first < to
+    ? new Date(first).toISOString() : null;
+}
 export function rainIsFresh(summary: RainSummary, now = Date.now()): boolean {
   const age = now - Date.parse(summary.updatedAt);
   return Number.isFinite(age) && age >= -10 * 60_000 && age <= 3 * RAIN_HOUR;

@@ -30,6 +30,31 @@ transport and decoding. They do not independently prove the image-service wet
 units against the underlying MRMS archive or constitute storm backfill.
 Those release gates remain open; public rainfall remains disabled.
 
+`weights-performance.json` records the offline preparation benchmark for the
+same 50 captured basin versions and the validated regional grid. On this Node
+20 runtime all 50 completed within 15 seconds each (slowest 5.538 seconds;
+38.815 seconds total). Selected results:
+
+| Basin | Preparation |
+| --- | ---: |
+| Current at Montauk | 0.063 s |
+| Jacks Fork at Alley Spring | 0.217 s |
+| Buffalo near St. Joe | 0.524 s |
+| Current at Van Buren | 0.950 s |
+| Gasconade at Jerome | 1.592 s |
+
+Reproduce from `missouri-float-planner`:
+
+```sh
+node --import tsx scripts/rainfall/benchmark-weights.ts --evidence ../docs/validation/rainfall/2026-11-11-review --tile ../docs/validation/rainfall/2026-11-11-stream/direct-export.json
+```
+
+These timings are machine-dependent preparation measurements. Hourly publication
+loads prepared private objects and never runs this calculation. Storage readback,
+production replay runtime and scheduled publication still need deployment evidence.
+The numerical tests compare the optimized path against full clipping for holes,
+concave boundaries, disconnected polygons and regions extending outside the grid.
+
 `black-river-context.json` is a read-only snapshot of Eddy's existing Black River
 geometry and approved access coordinates. The browser fixture filters labels
 inside the real USGS basin and clips the river to it. Rain amounts in browser

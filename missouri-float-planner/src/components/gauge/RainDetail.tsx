@@ -6,7 +6,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useRainDetail } from '@/hooks/useRainfall';
 import { rainAmount, usableRain } from '@shared/rainfall';
 import { rainfallMap, RAIN_MAP_BANDS } from '@shared/rainfall-map';
-import { chartStamp } from '@shared/chart-calendar';
+import { chartStamp, chartShortStamp } from '@shared/chart-calendar';
 
 export default function RainDetail({ siteId, timeZone, onClose }: { siteId: string; timeZone: string; onClose: () => void }) {
   const ref = useFocusTrap<HTMLDivElement>(true, onClose);
@@ -42,7 +42,7 @@ export default function RainDetail({ siteId, timeZone, onClose }: { siteId: stri
             <circle cx={map.gauge.x} cy={map.gauge.y} r="4" fill="var(--color-accent-600)" stroke="white" strokeWidth="2" />
             <text x="300" y="22" textAnchor="middle" fill="var(--color-neutral-700)" fontSize="12">N ↑</text>
           </svg>
-          <p className="mt-2 text-xs text-neutral-600">{data.shading ? `24-hour rain · through ${chartStamp(data.shading.end, timeZone)}` : 'Rainfall shading unavailable'} · Dot: gauge{map.riverName ? ` · Line: ${map.riverName}` : ''}</p>
+          <p className="mt-2 text-xs text-neutral-600">{data.shading ? <>24-hour rain · <time dateTime={data.shading.end} title={chartStamp(data.shading.end, timeZone)} aria-label={`Through ${chartStamp(data.shading.end, timeZone)}`}>{chartShortStamp(data.shading.end, timeZone)}</time></> : 'Rainfall shading unavailable'} · Dot: gauge{map.riverName ? ` · Line: ${map.riverName}` : ''}</p>
           {data.shading && <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-xs text-neutral-600" aria-label="Rainfall in inches">
             {RAIN_MAP_BANDS.map((label, i) => <span key={label} className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 border border-neutral-500" style={{ backgroundColor: i === 0 ? 'white' : 'var(--color-primary-700)', opacity: i === 0 ? 1 : 0.15 + i * 0.16 }} />{label} in</span>)}
             <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 border border-neutral-400" style={{ background: 'repeating-linear-gradient(135deg, var(--color-neutral-100), var(--color-neutral-100) 2px, var(--color-neutral-400) 2px, var(--color-neutral-400) 3px)' }} />No estimate</span>
@@ -50,7 +50,7 @@ export default function RainDetail({ siteId, timeZone, onClose }: { siteId: stri
           <dl aria-label="Rain totals" className="mt-5 grid grid-cols-2 gap-3">
             {[24, 72].map(hours => { const total = data.totals.find(row => row.hours === hours); return <div key={hours} className="rounded-lg border border-secondary-200 bg-white p-3">
               <dt className="text-xs text-neutral-600">Past {hours} hours</dt><dd className={`mt-1 font-mono font-semibold text-primary-800 ${total?.inches == null ? 'text-sm' : 'text-xl'}`}>{rainAmount(total?.inches)}</dd>
-              {total && <dd className="mt-1 text-xs text-neutral-500">Through {chartStamp(total.end, timeZone)}{total.coverage < 1 ? ` · ${Math.round(total.coverage * 100)}% coverage` : ''}</dd>}
+              {total && <dd className="mt-1 text-xs text-neutral-500"><time dateTime={total.end} title={chartStamp(total.end, timeZone)} aria-label={`Through ${chartStamp(total.end, timeZone)}`}>{chartShortStamp(total.end, timeZone)}</time>{total.coverage < 1 ? ` · ${Math.round(total.coverage * 100)}% coverage` : ''}</dd>}
             </div>; })}
           </dl>
           <p className="mt-4 text-xs text-neutral-600">Radar estimates can differ from rain measured on the ground. Gaps mean missing data.</p>

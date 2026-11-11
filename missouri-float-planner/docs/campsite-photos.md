@@ -62,3 +62,34 @@ nonempty exact-site entries after the API deployment. On an iPhone,
 check thumbnail vs booking taps, gallery navigation/zoom/close, VoiceOver, dark
 mode, failed images, and changing pins/tabs while photos load. Check State Park site rows, photo source labels, filters, Show more, and the
 park-level booking action. Fully booked loops retain their compact summaries.
+
+## Web campground dialog
+
+Web opens with the overview's campground-level image, with Eddy artwork when
+that image is missing or fails. Exact-site thumbnails load automatically near
+the visible rows, at most three media requests at once; they never block site
+availability. Clicking a thumbnail opens its inline gallery with source/credits.
+Empty media retains a quiet placeholder; failed requests offer Retry photos.
+Successful metadata is cached for one hour in a bounded browser cache.
+Failed campground cover URLs retain their fallback across card/calendar remounts
+for one minute, capped at 40 URLs, before a later mount can retry them.
+
+Each campground section loads independently. Hovering or focusing a campground
+list action starts its detail request. A bounded 60-second browser cache shares
+in-flight and completed detail requests by facility and exact stay dates. Failed
+requests are evicted, and the display still rechecks observation age and current
+park policy. Open dialogs recheck the cache on the existing 30-second clock.
+Share uses native mobile sharing or desktop clipboard feedback. Cancelling the
+native sheet does not copy the link. No API contract or database change.
+
+Web request deadlines use AbortController and a cleared timer, so photos also
+work in browsers without AbortSignal.any. The ten-second photo deadline starts
+when a queued request runs and covers its response body. Closing the dialog
+cancels queued and running photos. Shared availability requests continue until
+completion or their eight-second deadline, allowing immediate reopen reuse.
+
+A failed background refresh keeps the previous site data and shows a small retry
+notice. Observation age and current park policies still recalculate: retaining
+data never extends its freshness. Initial-load failures keep the full error state.
+The unavailable toggle considers only matching filters, and the date line shows
+the selected night count instead of “Your stay” or “One-night preview”.

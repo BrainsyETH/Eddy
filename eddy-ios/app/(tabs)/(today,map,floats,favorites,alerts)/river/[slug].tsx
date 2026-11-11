@@ -113,6 +113,7 @@ import { useObservationClock } from '@/hooks/useObservationClock';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverSectionSelector } from '@/components/river/RiverSectionSelector';
+import { SectionDamLink } from '@/components/river/SectionDamLink';
 import { resolveRiverSection, sectionShowsDam, sectionOutlook } from '@/lib/riverSections';
 import { riverSectionLabel } from '@eddy/conditions/river-section-label';
 import { GaugeChart } from '@/components/GaugeChart';
@@ -583,6 +584,7 @@ export default function RiverDetailScreen() {
     gauges: gaugesLoadedFor === slug ? gauges : [], gaugesReady: gaugesLoadedFor === slug,
     sectionSlug: pickedSection?.key === selectionRouteKey ? pickedSection.slug : section,
     gaugeSiteId: gaugeParam,
+    primaryGaugeId: river?.primaryGaugeId ?? null,
   });
   const hasSections = sectionSelection.sections.length > 1;
   const selectedSection = sectionSelection.selected;
@@ -1345,6 +1347,7 @@ export default function RiverDetailScreen() {
   });
   const damLeads = Boolean(damTab?.leadsCard && damHasPanel(selectedDam));
   const showDamContext = sectionShowsDam(dam?.tailwater?.sectionSlug, selectedSection?.sectionSlug);
+  const damSection = sectionSelection.sections.find(section => section.sectionSlug === dam?.tailwater?.sectionSlug) ?? null;
   const outlookPending = !reportBlocked && (outlookLoading || outlookFor?.key !== activeOutlookKey);
   // The dam Read's access rules, the dam screen's and the Today rail's
   // (readPremiumAccess.ts): Premium prose only for a verified member of THIS
@@ -1510,6 +1513,16 @@ export default function RiverDetailScreen() {
         {hasSections && showDamContext && dam ? (
           <View style={styles.sectionDam}>
             {damHasPanel(dam) ? <RiverDamPanel dam={dam} position="footer" now={now} /> : <TailwaterStatusRow dam={dam} />}
+          </View>
+        ) : null}
+        {/* Above the dam its release says nothing about this water, so the
+            panel stays with its own section — but the dam is still the
+            controlling fact about the river, and it must not vanish. One row
+            hands the reader to the section it does control. */}
+        {hasSections && !showDamContext && dam && damSection ? (
+          <View style={styles.sectionDam}>
+            <SectionDamLink damName={dam.name} sectionTitle={riverSectionLabel(damSection).title}
+              onPress={() => selectSection(damSection.sectionSlug)} />
           </View>
         ) : null}
         </View>

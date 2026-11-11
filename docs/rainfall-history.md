@@ -150,7 +150,7 @@ and 7-day views. It has its own inches scale and the same time axis as the river
 The preference is remembered on each device/browser. One-hour accumulations are
 shown on 24h; complete, aligned six-hour sums are shown on 7d. Missing hours
 invalidate a six-hour bar; rolling 24/72h products never fill timeline gaps.
-The chart keeps its height when Rain is toggled. The watershed map, 24/72h totals,
+Rain adds its own track height while preserving the river plot's height. The watershed map, 24/72h totals,
 source times, coverage and accessible hourly table open in a drawer on desktop
 and a sheet/full-screen view on phones. They do not add a main-report card.
 
@@ -189,7 +189,7 @@ view readback, a scheduled update, outage behavior and client denial of archives
 Disable the public flag to remove the layer without stopping private collection.
 
 `npm run test:river-sections` also exercises the rain UI at 1440/390/320px,
-unchanged chart/report height on toggling, remembered preference, shared cursor,
+preserved river plot height on toggling, remembered preference, shared cursor,
 keyboard detail dismissal, section switching, and wet/dry/missing/stale data.
 Its map uses the captured USGS Annapolis outline; rain and readings are fixtures.
 The existing `river-sections-web` CI job retains its screenshots. Native device,
@@ -225,3 +225,43 @@ Before public activation: replay representative archived wet storms against the
 underlying NOAA product, review basin versions, measure publisher runtime on the
 intended inventory, and verify scheduled captures and readback in production.
 The evidence entries, public flag and station allowlist remain closed.
+
+### Prepared basin weights and isolated publication
+
+Hourly publication never computes basin/grid weights. Prepare them once for
+each exact basin shape and native grid using `scripts/rainfall/prepare-weights.ts`.
+The immutable `weights/v2/<identity>.json.gz` objects stay in the private research
+bucket. Their identity covers the geometry, EPSG:3857 grid dimensions/origin/spacing,
+and algorithm version; payload checksums, bounds and basin area are checked on load.
+A changed shape, grid or algorithm needs preparation again. No schema change is needed.
+
+Preparation clips the shape once per grid row, indexes all outer/hole edges,
+uses whole-cell areas only where no boundary edge crosses a cell, and clips the
+remaining cells against the row geometry. The offline benchmark for all 50 saved
+basins is in `validation/rainfall/2026-11-11-stream/weights-performance.json`.
+This measures local preparation, not production publisher runtime or storm accuracy.
+
+From `missouri-float-planner`, using the tile metadata of a validated native capture:
+
+```sh
+node --import tsx scripts/rainfall/prepare-weights.ts --tile ../docs/validation/rainfall/2026-11-11-stream/direct-export.json
+```
+
+This defaults to a dry run over stored enabled basin versions. `--site USGS_ID`
+limits it to one basin. With explicit production-write authorization, use
+`--apply` and pin `EXPECTED_SUPABASE_REF`; the script checks the bucket is private,
+uploads without overwriting, and verifies readback. Prepare every grid needed by
+the replay window before adding a station to the public allowlist. This step
+does not review a basin or activate rainfall. No preparation uploads have been
+performed as part of this PR.
+
+A missing/corrupt prepared object, map-context failure, or upload failure marks
+only that basin failed. Its previous publication is retained and ages normally;
+healthy basins still publish. Corrupt source captures fail the basins that use
+them, without falling back to obsolete revisions. Shared archive-query failures
+and global cancellation still stop the run. Monitoring reports partial status,
+the number of published basins, and site-specific failure logs.
+
+Before activation, run the preparation/readback on the intended environment,
+measure a full eight-day publisher replay, and exercise one failed basin beside
+a healthy one. Historical storm, basin review and scheduled-capture gates remain.

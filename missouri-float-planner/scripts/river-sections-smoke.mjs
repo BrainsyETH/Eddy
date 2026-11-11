@@ -62,7 +62,7 @@ function rainFixture(mode = 'normal') {
     inches: mode === 'missing-rain' && i > 144 ? null : mode === 'dry' ? 0 : i >= 145 && i < 157 ? 0.065 : i === 130 ? 0.13 : 0,
     coverage: mode === 'missing-rain' && i > 144 ? 0.3 : 1 }));
   return { version: 1, siteId: station.usgsSiteId, updatedAt: new Date(end - (mode === 'stale-rain' ? 4 * hour : 0)).toISOString(),
-    status: mode === 'missing-rain' ? 'partial' : 'ready', basin: { name: 'Black River near Annapolis', areaSqMi: 484, gauge: [-90.78, 37.33] }, hourly,
+    status: mode === 'missing-rain' ? 'partial' : 'ready', basin: { name: 'Black River near Annapolis', areaSqMi: 484, gauge: [-90.78, 37.33] }, hourly: mode === 'short-rain' ? hourly.slice(-24) : hourly,
     totals: [24, 72].map(hours => ({ hours, start: new Date(end - hours * hour).toISOString(), end: new Date(end).toISOString(), inches: mode === 'missing-rain' ? null : mode === 'dry' ? 0 : hours === 24 ? 0.78 : 0.91, coverage: mode === 'missing-rain' ? 0.3 : 1 })),
     boundary, context: mapContext, shading: mode === 'missing-rain' ? null : { start: new Date(end - 24 * hour).toISOString(), end: new Date(end).toISOString(), xmin: Math.min(...xs), ymax: Math.max(...ys),
       dx: (Math.max(...xs) - Math.min(...xs)) / 40, dy: (Math.max(...ys) - Math.min(...ys)) / 40, width: 40, height: 40,
@@ -158,12 +158,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await rainToggle.waitFor(); await page.locator('[data-rain-track]').waitFor();
     const readY = () => page.locator('#eddy-says').evaluate(node => node.getBoundingClientRect().top + window.scrollY);
     const firstReadY = await readY();
+    const rainPlotHeight = await page.locator('[data-river-plot]').evaluate(node => node.getBoundingClientRect().height);
+    assert(rainPlotHeight >= (width >= 1024 ? 384 : 192), 'Rain must preserve the original river plot height');
     const forecastY = await page.getByRole('heading', { name: 'Will it hold?', exact: true }).evaluate(node => node.getBoundingClientRect().top + window.scrollY);
     assert(firstReadY < forecastY, 'Read precedes the forecast');
     const slider = page.getByRole('slider').first(); await slider.focus(); await page.keyboard.press('End');
     assert.match(await slider.getAttribute('aria-valuetext'), /Rain (upstream|data unavailable)/);
     await rainToggle.click(); assert.equal(await page.locator('[data-rain-track]').count(), 0);
-    assert(Math.abs(await readY() - firstReadY) < 2, 'Rain toggle must not move the Read or grow the chart');
+    assert(Math.abs(await page.locator('[data-river-plot]').evaluate(node => node.getBoundingClientRect().height) - rainPlotHeight) < 2,
+      'Rain must add its own height instead of shrinking the river');
+    assert(firstReadY - await readY() >= 83, 'Rain contributes its own track height');
     await page.reload(); await heading(page, false).waitFor(); await rainToggle.waitFor();
     assert.equal(await rainToggle.getAttribute('aria-pressed'), 'false', 'Remember rain off');
     await rainToggle.click(); await page.locator('[data-rain-track]').waitFor();
@@ -246,7 +250,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     assert.equal(await page.getByRole('radio').count(), 0);
     await page.close(); console.log('PASS ordinary river retains its gauge picker');
   }
-  for (const mode of ['dry', 'missing-rain', 'stale-rain']) {
+  for (const mode of ['dry', 'missing-rain', 'stale-rain', 'short-rain']) {
     const { page } = await newPage(390, mode); await page.goto(target);
     await page.getByRole('button', { name: 'Show rain upstream' }).waitFor();
     if (mode === 'stale-rain') {
@@ -257,8 +261,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       const dialog = page.getByRole('dialog', { name: 'Rain upstream' });
       await dialog.getByText('Black River near Annapolis', { exact: true }).waitFor();
       if (mode === 'dry') assert.equal(await dialog.locator('dl').getByText('0.00 in', { exact: true }).count(), 2);
-      else { assert.equal(await dialog.locator('dl').getByText('Unavailable', { exact: true }).count(), 2); assert.equal(await dialog.locator('dl').getByText('0.00 in', { exact: true }).count(), 0); }
+      else if (mode === 'missing-rain') { assert.equal(await dialog.locator('dl').getByText('Unavailable', { exact: true }).count(), 2); assert.equal(await dialog.locator('dl').getByText('0.00 in', { exact: true }).count(), 0); }
       await page.keyboard.press('Escape');
+      if (mode === 'short-rain') await page.getByText(/^Rain record starts /).waitFor();
     }
     await page.screenshot({ path: `${out}/rain-${mode}-390.png`, fullPage: true });
     await page.close();

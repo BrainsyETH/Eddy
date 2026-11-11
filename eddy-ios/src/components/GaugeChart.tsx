@@ -3,9 +3,9 @@
 
 import { useRainfall, useRainPreference } from '@/hooks/useRainfall';
 import { RainDetail } from '@/components/RainDetail';
-import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh } from '@eddy/conditions/rainfall';
+import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh, rainHistoryStart } from '@eddy/conditions/rainfall';
 import { chartValueDomain } from '@eddy/conditions/chart-view';
-import { chartStamp } from '@eddy/conditions/chart-calendar';
+import { chartStamp, chartShortStamp } from '@eddy/conditions/chart-calendar';
 import { chartStatisticForUnit, resolutionNotice, type ChartShareState } from '@eddy/conditions/chart-share';
 import { captureNativeChart, nativeChartView } from '@/lib/chartSharing';
 import { ChartShareControl } from '@/components/ChartShareControl';
@@ -315,7 +315,7 @@ function GaugeChartView({
   const { fontScale } = useWindowDimensions();
   const [controlsHeight, setControlsHeight] = useState(112 * fontScale);
   const [actionsHeight, setActionsHeight] = useState(44 * fontScale);
-  const chartHeight = expanded
+  const baseChartHeight = expanded
     ? expandedChartHeight(availableHeight, controlsHeight, actionsHeight, fontScale)
     : CHART_HEIGHT * Math.max(1, fontScale);
   const axisFont = 11 * fontScale;
@@ -341,10 +341,15 @@ function GaugeChartView({
   const rain = rainfall.data;
   const rainEnabled = !!(rainOn && rain && rain.status !== 'unavailable' && rainIsFresh(rain) && !rainfall.failed && matchesRequest && rainRange(days, !!customWindow));
   const padTop = (30 + (rainEnabled ? 76 : 0)) * fontScale;
+  // Rain adds its own space; the existing river plot keeps its readable height.
+  // The full-screen container already scrolls at large text/landscape sizes.
+  const chartHeight = baseChartHeight + (rainEnabled ? 76 * fontScale : 0);
   const rainRows = useMemo(() => rainEnabled && rain && history?.requestedWindow
     ? rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6) : [],
     [rainEnabled, rain, history, days]);
   const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
+  const rainStart = rainEnabled && rain && history?.requestedWindow
+    ? rainHistoryStart(rain.hourly, Date.parse(history.requestedWindow.from), Date.parse(history.requestedWindow.to), days === 1 ? 1 : 6) : null;
 
   /**
    * The range the line on screen actually covers, which is NOT always `days`.
@@ -1146,6 +1151,8 @@ function GaugeChartView({
           <View accessible accessibilityLabel={`Scale zero to ${rainMax.toFixed(2)} inches, ${days === 1 ? 'hourly' : 'six-hour'} bars`}><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>0–{rainMax.toFixed(2)} in</Text><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>{days === 1 ? 'Hourly bars' : '6-hour bars'}</Text></View>
         </View> : null}
       </View>
+      {rainStart ? <Text style={[styles.caption, { color: colors.textMuted, marginTop: 8 }]}
+        accessibilityLabel={`Rain record starts ${chartStamp(rainStart, historyTimeZone(history?.timeZone))}`}>Rain record starts {chartShortStamp(rainStart, historyTimeZone(history?.timeZone))}</Text> : null}
       <View style={[styles.actions, { borderTopColor: colors.border }]}
         onLayout={expanded ? event => setActionsHeight(event.nativeEvent.layout.height) : undefined}>
         {expanded && provider === 'usgs' && <ChartShareControl state={shareState} stationName={title} />}

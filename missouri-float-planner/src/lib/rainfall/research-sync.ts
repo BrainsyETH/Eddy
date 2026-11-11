@@ -42,7 +42,7 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
     bytesSaved += await save(db, { ...c, basinSetHash });
   };
   await archive({ kind: 'basins', sourceKey: basinSetHash, metadata: { basinIds, publicUse: false }, bytes: jsonBytes(basins) });
-  let failed = 0, completed = 0, deferred = 0, stale = 0;
+  let failed = 0, completed = 0, deferred = 0, stale = 0, publishedBasins = 0;
   if (mode === 'observations') {
     // Keep a replayable copy of the gauge record known at collection time.
     // Page explicitly: the hosted API's default 1,000-row limit is not completeness.
@@ -127,8 +127,13 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
   // Publishing is separately gated by evidence and reviewed basin versions.
   // It cannot turn research-only captures into public amounts by itself.
   if (mode === 'observations') {
-    try { await publishRain(db, basins, signal); }
+    try {
+      const result = await publishRain(db, basins, signal);
+      publishedBasins = result.published;
+      failed += result.failures.length;
+      for (const failure of result.failures) console.warn('[rainfall-research] Basin publication failed', failure.siteId, failure.reason);
+    }
     catch { failed++; console.warn('[rainfall-research] Public rain view unavailable'); }
   }
-  return { monitoring_status: failed || deferred || stale ? 'partial' : 'ok', completed, failed, deferred, stale, bytesSaved, basins: basins.length };
+  return { monitoring_status: failed || deferred || stale ? 'partial' : 'ok', completed, failed, deferred, stale, bytesSaved, basins: basins.length, publishedBasins };
 }
