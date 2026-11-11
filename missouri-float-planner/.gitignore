@@ -72,3 +72,6 @@ tmp/
 
 # Development-only Daily Report widget fixtures (browser smoke test)
 /src/app/embed/report-check/
+
+# Temporary camping fixture created and removed by camping-smoke.mjs.
+/src/app/camping-layout-check/
