@@ -10,7 +10,7 @@ from area agreement or a river name.
 Export the current curated inventory with this **read-only** query:
 
 ```sql
-select gs.usgs_site_id, gs.name, gs.drainage_area_sqmi,
+select gs.id, gs.usgs_site_id, gs.name, gs.drainage_area_sqmi,
        st_x(gs.location::geometry) as longitude,
        st_y(gs.location::geometry) as latitude
 from gauge_stations gs
@@ -36,14 +36,18 @@ inspection may be supplied to a public chart or Eddy's Read.
 
 ## What the inspection establishes
 
-- NLDI full polygons (`simplified=false`), site identity and pour point.
+- NLDI simplified polygons (`simplified=true`), site identity and pour point.
+  The two original topology failures also retain full-resolution comparisons;
+  a difference over 1% fails that comparison without approving either boundary.
+  Geometry failures retain station/area diagnostics in the report. Invalid
+  geometry is never returned as a usable basin.
 - A fresh USGS drainage-area comparator and station coordinates, checked
   against Eddy's stored area/coordinates. Differences over 10% in basin area
   and 100 metres in point placement require investigation. These thresholds
   only prioritize review; they do not approve the remaining geometries.
 - The exact active CONUS raster and independent valid-end time for 1/6/24/72h.
   A missing/renamed/duplicate raster or changed pixel contract stops selection.
-- Raw statistics at Alley Spring, paired with one display-renderer diagnostic.
+- Masked raw statistics at Alley Spring, paired with one display-renderer diagnostic.
   These are **not** validated area-weighted rainfall totals: native units,
   missing-pixel masks, boundary weighting and expected coverage remain gates.
 
@@ -76,3 +80,37 @@ Sources: [NOAA image service](https://mapservices.weather.noaa.gov/raster/rest/s
 [MRMS product units and missing codes](https://www.nssl.noaa.gov/projects/mrms/operational/tables.php),
 [USGS NLDI](https://api.water.usgs.gov/nldi/),
 [USGS monitoring locations](https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations).
+
+## Sampling and reproducible checks
+
+From `missouri-float-planner/`, run `npm run lint:rainfall` (the equivalent
+command is `node node_modules/eslint/bin/eslint.js --no-ignore scripts/rainfall/*.ts`).
+Normal lint now invokes this command explicitly; other scripts remain excluded.
+Run `npm run typecheck` and `npm test` for the registered regression checks.
+
+The inspector captures `/ImageServer/{locked-raster-id}/info` separately for
+each window. Its cell size and origin describe that selected item; the root
+service's 573 m minimum is not the CONUS grid. The inspected CONUS 24h item
+uses 1,189.18 m cells in Web Mercator. Never hardcode either value.
+
+Numeric diagnostics use a Mask on the locked source item to exclude all
+negative cells, followed by explicit nearest-neighbor resampling from its
+native cell size. Zero is valid. Empty statistics remain unknown. The display
+renderer remains a separate, nonnumeric comparison. `computeStatisticsHistograms`
+has no grid-origin parameter: it is still a diagnostic, not a validated
+area-weighted basin average. The future collector must use the captured origin
+for aligned cell extraction, mask missing cells, weight cell/boundary area,
+and measure coverage against the complete expected basin footprint.
+
+NOAA documents RadarOnly_QPE 1/6/24/72H in **millimetres**, with -1 missing
+and -3 no coverage. The review's ten rain-gauge comparisons support that scale,
+but their gauge IDs, exact windows and response captures were not supplied.
+They are not presented as reproduced evidence. `documentedProductUnits: mm`
+is recorded alongside `nativeUnits: unverified` until the exact hosted raw
+path has an archived independent wet-case comparison. Display-service prose
+saying inches does not override this distinction. No public conversion or
+"no rain" state is enabled by this inspector.
+
+API contracts: [Mask and Resample](https://developers.arcgis.com/rest/services-reference/enterprise/raster-function-objects/),
+[statistics](https://developers.arcgis.com/rest/services-reference/enterprise/compute-statistics-and-histograms/),
+[item grid](https://developers.arcgis.com/rest/services-reference/enterprise/raster-info/).

@@ -9,7 +9,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
-import { MRMS_URL, NLDI_URL, RAIN_WINDOWS, inspectBasin, selectMrmsRaster, siteId, statisticsParameters } from './source-contract';
+import { MRMS_URL, NLDI_URL, RAIN_WINDOWS, inspectBasin, selectMrmsRaster, siteId, statisticsParameters, rasterGrid, diagnosticStatistics } from './source-contract';
 
 const args = process.argv.slice(2);
 const value = (flag: string) => args[args.indexOf(flag) + 1];
@@ -67,7 +67,14 @@ async function main() {
   const metadata = await capture('mrms-metadata', `${MRMS_URL}?f=json`);
   const query = new URLSearchParams({ f: 'json', where: '1=1', outFields: '*', returnGeometry: 'false' });
   const catalog = await capture('mrms-catalog', `${MRMS_URL}/query?${query}`);
-  const products = RAIN_WINDOWS.map((hours) => selectMrmsRaster(metadata, catalog, hours, Date.now()));
+  const products: Array<ReturnType<typeof selectMrmsRaster> & { grid: ReturnType<typeof rasterGrid> }> = [];
+  for (const hours of RAIN_WINDOWS) {
+    const product = selectMrmsRaster(metadata, catalog, hours, Date.now());
+    const grid = rasterGrid(await capture(`mrms-${hours}h-grid`, `${MRMS_URL}/${product.rasterId}/info?f=json`));
+    products.push({ ...product, grid });
+  }
+  const fullResolutionComparisons: Array<{ site: string; full: ReturnType<typeof inspectBasin>; areaChangeFraction: number | null }> = [];
+  const diagnostics: Array<{ site: string; hours: number } & ReturnType<typeof diagnosticStatistics>> = [];
   const basins: Array<Omit<ReturnType<typeof inspectBasin>, 'basin'>> = [];
   let next = 0;
   await Promise.all(Array.from({ length: 4 }, async () => {
@@ -76,19 +83,34 @@ async function main() {
       try {
         const base = `${NLDI_URL}/USGS-${row.site}`;
         // Sequential within each worker: at most four upstream requests total.
-        const basin = await capture(`${row.site}-basin`, `${base}/basin?f=json&simplified=false`);
+        const basin = await capture(`${row.site}-basin`, `${base}/basin?f=json&simplified=true`);
         const nldiSite = await capture(`${row.site}-nldi-site`, base);
         const usgsSite = await capture(`${row.site}-usgs-site`, `https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items?f=json&id=USGS-${row.site}&limit=1`);
         const { basin: geometry, ...inspection } = inspectBasin({ ...row, basin, nldiSite, usgsSite });
         basins.push(inspection);
+        // Revisit the two topology failures in the original 2026-11-11 capture.
+        // Keep the full-resolution evidence; no repair or automatic approval.
+        if (['07057500', '07063000'].includes(row.site)) {
+          const full = await capture(`${row.site}-basin-full`, `${base}/basin?f=json&simplified=false`);
+          const fullInspection = inspectBasin({ ...row, basin: full, nldiSite, usgsSite });
+          const areaChangeFraction = fullInspection.basinAreaSqmi != null && inspection.basinAreaSqmi != null
+            ? (inspection.basinAreaSqmi - fullInspection.basinAreaSqmi) / fullInspection.basinAreaSqmi : null;
+          fullResolutionComparisons.push({ site: row.site, full: fullInspection, areaChangeFraction });
+          if (areaChangeFraction == null || Math.abs(areaChangeFraction) > 0.01) {
+            inspection.issues.push('simplification_area_mismatch');
+            throw new Error('Simplified/full area comparison failed');
+          }
+        }
+        if (!geometry) throw new Error(inspection.geometryError ?? 'Invalid basin geometry');
         if (row.site === '07065495') {
           for (const product of products) {
-            await capture(`jacks-fork-${product.hours}h-raw-statistics`, `${MRMS_URL}/computeStatisticsHistograms`, statisticsParameters(geometry, product));
+            const response = await capture(`jacks-fork-${product.hours}h-raw-statistics`, `${MRMS_URL}/computeStatisticsHistograms`, statisticsParameters(geometry, product, product.grid));
+            diagnostics.push({ site: row.site, hours: product.hours, ...diagnosticStatistics(response) });
           }
           const daily = products.find((r) => r.hours === 24)!;
-          await capture('jacks-fork-24h-display-statistics', `${MRMS_URL}/computeStatisticsHistograms`, statisticsParameters(geometry, daily, 'rft_24hr'));
+          await capture('jacks-fork-24h-display-statistics', `${MRMS_URL}/computeStatisticsHistograms`, statisticsParameters(geometry, daily, daily.grid, 'rft_24hr'));
         }
-        console.log(`${row.site}: ${inspection.basinAreaSqmi.toFixed(1)} sq mi; ${inspection.issues.join(', ') || 'area/point checks agree'}; unreviewed`);
+        console.log(`${row.site}: ${inspection.basinAreaSqmi?.toFixed(1) ?? 'unknown'} sq mi; ${inspection.issues.join(', ') || 'area/point checks agree'}; unreviewed`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         failures.push({ site: row.site, error: message });
@@ -99,8 +121,10 @@ async function main() {
   const report = {
     inspectedAt: new Date().toISOString(), requestCount,
     publicationReady: false,
-    remainingGates: ['native_units_crosscheck', 'area_weighted_coverage', 'basin_review', 'forecast_sampling', 'storm_replay'],
-    products, basins: basins.sort((a, b) => a.site.localeCompare(b.site)), failures,
+    remainingGates: ['hosted_raw_units_crosscheck', 'native_grid_alignment', 'area_weighted_coverage', 'basin_review', 'forecast_sampling', 'storm_replay'],
+    basinSource: 'NLDI simplified=true',
+    products, fullResolutionComparisons, diagnostics,
+    basins: basins.sort((a, b) => a.site.localeCompare(b.site)), failures,
     skippedWithoutUsgsId: raw.length - inventory.length,
     unprocessed: inventory.slice(next).map((r) => r.site),
     note: 'Raw statistics are diagnostics, not validated rainfall amounts. No dry/rain state may be inferred from these files.',
