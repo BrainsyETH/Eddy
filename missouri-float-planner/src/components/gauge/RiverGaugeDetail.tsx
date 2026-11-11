@@ -626,12 +626,7 @@ export default function RiverGaugeDetail({
         </div>
 
         {/* What happens next, in its own card as on iOS. */}
-        <section className="card-panel" aria-label="72-hour outlook and Eddy's take">
-          <WillItHold
-            key={`outlook-${activeSiteId}`}
-            outlook={outlook}
-            embedded
-          />
+        <section className="card-panel" aria-label="Eddy's Read and 72-hour outlook">
           <EddyOutlookFooter
             compact={hasSections}
             sections={eddyTakeSections}
@@ -640,6 +635,11 @@ export default function RiverGaugeDetail({
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
             damRead={damTab ? { damId: damTab.damId, scheduleAbove: damLeads } : null}
+          />
+          <WillItHold
+            key={`outlook-${activeSiteId}`}
+            outlook={outlook}
+            embedded
           />
         </section>
 

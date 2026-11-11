@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { MRMS_URL, RAIN_WINDOWS, rasterGrid, selectMrmsRaster } from './source-contract';
 import { type Basin, exportParameters, exportResult, forecastMetadata, forecastUrl, hash, nativeTile, object, RESEARCH_BUCKET, validateTiff } from './research-contract';
 import { type Capture, saveCapture } from './research-store';
+import { publishRain } from './public-store';
 
 type Dependencies = {
   json: (url: string, signal: AbortSignal) => Promise<unknown>;
@@ -121,6 +122,12 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
       if (forecast.stale) stale++;
     });
     completed += captures.completed; failed += captures.failed; deferred += captures.deferred;
+  }
+  // Publishing is separately gated by evidence and reviewed basin versions.
+  // It cannot turn research-only captures into public amounts by itself.
+  if (mode === 'observations') {
+    try { await publishRain(db, basins, signal); }
+    catch { failed++; console.warn('[rainfall-research] Public rain view unavailable'); }
   }
   return { monitoring_status: failed || deferred || stale ? 'partial' : 'ok', completed, failed, deferred, stale, bytesSaved, basins: basins.length };
 }

@@ -142,3 +142,52 @@ and the existing [tailwater lag plan](../missouri-float-planner/docs/TAILWATER_P
 - Production collection is not yet running. Verify the first archived objects
   and scheduled run after this PR deploys; do not describe setup as saved rain
   history or a validated prediction.
+
+## Public chart view and rollout
+
+Rain is an optional layer inside the existing gauge chart, initially for 24-hour
+and 7-day views. It has its own inches scale and the same time axis as the river.
+The preference is remembered on each device/browser. One-hour accumulations are
+shown on 24h; complete, aligned six-hour sums are shown on 7d. Missing hours
+invalidate a six-hour bar; rolling 24/72h products never fill timeline gaps.
+The chart keeps its height when Rain is toggled. The watershed map, 24/72h totals,
+source times, coverage and accessible hourly table open in a drawer on desktop
+and a sheet/full-screen view on phones. They do not add a main-report card.
+
+Both clients read `/api/gauges/[siteId]/rainfall`; `?detail=1` adds the outline and
+24h shading only when requested. Gauge identity is checked at the client boundary;
+changing sections cannot borrow another station's rain. The shared normalizer
+keeps unknown amounts null and invalidates current totals after three hours.
+Research storage remains private. No client receives a storage URL or raw archive.
+
+Publication is **off** until all of these are true:
+
+1. `src/lib/rainfall/public-policy.ts` records replayable hosted-unit and coverage
+   evidence, plus each reviewed station's exact basin version and gauge location.
+   Its evidence entries and station list intentionally start empty.
+2. The matching research basin has `review_status=reviewed`.
+3. `RAINFALL_PUBLIC_ENABLED=true` is set on the intended environment.
+
+The collector then derives `published/v1/<site>.json.gz` in the existing private
+bucket after archiving observations. These disposable views can be overwritten;
+raw captures remain immutable. Native uncompressed F32 cells are clipped against
+the basin and weighted by geodesic area. Sparse/negative cells are missing. A
+minimum 95% valid basin area is required for a numeric estimate. One-hour history
+grows as approved captures arrive; no historical bars are fabricated. Published
+views include the basin/evidence versions so a review change invalidates old ones.
+The public endpoint caches at most the reviewed station set for five minutes.
+No forecast sampling or rain-to-rise prediction is enabled by this path.
+
+Numerical tests cover partial boundary cells, coverage, missing hours, raw TIFF
+replay, units conversion, and conflicting/stale station responses. These tests
+**do not close** the empirical wet-unit or basin-review gates. Before activation,
+verify those evidence items, publisher runtime on the intended basin set, stored
+view readback, a scheduled update, outage behavior and client denial of archives.
+Disable the public flag to remove the layer without stopping private collection.
+
+`npm run test:river-sections` also exercises the rain UI at 1440/390/320px,
+unchanged chart/report height on toggling, remembered preference, shared cursor,
+keyboard detail dismissal, section switching, and wet/dry/missing/stale data.
+Its map uses the captured USGS Annapolis outline; rain and readings are fixtures.
+The existing `river-sections-web` CI job retains its screenshots. Native device,
+VoiceOver, large-text and rotation checks remain required before app distribution.

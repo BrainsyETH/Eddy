@@ -3,7 +3,7 @@ import { Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 
-type Props = ComponentProps<typeof Ionicons>;
+type Props = ComponentProps<typeof Ionicons> & { tabIndex?: 0 | -1 };
 const symbols: Partial<Record<NonNullable<Props['name']>, SFSymbol>> = {
   'chevron-forward': 'chevron.right', 'chevron-back': 'chevron.left',
   'chevron-up': 'chevron.up', 'chevron-down': 'chevron.down',

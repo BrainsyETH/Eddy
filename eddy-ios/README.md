@@ -2398,3 +2398,24 @@ after 1.5 seconds is omitted so sharing can continue with the Eddy wordmark.
 The local export uses saved trip facts
 without a condition stamp or private metadata. See ADR 0015 for cache bounds,
 privacy rules and the outstanding physical-device share gates.
+
+### Rain within the river report
+
+The shared gauge chart starts at 7d unless the caller supplies a range. Reviewed
+rain can appear on 24h/7d inside the existing chart height, with an independent
+inches scale and a shared cursor. Compare contains the remembered Rain switch;
+tapping Rain upstream opens the existing chart sheet (full screen when expanded).
+The native SVG map, totals and hourly list share data/formatting rules with web.
+No new native dependency or permission is required.
+
+Eddy's Read follows the chart and precedes the free Will it hold? forecast.
+The initial Read is at most two sentences; Read more reveals longer prose and
+nonduplicated weather/bottom-line context. Existing Premium authorization and
+the single shared lock remain in force. Switching gauge resets expanded prose.
+
+Before distribution, verify the rain switch persists, toggling does not move the
+report below the chart, rain/gauge values scrub together, and opening/closing the
+watershed preserves chart state. Repeat in dark/light, large text, VoiceOver and
+expanded-chart landscape. Verify section changes, missing/stale rain and offline
+failures do not substitute another basin or turn missing amounts into zero.
+Public rollout gates are recorded in `docs/rainfall-history.md` at the repo root.
