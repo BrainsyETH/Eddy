@@ -3,36 +3,8 @@
 Eddy (eddy.guide) is a float trip planner for Ozarks rivers: real-time USGS
 water conditions, access points, float time estimates, and trip plans, as a
 Next.js website and an Expo iOS app. This file is the canonical repository
-guide for coding tools; `AGENTS.md` points here. Keep them from drifting by
-editing shared rules here; app-specific entry points route to their own docs.
-
-## Product and UI working agreement
-
-- **Go deeper into the requested change.** Preserve approved layouts and
-  behavior outside that scope. Keep unrelated redesigns and new ideas as
-  separate follow-ups; do not bundle them into the implementation.
-- **Inspect before designing.** Read the existing components and the docs
-  that own the feature; inspect the current screen when available. Reuse
-  Eddy's components, charts, icons, artwork and design tokens before adding
-  another pattern. Follow the design sources in each app's `AGENTS.md`,
-  including documented differences between web and iOS.
-- **Keep the interface easy to scan.** Use short, human copy and the existing
-  product terms. Remove repeated labels and explanations. Prefer compact
-  controls and clear status treatments; use existing imagery where it helps
-  someone recognize a place or understand the information. Avoid filler and
-  marketing language in product flows.
-- **Check the related surfaces.** When changing a shared card, chart or
-  meaning, trace its callers across pages, widgets and iOS. Verify the
-  surfaces the change affects; report other inconsistencies without silently
-  expanding the task to redesign them.
-- **Verify the rendered result.** For UI changes, inspect the affected web
-  screens at narrow mobile and desktop widths, or the iOS screen in an
-  available simulator/device. Check the interactions and relevant loading,
-  empty and error states, including focus, accessible labels and touch targets.
-  Use existing browser checks where applicable and inspect their screenshots.
-  Passing typecheck, lint or unit tests does not establish visual quality.
-  Report what was viewed and tested, and explicitly identify any visual or
-  device verification that remains unconfirmed.
+guide for coding tools; `AGENTS.md` points here. Shared rules live only in this
+root `CLAUDE.md`. App entry points link here and add only app-specific guidance.
 
 ## Repository map
 
@@ -64,7 +36,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
-| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations, then `supabase/production-migrations.txt` | `make check-web`; distinguish PR readiness from production application as described below |
+| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations, then `supabase/production-migrations.txt` | `make check-web`; production writes require explicit authorization. Distinguish PR readiness from production application as described below |
 | ClipEngine / social automation | `scripts/clipengine/`, `clipengine-local/` | `docs/clipengine-ops.md` | tool-specific dry run |
 | CI / deployment | `.github/workflows/`, `.easignore` | `.easignore` header, affected workflow | `make check` + checks specific to the changed workflow |
 | iOS build, TestFlight, App Store submission | EAS + Apple/RevenueCat dashboards | `docs/ios-release-runbook.md` | the checklists in that runbook |
@@ -100,6 +72,34 @@ uploads its SBOM first. Require the audit once it is green, or after a separate
 review introduces a narrowly scoped, expiring exception that still rejects
 new advisories. Do not normalize administrator bypasses of a permanently red
 required check.
+
+## Product and UI working agreement
+
+- **Go deeper into the requested change.** Preserve approved layouts and
+  behavior outside that scope. Keep unrelated redesigns and new ideas as
+  separate follow-ups; do not bundle them into the implementation.
+- **Inspect before designing.** Read the existing components and the docs
+  that own the feature; inspect the current screen when available. Reuse
+  Eddy's components, charts, icons, artwork and design tokens before adding
+  another pattern. Follow the design sources in each app's `AGENTS.md`,
+  including documented differences between web and iOS.
+- **Keep the interface easy to scan.** Use short, human copy and the existing
+  product terms. Remove repeated labels and explanations. Prefer compact
+  controls and clear status treatments; use existing imagery where it helps
+  someone recognize a place or understand the information. Avoid filler and
+  marketing language in product flows.
+- **Check the related surfaces.** When changing a shared card, chart or
+  meaning, trace its callers across pages, widgets and iOS. Verify the
+  surfaces the change affects; report other inconsistencies without silently
+  expanding the task to redesign them.
+- **Verify the rendered result.** For UI changes, inspect the affected web
+  screens at narrow mobile and desktop widths, or the iOS screen in an
+  available simulator/device. Check the interactions and relevant loading,
+  empty and error states, including focus, accessible labels and touch targets.
+  Use existing browser checks where applicable and inspect their screenshots.
+  Passing typecheck, lint or unit tests does not establish visual quality.
+  Report what was viewed and tested, and explicitly identify any visual or
+  device verification that remains unconfirmed.
 
 ## Commands
 

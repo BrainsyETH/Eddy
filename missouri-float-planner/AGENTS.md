@@ -28,16 +28,25 @@ are separate: run the ones covering the affected behavior from this directory,
 then inspect the rendered result at mobile and desktop sizes. Existing suites
 include:
 
-| Affected surface | Additional checks (`npm run …`) |
-| --- | --- |
-| Navigation, home and links between trip flows | `test:navigation` |
-| Planner map or float finder | `test:planner-map` / `test:float-finder`, as affected |
-| Conditions directory | `test:conditions` |
-| River guides or river sections | `test:guides` / `test:river-sections`, as affected |
-| Dam pages or lake experience | `test:dam-page` / `test:lakes`, as affected |
-| Camping search, filters or availability | `test:camping-browser`; also `test:camping-capacity` for catalog/loading changes |
-| Admin workspace | `test:admin-browser`; also `test:admin-db` for migration safeguards |
-| Analytics instrumentation or audit harness | `test:analytics-browser` |
+| Affected surface | Additional checks (`npm run …`) | CI coverage |
+| --- | --- | --- |
+| Navigation, home and links between trip flows | `test:navigation` | Manual |
+| Planner map | `test:planner-map` | Partial CI: national gauges only; full suite is manual |
+| Float finder | `test:float-finder` | Manual |
+| Conditions directory | `test:conditions` | Manual |
+| River guides or river sections | `test:guides` / `test:river-sections`, as affected | App CI |
+| Dam pages or lake experience | `test:dam-page` / `test:lakes`, as affected | Manual |
+| Camping search, filters or availability | `test:camping-browser`; also `test:camping-capacity` for catalog/loading changes | App CI |
+| Admin workspace | `test:admin-browser`; also `test:admin-db` for migration safeguards | App CI |
+| Analytics instrumentation or audit harness | `test:analytics-browser` | App CI |
+
+**Manual** means no committed CI workflow runs that full suite; run it for
+relevant changes rather than assuming a green CI result covers it. **App CI**
+refers to [app-ci.yml](../.github/workflows/app-ci.yml), not whether a check is
+required by branch protection. The planner's partial coverage is in
+[River Map Smoke](../.github/workflows/mosw-smoke.yml): its path-filtered job
+runs `test:national-gauges`, which invokes the planner script with
+`NATIONAL_GAUGES_ONLY=1` and skips the other planner checks.
 
 The [package scripts](package.json), [README](README.md), and each script's
 header describe fixtures, prerequisites and output paths; the table is routing,
