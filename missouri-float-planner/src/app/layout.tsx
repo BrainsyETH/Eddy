@@ -1,3 +1,4 @@
+import { campingWebEnabled } from '@/lib/camping/web-launch';
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import '@fontsource-variable/fredoka';
@@ -124,7 +125,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           <OfflineBanner />
-          <SiteHeader floatSearchEnabled={floatSearchLaunch().web} />
+          <SiteHeader campingEnabled={campingWebEnabled()} floatSearchEnabled={floatSearchLaunch().web} />
           <main id="main-content">{children}</main>
         </Providers>
       </body>

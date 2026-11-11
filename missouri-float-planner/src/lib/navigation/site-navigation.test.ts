@@ -82,3 +82,9 @@ test('shared condition filters discard unknown values and serialize in stable or
   assert.deepEqual(readRiverMapSearch(query).conditions, readRiverMapSearch('conditions=flowing,good').conditions);
   assert.equal(writeRiverMapSearch(query, { conditions: [] }), 'river=current');
 });
+
+test('camping discovery is independently gated and keeps the current river', () => {
+  assert.equal(siteNavigation('/rivers/missouri/current', '', true, false).some(l => l.label === 'Camping'), false);
+  assert.equal(siteNavigation('/rivers/missouri/current', '', true, true).find(l => l.label === 'Camping')?.href, '/camping?river=current');
+  assert.equal(siteNavigation('/camping', 'river=current', true, true).find(l => l.label === 'Camping')?.active, true);
+});

@@ -1,3 +1,4 @@
+import { campingWebEnabled } from '@/lib/camping/web-launch';
 import { guideEditorialDate } from '@/lib/guides/editorial-date';
 // src/app/sitemap.ts
 // Dynamic sitemap generation for SEO optimization
@@ -19,6 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages remain discoverable even when a local/preview build
   // intentionally has no production database credentials.
   const staticPages: MetadataRoute.Sitemap = [
+    ...(campingWebEnabled() ? [{ url: `${BASE_URL}/camping`, changeFrequency: 'daily' as const, priority: 0.7 }] : []),
     { url: `${BASE_URL}/developers`, changeFrequency: 'monthly', priority: 0.6 },
     { url: BASE_URL, changeFrequency: 'daily', priority: 1 },
     { url: `${BASE_URL}/app`, changeFrequency: 'monthly', priority: 0.8 },
