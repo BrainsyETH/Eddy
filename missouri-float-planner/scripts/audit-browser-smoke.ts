@@ -148,6 +148,15 @@ async function main() {
     await deniedPage.evaluate(() => fetch('https://unblocked.example/', { mode: 'no-cors' }).catch(() => {}));
     assert(proxyAttempts.includes('unblocked.example:443'), 'network canary reaches the rejecting proxy');
     await denied.close();
+    const ownedPage = await audit.newPage();
+    const ownedContext = ownedPage.context();
+    await fixtures(ownedContext);
+    await ownedPage.goto('https://eddy.guide/fixture');
+    assert.equal(await ownedPage.evaluate(() => sessionStorage.getItem('eddy_analytics_disabled')), '1');
+    await ownedPage.close();
+    assert(!browser.contexts().includes(ownedContext), 'page.close() waits for its context to close');
+    // Closing the browser with an owned page still open must also be safe.
+    await audit.newPage();
     await browser.close();
 
     const rawLog = readFileSync(audit.logPath, 'utf8');
