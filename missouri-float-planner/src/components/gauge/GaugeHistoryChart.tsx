@@ -338,7 +338,7 @@ export default function GaugeHistoryChart({
             {dialogOpen ? siteName : `${displayUnit === 'ft' ? 'Stage' : 'Flow'} history`}
           </h2>
           <p className="mt-0.5 text-xs text-neutral-500">
-            {rainData && rainOn && (!rainIsFresh(rainData) || rainfall.isError) ? 'Rain data unavailable' : rangeLabel}
+            {rainData && rainOn && (rainData.status === 'unavailable' || !rainIsFresh(rainData) || rainfall.isError) ? 'Rain data unavailable' : rangeLabel}
             {notice && ` · ${notice}`}
           </p>
         </div>

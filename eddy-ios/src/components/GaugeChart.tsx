@@ -1176,7 +1176,7 @@ function GaugeChartView({
       </View>
       {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'rain' ? 'Rain upstream' : sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
         {sheet === 'rain' && siteId ? <RainDetail siteId={siteId} timeZone={historyTimeZone(history?.timeZone)} /> : sheet === 'compare' ? <>
-          {rain ? <ChartComparison label="Rain upstream" detail={!rainIsFresh(rain) || rainfall.failed ? 'Rain data unavailable' : 'Radar estimate · inches per bar'} value={rainOn} disabled={false} onChange={setRainOn}
+          {rain ? <ChartComparison label="Rain upstream" detail={rain.status === 'unavailable' || !rainIsFresh(rain) || rainfall.failed ? 'Rain data unavailable' : 'Radar estimate · inches per bar'} value={rainOn} disabled={false} onChange={setRainOn}
             action={<Pressable accessibilityRole="button" onPress={() => setSheet('rain')} style={styles.toolbarAction}><Text style={[styles.actionText, { color: colors.interactive }]}>Watershed & totals</Text></Pressable>} /> : null}
           <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Middle half of past years' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
           <ChartComparison label="Median" detail="Middle of past years for this date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />

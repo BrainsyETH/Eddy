@@ -46,7 +46,7 @@ export default function RainDetail({ siteId, timeZone, onClose }: { siteId: stri
           </div>}
           <dl className="mt-5 grid grid-cols-2 gap-3">
             {[24, 72].map(hours => { const total = data.totals.find(row => row.hours === hours); return <div key={hours} className="rounded-lg border border-secondary-200 bg-white p-3">
-              <dt className="text-xs text-neutral-600">Past {hours} hours</dt><dd className="mt-1 font-mono text-xl font-semibold text-primary-800">{rainAmount(total?.inches)}</dd>
+              <dt className="text-xs text-neutral-600">Past {hours} hours</dt><dd className={`mt-1 font-mono font-semibold text-primary-800 ${total?.inches == null ? 'text-sm' : 'text-xl'}`}>{rainAmount(total?.inches)}</dd>
               {total && <dd className="mt-1 text-xs text-neutral-500">Through {chartStamp(total.end, timeZone)}{total.coverage < 1 ? ` · ${Math.round(total.coverage * 100)}% coverage` : ''}</dd>}
             </div>; })}
           </dl>
