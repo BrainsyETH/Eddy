@@ -179,6 +179,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const frame = page.locator('#river-section-report > .card-panel').first();
     assert.equal(await frame.getByRole('group', { name: 'Current gauge reading' }).count(), 1);
     assert.equal(await frame.getByRole('heading', { name: 'Stage history' }).count(), 1);
+    if (width < 1024) {
+      const frameBox = await frame.boundingBox();
+      const expandBox = await frame.getByRole('button', { name: 'Expand', exact: true }).boundingBox();
+      assert(frameBox && expandBox && expandBox.x + expandBox.width <= frameBox.x + frameBox.width,
+        `${width}px chart controls must fit inside their clipping card`);
+    }
     await page.getByRole('radio', { name: /Lower Black/ }).check();
     await heading(page, true).waitFor();
     await page.getByText('Lower Black fixture report.', { exact: true }).waitFor();
