@@ -1,3 +1,4 @@
+import type { CampingSitePolicy } from './camping-policy';
 /** Wire contract for the server's same-site stay search. Checkout is exclusive. */
 export interface CampingStay {
   arrival: string;
@@ -13,10 +14,12 @@ export interface StaySite {
   maxOccupancy: number | null;
   bookingUrl: string | null;
   nights: string;
+  /** Optional for older servers. Published rules are separate from observations. */
+  policy?: CampingSitePolicy;
 }
 export interface CampsiteStay {
   site: StaySite;
-  nights: { date: string; state: CampingNightState }[];
+  nights: { date: string; state: CampingNightState; observedState?: CampingNightState }[];
   state: 'available' | 'first_come' | 'unavailable' | 'unknown';
 }
 export interface CampingStayResult extends CampingStay {
