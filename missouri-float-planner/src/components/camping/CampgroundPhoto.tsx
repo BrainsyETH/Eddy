@@ -17,13 +17,22 @@ export default function CampgroundPhoto({
   compact?: boolean;
 }) {
   const [failedSource, setFailedSource] = useState<string | null>(null);
+  const [loadedSource, setLoadedSource] = useState<string | null>(null);
   const hasPhoto = Boolean(src && src !== failedSource);
   return (
     <div
       className={compact ? styles.photoThumb : styles.campPhoto}
       data-campground-photo
     >
-      {hasPhoto ? (
+      {(!hasPhoto || loadedSource !== src) && (
+        <div className={styles.photoFallback} aria-hidden={hasPhoto}>
+          <EddyIcon name="campground" size={compact ? 28 : 64} decorative />
+          {!compact && (
+            <span>{hasPhoto ? "Loading photo…" : "Photo unavailable"}</span>
+          )}
+        </div>
+      )}
+      {hasPhoto && (
         <Image
           src={src!}
           alt={compact ? "" : name}
@@ -34,14 +43,10 @@ export default function CampgroundPhoto({
               : "(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 380px"
           }
           unoptimized={!optimizeBlogImage(src!)}
+          onLoad={() => setLoadedSource(src!)}
           onError={() => setFailedSource(src!)}
           style={{ objectFit: "cover" }}
         />
-      ) : (
-        <div className={styles.photoFallback}>
-          <EddyIcon name="campground" size={compact ? 28 : 64} decorative />
-          {!compact && <span>Photo unavailable</span>}
-        </div>
       )}
     </div>
   );

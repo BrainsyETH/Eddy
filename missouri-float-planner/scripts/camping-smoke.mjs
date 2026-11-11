@@ -366,6 +366,16 @@ try {
   assert.ok(
     (await page.getByText("Photo unavailable", { exact: true }).count()) > 0,
   );
+  const brokenPhotoCard = page
+    .getByRole("article")
+    .filter({ hasText: "Fixture · Booked campground" });
+  await brokenPhotoCard.scrollIntoViewIfNeeded();
+  await brokenPhotoCard
+    .getByText("Photo unavailable", { exact: true })
+    .waitFor();
+  await page
+    .getByRole("heading", { name: "Find your next campsite." })
+    .scrollIntoViewIfNeeded();
   await page.screenshot({
     path: `${out}/desktop-photo-cards-fixture.png`,
     fullPage: true,
@@ -511,6 +521,13 @@ try {
   );
   await page.getByRole("button", { name: "Cards", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
+  await brokenPhotoCard.scrollIntoViewIfNeeded();
+  await brokenPhotoCard
+    .getByText("Photo unavailable", { exact: true })
+    .waitFor();
+  await page
+    .getByRole("heading", { name: "Find your next campsite." })
+    .scrollIntoViewIfNeeded();
   await page.screenshot({
     path: `${out}/mobile-list-fixture.png`,
     fullPage: true,
@@ -522,6 +539,14 @@ try {
     "mobile has no page overflow",
   );
   await page.setViewportSize({ width: 320, height: 844 });
+  const [arriveBox, leaveBox] = await Promise.all([
+    page.getByLabel("Arrive", { exact: true }).boundingBox(),
+    page.getByLabel("Leave", { exact: true }).boundingBox(),
+  ]);
+  assert.ok(
+    leaveBox.y > arriveBox.y && arriveBox.width >= 250,
+    "narrow date fields stack without clipping the date",
+  );
   assert.ok(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
