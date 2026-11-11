@@ -55,17 +55,16 @@ test('web cards and site details retain reviewed policies without a nightly obse
 test('a cached web bucket does not prolong observed openings until a policy review date', () => {
   const checked = new Date('2026-11-11T18:00:00Z');
   const data = fixture(['AA']);
-  data.window = { startDate: '2026-11-16', endDate: '2026-11-18', nights: ['2026-11-16', '2026-11-17'], label: '' };
   data.fetchedAt = checked.toISOString();
   data.sites[0].policy = campsitePolicy('recreation_gov', '234043', { name: 'B23', loop: 'Loop B' });
   const stay = searchCampingStay(data, data.window.startDate, data.window.endDate, checked);
   const summary = compactStay(stay, 'recreation_gov');
   assert.equal(filteredStay([summary], [], checked.getTime()).state, 'available');
-  assert.equal(filteredStay([summary], [], checked.getTime() + 259200000).state, 'first_come');
+  assert.equal(filteredStay([summary], [], checked.getTime() + 259200000).state, 'unknown');
   // If a short-lived rule expires while an observation is still fresh, use
   // the original observation, not the closure that the rule had supplied.
   data.sites[0].policy = { ...data.sites[0].policy!, reviewBy: '2026-11-11T19:00:00Z', periods: [{
-    startDate: '2026-11-15', endDateExclusive: '2027-03-15', bookingMethod: 'first_come', operation: 'closed',
+    startDate: '2026-11-11', endDateExclusive: '2027-03-15', bookingMethod: 'first_come', operation: 'closed',
   }] };
   const restricted = compactStay(searchCampingStay(data, data.window.startDate, data.window.endDate, checked), 'recreation_gov');
   assert.equal(filteredStay([restricted], [], checked.getTime()).state, 'closed');

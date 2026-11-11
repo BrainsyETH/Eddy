@@ -50,6 +50,11 @@ test('published winter first-come policy survives a missing update without promi
   const night = sitesOnNight([site], data.window.nights, '2026-11-16', NOW.getTime(), false)[0];
   assert.equal(night.state, 'walk_up');
   assert.equal(siteBooking(night.state, 'https://www.recreation.gov/camping/campsites/7288', 'https://www.recreation.gov/camping/campgrounds/234043'), null);
+  data.fetchedAt = NOW.toISOString();
+  data.sites[0].nights = 'AA';
+  const reportedOpen = searchCampingStay(data, '2026-11-16', '2026-11-18', NOW);
+  assert.equal(reportedOpen.sites[0].state, 'first_come');
+  assert.deepEqual(reportedOpen.availableSites, [], 'a nightly open code cannot override a no-reservations policy');
 });
 
 test('policies have exact facility, public site, date and review limits', () => {
@@ -58,6 +63,7 @@ test('policies have exact facility, public site, date and review limits', () => 
   assert.equal(campsitePolicy('mo_state_parks', '234043', { loop: 'Loop A', name: 'A01' }), undefined);
   assert.equal(campsitePolicy('recreation_gov', 'other', { loop: 'Loop A', name: 'A01' }), undefined);
   const p = policy('Loop B', 'B23')!;
+  assert.equal(campingNightWithPolicy('open', '2026-11-16', p, NOW.getTime()), 'walk_up', 'first-come policy never offers online reservations');
   assert.equal(campingNightWithPolicy('unknown', '2026-11-14', p, NOW.getTime()), 'unknown');
   assert.equal(campingNightWithPolicy('unknown', '2027-03-15', p, NOW.getTime()), 'unknown');
   assert.equal(campingNightWithPolicy('unknown', '2026-11-16', p, Date.parse(p.reviewBy)), 'unknown');
