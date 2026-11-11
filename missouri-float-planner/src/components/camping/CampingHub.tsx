@@ -8,24 +8,22 @@ import type {
   CampingOverview,
   CampingPlace,
 } from '@/lib/camping/overview-types';
-import type { CampingStayResult } from '../../../shared/camping-stay';
 import { nextCampingDate } from '../../../shared/camping-stay';
-import { campingPolicyNote, campingStayLabel, currentPolicyStay } from '../../../shared/camping-policy';
 import {
-  compactStay,
   filteredStay,
   groupCampgrounds,
   parseWebStay,
-  siteFlags,
   stayLabel,
   webPlanningWindow,
   WEB_FILTERS,
   type RegionalStay,
   type WebSiteFilter,
 } from '@/lib/camping/web-search';
-import { MAX_AGE_MS } from '@/lib/camping/freshness';
 import styles from './CampingHub.module.css';
-import SitePhotos from './SitePhotos';
+import CampgroundDetails from './CampgroundDetails';
+import detailStyles from './CampgroundDetails.module.css';
+import { loadCampgroundSites } from '@/lib/camping/web-detail-cache';
+import { MAX_AGE_MS } from '@/lib/camping/freshness';
 import { trackEvent } from '@/lib/analytics';
 
 const dateLabel = (date: string) =>
@@ -39,13 +37,6 @@ function placeLink(place: CampingPlace) {
   if (place.accessDestination)
     return `/plan?river=${encodeURIComponent(place.accessDestination.riverSlug)}&access=${encodeURIComponent(place.accessDestination.accessId)}`;
   return place.reservationUrl ?? place.website;
-}
-function observed(at: string | null, clock: number) {
-  if (!at) return 'No recent observation';
-  const hours = Math.max(0, Math.floor((clock - Date.parse(at)) / 3_600_000));
-  return Number.isFinite(hours)
-    ? `Checked ${hours < 1 ? 'less than an hour' : `${hours} ${hours === 1 ? 'hour' : 'hours'}`} ago`
-    : 'No recent observation';
 }
 export default function CampingHub({
   overview,
@@ -70,13 +61,6 @@ export default function CampingHub({
   const detail = useRef<HTMLDialogElement>(null);
   const lastFocus = useRef<HTMLElement | null>(null);
   const detailPushed = useRef(false);
-  const [detailData, setDetailData] = useState<
-    Record<string, CampingStayResult | null>
-  >({});
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [showUnavailable, setShowUnavailable] = useState(false);
   const groups = useMemo(() => groupCampgrounds(overview.tracked), [overview]);
   const search = params.get('q') ?? '',
     river = params.get('river') ?? '';
@@ -108,8 +92,6 @@ export default function CampingHub({
             g.facilities.some((f) => f.facilityId === params.get('facility')),
         );
   const selectedKey = selected?.key;
-  const facilityIds =
-    selected?.facilities.map((f) => f.facilityId).join(',') ?? '';
   const detailArrival =
     stay?.arrival ??
     (horizon.nights.includes(params.get('night') ?? '')
@@ -170,11 +152,15 @@ export default function CampingHub({
       view: params.get('view') || 'list',
     });
   }
+  function prefetchCamp(key: string) {
+    const group = groups.find(group => group.key === key);
+    for (const facility of group?.facilities ?? []) {
+      void loadCampgroundSites(facility.facilityId, detailArrival, detailDeparture).catch(() => {});
+    }
+  }
   function openCamp(key: string, night?: string) {
     lastFocus.current = document.activeElement as HTMLElement;
     detailPushed.current = true;
-    setCopied(false);
-    setShowUnavailable(false);
     trackEvent('camping_detail_open');
     update({ campground: key, facility: null, night: night ?? null }, true);
   }
@@ -264,34 +250,6 @@ export default function CampingHub({
       document.body.style.overflow = previous;
     };
   }, [selectedKey]);
-  useEffect(() => {
-    if (!facilityIds) return;
-    const controller = new AbortController();
-    setDetailData({});
-    setDetailLoading(true);
-    setDetailError('');
-    Promise.all(
-      facilityIds.split(',').map(async (id) => {
-        const r = await fetch(
-          `/api/camping/sites?${new URLSearchParams({ facility: id, arrival: detailArrival, departure: detailDeparture })}`,
-          { signal: controller.signal },
-        );
-        if (r.status === 404) return [id, null] as const;
-        if (!r.ok) throw new Error('Site details could not be checked.');
-        return [id, (await r.json()) as CampingStayResult] as const;
-      }),
-    )
-      .then((rows) => {
-        if (!controller.signal.aborted) setDetailData(Object.fromEntries(rows));
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setDetailError(e.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setDetailLoading(false);
-      });
-    return () => controller.abort();
-  }, [facilityIds, detailArrival, detailDeparture, retry]);
   const matches = (c: CampingPlace) =>
     (!river || c.riverSlugs.includes(river)) &&
     (!search || c.name.toLowerCase().includes(search.toLowerCase()));
@@ -597,7 +555,7 @@ export default function CampingHub({
               <div className={styles.cardBody}>
                 <p className={styles.eyebrow}>{g.camp.displayGroup.label}</p>
                 <h3>
-                  <button onClick={() => openCamp(g.key)}>{g.camp.name}</button>
+                  <button onPointerEnter={() => prefetchCamp(g.key)} onFocus={() => prefetchCamp(g.key)} onClick={() => openCamp(g.key)}>{g.camp.name}</button>
                 </h3>
                 <p
                   className={
@@ -623,6 +581,8 @@ export default function CampingHub({
               </div>
               <button
                 className={styles.outline}
+                onPointerEnter={() => prefetchCamp(g.key)}
+                onFocus={() => prefetchCamp(g.key)}
                 onClick={() => openCamp(g.key)}
               >
                 View campground <span aria-hidden>→</span>
@@ -670,164 +630,16 @@ export default function CampingHub({
       </p>
       <dialog
         ref={detail}
-        className={styles.dialog}
+        className={detailStyles.dialog}
         aria-labelledby="campground-title"
         onCancel={(e) => {
           e.preventDefault();
           closeCamp();
         }}
       >
-        <div className={styles.dialogHeader}>
-          <EddyIcon name="campground" size={32} decorative />
-          <button autoFocus aria-label="Close campground" onClick={closeCamp}>
-            ✕
-          </button>
-        </div>
-        {selected && (
-          <>
-            <p className={styles.eyebrow}>{selected.camp.displayGroup.label}</p>
-            <h2 id="campground-title">{selected.camp.name}</h2>
-            <p>
-              {dateLabel(detailArrival)} – {dateLabel(detailDeparture)} ·{' '}
-              {stay ? 'Your stay' : 'One-night preview'}
-            </p>
-            <div className={styles.dialogActions}>
-              <button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(window.location.href);
-                    setCopied(true);
-                  } catch {
-                    setDetailError(
-                      'Copy the page address to share this campground.',
-                    );
-                  }
-                }}
-              >
-                {copied ? 'Link copied' : 'Copy link'}
-              </button>
-              {selected.camp.accessDestination && (
-                <Link href={placeLink(selected.camp)!}>
-                  View on the river →
-                </Link>
-              )}
-            </div>
-            {detailLoading && <p role="status">Checking individual sites…</p>}
-            {detailError && (
-              <p role="alert">
-                {detailError}{' '}
-                <button onClick={() => setRetry((n) => n + 1)}>Retry</button>
-              </p>
-            )}
-            {selected.facilities.map((f) => {
-              const data = detailData[f.facilityId];
-              const detailAnswer = data
-                ? filteredStay([compactStay(data, f.source)], filters, clock)
-                : unknown;
-              const age = data?.fetchedAt
-                ? clock - Date.parse(data.fetchedAt)
-                : Infinity;
-              const fresh =
-                Number.isFinite(age) && age >= 0 && age < MAX_AGE_MS;
-              const entries = data?.sites.map(s => currentPolicyStay(s, fresh, clock)) ?? [];
-              const unavailable = entries.filter(s => s.state === 'unavailable').length;
-              const sites = entries.filter(
-                    (s) =>
-                      (s.state === 'available' || s.state === 'first_come' || (showUnavailable && s.state === 'unavailable')) &&
-                      (!filters.length ||
-                        filters.some(
-                          (filter) =>
-                            siteFlags(s.site, f.source)[filter] === true,
-                        )),
-                  );
-              return (
-                <section className={styles.sites} key={f.facilityId}>
-                  {selected.facilities.length > 1 && (
-                    <h3>{f.loopName ?? f.name}</h3>
-                  )}
-                  <p className={styles.small}>
-                    {observed(data?.fetchedAt ?? null, clock)}
-                  </p>
-                  {!detailLoading && (
-                    <p
-                      className={
-                        detailAnswer.state === 'available'
-                          ? styles.available
-                          : styles.status
-                      }
-                    >
-                      {stayLabel(detailAnswer)}
-                    </p>
-                  )}
-                  {unavailable > 0 && (
-                    <label className={styles.policyToggle}><input type="checkbox" checked={showUnavailable}
-                      onChange={event => setShowUnavailable(event.target.checked)} /> Show unavailable sites</label>
-                  )}
-                  {sites.map((entry) => (
-                    <div key={entry.site.id}>
-                      <div className={styles.site}>
-                        <div>
-                          <strong>{entry.site.name ?? 'Campsite'}</strong>
-                          <p>
-                            {[
-                              entry.site.loop,
-                              entry.site.siteType,
-                              entry.site.maxOccupancy
-                                ? `Sleeps ${entry.site.maxOccupancy}`
-                                : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </p>
-                          <span>{campingStayLabel(entry)}</span>
-                          {campingPolicyNote(entry, clock) && <p>{campingPolicyNote(entry, clock)}</p>}
-                          {entry.site.policy && entry.nights.some(n => n.observedState !== undefined && n.observedState !== n.state) && (
-                            <p><a href={entry.site.policy.sourceUrl} target="_blank" rel="noopener noreferrer">Park’s camping rules ↗</a></p>
-                          )}
-                        </div>
-                        {entry.site.bookingUrl &&
-                          entry.state === 'available' && (
-                            <a
-                              href={entry.site.bookingUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              data-ga-event="camping_provider_click"
-                            >
-                              View site ↗
-                            </a>
-                          )}
-                      </div>
-                      <SitePhotos
-                        facility={f.facilityId}
-                        site={entry.site.id}
-                        name={entry.site.name ?? 'Campsite'}
-                      />
-                    </div>
-                  ))}
-                  {f.booking && (
-                    <a
-                      className={styles.provider}
-                      href={f.booking.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      data-ga-event="camping_provider_click"
-                    >
-                      {f.loopName
-                        ? 'Check district permit'
-                        : f.source === 'mo_state_parks'
-                          ? 'Check Missouri State Parks'
-                          : 'Check Recreation.gov'}{' '}
-                      ↗
-                    </a>
-                  )}
-                </section>
-              );
-            })}
-            <p className={styles.small}>
-              Confirm availability and booking rules with the provider.
-            </p>
-          </>
-        )}
+        {selected && <CampgroundDetails key={`${selected.key}:${detailArrival}:${detailDeparture}`}
+          camp={selected.camp} facilities={selected.facilities} arrival={detailArrival} departure={detailDeparture}
+          filters={filters} clock={clock} close={closeCamp} />}
       </dialog>
     </div>
   );
