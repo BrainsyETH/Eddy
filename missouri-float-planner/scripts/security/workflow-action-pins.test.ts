@@ -10,10 +10,24 @@ const appCI = readFileSync(
   'utf8',
 );
 
-function appCIJob(name: string): string {
-  const job = appCI.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0];
-  assert.ok(job, `App CI must emit the ${name} check`);
+const auditWorkflow = readFileSync(
+  path.resolve(process.cwd(), '../.github/workflows/dependency-audit.yml'),
+  'utf8',
+);
+
+function workflowJob(workflow: string, label: string, name: string): string {
+  const job = workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0];
+  assert.ok(job, `${label} must emit the ${name} check`);
   return job;
+}
+
+const appCIJob = (name: string) => workflowJob(appCI, 'App CI', name);
+const auditJob = () =>
+  workflowJob(auditWorkflow, 'Dependency audit', 'dependency-audit');
+
+function pullRequestFilters(workflow: string): string | undefined {
+  const events = workflow.split('\njobs:\n')[0];
+  return events.split('\n  pull_request:')[1]?.split(/\n  [\w-]+:/)[0];
 }
 
 test('third-party GitHub Actions are pinned to immutable commit SHAs', () => {
@@ -53,19 +67,32 @@ test('third-party GitHub Actions are pinned to immutable commit SHAs', () => {
 });
 
 test('App CI checks run on every pull request, independently', () => {
-  const events = appCI.split('\njobs:\n')[0];
-  const pullRequest = events.split('\n  pull_request:')[1]?.split(/\n  [\w-]+:/)[0];
-  assert.equal(pullRequest?.trim(), '', 'PR filters can leave required checks permanently pending');
+  for (const workflow of [appCI, auditWorkflow]) {
+    assert.equal(
+      pullRequestFilters(workflow)?.trim(),
+      '',
+      'PR filters can leave required checks permanently pending',
+    );
+  }
 
-  for (const name of ['lint-and-typecheck', 'mobile-app', 'dependency-audit']) {
-    const job = appCIJob(name);
+  const jobs: Array<[string, string]> = [
+    ['lint-and-typecheck', appCIJob('lint-and-typecheck')],
+    ['mobile-app', appCIJob('mobile-app')],
+    ['dependency-audit', auditJob()],
+  ];
+  for (const [name, job] of jobs) {
     assert.doesNotMatch(job, /^    (?:needs|if):/m, `${name} must run even when another check fails`);
     assert.doesNotMatch(job, /^\s*continue-on-error:/m, `${name} must report failures`);
   }
 });
 
+test('the audit has its own workflow, so an advisory cannot turn App CI red', () => {
+  assert.doesNotMatch(appCI, /npm audit/);
+  assert.doesNotMatch(appCI, /\n  dependency-audit:\n/);
+});
+
 test('runtime audit reports failures without suppressing web tests or the iOS bundle', () => {
-  const audit = appCIJob('dependency-audit');
+  const audit = auditJob();
   assert.match(audit, /^        run: npm audit --omit=dev --audit-level=high$/m);
   const sbomUpload = audit.indexOf('- name: Upload SBOM');
   const auditRun = audit.indexOf('- name: Reject high-severity runtime advisories');
