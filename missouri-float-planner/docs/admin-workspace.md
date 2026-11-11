@@ -94,6 +94,13 @@ Vercel environment; the latest attempted deployment has a separate history link.
   records, and the bulk bar shows that same visible count. On narrow screens, opening a report focuses and scrolls to its details. Checkboxes and detail buttons are separate keyboard controls; changing filters, page or view clears selections. Reject/delete
   confirmations disclose permanent photo removal. Verified reports may return
   to review; rejected photos cannot be restored by changing their status.
+- Pending "Reported Photo" feedback (the App Store reporting route) is pinned
+  above the feedback list and excluded from its pages. Each item shows the photo
+  and its live state from the report. **Hide photo** returns the report to review:
+  it leaves the app, but the stored file stays reachable at its URL until removed.
+  **Remove photo** rejects the report and deletes the file permanently. Either
+  action resolves a pending flag. **Open in Reports** links `/admin/reports?id=`,
+  which shows only that report until "Show all reports".
 - The mobile navigation uses a bounded native dialog with Escape/focus handling.
   Navigation and editor surfaces use the existing Eddy teal/sand palette. Pin up
   to four account-specific shortcuts from page headers.

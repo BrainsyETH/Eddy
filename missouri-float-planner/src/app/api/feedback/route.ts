@@ -13,7 +13,7 @@ import {
   type Feedback,
   type FeedbackListResponse,
 } from '@/types/api';
-import { FEEDBACK_STATUSES, mapFeedbackRow } from '@/lib/feedback/admin';
+import { FEEDBACK_STATUSES, mapFeedbackRow, REPORTED_PHOTO_TYPE } from '@/lib/feedback/admin';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -153,6 +153,20 @@ export async function GET(request: NextRequest) {
 
     if (status && (FEEDBACK_STATUSES as readonly string[]).includes(status)) {
       query = query.eq('status', status);
+    }
+
+    const type = searchParams.get('type');
+    if (type) {
+      if (!(FEEDBACK_TYPES as readonly string[]).includes(type)) {
+        return NextResponse.json({ error: 'Invalid feedback type' }, { status: 400 });
+      }
+      query = query.eq('feedback_type', type);
+    }
+
+    // The admin inbox pins pending reported photos above the list; this keeps
+    // them from being listed (and paged) a second time underneath.
+    if (searchParams.get('pinned') === 'photos') {
+      query = query.or(`status.neq.pending,feedback_type.neq.${REPORTED_PHOTO_TYPE}`);
     }
 
     const { data, count, error: fetchError } = await query;

@@ -411,6 +411,7 @@
     [class*='bg-primary-'],
     [class*='bg-blue-'],
     [class*='bg-red-'],
+    [class*='bg-rose-'],
     [class*='bg-green-'],
     [class*='bg-purple-']
   ) {
@@ -424,6 +425,7 @@
   color: #797265;
 }
 .admin-body .hover\:bg-neutral-700:hover,
+.admin-body .hover\:bg-neutral-750:hover,
 .admin-body .hover\:bg-neutral-800:hover {
   background-color: #e5ecea;
 }

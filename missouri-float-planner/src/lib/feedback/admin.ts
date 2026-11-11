@@ -22,6 +22,47 @@ export const MAX_ADMIN_NOTES_LENGTH = 5000;
 
 export const FEEDBACK_PAGE_SIZE = 50;
 
+/** App Store reporting route for community photos; the remedy is a takedown. */
+export const REPORTED_PHOTO_TYPE = 'objectionable_content' satisfies FeedbackType;
+
+export interface ReportedPhotoContext {
+  /** The community_reports row behind the photo. */
+  reportId: string;
+  /** URL the reporter saw; may since have been taken down. */
+  imageUrl: string | null;
+  accessPointName: string | null;
+  description: string | null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Read the photo a "Reported Photo" item points at. Context data is
+ * client-submitted, so every field is checked: only a UUID can address a
+ * report, and only an https URL is rendered as an image.
+ */
+export function reportedPhotoContext(item: Pick<Feedback, 'feedbackType' | 'contextData'>): ReportedPhotoContext | null {
+  if (item.feedbackType !== REPORTED_PHOTO_TYPE || !item.contextData) return null;
+  const data = item.contextData;
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 500) : null);
+  const reportId = text(data.visualId);
+  if (!reportId || !UUID.test(reportId)) return null;
+  // Never truncated: a shortened URL is a different URL.
+  const url = typeof data.imageUrl === 'string' ? data.imageUrl.trim() : '';
+  let imageUrl: string | null = null;
+  try {
+    if (url && url.length <= 2048 && new URL(url).protocol === 'https:') imageUrl = url;
+  } catch {
+    /* Not a URL: show no preview. */
+  }
+  return {
+    reportId,
+    imageUrl,
+    accessPointName: text(data.accessPointName),
+    description: text(data.description),
+  };
+}
+
 export function mapFeedbackRow(row: FeedbackRow): Feedback {
   return {
     id: row.id,

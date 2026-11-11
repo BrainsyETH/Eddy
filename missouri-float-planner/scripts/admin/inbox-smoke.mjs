@@ -89,7 +89,32 @@ try {
   const run = async (viewport, label) => {
     // Fresh fixtures per run. 51 pending items: a fixed 100-row cap used to
     // hide everything past it; the server holds more unread mail than shown.
-    const feedback = Array.from({ length: 51 }, (_, i) => feedbackItem(i + 1));
+    const photoReportId = '33333333-3333-4333-8333-333333333333';
+    const photoReport = {
+      id: photoReportId,
+      riverName: 'Current River',
+      type: 'river_visual',
+      description: 'Gravel bar',
+      status: 'verified',
+      imageUrl: null,
+      coordinates: null,
+      createdAt: '2026-11-09T12:00:00Z',
+      updatedAt: '2026-11-09T12:00:00Z',
+      userId: null,
+    };
+    const reportWrites = [];
+    // Older than every other item: before pinning it sat on the last page.
+    const feedback = [
+      ...Array.from({ length: 51 }, (_, i) => feedbackItem(i + 1)),
+      feedbackItem(99, {
+        feedbackType: 'objectionable_content',
+        message: 'This photo shows a person',
+        contextType: 'river',
+        contextName: 'Current River',
+        contextData: { visualId: photoReportId, imageUrl: null, accessPointName: 'Akers Ferry', description: 'Gravel bar' },
+        createdAt: '2026-11-01T12:00:00Z',
+      }),
+    ];
     const feedbackPatches = [];
     const emails = [emailItem(1), emailItem(2)];
     let serverUnread = 7;
@@ -107,7 +132,14 @@ try {
       const limit = Number(url.searchParams.get('limit'));
       const offset = Number(url.searchParams.get('offset'));
       assert.ok(limit <= 100, 'feedback page size stays bounded');
-      const rows = feedback.filter((f) => !status || f.status === status);
+      const type = url.searchParams.get('type');
+      const pinnedPhotos = url.searchParams.get('pinned') === 'photos';
+      const rows = feedback.filter(
+        (f) =>
+          (!status || f.status === status) &&
+          (!type || f.feedbackType === type) &&
+          !(pinnedPhotos && f.status === 'pending' && f.feedbackType === 'objectionable_content'),
+      );
       return json(route, { feedback: rows.slice(offset, offset + limit), total: rows.length });
     });
     await context.route('**/api/admin/**', async (route) => {
@@ -141,6 +173,18 @@ try {
         if (body.status) Object.assign(row, { status: body.status, reviewedBy: 'Owner recovery' });
         return json(route, { success: true, feedback: row });
       }
+      if (path === `/api/admin/reports/${photoReportId}`) {
+        if (request.method() === 'PUT') {
+          reportWrites.push(request.postDataJSON());
+          photoReport.status = request.postDataJSON().status;
+          return json(route, { success: true });
+        }
+        return json(route, { report: photoReport });
+      }
+      if (path === '/api/admin/reports') {
+        assert.equal(url.searchParams.get('id'), photoReportId, 'Reports opens the linked report only');
+        return json(route, { reports: [photoReport], total: 1 });
+      }
       if (path === '/api/admin/inbound-emails') {
         const status = url.searchParams.get('status');
         const rows = emails.filter((e) => !status || e.status === status);
@@ -164,6 +208,11 @@ try {
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
       await page.getByText('Feedback message 1', { exact: true }).waitFor();
 
+      // Reported photos are pinned above the list and not repeated in it.
+      const pinned = page.getByRole('region', { name: /Reported photos/ });
+      await pinned.getByText('This photo shows a person').waitFor();
+      assert.equal(await page.getByText('This photo shows a person').count(), 1);
+
       // Paging: the total is shown and the 51st item is reachable.
       await page.getByText('1–50 of 51 items').waitFor();
       assert.equal(await page.getByText('Feedback message 51', { exact: true }).count(), 0);
@@ -183,6 +232,24 @@ try {
         assert.equal(await notes.inputValue(), 'Checked the gauge; reading is right.');
       }
       await page.screenshot({ path: `${out}/inbox-feedback-${label}.png`, fullPage: true });
+
+      // Hide the photo from the item itself; the flag is then resolved.
+      await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Previous' }).click();
+      await pinned.getByText('This photo shows a person').click();
+      const panel = page.getByRole('region', { name: 'Reported photo' });
+      await panel.getByText('Live in the app').waitFor();
+      await panel.getByText('Akers Ferry · Current River').waitFor();
+      await pinned.screenshot({ path: `${out}/inbox-photo-${label}.png` });
+      await panel.getByRole('button', { name: 'Hide photo' }).click();
+      await panel.getByText('Hidden — in review').waitFor();
+      assert.deepEqual(reportWrites, [{ status: 'pending' }]);
+      await pinned.getByText('Resolved', { exact: true }).first().waitFor();
+      assert.deepEqual(feedbackPatches.at(-1), { status: 'resolved' });
+      await panel.getByRole('link', { name: 'Open in Reports' }).click();
+      await page.waitForURL(`**/admin/reports?id=${photoReportId}`);
+      await page.getByText('Showing one linked report.').waitFor();
+      await page.goto(origin + '/admin/feedback');
+      await page.getByText('Feedback message 1', { exact: true }).waitFor();
 
       // Email badge follows the server's unread count, not the rows on screen.
       await page.getByRole('button', { name: /Inbound Email/ }).click();
