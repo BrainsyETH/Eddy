@@ -188,9 +188,12 @@ export default function TeamPage() {
             onChange={(e) => setDraft({ ...draft, email: e.target.value })}
           />
         </label>
-        <label className="block">
-          Role
+        <div>
+          <label htmlFor="admin-member-role" className="block">
+            Role
+          </label>
           <select
+            id="admin-member-role"
             className="block w-full border rounded p-2"
             value={draft.role}
             onChange={(e) => setDraft({ ...draft, role: e.target.value })}
@@ -199,7 +202,7 @@ export default function TeamPage() {
             <option value="editor">Editor</option>
             <option value="moderator">Moderator</option>
           </select>
-        </label>
+        </div>
         <label className="flex gap-2">
           <input
             type="checkbox"

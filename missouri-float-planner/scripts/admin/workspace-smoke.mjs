@@ -300,9 +300,8 @@ try {
   assert.equal(await reportButton.getAttribute('aria-expanded'), 'false');
   await page.setViewportSize({ width: 390, height: 844 });
   await reportButton.click();
-  assert.equal(
-    await page.evaluate(() => document.activeElement?.id),
-    'report-detail',
+  await page.waitForFunction(
+    () => document.activeElement?.id === 'report-detail',
   );
   assert.ok(
     await page
@@ -454,103 +453,125 @@ async function checkAccessChanges(browser, origin, post, reports) {
         });
       return reply({ error: 'Unmocked admin endpoint' }, 500);
     });
-    if (initialRole === 'owner') {
-      await page.goto(origin + '/admin/team');
-      await page.getByRole('button', { name: 'Edit access' }).click();
-      await page.getByLabel('Role', { exact: true }).selectOption('editor');
-      await page.getByRole('button', { name: 'Save access' }).click();
-      const dialog = page.getByRole('dialog');
-      await dialog.getByText(/You will lose owner controls/).waitFor();
-      await dialog.getByRole('button', { name: 'Change my access' }).click();
-      await page
-        .getByRole('heading', {
-          name: 'This page isn’t available to your role',
-        })
-        .waitFor();
-      assert.equal(
+    try {
+      if (initialRole === 'owner') {
+        await page.goto(origin + '/admin/team');
+        await page.getByRole('button', { name: 'Edit access' }).click();
+        await page.getByLabel('Role', { exact: true }).selectOption('editor');
+        await page.getByRole('button', { name: 'Save access' }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByText(/You will lose owner controls/).waitFor();
+        await dialog.getByRole('button', { name: 'Change my access' }).click();
         await page
-          .getByRole('link', { name: 'Team & access', exact: true })
-          .count(),
-        0,
-      );
-      role = 'moderator';
-    } else if (initialRole === 'editor') {
-      await page.goto(origin + '/admin/images');
-      const category = page.getByRole('button', {
-        name: 'Rivers',
-        exact: true,
-      });
-      await category.hover();
-      assert.deepEqual(
-        await category.evaluate((el) => ({
-          background: getComputedStyle(el).backgroundColor,
-          text: getComputedStyle(el).color,
-        })),
-        { background: 'rgb(229, 236, 234)', text: 'rgb(22, 63, 73)' },
-      );
-      await page.getByTitle('Delete', { exact: true }).click();
-      await page
-        .getByRole('dialog')
-        .getByRole('button', { name: 'Continue', exact: true })
-        .click();
-      await page.getByText('No images found in this category.').waitFor();
-      assert.equal(deletedImage, true);
-      // A different owner changes our role while this tab remains open.
-      role = 'moderator';
-      await page
-        .getByRole('link', { name: 'Blog & river guides', exact: true })
-        .click();
-      await page
-        .getByRole('heading', {
-          name: 'This page isn’t available to your role',
-        })
-        .waitFor();
-      assert.equal(
+          .getByRole('heading', {
+            name: 'This page isn’t available to your role',
+          })
+          .waitFor();
+        assert.equal(
+          await page
+            .getByRole('link', { name: 'Team & access', exact: true })
+            .count(),
+          0,
+        );
+        role = 'moderator';
+      } else if (initialRole === 'editor') {
+        await page.goto(origin + '/admin/images');
+        const category = page.getByRole('button', {
+          name: 'Rivers',
+          exact: true,
+        });
+        await category.hover();
+        // Wait for transition-colors to finish before measuring hover contrast.
+        await page.waitForFunction(
+          (el) => getComputedStyle(el).backgroundColor === 'rgb(229, 236, 234)',
+          await category.elementHandle(),
+        );
+        assert.deepEqual(
+          await category.evaluate((el) => ({
+            background: getComputedStyle(el).backgroundColor,
+            text: getComputedStyle(el).color,
+          })),
+          { background: 'rgb(229, 236, 234)', text: 'rgb(22, 63, 73)' },
+        );
+        await page.getByTitle('Delete', { exact: true }).click();
+        await page
+          .getByRole('dialog')
+          .getByRole('button', { name: 'Continue', exact: true })
+          .click();
+        await page.getByText('No images found in this category.').waitFor();
+        assert.equal(deletedImage, true);
+        // A different owner changes our role while this tab remains open.
+        role = 'moderator';
         await page
           .getByRole('link', { name: 'Blog & river guides', exact: true })
+          .click();
+        await page
+          .getByRole('heading', {
+            name: 'This page isn’t available to your role',
+          })
+          .waitFor();
+        assert.equal(
+          await page
+            .getByRole('link', { name: 'Blog & river guides', exact: true })
+            .count(),
+          0,
+        );
+      }
+      await page.goto(origin + '/admin/reports');
+      await page
+        .getByRole('checkbox', { name: 'Select report for Current River' })
+        .waitFor();
+      await page.evaluate(() =>
+        sessionStorage.setItem('eddy-admin-draft:test', 'private draft'),
+      );
+      revoked = true;
+      await page.getByPlaceholder('Search...').fill('Current');
+      await page
+        .getByText('This account no longer has admin access.', { exact: true })
+        .waitFor();
+      assert.equal(await page.locator('.admin-workspace').count(), 0);
+      assert.equal(
+        await page.evaluate(() =>
+          sessionStorage.getItem('eddy-admin-draft:test'),
+        ),
+        null,
+      );
+      assert.equal(
+        await page
+          .getByRole('button', { name: 'Check connection again' })
           .count(),
         0,
       );
-    }
-    await page.goto(origin + '/admin/reports');
-    await page
-      .getByRole('checkbox', { name: 'Select report for Current River' })
-      .waitFor();
-    await page.evaluate(() =>
-      sessionStorage.setItem('eddy-admin-draft:test', 'private draft'),
-    );
-    revoked = true;
-    await page.getByPlaceholder('Search...').fill('Current');
-    await page
-      .getByText('This account no longer has admin access.', { exact: true })
-      .waitFor();
-    assert.equal(await page.locator('.admin-workspace').count(), 0);
-    assert.equal(
-      await page.evaluate(() =>
-        sessionStorage.getItem('eddy-admin-draft:test'),
-      ),
-      null,
-    );
-    assert.equal(
+      await page.reload();
       await page
-        .getByRole('button', { name: 'Check connection again' })
-        .count(),
-      0,
-    );
-    await page.reload();
-    await page
-      .getByText('This account no longer has admin access.', { exact: true })
-      .waitFor();
-    revoked = false;
-    await page.reload();
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await page
-      .getByRole('dialog')
-      .getByRole('button', { name: 'Sign out', exact: true })
-      .click();
-    await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor();
-    assert.equal(await page.getByText(/Sign-out did not finish/).count(), 0);
-    assert.deepEqual(errors, []);
-    await context.close();
+        .getByText('This account no longer has admin access.', { exact: true })
+        .waitFor();
+      revoked = false;
+      await page.reload();
+      await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+      await page
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Sign out', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Sign in', exact: true })
+        .waitFor();
+      assert.equal(await page.getByText(/Sign-out did not finish/).count(), 0);
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page
+        .screenshot({
+          path: `${out}/access-${initialRole}-failure.png`,
+          fullPage: true,
+        })
+        .catch(() => {});
+      await writeFile(
+        `${out}/access-${initialRole}-failure.html`,
+        await page.content(),
+      );
+      throw error;
+    } finally {
+      await context.close();
+    }
   }
 }
