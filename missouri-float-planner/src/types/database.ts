@@ -3271,6 +3271,120 @@ export type Database = {
         }
         Relationships: []
       }
+      rainfall_research_basins: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          forecast_points: Json
+          gauge_id: string
+          geometry: Json
+          id: string
+          provenance: Json
+          review_status: string
+          usgs_site_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          forecast_points: Json
+          gauge_id: string
+          geometry: Json
+          id: string
+          provenance: Json
+          review_status?: string
+          usgs_site_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          forecast_points?: Json
+          gauge_id?: string
+          geometry?: Json
+          id?: string
+          provenance?: Json
+          review_status?: string
+          usgs_site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rainfall_research_basins_gauge_id_fkey"
+            columns: ["gauge_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_snap_diagnostics"
+            referencedColumns: ["gauge_id"]
+          },
+          {
+            foreignKeyName: "rainfall_research_basins_gauge_id_fkey"
+            columns: ["gauge_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rainfall_research_captures: {
+        Row: {
+          basin_set_hash: string
+          byte_count: number
+          fetched_at: string
+          id: string
+          kind: string
+          metadata: Json
+          object_path: string
+          sha256: string
+          source_key: string
+          source_updated_at: string | null
+          valid_end: string | null
+          valid_start: string | null
+        }
+        Insert: {
+          basin_set_hash: string
+          byte_count: number
+          fetched_at?: string
+          id: string
+          kind: string
+          metadata: Json
+          object_path: string
+          sha256: string
+          source_key: string
+          source_updated_at?: string | null
+          valid_end?: string | null
+          valid_start?: string | null
+        }
+        Update: {
+          basin_set_hash?: string
+          byte_count?: number
+          fetched_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          object_path?: string
+          sha256?: string
+          source_key?: string
+          source_updated_at?: string | null
+          valid_end?: string | null
+          valid_start?: string | null
+        }
+        Relationships: []
+      }
+      rainfall_research_grid_cache: {
+        Row: {
+          grid_url: string
+          point_key: string
+          resolved_at: string
+        }
+        Insert: {
+          grid_url: string
+          point_key: string
+          resolved_at?: string
+        }
+        Update: {
+          grid_url?: string
+          point_key?: string
+          resolved_at?: string
+        }
+        Relationships: []
+      }
       river_characteristics: {
         Row: {
           drop_rate_note: string | null
