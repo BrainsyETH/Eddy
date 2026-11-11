@@ -1,4 +1,9 @@
-import type { Feature, MultiPolygon } from 'geojson';
+// Keep the shared wire contract independent of either app's dependencies.
+export interface RainBoundary {
+  type: 'Feature';
+  properties: Record<string, unknown> | null;
+  geometry: { type: 'MultiPolygon'; coordinates: number[][][][] };
+}
 
 export const RAIN_PREFERENCE_KEY = 'eddy:chart:rain:v1';
 export const RAIN_HOUR = 3_600_000;
@@ -8,6 +13,8 @@ export interface RainInterval {
   end: string;
   inches: number | null;
   coverage: number;
+  /** Only the current six-hour bin may end early. */
+  partial?: boolean;
 }
 export interface RainSummary {
   version: 1;
@@ -18,8 +25,13 @@ export interface RainSummary {
   hourly: RainInterval[];
   totals: { hours: 24 | 72; start: string; end: string; inches: number | null; coverage: number }[];
 }
+export interface RainMapContext {
+  river: { name: string; lines: number[][][] };
+  places: { name: string; coordinates: [number, number] }[];
+}
 export interface RainDetail extends RainSummary {
-  boundary: Feature<MultiPolygon>;
+  context?: RainMapContext;
+  boundary: RainBoundary;
   shading: {
     start: string; end: string;
     // Native EPSG:3857 cells. Negative/nodata values are null, never dry.
@@ -54,9 +66,12 @@ export function rainBars(hourly: readonly RainInterval[], from: number, to: numb
   const step = hours * RAIN_HOUR;
   const bars: RainInterval[] = [];
   for (let start = Math.floor(from / step) * step; start < to; start += step) {
-    const members = Array.from({ length: hours }, (_, i) => rows.get(start + i * RAIN_HOUR));
+    const end = Math.min(start + step, Math.floor(to / RAIN_HOUR) * RAIN_HOUR);
+    if (end <= start) continue;
+    const count = (end - start) / RAIN_HOUR;
+    const members = Array.from({ length: count }, (_, i) => rows.get(start + i * RAIN_HOUR));
     const complete = members.every((row): row is RainInterval => !!row && usableRain(row));
-    bars.push({ start: new Date(start).toISOString(), end: new Date(start + step).toISOString(),
+    bars.push({ start: new Date(start).toISOString(), end: new Date(end).toISOString(), partial: end < start + step,
       inches: complete ? members.reduce((sum, row) => sum + row!.inches!, 0) : null,
       coverage: Math.min(...members.map(row => row?.coverage ?? 0)) });
   }
@@ -70,11 +85,13 @@ export function rainReadout(row: RainInterval | null, timeZone?: string): string
   if (!row || !usableRain(row)) return 'Rain data unavailable';
   const hours = Math.round((Date.parse(row.end) - Date.parse(row.start)) / RAIN_HOUR);
   const ending = timeZone ? ` ending ${new Intl.DateTimeFormat('en-US', { hour: 'numeric', timeZone }).format(new Date(row.end))}` : ' total';
-  return `Rain upstream: ${rainAmount(row.inches)} · ${hours}h${ending}`;
+  return `Rain upstream: ${rainAmount(row.inches)} · ${hours} ${hours === 1 ? 'hour' : 'hours'}${row.partial ? ' so far' : ending}`;
 }
-export function rainMaximum(rows: readonly RainInterval[]): number {
-  const maximum = Math.max(0.05, ...rows.filter(usableRain).map(row => row.inches!));
-  return Math.ceil(maximum * 20) / 20;
+export function rainMaximum(rows: readonly RainInterval[], hours: 1 | 6 = 6): number {
+  // A drizzle must not fill the track. These are display scales, not risk thresholds.
+  const floor = hours === 1 ? 0.25 : 1;
+  const maximum = Math.max(floor, ...rows.filter(usableRain).map(row => row.inches!));
+  return Math.ceil(maximum / floor) * floor;
 }
 export function rainIsFresh(summary: RainSummary, now = Date.now()): boolean {
   const age = now - Date.parse(summary.updatedAt);

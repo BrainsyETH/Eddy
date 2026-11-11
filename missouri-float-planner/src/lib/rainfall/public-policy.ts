@@ -3,7 +3,7 @@
 export const RAIN_RELEASE: {
   unitsEvidence: string | null;
   coverageEvidence: string | null;
-  sites: Record<string, { basinId: string; name: string; gauge: [number, number] }>;
+  sites: Record<string, { basinId: string; riverSlug: string; name: string; gauge: [number, number] }>;
 } = { unitsEvidence: null, coverageEvidence: null, sites: {} };
 
 export function publicRainSite(siteId: string) {

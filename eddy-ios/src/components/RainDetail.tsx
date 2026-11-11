@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Path, Pattern, Rect, Text as SvgText } from 'react-native-svg';
 import { chartStamp } from '@eddy/conditions/chart-calendar';
 import { rainAmount, usableRain } from '@eddy/conditions/rainfall';
 import { rainfallMap, RAIN_MAP_BANDS } from '@eddy/conditions/rainfall-map';
@@ -24,19 +24,22 @@ export function RainDetail({ siteId, timeZone }: { siteId: string; timeZone: str
       <Text style={[styles.caption, { color: colors.textMuted }]}>{Math.round(data.basin.areaSqMi).toLocaleString()} sq mi · Radar estimate</Text></View>
     <View style={[styles.map, { backgroundColor: colors.card, borderColor: colors.border }]} accessible accessibilityLabel={`Watershed upstream of ${data.basin.name}${data.shading ? ', shaded by estimated rain in the past 24 hours' : ', rainfall shading unavailable'}`}>
       <Svg viewBox="0 0 320 270" width="100%" height={270} accessible={false}>
-        <Defs><ClipPath id={id}><Path d={map.path} fillRule="evenodd" clipRule="evenodd" /></ClipPath></Defs>
-        <Path d={map.path} fill={colors.border} fillRule="evenodd" />
-        <G clipPath={`url(#${id})`}>{map.shading.map((d, i) => <Path key={i} d={d} fill={colors.rainHeavy} fillOpacity={i === 0 ? 0.08 : 0.15 + i * 0.16} />)}</G>
+        <Defs><Pattern id={`${id}-missing`} width={6} height={6} patternUnits="userSpaceOnUse"><Rect width={6} height={6} fill={colors.cardRaised} /><Path d="M-1,1L1,-1M0,6L6,0M5,7L7,5" stroke={colors.textSubtle} strokeWidth={1} /></Pattern><ClipPath id={id}><Path d={map.path} fillRule="evenodd" clipRule="evenodd" /></ClipPath></Defs>
+        <Path d={map.path} fill={`url(#${id}-missing)`} fillRule="evenodd" />
+        <G clipPath={`url(#${id})`}>{map.shading.map((d, i) => <Path key={i} d={d} fill={i === 0 ? colors.card : colors.rainHeavy} fillOpacity={i === 0 ? 1 : 0.15 + i * 0.16} />)}</G>
         <Path d={map.path} fill="none" stroke={colors.interactive} strokeWidth={1.5} />
+        {map.river ? <G clipPath={`url(#${id})`}><Path d={map.river} fill="none" stroke={colors.card} strokeWidth={3.5} /><Path d={map.river} fill="none" stroke={colors.text} strokeWidth={1.5} /></G> : null}
+        {map.places.map(place => <G key={place.name}><Circle cx={place.x} cy={place.y} r={2} fill={colors.text} /><SvgText x={place.x} y={place.y - 7} textAnchor={place.x > 210 ? 'end' : place.x < 110 ? 'start' : 'middle'} fill={colors.text} fontSize={10}>{place.name.length > 22 ? `${place.name.slice(0, 21)}…` : place.name}</SvgText></G>)}
+        <SvgText x={map.gauge.x} y={Math.min(260, map.gauge.y + 16)} textAnchor="middle" fill={colors.text} fontSize={11}>Gauge</SvgText>
         <Circle cx={map.gauge.x} cy={map.gauge.y} r={4} fill={colors.accent} stroke={colors.card} strokeWidth={2} />
         <SvgText x={300} y={22} textAnchor="middle" fill={colors.textMuted} fontSize={12}>N ↑</SvgText>
       </Svg>
     </View>
-    <Text style={[styles.caption, { color: colors.textMuted }]}>{data.shading ? `24-hour rain · through ${chartStamp(data.shading.end, timeZone)}` : 'Rainfall shading unavailable'} · Dot: gauge</Text>
+    <Text style={[styles.caption, { color: colors.textMuted }]}>{data.shading ? `24-hour rain · through ${chartStamp(data.shading.end, timeZone)}` : 'Rainfall shading unavailable'} · Dot: gauge{map.riverName ? ` · Line: ${map.riverName}` : ''}</Text>
     {data.shading ? <View style={styles.legend}>{RAIN_MAP_BANDS.map((label, i) => <View key={label} style={styles.legendItem}>
-      <View style={[styles.swatch, { backgroundColor: colors.rainHeavy, opacity: i === 0 ? 0.08 : 0.15 + i * 0.16 }]} />
+      <View style={[styles.swatch, { backgroundColor: i === 0 ? colors.card : colors.rainHeavy, borderWidth: 1, borderColor: colors.textSubtle, opacity: i === 0 ? 1 : 0.15 + i * 0.16 }]} />
       <Text style={[styles.caption, { color: colors.textMuted }]}>{label} in</Text></View>)}
-      <View style={styles.legendItem}><View style={[styles.swatch, { backgroundColor: colors.border }]} /><Text style={[styles.caption, { color: colors.textMuted }]}>No estimate</Text></View>
+      <View style={styles.legendItem}><Svg width={12} height={12} accessible={false}><Rect width={12} height={12} fill={colors.cardRaised} /><Path d="M0,4L4,0M0,8L8,0M0,12L12,0M4,12L12,4M8,12L12,8" stroke={colors.textSubtle} strokeWidth={1} /></Svg><Text style={[styles.caption, { color: colors.textMuted }]}>No estimate</Text></View>
     </View> : null}
     <View style={styles.totals}>{[24, 72].map(hours => { const total = data.totals.find(row => row.hours === hours); return <View key={hours} style={[styles.total, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Text style={[styles.caption, { color: colors.textMuted }]}>Past {hours} hours</Text>

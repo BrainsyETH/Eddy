@@ -2401,7 +2401,8 @@ privacy rules and the outstanding physical-device share gates.
 
 ### Rain within the river report
 
-The shared gauge chart starts at 7d unless the caller supplies a range. Reviewed
+River reports explicitly open at 7d. The shared gauge chart retains its 30d
+default for other callers; shared links retain their requested range. Reviewed
 rain can appear on 24h/7d inside the existing chart height, with an independent
 inches scale and a shared cursor. Compare contains the remembered Rain switch;
 tapping Rain upstream opens the existing chart sheet (full screen when expanded).
@@ -2409,8 +2410,9 @@ The native SVG map, totals and hourly list share data/formatting rules with web.
 No new native dependency or permission is required.
 
 Eddy's Read follows the chart and precedes the free Will it hold? forecast.
-The initial Read is at most two sentences; Read more reveals longer prose and
-nonduplicated weather/bottom-line context. Existing Premium authorization and
+Subscribers see up to five sentences (640 characters), with distinct Weather
+and Bottom line visible immediately. Read more expands only longer prose.
+Locked previews have no expand button; one accessible Premium offer explains access. Existing Premium authorization and
 the single shared lock remain in force. Switching gauge resets expanded prose.
 
 Before distribution, verify the rain switch persists, toggling does not move the

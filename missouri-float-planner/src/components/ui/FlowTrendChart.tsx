@@ -512,8 +512,8 @@ export default function FlowTrendChart({
     if (!rain || !rainIsFresh(rain) || !rainRange(days) || !history?.requestedWindow) return [];
     return rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6);
   }, [rain, history?.requestedWindow, days]);
-  const rainSpace = rainRows.length ? 44 : 0;
-  const rainMax = rainMaximum(rainRows);
+  const rainSpace = rainRows.length ? 84 : 0;
+  const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
     const time = chartData.domain.t0 + hoverFraction * (chartData.domain.t1 - chartData.domain.t0);
@@ -908,20 +908,21 @@ export default function FlowTrendChart({
               : ''
           }`}
         >
-          {rainSpace > 0 && <div className="absolute inset-x-0 top-0 h-11" data-rain-track>
-            <div className="flex h-6 items-center justify-between gap-2 text-[11px] text-neutral-600">
-              <button type="button" onClick={onRainDetails} className="relative h-6 font-semibold text-primary-700 underline decoration-primary-200 underline-offset-2 after:absolute after:-inset-y-2.5 after:inset-x-0" aria-label="Open rain upstream details">Rain upstream</button>
-              <span className="tabular-nums">0–{rainMax.toFixed(2)} in · {days === 1 ? '1h' : '6h'}</span>
+          {rainSpace > 0 && <div className="absolute inset-x-0 top-0 h-[84px]" data-rain-track>
+            <div className="flex h-11 items-center justify-between gap-2 text-[11px] text-neutral-600">
+              <button type="button" onClick={onRainDetails} className="min-h-11 font-semibold text-primary-700 underline decoration-primary-200 underline-offset-2" aria-label="Open rain upstream details">Rain upstream</button>
+              <span className="text-right tabular-nums"><span className="block">Scale: 0–{rainMax.toFixed(2)} in</span><span>{days === 1 ? 'Hourly bars' : '6-hour bars'}</span></span>
             </div>
-            <svg viewBox="0 0 100 18" preserveAspectRatio="none" className="h-4 w-full overflow-hidden" aria-hidden="true"
+            <svg viewBox="0 0 100 18" preserveAspectRatio="none" className="h-8 w-full overflow-hidden" aria-hidden="true"
               onPointerMove={event => { const rect = event.currentTarget.getBoundingClientRect(); setHoverFraction(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))); }}
               onPointerDown={event => { const rect = event.currentTarget.getBoundingClientRect(); setHoverFraction(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))); }}>
               {rainRows.map(row => {
                 const start = Math.max(0, chartData.x(Date.parse(row.start))), end = Math.min(100, chartData.x(Date.parse(row.end)));
                 if (end <= start) return null;
                 return row.inches === null
-                  ? <line key={row.start} x1={start} x2={end} y1={17} y2={17} stroke="var(--color-neutral-400)" strokeWidth="1" strokeDasharray="1 1" />
-                  : <rect key={row.start} x={start} y={17 - Math.max(0.6, row.inches / rainMax * 16)} width={Math.max(0.1, (end - start) * 0.88)} height={Math.max(0.6, row.inches / rainMax * 16)} fill="var(--color-primary-500)" fillOpacity="0.7" />;
+                  ? <rect key={row.start} x={start} y={1} width={end - start} height={16} fill="var(--color-neutral-100)" stroke="var(--color-neutral-500)" strokeWidth="0.3" strokeDasharray="1 1" />
+                  : row.inches === 0 ? <line key={row.start} x1={start} x2={end} y1={17} y2={17} stroke="var(--color-primary-700)" strokeWidth="1" />
+                  : <rect key={row.start} x={start} y={17 - Math.max(0.6, row.inches / rainMax * 16)} width={Math.max(0.1, (end - start) * 0.88)} height={Math.max(0.6, row.inches / rainMax * 16)} fill="var(--color-primary-700)" />;
               })}
               {hovered && <line x1={chartData.x(hovered.point.t)} x2={chartData.x(hovered.point.t)} y1={0} y2={18} stroke="var(--color-neutral-600)" strokeWidth="0.2" />}
             </svg>
@@ -1292,10 +1293,10 @@ export default function FlowTrendChart({
               is only true because the viewBox spans the container exactly. */}
           {hovered && (
             <div
-              className="absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-normal"
+              className="hidden sm:block absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-normal"
               style={{
                 left: `clamp(0px, ${chartData.x(hovered.point.t)}%, max(0px, calc(100% - 16rem)))`,
-                width: '16rem', maxWidth: '100%',
+                width: 'max-content', maxWidth: 'min(16rem, 100%)',
                 top: `${chartData.y(hovered.point.v)}%`,
                 transform: chartData.y(hovered.point.v) < 35 ? 'translateY(12px)' : 'translateY(calc(-100% - 8px))',
               }}
@@ -1373,6 +1374,15 @@ export default function FlowTrendChart({
           </span>
         ))}
       </div>
+
+      {interactive && <div className="sm:hidden mt-2 min-h-16 text-xs leading-5 text-neutral-700" aria-hidden="true">
+        {hovered ? <>
+          <div className="flex flex-wrap items-baseline gap-x-2"><strong className="font-mono text-primary-800">{formatTooltipVal(hovered.point.v)} {unitLabel}</strong><span>{formatTooltipDate(hovered.point.t)}{hovered.kind === 'forecast' ? ' · forecast' : ''}</span></div>
+          {rainSpace > 0 && hovered.kind === 'observed' && <div>{rainReadout(rainAt(rainRows, hovered.point.t), history?.timeZone ?? 'UTC')}</div>}
+          {hoveredQualifiers && <div>{hoveredQualifiers}</div>}
+          {showsLastYear && hovered.kind === 'observed' && <div>Last year: {hoveredPriorText}</div>}
+        </> : <span>Touch the chart for a reading.</span>}
+      </div>}
 
       {/* Who measured the line, who predicted the dashed part and when they said
           it, and whether the series was thinned to fit.

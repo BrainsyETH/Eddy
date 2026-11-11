@@ -46,21 +46,20 @@ export default function EddyOutlookFooter({
             : <p aria-hidden="true" data-nosnippet className="pointer-events-none mt-1 select-none text-sm leading-relaxed text-neutral-700 opacity-60 blur-[5px]">{readPreview(sections.eddyRead)}</p>}
           {readIsGenerated && <p className="mt-1 text-xs text-neutral-500">{updatedLabel ? `Written ${updatedLabel}` : 'Generated report'}{gaugeName ? ` · via ${gaugeName}` : ''}</p>}
           {!compact && (weather || (!damRead && bottomLine)) && (
-            <details className="mt-1">
-              <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-primary-800">More in the full Read</summary>
+            <div className="mt-3" aria-hidden="true">
               {/* Presentation only; paid prose remains server-gated. */}
               {weather && <div className="mb-3"><h4 className="text-xs font-semibold text-neutral-600">Weather</h4>
                 <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm text-neutral-700 opacity-60 blur-[5px]">{weather}</p></div>}
               {!damRead && bottomLine && <div><h4 className="text-xs font-semibold text-neutral-600">Bottom line</h4>
                 <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm text-neutral-700 opacity-60 blur-[5px]">{bottomLine}</p></div>}
-            </details>
+            </div>
           )}
-          <AppLink data-ga-event="app_landing_click" data-ga-label="river_eddy_read"
-            className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-center text-sm font-semibold text-primary-800 hover:bg-secondary-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700">
-            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Get Eddy&apos;s full Read in the app<ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-          </AppLink>
         </div>
       </div>
+      <AppLink data-ga-event="app_landing_click" data-ga-label="river_eddy_read"
+        className="mt-3 flex w-full sm:w-fit min-h-11 items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-center text-sm font-semibold text-primary-800 hover:bg-secondary-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700">
+        <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Get Eddy&apos;s full Read in the app<ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+      </AppLink>
     </section>
   );
 }

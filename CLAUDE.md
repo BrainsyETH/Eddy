@@ -3,8 +3,8 @@
 Eddy (eddy.guide) is a float trip planner for Ozarks rivers: real-time USGS
 water conditions, access points, float time estimates, and trip plans, as a
 Next.js website and an Expo iOS app. This file is the canonical repository
-guide for coding tools; `AGENTS.md` points here. Keep them from drifting by
-editing only this file.
+guide for coding tools; `AGENTS.md` points here. Shared rules live only in this
+root `CLAUDE.md`. App entry points link here and add only app-specific guidance.
 
 ## Repository map
 
@@ -29,16 +29,29 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 
 | Change | Start in | Read first | Validate with |
 | --- | --- | --- | --- |
-| Web page / API route / server logic | `missouri-float-planner/src/` | `missouri-float-planner/README.md` | `make check-web` |
+| Web page / component / interaction | `missouri-float-planner/src/` | `missouri-float-planner/AGENTS.md`, then the feature/design docs it names | `make check-web` + relevant browser checks and visual inspection |
+| API route / server logic | `missouri-float-planner/src/` | relevant sections of `missouri-float-planner/README.md` | `make check-web` + affected integration checks |
 | Embed widgets (`/embed`, images, loader) | `missouri-float-planner/src/components/embed/v2/`, `src/lib/embed/` | `missouri-float-planner/docs/embeds.md` | `make check-web` |
 | iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/AGENTS.md`, then the `eddy-ios/README.md` sections it names | `make check-mobile` + `make bundle-mobile` + `make check-web` (iOS logic is tested there; register new test files in its `test` script) |
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
-| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations, then `supabase/production-migrations.txt` | never against production by default; `make check-db` after any hand-applied change. A migration PR is done only when the file is named for the version production recorded and that version is in the ledger |
+| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations, then `supabase/production-migrations.txt` | `make check-web`; production writes require explicit authorization. Distinguish PR readiness from production application as described below |
 | ClipEngine / social automation | `scripts/clipengine/`, `clipengine-local/` | `docs/clipengine-ops.md` | tool-specific dry run |
-| CI / deployment | `.github/workflows/`, `.easignore` | `.easignore` header, `app-ci.yml` comments | `make check` |
+| CI / deployment | `.github/workflows/`, `.easignore` | `.easignore` header, affected workflow | `make check` + checks specific to the changed workflow |
 | iOS build, TestFlight, App Store submission | EAS + Apple/RevenueCat dashboards | `docs/ios-release-runbook.md` | the checklists in that runbook |
+
+Documentation-only changes need link, path, command and diff checks. Run app
+checks when the edited document is consumed by a test or changes a contract;
+do not imply that documentation review verifies application behavior.
+
+For migrations, **ready to merge** means the SQL has been reviewed and
+validated, unapplied files are recorded under `[pending]` in the ledger, and
+any required deployment order is stated. Production application is a separate,
+explicitly authorized step. After applying, read the version production
+actually recorded, align the filename and `[applied]` entry, remove the pending
+entry, and run `make check-db`. An unapplied migration can be ready to merge;
+it must not be reported as applied or production-verified.
 
 Web tests intentionally cover iOS-app and `packages/` logic (neither has its
 own runner), so a mobile or package change can fail `make check-web` — that is
@@ -60,6 +73,34 @@ review introduces a narrowly scoped, expiring exception that still rejects
 new advisories. Do not normalize administrator bypasses of a permanently red
 required check.
 
+## Product and UI working agreement
+
+- **Go deeper into the requested change.** Preserve approved layouts and
+  behavior outside that scope. Keep unrelated redesigns and new ideas as
+  separate follow-ups; do not bundle them into the implementation.
+- **Inspect before designing.** Read the existing components and the docs
+  that own the feature; inspect the current screen when available. Reuse
+  Eddy's components, charts, icons, artwork and design tokens before adding
+  another pattern. Follow the design sources in each app's `AGENTS.md`,
+  including documented differences between web and iOS.
+- **Keep the interface easy to scan.** Use short, human copy and the existing
+  product terms. Remove repeated labels and explanations. Prefer compact
+  controls and clear status treatments; use existing imagery where it helps
+  someone recognize a place or understand the information. Avoid filler and
+  marketing language in product flows.
+- **Check the related surfaces.** When changing a shared card, chart or
+  meaning, trace its callers across pages, widgets and iOS. Verify the
+  surfaces the change affects; report other inconsistencies without silently
+  expanding the task to redesign them.
+- **Verify the rendered result.** For UI changes, inspect the affected web
+  screens at narrow mobile and desktop widths, or the iOS screen in an
+  available simulator/device. Check the interactions and relevant loading,
+  empty and error states, including focus, accessible labels and touch targets.
+  Use existing browser checks where applicable and inspect their screenshots.
+  Passing typecheck, lint or unit tests does not establish visual quality.
+  Report what was viewed and tested, and explicitly identify any visual or
+  device verification that remains unconfirmed.
+
 ## Commands
 
 **Setup:** `./bootstrap.sh [web|mobile|all] [--env-file FILE]` at the root
@@ -73,8 +114,8 @@ other environment's setup script calls it too, passing a file its later
 shells read (for example `./bootstrap.sh all --env-file ~/.bashrc`). Change
 setup in `bootstrap.sh`, not in a caller.
 
-Run `make help` at the root. Targets are thin wrappers over each project's own
-scripts and mirror CI exactly:
+Run `make help` at the root. Targets wrap each project's scripts; they cover
+the core checks, not every CI job:
 
 - `make setup-web` / `make setup-mobile` — `npm ci` in each app
 - `make check-web` — web typecheck + lint + tests
@@ -88,7 +129,7 @@ scripts and mirror CI exactly:
   It also fails on any public table that `anon`/`authenticated` can touch without
   RLS enabled — whichever table it is — so RLS switched on by hand in production
   cannot silently drift from the migrations.
-- `make check` — all of the above
+- `make check` — `check-web` + `check-mobile` + `bundle-mobile`; excludes database checks, browser suites and the dependency audit
 - `make dev` — run the app locally on a simulator
 - `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps
 - `make check-eas-env` — compare EAS variable *names* across `preview` and `production`
@@ -96,8 +137,14 @@ scripts and mirror CI exactly:
 Or run the underlying `npm` scripts from inside `missouri-float-planner/` or
 `eddy-ios/` — the manifests remain the source of truth.
 
-Every target depends on `guard-node`, which **fails** unless the running Node
-matches `.nvmrc` (20). npm only *warns* on an engines mismatch and buries it in
+App CI also runs browser and integration checks beyond `make check-web`,
+including analytics, guides, river sections, camping and admin. Use
+`missouri-float-planner/AGENTS.md` to choose checks for the affected surface;
+the workflow and package scripts define the current commands. State which
+checks ran and their results rather than calling a local subset "all CI".
+
+Setup, app validation and build targets depend on `guard-node`, which **fails**
+unless the running Node matches `.nvmrc` (20). npm only *warns* on an engines mismatch and buries it in
 install output; installing on the wrong Node resolves a different dependency
 graph than CI, which is how a lockfile stops matching and a native build starts
 failing for reasons that name anything but Node.

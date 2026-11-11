@@ -1,0 +1,171 @@
+{
+  "checkedAt": "2026-11-11T21:53:09.491976+00:00",
+  "tile": {
+    "xmin": -10532957.128554547,
+    "ymin": 4078529.700448977,
+    "xmax": -10039445.860456608,
+    "ymax": 4660040.56815956,
+    "width": 415,
+    "height": 489,
+    "dx": 1189.1837785492494,
+    "dy": 1189.1837785492494
+  },
+  "results": [
+    {
+      "hours": 1,
+      "bytes": 1274,
+      "magic": "49492a00",
+      "attributes": {
+        "objectid": 158156838,
+        "name": "conus_QPE_01H",
+        "category": 1,
+        "idp_ingestdate": 1794431301000,
+        "idp_filedate": 1794431298000,
+        "idp_subset": "conus_QPE_01H",
+        "idp_validendtime": 1794430800000,
+        "st_area(shape)": 39653397842075.87,
+        "st_perimeter(shape)": 25762477.378400005
+      },
+      "parameters": {
+        "f": "image",
+        "bbox": "-10532957.128554547,4078529.700448977,-10039445.860456608,4660040.56815956",
+        "bboxSR": 3857,
+        "imageSR": 3857,
+        "size": "415,489",
+        "format": "tiff",
+        "compression": "None",
+        "pixelType": "F32",
+        "interpolation": "RSP_NearestNeighbor",
+        "adjustAspectRatio": "false",
+        "renderingRule": "{\"rasterFunction\": \"None\"}",
+        "mosaicRule": "{\"mosaicMethod\": \"esriMosaicLockRaster\", \"lockRasterIds\": [158156838]}"
+      },
+      "decoded": {
+        "count": 202935,
+        "zero": 202935,
+        "missing": 0,
+        "wet": 0,
+        "sum": 0,
+        "max": 0
+      },
+      "sha256": "c33b1c7c9361f4ee51bc3779377afe37306faf554fb47a95b22dc90fb78996e4"
+    },
+    {
+      "hours": 6,
+      "bytes": 197882,
+      "magic": "49492a00",
+      "attributes": {
+        "objectid": 158159638,
+        "name": "conus_QPE_06H",
+        "category": 1,
+        "idp_ingestdate": 1794431601000,
+        "idp_filedate": 1794431310000,
+        "idp_subset": "conus_QPE_06H",
+        "idp_validendtime": 1794430800000,
+        "st_area(shape)": 39653397842075.87,
+        "st_perimeter(shape)": 25762477.378400005
+      },
+      "parameters": {
+        "f": "image",
+        "bbox": "-10532957.128554547,4078529.700448977,-10039445.860456608,4660040.56815956",
+        "bboxSR": 3857,
+        "imageSR": 3857,
+        "size": "415,489",
+        "format": "tiff",
+        "compression": "None",
+        "pixelType": "F32",
+        "interpolation": "RSP_NearestNeighbor",
+        "adjustAspectRatio": "false",
+        "renderingRule": "{\"rasterFunction\": \"None\"}",
+        "mosaicRule": "{\"mosaicMethod\": \"esriMosaicLockRaster\", \"lockRasterIds\": [158159638]}"
+      },
+      "decoded": {
+        "count": 202935,
+        "zero": 199570,
+        "missing": 0,
+        "wet": 3365,
+        "sum": 1304.100192308426,
+        "max": 2.3000001907348633
+      },
+      "sha256": "a9706385f65aab37da2600a72e3be66b98f00f1562ad4943a5b5dbfebaa20c10"
+    },
+    {
+      "hours": 24,
+      "bytes": 328954,
+      "magic": "49492a00",
+      "attributes": {
+        "objectid": 158162838,
+        "name": "conus_QPE_24H",
+        "category": 1,
+        "idp_ingestdate": 1794431915000,
+        "idp_filedate": 1794431323000,
+        "idp_subset": "conus_QPE_24H",
+        "idp_validendtime": 1794430800000,
+        "st_area(shape)": 39653397842075.87,
+        "st_perimeter(shape)": 25762477.378400005
+      },
+      "parameters": {
+        "f": "image",
+        "bbox": "-10532957.128554547,4078529.700448977,-10039445.860456608,4660040.56815956",
+        "bboxSR": 3857,
+        "imageSR": 3857,
+        "size": "415,489",
+        "format": "tiff",
+        "compression": "None",
+        "pixelType": "F32",
+        "interpolation": "RSP_NearestNeighbor",
+        "adjustAspectRatio": "false",
+        "renderingRule": "{\"rasterFunction\": \"None\"}",
+        "mosaicRule": "{\"mosaicMethod\": \"esriMosaicLockRaster\", \"lockRasterIds\": [158162838]}"
+      },
+      "decoded": {
+        "count": 202935,
+        "zero": 194380,
+        "missing": 0,
+        "wet": 8555,
+        "sum": 6683.2005434036255,
+        "max": 10.699999809265137
+      },
+      "sha256": "e7c03f7c68ba9a3c647e7fc4dc2c27a134c8e1d0babeaf8e8a91c9ab439b2250"
+    },
+    {
+      "hours": 72,
+      "bytes": 460026,
+      "magic": "49492a00",
+      "attributes": {
+        "objectid": 158166038,
+        "name": "conus_QPE_72H",
+        "category": 1,
+        "idp_ingestdate": 1794432206000,
+        "idp_filedate": 1794431337000,
+        "idp_subset": "conus_QPE_72H",
+        "idp_validendtime": 1794430800000,
+        "st_area(shape)": 39653397842075.87,
+        "st_perimeter(shape)": 25762477.378400005
+      },
+      "parameters": {
+        "f": "image",
+        "bbox": "-10532957.128554547,4078529.700448977,-10039445.860456608,4660040.56815956",
+        "bboxSR": 3857,
+        "imageSR": 3857,
+        "size": "415,489",
+        "format": "tiff",
+        "compression": "None",
+        "pixelType": "F32",
+        "interpolation": "RSP_NearestNeighbor",
+        "adjustAspectRatio": "false",
+        "renderingRule": "{\"rasterFunction\": \"None\"}",
+        "mosaicRule": "{\"mosaicMethod\": \"esriMosaicLockRaster\", \"lockRasterIds\": [158166038]}"
+      },
+      "decoded": {
+        "count": 202935,
+        "zero": 189755,
+        "missing": 0,
+        "wet": 13180,
+        "sum": 9793.700837373734,
+        "max": 11.199999809265137
+      },
+      "sha256": "4cba98664f896964caf34db9dd2cb28d0b0b38ea9ea066fc25dc428a0eac5b6e"
+    }
+  ]
+}

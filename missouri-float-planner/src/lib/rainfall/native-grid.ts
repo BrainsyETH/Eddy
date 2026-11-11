@@ -4,15 +4,25 @@ import { validateTiff, type Tile } from './research-contract';
 import { RAIN_MIN_COVERAGE } from '@shared/rainfall';
 
 /** Our captured contract is uncompressed, single-band F32. Refuse other TIFF
- * encodings; never interpret a rendered image or an implicit sparse block as 0. */
+ * encodings. GDAL sparse blocks are zero without a nodata tag, otherwise nodata. */
 export function nativePixels(bytes: Uint8Array, tile: Tile): (number | null)[] {
   validateTiff(bytes, tile);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const little = view.getUint16(0) === 0x4949;
   const ifd = view.getUint32(4, little), entries = view.getUint16(ifd, little);
   const tags = new Map<number, number[]>();
+  let nodata: number | undefined;
   for (let i = 0; i < entries; i++) {
     const at = ifd + 2 + 12 * i, tag = view.getUint16(at, little), type = view.getUint16(at + 2, little), count = view.getUint32(at + 4, little);
+    if (tag === 42113) {
+      if (type !== 2 || count < 2 || count > 64) throw new Error('Unsupported TIFF nodata');
+      const offset = count <= 4 ? at + 8 : view.getUint32(at + 8, little);
+      if (offset + count > bytes.length) throw new Error('Truncated TIFF nodata');
+      const raw = new TextDecoder().decode(bytes.subarray(offset, offset + count)).replace(/\0+$/, '').trim();
+      if (!raw || (!/^[+-]?nan$/i.test(raw) && !Number.isFinite(Number(raw)))) throw new Error('Invalid TIFF nodata');
+      nodata = Number(raw);
+      continue;
+    }
     if (![259, 273, 278, 279, 317, 322, 323, 324, 325].includes(tag)) continue;
     if (![3, 4].includes(type) || count > 8192) throw new Error('Unsupported TIFF layout');
     const size = type === 3 ? 2 : 4, offset = count * size <= 4 ? at + 8 : view.getUint32(at + 8, little);
@@ -29,11 +39,14 @@ export function nativePixels(bytes: Uint8Array, tile: Tile): (number | null)[] {
   const pixels = Array<number | null>(tile.width * tile.height).fill(null);
   for (let y = 0; y < tile.height; y++) for (let x = 0; x < tile.width; x++) {
     const block = Math.floor(y / height) * across + Math.floor(x / width);
-    if (offsets[block] === 0 && counts[block] === 0) continue;
+    if (offsets[block] === 0 && counts[block] === 0) {
+      pixels[y * tile.width + x] = nodata === undefined ? 0 : null;
+      continue;
+    }
     const at = ((y % height) * width + x % width) * 4;
     if (at + 4 > counts[block]) throw new Error('Truncated TIFF block');
     const value = view.getFloat32(offsets[block] + at, little);
-    pixels[y * tile.width + x] = Number.isFinite(value) && value >= 0 ? value : null;
+    pixels[y * tile.width + x] = Number.isFinite(value) && value >= 0 && value !== nodata ? value : null;
   }
   return pixels;
 }

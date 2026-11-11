@@ -6,6 +6,7 @@ import { existsSync, createWriteStream, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { booleanPointInPolygon, point } from '@turf/turf';
 
 const port = 3157, origin = `http://127.0.0.1:${port}`;
 const fixture = resolve('src/app/river-sections-check');
@@ -51,6 +52,8 @@ const sourceBoundary = sources['07061500-basin.json'].data.features[0];
 const boundary = { type: 'Feature', properties: {}, geometry: sourceBoundary.geometry.type === 'Polygon'
   ? { type: 'MultiPolygon', coordinates: [sourceBoundary.geometry.coordinates] } : sourceBoundary.geometry };
 const project = ([lon, lat]) => [6378137 * lon * Math.PI / 180, 6378137 * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))];
+const mapContextSource = JSON.parse(readFileSync('../docs/validation/rainfall/2026-11-11-stream/black-river-context.json', 'utf8'));
+const mapContext = { river: { name: mapContextSource.river.name, lines: [mapContextSource.river.geometry.coordinates] }, places: mapContextSource.places.filter(place => booleanPointInPolygon(point(place.coordinates), boundary)) };
 const mapPoints = boundary.geometry.coordinates.flat(2).map(project);
 const xs = mapPoints.map(p => p[0]), ys = mapPoints.map(p => p[1]);
 function rainFixture(mode = 'normal') {
@@ -61,7 +64,7 @@ function rainFixture(mode = 'normal') {
   return { version: 1, siteId: station.usgsSiteId, updatedAt: new Date(end - (mode === 'stale-rain' ? 4 * hour : 0)).toISOString(),
     status: mode === 'missing-rain' ? 'partial' : 'ready', basin: { name: 'Black River near Annapolis', areaSqMi: 484, gauge: [-90.78, 37.33] }, hourly,
     totals: [24, 72].map(hours => ({ hours, start: new Date(end - hours * hour).toISOString(), end: new Date(end).toISOString(), inches: mode === 'missing-rain' ? null : mode === 'dry' ? 0 : hours === 24 ? 0.78 : 0.91, coverage: mode === 'missing-rain' ? 0.3 : 1 })),
-    boundary, shading: mode === 'missing-rain' ? null : { start: new Date(end - 24 * hour).toISOString(), end: new Date(end).toISOString(), xmin: Math.min(...xs), ymax: Math.max(...ys),
+    boundary, context: mapContext, shading: mode === 'missing-rain' ? null : { start: new Date(end - 24 * hour).toISOString(), end: new Date(end).toISOString(), xmin: Math.min(...xs), ymax: Math.max(...ys),
       dx: (Math.max(...xs) - Math.min(...xs)) / 40, dy: (Math.max(...ys) - Math.min(...ys)) / 40, width: 40, height: 40,
       inches: Array.from({ length: 1600 }, (_, i) => mode === 'dry' ? 0 : (Math.sin(i % 40 / 9) + Math.cos(Math.floor(i / 40) / 8) + 2) * 0.4) } };
 }
@@ -121,7 +124,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       if (/\/api\/gauges\/[^/]+\/rainfall$/.test(url.pathname)) {
         if (gauge === lower) return route.fulfill({ status: 404, body: '{}' });
         const rain = rainFixture(mode);
-        if (url.searchParams.get('detail') !== '1') { delete rain.boundary; delete rain.shading; }
+        if (url.searchParams.get('detail') !== '1') { delete rain.boundary; delete rain.shading; delete rain.context; }
         return json(rain);
       }
       if (/\/api\/gauges\/[^/]+\/history$/.test(url.pathname)) return json(history(gauge));
@@ -167,7 +170,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await page.getByRole('button', { name: 'Open rain upstream details' }).click();
     const rainDialog = page.getByRole('dialog', { name: 'Rain upstream', exact: true });
     await rainDialog.getByText('0.78 in', { exact: true }).waitFor();
-    assert.equal(await rainDialog.getByRole('img').count(), 1);
+    assert.equal(await rainDialog.getByRole('img', { name: /Watershed upstream/ }).count(), 1);
     assert(await rainDialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
     await page.screenshot({ path: `${out}/rain-detail-${width}.png`, fullPage: true });
     await page.keyboard.press('Escape'); assert.equal(await rainDialog.count(), 0);
@@ -247,8 +250,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       await page.getByRole('button', { name: 'Open rain upstream details' }).click();
       const dialog = page.getByRole('dialog', { name: 'Rain upstream' });
       await dialog.getByText('Black River near Annapolis', { exact: true }).waitFor();
-      if (mode === 'dry') assert.equal(await dialog.getByText('0.00 in', { exact: true }).count(), 2);
-      else { assert.equal(await dialog.getByText('Unavailable', { exact: true }).count(), 2); assert.equal(await dialog.getByText('0.00 in', { exact: true }).count(), 0); }
+      if (mode === 'dry') assert.equal(await dialog.locator('dl').getByText('0.00 in', { exact: true }).count(), 2);
+      else { assert.equal(await dialog.locator('dl').getByText('Unavailable', { exact: true }).count(), 2); assert.equal(await dialog.locator('dl').getByText('0.00 in', { exact: true }).count(), 0); }
       await page.keyboard.press('Escape');
     }
     await page.screenshot({ path: `${out}/rain-${mode}-390.png`, fullPage: true });

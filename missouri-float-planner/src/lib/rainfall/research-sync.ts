@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MRMS_URL, RAIN_WINDOWS, rasterGrid, selectMrmsRaster } from './source-contract';
-import { type Basin, exportParameters, exportResult, forecastMetadata, forecastUrl, hash, nativeTile, object, RESEARCH_BUCKET, validateTiff } from './research-contract';
+import { type Basin, exportParameters, forecastMetadata, forecastUrl, hash, nativeTile, object, RESEARCH_BUCKET, validateTiff } from './research-contract';
 import { type Capture, saveCapture } from './research-store';
 import { publishRain } from './public-store';
 
@@ -74,8 +74,9 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
       const raster = selectMrmsRaster(metadata, catalog, hours, Date.now());
       const info = await deps.json(`${MRMS_URL}/${raster.rasterId}/info?f=json`, signal);
       const grid = rasterGrid(info), tile = nativeTile(basins, grid), parameters = exportParameters(tile, raster);
-      const exported = await deps.json(`${MRMS_URL}/exportImage?${parameters}`, signal);
-      const tiff = await deps.bytes(exportResult(exported, tile), signal);
+      // Stream the requested TIFF directly: NOAA's JSON href can point at an
+      // unavailable output directory. Actual tags below still prove the grid.
+      const tiff = await deps.bytes(`${MRMS_URL}/exportImage?${parameters}`, signal);
       validateTiff(tiff, tile);
       // Catalog IDs can rotate while downloading. Do not label bytes with an old time.
       const after = selectMrmsRaster(metadata, await deps.json(catalogUrl, signal), hours, Date.now());

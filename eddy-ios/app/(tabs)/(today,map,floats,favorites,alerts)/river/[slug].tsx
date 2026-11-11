@@ -1485,6 +1485,7 @@ export default function RiverDetailScreen() {
         {/* History, thresholds and forecast all belong to the selected station. */}
         {shownSiteId ? (
           <GaugeChart
+            initialDays={7}
             embedded={hasSections}
             riverId={scaleThresholds ? river.id : undefined}
             riverSlug={river.slug}

@@ -1,6 +1,6 @@
 // The Read interprets the chart immediately above it; the free 72-hour
 // forecast follows. Premium controls only the interpretation, never weather
-// facts. Longer prose/context expands in place without duplicating the Read.
+// facts. Only longer prose expands; Weather and Bottom line remain visible.
 // The server remains the authority for paid text and selected-gauge freshness.
 
 import { useState, type ReactNode } from 'react';
@@ -119,7 +119,7 @@ export function EddyTake({
   const [expandedRead, setExpandedRead] = useState<string | null>(null);
   const readKey = `${outlook.gaugeName ?? ''}:${read}`;
   const expanded = expandedRead === readKey;
-  const preview = readPreview(read);
+  const preview = readPreview(read, 640, 5);
   const weatherContext = distinctReadContext(read, sections?.watchFor);
   const bottomLine = distinctReadContext(`${read} ${weatherContext ?? ''}`, sections?.bottomLine);
   const locked = entitled === false;
@@ -187,13 +187,12 @@ export function EddyTake({
                 ) : null}
               </View>
 
-              {((!damRead && preview !== read) || weatherContext || (!damRead && bottomLine)) ? (
+              {!locked && !damRead && preview !== read ? (
                 <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
                   onPress={() => setExpandedRead(expanded ? null : readKey)} style={{ minHeight: 44, justifyContent: 'center' }}>
-                  <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>{expanded ? 'Read less' : locked ? 'More in the full Read' : 'Read more'}</Text>
+                  <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>{expanded ? 'Read less' : 'Read more'}</Text>
                 </Pressable>
               ) : null}
-              {expanded ? <>
               {weatherContext ? <View style={[styles.section, { borderTopColor: colors.border }]}>
                 <View style={styles.sectionHead}>
                   <EddySymbol name="weather" size={17} />
@@ -253,8 +252,6 @@ export function EddyTake({
                 </View>
               </View>
               )}
-
-              </> : null}
 
               {/* One shared Premium offer, using the same copy as dam Reads. */}
               {locked ? <PremiumLockRow onPress={onUpgrade} /> : null}

@@ -45,6 +45,7 @@ on:
       - '.github/workflows/**'
       - '.github/dependabot.yml'
       - 'docs/ios-release-runbook.md'
+      - 'docs/validation/rainfall/**'
       - '.agents/skills/**'
       - '.claude/skills/**'
   workflow_dispatch:

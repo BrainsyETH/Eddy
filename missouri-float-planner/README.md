@@ -738,8 +738,9 @@ Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and riv
 
 The Live report reads in this order: selected section/current conditions, shared
 river chart, **Eddy's Read**, then **Will it hold?** The Read has one heading and
-one Premium CTA. Longer interpretation/context expands in place; duplicate
-Weather/Bottom line sentences are omitted. Existing public summaries and premium
+one Premium CTA. Locked interpretation and context remain a static blurred
+preview with an accessible explanation and a full-width offer on phones; there
+is no button that reveals only more blur. Duplicate context is omitted. Existing public summaries and premium
 access rules are preserved. A dam section still uses its dam interpretation and
 keeps its controlling-dam context with the chart.
 

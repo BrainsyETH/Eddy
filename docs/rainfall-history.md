@@ -171,9 +171,12 @@ Publication is **off** until all of these are true:
 The collector then derives `published/v1/<site>.json.gz` in the existing private
 bucket after archiving observations. These disposable views can be overwritten;
 raw captures remain immutable. Native uncompressed F32 cells are clipped against
-the basin and weighted by geodesic area. Sparse/negative cells are missing. A
-minimum 95% valid basin area is required for a numeric estimate. One-hour history
-grows as approved captures arrive; no historical bars are fabricated. Published
+the basin and weighted by geodesic area. Sparse TIFF blocks without a GDAL nodata tag are valid zero rain. If a nodata
+tag is present, sparse blocks and matching samples are missing; negative and
+nonfinite samples are also missing. A
+minimum 95% valid basin area is required for a numeric estimate. The publisher replays eight days of immutable captures, in stable pages, with
+the latest revision selected per basin and interval. TIFFs are decoded one at a
+time, and failed replay never overwrites a previously published view; no historical bars are fabricated. Published
 views include the basin/evidence versions so a review change invalidates old ones.
 The public endpoint caches at most the reviewed station set for five minutes.
 No forecast sampling or rain-to-rise prediction is enabled by this path.
@@ -191,3 +194,34 @@ keyboard detail dismissal, section switching, and wet/dry/missing/stale data.
 Its map uses the captured USGS Annapolis outline; rain and readings are fixtures.
 The existing `river-sections-web` CI job retains its screenshots. Native device,
 VoiceOver, large-text and rotation checks remain required before app distribution.
+
+### Review corrections (2026-11-11)
+
+The collector now streams `exportImage?f=image&format=tiff&compression=None`.
+NOAA's JSON envelope was already requested correctly, but its temporary href
+returned `400 Invalid URL`. Direct responses still have their CRS, F32 type,
+dimensions, spacing and origin validated, and their catalog identity rechecked.
+A read-only probe captured all four products; reproducible bytes and counts are
+in `validation/rainfall/2026-11-11-stream/`. The one-hour image contains 202,935
+valid zero pixels, including implicit sparse blocks. This proves download and
+sparse decoding, not independent wet-unit agreement or production persistence.
+
+Seven-day charts use complete six-hour bins plus the current completed hours
+labelled “so far”. A missing past hour still invalidates its interval. The rain
+scale has a minimum of 0.25 inches per hour or 1 inch per six hours and grows in
+those increments; these are display scales, not storm-risk thresholds. Zero is
+a continuous baseline; unknown intervals are outlined gaps. Bars use solid
+Eddy rain colors. Phone readouts sit below the plot; the rain header has a real
+44-point touch target. Date range and availability remain separate labels.
+
+Approved sites must include the corresponding `riverSlug`. Published map context
+uses that existing river geometry and approved access names inside the basin.
+The shared projection draws the river, labelled gauge and up to three spaced
+place labels; no inferred river line or invented place coordinates. The dry
+swatch is an unfilled surface; unknown coverage is hatched. Context stays out of
+the summary response and loads with the detail.
+
+Before public activation: replay representative archived wet storms against the
+underlying NOAA product, review basin versions, measure publisher runtime on the
+intended inventory, and verify scheduled captures and readback in production.
+The evidence entries, public flag and station allowlist remain closed.

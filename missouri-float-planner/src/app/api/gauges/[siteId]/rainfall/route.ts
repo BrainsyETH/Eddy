@@ -21,8 +21,8 @@ export async function GET(request: Request, context: { params: Promise<{ siteId:
     const detail = await cached.value;
     if (!detail) return NextResponse.json({ available: false }, { status: 404 });
     // Geometry/raster cells are fetched only when the detail is opened.
-    const { boundary, shading, ...summary } = detail;
-    const data = new URL(request.url).searchParams.get('detail') === '1' ? { ...summary, boundary, shading } : summary;
+    const { boundary, shading, context: mapContext, ...summary } = detail;
+    const data = new URL(request.url).searchParams.get('detail') === '1' ? { ...summary, boundary, shading, context: mapContext } : summary;
     return NextResponse.json(data, { headers: { 'Cache-Control': 'public, max-age=60, s-maxage=300' } });
   } catch {
     cache.delete(siteId);

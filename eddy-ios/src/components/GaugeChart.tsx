@@ -229,7 +229,7 @@ function stageRailLabel(key: FloodStageKey): string {
 
 /** One controller owns the settings, request and eight-window cache throughout
  * expansion. Both presentations draw from it; neither fetches on mount. */
-function useGaugeChartController({ siteId, unit, provider, historyCapabilities, initialDays: givenDays = 7, initialWindow: givenWindow, initialShareState }: Props) {
+function useGaugeChartController({ siteId, unit, provider, historyCapabilities, initialDays: givenDays = 30, initialWindow: givenWindow, initialShareState }: Props) {
   const initialWindow = initialShareState?.loaded ?? givenWindow;
   const initialDays = initialShareState ? Math.max(1, Math.round((Date.parse(initialShareState.loaded.to) - Date.parse(initialShareState.loaded.from)) / 86_400_000)) : givenDays;
   const initialZoomKey = initialShareState ? chartZoomKey(siteId, initialShareState.unit, initialDays, initialShareState.loaded, initialShareState.loaded, initialDays) : null;
@@ -340,11 +340,11 @@ function GaugeChartView({
   const drawnUnit = unitOverride ?? unit;
   const rain = rainfall.data;
   const rainEnabled = !!(rainOn && rain && rain.status !== 'unavailable' && rainIsFresh(rain) && !rainfall.failed && matchesRequest && rainRange(days, !!customWindow));
-  const padTop = (30 + (rainEnabled ? 44 : 0)) * fontScale;
+  const padTop = (30 + (rainEnabled ? 76 : 0)) * fontScale;
   const rainRows = useMemo(() => rainEnabled && rain && history?.requestedWindow
     ? rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6) : [],
     [rainEnabled, rain, history, days]);
-  const rainMax = rainMaximum(rainRows);
+  const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
 
   /**
    * The range the line on screen actually covers, which is NOT always `days`.
@@ -1065,12 +1065,13 @@ function GaugeChartView({
                 {rainRows.map(row => {
                   const left = Math.max(padLeft + 4, scale.x(Date.parse(row.start))), right = Math.min(padLeft + plotWidth - 4, scale.x(Date.parse(row.end)));
                   if (right <= left) return null;
-                  const height = Math.max(1, (row.inches ?? 0) / rainMax * 18 * fontScale);
+                  const height = Math.max(1, (row.inches ?? 0) / rainMax * 30 * fontScale);
                   return row.inches === null
-                    ? <Line key={row.start} x1={left} x2={right} y1={43 * fontScale} y2={43 * fontScale} stroke={colors.textMuted} strokeDasharray="2 2" />
-                    : <Rect key={row.start} x={left} y={43 * fontScale - height} width={Math.max(0.5, (right - left) * 0.88)} height={height} fill={colors.rainLikely} opacity={0.7} />;
+                    ? <Rect key={row.start} x={left} y={46 * fontScale} width={right - left} height={30 * fontScale} fill={colors.cardRaised} stroke={colors.textMuted} strokeDasharray="2 3" strokeWidth={0.5} />
+                    : row.inches === 0 ? <Line key={row.start} x1={left} x2={right} y1={76 * fontScale} y2={76 * fontScale} stroke={colors.rainLikely} strokeWidth={1.5} />
+                    : <Rect key={row.start} x={left} y={76 * fontScale - height} width={Math.max(0.5, (right - left) * 0.88)} height={height} fill={colors.rainLikely} />;
                 })}
-                {scrubbed ? <Line x1={scale.x(scrubbed.point.t)} x2={scale.x(scrubbed.point.t)} y1={24 * fontScale} y2={padTop + plotHeight} stroke={colors.textMuted} opacity={0.4} /> : null}
+                {scrubbed ? <Line x1={scale.x(scrubbed.point.t)} x2={scale.x(scrubbed.point.t)} y1={44 * fontScale} y2={padTop + plotHeight} stroke={colors.textMuted} opacity={0.4} /> : null}
               </G> : null}
               <Defs><ClipPath id={clipId}><Rect x={padLeft} y={padTop} width={plotWidth} height={plotHeight} /></ClipPath></Defs>
               <G clipPath={`url(#${clipId})`}>
@@ -1138,11 +1139,11 @@ function GaugeChartView({
             <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text></Pressable>
           </> : <Text style={[styles.placeholderText, { color: colors.textMuted }]}>{unavailable ? 'No recent history published for this gauge.' : points.length >= 2 || forecastPoints.length ? 'Use Data & details to read this history at your current text size.' : points.length === 1 ? 'Only one reading in this window — not enough to chart.' : `No ${drawnUnit === 'cfs' ? 'flow' : 'gauge height'} reported in this window.`}</Text>}
         </View>}
-        {rainEnabled && hasPlot ? <View pointerEvents="box-none" style={{ position: 'absolute', left: padLeft, right: padRight, top: 0, height: 24 * fontScale, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Open rain upstream details" hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }} onPress={() => { clearScrub(); setSheet('rain'); }}>
+        {rainEnabled && hasPlot ? <View pointerEvents="box-none" style={{ position: 'absolute', left: padLeft, right: padRight, top: 0, height: 44 * fontScale, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open rain upstream details" style={{ minHeight: 44 * fontScale, justifyContent: 'center' }} onPress={() => { clearScrub(); setSheet('rain'); }}>
             <Text style={[styles.caption, { color: colors.interactive, fontFamily: fonts.semibold }]}>Rain upstream</Text>
           </Pressable>
-          <Text style={[styles.caption, { color: colors.textMuted }]}>0–{rainMax.toFixed(2)} in · {days === 1 ? '1h' : '6h'}</Text>
+          <View accessible accessibilityLabel={`Scale zero to ${rainMax.toFixed(2)} inches, ${days === 1 ? 'hourly' : 'six-hour'} bars`}><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>0–{rainMax.toFixed(2)} in</Text><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>{days === 1 ? 'Hourly bars' : '6-hour bars'}</Text></View>
         </View> : null}
       </View>
       <View style={[styles.actions, { borderTopColor: colors.border }]}

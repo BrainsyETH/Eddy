@@ -1,6 +1,6 @@
 # Web camping: implementation and rollout
 
-Status: gated implementation; **regional launch is NO-GO** on the measured data below. `CAMPING_WEB_ENABLED` defaults off. Enabling it publishes the hub, the two web availability endpoints, header link and sitemap entry together. This hub is layered on the separate [shared camping-policy fix](../../docs/camping-policies.md), which changes individual-site answers on both platforms. The hub's inventory handling stays in its own flagged endpoints. Existing campground card and nightly-strip readers remain unchanged.
+Status: **released on web on 2026-11-11**, enabled by the owner. The historical launch measurements below are not a completed readiness sign-off; outstanding checks remain unconfirmed. `CAMPING_WEB_ENABLED` defaults off in code and is enabled in production. Enabling it publishes the hub, the two web availability endpoints, header link and sitemap entry together. This hub is layered on the separate [shared camping-policy fix](../../docs/camping-policies.md), which changes individual-site answers on both platforms. The hub's inventory handling stays in its own flagged endpoints. Existing campground card and nightly-strip readers remain unchanged.
 
 ## Decisions
 
@@ -18,7 +18,7 @@ Status: gated implementation; **regional launch is NO-GO** on the measured data 
 ## Phase 0 evidence — 2026-11-10
 
 These measurements predate the verified-policy fallback and describe raw
-observation coverage. Recheck coverage and performance before enabling the hub;
+observation coverage. Recheck coverage and performance against the live hub;
 published first-come policy does not establish a reservable opening.
 
 Read-only queries against the existing FloatMe production project. No provider polling, schema change or production write.
@@ -37,7 +37,7 @@ Read-only queries against the existing FloatMe production project. No provider p
 
 Completeness means every expected catalog site has every occupied night from the matching fresh observation. It establishes a non-null web stay summary; it does not mean a campsite is reservable. No facility was wholly closed or unreleased in the first three windows. In the last window one wholly closed facility is included above; excluding it leaves 10/35 eligible (28.6%). Missing observations were not excluded as off-season closures.
 
-Nov 13 gaps: Buffalo Point, Red Bluff, Silver Mines and War Eagle. The next two windows also lack complete Erbie, Steel Creek and Tyler Bend. December gaps grow substantially. Per-river readiness and representative operating-season weekends remain unproven; these November/December snapshots cannot establish summer readiness. No regional or river pilot is enabled.
+Nov 13 gaps: Buffalo Point, Red Bluff, Silver Mines and War Eagle. The next two windows also lack complete Erbie, Steel Creek and Tyler Bend. December gaps grow substantially. Per-river readiness and representative operating-season weekends remain unproven; these November/December snapshots cannot establish summer readiness. The owner subsequently enabled the regional hub on 2026-11-11; this historical evidence has not been rerun.
 
 ## Behavior and correctness
 
@@ -76,6 +76,25 @@ Details load through `/api/camping/sites` only when opened. Provider links use
 existing supported URLs, and exact-site photos retain their provider credits.
 The web date controls recompute their 90-night window in Central time, including
 when a tab resumes after midnight. This affects only the new web hub.
+
+## Web search presentation
+
+The hub opens with photo cards on desktop and mobile; Calendar remains an
+explicit view choice. River and dates share a compact search panel with date
+shortcuts, campground-name search and immediately applied filters. "Available
+for my stay" means a confirmed opening for every occupied night. Known type
+mismatches leave the results; unknown metadata still follows the uncertainty
+rules above. River options use each river's own primary label, including places
+listed only under "More places to camp".
+
+Cards, calendar thumbnails and campground details use the overview's exact
+campground image. Missing or failed images use Eddy artwork with "Photo
+unavailable", never a nearby river or a numbered site's image. Responsive image
+sizes and lazy loading keep below-the-fold photographs out of the initial load.
+The calendar highlights occupied nights, moves to the selected arrival window,
+and keeps its symbol key visible with the longer count explanation under
+"About these counts". Photo cards and calendar counts make no current-condition
+claim from the photograph.
 
 ## Launch checklist
 
