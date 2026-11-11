@@ -22,11 +22,11 @@ export function RainDetail({ siteId, timeZone }: { siteId: string; timeZone: str
     <Text style={[styles.body, { color: colors.textBody }]}>Rain across the land that drains to this gauge.</Text>
     <View><Text style={[styles.heading, { color: colors.text }]}>{data.basin.name}</Text>
       <Text style={[styles.caption, { color: colors.textMuted }]}>{Math.round(data.basin.areaSqMi).toLocaleString()} sq mi · Radar estimate</Text></View>
-    <View style={[styles.map, { backgroundColor: colors.card, borderColor: colors.border }]} accessible accessibilityLabel={`Watershed upstream of ${data.basin.name}${data.shading ? ', shaded by estimated rain in the past 24 hours' : ', rainfall shading unavailable'}`}>
+    <View style={[styles.map, { backgroundColor: colors.card, borderColor: colors.border }]} accessible accessibilityLabel={`Watershed upstream of ${data.basin.name}${data.shading ? ', shaded by estimated rain in the past 24 hours' : ', rainfall shading unavailable'}${map.riverName ? `. River: ${map.riverName}. Places: ${map.places.map(place => place.name).join(', ')}.` : ''}`}>
       <Svg viewBox="0 0 320 270" width="100%" height={270} accessible={false}>
         <Defs><Pattern id={`${id}-missing`} width={6} height={6} patternUnits="userSpaceOnUse"><Rect width={6} height={6} fill={colors.cardRaised} /><Path d="M-1,1L1,-1M0,6L6,0M5,7L7,5" stroke={colors.textSubtle} strokeWidth={1} /></Pattern><ClipPath id={id}><Path d={map.path} fillRule="evenodd" clipRule="evenodd" /></ClipPath></Defs>
         <Path d={map.path} fill={`url(#${id}-missing)`} fillRule="evenodd" />
-        <G clipPath={`url(#${id})`}>{map.shading.map((d, i) => <Path key={i} d={d} fill={i === 0 ? colors.card : colors.rainHeavy} fillOpacity={i === 0 ? 1 : 0.15 + i * 0.16} />)}</G>
+        <G clipPath={`url(#${id})`}><Path d={map.shading.join('')} fill={colors.card} />{map.shading.map((d, i) => <Path key={i} d={d} fill={i === 0 ? colors.card : colors.rainHeavy} fillOpacity={i === 0 ? 1 : 0.15 + i * 0.16} />)}</G>
         <Path d={map.path} fill="none" stroke={colors.interactive} strokeWidth={1.5} />
         {map.river ? <G clipPath={`url(#${id})`}><Path d={map.river} fill="none" stroke={colors.card} strokeWidth={3.5} /><Path d={map.river} fill="none" stroke={colors.text} strokeWidth={1.5} /></G> : null}
         {map.places.map(place => <G key={place.name}><Circle cx={place.x} cy={place.y} r={2} fill={colors.text} /><SvgText x={place.x} y={place.y - 7} textAnchor={place.x > 210 ? 'end' : place.x < 110 ? 'start' : 'middle'} fill={colors.text} fontSize={10}>{place.name.length > 22 ? `${place.name.slice(0, 21)}…` : place.name}</SvgText></G>)}
