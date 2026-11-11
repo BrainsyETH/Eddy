@@ -3,19 +3,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
+import { getAdminIdentity, requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import type { UpdateFeedbackRequest } from '@/types/api';
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Admin-only: enforce the shared-secret bearer token (same model as /api/admin/*).
-    const authError = requireAdminAuth(request);
+    // Admin-only: use the same session and server-side roles as /api/admin/*.
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -40,7 +41,7 @@ export async function PATCH(
     if (body.status) {
       updates.status = body.status;
       updates.reviewed_at = new Date().toISOString();
-      updates.reviewed_by = 'admin'; // Could be enhanced with actual user tracking
+      updates.reviewed_by = getAdminIdentity(request)?.name ?? 'Owner recovery';
     }
     if (body.adminNotes !== undefined) {
       updates.admin_notes = body.adminNotes;
@@ -105,3 +106,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

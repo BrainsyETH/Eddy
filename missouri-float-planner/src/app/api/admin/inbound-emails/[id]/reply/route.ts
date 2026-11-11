@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/inbound-emails/[id]/reply/route.ts
 // POST /api/admin/inbound-emails/[id]/reply — send a reply to a received message
 // from eddy.guide via Resend, threaded to the original, as branded HTML.
@@ -35,12 +36,12 @@ function textToHtml(text: string): string {
     .join('');
 }
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     if (!hasResendApiKey()) {
@@ -161,3 +162,5 @@ export async function POST(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

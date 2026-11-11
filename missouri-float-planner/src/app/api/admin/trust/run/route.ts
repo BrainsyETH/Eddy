@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/trust/run/route.ts
 // POST — run one check right now.
 //
@@ -39,7 +40,7 @@ const TIME_BUDGET_MS = 240_000;
  * querying trust_runs by hand.
  */
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const supabase = createAdminClient();
@@ -110,8 +111,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   try {
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
       // helper. A serverless function can be frozen the moment the response is
       // sent, and a manual run is the marker for "this is when they believed it
       // was fixed" — the one record you want when reconstructing what happened.
-      await logAdminAction({
+      await logAdminAction({ request,
         action: 'trust_check_run',
         entityType: 'trust_check',
         entityName: check.title,
@@ -171,3 +172,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

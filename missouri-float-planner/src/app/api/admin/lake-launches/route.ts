@@ -9,11 +9,10 @@ import { LAKES } from '@/lib/lakes/registry';
 
 export const dynamic = 'force-dynamic';
 
-export const LAUNCH_ADMIN_COLUMNS =
-  'id, lake_slug, slug, name, longitude, latitude, launch_methods, amenities, managing_agency, fee_required, ramp_bottom_elev_ft, ramp_closure_elev_ft, elev_datum, elev_source, elev_source_updated_at, access_point_id, sources, review_note, approved, approved_at, created_at, updated_at';
+import { LAUNCH_ADMIN_COLUMNS } from '@/lib/lakes/admin-columns';
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
   const lake = request.nextUrl.searchParams.get('lake');
   if (lake && !LAKES[lake]) return NextResponse.json({ error: 'Unknown lake' }, { status: 400 });

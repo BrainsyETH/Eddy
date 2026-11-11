@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/reports/route.ts
 // GET /api/admin/reports - List all community reports for admin moderation
 //
@@ -8,11 +9,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, getAdminIdentity } from '@/lib/admin-auth';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
 import { QUARANTINE_BUCKET } from '@/lib/uploads/visual-moderation';
 import { applyMediaTransitions } from '@/lib/uploads/apply-media-transitions';
 import { logger } from '@/lib/logger';
+
+import { listPage } from '@/lib/admin/list-filters';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,19 +23,23 @@ const SIGNED_PREVIEW_TTL_SECONDS = 60 * 60; // 1 hour — admin preview only
 
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const supabase = createAdminClient();
 
     // Pagination params
     const url = new URL(request.url);
-    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    const { page, limit, from, to } = listPage(url.searchParams);
+    const search = (url.searchParams.get('q') ?? '').trim().slice(0,200);
+    const type = url.searchParams.get('type') ?? 'all';
 
-    const { data: reports, error, count } = await supabase
+    const status = url.searchParams.get('status') ?? 'all';
+    if (!['all','pending','verified','rejected'].includes(status) || !['all','hazard','water_level','debris','river_visual'].includes(type)) return NextResponse.json({error:'Invalid report filter'},{status:400});
+    const {data:matches,error:matchError,count} = await supabase.rpc('admin_report_matches',{p_search:search,p_status:status,p_type:type},{count:'exact'}).order('status').order('created_at',{ascending:false}).order('id').range(from,to);
+    if(matchError) return NextResponse.json({error:'Could not search the report queue.'},{status:500});
+    if(!matches?.length) return NextResponse.json({reports:[],total:count ?? 0,page,limit});
+    const { data: reports, error } = await supabase
       .from('community_reports')
       .select(`
         id,
@@ -71,7 +78,7 @@ export async function GET(request: NextRequest) {
       `, { count: 'exact' })
       .order('status', { ascending: true })
       .order('created_at', { ascending: false })
-      .range(from, to);
+      .in('id', matches.map((row: {id:string})=>row.id)).order('id');
 
     if (error) {
       console.error('Error fetching community reports:', error);
@@ -202,9 +209,9 @@ export async function GET(request: NextRequest) {
 const BULK_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // PATCH /api/admin/reports - bulk-update the status of many reports at once.
-export async function PATCH(request: NextRequest) {
+async function handlePATCH(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const body = await request.json().catch(() => null);
@@ -253,6 +260,7 @@ export async function PATCH(request: NextRequest) {
         .from('community_reports')
         .update({
           status,
+          verified_by: verifying ? getAdminIdentity(request)?.id ?? null : null,
           verified_at: verifying ? now : null,
           updated_at: now,
         })
@@ -271,10 +279,13 @@ export async function PATCH(request: NextRequest) {
       published: media.published,
       removed: media.removed,
       failed: media.failed,
+      failedIds: media.failedIds,
       ...(notVerified.size > 0 ? { notVerified: [...notVerified] } : {}),
-    }, { status: notVerified.size > 0 ? 207 : 200 });
+    }, { status: media.failed > 0 ? 207 : 200 });
   } catch (error) {
     console.error('Error in admin reports bulk endpoint:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

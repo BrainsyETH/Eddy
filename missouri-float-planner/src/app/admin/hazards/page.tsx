@@ -1,4 +1,5 @@
 'use client';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/hazards/page.tsx
 // Admin page for managing River Hazards (dams, portages, strainers, rapids, etc.)
@@ -94,6 +95,7 @@ function getSeverityLabel(severity: string): string {
 }
 
 export default function AdminHazardsPage() {
+  const { confirm } = useAdminInteractions();
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [rivers, setRivers] = useState<River[]>([]);
   const [loading, setLoading] = useState(true);
@@ -227,7 +229,7 @@ export default function AdminHazardsPage() {
   };
 
   const deleteHazard = async (hazard: Hazard) => {
-    if (!confirm(`Delete "${hazard.name}"? This cannot be undone.`)) return;
+    if (!await confirm(`Delete "${hazard.name}"? This cannot be undone.`)) return;
     try {
       setDeleting(hazard.id);
       const res = await adminFetch(`/api/admin/hazards/${hazard.id}`, { method: 'DELETE' });
@@ -552,14 +554,14 @@ export default function AdminHazardsPage() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page <= 1}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setPage(p => p + 1)}
                     disabled={page >= Math.ceil(totalHazards / pageLimit)}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Next
                   </button>

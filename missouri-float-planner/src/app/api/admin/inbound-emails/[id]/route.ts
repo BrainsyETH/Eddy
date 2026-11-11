@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/inbound-emails/[id]/route.ts
 // PATCH /api/admin/inbound-emails/[id] — update an inbound email's triage status.
 
@@ -10,12 +11,12 @@ export const dynamic = 'force-dynamic';
 
 const VALID_STATUSES = ['unread', 'read', 'archived', 'spam'];
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -46,3 +47,5 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

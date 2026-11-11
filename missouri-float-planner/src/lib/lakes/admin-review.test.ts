@@ -6,7 +6,7 @@ import { createAdminToken } from '@/lib/admin-auth';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const pointId = '00000000-0000-4000-8000-000000000002';
-const current = { id, name: 'Test launch', approved: true, launch_methods: ['trailer'], sources: [{ provider: 'Agency' }], longitude: -93.4, latitude: 38.2 };
+const current = { updated_at:'2026-11-10T12:00:00Z', id, name: 'Test launch', approved: true, launch_methods: ['trailer'], sources: [{ provider: 'Agency' }], longitude: -93.4, latitude: 38.2 };
 
 test('admin edits validate the resulting approval and return useful, sanitized database errors', async (t) => {
   const env = { NEXT_PUBLIC_SUPABASE_URL: 'https://lake-review-test.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-only-service-key', ADMIN_API_SECRET: 'test-only-admin-key' };
@@ -33,11 +33,14 @@ test('admin edits validate the resulting approval and return useful, sanitized d
   });
   async function patch(body: Record<string, unknown>) {
     return PATCH(new NextRequest(`https://eddy.guide/api/admin/lake-launches/${id}`, {
-      method: 'PATCH', headers: { authorization: `Bearer ${createAdminToken()}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+      method: 'PATCH', headers: { authorization: `Bearer ${createAdminToken()}`, 'content-type': 'application/json' }, body: JSON.stringify({expectedUpdatedAt:current.updated_at,...body}),
     }), { params: Promise.resolve({ id }) });
   }
 
-  let response = await patch({ launch_methods: [] });
+  let response = await patch({expectedUpdatedAt:'2026-11-09T12:00:00Z', review_note:'stale'});
+  assert.equal(response.status,409);
+  assert.equal(writes.length,0);
+  response = await patch({ launch_methods: [] });
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /unpublish/);
   assert.equal(writes.length, 0, 'reject before attempting a constraint-breaking write');

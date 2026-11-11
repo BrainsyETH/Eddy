@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 /**
  * Admin API: Upload temporary video for Instagram Reels
  *
@@ -25,9 +26,9 @@ const MAX_SIZE = 100 * 1024 * 1024;
  * Body: multipart/form-data with "video" field
  * Returns: { url: "https://<blob-store>.public.blob.vercel-storage.com/tmp-reels/<uuid>.mp4" }
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const formData = await request.formData();
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { blobs } = await list({ prefix: 'tmp-reels/' });
@@ -127,9 +128,9 @@ export async function GET(request: NextRequest) {
  *
  * Delete a temporary video from blob storage
  */
-export async function DELETE(request: NextRequest) {
+async function handleDELETE(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
@@ -179,3 +180,6 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const DELETE = withAdminMutation(handleDELETE);

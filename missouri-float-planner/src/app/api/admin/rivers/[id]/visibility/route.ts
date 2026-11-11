@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/rivers/[id]/visibility/route.ts
 // PATCH /api/admin/rivers/[id]/visibility - Toggle river visibility
 
@@ -7,12 +8,12 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -52,3 +53,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

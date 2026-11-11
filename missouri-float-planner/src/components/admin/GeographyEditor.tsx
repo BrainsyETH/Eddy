@@ -1,4 +1,5 @@
 'use client';
+import { useAdminInteractions, useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
 
 // src/components/admin/GeographyEditor.tsx
 // Main geography editor component with improved state management
@@ -75,6 +76,7 @@ interface AccessPoint {
 }
 
 export default function GeographyEditor() {
+  const { alert } = useAdminInteractions();
   const [editState, setEditState] = useState<EditState>({
     mode: 'access-points',
     selectedRiverId: null,
@@ -116,6 +118,8 @@ export default function GeographyEditor() {
   const [pendingPOICoords, setPendingPOICoords] = useState<{ lng: number; lat: number } | null>(null);
   const [selectedPOITypes, setSelectedPOITypes] = useState<Set<string>>(new Set());
   const [showPOITypeFilter, setShowPOITypeFilter] = useState(false);
+
+  useUnsavedAdminChanges(stagedMoves.size > 0 || (!!editingDetails && JSON.stringify(editingDetails) !== JSON.stringify(selectedAccessPoint)) || (!!editingPOIDetails && JSON.stringify(editingPOIDetails) !== JSON.stringify(selectedPOI)));
 
   const POI_TYPE_LIST = Object.entries(POI_TYPES).map(([value, label]) => ({ value, label }));
 
@@ -471,7 +475,7 @@ export default function GeographyEditor() {
     } finally {
       setSavingDetails(false);
     }
-  }, [selectedAccessPoint, editingDetails, loadData]);
+  }, [selectedAccessPoint, editingDetails, loadData, alert]);
 
   // Handle deleting an access point
   const handleDeleteAccessPoint = useCallback(async () => {
@@ -499,7 +503,7 @@ export default function GeographyEditor() {
     } finally {
       setSavingDetails(false);
     }
-  }, [selectedAccessPoint, loadData]);
+  }, [selectedAccessPoint, loadData, alert]);
 
   // ─── POI handlers ─────────────────────────────────────────────────
   const handleSelectPOI = useCallback((poi: POI | null) => {
@@ -578,7 +582,7 @@ export default function GeographyEditor() {
     } finally {
       setSavingPOIDetails(false);
     }
-  }, [selectedPOI, editingPOIDetails, loadData]);
+  }, [selectedPOI, editingPOIDetails, loadData, alert]);
 
   const handleDeletePOI = useCallback(async () => {
     if (!selectedPOI) return;
@@ -604,7 +608,7 @@ export default function GeographyEditor() {
     } finally {
       setSavingPOIDetails(false);
     }
-  }, [selectedPOI, loadData]);
+  }, [selectedPOI, loadData, alert]);
 
   const handleComputePOIMile = useCallback(async () => {
     if (!selectedPOI || !editingPOIDetails?.riverId || !selectedPOI.latitude || !selectedPOI.longitude) return;
@@ -645,7 +649,7 @@ export default function GeographyEditor() {
     } finally {
       setSavingPOIDetails(false);
     }
-  }, [selectedPOI, editingPOIDetails, loadData]);
+  }, [selectedPOI, editingPOIDetails, loadData, alert]);
 
   // Handle parsing a Google Maps URL
   const handleParseGoogleMaps = useCallback(async () => {
@@ -696,7 +700,7 @@ export default function GeographyEditor() {
     } finally {
       setParsingGoogleMaps(false);
     }
-  }, [googleMapsInput, editingDetails]);
+  }, [googleMapsInput, editingDetails, alert]);
 
   // Handle image file upload
   const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -750,7 +754,7 @@ export default function GeographyEditor() {
         fileInputRef.current.value = '';
       }
     }
-  }, []);
+  }, [alert]);
 
   if (loading) {
     return (
@@ -1696,7 +1700,7 @@ export default function GeographyEditor() {
                   }}
                   className={`px-2 py-1 text-xs font-medium rounded ${
                     selectedAccessPoint.approved
-                      ? 'bg-orange-500 text-white hover:bg-orange-600'
+                      ? 'admin-primary'
                       : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
                 >
@@ -1730,7 +1734,7 @@ export default function GeographyEditor() {
             {/* Full Editor Link */}
             <Link
               href={`/admin/access-points/${selectedAccessPoint.id}`}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors admin-primary"
             >
               <Pencil size={16} />
               Open Full Editor

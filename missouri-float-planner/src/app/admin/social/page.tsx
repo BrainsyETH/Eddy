@@ -8,7 +8,7 @@ import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
 import { videoSafeInsets } from '@shared/social-brand';
 import { useEffect, useState, useCallback } from 'react';
-import { adminFetch } from '@/hooks/useAdminAuth';
+import { adminFetch, useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   RefreshCw,
@@ -272,7 +272,9 @@ const POST_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function SocialAdminPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('settings');
+  const {identity}=useAdminAuth();
+  const isOwner=identity?.role === 'owner';
+  const [activeTab, setActiveTab] = useState<Tab>(isOwner ? 'settings' : 'content');
   const [config, setConfig] = useState<SocialConfig | null>(null);
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [customContent, setCustomContent] = useState<CustomContent[]>([]);
@@ -1042,7 +1044,7 @@ export default function SocialAdminPage() {
           </button>
           <button
             onClick={() => loadPreview()}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-700 text-white rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors admin-secondary"
           >
             <Eye className="w-4 h-4" />
             Preview Next Posts
@@ -1373,7 +1375,7 @@ export default function SocialAdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-neutral-700 pb-2 overflow-x-auto">
-          {tabs.map((tab) => {
+          {tabs.filter(tab => isOwner || tab.key === 'content' || tab.key === 'history').map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -1399,7 +1401,7 @@ export default function SocialAdminPage() {
         ) : (
           <>
             {/* Settings Tab */}
-            {activeTab === 'settings' && config && (
+            {isOwner && activeTab === 'settings' && config && (
               <div className="space-y-6">
                 {/* Global toggle */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
@@ -1693,7 +1695,7 @@ export default function SocialAdminPage() {
             )}
 
             {/* River Filters Tab */}
-            {activeTab === 'filters' && config && (
+            {isOwner && activeTab === 'filters' && config && (
               <div className="space-y-6">
                 {/* River toggles */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">

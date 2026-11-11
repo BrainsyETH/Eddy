@@ -438,3 +438,13 @@ Automatic reports remain paused until the web server explicitly sets
 draft on both platforms and check the real posts; then enable the flag.
 This format does not use the TikTok video connector or change Weekend Forecast.
 See [Daily Report implementation and checks](../missouri-float-planner/docs/social-daily-report.md).
+
+## Admin compilation tracking
+
+Admin montage requests now persist an idempotent job ID before dispatch.
+`compile-highlights.yml` accepts optional `admin_job_id` and reports running and
+terminal state through `missouri-float-planner/scripts/admin/update-job.mjs`.
+Scheduled callers can omit it. Apply the admin workspace migration before
+deploying this workflow/web pair; see `missouri-float-planner/docs/admin-workspace.md`.
+The admin retains selection and links the resulting video and workflow. An
+unknown dispatch is not safe to retry as a new compilation until its run is checked.

@@ -115,13 +115,14 @@ function MetricBlock({ metric, jobLabel }: { metric: Metric; jobLabel?: string }
   );
 }
 
-function SitesDetails({ summary }: { summary: DashboardSummary }) {
+function SitesDetails({ summary, host }: { summary: DashboardSummary; host?:string }) {
   const history = summary.overview?.widgets;
   const sites = referringSites(history);
   if (!sites)
     return <p className={styles.missing}>Widget history did not load.</p>;
   return (
     <>
+      {host && <p className={styles.intro}>Showing {host}. The totals below cover all referring sites.</p>}
       <div className={styles.statGrid}>
         <div>
           <strong>{sites.total}</strong>
@@ -153,7 +154,7 @@ function SitesDetails({ summary }: { summary: DashboardSummary }) {
               </tr>
             </thead>
             <tbody>
-              {sites.sites.map((s) => (
+              {sites.sites.filter(s=>!host || s.host===host).map((s) => (
                 <tr key={s.host}>
                   <td>
                     <a href={`https://${s.host}`} target="_blank" rel="noopener noreferrer">
@@ -356,7 +357,7 @@ export default function MetricDetails({
     : job
       ? job.label
       : target.key === 'widgets'
-        ? 'Referring sites'
+        ? target.name ?? 'Referring sites'
         : growth
           ? target.key === 'accounts'
             ? 'New accounts'
@@ -394,7 +395,7 @@ export default function MetricDetails({
       </div>
       <div className={styles.dialogBody}>
         {target.key === 'widgets' ? (
-          <SitesDetails summary={summary} />
+          <SitesDetails summary={summary} host={target.name} />
         ) : growth ? (
           <>
             <p className={styles.intro}>

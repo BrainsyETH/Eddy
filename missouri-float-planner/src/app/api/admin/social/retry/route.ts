@@ -1,3 +1,5 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
+
 import { isDailyReport, reportIsCurrent } from '@/lib/social/daily-report';
 import { triggerReportRender } from '@/lib/social/daily-report-dispatch';
 // Review, retry publication, or rerender the saved composition without changing media type.
@@ -11,8 +13,8 @@ import type { SocialPlatform } from '@/lib/social/types';
 import { outcomeFields, providerAttemptRecorder, thrownFields } from '@/lib/social/publish-outcome';
 
 export const dynamic = 'force-dynamic';
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
   const body = await request.json().catch(() => null);
   if (!body?.id) return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
@@ -93,3 +95,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Outcome unknown — check the account before retrying. (${message})` }, { status: 502 });
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

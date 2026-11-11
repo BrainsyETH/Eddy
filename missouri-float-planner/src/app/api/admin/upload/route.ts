@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/upload/route.ts
 // POST /api/admin/upload - Upload images to Vercel Blob storage
 
@@ -14,9 +15,9 @@ const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
 // One request uploads a handful of photos, not an unbounded batch.
 const MAX_FILES = 20;
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const formData = await request.formData();
@@ -96,3 +97,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

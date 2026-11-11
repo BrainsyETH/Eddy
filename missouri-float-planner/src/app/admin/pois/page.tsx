@@ -3,7 +3,9 @@
 // src/app/admin/pois/page.tsx
 // Admin page for managing Points of Interest (springs, caves, campgrounds, etc.)
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAdminListState } from '@/hooks/useAdminListState';
+import { useAdminInteractions, useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
@@ -55,18 +57,23 @@ const POI_TYPES = [
 ];
 
 export default function AdminPOIsPage() {
+  const { confirm } = useAdminInteractions();
+  const requestGeneration = useRef(0);
+  const invalidateRequests = useCallback(() => { requestGeneration.current++; }, []);
   const [pois, setPois] = useState<POI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [expandedPOI, setExpandedPOI] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [riverFilter, setRiverFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useAdminListState('type');
+  const [riverFilter, setRiverFilter] = useAdminListState('river');
+  const [searchQuery, setSearchQuery] = useAdminListState('q', '', 'replace');
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [page, setPage] = useState(1);
+  const [pageText, setPageText] = useAdminListState('page', '1');
+  const page = Math.max(1, Number(pageText) || 1);
+  const setPage = (next: number | ((old: number) => number)) => setPageText(String(typeof next === 'function' ? next(page) : next));
   const [totalPois, setTotalPois] = useState(0);
   const [pageLimit] = useState(50);
   const [newPOI, setNewPOI] = useState({
@@ -77,52 +84,35 @@ export default function AdminPOIsPage() {
     description: '',
   });
 
+  useUnsavedAdminChanges(showCreate && Object.entries(newPOI).some(([key,value])=>key!=='type' && !!value));
+
+  const [riverOptions, setRiverOptions] = useState<[string,string][]>([]);
   const fetchPOIs = useCallback(async (p: number = page) => {
+    const generation = ++requestGeneration.current;
     try {
       setLoading(true);
-      const res = await adminFetch(`/api/admin/pois?page=${p}&limit=${pageLimit}`);
+      const res = await adminFetch(`/api/admin/pois?${new URLSearchParams({ page: String(p), limit: String(pageLimit), q: searchQuery, type: typeFilter, river: riverFilter })}`);
       if (!res.ok) throw new Error('Failed to fetch POIs');
       const data = await res.json();
+      if (generation !== requestGeneration.current) return;
+      setError(null);
+      setRiverOptions((data.rivers ?? []).map((r: {id:string;name:string}) => [r.id,r.name]));
       setPois(data.pois);
       setTotalPois(data.total ?? data.pois.length);
     } catch (err) {
+      if (generation !== requestGeneration.current) return;
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setLoading(false);
+      if (generation === requestGeneration.current) setLoading(false);
     }
-  }, [page, pageLimit]);
+  }, [page, pageLimit, searchQuery, typeFilter, riverFilter]);
 
   useEffect(() => {
-    fetchPOIs(page);
-  }, [page, fetchPOIs]);
+    const timer = setTimeout(() => void fetchPOIs(page), 200);
+    return () => { clearTimeout(timer); invalidateRequests(); };
+  }, [page, fetchPOIs, invalidateRequests]);
 
-  const riverOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    pois.forEach(poi => {
-      if (poi.riverId && poi.riverName) {
-        map.set(poi.riverId, poi.riverName);
-      }
-    });
-    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [pois]);
-
-  const filteredPOIs = useMemo(() => {
-    let result = pois;
-    if (typeFilter !== 'all') {
-      result = result.filter(p => p.type === typeFilter);
-    }
-    if (riverFilter !== 'all') {
-      result = result.filter(p => p.riverId === riverFilter);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [pois, typeFilter, riverFilter, searchQuery]);
+  const filteredPOIs = pois;
 
   const createPOI = async () => {
     if (!newPOI.name.trim()) return;
@@ -164,7 +154,7 @@ export default function AdminPOIsPage() {
   };
 
   const deletePOI = async (poi: POI) => {
-    if (!confirm(`Delete "${poi.name}"? This cannot be undone.`)) return;
+    if (!await confirm(`Delete "${poi.name}"? This cannot be undone.`)) return;
     try {
       setDeleting(poi.id);
       const res = await adminFetch(`/api/admin/pois/${poi.id}`, { method: 'DELETE' });
@@ -451,14 +441,14 @@ export default function AdminPOIsPage() {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page <= 1}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setPage(p => p + 1)}
                     disabled={page >= Math.ceil(totalPois / pageLimit)}
-                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed admin-secondary"
                   >
                     Next
                   </button>

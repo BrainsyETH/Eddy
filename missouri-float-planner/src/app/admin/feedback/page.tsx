@@ -1,9 +1,11 @@
 'use client';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/feedback/page.tsx
 // Admin page for reviewing user feedback
 
 import { useEffect, useState, useCallback } from 'react';
+import { useAdminListState } from '@/hooks/useAdminListState';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import InboundEmailList from '@/components/admin/InboundEmailList';
@@ -24,7 +26,6 @@ import {
 } from 'lucide-react';
 import type { Feedback, FeedbackStatus } from '@/types/api';
 
-type AdminInboxView = 'feedback' | 'email';
 
 // Unlisted types fall back to the `other` badge below, which is why the two
 // newest ones are here: a gauge recalibration and a photo report were both
@@ -54,7 +55,8 @@ const STATUS_OPTIONS: { value: FeedbackStatus; label: string; color: string }[] 
 ];
 
 export default function FeedbackAdminPage() {
-  const [view, setView] = useState<AdminInboxView>('feedback');
+  const { alert } = useAdminInteractions();
+  const [view, setView] = useAdminListState('view', 'feedback');
   const [emailUnread, setEmailUnread] = useState(0);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,7 +218,7 @@ export default function FeedbackAdminPage() {
           <button
             onClick={fetchFeedback}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 admin-secondary"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -363,7 +365,7 @@ export default function FeedbackAdminPage() {
                             className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                               item.status === opt.value
                                 ? `${opt.color} text-white`
-                                : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                                : 'admin-secondary'
                             }`}
                           >
                             {opt.value === 'resolved' && <CheckCircle className="w-3 h-3" />}

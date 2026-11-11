@@ -20,7 +20,7 @@ export async function GET(
 ) {
   // Route handlers do not run the admin layout. Validate the signed session
   // here on every request, before resolving a filename or reading any HTML.
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) {
     if (authError.status === 401) {
       return NextResponse.redirect(new URL('/admin/visuals', request.url), {

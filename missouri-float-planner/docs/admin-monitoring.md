@@ -3,7 +3,7 @@
 The admin landing page combines operational health, subscriptions, sign-ins,
 trip plans, inbox, push, content gaps, and reach. It authenticates every request
 before reading a three-minute server-side cache. Responses are private/no-store.
-The sidebar does not fetch the old stats endpoint on this page.
+The shared sidebar refreshes navigation counts on entry, focus and successful admin writes.
 
 ## Stage 1
 
@@ -220,3 +220,9 @@ requests against a local fixture database verified authentication before reads,
 complete history, 13 service entries, cache reuse, and removal of account IDs
 and credential values. Desktop/mobile browser checks passed without page
 errors or document overflow.
+
+## Admin workspace
+
+See [admin-workspace.md](admin-workspace.md) for named roles, request audit
+outcomes, incident recovery, tracked compilation jobs and external monitoring
+setup. These are separate from the historical dashboard rollout above.

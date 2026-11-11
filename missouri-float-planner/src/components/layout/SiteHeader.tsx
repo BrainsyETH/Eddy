@@ -49,7 +49,7 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
 
   // Hide header on the embed workbench and all embeddable widget pages —
   // the workbench renders its own top bar and the widgets are chromeless.
-  if (pathname === '/embed' || pathname.startsWith('/embed/')) {
+  if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/embed' || pathname.startsWith('/embed/')) {
     return null;
   }
 

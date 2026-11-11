@@ -1,4 +1,5 @@
 'use client';
+import { useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/access-points/[id]/page.tsx
 // Comprehensive access point editor with all detail fields
@@ -148,6 +149,7 @@ export default function AdminAccessPointEditPage() {
   // this and carry its version, so a background refetch can neither wipe
   // edits in progress nor quietly re-base them onto newer data.
   const [loaded, setLoaded] = useState<AccessPointData | null>(null);
+  useUnsavedAdminChanges(hasChanges);
   const dirtyRef = useRef(false);
   const setHasChanges = (value: boolean) => {
     dirtyRef.current = value;
@@ -329,7 +331,7 @@ export default function AdminAccessPointEditPage() {
                 saveMutation.reset();
                 queryClient.invalidateQueries({ queryKey: ['admin-access-point', id] });
               }}
-              className="px-3 py-1.5 bg-amber-700 hover:bg-amber-600 text-white rounded-lg"
+              className="px-3 py-1.5 rounded-lg admin-primary"
             >
               Discard my edits and load the latest
             </button>
@@ -357,7 +359,7 @@ export default function AdminAccessPointEditPage() {
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       (formData.types || []).includes(option.value)
                         ? 'bg-primary-600 text-white'
-                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                        : 'admin-secondary'
                     }`}
                   >
                     {option.label}
@@ -386,7 +388,7 @@ export default function AdminAccessPointEditPage() {
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                         (formData.roadSurface || []).includes(option.value)
                           ? 'bg-primary-600 text-white'
-                          : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                          : 'admin-secondary'
                       }`}
                     >
                       {option.label}

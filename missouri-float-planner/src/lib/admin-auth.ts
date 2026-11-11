@@ -6,6 +6,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import { ADMIN_SESSION_COOKIE } from '@/lib/admin-session';
 
+import { adminPermission, type AdminIdentity } from '@/lib/admin/permissions';
+const identities = new WeakMap<NextRequest, AdminIdentity>();
+const authorizedRequests = new WeakSet<NextRequest>();
+export function getAdminIdentity(request: NextRequest) { return identities.get(request) ?? null; }
+
 export { ADMIN_SESSION_COOKIE } from '@/lib/admin-session';
 
 const TOKEN_EXPIRY_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -25,11 +30,16 @@ function getAdminSecret(): string | null {
  * Token format: <expiry_timestamp>.<hmac_signature>
  * The token never contains the raw password.
  */
-export function createAdminToken(): string {
+export function createAdminToken(userId?: string): string {
   const secret = getAdminSecret();
   if (!secret) throw new Error('No admin secret configured');
 
   const expiresAt = Date.now() + TOKEN_EXPIRY_MS;
+  if (userId) {
+    if (!isValidUUID(userId)) throw new Error('Invalid user ID');
+    const payload = `v2.${expiresAt}.${userId}`;
+    return `${payload}.${createHmac('sha256', secret).update(payload).digest('hex')}`;
+  }
   const signature = createHmac('sha256', secret)
     .update(`admin:${expiresAt}`)
     .digest('hex');
@@ -51,6 +61,19 @@ function validateAdminToken(token: string): TokenRejection | null {
   const secret = getAdminSecret();
   if (!secret) return 'bad-signature';
 
+  if (token.startsWith('v2.')) {
+    const parts = token.split('.');
+    if (parts.length !== 4 || !/^\d+$/.test(parts[1]) || !isValidUUID(parts[2])) return 'malformed';
+    const expiry = Number(parts[1]);
+    if (Date.now() >= expiry) return 'expired';
+    if (expiry > Date.now() + TOKEN_EXPIRY_MS) return 'malformed';
+    const expected = createHmac('sha256', secret).update(parts.slice(0,3).join('.')).digest('hex');
+    if (parts[3].length !== expected.length) return 'bad-signature';
+    let diff = 0;
+    for (let i=0;i<expected.length;i++) diff |= expected.charCodeAt(i) ^ parts[3].charCodeAt(i);
+    return diff ? 'bad-signature' : null;
+  }
+  if (process.env.ADMIN_ALLOW_RECOVERY_ACCESS === 'false') return 'bad-signature';
   // NOTE: the legacy "raw secret as bearer token" path was removed — it never
   // expired and let the shared password be replayed indefinitely. Clients must
   // now present a time-limited HMAC token from POST /api/admin/login. A token
@@ -88,10 +111,11 @@ function validateAdminToken(token: string): TokenRejection | null {
  * Returns null if authorized, or a 401/500 NextResponse if not.
  *
  * Usage in admin API routes:
- *   const authError = requireAdminAuth(request);
+ *   const authError = await requireAdminAuth(request);
  *   if (authError) return authError;
  */
-export function requireAdminAuth(request: NextRequest): NextResponse | null {
+export async function requireAdminAuth(request: NextRequest): Promise<NextResponse | null> {
+  if (authorizedRequests.has(request)) return null;
   const secret = getAdminSecret();
 
   if (!secret) {
@@ -151,6 +175,20 @@ export function requireAdminAuth(request: NextRequest): NextResponse | null {
     }
   }
 
+  let identity: AdminIdentity = { id: null, name: 'Owner recovery', role: 'owner', legacy: true };
+  if (token.startsWith('v2.')) {
+    try {
+      const { createAdminClient } = await import('@/lib/supabase/admin');
+      const { data, error } = await createAdminClient().from('admin_memberships').select('user_id,name,role,active').eq('user_id', token.split('.')[2]).abortSignal(AbortSignal.timeout(5000)).maybeSingle();
+      if (error) return NextResponse.json({ error: 'Access verification is unavailable. Try again.' }, { status: 503, headers: { 'Cache-Control': 'private, no-store' } });
+      if (!data?.active || !['owner','editor','moderator'].includes(data.role)) return NextResponse.json({ error: 'This account no longer has admin access.', reason: 'access-revoked' }, { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
+      identity = { id: data.user_id, name: data.name, role: data.role, legacy: false };
+    } catch { return NextResponse.json({ error: 'Access verification is unavailable. Try again.' }, { status: 503 }); }
+  }
+  identities.set(request, identity);
+  if (!adminPermission(identity.role, path, request.method)) return NextResponse.json({ error: 'Your role cannot perform this action.', reason: 'role-forbidden', identity }, { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
+  identities.set(request, identity);
+  authorizedRequests.add(request);
   return null;
 }
 
@@ -196,6 +234,7 @@ export type AdminLogResult = { ok: true } | { ok: false; error: string };
  * ignore the result behave exactly as before.
  */
 export async function logAdminAction(params: {
+  request?: NextRequest;
   action: string;
   entityType: string;
   entityId?: string;
@@ -211,8 +250,8 @@ export async function logAdminAction(params: {
       entity_type: params.entityType,
       entity_id: params.entityId || null,
       entity_name: params.entityName || null,
-      details: params.details || null,
-    });
+      details: { ...params.details, ...(params.request ? { actor: getAdminIdentity(params.request), outcome: params.details?.outcome ?? 'completed' } : {}) },
+    }).abortSignal(AbortSignal.timeout(2500));
 
     if (error) {
       console.error('[logAdminAction] Audit insert rejected:', error.message);

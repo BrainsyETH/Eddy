@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/feedback/[id]/route.ts
 // PATCH /api/admin/feedback/[id] - Update feedback status (admin token auth)
 
@@ -7,12 +8,12 @@ import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-au
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -100,3 +101,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

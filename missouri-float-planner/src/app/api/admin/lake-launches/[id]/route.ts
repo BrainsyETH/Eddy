@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/lake-launches/[id]/route.ts
 // PATCH /api/admin/lake-launches/[id] — review a launch: methods, amenities,
 // agency, fee, the access point it already is, a note, and approval.
@@ -10,13 +11,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { invalidIdResponse, isValidUUID, logAdminAction, requireAdminAuth } from '@/lib/admin-auth';
-import { LAUNCH_ADMIN_COLUMNS } from '../route';
+import { LAUNCH_ADMIN_COLUMNS } from '@/lib/lakes/admin-columns';
 
 export const dynamic = 'force-dynamic';
 
 const METHODS = new Set(['trailer', 'hand']);
 
 interface Patch {
+  expectedUpdatedAt?: unknown;
   launch_methods?: unknown;
   amenities?: unknown;
   managing_agency?: unknown;
@@ -43,8 +45,8 @@ function databaseError(error: { code?: string }, writing = false) {
   return NextResponse.json({ error: 'Could not save the launch. Please try again.' }, { status: 500 });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const authError = requireAdminAuth(request);
+async function handlePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
   const { id } = await params;
   if (!isValidUUID(id)) return invalidIdResponse();
@@ -95,9 +97,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   if (Object.keys(update).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
-  const { data: current, error: readError } = await supabase.from('lake_launches').select('approved, launch_methods, sources, longitude, latitude').eq('id', id).maybeSingle();
+  const { data: current, error: readError } = await supabase.from('lake_launches').select(LAUNCH_ADMIN_COLUMNS).eq('id', id).maybeSingle();
   if (readError) return databaseError(readError);
   if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if(typeof body.expectedUpdatedAt !== 'string' || body.expectedUpdatedAt !== current.updated_at) return NextResponse.json({error:'This launch changed. Your draft is kept; reload the latest version before saving.'},{status:409});
   // Validate the resulting row, including Save on an already approved launch.
   // Sending approved=false and clearing methods together is a valid unpublish.
   if (update.approved === true || (!('approved' in update) && current.approved)) {
@@ -109,9 +112,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
   update.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase.from('lake_launches').update(update).eq('id', id).select(LAUNCH_ADMIN_COLUMNS).maybeSingle();
+  const { data, error } = await supabase.from('lake_launches').update(update).eq('id', id).eq('updated_at',body.expectedUpdatedAt).select(LAUNCH_ADMIN_COLUMNS).maybeSingle();
   if (error) return databaseError(error, true);
-  if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  await logAdminAction({ action: 'approved' in body ? (body.approved ? 'lake_launch_approve' : 'lake_launch_unapprove') : 'lake_launch_update', entityType: 'lake_launch', entityId: id, entityName: String(data.name), details: update });
+  if (!data) return NextResponse.json({error:'This launch changed while you were saving. Your draft is kept.'},{status:409});
+  await logAdminAction({ request, action: 'approved' in body ? (body.approved ? 'lake_launch_approve' : 'lake_launch_unapprove') : 'lake_launch_update', entityType: 'lake_launch', entityId: id, entityName: String(data.name), details: {before:current,after:update} });
   return NextResponse.json({ launch: data });
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

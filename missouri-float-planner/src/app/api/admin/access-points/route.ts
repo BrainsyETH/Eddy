@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/access-points/route.ts
 // GET /api/admin/access-points - List all access points for editing
 // POST /api/admin/access-points - Create a new access point
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     // Use admin client to bypass RLS and see all access points including unapproved
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     const to = from + limit - 1;
 
     // Get all access points (including unapproved) for admin editing
-    const { data: accessPoints, error, count } = await supabase
+    let query = supabase
       .from('access_points')
       .select(`
         id,
@@ -55,8 +56,11 @@ export async function GET(request: NextRequest) {
         updated_at,
         rivers(id, name, slug)
       `, { count: 'exact' })
-      .order('name', { ascending: true })
-      .range(from, to);
+      .order('name', { ascending: true }).order('id');
+    const river=url.searchParams.get('river');if(river)query=query.eq('river_id',river);
+    const search = url.searchParams.get('q')?.trim().slice(0,200);
+    if(search) query=query.ilike('name','%'+search.replace(/[\\%_]/g,'\\$&')+'%');
+    const {data:accessPoints,error,count}=await query.range(from,to);
 
     if (error) {
       console.error('Error fetching access points:', error);
@@ -153,9 +157,9 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Create a new access point
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const body = await request.json();
@@ -316,3 +320,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

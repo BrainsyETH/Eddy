@@ -1,0 +1,26 @@
+name: Eddy external uptime
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readiness:
+    if: vars.ADMIN_UPTIME_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check Eddy readiness
+        env:
+          MONITOR_SECRET: ${{ secrets.ADMIN_MONITOR_SECRET }}
+        run: |
+          if [ -z "$MONITOR_SECRET" ]; then
+            echo '::error::External readiness monitoring is enabled but its credential is missing.'
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 2 --max-time 15 \
+            -H "Authorization: Bearer $MONITOR_SECRET" \
+            https://eddy.guide/api/health/readiness
+          curl --fail --silent --show-error --retry 2 --max-time 15 \
+            https://eddy.guide/api/health/pipeline

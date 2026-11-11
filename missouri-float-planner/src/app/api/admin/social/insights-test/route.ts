@@ -27,7 +27,7 @@ async function rawInsights(path: string, metrics: string, token: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const token = process.env.META_PAGE_ACCESS_TOKEN;

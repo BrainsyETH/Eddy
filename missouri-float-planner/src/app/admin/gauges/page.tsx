@@ -1,4 +1,5 @@
 'use client';
+import { useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/gauges/page.tsx
 // Admin page for managing gauge thresholds and descriptions
@@ -102,6 +103,8 @@ export default function AdminGaugesPage() {
   const [editedGauges, setEditedGauges] = useState<Map<string, Partial<Gauge>>>(new Map());
   const [editedRivers, setEditedRivers] = useState<Map<string, Partial<River>>>(new Map());
   const [editedAssociations, setEditedAssociations] = useState<Map<string, Partial<RiverAssociation>>>(new Map());
+
+  useUnsavedAdminChanges(editedGauges.size + editedRivers.size + editedAssociations.size > 0);
 
   const fetchData = useCallback(async () => {
     try {

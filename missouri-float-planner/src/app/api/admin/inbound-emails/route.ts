@@ -17,7 +17,7 @@ const VALID_STATUSES = ['unread', 'read', 'archived', 'spam'];
 export async function GET(request: NextRequest) {
   try {
     // Admin-only: same shared-secret bearer token as the rest of /api/admin/*.
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     // Service-role client: RLS hides inbound_emails from the anon client.

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/images/route.ts
 // GET /api/admin/images - List all images from Supabase Storage
 // POST /api/admin/images - Upload a new image
@@ -65,7 +66,7 @@ const EDDY_IMAGES = [
 
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const supabase = createAdminClient();
@@ -125,9 +126,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const supabase = createAdminClient();
@@ -212,3 +213,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/gauges/[id]/route.ts
 // GET /api/admin/gauges/[id] - Get single gauge details
 // PUT /api/admin/gauges/[id] - Update gauge descriptions and notes
@@ -43,7 +44,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -168,14 +169,14 @@ export async function GET(
 }
 
 // Accept both PUT and POST to avoid edge/CDN caching of writes
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   return handleUpdate(request, params);
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -187,7 +188,7 @@ async function handleUpdate(
   params: Promise<{ id: string }>
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -321,3 +322,6 @@ async function handleUpdate(
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const PUT = withAdminMutation(handlePUT);

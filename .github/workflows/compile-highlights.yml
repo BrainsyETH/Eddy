@@ -4,10 +4,15 @@
 # Triggered by workflow_dispatch from the admin API or decision engine.
 
 name: Compile Highlights
+run-name: Compile highlights ${{ inputs.admin_job_id || inputs.output_filename }}
 
 on:
   workflow_dispatch:
     inputs:
+      admin_job_id:
+        description: 'Admin job ID (optional for scheduled callers)'
+        required: false
+        type: string
       clip_ids:
         description: 'Comma-separated clip_library IDs to compile'
         required: true
@@ -39,12 +44,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      - name: Mark job running
+        env:
+          ADMIN_JOB_ID: ${{ inputs.admin_job_id }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JOB_STATE: running
+        run: node missouri-float-planner/scripts/admin/update-job.mjs
+
       - name: Install fonts
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-dejavu-core
 
       - name: Fetch clips and compile
+        id: compile
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -89,13 +103,13 @@ jobs:
 
           # Compile montage
           OUTPUT="/tmp/${OUTPUT_FILENAME}.mp4"
-          TITLE_FLAG=""
-          [ -n "$TITLE" ] && TITLE_FLAG="--title \"$TITLE\""
+          TITLE_ARGS=()
+          if [ -n "$TITLE" ]; then TITLE_ARGS=(--title "$TITLE"); fi
 
           bash scripts/clipengine/compile-montage.sh \
             "$CLIPS_JSON" \
             "$OUTPUT" \
-            ${TITLE_FLAG}
+            "${TITLE_ARGS[@]}"
 
           # Upload to Vercel Blob
           echo ""
@@ -130,15 +144,19 @@ jobs:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           POST_IDS: ${{ inputs.post_ids }}
-          VIDEO_URL: ${{ steps.*.outputs.video_url }}
+          VIDEO_URL: ${{ steps.compile.outputs.video_url }}
         run: |
           BODY=$(jq -n --arg postIds "$POST_IDS" --arg videoUrl "$VIDEO_URL" \
             '{postIds: $postIds, videoUrl: $videoUrl, status: "rendered"}')
-          curl -s -X POST \
+          RESPONSE_FILE=$(mktemp)
+          curl --fail-with-body -sS -X POST \
             "${SITE_URL}/api/admin/social/video-callback" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            -d "$BODY"
+            -d "$BODY" -o "$RESPONSE_FILE"
+          # The callback can return HTTP 200 with individual publish failures.
+          # Preserve the rendered video but mark the admin job partial in that case.
+          jq -e '.results | length > 0 and all(.[]; .success == true)' "$RESPONSE_FILE"
 
       - name: Report failure
         if: failure()
@@ -150,9 +168,19 @@ jobs:
           if [ -n "$POST_IDS" ]; then
             BODY=$(jq -n --arg postIds "$POST_IDS" \
               '{postIds: $postIds, status: "failed", error: "Highlights compilation failed — check workflow logs"}')
-            curl -s -X POST \
+            curl --fail-with-body -sS -X POST \
               "${SITE_URL}/api/admin/social/video-callback" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${CRON_SECRET}" \
               -d "$BODY"
           fi
+
+      - name: Record compilation outcome
+        if: always() && inputs.admin_job_id != ''
+        env:
+          ADMIN_JOB_ID: ${{ inputs.admin_job_id }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JOB_STATE: ${{ job.status == 'success' && 'completed' || (steps.compile.outputs.video_url != '' && 'partial' || 'failed') }}
+          VIDEO_URL: ${{ steps.compile.outputs.video_url }}
+        run: node missouri-float-planner/scripts/admin/update-job.mjs

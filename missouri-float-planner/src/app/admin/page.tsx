@@ -6,7 +6,8 @@ import JobStatusTable from '@/components/admin/overview/JobStatusTable';
 import OverviewDashboard from '@/components/admin/overview/OverviewDashboard';
 import DashboardLinks from '@/components/admin/DashboardLinks';
 import styles from '@/components/admin/overview/overview.module.css';
-import { adminFetch } from '@/hooks/useAdminAuth';
+import { ADMIN_NAV_GROUPS, canVisitAdminPage } from '@/lib/admin/navigation';
+import { adminFetch, useAdminAuth } from '@/hooks/useAdminAuth';
 import {
   needsAttention,
   type DashboardSummary,
@@ -145,12 +146,13 @@ function Overview() {
   );
 }
 export default function AdminDashboard() {
+  const {identity}=useAdminAuth();
   return (
     <AdminLayout
       title="Dashboard"
       description="How Eddy is doing and what needs you"
     >
-      <Overview />
+      {identity?.role === 'owner' ? <Overview /> : <div className="p-6"><h1 className="text-3xl font-bold text-primary-800">Welcome, {identity?.name}</h1><p className="my-4">Choose a section to get started.</p><div className="grid gap-4 sm:grid-cols-2">{ADMIN_NAV_GROUPS.flatMap<{href:string;label:string}>(g=>[...g.items]).filter(i=>i.href!=='/admin'&&canVisitAdminPage(identity?.role ?? 'moderator',i.href)).map(i=><a key={i.href} className="admin-panel m-0 font-bold" href={i.href}>{i.label} →</a>)}</div></div>}
     </AdminLayout>
   );
 }
