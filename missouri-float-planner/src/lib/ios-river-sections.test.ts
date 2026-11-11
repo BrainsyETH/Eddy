@@ -46,7 +46,7 @@ test('missing lower mappings, removed gauges and station IDs never substitute th
 });
 
 test('old caches settle to unavailable offline, while current mappings work from cache', () => {
-  const legacy = reaches.map(({ gaugeStationId: _id, ...reach }) => reach);
+  const legacy = reaches.map(({ sectionSlug, name, riverType, differsFromRiver }) => ({ sectionSlug, name, riverType, differsFromRiver }));
   const request = { ...base, reaches: legacy, source: 'cached' as const, sectionSlug: reaches[1].sectionSlug };
   assert.equal(resolveRiverSection({ ...request, refreshing: true }).state, 'loading');
   assert.equal(resolveRiverSection({ ...request, refreshing: false }).state, 'unavailable');
