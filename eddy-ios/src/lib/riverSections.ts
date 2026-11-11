@@ -14,7 +14,8 @@ type Source = 'loading' | 'live' | 'cached' | 'missing';
  * /api/conditions answers for, so blanking its reading, scale and chart behind
  * "Report unavailable" punished the reader for a join failure. A section that
  * differs from the river, or names a station that is not the primary, still
- * never borrows the primary's water.
+ * never borrows the primary's water. A gauge-only arrival must resolve to a
+ * section before any report can be shown.
  */
 export function resolveRiverSection<T extends Gauge>({ reaches, source, refreshing = false, gauges, gaugesReady, sectionSlug, gaugeSiteId, primaryGaugeId = null }: {
   reaches: Section[];
@@ -34,9 +35,15 @@ export function resolveRiverSection<T extends Gauge>({ reaches, source, refreshi
         ? 'loading' : sectionSlug ? 'unavailable' : 'ordinary' };
   }
   const arrivalGauge = gauges.find(gauge => gauge.usgsSiteId === gaugeSiteId);
-  const selected = sections.find(reach => reach.sectionSlug === sectionSlug)
-    ?? sections.find(reach => arrivalGauge && reach.gaugeStationId === arrivalGauge.id)
-    ?? sections[0];
+  const explicitSection = sections.find(reach => reach.sectionSlug === sectionSlug);
+  const arrivalSection = sections.find(reach => arrivalGauge && reach.gaugeStationId === arrivalGauge.id);
+  // A missing join does not establish that the requested gauge reads the
+  // primary stretch. Leave the choice unresolved until data or the user does.
+  if (gaugeSiteId && !explicitSection && !arrivalSection) {
+    return { sections, selected: null, gauge: null,
+      state: !gaugesReady || (source === 'cached' && refreshing) ? 'loading' : 'unavailable' };
+  }
+  const selected = explicitSection ?? arrivalSection ?? sections[0];
   const gauge = gauges.find(candidate => candidate.id === selected.gaugeStationId) ?? null;
   if (!gaugesReady || (!selected.gaugeStationId && source === 'cached' && refreshing)) {
     return { sections, selected, gauge, state: 'loading' };

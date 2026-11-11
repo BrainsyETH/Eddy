@@ -1243,14 +1243,15 @@ readings still show their specific qualifier note.
 
 Where a river has distinct hydrology above and below a dam, a section
 **segmented control** (Upper Black | Lower Black) replaces the gauge picker and
-the separate Reaches panel. It is one 44pt row on the `cardRaised` track; the
-selected segment adds a `card` fill, teal outline and teal semibold label, so
+the separate Reaches panel. It is one compact row with 44pt minimum touch
+targets on the `cardRaised` track; the selected segment adds a `card` fill,
+teal outline and teal semibold label, so
 selection never rests on fill alone. One muted line beneath it gives the
 selected section's endpoints, using the website's short labels. Past three
 sections the row scrolls instead of shrinking. Each selection
 owns the readings, chart, weather and Eddy’s Read; the level and flow share one
 card with the chart, and Clearwater context closes only the Lower Black report.
-On Upper Black a single row, "Clearwater Dam controls Lower Black", switches to
+On Upper Black a single row, "Clearwater Dam · View Lower Black", switches to
 that section instead, so the dam is never lost from the river.
 Ordinary rivers retain their gauge picker and the existing Premium flow stays.
 
@@ -1261,10 +1262,13 @@ with no station or the river's primary one): if its station cannot be joined to
 `/api/gauges` (that request failed, or the reach was cached before it carried
 the id), it reads the river's primary report rather than "Report unavailable".
 An explicit `section` link wins over `gauge`; a matching gauge-only arrival
-selects its section. Share carries the selected section back to the website.
-Segments grow with Dynamic Type, expose radio selection with endpoints to
-VoiceOver, and use the existing light/dark palette. Device verification is
-separate from CI.
+selects its section. An unresolved gauge-only arrival stays loading while its
+data loads, then unavailable if the mapping is still missing; it never selects
+or reads the primary section by default. The reader can retry or pick a section.
+Share carries the selected section back to the website.
+Segment labels wrap and the row grows with uncapped Dynamic Type, keeping both
+choices side by side. Segments expose radio selection with endpoints to VoiceOver
+and use the existing light/dark palette. Device verification is separate from CI.
 
 ## Favorites
 

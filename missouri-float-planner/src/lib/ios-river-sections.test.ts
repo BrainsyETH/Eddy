@@ -33,6 +33,46 @@ test('deep-link arrival waits for metadata and gauges instead of briefly showing
   assert.equal(resolveRiverSection({ ...request, reaches: [], source: 'cached', refreshing: true }).state, 'loading');
 });
 
+test('an unresolved gauge-only arrival never selects or reads the primary section', () => {
+  const request = { ...base, primaryGaugeId: 'upper', gaugeSiteId: '07063000' };
+  const legacy = reaches.map(({ sectionSlug, name, riverType, differsFromRiver }) => ({ sectionSlug, name, riverType, differsFromRiver }));
+  for (const input of [
+    { ...request, gauges: [] },
+    { ...request, gauges: [gauges[0]] },
+    { ...request, reaches: legacy, source: 'cached' as const },
+    { ...request, reaches: [reaches[0], { ...reaches[1], gaugeStationId: null }] },
+  ]) {
+    const result = resolveRiverSection(input);
+    assert.equal(result.state, 'unavailable');
+    assert.equal(result.selected, null);
+    assert.equal(result.gauge, null);
+  }
+});
+
+test('a gauge-only arrival waits for its mapping and recovers to the requested section', () => {
+  const request = { ...base, primaryGaugeId: 'upper', gaugeSiteId: '07063000' };
+  const loading = resolveRiverSection({ ...request, gauges: [], gaugesReady: false });
+  assert.equal(loading.state, 'loading');
+  assert.equal(loading.selected, null);
+  const cached = resolveRiverSection({ ...request, reaches: reaches.map(reach => ({ ...reach, gaugeStationId: null })), source: 'cached', refreshing: true });
+  assert.equal(cached.state, 'loading');
+  assert.equal(cached.selected, null);
+  const recovered = resolveRiverSection(request);
+  assert.equal(recovered.state, 'ready');
+  assert.equal(recovered.selected?.sectionSlug, reaches[1].sectionSlug);
+  assert.equal(recovered.gauge?.id, 'lower');
+});
+
+test('an explicit section choice still wins when the arrival gauge cannot be resolved', () => {
+  const request = { ...base, primaryGaugeId: 'upper', gaugeSiteId: '07063000', gauges: [] };
+  const upper = resolveRiverSection({ ...request, sectionSlug: reaches[0].sectionSlug });
+  assert.equal(upper.state, 'ready');
+  assert.equal(upper.selected?.sectionSlug, reaches[0].sectionSlug);
+  const lower = resolveRiverSection({ ...request, sectionSlug: reaches[1].sectionSlug });
+  assert.equal(lower.state, 'unavailable');
+  assert.equal(lower.selected?.sectionSlug, reaches[1].sectionSlug);
+});
+
 test('missing lower mappings, removed gauges and station IDs never substitute the primary', () => {
   for (const input of [
     { ...base, gauges: [gauges[0]] },

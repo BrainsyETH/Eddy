@@ -7,8 +7,8 @@
 // section is live and everything below belongs to it, which is the
 // relationship a segmented control states (see ScopeSwitch, the app's other
 // one). The endpoints are not repeated in every segment: one line under the
-// control names the SELECTED section's put-in and take-out, so it changes with
-// the choice and the control stays a single 44pt row.
+// control names the SELECTED section's put-in and take-out. Segments have a
+// 44pt minimum target and grow together when larger text wraps their labels.
 //
 // ── Built in JS, not UISegmentedControl ──────────────────────────────────
 // The native control is a new native module (a fingerprint change and a new
@@ -58,11 +58,10 @@ export function RiverSectionSelector({ sections, selectedSlug, onSelect }: {
                   ? { backgroundColor: colors.card, borderColor: colors.interactive }
                   : { borderColor: 'transparent', opacity: pressed ? 0.6 : 1 },
               ]}>
-              <Text numberOfLines={1} maxFontSizeMultiplier={1.6}
-                style={[styles.label, {
-                  color: active ? colors.interactive : colors.textMuted,
-                  fontFamily: active ? fonts.semibold : fonts.medium,
-                }]}>
+              <Text style={[styles.label, {
+                color: active ? colors.interactive : colors.textMuted,
+                fontFamily: active ? fonts.semibold : fonts.medium,
+              }]}>
                 {label.title}
               </Text>
             </Pressable>
@@ -105,6 +104,6 @@ const styles = StyleSheet.create({
   },
   segmentFixed: { flex: 1, flexBasis: 0 },
   segmentScrolling: { flexShrink: 0 },
-  label: { ...t.base },
+  label: { ...t.base, maxWidth: '100%', textAlign: 'center' },
   endpoints: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4 },
 });
