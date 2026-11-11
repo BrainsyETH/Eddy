@@ -28,7 +28,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';
 import { buildSnapshot, refreshStaleness } from '@/lib/data/dams';
 import { isFresh } from '@/lib/data/dam-snapshot-store';
-import { declaresCardMetric, getUsaceDam, USACE_DAMS, type DamCardMetric, type UsaceMetric } from '@/lib/flow-providers/usace-registry';
+import { getUsaceDam, unsupportedDamReadings, USACE_DAMS, type DamCardMetric, type UsaceMetric } from '@/lib/flow-providers/usace-registry';
 import type { DamGenerationForecast, DamMetricValue, DamScheduleDay, DamSnapshot } from '@shared/dam-types';
 
 /** How long one database read serves later requests on the same instance. */
@@ -140,10 +140,7 @@ function storedForecast(value: unknown): DamGenerationForecast | undefined {
  * is a wire type.
  */
 export function directoryUnsupportedReadings(): Record<string, DamCardMetric[]> {
-  const metrics: DamCardMetric[] = ['release', 'tailwaterTempF', 'poolElevation'];
-  return Object.fromEntries(
-    Object.values(USACE_DAMS).map(dam => [dam.id, metrics.filter(metric => !declaresCardMetric(dam, metric))]),
-  );
+  return Object.fromEntries(Object.values(USACE_DAMS).map(dam => [dam.id, unsupportedDamReadings(dam.id)]));
 }
 
 /** The production reader: one shared memo per server instance. */

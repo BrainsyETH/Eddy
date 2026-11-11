@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { EddyIcon } from '@/components/ui/EddyIcon';
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { EddyIcon } from "@/components/ui/EddyIcon";
 import type {
   CampingOverview,
   CampingPlace,
@@ -21,18 +21,19 @@ import {
 } from '@/lib/camping/web-search';
 import styles from './CampingHub.module.css';
 import CampgroundDetails from './CampgroundDetails';
+import CampgroundPhoto from './CampgroundPhoto';
 import detailStyles from './CampgroundDetails.module.css';
 import { loadCampgroundSites } from '@/lib/camping/web-detail-cache';
 import { MAX_AGE_MS } from '@/lib/camping/freshness';
 import { trackEvent } from '@/lib/analytics';
 
 const dateLabel = (date: string) =>
-  new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
   });
-const unknown = { state: 'unknown', count: 0, partial: true } as const;
+const unknown = { state: "unknown", count: 0, partial: true } as const;
 function placeLink(place: CampingPlace) {
   if (place.accessDestination)
     return `/plan?river=${encodeURIComponent(place.accessDestination.riverSlug)}&access=${encodeURIComponent(place.accessDestination.accessId)}`;
@@ -50,28 +51,27 @@ export default function CampingHub({
   const params = useMemo(() => new URLSearchParams(query), [query]);
   const [clock, setClock] = useState(() => Date.parse(overview.generatedAt));
   const { horizon } = useMemo(() => webPlanningWindow(clock), [clock]);
-  const [arrival, setArrival] = useState(params.get('arrival') ?? '');
-  const [departure, setDeparture] = useState(params.get('departure') ?? '');
-  const [error, setError] = useState('');
+  const [arrival, setArrival] = useState(params.get("arrival") ?? "");
+  const [departure, setDeparture] = useState(params.get("departure") ?? "");
+  const [error, setError] = useState("");
   const [response, setResponse] = useState<RegionalStay | null>(null);
   const [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [mobile, setMobile] = useState(false);
   const detail = useRef<HTMLDialogElement>(null);
   const lastFocus = useRef<HTMLElement | null>(null);
   const detailPushed = useRef(false);
   const groups = useMemo(() => groupCampgrounds(overview.tracked), [overview]);
-  const search = params.get('q') ?? '',
-    river = params.get('river') ?? '';
-  const filters = (params.get('types') ?? '')
-    .split(',')
+  const search = params.get("q") ?? "",
+    river = params.get("river") ?? "";
+  const filters = (params.get("types") ?? "")
+    .split(",")
     .filter((v): v is WebSiteFilter =>
       WEB_FILTERS.includes(v as WebSiteFilter),
     );
-  const availableOnly = params.get('available') === '1';
-  const appliedArrival = params.get('arrival') ?? '',
-    appliedDeparture = params.get('departure') ?? '';
+  const availableOnly = params.get("available") === "1";
+  const appliedArrival = params.get("arrival") ?? "",
+    appliedDeparture = params.get("departure") ?? "";
   const stay = parseWebStay(
     new URLSearchParams({
       arrival: appliedArrival,
@@ -80,22 +80,23 @@ export default function CampingHub({
     horizon,
   );
   const hasDates = Boolean(appliedArrival || appliedDeparture);
-  const calendar =
-    params.get('view') === 'calendar' ||
-    (!params.get('view') && !hasDates && !mobile);
+  const calendar = params.get("view") === "calendar";
+  const hasFilters = Boolean(
+    search || river || filters.length || availableOnly,
+  );
   const selected =
     hasDates && !stay
       ? undefined
       : groups.find(
           (g) =>
-            g.key === params.get('campground') ||
-            g.facilities.some((f) => f.facilityId === params.get('facility')),
+            g.key === params.get("campground") ||
+            g.facilities.some((f) => f.facilityId === params.get("facility")),
         );
   const selectedKey = selected?.key;
   const detailArrival =
     stay?.arrival ??
-    (horizon.nights.includes(params.get('night') ?? '')
-      ? params.get('night')!
+    (horizon.nights.includes(params.get("night") ?? "")
+      ? params.get("night")!
       : horizon.startDate);
   const detailDeparture = stay?.departure ?? nextCampingDate(detailArrival);
   const current =
@@ -104,13 +105,22 @@ export default function CampingHub({
       ? response
       : null;
   const summaries = new Map(current?.facilities.map((f) => [f.facilityId, f]));
+  // A campground may span rivers; its primary label must not rename the others.
+  const riverNames = new Map(
+    [...overview.tracked, ...overview.untracked]
+      .filter((c) => c.displayGroup.key !== "other")
+      .map((c) => [c.displayGroup.key, c.displayGroup.label]),
+  );
   const rivers = [
-    ...new Map(
-      overview.tracked.flatMap((c) =>
-        c.riverSlugs.map((slug) => [slug, c.displayGroup.label] as const),
-      ),
-    ).entries(),
-  ].sort((a, b) => a[1].localeCompare(b[1]));
+    ...new Set(
+      [...overview.tracked, ...overview.untracked].flatMap((c) => c.riverSlugs),
+    ),
+  ]
+    .map(
+      (slug) =>
+        [slug, riverNames.get(slug) ?? slug.replaceAll("-", " ")] as const,
+    )
+    .sort((a, b) => a[1].localeCompare(b[1]));
   function update(values: Record<string, string | null>, push = false) {
     const next = new URLSearchParams(window.location.search);
     for (const [key, value] of Object.entries(values)) {
@@ -118,9 +128,9 @@ export default function CampingHub({
       else next.delete(key);
     }
     setQuery(next.toString());
-    const url = `/camping${next.size ? `?${next}` : ''}`;
-    if (push) window.history.pushState(null, '', url);
-    else window.history.replaceState(null, '', url);
+    const url = `/camping${next.size ? `?${next}` : ""}`;
+    if (push) window.history.pushState(null, "", url);
+    else window.history.replaceState(null, "", url);
   }
   function applyDates(a: string, d: string) {
     const now = Date.now();
@@ -132,13 +142,13 @@ export default function CampingHub({
         currentHorizon,
       )
     ) {
-      setError('Choose 1–14 nights within the next 90 nights.');
+      setError("Choose 1–14 nights within the next 90 nights.");
       return;
     }
-    setError('');
+    setError("");
     setArrival(a);
     setDeparture(d);
-    trackEvent('camping_search', {
+    trackEvent("camping_search", {
       nights: parseWebStay(
         new URLSearchParams({ arrival: a, departure: d }),
         currentHorizon,
@@ -149,7 +159,7 @@ export default function CampingHub({
       departure: d,
       night: null,
       available: null,
-      view: params.get('view') || 'list',
+      view: params.get("view") || "list",
     });
   }
   function prefetchCamp(key: string) {
@@ -171,9 +181,10 @@ export default function CampingHub({
     } else update({ campground: null, facility: null, night: null });
   }
   useEffect(() => {
-    const syncHistory = () => setQuery(new URLSearchParams(window.location.search).toString());
-    window.addEventListener('popstate', syncHistory);
-    return () => window.removeEventListener('popstate', syncHistory);
+    const syncHistory = () =>
+      setQuery(new URLSearchParams(window.location.search).toString());
+    window.addEventListener("popstate", syncHistory);
+    return () => window.removeEventListener("popstate", syncHistory);
   }, []);
   useEffect(() => {
     const currentQuery = new URLSearchParams(window.location.search).toString();
@@ -185,17 +196,12 @@ export default function CampingHub({
     const refreshClock = () => setClock(Date.now());
     refreshClock();
     const timer = setInterval(refreshClock, 30_000);
-    window.addEventListener('focus', refreshClock);
-    document.addEventListener('visibilitychange', refreshClock);
-    const media = window.matchMedia('(max-width: 767px)');
-    const change = () => setMobile(media.matches);
-    change();
-    media.addEventListener('change', change);
+    window.addEventListener("focus", refreshClock);
+    document.addEventListener("visibilitychange", refreshClock);
     return () => {
       clearInterval(timer);
-      window.removeEventListener('focus', refreshClock);
-      document.removeEventListener('visibilitychange', refreshClock);
-      media.removeEventListener('change', change);
+      window.removeEventListener("focus", refreshClock);
+      document.removeEventListener("visibilitychange", refreshClock);
     };
   }, []);
   useEffect(() => {
@@ -206,7 +212,7 @@ export default function CampingHub({
     if (!appliedArrival || !appliedDeparture) return;
     const controller = new AbortController();
     setLoading(true);
-    setError('');
+    setError("");
     fetch(
       `/api/camping/stay?${new URLSearchParams({ arrival: appliedArrival, departure: appliedDeparture })}`,
       { signal: controller.signal },
@@ -215,8 +221,8 @@ export default function CampingHub({
         if (!r.ok)
           throw new Error(
             r.status === 400
-              ? 'Choose 1–14 nights within the next 90 nights.'
-              : 'Availability could not be checked. Try again.',
+              ? "Choose 1–14 nights within the next 90 nights."
+              : "Availability could not be checked. Try again.",
           );
         return r.json();
       })
@@ -241,7 +247,7 @@ export default function CampingHub({
     const previous = document.body.style.overflow;
     if (selectedKey) {
       detail.current?.showModal();
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
       detail.current?.close();
       lastFocus.current?.focus();
@@ -250,6 +256,15 @@ export default function CampingHub({
       document.body.style.overflow = previous;
     };
   }, [selectedKey]);
+  useEffect(() => {
+    const day = Math.floor(
+      (Date.parse(appliedArrival) - Date.parse(horizon.startDate)) / 86_400_000,
+    );
+    if (Number.isFinite(day) && day >= 0 && day < 90)
+      setOffset(Math.floor(day / 14) * 14);
+  }, [appliedArrival, horizon.startDate]);
+  const clearFilters = () =>
+    update({ q: null, river: null, types: null, available: null });
   const matches = (c: CampingPlace) =>
     (!river || c.riverSlugs.includes(river)) &&
     (!search || c.name.toLowerCase().includes(search.toLowerCase()));
@@ -273,11 +288,12 @@ export default function CampingHub({
           )
         : unknown,
     }))
-    .filter((g) => !availableOnly || g.answer.state === 'available')
+    .filter((g) => g.answer.state !== "no_match")
+    .filter((g) => !availableOnly || g.answer.state === "available")
     .sort(
       (a, b) =>
-        Number(b.answer.state === 'available') -
-          Number(a.answer.state === 'available') ||
+        Number(b.answer.state === "available") -
+          Number(a.answer.state === "available") ||
         a.camp.name.localeCompare(b.camp.name),
     );
   const untracked = overview.untracked.filter(matches);
@@ -288,46 +304,63 @@ export default function CampingHub({
         <div>
           <p className={styles.eyebrow}>Stay by the river</p>
           <h1>Find your next campsite.</h1>
-          <p>Pick your nights. Find a spot. Settle in.</p>
+          <p>Find a campground along your river.</p>
         </div>
         <EddyIcon name="campfire" size={110} decorative />
       </header>
-      <form
-        className={styles.search}
-        onSubmit={(e) => {
-          e.preventDefault();
-          applyDates(arrival, departure);
-        }}
-      >
-        <label>
-          Arrive
-          <input
-            type="date"
-            onFocus={() => setClock(Date.now())}
-            min={horizon.startDate}
-            max={horizon.nights.at(-1)}
-            value={arrival}
-            onChange={(e) => setArrival(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Leave
-          <input
-            type="date"
-            onFocus={() => setClock(Date.now())}
-            min={
-              arrival ? nextCampingDate(arrival) : horizon.startDate
-            }
-            max={horizon.endDateExclusive}
-            value={departure}
-            onChange={(e) => setDeparture(e.target.value)}
-            required
-          />
-        </label>
-        <button className={styles.primary}>Find a campsite</button>
+      <section className={styles.searchPanel} aria-label="Find a campground">
+        <form
+          className={styles.search}
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyDates(arrival, departure);
+          }}
+        >
+          <label className={styles.riverField}>
+            <span>
+              <EddyIcon name="river" size={18} decorative /> River
+            </span>
+            <select
+              value={river}
+              onChange={(e) => update({ river: e.target.value })}
+            >
+              <option value="">All rivers</option>
+              {rivers.map(([slug, name]) => (
+                <option key={slug} value={slug}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Arrive
+            <input
+              type="date"
+              onFocus={() => setClock(Date.now())}
+              min={horizon.startDate}
+              max={horizon.nights.at(-1)}
+              value={arrival}
+              onChange={(e) => setArrival(e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Leave
+            <input
+              type="date"
+              onFocus={() => setClock(Date.now())}
+              min={arrival ? nextCampingDate(arrival) : horizon.startDate}
+              max={horizon.endDateExclusive}
+              value={departure}
+              onChange={(e) => setDeparture(e.target.value)}
+              required
+            />
+          </label>
+          <button className={styles.primary}>
+            Find campsites <span aria-hidden>→</span>
+          </button>
+        </form>
         <div className={styles.shortcuts}>
-          <span>1–14 nights</span>
           <button
             type="button"
             onClick={() => {
@@ -340,8 +373,8 @@ export default function CampingHub({
           <button
             type="button"
             onClick={() => {
-              const nextWeekend = webPlanningWindow(Date.now()).weekend;
-              applyDates(nextWeekend.startDate, nextWeekend.endDate);
+              const weekend = webPlanningWindow(Date.now()).weekend;
+              applyDates(weekend.startDate, weekend.endDate);
             }}
           >
             This weekend
@@ -349,10 +382,11 @@ export default function CampingHub({
           {hasDates && (
             <button
               type="button"
+              className={styles.clear}
               onClick={() => {
-                setArrival('');
-                setDeparture('');
-                setError('');
+                setArrival("");
+                setDeparture("");
+                setError("");
                 update({
                   arrival: null,
                   departure: null,
@@ -364,93 +398,96 @@ export default function CampingHub({
               Clear dates
             </button>
           )}
+          <span>Up to 14 nights</span>
         </div>
-      </form>
-      <div className={styles.toolbar}>
-        <label>
-          <span className="sr-only">Find a campground</span>
-          <input
-            placeholder="Find a campground"
-            value={search}
-            onChange={(e) => update({ q: e.target.value })}
-          />
-        </label>
-        <label>
-          <span className="sr-only">River</span>
-          <select
-            value={river}
-            onChange={(e) => update({ river: e.target.value })}
-          >
-            <option value="">All rivers</option>
-            {rivers.map(([slug, name]) => (
-              <option key={slug} value={slug}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={styles.views} aria-label="Result view">
-          <button
-            aria-pressed={!calendar}
-            onClick={() => update({ view: 'list' })}
-          >
-            List
-          </button>
-          <button
-            aria-pressed={calendar}
-            onClick={() => update({ view: 'calendar' })}
-          >
-            Calendar
-          </button>
-        </div>
-      </div>
-      {hasDates && (
-        <div className={styles.chips}>
-          {[...new Set([...(current?.filters ?? []), ...filters])].map(
-            (filter) => (
-              <button
-                key={filter}
-                aria-pressed={filters.includes(filter)}
-                onClick={() =>
-                  update({
-                    types: (filters.includes(filter)
-                      ? filters.filter((f) => f !== filter)
-                      : [...filters, filter]
-                    ).join(','),
-                  })
-                }
-              >
-                {filter}
-              </button>
-            ),
-          )}
-          <label>
+        <div className={styles.filterBar}>
+          <label className={styles.nameSearch}>
+            <span className="sr-only">Search campgrounds</span>
             <input
-              type="checkbox"
-              checked={availableOnly}
-              disabled={!current || loading}
-              onChange={(e) =>
-                update({ available: e.target.checked ? '1' : null })
-              }
-            />{' '}
-            Sites available for the whole stay
+              type="search"
+              placeholder="Search campgrounds"
+              value={search}
+              onChange={(e) => update({ q: e.target.value })}
+            />
           </label>
+          <div className={styles.chips}>
+            {hasDates && (
+              <>
+                {[...new Set([...(current?.filters ?? []), ...filters])].map(
+                  (filter) => (
+                    <button
+                      key={filter}
+                      aria-pressed={filters.includes(filter)}
+                      onClick={() =>
+                        update({
+                          types: (filters.includes(filter)
+                            ? filters.filter((f) => f !== filter)
+                            : [...filters, filter]
+                          ).join(","),
+                        })
+                      }
+                    >
+                      {filters.includes(filter) && <span aria-hidden>✓ </span>}
+                      {filter}
+                    </button>
+                  ),
+                )}
+                <label
+                  className={styles.availabilityFilter}
+                  data-active={availableOnly}
+                >
+                  <input
+                    type="checkbox"
+                    checked={availableOnly}
+                    disabled={!current || loading}
+                    onChange={(e) =>
+                      update({ available: e.target.checked ? "1" : null })
+                    }
+                  />
+                  Available for my stay
+                </label>
+              </>
+            )}
+            {hasFilters && (
+              <button className={styles.clear} onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      </section>
       {error && (
         <p className={styles.notice} role="alert">
           {error} <button onClick={() => setRetry((n) => n + 1)}>Retry</button>
         </p>
       )}
-      <div className={styles.resultHeading} aria-live="polite">
-        <h2>
-          {loading
-            ? 'Checking your dates…'
-            : hasDates && stay
-              ? `${dateLabel(stay.arrival)} – ${dateLabel(stay.departure)}`
-              : 'Campgrounds along the river'}
-        </h2>
-        <span>{rows.length} campgrounds</span>
+      <div className={styles.resultHeading}>
+        <div aria-live="polite" aria-atomic="true">
+          <h2>
+            {loading
+              ? "Checking your dates…"
+              : `${rows.length} ${rows.length === 1 ? "campground" : "campgrounds"}`}
+          </h2>
+          <p>
+            {stay
+              ? `${dateLabel(stay.arrival)} – ${dateLabel(stay.departure)} · ${stay.nights.length} ${stay.nights.length === 1 ? "night" : "nights"}`
+              : "Choose dates to check availability."}
+          </p>
+        </div>
+        <div className={styles.views} role="group" aria-label="Result view">
+          <button
+            aria-pressed={!calendar}
+            onClick={() => update({ view: "list" })}
+          >
+            Cards
+          </button>
+          <button
+            aria-pressed={calendar}
+            onClick={() => update({ view: "calendar" })}
+          >
+            Calendar
+          </button>
+        </div>
       </div>
       {calendar ? (
         <>
@@ -471,11 +508,36 @@ export default function CampingHub({
               Later →
             </button>
           </div>
-          <p className={styles.legend}>
-            Green: recorded openings · —: no recorded openings · C: closed · N:
-            not released · ?: unknown. Counts are per night; search dates for a
-            whole stay.
-          </p>
+          <div className={styles.calendarKey}>
+            <ul className={styles.legend} aria-label="Calendar key">
+              <li>
+                <span className={styles.openSwatch} aria-hidden>
+                  3
+                </span>{" "}
+                Open sites
+              </li>
+              <li>
+                <span aria-hidden>—</span> None recorded
+              </li>
+              <li>
+                <span aria-hidden>C</span> Closed
+              </li>
+              <li>
+                <span aria-hidden>N</span> Not released
+              </li>
+              <li>
+                <span aria-hidden>?</span> Unknown
+              </li>
+            </ul>
+            <details className={styles.calendarHelp}>
+              <summary>About these counts</summary>
+              <p>
+                Counts are per night, across all site types. Missing information
+                can look like no recorded openings. Search your dates to find
+                one site for every night.
+              </p>
+            </details>
+          </div>
           <div
             className={styles.calendarScroll}
             tabIndex={0}
@@ -486,8 +548,20 @@ export default function CampingHub({
                 <tr>
                   <th scope="col">Campground</th>
                   {visibleNights.map((d) => (
-                    <th scope="col" key={d}>
-                      {dateLabel(d)}
+                    <th
+                      scope="col"
+                      key={d}
+                      data-selected={Boolean(
+                        stay && d >= stay.arrival && d < stay.departure,
+                      )}
+                    >
+                      <span>
+                        {new Date(`${d}T12:00:00Z`).toLocaleDateString(
+                          "en-US",
+                          { weekday: "short", timeZone: "UTC" },
+                        )}
+                      </span>
+                      <strong>{Number(d.slice(-2))}</strong>
                     </th>
                   ))}
                 </tr>
@@ -496,8 +570,16 @@ export default function CampingHub({
                 {rows.map((g) => (
                   <tr key={g.key}>
                     <th scope="row">
-                      <button onClick={() => openCamp(g.key)}>
-                        {g.camp.name}
+                      <button
+                        className={styles.calendarCamp}
+                        onClick={() => openCamp(g.key)}
+                      >
+                        <CampgroundPhoto
+                          src={g.facilities.find((f) => f.imageUrl)?.imageUrl}
+                          name={g.camp.name}
+                          compact
+                        />
+                        <span>{g.camp.name}</span>
                       </button>
                     </th>
                     {visibleNights.map((date) => {
@@ -514,21 +596,28 @@ export default function CampingHub({
                         ? cells.reduce((sum, n) => sum + (n?.sitesOpen ?? 0), 0)
                         : 0;
                       const label = !fresh
-                        ? '?'
+                        ? "?"
                         : count
                           ? String(count)
-                          : cells.every((n) => n?.status === 'closed')
-                            ? 'C'
+                          : cells.every((n) => n?.status === "closed")
+                            ? "C"
                             : cells.every(
-                                  (n) => n?.status === 'not_yet_released',
+                                  (n) => n?.status === "not_yet_released",
                                 )
-                              ? 'N'
-                              : '—';
+                              ? "N"
+                              : "—";
                       return (
-                        <td key={date}>
+                        <td
+                          key={date}
+                          data-selected={Boolean(
+                            stay &&
+                              date >= stay.arrival &&
+                              date < stay.departure,
+                          )}
+                        >
                           <button
-                            className={count ? styles.openNight : ''}
-                            aria-label={`${g.camp.name}, ${dateLabel(date)}: ${label === '?' ? 'availability unknown' : `${label} recorded openings`}`}
+                            className={count ? styles.openNight : ""}
+                            aria-label={`${g.camp.name}, ${dateLabel(date)}: ${label === "?" ? "availability unknown" : label === "C" ? "closed" : label === "N" ? "dates not released" : label === "—" ? "no recorded openings" : `${label} recorded openings`}`}
                             onClick={() => {
                               applyDates(date, nextCampingDate(date));
                               openCamp(g.key, date);
@@ -549,9 +638,10 @@ export default function CampingHub({
         <div className={styles.results}>
           {rows.map((g) => (
             <article key={g.key} className={styles.card}>
-              <div className={styles.cardIcon}>
-                <EddyIcon name="campground" size={48} decorative />
-              </div>
+              <CampgroundPhoto
+                src={g.facilities.find((f) => f.imageUrl)?.imageUrl}
+                name={g.camp.name}
+              />
               <div className={styles.cardBody}>
                 <p className={styles.eyebrow}>{g.camp.displayGroup.label}</p>
                 <h3>
@@ -559,24 +649,26 @@ export default function CampingHub({
                 </h3>
                 <p
                   className={
-                    g.answer.state === 'available'
+                    g.answer.state === "available"
                       ? styles.available
                       : styles.status
                   }
                 >
                   {hasDates
                     ? loading
-                      ? 'Checking availability…'
-                      : stayLabel(g.answer)
-                    : 'Choose dates to check your stay'}
+                      ? "Checking availability…"
+                      : g.answer.state === "available"
+                        ? `${g.answer.partial ? "At least " : ""}${g.answer.count} ${g.answer.count === 1 ? "site" : "sites"} available`
+                        : stayLabel(g.answer)
+                    : "Choose dates for availability"}
                 </p>
                 <p className={styles.small}>
                   {g.facilities.length > 1
                     ? `${g.facilities.length} campground sections · `
-                    : ''}
-                  {g.camp.source === 'mo_state_parks'
-                    ? 'Missouri State Parks'
-                    : 'Recreation.gov'}
+                    : ""}
+                  {g.camp.source === "mo_state_parks"
+                    ? "Missouri State Parks"
+                    : "Recreation.gov"}
                 </p>
               </div>
               <button
@@ -594,15 +686,9 @@ export default function CampingHub({
       {!loading && !rows.length && (
         <p className={styles.notice}>
           {availableOnly
-            ? 'No confirmed openings with these filters. Other campgrounds may have incomplete data.'
-            : 'No campgrounds match this search.'}{' '}
-          <button
-            onClick={() =>
-              update({ q: null, river: null, types: null, available: null })
-            }
-          >
-            Clear filters
-          </button>
+            ? "No confirmed openings with these filters. Other campgrounds may have incomplete data."
+            : "No campgrounds match this search."}{" "}
+          Adjust your filters above to see more campgrounds.
         </p>
       )}
       {!availableOnly && untracked.length > 0 && (
@@ -614,11 +700,14 @@ export default function CampingHub({
           <div>
             {untracked.map((c) => (
               <article key={`${c.place?.type}:${c.id}`}>
-                <h3>{c.name}</h3>
-                <p>{c.displayGroup.label}</p>
-                {placeLink(c) && (
-                  <Link href={placeLink(c)!}>View campground →</Link>
-                )}
+                <CampgroundPhoto src={c.imageUrl} name={c.name} compact />
+                <div>
+                  <h3>{c.name}</h3>
+                  <p>{c.displayGroup.label}</p>
+                  {placeLink(c) && (
+                    <Link href={placeLink(c)!}>View campground →</Link>
+                  )}
+                </div>
               </article>
             ))}
           </div>

@@ -10,14 +10,17 @@ import { useRiverGroups } from '@/hooks/useRiverGroups';
 import { buildConditionsDestinations } from '@/lib/conditions/directory';
 import RiverCard from '@/components/gauge/RiverCard';
 import DamListCard from '@/components/dam/DamListCard';
+import type { DamCardReading } from '@/components/dam/DamCardParts';
 import RiverReportFallback from '@/components/conditions/RiverReportFallback';
 
 type ReportKind = 'rivers' | 'dams';
 const KINDS: ReportKind[] = ['rivers', 'dams'];
 
 /** The Conditions page's existing cards, one river and one dam at a time. */
-export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt, damsUnavailable = false }: {
+export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt, damsUnavailable = false, damUnsupported = {} }: {
   rivers: RiverListItem[]; dams: DamSnapshot[]; renderedAt: number; damsUnavailable?: boolean;
+  /** Per dam, the card readings Eddy has no source for. From the registry, on the server. */
+  damUnsupported?: Record<string, readonly DamCardReading[]>;
 }) {
   const { riverGroups, isLoading } = useRiverGroups();
   const [now, setNow] = useState(renderedAt);
@@ -134,7 +137,7 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
           style={{ contain: index !== positions[kind] ? 'size' : undefined }}
           data-home-report={destination.key} className="flex w-full min-w-0 shrink-0 snap-start snap-always flex-col [&>*]:flex-1">
           {destination.kind === 'dams'
-            ? <DamListCard dam={destination.dam} now={now} href={destination.href} showLakeLevel />
+            ? <DamListCard dam={destination.dam} now={now} href={destination.href} showLakeLevel unsupported={damUnsupported[destination.dam.id]} />
             : destination.group
               ? <RiverCard riverGroup={destination.group} href={destination.href} />
               : <RiverReportFallback river={destination.river} loading={isLoading} />}
