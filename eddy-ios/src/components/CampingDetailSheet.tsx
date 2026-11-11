@@ -147,6 +147,7 @@ export function CampingDetailSheet({
               ) : null}
               <CampingSiteCard
                 entry={item}
+                now={now}
                 facilityId={row.facilityId}
                 bookingUrl={booking}
               />
@@ -255,7 +256,7 @@ export function CampingDetailSheet({
                       {available.length
                         ? `${available.length} ${available.length === 1 ? 'site available' : 'sites available'}`
                         : unknown.length
-                          ? 'Availability needs an update'
+                          ? 'No confirmed openings'
                           : entries.length
                             ? 'No sites open for this stay'
                             : 'Individual site data unavailable'}

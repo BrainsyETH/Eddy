@@ -5,6 +5,7 @@ import type { CampsiteSitesResult } from './sites';
 import { SITE_NIGHT_CODE } from './sites';
 import type { UnitStatus } from './types';
 import { MAX_AGE_MS } from './freshness';
+import { campsitePolicy } from './policies';
 
 export interface StayObservation {
   facilityId: string;
@@ -22,6 +23,7 @@ export async function loadWebStaySnapshots(
     signal?: AbortSignal;
     maxSites?: number;
     sources?: Map<string, string>;
+    sourceFacilityIds?: Map<string, string>;
   } = {},
 ) {
   const ids = options.facilityIds ?? [
@@ -61,6 +63,7 @@ export async function loadWebStaySnapshots(
           ? `https://www.recreation.gov/camping/campsites/${encodeURIComponent(row.source_site_id)}`
           : null,
         nights: '',
+        policy: campsitePolicy(options.sources?.get(row.facility_id) ?? '', options.sourceFacilityIds?.get(row.facility_id), row),
       },
       codes: window.nights.map(() => '-'),
     });

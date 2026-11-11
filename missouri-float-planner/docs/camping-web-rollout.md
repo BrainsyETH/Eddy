@@ -1,6 +1,6 @@
 # Web camping: implementation and rollout
 
-Status: gated implementation; **regional launch is NO-GO** on the measured data below. `CAMPING_WEB_ENABLED` defaults off. Enabling it publishes the hub, the two web availability endpoints, header link and sitemap entry together. All new inventory handling is confined to the flagged web endpoints. Existing iOS code, campsite APIs, campground cards and nightly strips are unchanged.
+Status: gated implementation; **regional launch is NO-GO** on the measured data below. `CAMPING_WEB_ENABLED` defaults off. Enabling it publishes the hub, the two web availability endpoints, header link and sitemap entry together. This hub is layered on the separate [shared camping-policy fix](../../docs/camping-policies.md), which changes individual-site answers on both platforms. The hub's inventory handling stays in its own flagged endpoints. Existing campground card and nightly-strip readers remain unchanged.
 
 ## Decisions
 
@@ -16,6 +16,10 @@ Status: gated implementation; **regional launch is NO-GO** on the measured data 
 | Scope deferred | Nearby/radius, No hookup/Walk-in/Group, new untracked-place URL model, dedicated campground pages, overnight route planning, new alerts. |
 
 ## Phase 0 evidence — 2026-11-10
+
+These measurements predate the verified-policy fallback and describe raw
+observation coverage. Recheck coverage and performance before enabling the hub;
+published first-come policy does not establish a reservable opening.
 
 Read-only queries against the existing FloatMe production project. No provider polling, schema change or production write.
 
@@ -36,6 +40,12 @@ Completeness means every expected catalog site has every occupied night from the
 Nov 13 gaps: Buffalo Point, Red Bluff, Silver Mines and War Eagle. The next two windows also lack complete Erbie, Steel Creek and Tyler Bend. December gaps grow substantially. Per-river readiness and representative operating-season weekends remain unproven; these November/December snapshots cannot establish summer readiness. No regional or river pilot is enabled.
 
 ## Behavior and correctness
+
+The hub applies the same dated policy rules as iPhone site details. A reviewed
+first-come rule survives a missing nightly observation; a seasonal closure shows
+"Closed for your stay". Policy-derived answers retain their source and expire
+independently from observations, including inside compact cached card summaries.
+Unavailable site details can be expanded to see the closure and official source.
 
 The new web search and detail loaders begin with a paged site catalog. A campground with 5 reserved sites observed out of 40 catalog sites has 35 unknown sites, so its summary is unknown. Confirmed open sites can still be shown as “At least N” with incomplete coverage.
 

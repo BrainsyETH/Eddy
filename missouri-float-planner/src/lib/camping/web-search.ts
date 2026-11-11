@@ -3,6 +3,7 @@ import type {
   CampsiteStay,
 } from '../../../shared/camping-stay';
 import { stayNights } from '../../../shared/camping-stay';
+import { campingStayState, currentPolicyStay } from '../../../shared/camping-policy';
 import type { TrackedCampground } from './overview-types';
 import { MAX_AGE_MS } from './freshness';
 import { resolveHorizon, resolveWeekend } from './window';
@@ -17,6 +18,12 @@ export interface StayBucket {
   state: StayVerdict;
   complete: boolean;
   count: number;
+  policy?: {
+    checkedAt: string;
+    reviewBy: string;
+    observed: { state: StayVerdict; complete: boolean };
+    unobserved: { state: StayVerdict; complete: boolean };
+  };
 }
 export interface FacilityStaySummary {
   facilityId: string;
@@ -64,24 +71,32 @@ export function siteFlags(
     Electric: electric,
   };
 }
+function verdict(entry: CampsiteStay): { state: StayVerdict; complete: boolean } {
+  return {
+    state: entry.nights.every(n => n.state === 'closed') ? 'closed'
+      : entry.nights.every(n => n.state === 'not_yet_released') ? 'not_yet_released' : entry.state,
+    complete: entry.nights.every(n => n.state !== 'unknown'),
+  };
+}
 export function compactStay(
   stay: CampingStayResult,
   source: string,
 ): FacilityStaySummary {
   const grouped = new Map<string, StayBucket>();
   for (const entry of stay.sites) {
-    const state = entry.nights.every((n) => n.state === 'closed')
-      ? 'closed'
-      : entry.nights.every((n) => n.state === 'not_yet_released')
-        ? 'not_yet_released'
-        : entry.state;
+    const policy = entry.site.policy;
+    const observedNights = entry.nights.map(n => ({ ...n, state: n.observedState ?? n.state }));
     const bucket: StayBucket = {
       flags: siteFlags(entry.site, source),
-      state,
-      complete: entry.nights.every((n) => n.state !== 'unknown'),
+      ...verdict(entry),
       count: 1,
+      ...(policy ? { policy: {
+        checkedAt: policy.checkedAt, reviewBy: policy.reviewBy,
+        observed: verdict({ ...entry, nights: observedNights, state: campingStayState(observedNights) }),
+        unobserved: verdict(currentPolicyStay(entry, false, Date.parse(policy.checkedAt))),
+      } } : {}),
     };
-    const key = JSON.stringify([bucket.flags, state, bucket.complete]);
+    const key = JSON.stringify([bucket.flags, bucket.state, bucket.complete, bucket.policy]);
     const previous = grouped.get(key);
     if (previous) previous.count++;
     else grouped.set(key, bucket);
@@ -141,16 +156,19 @@ export function filteredStay(
   let incomplete = facilities.length === 0;
   for (const facility of facilities) {
     const age = facility.fetchedAt ? now - Date.parse(facility.fetchedAt) : NaN;
-    if (
-      !facility.catalogSites ||
-      !Number.isFinite(age) ||
-      age < 0 ||
-      age >= MAX_AGE_MS
-    ) {
+    const fresh = Number.isFinite(age) && age >= 0 && age < MAX_AGE_MS;
+    if (!facility.catalogSites) {
       incomplete = true;
       continue;
     }
-    for (const bucket of facility.buckets) {
+    for (const stored of facility.buckets) {
+      const policy = stored.policy;
+      const policyCurrent = policy && Date.parse(policy.checkedAt) <= now && now < Date.parse(policy.reviewBy);
+      if (!fresh && !policyCurrent) {
+        incomplete = true;
+        continue;
+      }
+      const bucket = { ...stored, ...(!fresh ? policy!.unobserved : policy && !policyCurrent ? policy.observed : {}) };
       total += bucket.count;
       const match =
         !filters.length || filters.some((f) => bucket.flags[f] === true);
@@ -194,7 +212,7 @@ export function stayLabel(answer: StayAnswer): string {
     case 'available':
       return `${answer.partial ? 'At least ' : ''}${answer.count} ${answer.count === 1 ? 'site' : 'sites'} for your whole stay`;
     case 'first_come':
-      return 'First come, first served';
+      return 'First come · No reservations';
     case 'unknown':
       return 'Availability unknown';
     case 'closed':

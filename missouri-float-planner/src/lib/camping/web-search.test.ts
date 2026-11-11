@@ -14,7 +14,63 @@ import { loadWebStaySnapshots, loadSiteCatalog } from './web-inventory';
 import { searchCampingStay } from './stay';
 import type { CampsiteSitesResult } from './sites';
 import type { TrackedCampground } from './overview-types';
+import { campsitePolicy } from './policies';
+import { currentPolicyStay, campingStayLabel } from '../../../shared/camping-policy';
 const now = new Date('2026-11-10T18:00:00Z');
+
+test('web cards and site details retain reviewed policies without a nightly observation', async () => {
+  const checked = new Date('2026-11-11T18:00:00Z');
+  const winter = { startDate: '2026-11-16', endDate: '2026-11-18', nights: ['2026-11-16', '2026-11-17'], label: '' };
+  const catalog = [
+    { id: 'a', facility_id: 'f', name: 'A01', loop: 'Loop A', site_type: 'TENT ONLY NONELECTRIC', max_occupancy: null, source_site_id: '7288' },
+    { id: 'b', facility_id: 'f', name: 'B23', loop: 'Loop B', site_type: 'TENT ONLY NONELECTRIC', max_occupancy: null, source_site_id: 'b23' },
+  ];
+  const db = { from(table: string) {
+    const q = { select: () => q, in: () => q, order: () => q,
+      range: async () => ({ data: table === 'campsite_sites' ? catalog : [], error: null }) };
+    return q;
+  } } as never;
+  const snapshot = (await loadWebStaySnapshots(db, [], winter, checked, {
+    facilityIds: ['f'], sources: new Map([['f', 'recreation_gov']]), sourceFacilityIds: new Map([['f', '234043']]),
+  })).get('f')!;
+  const stay = searchCampingStay(snapshot, winter.startDate, winter.endDate, checked);
+  assert.equal(stay.fetchedAt, null);
+  assert.deepEqual(stay.sites.map(s => s.state), ['unavailable', 'first_come']);
+  assert.deepEqual(stay.availableSites, []);
+  const compact = compactStay(stay, 'recreation_gov');
+  const answer = filteredStay([compact], [], checked.getTime());
+  assert.equal(answer.state, 'first_come');
+  assert.equal(answer.count, 1);
+  assert.equal(stayLabel(answer), 'First come · No reservations');
+  assert.equal(filteredStay([compact], ['Tent'], checked.getTime()).state, 'first_come');
+  const closedOnly = compactStay({ ...stay, sites: stay.sites.slice(0, 1) }, 'recreation_gov');
+  assert.equal(filteredStay([closedOnly], [], checked.getTime()).state, 'closed');
+  const site = currentPolicyStay(stay.sites[0], false, checked.getTime());
+  assert.equal(campingStayLabel(site), 'Closed for your stay');
+  const expiry = Date.parse(stay.sites[0].site.policy!.reviewBy);
+  assert.equal(filteredStay([compact], [], expiry).state, 'unknown');
+  assert.equal(currentPolicyStay(stay.sites[1], false, expiry).state, 'unknown');
+});
+
+test('a cached web bucket does not prolong observed openings until a policy review date', () => {
+  const checked = new Date('2026-11-11T18:00:00Z');
+  const data = fixture(['AA']);
+  data.window = { startDate: '2026-11-16', endDate: '2026-11-18', nights: ['2026-11-16', '2026-11-17'], label: '' };
+  data.fetchedAt = checked.toISOString();
+  data.sites[0].policy = campsitePolicy('recreation_gov', '234043', { name: 'B23', loop: 'Loop B' });
+  const stay = searchCampingStay(data, data.window.startDate, data.window.endDate, checked);
+  const summary = compactStay(stay, 'recreation_gov');
+  assert.equal(filteredStay([summary], [], checked.getTime()).state, 'available');
+  assert.equal(filteredStay([summary], [], checked.getTime() + 259200000).state, 'first_come');
+  // If a short-lived rule expires while an observation is still fresh, use
+  // the original observation, not the closure that the rule had supplied.
+  data.sites[0].policy = { ...data.sites[0].policy!, reviewBy: '2026-11-11T19:00:00Z', periods: [{
+    startDate: '2026-11-15', endDateExclusive: '2027-03-15', bookingMethod: 'first_come', operation: 'closed',
+  }] };
+  const restricted = compactStay(searchCampingStay(data, data.window.startDate, data.window.endDate, checked), 'recreation_gov');
+  assert.equal(filteredStay([restricted], [], checked.getTime()).state, 'closed');
+  assert.equal(filteredStay([restricted], [], Date.parse('2026-11-11T19:00:00Z')).state, 'available');
+});
 
 test('a web tab crossing Central midnight updates Tonight and rejects yesterday', () => {
   const before = webPlanningWindow(Date.parse('2026-11-12T05:59:00Z'));

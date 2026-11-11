@@ -10,6 +10,7 @@ import type {
 } from '@/lib/camping/overview-types';
 import type { CampingStayResult } from '../../../shared/camping-stay';
 import { nextCampingDate } from '../../../shared/camping-stay';
+import { campingPolicyNote, campingStayLabel, currentPolicyStay } from '../../../shared/camping-policy';
 import {
   compactStay,
   filteredStay,
@@ -75,6 +76,7 @@ export default function CampingHub({
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const groups = useMemo(() => groupCampgrounds(overview.tracked), [overview]);
   const search = params.get('q') ?? '',
     river = params.get('river') ?? '';
@@ -172,6 +174,7 @@ export default function CampingHub({
     lastFocus.current = document.activeElement as HTMLElement;
     detailPushed.current = true;
     setCopied(false);
+    setShowUnavailable(false);
     trackEvent('camping_detail_open');
     update({ campground: key, facility: null, night: night ?? null }, true);
   }
@@ -726,17 +729,17 @@ export default function CampingHub({
                 : Infinity;
               const fresh =
                 Number.isFinite(age) && age >= 0 && age < MAX_AGE_MS;
-              const sites = fresh
-                ? (data?.sites.filter(
+              const entries = data?.sites.map(s => currentPolicyStay(s, fresh, clock)) ?? [];
+              const unavailable = entries.filter(s => s.state === 'unavailable').length;
+              const sites = entries.filter(
                     (s) =>
-                      (s.state === 'available' || s.state === 'first_come') &&
+                      (s.state === 'available' || s.state === 'first_come' || (showUnavailable && s.state === 'unavailable')) &&
                       (!filters.length ||
                         filters.some(
                           (filter) =>
                             siteFlags(s.site, f.source)[filter] === true,
                         )),
-                  ) ?? [])
-                : [];
+                  );
               return (
                 <section className={styles.sites} key={f.facilityId}>
                   {selected.facilities.length > 1 && (
@@ -756,6 +759,10 @@ export default function CampingHub({
                       {stayLabel(detailAnswer)}
                     </p>
                   )}
+                  {unavailable > 0 && (
+                    <label className={styles.policyToggle}><input type="checkbox" checked={showUnavailable}
+                      onChange={event => setShowUnavailable(event.target.checked)} /> Show unavailable sites</label>
+                  )}
                   {sites.map((entry) => (
                     <div key={entry.site.id}>
                       <div className={styles.site}>
@@ -772,11 +779,11 @@ export default function CampingHub({
                               .filter(Boolean)
                               .join(' · ')}
                           </p>
-                          <span>
-                            {entry.state === 'first_come'
-                              ? 'First come, first served'
-                              : 'Available for your whole stay'}
-                          </span>
+                          <span>{campingStayLabel(entry)}</span>
+                          {campingPolicyNote(entry, clock) && <p>{campingPolicyNote(entry, clock)}</p>}
+                          {entry.site.policy && entry.nights.some(n => n.observedState !== undefined && n.observedState !== n.state) && (
+                            <p><a href={entry.site.policy.sourceUrl} target="_blank" rel="noopener noreferrer">Park’s camping rules ↗</a></p>
+                          )}
                         </div>
                         {entry.site.bookingUrl &&
                           entry.state === 'available' && (

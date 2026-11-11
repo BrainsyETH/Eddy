@@ -517,3 +517,9 @@
   margin-top: 6px;
   color: var(--color-text-secondary);
 }
+.policyToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}

@@ -111,6 +111,13 @@ const summaries = camps.map((c, i) => ({
           },
         ],
 }));
+const fixturePolicy = operation => ({
+  sourceUrl: 'https://www.nps.gov/buff/planyourvisit/camping.htm',
+  checkedAt: at, reviewBy: `${advance(day, 90)}T12:00:00Z`,
+  periods: [{ startDate: day, endDateExclusive: advance(day, 90), bookingMethod: 'first_come', operation }],
+});
+summaries[0].catalogSites += 2;
+for (const state of ['first_come', 'closed']) summaries[0].buckets.push({ flags, state, complete: true, count: 1 });
 let server, browser;
 let logs = '';
 const errors = [];
@@ -245,6 +252,16 @@ try {
         nights: occupied.map((date) => ({ date, state: nightState })),
       };
     });
+    if (facilityIndex === 0) for (const operation of ['open', 'closed']) sites.push({
+      site: {
+        id: `policy-${operation}`, name: operation === 'open' ? 'Fixture · First-come policy site' : 'Fixture · Seasonal closure site',
+        loop: 'Policy fixture', siteType: 'STANDARD ELECTRIC', maxOccupancy: 6,
+        bookingUrl: 'https://www.recreation.gov/camping/campsites/123', nights: '-'.repeat(occupied.length),
+        policy: fixturePolicy(operation),
+      },
+      state: operation === 'open' ? 'first_come' : 'unavailable',
+      nights: occupied.map(date => ({ date, state: operation === 'open' ? 'walk_up' : 'closed', observedState: 'unknown' })),
+    });
     return route.fulfill({
       json: {
         facilityId: p.get('facility'),
@@ -257,7 +274,7 @@ try {
             : {
                 sitesOpen: facilityIndex === 0 ? 40 : 0,
                 sitesReservable: 40,
-                sitesWalkUp: 0,
+                sitesWalkUp: facilityIndex === 0 ? 1 : 0,
                 status: ['open', 'full', 'closed', 'not_yet_released', 'full'][
                   facilityIndex
                 ],
@@ -299,6 +316,12 @@ try {
   await page.getByRole('button', { name: 'View campground' }).first().click();
   await page.getByRole('dialog').waitFor({ state: 'visible' });
   await page.getByText('Fixture site 01', { exact: true }).waitFor();
+  await page.getByText('First come · No reservations', { exact: true }).waitFor();
+  assert.equal(await page.getByText('Fixture · Seasonal closure site', { exact: true }).count(), 0);
+  await page.getByLabel('Show unavailable sites', { exact: true }).check();
+  await page.getByText('Closed for your stay', { exact: true }).waitFor();
+  await page.getByText('First-come site when open', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('link', { name: 'Park’s camping rules ↗', exact: true }).count(), 2);
   assert.match(page.url(), /campground=/);
   await page
     .getByRole('button', { name: 'Site photos', exact: true })

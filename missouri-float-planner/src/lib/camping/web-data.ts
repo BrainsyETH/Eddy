@@ -123,7 +123,10 @@ async function readWebSnapshots(arrival: string, departure: string, facilityId?:
     observations,
     { startDate: arrival, endDate: departure, label: '', nights },
     now,
-    { facilityIds: ids, signal, maxSites: 5000, sources: new Map(facilities.map((f) => [f.id, f.source])) },
+    { facilityIds: ids, signal, maxSites: 5000,
+      sources: new Map(facilities.map((f) => [f.id, f.source])),
+      sourceFacilityIds: new Map(facilities.map((f) => [f.id, f.source_facility_id])),
+    },
   );
   return { facilities, snapshots, now };
 }

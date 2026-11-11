@@ -415,7 +415,8 @@ test('the per-site read pages past the silent row cap', async () => {
   // the list unmeasured rather than describing the previous observation.
   totalsAt = '2026-08-06T10:00:00Z';
   const failedWrite = await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'));
-  assert.equal(failedWrite?.sites.length, 0);
+  assert.equal(failedWrite?.sites.length, SITES);
+  assert.ok(failedWrite?.sites.every(site => /^-+$/.test(site.nights)));
 });
 
 
