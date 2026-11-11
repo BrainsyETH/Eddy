@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
 import { fetchNwsForecastStages, upcomingPeak } from '@/lib/nws/forecast';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,11 @@ export interface MoForecastResponse {
 
 export async function GET(request: NextRequest) {
   try {
+    // Reaches USGS on a CDN miss, and any query string is a miss. Per-IP, and
+    // fail-open like the other public read routes (see lib/rate-limit.ts).
+    const limited = await rateLimit(`usgs-forecast:${getClientIp(request)}`, 30, 60_000);
+    if (limited) return limited;
+
     const dataset = await fetchMODataset();
 
     interface SiteMeta {

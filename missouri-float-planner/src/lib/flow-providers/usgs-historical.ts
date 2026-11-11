@@ -28,6 +28,7 @@ import {
   PARAM_DISCHARGE,
   PARAM_GAGE_HEIGHT,
   modernHeaders,
+  USGS_TIMEOUT_MS,
   parseOgcValue,
   toMonitoringLocationId,
   validDischarge,
@@ -75,6 +76,7 @@ async function fetchOgcFeatures(url: URL): Promise<OgcFeature[] | null> {
   const res = await trackedFetch('usgs', 'usgs-historical', url.toString(), {
     next: { revalidate: 86400 },
     headers: modernHeaders(),
+    signal: AbortSignal.timeout(USGS_TIMEOUT_MS),
   });
   if (!res.ok) return null;
   const data = (await res.json()) as OgcFeatureCollection;

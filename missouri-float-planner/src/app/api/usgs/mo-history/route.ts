@@ -5,6 +5,7 @@ import {
   fetchDailyStatistics,
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,11 @@ export interface MoHistoryResponse {
 }
 
 export async function GET(req: Request) {
+  // Any siteId × days pair is its own CDN key, and each miss reaches USGS. The
+  // allowance is wide because the map asks for one sparkline per gauge opened.
+  const limited = await rateLimit(`usgs-history:${getClientIp(req)}`, 120, 60_000);
+  if (limited) return limited;
+
   const url = new URL(req.url);
   const siteId = url.searchParams.get('siteId');
   const days = Math.min(parseInt(url.searchParams.get('days') ?? '30', 10) || 30, 90);
