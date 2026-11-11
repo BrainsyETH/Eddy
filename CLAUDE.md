@@ -47,9 +47,10 @@ web `test` script lists every file explicitly (no glob); a test that is not
 listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 
 App CI runs on every pull request so required checks cannot remain pending
-because of a path filter. Its `lint-and-typecheck`, `mobile-app`, and
-`dependency-audit` jobs run independently: a security advisory must not suppress
-web tests or the iOS production bundle. Require `lint-and-typecheck` and
+because of a path filter. Its `lint-and-typecheck` and `mobile-app` jobs run
+independently, and the `dependency-audit` check is a separate workflow
+(`.github/workflows/dependency-audit.yml`): a security advisory must not
+suppress web tests or the iOS production bundle, or turn App CI red. Require `lint-and-typecheck` and
 `mobile-app` in GitHub's branch protection or ruleset for `main`; workflow YAML
 alone does not enforce merge protection. Keep `dependency-audit` visible but
 non-required while the reviewed upstream Zod advisory remains unresolved

@@ -54,9 +54,13 @@ Deployment order:
    removal/demotion of the final active Owner.
 4. For external uptime, configure the same dedicated random `ADMIN_MONITOR_SECRET`
    in the web deployment and GitHub Actions secrets. Enable the repository variable
-   `ADMIN_UPTIME_ENABLED=true`. The workflow checks every 15 minutes, outside Eddy,
-   and fails if readiness or pipeline freshness fails. This credential cannot
-   run crons or perform admin writes. Review GitHub notification settings separately.
+   `ADMIN_UPTIME_ENABLED=true`. The workflow then checks from outside Eddy and
+   fails if readiness or pipeline freshness fails. It is a backstop, not an
+   uptime monitor: GitHub starts scheduled workflows hours late and skips most
+   occurrences of a frequent schedule, so expect a few checks a day. For prompt
+   outage detection, point an external uptime service at the same endpoints
+   (`docs/pipeline-monitoring.md`). This credential cannot run crons or perform
+   admin writes. Review GitHub notification settings separately.
 
 No credentials, memberships, production data, or deployment settings are created
 by this code change. A configured endpoint is not proof an external check ran.

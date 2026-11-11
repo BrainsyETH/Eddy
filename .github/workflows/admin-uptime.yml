@@ -1,4 +1,15 @@
-name: Eddy external uptime
+# Best-effort readiness backstop. NOT an uptime monitor.
+#
+# GitHub runs scheduled workflows when it has capacity, not on the minute: in
+# this repository they start hours late and most occurrences of a frequent
+# schedule never run. So this asks for a check every 15 minutes and gets a few
+# a day. It can show that readiness or pipeline freshness has been failing; it
+# cannot detect an outage promptly. Prompt detection needs an external uptime
+# service calling the same two endpoints (docs/pipeline-monitoring.md).
+#
+# Off until the repository variable ADMIN_UPTIME_ENABLED is 'true' and the
+# ADMIN_MONITOR_SECRET Actions secret matches the web deployment's.
+name: Eddy readiness backstop
 on:
   schedule:
     - cron: '7,22,37,52 * * * *'
