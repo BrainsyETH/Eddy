@@ -83,6 +83,12 @@ and remove it from the seed, which re-approves whatever it upserts.
 
 ## Checks & validation (read-only, safe always)
 
+Rain research collection and activation are documented in
+[rainfall-history.md](rainfall-history.md). `rainfall/seed-research-basins.ts
+--evidence DIRECTORY` previews the inspector's versioned basin records;
+`--apply` writes only private research tables through the shared project guard.
+It does not approve a boundary or update live gauge metadata.
+
 | Script | Run | Purpose |
 | --- | --- | --- |
 | `rainfall/inspect-sources.ts` | `node --import tsx scripts/rainfall/inspect-sources.ts --inventory FILE --out NEW_DIR` | Read-only USGS/NOAA source capture, basin triage and raw/display checks; local evidence only, no Supabase client or approvals. See [rainfall sources](rainfall-sources.md). |
