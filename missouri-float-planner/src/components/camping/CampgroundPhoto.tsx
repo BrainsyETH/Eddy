@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { EddyIcon } from "@/components/ui/EddyIcon";
 import { optimizeBlogImage } from "@/lib/blog-image";
+import { recentlyFailedPhoto, rememberPhotoFailure } from "@/lib/camping/web-photo-failures";
 import styles from "./CampingHub.module.css";
 
 /** Exact campground media from the overview, never a nearby river or site photo. */
@@ -16,37 +17,15 @@ export default function CampgroundPhoto({
   name: string;
   compact?: boolean;
 }) {
-  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const [failedSource, setFailedSource] = useState<string | null>(() =>
+    src && recentlyFailedPhoto(src) ? src : null,
+  );
   const [loadedSource, setLoadedSource] = useState<string | null>(null);
-  const photoRef = useCallback((image: HTMLImageElement | null) => {
-    if (!image || !src) return;
-    const settle = () => {
-      if (image.naturalWidth > 0) setLoadedSource(src);
-      else setFailedSource(src);
-    };
-    let frame = 0;
-    const checkComplete = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (image.complete && image.currentSrc) settle();
-      });
-    };
-    // Cached failures can settle during a card remount or responsive source
-    // change before Next replays its synthetic image callbacks.
-    image.addEventListener("load", settle);
-    image.addEventListener("error", settle);
-    if (image.complete && image.currentSrc) settle();
-    // Responsive srcset selection and cached failures can finish just after
-    // the ref attaches, without another image event.
-    checkComplete();
-    window.addEventListener("resize", checkComplete);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("resize", checkComplete);
-      image.removeEventListener("load", settle);
-      image.removeEventListener("error", settle);
-    };
-  }, [src]);
+  const failPhoto = () => {
+    if (!src) return;
+    rememberPhotoFailure(src);
+    setFailedSource(src);
+  };
   const hasPhoto = Boolean(src && src !== failedSource);
   return (
     <div
@@ -63,7 +42,6 @@ export default function CampgroundPhoto({
       )}
       {hasPhoto && (
         <Image
-          ref={photoRef}
           src={src!}
           alt={compact ? "" : name}
           fill
@@ -76,9 +54,9 @@ export default function CampgroundPhoto({
           onLoad={(event) => {
             // Next can replay load for a cached image whose decode failed.
             if (event.currentTarget.naturalWidth > 0) setLoadedSource(src!);
-            else setFailedSource(src!);
+            else failPhoto();
           }}
-          onError={() => setFailedSource(src!)}
+          onError={failPhoto}
           style={{ objectFit: "cover" }}
         />
       )}

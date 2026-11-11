@@ -71,6 +71,8 @@ the visible rows, at most three media requests at once; they never block site
 availability. Clicking a thumbnail opens its inline gallery with source/credits.
 Empty media retains a quiet placeholder; failed requests offer Retry photos.
 Successful metadata is cached for one hour in a bounded browser cache.
+Failed campground cover URLs retain their fallback across card/calendar remounts
+for one minute, capped at 40 URLs, before a later mount can retry them.
 
 Each campground section loads independently. Hovering or focusing a campground
 list action starts its detail request. A bounded 60-second browser cache shares
