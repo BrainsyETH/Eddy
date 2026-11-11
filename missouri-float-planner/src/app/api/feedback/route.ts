@@ -13,6 +13,7 @@ import {
   type Feedback,
   type FeedbackListResponse,
 } from '@/types/api';
+import { FEEDBACK_STATUSES, mapFeedbackRow } from '@/lib/feedback/admin';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -138,17 +139,19 @@ export async function GET(request: NextRequest) {
     // Get query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    // Bounded: an unbounded limit would let one request read the whole table.
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     // Build query
     let query = supabase
       .from('feedback')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (status && ['pending', 'reviewed', 'resolved', 'dismissed'].includes(status)) {
+    if (status && (FEEDBACK_STATUSES as readonly string[]).includes(status)) {
       query = query.eq('status', status);
     }
 
@@ -162,25 +165,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform to API format
-    const feedback: Feedback[] = (data || []).map((row) => ({
-      id: row.id,
-      feedbackType: row.feedback_type,
-      userName: row.user_name,
-      userEmail: row.user_email,
-      message: row.message,
-      imageUrl: row.image_url,
-      contextType: row.context_type,
-      contextId: row.context_id,
-      contextName: row.context_name,
-      contextData: row.context_data,
-      status: row.status,
-      adminNotes: row.admin_notes,
-      reviewedBy: row.reviewed_by,
-      reviewedAt: row.reviewed_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    const feedback: Feedback[] = (data || []).map(mapFeedbackRow);
 
     return NextResponse.json({
       feedback,

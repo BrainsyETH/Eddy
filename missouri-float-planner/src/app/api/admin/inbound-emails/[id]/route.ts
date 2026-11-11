@@ -5,7 +5,7 @@ import { withAdminMutation } from '@/lib/admin/mutation-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
-import { mapInboundEmailRow } from '@/lib/email/inbound';
+import { countUnreadInboundEmails, mapInboundEmailRow } from '@/lib/email/inbound';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +41,10 @@ async function handlePATCH(
       return NextResponse.json({ error: 'Failed to update inbound email' }, { status: 500 });
     }
 
-    return NextResponse.json({ email: mapInboundEmailRow(data) });
+    return NextResponse.json({
+      email: mapInboundEmailRow(data),
+      unread: await countUnreadInboundEmails(supabase),
+    });
   } catch (error) {
     console.error('Error updating inbound email:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

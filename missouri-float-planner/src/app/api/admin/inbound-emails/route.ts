@@ -25,13 +25,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     let query = supabase
       .from('inbound_emails')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (status && VALID_STATUSES.includes(status)) {

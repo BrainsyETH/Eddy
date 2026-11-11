@@ -28,3 +28,18 @@ export function mapInboundEmailRow(row: any): InboundEmail {
     updatedAt: row.updated_at,
   };
 }
+
+type CountClient = ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>;
+
+/**
+ * Global unread count for the Inbox badge. Callers return it with every write,
+ * so the badge never has to be recomputed from whichever page is on screen.
+ * Null when the count could not be read: the caller keeps the badge it had.
+ */
+export async function countUnreadInboundEmails(supabase: CountClient): Promise<number | null> {
+  const { count, error } = await supabase
+    .from('inbound_emails')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'unread');
+  return error ? null : (count ?? 0);
+}

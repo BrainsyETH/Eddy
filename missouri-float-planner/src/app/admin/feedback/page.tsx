@@ -1,5 +1,8 @@
 'use client';
-import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
+import {
+  useAdminInteractions,
+  useUnsavedAdminChanges,
+} from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/feedback/page.tsx
 // Admin page for reviewing user feedback
@@ -9,6 +12,8 @@ import { useAdminListState } from '@/hooks/useAdminListState';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import InboundEmailList from '@/components/admin/InboundEmailList';
+import ListPager from '@/components/admin/ListPager';
+import { FEEDBACK_PAGE_SIZE, MAX_ADMIN_NOTES_LENGTH } from '@/lib/feedback/admin';
 import {
   Flag,
   Mail,
@@ -62,6 +67,20 @@ export default function FeedbackAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('pending');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  // Unsaved note text per item; absent means "same as saved".
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [savingNote, setSavingNote] = useState<string | null>(null);
+  // Drafts survive paging and filters (they are keyed by item), but not leaving
+  // the page, so the workspace's leave/reload guard covers them.
+  useUnsavedAdminChanges(
+    Object.entries(noteDrafts).some(([id, text]) => {
+      const saved = feedback.find((f) => f.id === id);
+      // A draft for an item on another page can't be compared, so it counts.
+      return !saved || text.trim() !== (saved.adminNotes ?? '');
+    }),
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
 
@@ -85,7 +104,8 @@ export default function FeedbackAdminPage() {
       if (statusFilter !== 'all') {
         params.set('status', statusFilter);
       }
-      params.set('limit', '100');
+      params.set('limit', String(FEEDBACK_PAGE_SIZE));
+      params.set('offset', String((page - 1) * FEEDBACK_PAGE_SIZE));
 
       const response = await adminFetch(`/api/feedback?${params.toString()}`);
       if (!response.ok) {
@@ -95,25 +115,30 @@ export default function FeedbackAdminPage() {
 
       const data = await response.json();
       setFeedback(data.feedback);
+      setTotal(data.total ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch feedback');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   useEffect(() => {
     fetchFeedback();
   }, [fetchFeedback]);
 
-  const updateFeedbackStatus = async (id: string, status: FeedbackStatus, adminNotes?: string) => {
+  useEffect(() => {
+    if (!loading && feedback.length === 0 && page > 1) setPage((p) => p - 1);
+  }, [loading, feedback.length, page]);
+
+  const updateFeedbackStatus = async (id: string, status: FeedbackStatus) => {
     setUpdating(id);
 
     try {
       const response = await adminFetch(`/api/admin/feedback/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, adminNotes }),
+        body: JSON.stringify({ status }),
       });
 
       if (!response.ok) {
@@ -131,6 +156,27 @@ export default function FeedbackAdminPage() {
       alert('Failed to update feedback');
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const saveNote = async (id: string) => {
+    const adminNotes = noteDrafts[id];
+    if (adminNotes === undefined) return;
+    setSavingNote(id);
+    try {
+      const response = await adminFetch(`/api/admin/feedback/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminNotes }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to save note');
+      setFeedback((prev) => prev.map((f) => (f.id === id ? data.feedback : f)));
+      setNoteDrafts(({ [id]: _saved, ...rest }) => rest);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save note');
+    } finally {
+      setSavingNote(null);
     }
   };
 
@@ -203,7 +249,10 @@ export default function FeedbackAdminPage() {
             <label className="text-sm text-neutral-400">Status:</label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as FeedbackStatus | 'all')}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as FeedbackStatus | 'all');
+                setPage(1);
+              }}
               className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="all">All</option>
@@ -336,15 +385,47 @@ export default function FeedbackAdminPage() {
                         </div>
                       )}
 
-                      {/* Admin Notes */}
-                      {item.adminNotes && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-neutral-300 mb-2">Admin Notes</h4>
-                          <p className="text-neutral-300 text-sm bg-neutral-900 p-3 rounded-lg">
-                            {item.adminNotes}
-                          </p>
-                        </div>
-                      )}
+                      {/* Admin Notes — internal, never sent to the submitter */}
+                      <div className="mb-4">
+                        <label
+                          htmlFor={`notes-${item.id}`}
+                          className="block text-sm font-medium text-neutral-300 mb-2"
+                        >
+                          Notes
+                        </label>
+                        <textarea
+                          id={`notes-${item.id}`}
+                          value={noteDrafts[item.id] ?? item.adminNotes ?? ''}
+                          onChange={(e) =>
+                            setNoteDrafts((d) => ({ ...d, [item.id]: e.target.value }))
+                          }
+                          maxLength={MAX_ADMIN_NOTES_LENGTH}
+                          rows={3}
+                          placeholder="Only admins see this."
+                          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        {noteDrafts[item.id] !== undefined &&
+                          noteDrafts[item.id].trim() !== (item.adminNotes ?? '') && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <button
+                                onClick={() => saveNote(item.id)}
+                                disabled={savingNote === item.id}
+                                className="px-3 py-1.5 rounded text-xs font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50"
+                              >
+                                {savingNote === item.id ? 'Saving…' : 'Save note'}
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setNoteDrafts(({ [item.id]: _discarded, ...rest }) => rest)
+                                }
+                                disabled={savingNote === item.id}
+                                className="px-3 py-1.5 rounded text-xs font-medium admin-secondary"
+                              >
+                                Discard
+                              </button>
+                            </div>
+                          )}
+                      </div>
 
                       {/* Review Info */}
                       {item.reviewedAt && (
@@ -385,6 +466,8 @@ export default function FeedbackAdminPage() {
             })}
           </div>
         )}
+
+        <ListPager page={page} total={total} pageSize={FEEDBACK_PAGE_SIZE} noun="items" onPage={setPage} />
         </>
         )}
       </div>

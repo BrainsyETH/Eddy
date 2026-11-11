@@ -24,9 +24,11 @@ import {
 } from 'lucide-react';
 import type { InboundEmail, InboundEmailStatus } from '@/types/api';
 import RichTextEditor from '@/components/admin/RichTextEditor';
+import ListPager from '@/components/admin/ListPager';
 import { REPLY_TEMPLATES } from '@/lib/email/reply-templates';
 
 const EDDY_DOMAIN = 'eddy.guide';
+const PAGE_SIZE = 50;
 
 /** True when rich-text HTML has no visible content (e.g. an empty "<p></p>"). */
 function isHtmlEmpty(html: string): boolean {
@@ -91,6 +93,8 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<InboundEmailStatus | 'all'>('unread');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
 
@@ -114,7 +118,8 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
     try {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      params.set('limit', '100');
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String((page - 1) * PAGE_SIZE));
 
       const response = await adminFetch(`/api/admin/inbound-emails?${params.toString()}`);
       if (!response.ok) {
@@ -123,17 +128,24 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
       }
       const data = await response.json();
       setEmails(data.emails);
+      setTotal(data.total ?? 0);
       reportUnread(data.unread ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch email');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, reportUnread]);
+  }, [statusFilter, page, reportUnread]);
 
   useEffect(() => {
     fetchEmails();
   }, [fetchEmails]);
+
+  // Triaging the last message on a later page steps back instead of showing
+  // an empty page while earlier pages still hold matching mail.
+  useEffect(() => {
+    if (!loading && emails.length === 0 && page > 1) setPage((p) => p - 1);
+  }, [loading, emails.length, page]);
 
   const updateStatus = async (email: InboundEmail, status: InboundEmailStatus) => {
     if (email.status === status) return;
@@ -145,25 +157,20 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
         body: JSON.stringify({ status }),
       });
       if (!response.ok) throw new Error('Failed to update');
-      const { email: updated } = await response.json();
+      const { email: updated, unread } = await response.json();
 
-      // Keep the global unread badge in sync without a full refetch.
-      const wasUnread = email.status === 'unread';
-      const nowUnread = status === 'unread';
-      if (wasUnread !== nowUnread) {
-        // Recompute from the loaded set plus the delta on this row.
-        const delta = nowUnread ? 1 : -1;
-        const localUnread = emails.filter((e) => e.status === 'unread').length + delta;
-        reportUnread(Math.max(0, localUnread));
-      }
+      // The server returns the global unread count with every write; the rows on
+      // this page are not the whole inbox, so they can't be counted locally.
+      if (typeof unread === 'number') reportUnread(unread);
 
-      setEmails((prev) => {
-        // Drop the row when it no longer matches the active (non-"all") filter.
-        if (statusFilter !== 'all' && status !== statusFilter) {
-          return prev.filter((e) => e.id !== email.id);
-        }
-        return prev.map((e) => (e.id === email.id ? (updated as InboundEmail) : e));
-      });
+      // Drop the row when it no longer matches the active (non-"all") filter.
+      const leavesView = statusFilter !== 'all' && status !== statusFilter;
+      if (leavesView) setTotal((t) => Math.max(0, t - 1));
+      setEmails((prev) =>
+        leavesView
+          ? prev.filter((e) => e.id !== email.id)
+          : prev.map((e) => (e.id === email.id ? (updated as InboundEmail) : e)),
+      );
     } catch {
       alert('Failed to update email');
     } finally {
@@ -204,9 +211,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
       // next refresh). The server marks a replied message read, so drop the
       // unread count if this was the transition.
       const updated = data.email as InboundEmail;
-      if (email.status === 'unread' && updated.status !== 'unread') {
-        reportUnread(Math.max(0, emails.filter((e) => e.status === 'unread').length - 1));
-      }
+      if (typeof data.unread === 'number') reportUnread(data.unread);
       setEmails((prev) => prev.map((e) => (e.id === email.id ? updated : e)));
       setReplySent(true);
       setReplyHtml('');
@@ -225,7 +230,10 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
           <label className="text-sm text-neutral-400">Status:</label>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as InboundEmailStatus | 'all')}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as InboundEmailStatus | 'all');
+              setPage(1);
+            }}
             className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {FILTER_OPTIONS.map((opt) => (
@@ -530,6 +538,8 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
           })}
         </div>
       )}
+
+      <ListPager page={page} total={total} pageSize={PAGE_SIZE} noun="messages" onPage={setPage} />
     </div>
   );
 }

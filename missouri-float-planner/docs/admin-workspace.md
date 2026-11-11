@@ -135,6 +135,9 @@ selection, moderation details, mobile navigation and request failure recovery.
 Role fixtures also cover editor image deletion, revoked access on live requests
 and reload, 403 sign-out, owner self-demotion, role refresh, search history,
 keyboard toggling, narrow-screen detail focus and secondary-button hover colors.
+The Inbox suite (`scripts/admin/inbox-smoke.mjs`, run by the same script) covers
+feedback paging past the first page, saving a note without changing status, and
+an email badge that follows the server's unread count after triage.
 
 `npm run test:admin-db` applies the migration to an ephemeral PGlite PostgreSQL
 database with minimal fixtures. It exercises duplicate-member guidance, final-owner protection, stale writes,
