@@ -38,6 +38,8 @@ export interface ReachReport {
 
 export interface RiverReach {
   sectionSlug: string;
+  /** Configured station UUID. Optional for older app caches/API deployments. */
+  gaugeStationId?: string | null;
   name: string;
   description: string | null;
   /** Effective hydrology: the reach's own river_type, else the river's. */

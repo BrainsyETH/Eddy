@@ -1,7 +1,7 @@
 import { hasLadder } from '@eddy/conditions/condition-ladder';
 import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 import { useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
@@ -13,10 +13,13 @@ import { readingSummaryVerdict } from '@/lib/readingSummary';
 import { Otter, otterForCondition } from './Otter';
 import { ReadingScale } from './ReadingScale';
 import { TREND_ICON, type TrendDirection } from './TrendPill';
+import { EddySymbol } from './EddySymbol';
 
 export interface ReadingInfoItem { label: string; value: string | null | undefined }
 
 interface Props {
+  embedded?: boolean;
+  sectionReadings?: { gaugeHeightFt: number | null; dischargeCfs: number | null };
   reading: { value: number; unit: 'ft' | 'cfs' } | null;
   /** Omitted for an unrated gauge: its measurement is the headline. */
   verdict?: { code: string; lastKnown?: boolean } | null;
@@ -38,8 +41,9 @@ interface Props {
   footerActions?: ReactNode;
 }
 
-export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children, footerActions }: Props) {
+export function ReadingSummaryCard({ embedded, sectionReadings, reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children, footerActions }: Props) {
   const { colors, elevation, isDark } = useTheme();
+  const { fontScale } = useWindowDimensions();
   const [infoOpen, setInfoOpen] = useState(false);
   const close = () => setInfoOpen(false);
   const code = verdict?.lastKnown ? 'unknown' : verdict?.code;
@@ -58,11 +62,53 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
     ...details,
     ...(hasScale ? [{ label: 'Condition strip', value: 'Equal-width condition bands. The marker shows where the reading sits within its band.' }] : []),
   ];
+  const infoButton = <Pressable accessibilityRole="button" accessibilityLabel="About this reading" accessibilityHint="Opens station and reading details" onPress={() => setInfoOpen(true)} style={({ pressed }) => [styles.info, { opacity: pressed ? 0.6 : 1 }]}>
+    <Ionicons name="information-circle-outline" size={20} color={colors.textMuted} />
+  </Pressable>;
+  const ageLine = <View style={styles.ageRow}>
+    {ageWarning || offline ? <Ionicons name={ageWarning ? 'alert-circle-outline' : 'cloud-offline-outline'} size={14} color={ageWarning ? colors.text : colors.textMuted} /> : null}
+    <Text style={[styles.age, { color: ageWarning ? colors.text : colors.textSubtle }]}>{age ?? 'Observation time unavailable'}</Text>
+  </View>;
 
   return (
     <>
-      {stationLabel ? <Text style={[styles.station, { color: colors.textMuted }]}>{stationLabel}</Text> : null}
-      <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+      {stationLabel && !sectionReadings ? <Text style={[styles.station, { color: colors.textMuted }]}>{stationLabel}</Text> : null}
+      <View style={[styles.card, { backgroundColor: colors.card }, embedded ? styles.embedded : elevation(2)]}>
+        {sectionReadings ? <>
+          <View style={styles.sectionHeader}>
+            <View style={styles.headerCopy}>
+              <Text accessibilityRole="header" style={[styles.sectionStation, { color: colors.text }]}>{stationLabel ?? stationName}</Text>
+              {ageLine}
+            </View>
+            {infoButton}
+          </View>
+          {verdict ? <View style={styles.sectionVerdict}>
+            <Otter mood={otterForCondition(code ?? 'unknown')} size={28} />
+            <Text style={[styles.sectionVerdictText, { color: verdict.lastKnown ? colors.textMuted : conditionText(code ?? 'unknown', isDark) }]}>
+              {verdict.code === 'unknown' ? statusLabel : readingSummaryVerdict(verdict.code, verdict.lastKnown)}
+            </Text>
+          </View> : null}
+          <View style={[styles.metrics, fontScale > 1.4 && styles.stackedMetrics]}>
+            {([
+              { label: 'Water level', symbol: 'gauge', unit: 'ft', value: sectionReadings.gaugeHeightFt },
+              { label: 'Flow', symbol: 'release', unit: 'cfs', value: sectionReadings.dischargeCfs },
+            ] as const).map(metric => (
+              <View key={metric.unit} style={styles.metric}>
+                <EddySymbol name={metric.symbol} size={28} />
+                <View style={styles.metricCopy}>
+                  <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{metric.label}</Text>
+                  <Text style={[metric.value == null ? styles.noReading : styles.metricValue, { color: metric.value == null ? colors.textMuted : colors.text }]}>
+                    {metric.value == null ? 'Unavailable' : formatReading(metric.value, metric.unit)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+          {trend ? <View style={styles.trend}>
+            <Ionicons name={TREND_ICON[trend.direction]} size={13} color={colors.textMuted} />
+            {trend.label ? <Text style={[styles.trendText, { color: colors.textMuted }]}>{trend.label}</Text> : null}
+          </View> : null}
+        </> : (
         <View style={styles.header}>
           {verdict ? <Otter mood={otterForCondition(code ?? 'unknown')} size={52} /> : null}
           <View style={styles.headerCopy}>
@@ -87,21 +133,17 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
             </View>
           </View>
         </View>
+        )}
         {hasScale && thresholds && reading ? (
           <ReadingScale thresholds={thresholds} value={verdict?.code === 'unknown' ? null : reading.value} unit={reading.unit} summary muted={mutedScale} />
         ) : null}
         {context ? <Text style={[styles.context, { color: colors.textMuted, borderTopColor: colors.border }]}>{context}</Text> : null}
         {children}
-        <View style={styles.footer}>
-          <View style={styles.ageRow}>
-            {ageWarning || offline ? <Ionicons name={ageWarning ? 'alert-circle-outline' : 'cloud-offline-outline'} size={14} color={ageWarning ? colors.text : colors.textMuted} /> : null}
-            <Text style={[styles.age, { color: ageWarning ? colors.text : colors.textSubtle }]}>{age ?? 'Observation time unavailable'}</Text>
-          </View>
+        {!sectionReadings ? <View style={styles.footer}>
+          {ageLine}
           {footerActions}
-          <Pressable accessibilityRole="button" accessibilityLabel="About this reading" accessibilityHint="Opens station and reading details" onPress={() => setInfoOpen(true)} style={({ pressed }) => [styles.info, { opacity: pressed ? 0.6 : 1 }]}>
-            <Ionicons name="information-circle-outline" size={20} color={colors.textMuted} />
-          </Pressable>
-        </View>
+          {infoButton}
+        </View> : footerActions}
       </View>
       <Modal visible={infoOpen} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal onRequestClose={close}>
         <SafeAreaView style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]} edges={['top', 'bottom']} onAccessibilityEscape={close}>
@@ -128,6 +170,17 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
 const styles = StyleSheet.create({
   station: { ...t.xs, fontFamily: fonts.body, marginHorizontal: 4, marginBottom: 6 },
   card: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, borderRadius: 16, marginBottom: 10 },
+  embedded: { marginBottom: 0, paddingBottom: 14 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  sectionStation: { ...t.base, fontFamily: fonts.semibold, marginBottom: 4 },
+  sectionVerdict: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  sectionVerdictText: { ...t.sm, fontFamily: fonts.semibold, flex: 1 },
+  metrics: { flexDirection: 'row', gap: 12, marginVertical: 12 },
+  stackedMetrics: { flexDirection: 'column' },
+  metric: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  metricCopy: { flex: 1 },
+  metricLabel: { ...t.xs, fontFamily: fonts.body, marginBottom: 3 },
+  metricValue: { ...t.lg, fontFamily: fonts.mono, flexShrink: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerCopy: { flex: 1, minWidth: 0 },
   verdict: { ...t.lg, fontFamily: fonts.semibold },

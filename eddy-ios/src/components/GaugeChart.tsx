@@ -133,6 +133,8 @@ const SCRUB_ACTIVATE_X = 8;
 const SCRUB_FAIL_Y = 8;
 
 interface Props {
+  /** The section report supplies the surrounding card; expansion stays full-screen. */
+  embedded?: boolean;
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
   riverId?: string;
@@ -294,7 +296,7 @@ function GaugeChartInner(props: Props) {
 }
 
 function GaugeChartView({
-  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, title, riverId, riverSlug, initialShareState,
+  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, title, riverId, riverSlug, initialShareState, embedded = false,
   controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
 }: Props & {
   controller: ChartController;
@@ -974,7 +976,7 @@ function GaugeChartView({
   const railLabels = selectChartRailLabels(railCandidates, 0, chartHeight, 4 * fontScale);
 
   return (
-    <View style={[styles.card, expanded && styles.expandedCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+    <View style={[styles.card, embedded && styles.embeddedCard, expanded && styles.expandedCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       accessibilityElementsHidden={!active} importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}>
       <View onLayout={expanded ? event => setControlsHeight(event.nativeEvent.layout.height) : undefined}>
         {recentSummary ? <Text style={[styles.caption, { color: colors.textMuted, paddingBottom: 8 }]}>{recentSummary}</Text> : null}
@@ -1241,7 +1243,7 @@ export function GaugeChart(props: Props) {
       // like an error: same card, same height, same quiet ink. What is missing
       // is one panel, and the reading it charts is still on the screen above.
       fallback={
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, props.embedded && styles.embeddedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
             <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
               Charts need a newer version of the app. Everything else on this
@@ -1260,6 +1262,7 @@ const styles = StyleSheet.create({
   // Page summaries own the current value, rating and freshness. This component
   // owns only the chart: ~310pt at default text size, growing with Dynamic Type.
   card: { marginBottom: 14, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
+  embeddedCard: { marginBottom: 0, paddingBottom: 8, borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
   expandedCard: { marginBottom: 0, paddingTop: 8, paddingBottom: 8, borderTopWidth: 0, borderBottomWidth: 0 },
   expand: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },

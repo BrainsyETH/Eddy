@@ -17,6 +17,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import type { ConditionCode } from '@/types/api';
 import type { RiverReach } from '@shared/reach-types';
 import type { RiverType } from '@/lib/rivers/context';
+import type { RiverReportSection } from '@/lib/river-report-sections';
 
 // The wire shape lives in shared/ so eddy-ios can import the same definition
 // rather than restating it — see that file's header for why it cannot live in
@@ -109,6 +110,7 @@ export async function fetchRiverReaches(
 
       return {
         sectionSlug: r.section_slug,
+        gaugeStationId: r.primary_gauge_station_id ?? null,
         name: r.name,
         description: r.description ?? null,
         riverType: (r.river_type ?? riverType) as RiverType,
@@ -149,4 +151,24 @@ export function riverTypeLabel(type: RiverType): string {
     default:
       return type;
   }
+}
+
+/** Lightweight web selector metadata. The selected report owns all live reads. */
+export async function fetchRiverReportSections(
+  riverId: string,
+  riverType: RiverType,
+): Promise<RiverReportSection[] | null> {
+  const { data, error } = await createAdminClient()
+    .from('river_sections')
+    .select('section_slug, name, river_type, primary_gauge_station_id')
+    .eq('river_id', riverId)
+    .order('sort_order');
+  if (error || !data || data.length < 2) return null;
+  if (!data.some((row) => row.river_type != null && row.river_type !== riverType)) return null;
+  return data.map((row) => ({
+    sectionSlug: row.section_slug,
+    name: row.name,
+    riverType: (row.river_type ?? riverType) as RiverReportSection['riverType'],
+    gaugeStationId: row.primary_gauge_station_id ?? null,
+  }));
 }

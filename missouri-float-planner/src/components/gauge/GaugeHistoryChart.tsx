@@ -41,6 +41,8 @@ import {
 
 type ZoomWindow = { t0: number; t1: number };
 interface GaugeHistoryChartProps {
+  /** Shares the section report's outer frame with its current reading. */
+  embedded?: boolean;
   initialShareState?: ChartShareState;
   onShowLatest?: () => void;
   riverId?: string;
@@ -69,6 +71,7 @@ function csvEscape(value: string): string {
 }
 
 export default function GaugeHistoryChart({
+  embedded = false,
   initialShareState,
   onShowLatest,
   riverId,
@@ -605,7 +608,7 @@ export default function GaugeHistoryChart({
     </>
   );
   return (
-    <Card variant="panel" className="min-w-0">
+    <Card variant="panel" className={`min-w-0 ${embedded ? '!rounded-none !border-0 !shadow-none' : ''}`}>
       {dialogOpen ? (
         <>
           <div className="flex h-80 items-center justify-center text-sm text-neutral-500">

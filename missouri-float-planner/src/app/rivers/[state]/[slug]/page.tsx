@@ -19,7 +19,7 @@ import Button from '@/components/ui/Button';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
-import { pageRiverDam, pageRiverReaches } from '@/lib/data/public-pages';
+import { pageRiverDam, pageRiverReportSections } from '@/lib/data/public-pages';
 import RiverHubMap from './RiverHubMap';
 import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
@@ -28,7 +28,6 @@ import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import { pageRiverAlerts } from '@/lib/data/public-pages';
 import RiverHazards from '@/components/river/RiverHazards';
-import RiverReaches from '@/components/river/RiverReaches';
 import type { RiverType } from '@/lib/rivers/context';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -156,7 +155,7 @@ export default async function RiverGuidePage({ params }: Props) {
 
   // Fetch access points and the river's panels in parallel (need river.id first).
   // The condition itself is read client-side by the live report's reading card.
-  const [{ data: accessPoints }, riverDam, riverReaches, { alerts: riverAlerts, unavailable: alertsUnavailable }] = await Promise.all([
+  const [{ data: accessPoints }, riverDam, riverSections, { alerts: riverAlerts, unavailable: alertsUnavailable }] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
@@ -169,30 +168,13 @@ export default async function RiverGuidePage({ params }: Props) {
     pageRiverDam(slug).catch(() => null),
     // Same reasoning. Null unless the river has two or more curated reaches —
     // today only the Black, which straddles Clearwater Dam.
-    pageRiverReaches(river.id, slug, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
+    pageRiverReportSections(river.id, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
     // Closures and weather warnings, server-side for the same reason the dam is:
     // a closure is the last thing that should wait on hydration, and the section
     // has to exist before HubSectionNav can decide whether to offer the tab.
     // Optional context failures render an explicit unavailable state.
     pageRiverAlerts(slug),
   ]);
-
-  /**
-   * The reach this river's dam actually controls, confirmed to exist.
-   *
-   * ── One boundary where registry and database drift is resolved ────────────
-   * `tailwater.sectionSlug` is a hand-written constant in usace-registry.ts;
-   * the reaches come from river_sections. Nothing keeps them in step, so a
-   * renamed section, a deleted one, a typo, or a reaches query that simply
-   * failed all leave a slug pointing at nothing.
-   *
-   * Resolving it HERE means the reach highlight is fed one verified value
-   * rather than a registry constant that may point at nothing.
-   */
-  const controlledReach =
-    riverReaches?.find(
-      (reach) => reach.sectionSlug === riverDam?.dam.tailwater?.sectionSlug
-    ) ?? null;
 
   const guidePost = guideResult.data || null;
   const guideImage = guidePost ? guideCover(guidePost) : null;
@@ -401,6 +383,7 @@ export default async function RiverGuidePage({ params }: Props) {
                 here, so the snapshot never reaches the browser bundle. There
                 is no separate Dam release section any more. */}
             <RiverGaugeDetail
+              key={slug}
               riverSlug={slug}
               damLead={riverDam ? <RiverDamPanel context={riverDam} position="lead" /> : null}
               damFooter={riverDam ? <RiverDamPanel context={riverDam} position="footer" /> : null}
@@ -408,19 +391,8 @@ export default async function RiverGuidePage({ params }: Props) {
               // The whole river follows the dam only when the dam's tailwater
               // is the river itself; the Black's Clearwater controls one reach.
               damControlled={Boolean(riverDam && !riverDam.dam.tailwater?.sectionSlug)}
-              reachesSlot={riverReaches ? (
-                // Only where the river's halves differ. When a dam controls
-                // one of these reaches, the chip names it as THE one the dam
-                // panel in the card is about.
-                <section id="reaches" className="scroll-mt-28" aria-labelledby="reaches-heading">
-                  <h3 id="reaches-heading" className="mb-2 text-base font-bold text-neutral-900">Reaches</h3>
-                  <RiverReaches
-                    reaches={riverReaches}
-                    highlightSlug={controlledReach?.sectionSlug ?? null}
-                    damName={riverDam?.dam.name ?? null}
-                  />
-                </section>
-              ) : null}
+              sections={riverSections ?? undefined}
+              damSectionSlug={riverDam?.dam.tailwater?.sectionSlug ?? null}
             />
           </section>
 

@@ -79,6 +79,7 @@ import type { ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 import { optionalEntitlement } from '@/lib/entitlement';
 import { premiumText } from '@/lib/eddy/tiered-prose';
+import { outlookIsDamControlled } from '@/lib/river-section-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -551,9 +552,9 @@ async function _GET(
       // Whichever report this outlook is about. Only one of the two can be
       // non-null — they are set on opposite sides of `usingPrimary`.
       generatedEddyRead: update?.eddy_read ?? gaugeUpdate?.eddy_read ?? null,
-      // A dam_tailwater river always names its dam; a river with a dam on one
-      // reach (the Black) does not, and keeps the rain sentence.
-      damControlled: river.controlling_dam_id != null,
+      // Resolve through the actual station, so Lower Black's weather copy
+      // describes dam releases without applying that guidance above Clearwater.
+      damControlled: outlookIsDamControlled(slug, station?.usgs_site_id, river.controlling_dam_id),
     });
 
     return NextResponse.json<RiverOutlookApiResponse>(

@@ -24,6 +24,8 @@ import {
   type Zone,
 } from '@/lib/gauge/threshold-zones';
 import { formatAgeFromHours } from '@/lib/utils/reading-age';
+import { EddyIcon } from '@/components/ui/EddyIcon';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 
 interface CurrentReadingCardProps {
   siteId: string;
@@ -60,6 +62,9 @@ interface CurrentReadingCardProps {
   className?: string;
   /** Inside another card: no frame or padding of its own. */
   embedded?: boolean;
+  /** Compact section report: equal readings, one source and one observation age. */
+  sectionHeading?: string;
+  source?: React.ReactNode;
   /** Footer rows under the reading — the river page passes its safety and forecast lines. */
   children?: React.ReactNode;
   /**
@@ -84,6 +89,8 @@ export default function CurrentReadingCard({
   zones,
   className = '',
   embedded = false,
+  sectionHeading,
+  source,
   children,
   footer,
 }: CurrentReadingCardProps) {
@@ -135,15 +142,49 @@ export default function CurrentReadingCard({
     >
       {/* One concise spoken summary instead of letting screen readers re-read
           the card on every background poll. */}
-      <p className="sr-only" aria-live="polite">
+      {!sectionHeading && <p className="sr-only" aria-live="polite">
         {conditionLabel ? `${conditionLabel}. ` : ''}
         {gaugeHeightFt !== null ? `Stage ${formatFt(gaugeHeightFt)} feet. ` : ''}
         {dischargeCfs !== null ? `Flow ${formatCfs(dischargeCfs)} cubic feet per second. ` : ''}
         {activeZone ? `${activeZone.label} range is ${formatZoneRange(activeZone, thresholdUnit)}. ` : ''}
         {trend ? `${trend.label}.` : ''}
-      </p>
+      </p>}
 
-      <div className={embedded ? '' : 'px-4 pt-4 sm:px-5'} aria-hidden="true">
+      {sectionHeading ? (
+        <div className="px-4 pb-4 pt-4 sm:px-5">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+            <h3 className="font-heading text-base font-bold text-neutral-900 sm:text-lg">{sectionHeading}</h3>
+            <p className="pt-0.5 text-xs text-neutral-500">
+              {readingAgeHours != null ? `Observed ${formatAgeFromHours(readingAgeHours)}` : 'Observation time unavailable'}
+            </p>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            {conditionCode && <ConditionBadge code={conditionCode} size="sm" />}
+            {source}
+          </div>
+          <dl className="mt-4 grid grid-cols-2 gap-3 sm:gap-6">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <EddyIcon name="damGauge" size={28} className="shrink-0" />
+              <div className="min-w-0">
+                <dt className="text-xs text-neutral-600 sm:text-sm">Water level</dt>
+                <dd className="font-mono text-xl font-bold tabular-nums text-neutral-900 sm:text-3xl">
+                  {gaugeHeightFt != null ? <>{gaugeHeightFt.toFixed(2)} <span className="text-sm font-medium sm:text-lg">ft</span></> : <span className="text-sm font-medium">Unavailable</span>}
+                </dd>
+              </div>
+            </div>
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <EddyIcon name="release" size={28} className="shrink-0" />
+              <div className="min-w-0">
+                <dt className="text-xs text-neutral-600 sm:text-sm">Flow</dt>
+                <dd className="font-mono text-xl font-bold tabular-nums text-neutral-900 sm:text-3xl">
+                  {dischargeCfs != null ? <>{Math.round(dischargeCfs).toLocaleString()} <span className="text-sm font-medium sm:text-lg">cfs</span></> : <span className="text-sm font-medium">Unavailable</span>}
+                </dd>
+              </div>
+            </div>
+          </dl>
+          {trend && <p className="mt-3 flex items-center gap-1 text-xs text-neutral-600"><TrendIcon className="h-3.5 w-3.5" aria-hidden="true" />{trend.label}{trendDelta && ` · ${trendDelta}`}</p>}
+        </div>
+      ) : <div className={embedded ? '' : 'px-4 pt-4 sm:px-5'} aria-hidden="true">
         <div className="flex items-center gap-3">
           {conditionCode && (
             <Image
@@ -203,13 +244,13 @@ export default function CurrentReadingCard({
             )}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Water quality, when this gauge or a monitor below it publishes it —
           always with its age and, off this gauge, the station it came from. */}
       {((waterTempF != null && waterTempAgeHours != null && waterTempAgeHours <= 24) ||
         (dissolvedOxygenMgL != null && dissolvedOxygenAgeHours != null && dissolvedOxygenAgeHours <= 24)) && (
-        <div className={`mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-neutral-200 pt-3 text-sm ${embedded ? '' : 'mx-4 sm:mx-5'}`}>
+        <div className={`mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-neutral-200 pt-3 text-sm ${embedded && !sectionHeading ? '' : 'mx-4 sm:mx-5'}`}>
           {waterTempF != null && waterTempAgeHours != null && waterTempAgeHours <= 24 && (
             <p className="text-neutral-700">
               Water <span className="font-mono font-semibold tabular-nums text-neutral-900">{waterTempF}°F</span>
@@ -230,9 +271,9 @@ export default function CurrentReadingCard({
       )}
 
       {/* Safety and forecast lines from the summary, when the page passes them. */}
-      {children && <div className={`mt-3 border-t border-neutral-200 ${embedded ? 'pt-3' : 'mx-4 pt-3 sm:mx-5'}`}>{children}</div>}
+      {children && <div className={`mt-3 border-t border-neutral-200 ${sectionHeading ? 'mx-4 pb-3 pt-3 sm:mx-5' : embedded ? 'pt-3' : 'mx-4 pt-3 sm:mx-5'}`}>{children}</div>}
 
-      {readingAgeHours != null && (
+      {!sectionHeading && readingAgeHours != null && (
         <p className={`text-xs text-neutral-500 ${embedded ? 'mt-3' : 'px-4 pb-4 pt-3 sm:px-5'}`}>
           Updated {formatAgeFromHours(readingAgeHours)}
         </p>
