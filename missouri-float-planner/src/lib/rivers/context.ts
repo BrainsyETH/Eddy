@@ -7,6 +7,7 @@
 // park_code). Reads are served from a short in-memory cache because callers
 // (chat requests, cron update generation) hit the same rows repeatedly.
 
+import { DEFAULT_TIMEZONE } from './defaults';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export type RiverType =
@@ -48,7 +49,7 @@ export interface RiverContext {
   characteristics: RiverCharacteristics | null;
 }
 
-export const DEFAULT_TIMEZONE = 'America/Chicago';
+export { DEFAULT_TIMEZONE } from './defaults';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
