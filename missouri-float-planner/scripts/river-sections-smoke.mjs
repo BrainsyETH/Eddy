@@ -168,6 +168,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const rainToggle = page.getByRole('button', { name: 'Show rain upstream', exact: true });
     await rainToggle.waitFor(); await page.locator('[data-rain-track]').waitFor();
     await waitForRainLayout(page, true);
+    if (width >= 1024) {
+      const rainHeight = await rainToggle.evaluate(node => node.getBoundingClientRect().height);
+      const unitHeight = await page.getByRole('group', { name: 'Display unit', exact: true }).evaluate(node => node.getBoundingClientRect().height);
+      assert(Math.abs(rainHeight - unitHeight) < 1, 'Desktop Rain and unit controls have matching heights');
+    }
     const readY = () => page.locator('#eddy-says').evaluate(node => node.getBoundingClientRect().top + window.scrollY);
     const firstReadY = await readY();
     const rainPlotHeight = await page.locator('[data-river-plot]').evaluate(node => node.getBoundingClientRect().height);

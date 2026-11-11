@@ -350,6 +350,7 @@ export default function GaugeHistoryChart({
           {canToggleUnit && (
             <Segmented
               aria-label="Display unit"
+              className="min-h-9"
               options={UNIT_OPTIONS}
               value={displayUnit}
               onChange={(unit) => {
