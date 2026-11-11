@@ -1,26 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
-import { fetchAhpsForecast } from '@/lib/usgs/ahps-forecast';
+import { fetchNwsForecastStages, upcomingPeak } from '@/lib/nws/forecast';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * NWS AHPS forecast peaks for every primary gauge that carries an
- * `nws_lid`. Returns the next-72h hydrograph (forecast block) plus the
- * single peak stage and timestamp, keyed by USGS site number to match the
- * rest of the /river-map data shape.
+ * Official NWS forecasts (NWPS, via src/lib/nws/forecast.ts) for every primary
+ * gauge that carries an `nws_lid`, keyed by USGS site number to match the rest
+ * of the /river-map data shape.
  *
- * AHPS XML schema (relevant parts):
- *   <site>
- *     <forecast>
- *       <datum>
- *         <valid timezone="UTC">2026-05-08T12:00:00-00:00</valid>
- *         <primary name="Stage" units="ft">5.42</primary>
- *       </datum>
- *       …
- *     </forecast>
- *   </site>
+ * `stages` is the whole forecast hydrograph in feet, which is what the river
+ * outlook buckets into days. `peakFt` / `peakAt` are the highest stage still
+ * ahead in the next 72 hours — not the series maximum, which on a day-old
+ * forecast can be a point that has already passed.
  */
 export interface MoForecastDatum {
   dateTime: string;
@@ -73,15 +66,8 @@ export async function GET(request: NextRequest) {
     const results = await Promise.allSettled(
       siteIds.map(async (siteId) => {
         const meta = bySite.get(siteId)!;
-        const stages = await fetchAhpsForecast(meta.nws_lid);
-        let peakFt: number | null = null;
-        let peakAt: string | null = null;
-        for (const d of stages) {
-          if (peakFt == null || d.valueFt > peakFt) {
-            peakFt = d.valueFt;
-            peakAt = d.dateTime;
-          }
-        }
+        const stages = await fetchNwsForecastStages(meta.nws_lid);
+        const peak = upcomingPeak(stages, Date.now());
         const entry: MoForecastEntry = {
           site_no: siteId,
           nws_lid: meta.nws_lid,
@@ -89,8 +75,8 @@ export async function GET(request: NextRequest) {
           river_slug: meta.river_slug,
           river_name: meta.river_name,
           stages,
-          peakFt,
-          peakAt,
+          peakFt: peak?.peakFt ?? null,
+          peakAt: peak?.peakAt ?? null,
         };
         return entry;
       }),

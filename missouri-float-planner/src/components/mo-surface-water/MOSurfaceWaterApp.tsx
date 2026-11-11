@@ -306,7 +306,7 @@ export default function MOSurfaceWaterApp() {
   }, [rivers, gauges, historyEntries, scrubIdx, isToday]);
 
   // Verdict per river from the primary gauge. Today's view includes the
-  // 72h AHPS forecast flood override (shared derivation with the dock's
+  // 72h NWS forecast flood override (shared derivation with the dock's
   // headline counts); scrubbed days classify the historical reading.
   const verdictByRiver: Record<string, StageVerdict> = useMemo(() => {
     if (isToday) return computeTodayVerdicts(rivers, gauges, forecastBySite);
