@@ -26,7 +26,7 @@ export function campingNightWithPolicy(
 ): CampingNightState {
   const period = campingPolicyPeriod(policy, date, now);
   if (period?.operation === 'closed') return 'closed';
-  if (observed === 'unknown' && period?.operation === 'open' && period.bookingMethod === 'first_come') return 'walk_up';
+  if ((observed === 'unknown' || observed === 'open') && period?.operation === 'open' && period.bookingMethod === 'first_come') return 'walk_up';
   return observed;
 }
 
