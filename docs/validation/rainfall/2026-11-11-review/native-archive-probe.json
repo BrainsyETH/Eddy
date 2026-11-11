@@ -1,0 +1,225 @@
+{
+  "fetchedAt": "2026-11-11T18:08:12.335Z",
+  "tile": {
+    "xmin": -10532957.128554547,
+    "ymin": 4078529.700448977,
+    "xmax": -10039445.860456608,
+    "ymax": 4660040.56815956,
+    "width": 415,
+    "height": 489,
+    "dx": 1189.1837785492494,
+    "dy": 1189.1837785492494
+  },
+  "raster": {
+    "rasterId": 158118438,
+    "subset": "conus_QPE_24H",
+    "hours": 24,
+    "start": "2026-11-10T17:00:00.000Z",
+    "end": "2026-11-11T17:00:00.000Z",
+    "stale": false,
+    "nativeUnits": "unverified",
+    "documentedProductUnits": "mm",
+    "missingValues": [
+      -1,
+      -3
+    ],
+    "renderingRule": {
+      "rasterFunction": "None"
+    },
+    "mosaicRule": {
+      "mosaicMethod": "esriMosaicLockRaster",
+      "lockRasterIds": [
+        158118438
+      ]
+    }
+  },
+  "info": {
+    "origin": {
+      "x": -14471533.80310966,
+      "y": 7361866.113023454,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      }
+    },
+    "blockWidth": 256,
+    "blockHeight": 256,
+    "pixelSizeX": 1189.1837785492494,
+    "pixelSizeY": 1189.1837785492494,
+    "extent": {
+      "xmin": -14471533.80310966,
+      "ymin": 2273348.724611216,
+      "xmax": -6678812.50227643,
+      "ymax": 7361866.113023454,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      }
+    },
+    "bandCount": 1,
+    "pixelType": "F32",
+    "firstPyramidLevel": 1,
+    "maxPyramidLevel": 5,
+    "statistics": null,
+    "histograms": null
+  },
+  "export": {
+    "href": "https://mapservices.weather.noaa.gov/raster/rest/directories/arcgisoutput/obs/mrms_qpe_ImageServer/_ags_a92f4d42_ec69_4fbc_9f94_1adee0805244.tif",
+    "width": 415,
+    "height": 489,
+    "extent": {
+      "xmin": -10532957.128554547,
+      "ymin": 4078529.700448977,
+      "xmax": -10039445.860456608,
+      "ymax": 4660040.56815956,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      }
+    },
+    "scale": 0
+  },
+  "bytes": 394490,
+  "forecastProbe": {
+    "gridId": "SGF",
+    "gridX": 133,
+    "gridY": 33,
+    "updateTime": "2026-11-11T16:46:11+00:00",
+    "quantitativePrecipitation": {
+      "uom": "wmoUnit:mm",
+      "values": [
+        {
+          "validTime": "2026-11-11T10:00:00+00:00/PT2H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-11T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-11T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-12T00:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-12T06:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-12T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-12T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-13T00:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-13T06:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-13T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-13T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-14T00:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-14T06:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-14T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-14T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-15T00:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-15T06:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-15T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-15T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-16T00:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-16T06:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-16T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-16T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-17T00:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-17T06:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-17T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-17T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-18T00:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-18T06:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-18T12:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-18T18:00:00+00:00/PT6H",
+          "value": 0
+        },
+        {
+          "validTime": "2026-11-19T00:00:00+00:00/PT6H",
+          "value": 0
+        }
+      ]
+    }
+  },
+  "sha256": "9accbaadc38d4126182e28c3776c5728a68e546ff5233382691c05e8b52236d3",
+  "gzipBytes": 10513,
+  "result": "Live read-only probe; native F32 GeoTIFF metadata and pixel block bounds validated. No units or basin-weighted amount approval."
+}
