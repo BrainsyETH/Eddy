@@ -383,7 +383,7 @@ try {
   const brokenPhotoCard = page
     .getByRole("article")
     .filter({ hasText: "Fixture · Booked campground" });
-  await brokenPhotoCard.scrollIntoViewIfNeeded();
+  await brokenPhotoCard.locator("[data-campground-photo]").scrollIntoViewIfNeeded();
   await brokenPhotoCard
     .getByText("Photo unavailable", { exact: true })
     .waitFor();
@@ -539,7 +539,7 @@ try {
   );
   await page.getByRole("button", { name: "Cards", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await brokenPhotoCard.scrollIntoViewIfNeeded();
+  await brokenPhotoCard.locator("[data-campground-photo]").scrollIntoViewIfNeeded();
   await brokenPhotoCard
     .getByText("Photo unavailable", { exact: true })
     .waitFor();
@@ -648,6 +648,12 @@ try {
 } catch (error) {
   const failedPage = browser?.contexts()[0]?.pages()[0];
   if (failedPage) {
+    console.error("Page errors", errors);
+    console.error("Image state before screenshot", await failedPage.locator("[data-campground-photo] img").evaluateAll(images => images.map(image => ({
+      alt: image.alt, src: image.currentSrc, complete: image.complete,
+      naturalWidth: image.naturalWidth, rect: image.getBoundingClientRect().toJSON(),
+      scrollY, viewportHeight: innerHeight,
+    }))));
     await failedPage
       .screenshot({ path: `${out}/failure-fixture.png`, fullPage: true })
       .catch(() => {});
