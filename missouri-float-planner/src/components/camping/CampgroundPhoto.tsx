@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { EddyIcon } from "@/components/ui/EddyIcon";
 import { optimizeBlogImage } from "@/lib/blog-image";
 import styles from "./CampingHub.module.css";
@@ -18,6 +18,22 @@ export default function CampgroundPhoto({
 }) {
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const [loadedSource, setLoadedSource] = useState<string | null>(null);
+  const photoRef = useCallback((image: HTMLImageElement | null) => {
+    if (!image || !src) return;
+    const settle = () => {
+      if (image.naturalWidth > 0) setLoadedSource(src);
+      else setFailedSource(src);
+    };
+    // Cached failures can settle during a card remount or responsive source
+    // change before Next replays its synthetic image callbacks.
+    image.addEventListener("load", settle);
+    image.addEventListener("error", settle);
+    if (image.complete && image.currentSrc) settle();
+    return () => {
+      image.removeEventListener("load", settle);
+      image.removeEventListener("error", settle);
+    };
+  }, [src]);
   const hasPhoto = Boolean(src && src !== failedSource);
   return (
     <div
@@ -34,6 +50,7 @@ export default function CampgroundPhoto({
       )}
       {hasPhoto && (
         <Image
+          ref={photoRef}
           src={src!}
           alt={compact ? "" : name}
           fill
