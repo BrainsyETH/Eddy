@@ -19,6 +19,7 @@
 //   * a failed station catalog says so and still draws NWS points.
 // Added after the 2026-11-02 design-skill review (docs/national-river-map.md).
 
+import { createAuditBrowser } from './lib/audit-browser';
 import { chromium, type Page } from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -199,8 +200,10 @@ async function main() {
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH ?? (existsSync(fallback) ? fallback : undefined);
   const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] });
   try {
+    const audit = await createAuditBrowser(browser, { name: 'national-map-smoke', baseURL: baseUrl,
+      outputDir: process.env.EDDY_AUDIT_OUTPUT || path.join(OUT_DIR, 'audits') });
     // ── 1. Explore draws, with a freshness line ─────────────────────────
-    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const page = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await intercept(page, 5 * 60_000);
@@ -329,7 +332,7 @@ async function main() {
     // ── 4b. A zoomed Alaska view keeps its place in fullscreen ───────────
     // The wall layout moves and enlarges the insets; the centre must stay
     // the same PLACE (it once drifted from Anchorage toward Fairbanks).
-    const ak = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const ak = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     await intercept(ak, 5 * 60_000);
     await ak.goto(`${target}?at=-149.9,61.2,4`, { waitUntil: 'domcontentloaded' });
     await ak.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
@@ -355,7 +358,7 @@ async function main() {
     // Motion off: no journey, so the first turn is a story. The fixture
     // floods the Meramec (major), so it is the featured event; the map marks
     // it with the spotlight.
-    const st = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const st = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     await st.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
     await intercept(st, 5 * 60_000);
     await st.goto(target, { waitUntil: 'domcontentloaded' });
@@ -381,7 +384,7 @@ async function main() {
     // ── 4b'''. Story mode opens on its story; a place scopes the map ────
     // Motion on: Story mode must open on the featured event (it once spent
     // its first turn on the same long river every time), not a journey.
-    const sf = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const sf = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     await sf.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: true, wallText: 'story' })));
     await intercept(sf, 5 * 60_000);
     await sf.goto(target, { waitUntil: 'domcontentloaded' });
@@ -394,7 +397,7 @@ async function main() {
     await sf.close();
 
     // A state from the share link: the map, legend, counts and card are Alaska's.
-    const pl = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const pl = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     await pl.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
     await intercept(pl, 5 * 60_000);
     await pl.goto(`${target}?region=AK`, { waitUntil: 'domcontentloaded' });
@@ -410,7 +413,7 @@ async function main() {
 
     // Eddy's rated rivers in a state's Flow view: the legend explains them, and
     // river names can be switched off (and stay off).
-    const rr = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const rr = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     await rr.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flow', motion: false })));
     await intercept(rr, 5 * 60_000);
     let ratedRequests = 0;
@@ -439,7 +442,7 @@ async function main() {
     assert.equal(stored, false, 'the choice is kept');
     await rr.close();
 
-    const pl2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const pl2 = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     await pl2.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
     await intercept(pl2, 5 * 60_000);
     await pl2.goto(`${target}?region=AK`, { waitUntil: 'domcontentloaded' });
@@ -459,7 +462,7 @@ async function main() {
     // ── 4b''''. Vertical format: a portrait wall ─────────────────────────
     // Stats on top, the map between, the dock below with the Eddy card in
     // the bottom-right corner.
-    const vt = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+    const vt = await audit.newPage({ viewport: { width: 1080, height: 1920 } });
     await vt.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
     await intercept(vt, 5 * 60_000);
     await vt.goto(target, { waitUntil: 'domcontentloaded' });
@@ -487,7 +490,7 @@ async function main() {
     // below flood stage and discharges scaled; then a young history (2 h)
     // offers no window and says when comparisons begin.
     for (const young of [false, true]) {
-      const ch = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const ch = await audit.newPage({ viewport: { width: 1440, height: 900 } });
       await ch.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'change', changeWindow: '24h' })));
       await intercept(ch, 5 * 60_000);
       const current = JSON.stringify(fixtureFrame(5 * 60_000));
@@ -523,7 +526,7 @@ async function main() {
     // ── 4c. A regional wall plays what it can see ───────────────────────
     // At 6× around the Meramec most national journeys never enter the view;
     // the regional wall picks a visible stretch of river instead.
-    const reg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const reg = await audit.newPage({ viewport: { width: 1440, height: 900 } });
     await intercept(reg, 5 * 60_000);
     await reg.goto(`${target}?at=-90.59,38.51,6`, { waitUntil: 'domcontentloaded' });
     await reg.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
@@ -541,7 +544,7 @@ async function main() {
     console.log('PASS a regional wall runs visible journeys; the national wall the national sequence');
 
     // ── 5. A fully stale snapshot stops data-driven motion ──────────────
-    const stale = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const stale = await audit.newPage({ viewport: { width: 1280, height: 800 } });
     await intercept(stale, 2 * 86_400_000);
     await stale.goto(target, { waitUntil: 'domcontentloaded' });
     await stale.getByText(/older than expected; marks age/).waitFor({ timeout: 120_000 });
@@ -557,7 +560,7 @@ async function main() {
     // prototype that can carry it (deleting only Element.prototype's copy left
     // a native path alive in CI's browser build, so the fallback never ran),
     // and wait for the page to be interactive before tapping.
-    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const phone = await audit.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await phone.addInitScript(() => {
       for (const proto of [Element.prototype, HTMLElement.prototype, HTMLDivElement.prototype]) {
         for (const name of ['requestFullscreen', 'webkitRequestFullscreen', 'webkitRequestFullScreen']) {
@@ -598,7 +601,7 @@ async function main() {
     await phone.close();
 
     // ── 6b. NOAA down, USGS fresh: Flooding goes still; Flow keeps moving ─
-    const noaa = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const noaa = await audit.newPage({ viewport: { width: 1280, height: 800 } });
     await intercept(noaa, 5 * 60_000, 200, false);
     await noaa.goto(`${target}?view=flooding`, { waitUntil: 'domcontentloaded' });
     await noaa.getByText(/not a report of no flooding/).waitFor({ timeout: 120_000 });
@@ -621,7 +624,7 @@ async function main() {
     await noaa.close();
 
     // ── 7. Station catalog down: say so, still draw NWS points ──────────
-    const down = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const down = await audit.newPage({ viewport: { width: 1280, height: 800 } });
     await intercept(down, 5 * 60_000, 503);
     await down.goto(`${target}?view=flooding`, { waitUntil: 'domcontentloaded' });
     await down.getByText(/Station list unavailable/).waitFor({ timeout: 120_000 });

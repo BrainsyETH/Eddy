@@ -16,6 +16,7 @@
 //      names, and a station opens in the same peek sheet as Eddy's gauges.
 //   5. Screenshots (desktop + mobile) to eyeball contrast and layout.
 
+import { createAuditBrowser } from './lib/audit-browser';
 import { chromium, type Page, type Route } from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -224,7 +225,7 @@ async function interceptApis(page: Page, baseUrl: string) {
       return route.fulfill({ contentType: 'image/png', body: readFileSync(path.join(__dirname, '../../eddy-ios/assets/otter/standard.png')) });
     }
     if (url.origin !== new URL(baseUrl).origin) return route.fulfill({ status: 204 });
-    return route.continue();
+    return route.fallback();
   });
   await page.route('**/api/usgs/**', (route: Route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -300,10 +301,12 @@ async function main() {
     (existsSync(fallbackChromium) ? fallbackChromium : undefined);
   const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] });
   try {
+    const audit = await createAuditBrowser(browser, { name: 'mosw-smoke', baseURL: baseUrl,
+      outputDir: process.env.EDDY_AUDIT_OUTPUT || path.join(OUT_DIR, 'audits') });
     // ── 1. Desktop: first particle frame + dock honesty ──
     console.log('\nDesktop run:');
     {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 900 } });
       await interceptApis(page, baseUrl);
 
       let firstFrameAt: number | null = null;
@@ -401,7 +404,7 @@ async function main() {
     // ── 2. Reduced motion: flow layer must never start ──
     console.log('\nReduced-motion run:');
     {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 900 } });
       await interceptApis(page, baseUrl);
       await page.emulateMedia({ reducedMotion: 'reduce' });
       let sawFlow = false;
@@ -417,7 +420,7 @@ async function main() {
     // ── 3. Mobile screenshot for drawer/FAB eyeballing ──
     console.log('\nMobile run:');
     {
-      const page = await browser.newPage({
+      const page = await audit.newPage({
         viewport: { width: 390, height: 844 },
         isMobile: true,
         hasTouch: true,
