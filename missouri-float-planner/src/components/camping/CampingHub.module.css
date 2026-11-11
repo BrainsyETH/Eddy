@@ -636,8 +636,11 @@
   .riverField {
     grid-column: 1/-1;
   }
+  .hub input:not([type="checkbox"]),
+  .hub select {
+    font-size: 16px !important;
+  }
   .search input {
-    font-size: 14px !important;
     padding-inline: 8px !important;
   }
   .shortcuts {
