@@ -170,8 +170,8 @@ export async function generateEddyUpdate(
         fetchForecast(cityInfo.lat, cityInfo.lon, apiKey).catch(() => null),
       ]);
       sourcesUsed.push('OpenWeather');
-      // Extract precipitation data from already-fetched responses
-      if (!fallback) precipitation = fetchPrecipitationFromWeather(weather, forecast);
+      // Only observed local amounts belong in the precipitation summary.
+      if (!fallback) precipitation = fetchPrecipitationFromWeather(weather);
     } catch (e) {
       console.warn(`[EddyGen] Weather fetch failed for ${target.riverSlug}:`, e);
     }
@@ -375,7 +375,7 @@ STYLE:
 // Prompt assembly
 // ---------------------------------------------------------------------------
 
-function buildPrompt(
+export function buildPrompt(
   target: UpdateTarget,
   gauge: GaugeContext,
   weather: WeatherData | null,
@@ -480,7 +480,7 @@ function buildPrompt(
   }
 
   // Recent precipitation
-  if (precipitation && (precipitation.rain1h > 0 || precipitation.rain3h > 0 || precipitation.forecastRainToday > 0)) {
+  if (precipitation && (precipitation.rain1h > 0 || precipitation.rain3h > 0)) {
     lines.push('');
     lines.push('[RECENT PRECIPITATION]');
     if (precipitation.rain1h > 0 || precipitation.rain3h > 0) {
@@ -488,9 +488,6 @@ function buildPrompt(
       if (precipitation.rain1h > 0) parts.push(`Last 1h: ${precipitation.rain1h.toFixed(1)} in`);
       if (precipitation.rain3h > 0) parts.push(`Last 3h: ${precipitation.rain3h.toFixed(1)} in`);
       lines.push(parts.join(' | '));
-    }
-    if (precipitation.forecastRainToday > 0) {
-      lines.push(`Today's forecast rain: ${precipitation.forecastRainToday.toFixed(1)} in`);
     }
   }
 
