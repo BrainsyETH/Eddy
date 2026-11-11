@@ -153,6 +153,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     assert.equal(await page.locator('[data-dam-panel]').count(), 0);
     assert.equal(await page.getByRole('heading', { name: 'Reaches', exact: true }).count(), 0);
     assert.equal(await page.getByText('Observed 15m ago', { exact: true }).count(), 1);
+    const reading = page.getByRole('group', { name: 'Current gauge reading' });
+    assert.equal(await reading.locator('img[src*="eddy-water-droplet"]').count(), 1);
+    assert.equal(await reading.locator('img[src*="eddy-river"]').count(), 1);
+    assert.equal(await reading.locator('img[src*="eddy-release"]').count(), 0);
     await page.getByRole('slider').first().waitFor();
     const rainToggle = page.getByRole('button', { name: 'Show rain upstream', exact: true });
     await rainToggle.waitFor(); await page.locator('[data-rain-track]').waitFor();
@@ -195,6 +199,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await page.getByRole('radio', { name: /Lower Black/ }).check();
     await heading(page, true).waitFor();
     await page.getByText('Lower Black fixture report.', { exact: true }).waitFor();
+    assert.equal(await reading.locator('img[src*="eddy-river"]').count(), 1);
+    assert.equal(await reading.locator('img[src*="eddy-release"]').count(), 0);
     assert.equal(await page.locator('[data-dam-panel]').count(), 1);
     assert.match(page.url(), /section=lower-markham-hammer/);
     assert(requests.some(url => url.startsWith('/api/gauges/07063000/history')));
