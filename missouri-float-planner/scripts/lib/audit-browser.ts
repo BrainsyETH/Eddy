@@ -3,7 +3,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { Browser, BrowserContextOptions, Request } from 'playwright';
+import type { Browser, BrowserContext, BrowserContextOptions, Page, Request } from 'playwright';
 import { ANALYTICS_OPT_OUT_KEY } from '../../src/lib/analytics';
 
 const EDDY_HOSTS = new Set(['eddy.guide', 'www.eddy.guide']);
@@ -58,13 +58,15 @@ export async function createAuditBrowser(browser: Browser, {
   }
   let contextCount = 0;
   let requestCount = 0;
-  async function newContext(options: BrowserContextOptions = {}) {
-    const contextId = ++contextCount;
-    const context = await browser.newContext({
+  function contextOptions(options: BrowserContextOptions): BrowserContextOptions {
+    return {
       ...options,
       serviceWorkers: 'block',
       userAgent: `${options.userAgent || defaultUserAgent} EddyAudit/1.0 (${name}; run=${runId})`,
-    });
+    };
+  }
+  async function configureContext(context: BrowserContext) {
+    const contextId = ++contextCount;
     try {
       await context.addInitScript(({ key, origin }) => {
         if (location.origin !== origin && !['eddy.guide', 'www.eddy.guide'].includes(location.hostname)) return;
@@ -95,21 +97,26 @@ export async function createAuditBrowser(browser: Browser, {
         const requestId = requests.get(request);
         if (requestId) record('request_failed', { contextId, requestId, url: reportUrl(request.url()) });
       });
-      context.on('page', page => page.on('framenavigated', frame => {
+      const observePage = (page: Page) => page.on('framenavigated', frame => {
         if (!/^https?:/.test(frame.url())) return;
         record('navigation', { contextId, url: reportUrl(frame.url()), mainFrame: frame === page.mainFrame() });
-      }));
+      });
+      context.on('page', observePage);
+      for (const page of context.pages()) observePage(page);
       return context;
     } catch (error) {
       await context.close();
       throw error;
     }
   }
+  async function newContext(options: BrowserContextOptions = {}) {
+    return configureContext(await browser.newContext(contextOptions(options)));
+  }
   async function newPage(options: BrowserContextOptions = {}) {
-    const context = await newContext(options);
-    const page = await context.newPage();
-    // Match browser.newPage's ownership: closing this page closes its context.
-    page.once('close', () => { void context.close(); });
+    // Native ownership makes page.close() await context cleanup. An asynchronous
+    // close-event handler can race browser.close() and reject after the check.
+    const page = await browser.newPage(contextOptions(options));
+    await configureContext(page.context());
     return page;
   }
   return { runId, logPath, newContext, newPage };
