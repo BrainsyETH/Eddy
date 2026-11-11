@@ -80,8 +80,11 @@ async function main() {
       frame.src = '/fixture';
       document.body.append(frame);
     });
-    await page.frameLocator('iframe').locator('body').waitFor();
-    assert.equal(await page.frames()[1].evaluate(() => sessionStorage.getItem('eddy_analytics_disabled')), '1');
+    await page.frameLocator('iframe').locator('body').waitFor({ state: 'attached' });
+    const frame = page.frames().find(frame => frame.parentFrame());
+    assert(frame);
+    await frame.waitForFunction(() => (window as unknown as { optOutAtStartup?: string }).optOutAtStartup !== undefined);
+    assert.equal(await frame.evaluate(() => sessionStorage.getItem('eddy_analytics_disabled')), '1');
     await page.evaluate(() => history.pushState({}, '', '/another-page?token=private-value'));
     assert.equal(await page.evaluate(async () => (await fetch('/ordinary-api')).status), 200);
 
