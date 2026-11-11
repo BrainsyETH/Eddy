@@ -24,12 +24,25 @@ export default function CampgroundPhoto({
       if (image.naturalWidth > 0) setLoadedSource(src);
       else setFailedSource(src);
     };
+    let frame = 0;
+    const checkComplete = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (image.complete && image.currentSrc) settle();
+      });
+    };
     // Cached failures can settle during a card remount or responsive source
     // change before Next replays its synthetic image callbacks.
     image.addEventListener("load", settle);
     image.addEventListener("error", settle);
     if (image.complete && image.currentSrc) settle();
+    // Responsive srcset selection and cached failures can finish just after
+    // the ref attaches, without another image event.
+    checkComplete();
+    window.addEventListener("resize", checkComplete);
     return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", checkComplete);
       image.removeEventListener("load", settle);
       image.removeEventListener("error", settle);
     };
