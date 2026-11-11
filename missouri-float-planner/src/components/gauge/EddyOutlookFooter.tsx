@@ -9,6 +9,8 @@ import { DamReadTeaser } from '@/components/dam/DamEddyRead';
 import { formatAgeFromTimestamp } from '@/lib/utils/reading-age';
 
 interface EddyOutlookFooterProps {
+  /** Section reports use one public summary with the existing Premium app link. */
+  compact?: boolean;
   sections: EddyTakeSections;
   readLoading: boolean;
   /** Only a model-written read earns the attribution line; see below. */
@@ -26,6 +28,7 @@ interface EddyOutlookFooterProps {
 }
 
 export default function EddyOutlookFooter({
+  compact = false,
   sections,
   readLoading,
   readIsGenerated,
@@ -34,6 +37,27 @@ export default function EddyOutlookFooter({
   damRead = null,
 }: EddyOutlookFooterProps) {
   const updatedLabel = generatedAt ? formatAgeFromTimestamp(generatedAt) : null;
+
+  if (compact) {
+    return (
+      <section id="eddy-says" className="scroll-mt-24 border-t border-secondary-200 bg-secondary-50 px-4 py-4 sm:px-5" aria-labelledby="eddy-outlook-heading">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <Image src="/icons/eddy-wave.png" alt="" width={40} height={46} className="h-11 w-auto shrink-0" />
+            <div className="min-w-0">
+              <h3 id="eddy-outlook-heading" className="font-display text-xl font-semibold text-primary-800">Eddy&apos;s Read</h3>
+              <p className="mt-1 text-sm leading-relaxed text-neutral-700">{readLoading ? 'Loading Eddy’s Read…' : sections.eddyRead}</p>
+              {readIsGenerated && updatedLabel && <p className="mt-1 text-xs text-neutral-500">Written {updatedLabel}</p>}
+            </div>
+          </div>
+          <AppLink data-ga-event="app_landing_click" data-ga-label="river_eddy_read"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-center text-sm font-semibold text-primary-800 hover:bg-primary-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 lg:max-w-64 lg:shrink-0">
+            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />Get Eddy&apos;s full Read in the app
+          </AppLink>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="eddy-says" className="scroll-mt-24 border-t border-secondary-200 bg-secondary-50" aria-labelledby="eddy-outlook-heading" aria-describedby="eddy-read-access">

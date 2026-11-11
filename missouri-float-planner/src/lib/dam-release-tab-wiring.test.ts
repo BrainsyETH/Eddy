@@ -33,7 +33,9 @@ test('the dam panel is inside the reading card, not a section of its own', () =>
   const detail = read(WEB_DETAIL);
   // On the dam tab the dam block IS the card: nothing of the gauge card follows it.
   assert.match(detail, /\{damLeads \? \(\s*<div className="card-framed bg-white"[^>]*>\s*\{damLead\}\s*<\/div>\s*\) : \(\s*<CurrentReadingCard/);
-  assert.match(detail, /footer=\{damFooter\}/);
+  assert.match(detail, /footer=\{!hasSections && showDamContext \? damFooter : null\}/);
+  // Section reports place the same dam footer after their chart, only below the dam.
+  assert.match(detail, /hasSections && showDamContext && damFooter/);
 
   const ios = read(IOS_RIVER);
   assert.match(ios, /\{damLeads \? \(\s*<RiverDamPanel dam=\{selectedDam\} position="lead"/, 'on the dam tab the dam block is the whole card');

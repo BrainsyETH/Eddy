@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getRivers } from './rivers';
 import { fetchRiverDam, refreshStaleness, summaryOf } from './dams';
 import { fetchDamDetailWithFallback, readStoredSnapshots } from './dam-snapshot-store';
-import { fetchRiverReaches } from './river-reaches';
+import { fetchRiverReaches, fetchRiverReportSections } from './river-reaches';
 import { getAccessPointDetail } from '@/lib/access-points/detail';
 
 // Public HTML snapshots only. API, auth, premium, cron and live readers keep
@@ -30,6 +30,7 @@ export const pageDamSummaries = unstable_cache(async () => {
   });
 }, ['conditions-dam-summaries-v1'], { revalidate: 300 });
 export const pageRiverReaches = unstable_cache(fetchRiverReaches, ['page-river-reaches-v1'], { revalidate: 60 });
+export const pageRiverReportSections = unstable_cache(fetchRiverReportSections, ['page-river-report-sections-v1'], { revalidate: 60 });
 export const pageCondition = unstable_cache(async (id: string) => {
   const { data, error } = await createAdminClient().rpc('get_river_condition', { p_river_id: id });
   if (error) throw error;

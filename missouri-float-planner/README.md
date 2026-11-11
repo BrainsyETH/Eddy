@@ -362,6 +362,27 @@ separately from typechecking because the runner creates and removes temporary
 fixture routes. `node --import tsx scripts/build-us-gauge-outlines.ts` regenerates
 the SVG state outlines from the pinned US Census/us-atlas dataset.
 
+## River sections
+
+Rivers with different hydrology above and below a dam use **Choose your section**
+at the start of the live report. Upper/Lower Black replace the separate Reaches
+panel and gauge picker. The selected section owns the reading, history, outlook,
+and gauge-specific Eddy summary; Clearwater context appears only below the
+Lower Black chart, with dam release kept distinct from the downstream gauge.
+The section's configured station ID is authoritative: an unavailable station
+shows an unavailable report rather than another section's reading.
+
+Section links use `?section=<slug>`; old `#reach-<slug>` links, refresh, and browser
+Back/Forward work. The selector stacks on phones and uses native radio keyboard
+navigation. Ordinary rivers retain their gauge picker. The existing chart ranges,
+comparison, exports, and mobile expansion remain available. This is a mobile-web
+change; the native iOS reach panel is unchanged.
+
+`npm run test:river-sections` checks the real report with intercepted fixture
+APIs at 1440, 390, and 320px, including section switching, deep links, history,
+missing readings, late responses, keyboard navigation, and dam scoping.
+Screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SMOKE_OUTPUT`).
+
 ## River and gauge history
 
 Desktop reports (1024px and wider) show the full chart tools inline: all supported
