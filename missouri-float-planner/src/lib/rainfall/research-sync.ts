@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MRMS_URL, RAIN_WINDOWS, rasterGrid, selectMrmsRaster } from './source-contract';
-import { type Basin, exportParameters, exportResult, forecastMetadata, forecastUrl, hash, nativeTile, object, RESEARCH_BUCKET, validateTiff } from './research-contract';
+import { type Basin, exportParameters, forecastMetadata, forecastUrl, hash, nativeTile, object, RESEARCH_BUCKET, validateTiff } from './research-contract';
 import { type Capture, saveCapture } from './research-store';
+import { publishRain } from './public-store';
 
 type Dependencies = {
   json: (url: string, signal: AbortSignal) => Promise<unknown>;
@@ -41,7 +42,7 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
     bytesSaved += await save(db, { ...c, basinSetHash });
   };
   await archive({ kind: 'basins', sourceKey: basinSetHash, metadata: { basinIds, publicUse: false }, bytes: jsonBytes(basins) });
-  let failed = 0, completed = 0, deferred = 0, stale = 0;
+  let failed = 0, completed = 0, deferred = 0, stale = 0, publishedBasins = 0;
   if (mode === 'observations') {
     // Keep a replayable copy of the gauge record known at collection time.
     // Page explicitly: the hosted API's default 1,000-row limit is not completeness.
@@ -73,8 +74,9 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
       const raster = selectMrmsRaster(metadata, catalog, hours, Date.now());
       const info = await deps.json(`${MRMS_URL}/${raster.rasterId}/info?f=json`, signal);
       const grid = rasterGrid(info), tile = nativeTile(basins, grid), parameters = exportParameters(tile, raster);
-      const exported = await deps.json(`${MRMS_URL}/exportImage?${parameters}`, signal);
-      const tiff = await deps.bytes(exportResult(exported, tile), signal);
+      // Stream the requested TIFF directly: NOAA's JSON href can point at an
+      // unavailable output directory. Actual tags below still prove the grid.
+      const tiff = await deps.bytes(`${MRMS_URL}/exportImage?${parameters}`, signal);
       validateTiff(tiff, tile);
       // Catalog IDs can rotate while downloading. Do not label bytes with an old time.
       const after = selectMrmsRaster(metadata, await deps.json(catalogUrl, signal), hours, Date.now());
@@ -122,5 +124,16 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
     });
     completed += captures.completed; failed += captures.failed; deferred += captures.deferred;
   }
-  return { monitoring_status: failed || deferred || stale ? 'partial' : 'ok', completed, failed, deferred, stale, bytesSaved, basins: basins.length };
+  // Publishing is separately gated by evidence and reviewed basin versions.
+  // It cannot turn research-only captures into public amounts by itself.
+  if (mode === 'observations') {
+    try {
+      const result = await publishRain(db, basins, signal);
+      publishedBasins = result.published;
+      failed += result.failures.length;
+      for (const failure of result.failures) console.warn('[rainfall-research] Basin publication failed', failure.siteId, failure.reason);
+    }
+    catch { failed++; console.warn('[rainfall-research] Public rain view unavailable'); }
+  }
+  return { monitoring_status: failed || deferred || stale ? 'partial' : 'ok', completed, failed, deferred, stale, bytesSaved, basins: basins.length, publishedBasins };
 }

@@ -733,3 +733,20 @@ own — so changes there can fail these tests by design.
 Private project - not for distribution.
 
 Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and river reports. The fixed-view link contract, public-image payment policy, and app-link activation gates are recorded in [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md).
+
+## River report interpretation and rainfall
+
+The Live report reads in this order: selected section/current conditions, shared
+river chart, **Eddy's Read**, then **Will it hold?** The Read has one heading and
+one Premium CTA. Locked interpretation and context remain a static blurred
+preview with an accessible explanation and a full-width offer on phones; there
+is no button that reveals only more blur. Duplicate context is omitted. Existing public summaries and premium
+access rules are preserved. A dam section still uses its dam interpretation and
+keeps its controlling-dam context with the chart.
+
+Rain adds a track above the river plot inside the same chart; it never takes
+height away from the river line. A short archive is labelled “Rain record starts…”.
+Its watershed detail opens on demand, with compact visible timestamps and full
+accessible times. See [rainfall history](../docs/rainfall-history.md)
+for the public data gates and rollout; merging the interface does not approve
+research captures for display.

@@ -1130,6 +1130,12 @@ export async function fetchGaugeDetail(
  * place that can tell the difference, because it is the only one holding the
  * status code, so it is where the difference has to be drawn.
  */
+/** Rain is a free station fact. The server exposes reviewed published views only. */
+export async function fetchRainfall(siteId: string, detail = false, signal?: AbortSignal): Promise<unknown | null> {
+  try { return await get<unknown>(`/api/gauges/${encodeURIComponent(siteId)}/rainfall${detail ? '?detail=1' : ''}`, signal); }
+  catch (error) { if (error instanceof ApiError && error.status === 404) return null; throw error; }
+}
+
 export async function fetchGaugeHistory(
   siteId: string,
   days: number,

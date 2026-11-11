@@ -54,8 +54,8 @@ export function nativeTile(basins: Basin[], grid: ReturnType<typeof rasterGrid>)
 export type Tile = ReturnType<typeof nativeTile>;
 export function exportParameters(tile: Tile, raster: ReturnType<typeof selectMrmsRaster>) {
   return new URLSearchParams({
-    f: 'json', bbox: [tile.xmin, tile.ymin, tile.xmax, tile.ymax].join(','), bboxSR: '3857', imageSR: '3857',
-    size: `${tile.width},${tile.height}`, format: 'tiff', pixelType: 'F32',
+    f: 'image', bbox: [tile.xmin, tile.ymin, tile.xmax, tile.ymax].join(','), bboxSR: '3857', imageSR: '3857',
+    size: `${tile.width},${tile.height}`, format: 'tiff', compression: 'None', pixelType: 'F32',
     interpolation: 'RSP_NearestNeighbor', adjustAspectRatio: 'false',
     renderingRule: JSON.stringify({ rasterFunction: 'None' }), mosaicRule: JSON.stringify(raster.mosaicRule),
   });

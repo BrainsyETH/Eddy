@@ -64,11 +64,11 @@ test('the river card draws the dam the way the dam cards do', () => {
 test("the dam tab's Read is the dam's, with Weather kept and Bottom line dropped", () => {
   const footer = read(WEB_FOOTER);
   assert.match(footer, /<DamReadTeaser/);
-  assert.match(footer, /\{!damRead && \(/, 'Bottom line is drawn only off the dam tab');
+  assert.match(footer, /\{!damRead && bottomLine &&/, 'Bottom line is drawn only off the dam tab');
   assert.match(footer, />Weather</, 'Weather stays on every tab');
 
   const take = read(IOS_TAKE);
-  assert.match(take, /\{damRead \? null : \(/, 'Bottom line is drawn only off the dam tab');
+  assert.match(take, /\{damRead \|\| !bottomLine \? null : \(/, 'Bottom line is drawn only off the dam tab');
   assert.match(take, /LOCKED_DAM_READ_SHAPE/, 'locked, the dam Read frosts under the card\'s one lock');
   assert.match(read(IOS_RIVER), /damRead=\{damTab \?/);
 });

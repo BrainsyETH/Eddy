@@ -149,13 +149,14 @@ test('observation collection paginates gauge history and survives one missing ra
     json: async url => {
       if (url.includes('/query?')) return catalog;
       if (url.includes('/info?')) return { pixelType: 'F32', bandCount: 1, pixelSizeX: 1000, pixelSizeY: 1000, origin: grid.origin, extent: { ...grid.extent, spatialReference: { wkid: 3857 } } };
-      if (url.includes('/exportImage?')) {
-        const params = new URL(url).searchParams, id = JSON.parse(params.get('mosaicRule')!).lockRasterIds[0];
-        if (id === 6) throw Error('6h source unavailable');
-        return { width: tile.width, height: tile.height, extent: { ...tile, spatialReference: { wkid: 3857 } }, href: `https://mapservices.weather.noaa.gov/raster/${id}.tif` };
-      }
       return { pixelType: 'F32', bandCount: 1, rasterFunctionInfos: [{ name: 'None' }] };
-    }, bytes: async () => tiff(tile),
+    }, bytes: async url => {
+      assert.equal(new URL(url).pathname.endsWith('/exportImage'), true);
+      const params = new URL(url).searchParams;
+      assert.equal(params.get('f'), 'image'); assert.equal(params.get('compression'), 'None');
+      if (JSON.parse(params.get('mosaicRule')!).lockRasterIds[0] === 6) throw Error('6h source unavailable');
+      return tiff(tile);
+    },
   });
   assert.deepEqual(offsets, [0, 1000]);
   assert.equal(result.monitoring_status, 'partial'); assert.equal(result.failed, 1);
