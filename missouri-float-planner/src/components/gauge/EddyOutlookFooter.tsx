@@ -36,15 +36,15 @@ export default function EddyOutlookFooter({
   const updatedLabel = generatedAt ? formatAgeFromTimestamp(generatedAt) : null;
 
   return (
-    <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-700 bg-secondary-50" aria-labelledby="eddy-outlook-heading" aria-describedby="eddy-read-access">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-primary-800 px-4 py-3 sm:px-5">
+    <section id="eddy-says" className="scroll-mt-24 border-t border-secondary-200 bg-secondary-50" aria-labelledby="eddy-outlook-heading" aria-describedby="eddy-read-access">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-secondary-200 bg-secondary-100 px-4 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <Image src="/icons/eddy-wave.png" alt="" width={40} height={46} className="h-11 w-auto shrink-0" />
-          <h3 id="eddy-outlook-heading" className="font-display text-xl font-semibold text-white">
+          <h3 id="eddy-outlook-heading" className="font-display text-xl font-semibold text-primary-800">
             Eddy&apos;s take
           </h3>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-300/50 bg-accent-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-accent-200">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-secondary-300 bg-secondary-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-secondary-800">
           <Lock className="h-3 w-3" aria-hidden="true" />
           Premium
         </span>
@@ -107,9 +107,9 @@ export default function EddyOutlookFooter({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 border-t-2 border-primary-700 bg-secondary-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="flex flex-col gap-4 border-t border-secondary-200 bg-secondary-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-accent-300 bg-accent-100 text-accent-800">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-secondary-200 bg-secondary-100 text-secondary-700">
             <Lock className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
@@ -120,7 +120,7 @@ export default function EddyOutlookFooter({
         <AppLink
           data-ga-event="app_landing_click"
           data-ga-label="river_eddy_read"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border-2 border-primary-800 bg-accent-500 px-4 py-3 text-center text-sm font-bold text-primary-900 shadow-primary transition-colors duration-fast hover:bg-accent-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700 sm:shrink-0"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-neutral-300 bg-white px-4 py-3 text-center text-sm font-semibold text-primary-800 shadow-soft-sm transition-colors duration-fast hover:border-secondary-400 hover:bg-secondary-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700 sm:shrink-0"
         >
           Get Eddy&apos;s full Read
           <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
