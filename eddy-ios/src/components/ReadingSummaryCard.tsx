@@ -90,8 +90,8 @@ export function ReadingSummaryCard({ embedded, sectionReadings, reading, verdict
           </View> : null}
           <View style={[styles.metrics, fontScale > 1.4 && styles.stackedMetrics]}>
             {([
-              { label: 'Water level', symbol: 'gauge', unit: 'ft', value: sectionReadings.gaugeHeightFt },
-              { label: 'Flow', symbol: 'release', unit: 'cfs', value: sectionReadings.dischargeCfs },
+              { label: 'Water level', symbol: 'water', unit: 'ft', value: sectionReadings.gaugeHeightFt },
+              { label: 'Flow', symbol: 'river', unit: 'cfs', value: sectionReadings.dischargeCfs },
             ] as const).map(metric => (
               <View key={metric.unit} style={styles.metric}>
                 <EddySymbol name={metric.symbol} size={28} />
