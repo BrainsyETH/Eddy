@@ -1251,6 +1251,9 @@ selected section's endpoints, using the website's short labels. Past three
 sections the row scrolls instead of shrinking. Each selection
 owns the readings, chart, weather and Eddy’s Read; the level and flow share one
 card with the chart, and Clearwater context closes only the Lower Black report.
+River measurements use the same droplet (water level) and river (flow) artwork
+as the web gauge card. A river gauge below a dam still uses river-flow artwork;
+the release symbol belongs to the dam's own release measurement.
 On Upper Black a single row, "Clearwater Dam · View Lower Black", switches to
 that section instead, so the dam is never lost from the river.
 Ordinary rivers retain their gauge picker and the existing Premium flow stays.
@@ -1407,6 +1410,10 @@ hide its marker. Seasonal copy is omitted for missing statistics, untrusted
 readings or a comparison from another calendar day. Search rows stay compact.
 
 ## Dam details
+
+The generation card and its spacing appear only for a powerhouse or a posted
+generation schedule. Flood-control dams such as Clearwater keep their release
+and water-level readings without an empty generation card above them.
 
 Dam detail readings use Eddy's illustrated metric symbols: Release and Water
 temperature share the web masters; lake and tailwater levels reuse the gauge
