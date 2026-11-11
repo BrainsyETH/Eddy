@@ -1241,6 +1241,20 @@ and before the safety disclaimer.
 Gauge detail omits the routine provisional-data footnote. Source-flagged suspect
 readings still show their specific qualifier note.
 
+Where a river has distinct hydrology above and below a dam, **Choose your
+section** replaces the gauge picker and the separate Reaches panel. Upper/Lower
+Black use the same short labels and endpoints as the website. Each selection
+owns the readings, chart, weather and Eddy’s Read; the level and flow share one
+card with the chart, and Clearwater context closes only the Lower Black report.
+Ordinary rivers retain their gauge picker and the existing Premium flow stays.
+
+The reaches API carries the configured `gaugeStationId`. Missing mappings,
+including old cached responses, never borrow another section’s station.
+An explicit `section` link wins over `gauge`; a matching gauge-only arrival
+selects its section. Share carries the selected section back to the website.
+Selectors grow with Dynamic Type, expose radio selection to VoiceOver, and use
+the existing light/dark palette. Device verification is separate from CI.
+
 ## Favorites
 
 Access points, boat ramps and campgrounds offer **Save/Saved** from the map

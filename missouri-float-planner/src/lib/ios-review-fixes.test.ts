@@ -126,7 +126,8 @@ test('member Read distinguishes access failures and unverified schedules', async
 
 test('the standalone dam Read waits until the river outlook has settled', () => {
   const source = read('app/(tabs)/(today,map,floats,favorites,alerts)/river/[slug].tsx');
-  assert.match(source, /\) : damTab && !outlookLoading \? \(\s*<DamEddyRead/);
+  assert.match(source, /\) : damTab && !outlookPending \? \(\s*<DamEddyRead/);
+  assert.match(source, /outlookFor\?\.key !== activeOutlookKey/, 'a station switch is pending before its effect runs');
 });
 
 // Hook harness: effects and native callbacks are driven explicitly. This tests

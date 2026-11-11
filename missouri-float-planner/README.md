@@ -375,8 +375,9 @@ shows an unavailable report rather than another section's reading.
 Section links use `?section=<slug>`; old `#reach-<slug>` links, refresh, and browser
 Back/Forward work. The selector stacks on phones and uses native radio keyboard
 navigation. Ordinary rivers retain their gauge picker. The existing chart ranges,
-comparison, exports, and mobile expansion remain available. This is a mobile-web
-change; the native iOS reach panel is unchanged.
+comparison, exports, and mobile expansion remain available. Native iOS follows
+the same section selection using the reaches API’s configured gauge ID, with
+its own native controls, chart expansion, and Premium unlock flow.
 
 `npm run test:river-sections` checks the real report with intercepted fixture
 APIs at 1440, 390, and 320px, including section switching, deep links, history,

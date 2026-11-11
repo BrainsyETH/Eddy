@@ -110,6 +110,7 @@ export async function fetchRiverReaches(
 
       return {
         sectionSlug: r.section_slug,
+        gaugeStationId: r.primary_gauge_station_id ?? null,
         name: r.name,
         description: r.description ?? null,
         riverType: (r.river_type ?? riverType) as RiverType,

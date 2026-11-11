@@ -5,16 +5,7 @@ export type RiverReportSection = Pick<RiverReach, 'sectionSlug' | 'name' | 'rive
   gaugeStationId: string | null;
 };
 
-const BLACK_LABELS: Record<string, { title: string; subtitle: string }> = {
-  'upper-lesterville': { title: 'Upper Black', subtitle: 'Lesterville–Hwy K' },
-  'lower-markham-hammer': { title: 'Lower Black', subtitle: 'Markham Springs–Hammer' },
-};
-
-export function riverSectionLabel(section: RiverReportSection) {
-  if (BLACK_LABELS[section.sectionSlug]) return BLACK_LABELS[section.sectionSlug];
-  const match = section.name.match(/^(.+?)\s*\((.+)\)$/);
-  return { title: match?.[1] ?? section.name, subtitle: match?.[2] ?? '' };
-}
+export { riverSectionLabel } from '@shared/river-section-label';
 
 export function reachAnchorId(sectionSlug: string): string {
   return `reach-${sectionSlug}`;
