@@ -18,23 +18,12 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * Queried in code but absent from database.ts, as of 2026-11-01 (checked
+ * Queried in code but absent from database.ts, as of 2026-11-11 (checked
  * against production read-only):
  */
 const KNOWN_MISSING = new Map<string, string>([
-  ['agency_gis_features', 'exists in production; types not regenerated'],
-  ['banned_submitters', 'exists in production; types not regenerated'],
-  ['campsite_walk_up_counts', 'a view in production; types not regenerated'],
-  ['float_archive', 'exists in production; types not regenerated'],
-  ['float_archive_preferences', 'exists in production; types not regenerated'],
   ['chat_logs', 'does NOT exist in production (00078 never applied); chat is disabled — see api/chat/route.ts'],
 ]);
-
-// These tables are introduced by an unapplied migration in this branch. Once
-// the ledger marks it applied, generated types must cover them like any other
-// production table. Do not make pending schema a permanent exception.
-const pendingAdminVersion = '20261110222453';
-const pendingAdminTables = ['admin_memberships', 'admin_jobs', 'admin_incidents'];
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -56,15 +45,6 @@ test('every table queried by name is in the generated database types', () => {
     for (const m of readFileSync(file, 'utf8').matchAll(/\.from\(\s*['"](\w+)['"]\s*\)/g)) queried.add(m[1]);
   }
 
-  const ledger = readFileSync('supabase/production-migrations.txt', 'utf8');
-  const pending = ledger.split('[pending]')[1]?.split('\n').some((line) => line.trim() === pendingAdminVersion);
-  if (pending) {
-    const migration = readFileSync(`supabase/migrations/${pendingAdminVersion}_admin_workspace.sql`, 'utf8');
-    for (const table of pendingAdminTables) {
-      assert.match(migration, new RegExp(`create table (?:if not exists )?public\\.${table}\\s*\\(`, 'i'));
-      known.add(table);
-    }
-  }
   const missing = [...queried].filter((table) => !known.has(table)).sort();
   assert.deepEqual(missing, [...KNOWN_MISSING.keys()].sort(),
     'A table is queried that database.ts does not know (typo, or regenerate types), or a KNOWN_MISSING entry is now resolved');

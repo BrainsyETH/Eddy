@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -242,6 +242,36 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_incidents: {
+        Row: {
+          id: string
+          job: string
+          last_seen_at: string
+          occurrences: number
+          recovered_at: string | null
+          started_at: string
+          summary: string
+        }
+        Insert: {
+          id?: string
+          job: string
+          last_seen_at?: string
+          occurrences?: number
+          recovered_at?: string | null
+          started_at?: string
+          summary: string
+        }
+        Update: {
+          id?: string
+          job?: string
+          last_seen_at?: string
+          occurrences?: number
+          recovered_at?: string | null
+          started_at?: string
+          summary?: string
+        }
+        Relationships: []
+      }
       admin_job_runs: {
         Row: {
           counters: Json
@@ -272,6 +302,69 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_jobs: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          input: Json
+          kind: string
+          output: Json | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          error?: string | null
+          id: string
+          input?: Json
+          kind: string
+          output?: Json | null
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          kind?: string
+          output?: Json | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      admin_memberships: {
+        Row: {
+          active: boolean
+          email: string
+          name: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          email: string
+          name: string
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          email?: string
+          name?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_monitoring_state: {
         Row: {
           id: boolean
@@ -286,6 +379,71 @@ export type Database = {
           started_at?: string
         }
         Relationships: []
+      }
+      agency_gis_features: {
+        Row: {
+          access_point_id: string | null
+          attributes: Json
+          fetched_at: string
+          first_seen_at: string
+          latitude: number
+          longitude: number
+          name: string | null
+          owner: string | null
+          provider: string
+          source_feature_url: string
+          source_id: string
+          source_layer_url: string
+          source_object_id: string
+          source_type: string
+          source_verified_at: string | null
+          waterbody: string | null
+        }
+        Insert: {
+          access_point_id?: string | null
+          attributes: Json
+          fetched_at: string
+          first_seen_at?: string
+          latitude: number
+          longitude: number
+          name?: string | null
+          owner?: string | null
+          provider: string
+          source_feature_url: string
+          source_id: string
+          source_layer_url: string
+          source_object_id: string
+          source_type: string
+          source_verified_at?: string | null
+          waterbody?: string | null
+        }
+        Update: {
+          access_point_id?: string | null
+          attributes?: Json
+          fetched_at?: string
+          first_seen_at?: string
+          latitude?: number
+          longitude?: number
+          name?: string | null
+          owner?: string | null
+          provider?: string
+          source_feature_url?: string
+          source_id?: string
+          source_layer_url?: string
+          source_object_id?: string
+          source_type?: string
+          source_verified_at?: string | null
+          waterbody?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_gis_features_access_point_id_fkey"
+            columns: ["access_point_id"]
+            isOneToOne: false
+            referencedRelation: "access_points"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       alert_push_deliveries: {
         Row: {
@@ -478,6 +636,33 @@ export type Database = {
           last_error?: string | null
           next_attempt_at?: string
           refresh_token?: string
+        }
+        Relationships: []
+      }
+      banned_submitters: {
+        Row: {
+          apple_subject_hash: string | null
+          banned_at: string
+          id: string
+          reason: string | null
+          source_report_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          apple_subject_hash?: string | null
+          banned_at?: string
+          id?: string
+          reason?: string | null
+          source_report_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          apple_subject_hash?: string | null
+          banned_at?: string
+          id?: string
+          reason?: string | null
+          source_report_id?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -899,6 +1084,7 @@ export type Database = {
         Row: {
           access_point_id: string | null
           captured_at: string | null
+          client_report_id: string | null
           coordinates: unknown
           created_at: string | null
           description: string
@@ -930,6 +1116,7 @@ export type Database = {
         Insert: {
           access_point_id?: string | null
           captured_at?: string | null
+          client_report_id?: string | null
           coordinates: unknown
           created_at?: string | null
           description: string
@@ -961,6 +1148,7 @@ export type Database = {
         Update: {
           access_point_id?: string | null
           captured_at?: string | null
+          client_report_id?: string | null
           coordinates?: unknown
           created_at?: string | null
           description?: string
@@ -1045,24 +1233,6 @@ export type Database = {
         }
         Relationships: []
       }
-      dam_history_backfill_marks: {
-        Row: {
-          applied_at: string
-          mark: string
-          note: string | null
-        }
-        Insert: {
-          applied_at?: string
-          mark: string
-          note?: string | null
-        }
-        Update: {
-          applied_at?: string
-          mark?: string
-          note?: string | null
-        }
-        Relationships: []
-      }
       dam_forecast_history: {
         Row: {
           content_hash: string
@@ -1087,6 +1257,24 @@ export type Database = {
           last_seen_at?: string
           payload?: Json
           source?: string
+        }
+        Relationships: []
+      }
+      dam_history_backfill_marks: {
+        Row: {
+          applied_at: string
+          mark: string
+          note: string | null
+        }
+        Insert: {
+          applied_at?: string
+          mark: string
+          note?: string | null
+        }
+        Update: {
+          applied_at?: string
+          mark?: string
+          note?: string | null
         }
         Relationships: []
       }
@@ -1600,6 +1788,57 @@ export type Database = {
         }
         Relationships: []
       }
+      float_archive: {
+        Row: {
+          consent_version: string | null
+          contributing: boolean
+          deleted: boolean
+          id: string
+          kind: string
+          payload: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consent_version?: string | null
+          contributing?: boolean
+          deleted?: boolean
+          id: string
+          kind: string
+          payload?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consent_version?: string | null
+          contributing?: boolean
+          deleted?: boolean
+          id?: string
+          kind?: string
+          payload?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      float_archive_preferences: {
+        Row: {
+          consent_version: string
+          enabled: boolean
+          user_id: string
+        }
+        Insert: {
+          consent_version?: string
+          enabled?: boolean
+          user_id: string
+        }
+        Update: {
+          consent_version?: string
+          enabled?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       float_plans: {
         Row: {
           condition_at_creation: string | null
@@ -1790,6 +2029,7 @@ export type Database = {
           metadata: Json | null
           push_attempts: number
           push_delivered_at: string | null
+          push_outcome: string | null
           reading_at: string | null
           reading_unit: string | null
           reading_value: number | null
@@ -1806,6 +2046,7 @@ export type Database = {
           metadata?: Json | null
           push_attempts?: number
           push_delivered_at?: string | null
+          push_outcome?: string | null
           reading_at?: string | null
           reading_unit?: string | null
           reading_value?: number | null
@@ -1822,6 +2063,7 @@ export type Database = {
           metadata?: Json | null
           push_attempts?: number
           push_delivered_at?: string | null
+          push_outcome?: string | null
           reading_at?: string | null
           reading_unit?: string | null
           reading_value?: number | null
@@ -3089,6 +3331,7 @@ export type Database = {
           old_condition_code: string
           push_attempts: number
           push_delivered_at: string | null
+          push_outcome: string | null
           reading_at: string | null
           reading_unit: string | null
           reading_value: number | null
@@ -3104,6 +3347,7 @@ export type Database = {
           old_condition_code: string
           push_attempts?: number
           push_delivered_at?: string | null
+          push_outcome?: string | null
           reading_at?: string | null
           reading_unit?: string | null
           reading_value?: number | null
@@ -3119,6 +3363,7 @@ export type Database = {
           old_condition_code?: string
           push_attempts?: number
           push_delivered_at?: string | null
+          push_outcome?: string | null
           reading_at?: string | null
           reading_unit?: string | null
           reading_value?: number | null
@@ -3850,6 +4095,7 @@ export type Database = {
           platform: string
           platform_post_id: string | null
           post_type: string
+          provider_attempt_id: string | null
           published_at: string | null
           render_request: Json | null
           retry_count: number
@@ -3884,6 +4130,7 @@ export type Database = {
           platform: string
           platform_post_id?: string | null
           post_type: string
+          provider_attempt_id?: string | null
           published_at?: string | null
           render_request?: Json | null
           retry_count?: number
@@ -3918,6 +4165,7 @@ export type Database = {
           platform?: string
           platform_post_id?: string | null
           post_type?: string
+          provider_attempt_id?: string | null
           published_at?: string | null
           render_request?: Json | null
           retry_count?: number
@@ -4429,6 +4677,23 @@ export type Database = {
       }
     }
     Views: {
+      campsite_walk_up_counts: {
+        Row: {
+          date: string | null
+          facility_id: string | null
+          fetched_at: string | null
+          walk_up_sites: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campsite_availability_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "campsite_facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gauge_snap_diagnostics: {
         Row: {
           distance_m: number | null
@@ -4465,6 +4730,14 @@ export type Database = {
       admin_dashboard_summary: {
         Args: { p_entitlement: string; p_now: string }
         Returns: Json
+      }
+      admin_report_matches: {
+        Args: { p_search?: string; p_status?: string; p_type?: string }
+        Returns: {
+          created_at: string
+          id: string
+          status: string
+        }[]
       }
       apply_access_point_dossier: {
         Args: { p_plan: Json; p_river_id: string }
@@ -4804,10 +5077,6 @@ export type Database = {
         }[]
       }
       import_services: { Args: { p_plan: Json }; Returns: Json }
-      increment_plan_view_count: {
-        Args: { p_short_code: string }
-        Returns: undefined
-      }
       is_admin: { Args: never; Returns: boolean }
       is_permanent_user: { Args: never; Returns: boolean }
       latest_readings_for_stations: {
@@ -4914,6 +5183,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_admin_incident: {
+        Args: { p_job: string; p_ok: boolean; p_summary: string }
+        Returns: undefined
+      }
       record_admin_login: { Args: { p_success: boolean }; Returns: boolean }
       record_condition_transition: {
         Args: {
@@ -4932,6 +5205,10 @@ export type Database = {
           outcome: string
           pending_count: number
         }[]
+      }
+      record_dam_forecasts: {
+        Args: { p_rows: Json; p_seen_at: string }
+        Returns: Json
       }
       release_cron_lock: { Args: { job_name: string }; Returns: undefined }
       review_river_activation: {
@@ -4990,6 +5267,20 @@ export type Database = {
       set_access_point_miles_from_geometry: {
         Args: { p_force?: boolean; p_river_id: string }
         Returns: number
+      }
+      set_admin_membership: {
+        Args: {
+          p_active: boolean
+          p_email: string
+          p_expected?: string
+          p_name: string
+          p_role: string
+        }
+        Returns: Json
+      }
+      set_float_contribution: {
+        Args: { p_enabled: boolean; p_user: string }
+        Returns: Json
       }
       snap_to_river: {
         Args: { p_point: unknown; p_river_id: string }
@@ -5059,6 +5350,10 @@ export type Database = {
           river_slug: string
           severity: string
         }[]
+      }
+      write_float_archive: {
+        Args: { p_rows: Json; p_user: string }
+        Returns: undefined
       }
     }
     Enums: {
