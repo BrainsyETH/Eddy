@@ -134,6 +134,17 @@ reel and the caption. Rules live in `src/lib/social/cover-plan.ts` (pure,
 tested in `cover-plan.test.ts`); `EditorialCover` in
 `src/lib/og/social-cover.tsx` draws them.
 
+**Who may pin a cover:** `/api/og/social` is public, and a cover URL can pin
+the facts it draws (condition, gauge height, weather, text) so a published
+cover never drifts from its report. Those pins are honoured only on a URL Eddy
+wrote: one signed by `signCoverUrl` (`src/lib/social/cover-signature.ts`), or
+one that is exactly the stored `image_url` of a post in `social_posts`, which
+is what keeps covers published before signing working. Anything else that
+pins a fact gets a 403. Build every new cover URL through `signCoverUrl`; a
+URL that only chooses what to look up (`type`, `platform`, `river`, `id`,
+`art`, `fromSlug`, `toSlug`, `asOf`) needs no signature. The key derives from
+`SOCIAL_COVER_SIGNING_SECRET`, falling back to `CRON_SECRET`.
+
 **Hierarchy:** one grounded headline, one visual, river + location, a small
 Eddy mark (the otter and wordmark, once, top-left, with the series label). No
 stat tiles, cards, buttons or tiny numbers. The headline is always Fredoka at

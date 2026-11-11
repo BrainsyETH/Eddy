@@ -27,6 +27,7 @@ import { computeCondition } from '@/lib/conditions';
 import { MAY_HAVE_PUBLISHED, outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from './publish-outcome';
 import { triggerVideoRender } from './video-renderer';
 import type { SocialPlatform } from './types';
+import { signCoverUrl } from './cover-signature';
 
 const LOG_PREFIX = '[ConditionAlert]';
 
@@ -387,7 +388,7 @@ function coverUrl(p: PublishParams, platform: SocialPlatform): string {
     ctx.riseText ? `rise=${encodeURIComponent(ctx.riseText)}` : '',
     `platform=${platform}`,
   ].filter(Boolean);
-  return `${baseUrl}/api/og/social?${parts.join('&')}`;
+  return signCoverUrl(`${baseUrl}/api/og/social?${parts.join('&')}`);
 }
 
 // ─── Image path (default) ────────────────────────────────────────
@@ -695,7 +696,7 @@ export async function publishStormDigest(
     if (!adapter) continue;
 
     const { caption, hashtags } = formatStormDigestCaption(changes);
-    const imageUrl = `${baseUrl}/api/og/social?type=storm&rivers=${riversParam}&platform=${platform}`;
+    const imageUrl = signCoverUrl(`${baseUrl}/api/og/social?type=storm&rivers=${riversParam}&platform=${platform}`);
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')

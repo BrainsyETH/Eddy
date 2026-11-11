@@ -14,6 +14,11 @@
 // `art=` (photo.<id> | eddy.<n>) pins the cover's artwork; post-context
 // chooses it from the recent grid. Absent (legacy URLs) → derived here.
 //
+// Parameters that state a fact (a condition, a height, weather, any text) are
+// honoured only on a URL Eddy signed, or one already stored as a published
+// post's image_url. See src/lib/social/cover-signature.ts. Build cover URLs
+// with signCoverUrl; a hand-written pinned URL is refused with a 403.
+//
 // Supports:
 //   ?type=digest                       — all rivers, daily digest thumbnail
 //   ?type=highlight&river=slug&id=&ft=&condition=&at=
@@ -39,6 +44,8 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
+import { coverTrust, storedCoverCandidates } from '@/lib/social/cover-signature';
 import { loadOgFonts, loadConditionOtter, loadImageAsDataUri, loadOtterImage, OTTER_URLS } from '@/lib/og/fonts';
 import {
   hasRainComing,
@@ -318,8 +325,50 @@ function floatPickText(facts: FloatPickFacts, place: string) {
 
 // ─── Router ─────────────────────────────────────────────────────────────────
 
+/**
+ * Whether this exact URL is the cover of a post already in social_posts.
+ *
+ * The only thing that vouches for pins nobody signed: covers published before
+ * signing existed, and ones signed with a secret since rotated. The match is
+ * on the whole stored string, so a stored cover vouches for itself and for
+ * nothing a caller edits. One indexed-by-nothing read per candidate host is
+ * why the caller rate-limits before asking.
+ */
+async function isStoredCover(request: NextRequest): Promise<boolean> {
+  const url = new URL(request.url);
+  const candidates = storedCoverCandidates(url.pathname, url.search, request.nextUrl.origin);
+  if (candidates.length === 0) return false;
+  try {
+    const supabase = createAdminClient();
+    const matches = await Promise.all(
+      candidates.map((candidate) =>
+        supabase.from('social_posts').select('id').eq('image_url', candidate).limit(1),
+      ),
+    );
+    return matches.some(({ data }) => (data?.length ?? 0) > 0);
+  } catch (err) {
+    console.error('[OG/Social] Stored-cover lookup failed:', err);
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+
+  // Pins are honoured only on a URL Eddy wrote (lib/social/cover-signature.ts).
+  // Signed and unpinned requests never reach the limiter or the lookup, so
+  // Meta fetching a real cover costs nothing extra.
+  if (coverTrust(searchParams) === 'unsigned') {
+    const limited = await rateLimit(`og-social-unsigned:${getClientIp(request)}`, 30, 60_000);
+    if (limited) return limited;
+    if (!(await isStoredCover(request))) {
+      return new NextResponse('This cover link is not one Eddy published.', {
+        status: 403,
+        headers: { 'Cache-Control': 'private, no-store', 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }
+  }
+
   const platform = searchParams.get('platform');
   const size = getSize(platform);
 
