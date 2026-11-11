@@ -43,7 +43,11 @@ export default function CampgroundPhoto({
               : "(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 380px"
           }
           unoptimized={!optimizeBlogImage(src!)}
-          onLoad={() => setLoadedSource(src!)}
+          onLoad={(event) => {
+            // Next can replay load for a cached image whose decode failed.
+            if (event.currentTarget.naturalWidth > 0) setLoadedSource(src!);
+            else setFailedSource(src!);
+          }}
           onError={() => setFailedSource(src!)}
           style={{ objectFit: "cover" }}
         />

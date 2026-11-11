@@ -590,6 +590,29 @@ try {
     "Camping browser smoke passed: desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap.",
   );
 } catch (error) {
+  const failedPage = browser?.contexts()[0]?.pages()[0];
+  if (failedPage) {
+    await failedPage
+      .screenshot({ path: `${out}/failure-fixture.png`, fullPage: true })
+      .catch(() => {});
+    console.error(
+      await failedPage
+        .locator("[data-campground-photo]")
+        .evaluateAll((photos) =>
+          photos.map((photo) => ({
+            text: photo.textContent,
+            image: photo.querySelector("img[alt]")
+              ? {
+                  complete: photo.querySelector("img[alt]").complete,
+                  width: photo.querySelector("img[alt]").naturalWidth,
+                  src: photo.querySelector("img[alt]").currentSrc,
+                }
+              : null,
+          })),
+        )
+        .catch(() => []),
+    );
+  }
   console.error(logs.slice(-6000));
   throw error;
 } finally {
