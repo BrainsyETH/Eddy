@@ -113,6 +113,15 @@ and that every path a skill names exists.
 
 ## Hard constraints
 
+- **Production browser audits use the audit harness.** For URL checks, run
+  `BASE_URL=https://eddy.guide npm run audit:pages -- /path /another-path` from
+  `missouri-float-planner/`. For interactive Playwright checks, create contexts
+  through `scripts/lib/audit-browser.ts` before loading any page. It excludes
+  analytics and records UTC visits with a run ID. Keep the JSONL visit log with
+  the audit evidence; see `missouri-float-planner/docs/VISIBILITY_MEASUREMENT.md`.
+  Raw Playwright is reserved for local/fully intercepted fixtures. External
+  browser tools that cannot install these guards are not covered: record their
+  visit times and URLs, and do not claim their analytics were excluded.
 - **No root `package.json`, lockfile, or npm workspace — deliberate.** `npx expo` run from the root would fetch latest Expo instead of the pinned SDK; workspaces would break EAS archiving and Vercel's scoped install. Rationale: `eddy-ios/README.md`, ADRs in `docs/decisions/`.
 - **Never install `eddy-ios` with `--legacy-peer-deps`.** It silently removes shipped native packages; the `overrides` block in `eddy-ios/package.json` is the correct fix. Plain `npm ci` works. Details: `app-ci.yml` mobile-job comments.
 - **`.easignore` is a security-critical allowlist.** While it exists, EAS ignores `.gitignore` entirely, so anything not denied there gets uploaded — including `.env` files — and it defines the EAS archive from the **git root**. After any edit, run `python3 eddy-ios/scripts/check-easignore.py`. Read its header before touching it.
