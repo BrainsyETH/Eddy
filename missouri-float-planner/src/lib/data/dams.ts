@@ -54,7 +54,8 @@ import { generatingForNow } from '@shared/dam-generation';
  *
  * The hierarchy a tailwater angler scans a list by: is it generating, what
  * happens next, how much is coming out, and the level and temperature below
- * the dam. Lake level, flood pool and inflow stay on the detail page.
+ * the dam, then the lake level above it. Flood pool and inflow stay on the
+ * detail page.
  *
  * ── generationFlow is load-bearing, not display ────────────────────────────
  * `DamSnapshot.generating` is DERIVED from it (turbine flow above the dam's
@@ -72,6 +73,13 @@ export const SUMMARY_METRICS: UsaceMetric[] = [
   // requests to the index, not one per dam. A floodgate release belongs on the
   // list and the river row, not only on the dam page.
   'spillwayFlow',
+  // The lake level the homepage card, the directory card and the river page's
+  // dam panel all show as their third reading. Those cards asked for it while
+  // this set left it out, so the homepage said "Unavailable" over a reading
+  // the stored snapshot was holding. The stored path pays nothing for it
+  // (summaryOf keeps what the cron already read); the live fallback pays one
+  // read per dam it has to assemble.
+  'poolElevation',
 ];
 
 /**
@@ -84,7 +92,6 @@ export const SUMMARY_METRICS: UsaceMetric[] = [
  */
 export const DETAIL_METRICS: UsaceMetric[] = [
   ...SUMMARY_METRICS,
-  'poolElevation',
   'pctFloodPool',
   'inflow',
 ];
@@ -1055,7 +1062,7 @@ export function carryForwardSchedule(
 /**
  * Every dam, for the index and /api/dams.
  *
- * Reads four metrics rather than seven. Lake level, flood pool and inflow stay
+ * Reads the summary set rather than the detail set. Flood pool and inflow stay
  * detail-only; repeat reads of the same series share a bucketed URL (see cda.ts).
  */
 export async function fetchAllDamSummaries(): Promise<DamSnapshot[]> {
@@ -1151,9 +1158,9 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
   const forecastWindowNow = bucketedNow().getTime();
 
   const [dam, forecastResult] = await Promise.all([
-    // The river hub's dam panel shows release, the schedule and a link out to
-    // the dam page — never lake state — so a summary is the whole of what it
-    // renders. The iOS panel is already summary-fed: it finds its dam in the
+    // The river hub's dam panel shows release, water temperature, lake level,
+    // the schedule and a link out to the dam page, all of which the summary
+    // carries. The iOS panel is already summary-fed: it finds its dam in the
     // /api/dams list rather than fetching one.
     fetchDamSummary(entry.id),
     series && entry.office

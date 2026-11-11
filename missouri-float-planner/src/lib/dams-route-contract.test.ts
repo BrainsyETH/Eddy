@@ -110,9 +110,16 @@ test('the summary stays small enough to be worth splitting', () => {
   //
   // Five since spillwayFlow joined. It is declared on three dams and has no
   // resolver spec, so it costs at most three requests per index render, not one
-  // per dam — see hasResolverSpec. Re-measure before adding a sixth.
+  // per dam — see hasResolverSpec.
+  //
+  // Six since poolElevation joined, because three list surfaces render it (the
+  // homepage card, the directory card, the river page's dam panel) and a card
+  // that asks for a reading its payload never carries says "Unavailable" over
+  // a healthy source. /api/dams and the homepage serve the stored snapshots,
+  // where it costs nothing; only a dam with no stored row pays the extra live
+  // read. Re-measure before adding a seventh.
   assert.ok(
-    SUMMARY_METRICS.length <= 5,
+    SUMMARY_METRICS.length <= 6,
     `summary has grown to ${SUMMARY_METRICS.length} metrics; re-measure the index fan-out`
   );
 });
