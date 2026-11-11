@@ -345,7 +345,7 @@ export default function GaugeHistoryChart({
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-2">
           {rainData && <button type="button" aria-pressed={rainOn} aria-label="Show rain upstream" onClick={() => setRainOn(!rainOn)}
-            className={`min-h-9 [@media(pointer:coarse)]:min-h-11 rounded-lg border px-2 text-xs font-semibold ${rainOn ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-neutral-300 text-neutral-600'}`}>Rain</button>}
+            className={`min-h-11 lg:min-h-9 [@media(pointer:coarse)]:min-h-11 rounded-lg border px-2 text-xs font-semibold ${rainOn ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-neutral-300 text-neutral-600'}`}>Rain</button>}
           {help}
           {canToggleUnit && (
             <Segmented
