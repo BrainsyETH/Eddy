@@ -41,7 +41,7 @@ both new recovery sign-ins and previously issued recovery tokens.
 
 Deployment order:
 
-1. Review and apply `20261110222453_admin_workspace.sql` to the intended database.
+1. Review and apply `20261111025451_admin_workspace.sql` to the intended database.
    Move its actual production version from pending to applied in the migration
    ledger after applying; regenerate database types and run `make check-db`. The migration is additive, enables
    RLS, and grants its tables/functions only to service_role.
