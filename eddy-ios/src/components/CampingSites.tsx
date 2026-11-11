@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useCampsiteSites } from '@/hooks/useCampsiteSites';
 import { useTheme } from '@/theme/ThemeProvider';
 import { CampsiteList } from '@/components/map-sheet/CampsiteList';
 import { sitesOnNight } from '@/components/map-sheet/siteList';
 import { checkedLabel, dateLabel } from '@/lib/campingHeatmap';
+import { campingPolicyPeriod } from '@eddy/conditions/camping-policy';
+import { useObservationClock } from '@/hooks/useObservationClock';
 
 // Mount only after the person asks. Facility identity does not depend on fresh counts.
 function LoadedSites({
@@ -17,11 +19,7 @@ function LoadedSites({
   bookingUrl?: string;
 }) {
   const { colors } = useTheme();
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useObservationClock();
   const { sites, status } = useCampsiteSites(facilityId, date.slice(0, 7));
   if (status === 'loading')
     return (
@@ -44,7 +42,8 @@ function LoadedSites({
     );
   const age = sites.fetchedAt ? now - Date.parse(sites.fetchedAt) : NaN;
   const stale = !Number.isFinite(age) || age < 0 || age >= 72 * 3600000;
-  if (stale)
+  const hasPolicy = sites.sites.some(site => campingPolicyPeriod(site.policy, date, now));
+  if (stale && !hasPolicy)
     return (
       <Text style={{ color: colors.textMuted }}>
         Individual site availability needs an update.{' '}
@@ -57,7 +56,7 @@ function LoadedSites({
         {checkedLabel(sites.fetchedAt)}
       </Text>
       <CampsiteList
-        entries={sitesOnNight(sites.sites, sites.window.nights, date)}
+        entries={sitesOnNight(sites.sites, sites.window.nights, date, now, !stale)}
         filters={[]}
         date={date}
         dateLabel={dateLabel(date)}

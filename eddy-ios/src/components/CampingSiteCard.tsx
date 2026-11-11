@@ -10,15 +10,18 @@ import { campsiteTags } from './map-sheet/siteList';
 import { CampsitePhotos } from './map-sheet/CampsitePhotos';
 import { CampingMark } from './CampingGrid';
 import { useScreenReaderEnabled } from '@/hooks/useScreenReaderEnabled';
+import { campingPolicyNote, campingStayLabel } from '@eddy/conditions/camping-policy';
 
 export function CampingSiteCard({
   entry,
   facilityId,
   bookingUrl,
+  now,
 }: {
   entry: CampsiteStay;
   facilityId: string;
   bookingUrl?: string | null;
+  now: number;
 }) {
   const { colors } = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -31,17 +34,9 @@ export function CampingSiteCard({
   const tags = campsiteTags(site);
   const direct = safeExternalUrl(site.bookingUrl);
   const url = direct ?? safeExternalUrl(bookingUrl);
-  const openCount = entry.nights.filter((n) => n.state === 'open').length;
-  const status =
-    entry.state === 'available'
-      ? 'Available for your stay'
-      : entry.state === 'unknown'
-        ? 'Availability not updated'
-        : entry.nights.every((n) => n.state === 'walk_up')
-          ? 'First-come only'
-          : openCount
-            ? `${openCount} of ${entry.nights.length} nights open`
-            : 'Unavailable for your stay';
+  const status = campingStayLabel(entry);
+  const policyNote = campingPolicyNote(entry, now);
+  const policyUrl = safeExternalUrl(site.policy?.sourceUrl);
   return (
     <View
       style={{
@@ -61,6 +56,13 @@ export function CampingSiteCard({
         </Text>
       ) : null}
       <Text style={[textStyles.body, { color: colors.text }]}>{status}</Text>
+      {policyNote ? <Text style={[textStyles.caption, { color: colors.textMuted }]}>{policyNote}</Text> : null}
+      {policyUrl && entry.nights.some(n => n.observedState !== undefined && n.observedState !== n.state) ? (
+        <Pressable accessibilityRole="link" style={{ minHeight: 44, justifyContent: 'center' }}
+          onPress={() => { setFailed(false); void openExternalLink(policyUrl, () => setFailed(true)); }}>
+          <Text style={{ color: colors.interactive }}>Park’s camping rules ↗</Text>
+        </Pressable>
+      ) : null}
       {listNights ? <View style={{ gap: 8 }}>
         {entry.nights.map((n) => <Text key={n.date} style={[textStyles.body, { color: colors.text }]}>
           {dateLabel(n.date)}: {campsiteStateLabel[n.state]}

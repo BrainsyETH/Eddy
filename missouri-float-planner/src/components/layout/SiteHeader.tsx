@@ -8,12 +8,12 @@ import AppLink from '@/components/AppLink';
 import { Menu, X } from 'lucide-react';
 import { siteNavigation } from '@/lib/navigation/site-navigation';
 
-type HeaderProps = { floatSearchEnabled?: boolean };
+type HeaderProps = { floatSearchEnabled?: boolean; campingEnabled?: boolean };
 
-export default function SiteHeader({ floatSearchEnabled = false }: HeaderProps) {
+export default function SiteHeader({ floatSearchEnabled = false, campingEnabled = false }: HeaderProps) {
   return (
-    <Suspense fallback={<HeaderContent floatSearchEnabled={floatSearchEnabled} />}>
-      <ContextualHeader floatSearchEnabled={floatSearchEnabled} />
+    <Suspense fallback={<HeaderContent floatSearchEnabled={floatSearchEnabled} campingEnabled={campingEnabled} />}>
+      <ContextualHeader floatSearchEnabled={floatSearchEnabled} campingEnabled={campingEnabled} />
     </Suspense>
   );
 }
@@ -23,11 +23,11 @@ function ContextualHeader(props: HeaderProps) {
   return <HeaderContent {...props} search={searchParams.toString()} />;
 }
 
-function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps & { search?: string }) {
+function HeaderContent({ floatSearchEnabled = false, campingEnabled = false, search = '' }: HeaderProps & { search?: string }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
-  const navItems = siteNavigation(pathname, search, floatSearchEnabled);
+  const navItems = siteNavigation(pathname, search, floatSearchEnabled, campingEnabled);
 
   // Close mobile menu on route change
   useEffect(() => {
