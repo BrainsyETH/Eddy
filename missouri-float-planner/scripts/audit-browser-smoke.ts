@@ -1,5 +1,5 @@
 // Browser regression for the live-audit wrapper. Production HTML is fulfilled
-// from fixtures; a dead proxy prevents any accidental external transmission.
+// from fixtures; a recording proxy refuses every outbound connection.
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,21 +25,33 @@ async function main() {
   window.analytics.initializeAnalytics('G-FIXTURE123');
   window.analytics.trackPageView();
   </script></body>`;
+  const proxyAttempts: string[] = [];
+  const proxy = createServer((request, response) => {
+    proxyAttempts.push(request.url || '');
+    response.writeHead(502).end();
+  });
+  proxy.on('connect', (request, socket) => {
+    proxyAttempts.push(request.url || '');
+    socket.on('error', () => {});
+    socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+  });
+  await new Promise<void>(resolve => proxy.listen(0, '127.0.0.1', resolve));
+  const proxyAddress = proxy.address();
+  assert(proxyAddress && typeof proxyAddress === 'object');
   const browser = await chromium.launch({
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
     headless: true,
-    proxy: { server: 'http://127.0.0.1:9' },
-  });
-  const audit = await createAuditBrowser(browser, { name: 'audit-regression', baseURL: 'https://eddy.guide', outputDir });
+    proxy: { server: `http://127.0.0.1:${proxyAddress.port}` },
+  }).catch(error => { proxy.close(); throw error; });
   const run = promisify(execFile);
 
   async function fixtures(context: BrowserContext) {
     await context.route('https://eddy.guide/**', async route => {
       const url = new URL(route.request().url());
-      if (url.pathname === '/redirect') {
-        await route.fulfill({ status: 308, headers: { location: '/fixture?token=private-value' } });
-      } else if (url.pathname === '/fixture' || url.pathname === '/missing') {
+      if (url.pathname === '/fixture' || url.pathname === '/missing') {
         await route.fulfill({ status: url.pathname === '/missing' ? 404 : 200, contentType: 'text/html', body: fixture });
+      } else if (url.pathname === '/favicon.ico') {
+        await route.fulfill({ status: 204 });
       } else if (url.pathname === '/failed') {
         await route.abort();
       } else if (url.pathname === '/ordinary-api') {
@@ -52,6 +64,7 @@ async function main() {
   }
 
   try {
+    const audit = await createAuditBrowser(browser, { name: 'audit-regression', baseURL: 'https://eddy.guide', outputDir });
     const context = await audit.newContext({ userAgent: 'FixtureBrowser/1.0', serviceWorkers: 'allow' });
     await fixtures(context);
     const page = await context.newPage();
@@ -88,10 +101,6 @@ async function main() {
     await page.evaluate(() => history.pushState({}, '', '/another-page?token=private-value'));
     assert.equal(await page.evaluate(async () => (await fetch('/ordinary-api')).status), 200);
 
-    const blocked: string[] = [];
-    page.on('requestfailed', request => {
-      if (request.failure()?.errorText === 'net::ERR_BLOCKED_BY_CLIENT') blocked.push(request.url());
-    });
     const collectors = [
       'https://www.google-analytics.com/g/collect?secret=private-value',
       'https://region1.google-analytics.com/g/collect',
@@ -101,16 +110,22 @@ async function main() {
       'https://eddy.guide/api/embed/impression',
       'https://eddy.guide/_vercel/insights/view',
     ];
+    const failures = collectors.map(url => page.waitForEvent('requestfailed', {
+      predicate: request => request.url() === url, timeout: 5000,
+    }));
     await page.evaluate(async urls => {
       await Promise.all(urls.map(url => fetch(url, { mode: 'no-cors' }).catch(() => {})));
     }, collectors);
-    assert.equal(blocked.length, collectors.length, 'all measurement attempts aborted before network');
+    await Promise.all(failures);
+    const blockedRows = readFileSync(audit.logPath, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+      .filter(row => row.event === 'measurement_blocked');
+    assert.deepEqual(blockedRows.map(row => row.url).sort(), collectors.map(value => {
+      const url = new URL(value); return url.origin + url.pathname;
+    }).sort(), 'every collector was handled by the audit blocker');
     const beaconFailed = page.waitForEvent('requestfailed', request => request.url().includes('beacon=1'));
     await page.evaluate(() => navigator.sendBeacon('https://www.google-analytics.com/g/collect?beacon=1', 'fixture'));
-    assert.equal((await beaconFailed).failure()?.errorText, 'net::ERR_BLOCKED_BY_CLIENT');
+    await beaconFailed;
 
-    await page.goto('https://eddy.guide/redirect');
-    assert.equal((await readState()).optOut, '1');
     assert.equal((await page.goto('https://eddy.guide/missing'))?.status(), 404);
     await assert.rejects(page.goto('https://eddy.guide/failed'));
     assert.deepEqual(errors, []);
@@ -125,14 +140,28 @@ async function main() {
     const deniedPage = await denied.newPage();
     const deniedGoogle = deniedPage.waitForEvent('requestfailed', request => request.url().includes('googletagmanager.com'));
     await deniedPage.goto('https://eddy.guide/fixture');
-    assert.equal((await deniedGoogle).failure()?.errorText, 'net::ERR_BLOCKED_BY_CLIENT');
+    await deniedGoogle;
+    const collectorHosts = new Set(collectors.map(value => new URL(value).hostname));
+    assert.deepEqual(proxyAttempts.filter(target => collectorHosts.has(target.split(':')[0])), [],
+      'measurement requests never reach the network proxy');
+    // Prove this proxy would detect an unblocked request, without forwarding it.
+    await deniedPage.evaluate(() => fetch('https://unblocked.example/', { mode: 'no-cors' }).catch(() => {}));
+    assert(proxyAttempts.includes('unblocked.example:443'), 'network canary reaches the rejecting proxy');
     await denied.close();
+    const ownedPage = await audit.newPage();
+    const ownedContext = ownedPage.context();
+    await fixtures(ownedContext);
+    await ownedPage.goto('https://eddy.guide/fixture');
+    assert.equal(await ownedPage.evaluate(() => sessionStorage.getItem('eddy_analytics_disabled')), '1');
+    await ownedPage.close();
+    assert(!browser.contexts().includes(ownedContext), 'page.close() waits for its context to close');
+    // Closing the browser with an owned page still open must also be safe.
+    await audit.newPage();
     await browser.close();
 
     const rawLog = readFileSync(audit.logPath, 'utf8');
     const rows = rawLog.trim().split('\n').map(line => JSON.parse(line));
     assert(rows.every(row => row.runId === audit.runId && Number.isFinite(Date.parse(row.time))));
-    assert(rows.some(row => row.event === 'response' && row.status === 308));
     assert(rows.some(row => row.event === 'response' && row.status === 404));
     assert(rows.some(row => row.event === 'request_failed' && row.url.endsWith('/failed')));
     assert(rows.some(row => row.event === 'navigation' && row.url.endsWith('/another-page')));
@@ -163,12 +192,16 @@ async function main() {
       const cliLogs = readdirSync(outputDir).filter(file => file.includes('-link-check-'));
       assert.equal(cliLogs.length, 2);
       assert(cliLogs.every(file => JSON.parse(readFileSync(path.join(outputDir, file), 'utf8').trim().split('\n').at(-1)!).event === 'browser_closed'));
+      const cliRows = cliLogs.flatMap(file => readFileSync(path.join(outputDir, file), 'utf8').trim().split('\n').map(line => JSON.parse(line)));
+      assert(cliRows.some(row => row.event === 'response' && row.status === 308));
+      assert(cliRows.some(row => row.event === 'response' && row.status === 200 && row.url.endsWith('/ok')));
       console.log('PASS targeted audit CLI, redirect identity, bounded visits, and failure cleanup.');
     } finally {
       await new Promise<void>(resolve => server.close(() => resolve()));
     }
   } finally {
     await browser.close();
+    await new Promise<void>(resolve => proxy.close(() => resolve()));
     rmSync(outputDir, { recursive: true, force: true });
   }
 
