@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fetchPrecipitationFromWeather, type ForecastData, type WeatherData } from './openweather';
-import { buildPrompt, type GaugeContext } from '../eddy/generate-update';
+import { buildPrompt, type GaugeContext } from '../eddy/build-update-prompt';
 import { buildReportFacts } from '../eddy/report-facts';
 import { getOutlookDates } from '../river-outlook';
 import type { UpdateTarget } from '../../data/river-sections';
@@ -52,7 +52,16 @@ test('observed local amounts retain their windows alongside forecast probability
   const precipitation = fetchPrecipitationFromWeather(observed);
   assert.deepEqual(precipitation, { rain1h: 0.2, rain3h: 0.5 });
   const prompt = buildPrompt(target, gauge, observed, forecast, [], '', null, precipitation);
-  assert.match(prompt, /Last 1h: 0\.2 in \| Last 3h: 0\.5 in/);
+  assert.match(prompt, /Last 1h: 0\.20 in \| Last 3h: 0\.50 in/);
   assert.match(prompt, /80% chance of rain/);
   assert.doesNotMatch(prompt, /Today's forecast rain:/);
+});
+
+
+test('small measured amounts and traces never become zero in the Read prompt', () => {
+  const observed = { ...weather, rain1hInches: 0.03, rain3hInches: 0.004 };
+  const prompt = buildPrompt(target, gauge, observed, null, [], '', null,
+    fetchPrecipitationFromWeather(observed));
+  assert.match(prompt, /Last 1h: 0\.03 in \| Last 3h: <0\.01 in/);
+  assert.doesNotMatch(prompt, /0\.0+ in/);
 });
