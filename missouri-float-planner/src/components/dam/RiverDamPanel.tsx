@@ -34,6 +34,7 @@
 
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { RiverDamContext } from '@/lib/data/dams';
 import { unsupportedDamReadings } from '@/lib/flow-providers/usace-registry';
 import { dailyForecastDays } from '@shared/river-dam-panel';
@@ -81,7 +82,8 @@ export default function RiverDamPanel({
         prefetch={false}
         className="flex min-h-11 items-center justify-between gap-3 px-4 pb-2.5 pt-3.5 transition-colors hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-600 sm:px-5"
       >
-        <span className="min-w-0">
+        <EddyIcon name="dam" size={28} className="shrink-0" />
+        <span className="min-w-0 flex-1">
           <h3 id="river-dam-heading" className="font-heading text-lg font-bold leading-6 text-neutral-900">
             {dam.name}
           </h3>

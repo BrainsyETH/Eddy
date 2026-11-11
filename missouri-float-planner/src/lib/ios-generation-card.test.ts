@@ -62,7 +62,7 @@ test('a powerhouse with missing turbine data retains its generation status card'
 });
 
 test('a schedule without a powerhouse remains visible without an orphan divider', () => {
-  const { result, nodes } = renderCard({ ...floodControl, schedule: [{ scheduleDate: '2026-11-11', hours: [], idle: [] }] });
+  const { result, nodes } = renderCard({ ...floodControl, schedule: [{ scheduleDate: '2026-11-11', retrievedAt: null, hours: [], idle: [] }] });
   assert.ok(result);
   assert.equal(nodes.filter(node => node.type === 'Schedule').length, 1);
   assert.equal(nodes.filter(node => node.type === 'Hero').length, 0);

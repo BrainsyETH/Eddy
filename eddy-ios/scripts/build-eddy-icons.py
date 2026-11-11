@@ -138,6 +138,7 @@ ICONS = SYMBOLS + SCENES + MOODS
 # and the app has empty states the web has no equivalent for.
 WEB_ICONS = (
     "eddy-today",
+    "eddy-dam",
     "eddy-release",
     "eddy-water-temperature",
     "eddy-boat-ramp",

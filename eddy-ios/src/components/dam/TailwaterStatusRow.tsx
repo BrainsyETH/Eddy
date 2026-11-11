@@ -27,6 +27,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ControlIcon } from '@/components/ControlIcon';
+import { EddySymbol } from '@/components/EddySymbol';
 import type { DamSnapshot } from '@eddy/types';
 import {
   buildTailwaterStatus,
@@ -67,7 +68,7 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
         accessibilityRole="button"
         accessibilityLabel={`${dam.name} controls this reach. Opens ${dam.name} details.`}
       >
-        <ControlIcon name="water-outline" size={16} color={colors.interactive} style={styles.icon} />
+        <EddySymbol name="dam" size={28} />
         <View style={styles.body}>
           <Text style={[styles.headline, { color: colors.text }]}>
             {dam.name} controls this reach
@@ -104,12 +105,7 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
       // a button: it LEAVES for the browser". This push stays in the app.
       accessibilityLabel={tailwaterStatusVoiceOver(status)}
     >
-      <ControlIcon
-        name={status.tone === 'generating' ? 'flash-outline' : 'water-outline'}
-        size={16}
-        color={colors.interactive}
-        style={styles.icon}
-      />
+      <EddySymbol name="dam" size={28} />
 
       <View style={styles.body}>
         <Text style={[styles.headline, { color: colors.text }]}>{status.headline}</Text>

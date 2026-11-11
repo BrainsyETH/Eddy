@@ -369,6 +369,9 @@ at the start of the live report. Upper/Lower Black replace the separate Reaches
 panel and gauge picker. The selected section owns the reading, history, outlook,
 and gauge-specific Eddy summary; Clearwater context appears only below the
 Lower Black chart, with dam release kept distinct from the downstream gauge.
+Section readings use the regular gauge card's condition-aware Eddy otter, with
+water level and flow labeled side by side. Clearwater's link uses Eddy's dam
+artwork, matching iOS; river and spring symbols do not label gauge measurements.
 The section's configured station ID is authoritative: an unavailable station
 shows an unavailable report rather than another section's reading.
 
