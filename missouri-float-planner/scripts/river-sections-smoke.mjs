@@ -171,9 +171,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const slider = page.getByRole('slider').first(); await slider.focus(); await page.keyboard.press('End');
     assert.match(await slider.getAttribute('aria-valuetext'), /Rain (upstream|data unavailable)/);
     await rainToggle.click(); assert.equal(await page.locator('[data-rain-track]').count(), 0);
-    assert(Math.abs(await page.locator('[data-river-plot]').evaluate(node => node.getBoundingClientRect().height) - rainPlotHeight) < 2,
+    const offDimensions = await page.locator('[data-river-plot]').evaluate(node => ({
+      plot: node.getBoundingClientRect().height, wrapper: node.parentElement.getBoundingClientRect().height,
+      top: getComputedStyle(node).top, padding: getComputedStyle(node.parentElement).paddingTop,
+      wrapperHtml: node.parentElement.outerHTML.slice(0, 350),
+    }));
+    console.log('Rain toggle dimensions', JSON.stringify({ width, rainPlotHeight, rainChartHeight, offDimensions }));
+    await page.screenshot({ path: `${out}/rain-off-${width}.png`, fullPage: true });
+    assert(Math.abs(offDimensions.plot - rainPlotHeight) < 2,
       'Rain must add its own height instead of shrinking the river');
-    assert(Math.abs(await page.locator('[data-river-plot]').evaluate(node => node.parentElement.getBoundingClientRect().height) - rainPlotHeight) < 2,
+    assert(Math.abs(offDimensions.wrapper - rainPlotHeight) < 2,
       'Turning rain off removes only the extra track height');
     await page.reload(); await heading(page, false).waitFor(); await rainToggle.waitFor();
     assert.equal(await rainToggle.getAttribute('aria-pressed'), 'false', 'Remember rain off');
