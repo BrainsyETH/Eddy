@@ -1,4 +1,5 @@
 import type { CampingStayResult } from '../../../shared/camping-stay';
+import { withCampingTimeout } from './web-request';
 
 // Short-lived, bounded browser cache. Dates are part of the identity; observation
 // freshness and current park policies are still evaluated every time we render.
@@ -10,13 +11,12 @@ export function loadCampgroundSites(facility: string, arrival: string, departure
   const cached = details.get(key);
   if (cached) return cached.promise;
   if (details.size >= 40) details.delete(details.keys().next().value!);
-  const promise = fetch(`/api/camping/sites?${new URLSearchParams({ facility, arrival, departure })}`, {
-    signal: AbortSignal.timeout(8000),
-  }).then(async response => {
+  const promise = withCampingTimeout(async signal => {
+    const response = await fetch(`/api/camping/sites?${new URLSearchParams({ facility, arrival, departure })}`, { signal });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error('Couldn’t load sites.');
     return await response.json() as CampingStayResult;
-  }).catch(error => {
+  }, 8000).catch(error => {
     if (details.get(key)?.promise === promise) details.delete(key);
     throw error;
   });

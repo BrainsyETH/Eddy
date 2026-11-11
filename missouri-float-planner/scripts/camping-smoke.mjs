@@ -194,6 +194,10 @@ try {
     viewport: { width: 1440, height: 1100 },
   });
   page.on('pageerror', (e) => errors.push(e.message));
+  // Exercise the client with the AbortSignal statics missing, as on older Safari.
+  await page.addInitScript(() => {
+    for (const name of ['any', 'timeout']) Object.defineProperty(AbortSignal, name, { value: undefined, configurable: true });
+  });
   await page.route('**/api/campsites?**', (route) => {
     errors.push('The web hub must use its own detail endpoint, not the existing iOS API.');
     return route.abort();
@@ -211,8 +215,10 @@ try {
     });
   });
   let siteRequests = 0, photoRequests = 0, activePhotos = 0, maxPhotos = 0;
+  let failSiteRefresh = false, detailFetchedAt = at;
   await page.route('**/api/camping/sites?**', async (route) => {
     siteRequests++;
+    if (failSiteRefresh) return route.fulfill({ status: 503, json: { error: 'Fixture outage' } });
     await new Promise(resolve => setTimeout(resolve, 250));
     const p = new URL(route.request().url()).searchParams;
     const facilityIndex = Number(p.get('facility').split('-').at(-1));
@@ -271,7 +277,7 @@ try {
         facilityId: p.get('facility'),
         arrival: p.get('arrival'),
         departure: p.get('departure'),
-        fetchedAt: at,
+        fetchedAt: detailFetchedAt,
         summary:
           facilityIndex === 1
             ? null
@@ -436,6 +442,35 @@ try {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.screenshot({ path: `${out}/detail-dark-fixture.png`, fullPage: true });
   await page.emulateMedia({ colorScheme: 'light' });
+  const dialog = page.getByRole('dialog');
+  const refreshAt = Date.now() + 61_000;
+  failSiteRefresh = true;
+  await page.clock.setFixedTime(new Date(refreshAt));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await dialog.getByRole('status').filter({ hasText: 'Couldn’t refresh.' }).waitFor();
+  assert.equal(await dialog.getByText('Site 01', { exact: true }).isVisible(), true, 'failed refresh retains the loaded list');
+  assert.equal(await dialog.locator('[data-state="available"]').count(), 40, 'still-fresh availability remains usable');
+  assert.equal(await dialog.getByRole('alert').count(), 0);
+  failSiteRefresh = false;
+  detailFetchedAt = new Date(refreshAt - overview.maxObservationAgeSeconds * 1000 + 30_000).toISOString();
+  const retryResponse = page.waitForResponse(response => response.url().includes('/api/camping/sites?') && response.status() === 200);
+  await dialog.getByRole('button', { name: 'Retry', exact: true }).click();
+  await retryResponse;
+  await dialog.getByRole('status').filter({ hasText: 'Couldn’t refresh.' }).waitFor({ state: 'hidden' });
+  await dialog.getByText(`Checked ${Math.floor(overview.maxObservationAgeSeconds / 3600) - 1}h ago`, { exact: true }).waitFor();
+  // Retry recovers a nearly-expired observation; the next failed refresh must
+  // still drop its green pills when the original observation ages out.
+  failSiteRefresh = true;
+  await page.clock.setFixedTime(new Date(refreshAt + 61_000));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await dialog.getByRole('status').filter({ hasText: 'Couldn’t refresh.' }).waitFor();
+  assert.equal(await dialog.locator('[data-state="available"]').count(), 0, 'retained data cannot extend observation freshness');
+  assert.equal(await dialog.getByText('Site 01', { exact: true }).count(), 0);
+  failSiteRefresh = false;
+  detailFetchedAt = at;
+  await dialog.getByRole('button', { name: 'Retry', exact: true }).click();
+  await dialog.getByText('Site 01', { exact: true }).waitFor();
+  await page.screenshot({ path: `${out}/detail-refresh-recovery-fixture.png`, fullPage: true });
   await page.goBack();
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   await page.getByLabel('Arrive', { exact: true }).fill(day);
@@ -453,7 +488,7 @@ try {
   assert.equal(await page.getByLabel('Arrive', { exact: true }).inputValue(), tomorrow);
   assert.deepEqual(errors, []);
   console.log(
-    'Camping browser smoke passed: desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap.',
+    'Camping browser smoke passed: desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap, missing AbortSignal statics, refresh failure/recovery and expiry.',
   );
 } catch (error) {
   console.error(logs.slice(-6000));

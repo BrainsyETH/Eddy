@@ -65,7 +65,7 @@ export default function CampgroundDetails({ camp, facilities, arrival, departure
   }
   return (
     <>
-      <header className={styles.header}>
+      <header>
         <div className={`${styles.cover} ${!image || imageFailed ? styles.coverFallback : ''}`}>
           {image && !imageFailed ? (
             <Image src={image} alt={camp.name} fill unoptimized loading="eager" sizes="(max-width: 767px) 100vw, 720px"
@@ -114,7 +114,7 @@ function FacilitySites({ facility: f, campName, multiple, arrival, departure, fi
     setError(false);
     loadCampgroundSites(f.facilityId, arrival, departure).then(result => {
       if (active) setData(result);
-    }).catch(() => { if (active) { setError(true); setData(undefined); } });
+    }).catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [f.facilityId, arrival, departure, clock, retry]);
   const answer = data ? filteredStay([compactStay(data, f.source)], filters, clock) : null;
@@ -129,7 +129,8 @@ function FacilitySites({ facility: f, campName, multiple, arrival, departure, fi
   return (
     <section className={styles.section} aria-label={multiple ? f.loopName ?? f.name : 'Campsites'}>
       {multiple && <h3>{f.loopName ?? f.name}</h3>}
-      {error ? <p role="alert" className={styles.notice}>Couldn’t load sites. <button onClick={() => setRetry(n => n + 1)}>Retry</button></p>
+      {error && data !== undefined && <p role="status" className={styles.refreshNotice}>Couldn’t refresh. <button onClick={() => setRetry(n => n + 1)}>Retry</button></p>}
+      {error && data === undefined ? <p role="alert" className={styles.notice}>Couldn’t load sites. <button onClick={() => setRetry(n => n + 1)}>Retry</button></p>
         : data === undefined ? <div className={styles.loading} role="status"><span>Checking sites…</span><div /><div /></div>
           : <>
             <div className={styles.summary}>

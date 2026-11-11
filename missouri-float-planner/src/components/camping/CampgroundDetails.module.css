@@ -38,6 +38,8 @@
 .footnote { margin-top: 18px; }
 .notice { padding: 14px; border-radius: 10px; background: var(--color-secondary-100); font-size: 13px; }
 .notice button { text-decoration: underline; margin-left: 8px; }
+.refreshNotice { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-text-secondary); }
+.refreshNotice button { text-decoration: underline; }
 .loading { font-size: 13px; color: var(--color-text-secondary); }
 .loading div { height: 140px; border-radius: 12px; background: var(--color-surface-hover); margin-top: 12px; }
 .photo { grid-column: 1; grid-row: 1; align-self: start; min-width: 0; }

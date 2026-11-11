@@ -79,3 +79,15 @@ requests are evicted, and the display still rechecks observation age and current
 park policy. Open dialogs recheck the cache on the existing 30-second clock.
 Share uses native mobile sharing or desktop clipboard feedback. Cancelling the
 native sheet does not copy the link. No API contract or database change.
+
+Web request deadlines use AbortController and a cleared timer, so photos also
+work in browsers without AbortSignal.any. The ten-second photo deadline starts
+when a queued request runs and covers its response body. Closing the dialog
+cancels queued and running photos. Shared availability requests continue until
+completion or their eight-second deadline, allowing immediate reopen reuse.
+
+A failed background refresh keeps the previous site data and shows a small retry
+notice. Observation age and current park policies still recalculate: retaining
+data never extends its freshness. Initial-load failures keep the full error state.
+The unavailable toggle considers only matching filters, and the date line shows
+the selected night count instead of “Your stay” or “One-night preview”.

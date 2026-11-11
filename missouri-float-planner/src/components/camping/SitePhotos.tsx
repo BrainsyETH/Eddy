@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Camera, X } from 'lucide-react';
 import type { CampsitePhoto } from '@/lib/camping/photos';
+import { withCampingTimeout } from '@/lib/camping/web-request';
 import styles from './CampgroundDetails.module.css';
 
 // Optional media cannot occupy every connection while availability is loading.
@@ -61,14 +62,15 @@ export default function SitePhotos({ facility, site, name }: { facility: string;
     const saved = cache.get(key);
     if (saved) { setPhotos(saved.photos); return; }
     setError(false);
-    void queuePhoto(async () => {
+    void queuePhoto(() => withCampingTimeout(async signal => {
+      // Version the URL to bypass older cached empty media responses, as on iOS.
       const response = await fetch(`/api/campsites/photos?${new URLSearchParams({ media: '2', facility, site })}`, {
-        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+        signal,
       });
       if (!response.ok) throw new Error('Photos unavailable');
       const data = await response.json();
       return (data.photos?.[site] ?? []) as CampsitePhoto[];
-    }, controller.signal).then(result => {
+    }, 10000, controller.signal), controller.signal).then(result => {
       if (controller.signal.aborted) return;
       if (cache.size >= 200) cache.delete(cache.keys().next().value!);
       cache.set(key, { until: Date.now() + 3_600_000, photos: result });
