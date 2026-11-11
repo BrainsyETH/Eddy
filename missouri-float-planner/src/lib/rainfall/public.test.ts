@@ -199,6 +199,7 @@ test('publisher replays missed hours and chooses the latest revision without los
   const uploads: Uint8Array[] = [], downloads: string[] = [], pages: number[] = [];
   const objects = new Map<string, Uint8Array>([['test', compressed]]);
   let failUpload = '';
+  let uploadFailure = 'Upload failed';
   const query = { select: () => query, eq: () => query, in: () => query, gte: () => query, lte: () => query, order: () => query,
     range: async (offset: number, last: number) => { pages.push(offset); return { data: captures.slice(offset, last + 1), error: null }; } };
   const river = { select: () => river, eq: () => river, single: async () => ({ data: { id: 'river', name: 'Test river' }, error: null }) };
@@ -208,7 +209,7 @@ test('publisher replays missed hours and chooses the latest revision without los
     storage: { from: () => ({ download: async (path: string) => { downloads.push(path); return objects.has(path)
       ? { data: new Blob([new Uint8Array(objects.get(path)!)]), error: null } : { data: null, error: { message: 'Object not found', statusCode: '404' } }; },
       upload: async (path: string, bytes: Uint8Array, options: { upsert: boolean }) => {
-        if (path === failUpload) return { error: { message: 'Upload failed' } };
+        if (path === failUpload) return { error: { message: uploadFailure } };
         if (!options.upsert && objects.has(path)) return { error: { message: 'Already exists', statusCode: '409' } };
         objects.set(path, bytes); if (path.startsWith('published/')) uploads.push(bytes); return { error: null };
       } }) } } as unknown as import('@supabase/supabase-js').SupabaseClient;
@@ -260,6 +261,10 @@ test('publisher replays missed hours and chooses the latest revision without los
     result = await publishRain(db, [bad, ...basins], new AbortController().signal);
     assert.deepEqual(result, { published: 1, failures: [{ siteId: 'bad', reason: 'Upload failed' }] });
     assert.deepEqual(objects.get(badPath), previous);
+    uploadFailure = '';
+    result = await publishRain(db, [bad, ...basins], new AbortController().signal);
+    assert.deepEqual(result, { published: 1, failures: [{ siteId: 'bad', reason: 'Rain publication failed' }] });
+    assert.deepEqual(objects.get(badPath), previous, 'an empty error message still records the failed basin');
     failUpload = '';
     captures.unshift({ ...capture(1, 0, 'broken'), metadata: { tile, basinIds: [bad.id] }, sha256: 'bad checksum' });
     result = await publishRain(db, [bad, ...basins], new AbortController().signal);

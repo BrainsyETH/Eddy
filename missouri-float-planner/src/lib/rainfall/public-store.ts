@@ -49,7 +49,7 @@ export async function publishRain(db: SupabaseClient, basins: (Basin & { review_
   const fail = (state: typeof states[number], error: unknown) => {
     signal.throwIfAborted();
     state.failure = error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
-      ? error.message.slice(0, 200) : 'Rain publication failed';
+      ? error.message.slice(0, 200) || 'Rain publication failed' : 'Rain publication failed';
     state.weights.clear();
   };
   // Replay the archive, not just the last capture. A missed publish or later

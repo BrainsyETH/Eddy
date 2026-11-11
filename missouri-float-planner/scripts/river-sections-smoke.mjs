@@ -159,7 +159,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const readY = () => page.locator('#eddy-says').evaluate(node => node.getBoundingClientRect().top + window.scrollY);
     const firstReadY = await readY();
     const rainPlotHeight = await page.locator('[data-river-plot]').evaluate(node => node.getBoundingClientRect().height);
+    const rainChartHeight = await page.locator('[data-river-plot]').evaluate(node => node.parentElement.getBoundingClientRect().height);
     assert(rainPlotHeight >= (width >= 1024 ? 384 : 192), 'Rain must preserve the original river plot height');
+    assert(Math.abs(rainChartHeight - rainPlotHeight - 84) < 2, 'Rain contributes its own 84px track above the river');
     const forecastY = await page.getByRole('heading', { name: 'Will it hold?', exact: true }).evaluate(node => node.getBoundingClientRect().top + window.scrollY);
     assert(firstReadY < forecastY, 'Read precedes the forecast');
     const slider = page.getByRole('slider').first(); await slider.focus(); await page.keyboard.press('End');
@@ -167,7 +169,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await rainToggle.click(); assert.equal(await page.locator('[data-rain-track]').count(), 0);
     assert(Math.abs(await page.locator('[data-river-plot]').evaluate(node => node.getBoundingClientRect().height) - rainPlotHeight) < 2,
       'Rain must add its own height instead of shrinking the river');
-    assert(firstReadY - await readY() >= 83, 'Rain contributes its own track height');
+    assert(Math.abs(await page.locator('[data-river-plot]').evaluate(node => node.parentElement.getBoundingClientRect().height) - rainPlotHeight) < 2,
+      'Turning rain off removes only the extra track height');
     await page.reload(); await heading(page, false).waitFor(); await rainToggle.waitFor();
     assert.equal(await rainToggle.getAttribute('aria-pressed'), 'false', 'Remember rain off');
     await rainToggle.click(); await page.locator('[data-rain-track]').waitFor();
