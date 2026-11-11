@@ -88,8 +88,7 @@
   outline: 3px solid var(--color-accent-600);
   outline-offset: 3px;
 }
-.primary,
-.provider {
+.primary {
   background: var(--color-primary-700);
   color: var(--color-text-inverse);
   padding: 12px 18px;
@@ -101,8 +100,7 @@
   gap: 16px;
   align-items: center;
 }
-.primary:hover,
-.provider:hover {
+.primary:hover {
   background: var(--color-primary-800);
 }
 .shortcuts {
@@ -512,92 +510,6 @@
   line-height: 1.7;
   color: var(--color-text-secondary);
 }
-
-.dialog {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  width: min(660px, calc(100% - 32px));
-  max-height: 90dvh;
-  border: 1px solid var(--color-border);
-  border-radius: 18px;
-  padding: 24px;
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  overscroll-behavior: contain;
-}
-.dialog::backdrop {
-  background: color-mix(in srgb, var(--color-primary-900) 70%, transparent);
-}
-.dialog h2 {
-  font-size: 28px;
-  font-weight: 750;
-  margin-bottom: 10px;
-}
-.dialogHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.dialogHeader button {
-  width: 44px;
-  border-radius: 50%;
-  background: var(--color-surface-pressed);
-}
-.dialogActions {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  font-size: 13px;
-  margin: 16px 0;
-}
-.dialogActions button,
-.dialogActions a {
-  text-decoration: underline;
-}
-.sites {
-  margin: 20px 0;
-}
-.sites h3 {
-  font-weight: 700;
-}
-.site {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.site > div {
-  flex: 1;
-}
-.site p,
-.site span {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-top: 4px;
-}
-.site a {
-  font-size: 13px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  text-decoration: underline;
-}
-.provider {
-  margin: 18px 0 10px;
-  font-size: 14px;
-}
-.dialog > p {
-  line-height: 1.6;
-}
-
-.dialog > .campPhoto {
-  aspect-ratio: 16/7;
-  border-radius: 12px;
-  margin-bottom: 20px;
-}
 @media (max-width: 1023px) {
   .results,
   .untracked > div {
@@ -702,13 +614,6 @@
   .legend {
     gap: 8px 12px;
   }
-  .dialog {
-    width: 100%;
-    max-height: 94dvh;
-    margin: auto 0 0;
-    border-radius: 18px 18px 0 0;
-    padding: 20px;
-  }
 }
 
 @media (max-width: 359px) {
@@ -720,47 +625,4 @@
     align-items: flex-start;
     gap: 12px;
   }
-}
-
-.photos {
-  font-size: 12px;
-  border-bottom: 1px solid var(--color-border);
-}
-.photos > button {
-  text-decoration: underline;
-  min-height: 44px;
-}
-.photos p {
-  padding-bottom: 12px;
-  color: var(--color-text-secondary);
-}
-.photoStrip {
-  display: flex;
-  overflow: auto;
-  gap: 12px;
-  padding: 0 0 12px;
-  scroll-snap-type: x proximity;
-}
-.photoStrip figure {
-  min-width: 85%;
-  scroll-snap-align: start;
-}
-.photoStrip img {
-  width: 100%;
-  height: auto;
-  border-radius: 10px;
-  aspect-ratio: 3/2;
-  object-fit: cover;
-}
-.photoStrip figcaption {
-  font-size: 11px;
-  line-height: 1.5;
-  margin-top: 6px;
-  color: var(--color-text-secondary);
-}
-.policyToggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
 }

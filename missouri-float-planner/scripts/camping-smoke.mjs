@@ -1,10 +1,10 @@
 // Labelled synthetic observations exercise summer states during off-season QA.
-import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdir, writeFile, rm } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { chromium } from "playwright";
-const port = 3148,
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { chromium } from 'playwright';
+const port = Number(process.env.CAMPING_SMOKE_PORT || 3148),
   origin = `http://127.0.0.1:${port}`,
   fixtureDir = "src/app/camping-layout-check";
 const out = process.env.CAMPING_SMOKE_OUTPUT || "/tmp/eddy-camping";
@@ -48,8 +48,8 @@ const camps = names.map((name, i) => ({
   managingAgency: null,
   website: "https://www.nps.gov/ozar/",
   reservationUrl: null,
-  firstCome: "unknown",
-  accessDestination: null,
+  firstCome: 'unknown',
+  accessDestination: { riverSlug: 'current', accessId: 'fixture-access' },
   serviceId: null,
   loopName: null,
   source: "recreation_gov",
@@ -165,7 +165,7 @@ try {
   await mkdir(out, { recursive: true });
   await writeFile(
     `${fixtureDir}/page.tsx`,
-    `import { notFound } from 'next/navigation'; import { Suspense } from 'react'; import CampingHub from '@/components/camping/CampingHub'; export default function Page() { if(process.env.NODE_ENV !== 'development' || process.env.CAMPING_SMOKE !== '1') notFound(); return <main className="min-h-screen bg-neutral-50"><p>Labelled QA fixtures — synthetic availability</p><Suspense><CampingHub overview={${JSON.stringify(overview)}} /></Suspense></main>; }`,
+    `import { notFound } from 'next/navigation'; import { Suspense } from 'react'; import CampingHub from '@/components/camping/CampingHub'; import type { CampingOverview } from '@/lib/camping/overview-types'; export default function Page() { if(process.env.NODE_ENV !== 'development' || process.env.CAMPING_SMOKE !== '1') notFound(); return <main className="min-h-screen bg-neutral-50"><p>Labelled QA fixtures — synthetic availability</p><Suspense><CampingHub overview={${JSON.stringify(overview)} as unknown as CampingOverview} /></Suspense></main>; }`,
   );
   server = spawn(
     process.execPath,
@@ -218,11 +218,13 @@ try {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1100 },
   });
-  page.on("pageerror", (e) => errors.push(e.message));
-  await page.route("**/api/campsites?**", (route) => {
-    errors.push(
-      "The web hub must use its own detail endpoint, not the existing iOS API.",
-    );
+  page.on('pageerror', (e) => errors.push(e.message));
+  // Exercise the client with the AbortSignal statics missing, as on older Safari.
+  await page.addInitScript(() => {
+    for (const name of ['any', 'timeout']) Object.defineProperty(AbortSignal, name, { value: undefined, configurable: true });
+  });
+  await page.route('**/api/campsites?**', (route) => {
+    errors.push('The web hub must use its own detail endpoint, not the existing iOS API.');
     return route.abort();
   });
   await page.route("**/api/camping/stay?**", (route) => {
@@ -237,7 +239,12 @@ try {
       },
     });
   });
-  await page.route("**/api/camping/sites?**", (route) => {
+  let siteRequests = 0, photoRequests = 0, activePhotos = 0, maxPhotos = 0;
+  let failSiteRefresh = false, detailFetchedAt = at;
+  await page.route('**/api/camping/sites?**', async (route) => {
+    siteRequests++;
+    if (failSiteRefresh) return route.fulfill({ status: 503, json: { error: 'Fixture outage' } });
+    await new Promise(resolve => setTimeout(resolve, 250));
     const p = new URL(route.request().url()).searchParams;
     const facilityIndex = Number(p.get("facility").split("-").at(-1));
     const occupied = dates.filter(
@@ -264,9 +271,9 @@ try {
       return {
         site: {
           id: `site-${i + 1}`,
-          name: `Fixture site ${String(i + 1).padStart(2, "0")}`,
-          loop: "A",
-          siteType: "STANDARD ELECTRIC",
+          name: `${names[facilityIndex]} - Site ${String(i + 1).padStart(2, '0')}`,
+          loop: 'A',
+          siteType: 'STANDARD ELECTRIC',
           maxOccupancy: 6,
           bookingUrl: "https://www.recreation.gov/camping/campsites/123",
           nights: code.repeat(occupied.length),
@@ -305,10 +312,10 @@ try {
         });
     return route.fulfill({
       json: {
-        facilityId: p.get("facility"),
-        arrival: p.get("arrival"),
-        departure: p.get("departure"),
-        fetchedAt: at,
+        facilityId: p.get('facility'),
+        arrival: p.get('arrival'),
+        departure: p.get('departure'),
+        fetchedAt: detailFetchedAt,
         summary:
           facilityIndex === 1
             ? null
@@ -330,9 +337,16 @@ try {
   await page.route("**/camping-missing-photo-fixture.jpg", (route) =>
     route.fulfill({ status: 404, body: "" }),
   );
-  await page.route("**/api/campsites/photos?**", (route) =>
-    route.fulfill({ json: { photos: {} } }),
-  );
+  await page.route('**/api/campsites/photos?**', async route => {
+    photoRequests++; activePhotos++; maxPhotos = Math.max(maxPhotos, activePhotos);
+    const site = new URL(route.request().url()).searchParams.get('site');
+    await new Promise(resolve => setTimeout(resolve, 120));
+    activePhotos--;
+    return route.fulfill({ json: { photos: { [site]: site === 'site-2' ? [] : [
+      { url: '/lakes/table-rock.jpg', title: 'Labelled photo fixture', credit: 'Fixture credit', source: 'Recreation.gov' },
+      { url: '/lakes/nwk-truman-dam.jpg', title: 'Second labelled fixture', source: 'Recreation.gov' },
+    ] } } });
+  });
   await page.goto(`${origin}/camping-layout-check`);
   await page
     .getByRole("heading", { name: "Find your next campsite." })
@@ -369,7 +383,7 @@ try {
   const brokenPhotoCard = page
     .getByRole("article")
     .filter({ hasText: "Fixture · Booked campground" });
-  await brokenPhotoCard.scrollIntoViewIfNeeded();
+  await brokenPhotoCard.locator("[data-campground-photo]").scrollIntoViewIfNeeded();
   await brokenPhotoCard
     .getByText("Photo unavailable", { exact: true })
     .waitFor();
@@ -400,35 +414,33 @@ try {
     path: `${out}/desktop-list-fixture.png`,
     fullPage: true,
   });
-  await page.getByRole("button", { name: "View campground" }).first().click();
-  await page.getByRole("dialog").waitFor({ state: "visible" });
-  await page.getByText("Fixture site 01", { exact: true }).waitFor();
-  await page
-    .getByText("First come · No reservations", { exact: true })
-    .waitFor();
-  assert.equal(
-    await page
-      .getByText("Fixture · Seasonal closure site", { exact: true })
-      .count(),
-    0,
-  );
-  await page.getByLabel("Show unavailable sites", { exact: true }).check();
-  await page.getByText("Closed for your stay", { exact: true }).waitFor();
-  await page.getByText("First-come site when open", { exact: true }).waitFor();
-  assert.equal(
-    await page
-      .getByRole("link", { name: "Park’s camping rules ↗", exact: true })
-      .count(),
-    2,
-  );
+  await page.getByRole('button', { name: 'View campground' }).first().click();
+  await page.getByRole('dialog').waitFor({ state: 'visible' });
+  await page.getByText('Site 01', { exact: true }).waitFor();
+  await page.getByText('First come', { exact: true }).waitFor();
+  assert.equal(await page.getByText('Fixture · Seasonal closure site', { exact: true }).count(), 0);
+  await page.getByLabel('Show unavailable sites', { exact: true }).check();
+  await page.getByText('Closed', { exact: true }).waitFor();
+  await page.getByText('First-come site when open', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('link', { name: 'Park’s camping rules ↗', exact: true }).count(), 2);
   assert.match(page.url(), /campground=/);
-  await page
-    .getByRole("button", { name: "Site photos", exact: true })
-    .first()
-    .click();
-  await page
-    .getByText("No photos available for this site.", { exact: true })
-    .waitFor();
+  const photos = page.getByRole('button', { name: 'View photos of Site 01', exact: true });
+  await photos.waitFor();
+  assert.ok(photoRequests > 0 && photoRequests < 15, 'only nearby rows request photos automatically');
+  assert.ok(maxPhotos <= 3, 'optional media has at most three concurrent requests');
+  await page.getByRole('dialog').getByText('No site photo', { exact: true }).first().waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Site photos', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('dialog').getByRole('img', { name: names[0], exact: true }).count(), 1);
+  assert.match(await page.getByRole('link', { name: 'River map', exact: true }).getAttribute('href'), /access=fixture-access/);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  await page.getByRole('button', { name: 'Link copied', exact: true }).waitFor();
+  assert.match(await page.evaluate(() => navigator.clipboard.readText()), /campground=/);
+  await photos.click();
+  await page.getByRole('region', { name: 'Photos of Site 01' }).waitFor();
+  await page.getByRole('button', { name: 'Close photos', exact: true }).click();
+  assert.equal(await photos.evaluate(node => node === document.activeElement), true);
+  await page.getByRole('dialog').evaluate(node => node.scrollTop = 0);
   await page.screenshot({
     path: `${out}/desktop-detail-fixture.png`,
     fullPage: true,
@@ -444,7 +456,13 @@ try {
       .then((s) => s.startsWith("View campground")),
     true,
   );
-  const availableOnly = page.getByLabel("Available for my stay");
+  const beforeReopen = siteRequests;
+  await page.getByRole('button', { name: 'View campground' }).first().click();
+  await page.getByText('Site 01', { exact: true }).waitFor();
+  assert.equal(siteRequests, beforeReopen, 'recent details are reused on reopen');
+  await page.keyboard.press('Escape');
+  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  const availableOnly = page.getByLabel('Available for my stay');
   for (let i = 0; i < 3; i++) {
     await availableOnly.check();
     assert.equal(await availableOnly.isChecked(), true);
@@ -521,7 +539,7 @@ try {
   );
   await page.getByRole("button", { name: "Cards", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await brokenPhotoCard.scrollIntoViewIfNeeded();
+  await brokenPhotoCard.locator("[data-campground-photo]").scrollIntoViewIfNeeded();
   await brokenPhotoCard
     .getByText("Photo unavailable", { exact: true })
     .waitFor();
@@ -559,11 +577,49 @@ try {
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "View campground" }).first().click();
-  await page.getByText("Fixture site 01", { exact: true }).waitFor();
+  await page.getByText("Site 01", { exact: true }).waitFor();
   await page.screenshot({
     path: `${out}/mobile-detail-fixture.png`,
     fullPage: true,
   });
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const dialog = page.getByRole('dialog');
+    assert.ok(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth), 'dialog fits narrow screens');
+    await page.screenshot({ path: `${out}/detail-${width}-fixture.png`, fullPage: true });
+  }
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.screenshot({ path: `${out}/detail-dark-fixture.png`, fullPage: true });
+  await page.emulateMedia({ colorScheme: 'light' });
+  const dialog = page.getByRole('dialog');
+  const refreshAt = Date.now() + 61_000;
+  failSiteRefresh = true;
+  await page.clock.setFixedTime(new Date(refreshAt));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await dialog.getByRole('status').filter({ hasText: 'Couldn’t refresh.' }).waitFor();
+  assert.equal(await dialog.getByText('Site 01', { exact: true }).isVisible(), true, 'failed refresh retains the loaded list');
+  assert.equal(await dialog.locator('[data-state="available"]').count(), 40, 'still-fresh availability remains usable');
+  assert.equal(await dialog.getByRole('alert').count(), 0);
+  failSiteRefresh = false;
+  detailFetchedAt = new Date(refreshAt - overview.maxObservationAgeSeconds * 1000 + 30_000).toISOString();
+  const retryResponse = page.waitForResponse(response => response.url().includes('/api/camping/sites?') && response.status() === 200);
+  await dialog.getByRole('button', { name: 'Retry', exact: true }).click();
+  await retryResponse;
+  await dialog.getByRole('status').filter({ hasText: 'Couldn’t refresh.' }).waitFor({ state: 'hidden' });
+  await dialog.getByText(`Checked ${Math.floor(overview.maxObservationAgeSeconds / 3600) - 1}h ago`, { exact: true }).waitFor();
+  // Retry recovers a nearly-expired observation; the next failed refresh must
+  // still drop its green pills when the original observation ages out.
+  failSiteRefresh = true;
+  await page.clock.setFixedTime(new Date(refreshAt + 61_000));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await dialog.getByRole('status').filter({ hasText: 'Couldn’t refresh.' }).waitFor();
+  assert.equal(await dialog.locator('[data-state="available"]').count(), 0, 'retained data cannot extend observation freshness');
+  assert.equal(await dialog.getByText('Site 01', { exact: true }).count(), 0);
+  failSiteRefresh = false;
+  detailFetchedAt = at;
+  await dialog.getByRole('button', { name: 'Retry', exact: true }).click();
+  await dialog.getByText('Site 01', { exact: true }).waitFor();
+  await page.screenshot({ path: `${out}/detail-refresh-recovery-fixture.png`, fullPage: true });
   await page.goBack();
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   await page.getByLabel("Arrive", { exact: true }).fill(day);
@@ -587,11 +643,17 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Camping browser smoke passed: desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap.",
+    'Camping browser smoke passed: desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap, missing AbortSignal statics, refresh failure/recovery and expiry.',
   );
 } catch (error) {
   const failedPage = browser?.contexts()[0]?.pages()[0];
   if (failedPage) {
+    console.error("Page errors", errors);
+    console.error("Image state before screenshot", await failedPage.locator("[data-campground-photo] img").evaluateAll(images => images.map(image => ({
+      alt: image.alt, src: image.currentSrc, complete: image.complete,
+      naturalWidth: image.naturalWidth, rect: image.getBoundingClientRect().toJSON(),
+      scrollY, viewportHeight: innerHeight,
+    }))));
     await failedPage
       .screenshot({ path: `${out}/failure-fixture.png`, fullPage: true })
       .catch(() => {});
