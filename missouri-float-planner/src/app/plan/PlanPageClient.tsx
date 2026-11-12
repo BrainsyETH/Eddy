@@ -42,6 +42,7 @@ import { useConditionNetwork } from '@/hooks/useStatewideConditions';
 import type { AccessPoint, ConditionCode, FeedbackContext, Hazard, RiverListItem } from '@/types/api';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import { trackEvent } from '@/lib/analytics';
+import { shareOrCopy } from '@/lib/share-link';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
 import { useRiverVisualPins, useRegionalRiverVisualPins } from '@/hooks/useRiverVisualPins';
 import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
@@ -700,30 +701,19 @@ export default function PlanPageClient({
       // keep fallbackUrl
     }
 
-    const isMobile = window.matchMedia('(pointer: coarse)').matches;
-    if (isMobile && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Float Plan - ${river.name}`,
-          url: shareUrl,
-        });
-        trackEvent('plan_shared', { river: riverSlug ?? '', method: 'link' });
-        setShareStatus('idle');
-        return;
-      } catch {
-        // fall through to clipboard
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
+    const outcome = await shareOrCopy({ title: `Float Plan - ${river.name}`, url: shareUrl });
+    // Count a share only when the link left the page: not a dismissed sheet.
+    if (outcome === 'shared' || outcome === 'copied') {
       trackEvent('plan_shared', { river: riverSlug ?? '', method: 'link' });
+    }
+    if (outcome === 'copied') {
       setShareStatus('copied');
       setTimeout(() => setShareStatus('idle'), 2000);
-    } catch {
-      setShareStatus('idle');
-      window.prompt('Copy this link:', shareUrl);
+      return;
     }
+    setShareStatus('idle');
+    // Last resort when the clipboard is unavailable: show the link to copy by hand.
+    if (outcome === 'failed') window.prompt('Copy this link:', shareUrl);
   }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river, plan]);
 
   const handleDownloadImage = useCallback(async () => {
@@ -1214,6 +1204,8 @@ export default function PlanPageClient({
     <div className="min-h-screen bg-neutral-50">
       {/* OfflineBanner is rendered once globally in the root layout (above the
           header); no second copy here. */}
+      {/* The Share buttons (sidebar, sheet) only swap their label; say it aloud once here. */}
+      <span className="sr-only" role="status">{shareStatus === 'copied' ? 'Link copied' : ''}</span>
       {desktopMap}
 
       {/* ─── MOBILE: Full-screen map + bottom sheet ─── */}

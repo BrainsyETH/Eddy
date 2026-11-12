@@ -273,8 +273,9 @@ export default function PlanSummary({
           onClick={onShare}
           className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-neutral-900 bg-accent-500 text-white text-sm font-bold shadow-[2px_2px_0_#0F2D35] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[3px_3px_0_#0F2D35] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
         >
-          <Share2 className="w-4 h-4" />
-          <span className="hidden sm:inline">Share</span>
+          <Share2 className="w-4 h-4" aria-hidden />
+          {/* The word is hidden on phones; the button still needs its name there. */}
+          <span className="sr-only sm:not-sr-only">Share</span>
         </button>
       </div>
 
