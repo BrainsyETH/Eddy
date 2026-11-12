@@ -217,15 +217,17 @@ Three faults in the collector as first deployed, and what changed.
   the other dropped layers are not recoverable from these captures.
 - **Every observation run reported partial.** Two seeded stations had no stored
   readings. Big Piney near Houston (06928900) is inactive; migration
-  `20261112004500` disables its research basin and the seed script now skips
+  `20261112004411` disables its research basin and the seed script now skips
   inactive stations, leaving 49 enabled basins. Gasconade near Rich Fountain
   (06934000) was wired to its river without `curated = true`, so the gauge cron
   had skipped it since 2026-07-27 while USGS kept publishing. The same migration
   re-asserts "every wired station is curated", and the daily
   `gauge_wired_not_curated` trust rule reports any station that drifts again.
 
-The migration is pending until the owner applies it; until then runs stay
-partial for those two stations. Disabling a basin changes the basin set. It
+The migration was applied to production on 2026-11-12 and changed exactly two
+rows: `curated = true` on 06934000 and `enabled = false` on the 06928900 basin,
+leaving 55 curated stations and 49 enabled basins. Past captures were kept.
+Disabling a basin changes the basin set. It
 does not move the regional tile here, because the Houston basin lies inside the
 Big Piney near Big Piney basin, but check that before preparing weights.
 
