@@ -2,6 +2,10 @@
 
 Research only, like [study 2](README.md). Nothing here is approved for display.
 
+**Follow-up:** the [replay](REPLAY.md) tested an at-the-time version of the
+conditional estimate on 2019-2021. It came back inconclusive: too few
+estimates could be issued in those high-water years.
+
 **Question.** Do river height and wet weather change the delay to first rise
 near Norfork, does allowing for them hold up on years no analysis has touched,
 and what happens when a small release bump goes first?
