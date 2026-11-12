@@ -71,6 +71,7 @@ export function SavedFloatDetails({ saved, refreshing, error, onRetry, header }:
         </Text>
         <PlanDownstreamDams
           dams={details.damsBelowTakeOut}
+          above={details.hazardsAbovePutIn}
           riverSlug={saved.riverSlug}
           onOpenDetail={(destination) => navigate(() => router.push(destination))}
         />

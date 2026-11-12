@@ -175,6 +175,49 @@ const TAILWATERS: TailwaterSpec[] = [
     },
   },
   {
+    slug: 'beaver-tailwater',
+    gnisNames: ['White River'],
+    hucs: ['11010001'],
+    from: {
+      label: 'Beaver Dam',
+      lon: -93.847616666667,
+      lat: 36.421283333333,
+      source: 'CWMS /locations/Beaver_Dam?office=SWL (read 2026-11-12)',
+    },
+    to: {
+      label: 'Houseman Access boat ramp',
+      lon: -93.814377,
+      lat: 36.462934,
+      source:
+        'AGFC regulation N1.03 (eff. 2025-01-01): the Beaver tailwater runs ' +
+        '"from 100 yards below Beaver Dam to the boat ramp at Houseman Access". ' +
+        'Anchored on AGFC public-use facility 792 (Houseman Boat Ramp); ' +
+        'reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md.',
+    },
+    // AGFC publishes 7-7.5 mi; OSM measures 6.8.
+    expectMiles: [6, 8.5],
+    meta: {
+      name: 'Beaver Tailwater',
+      description: "Seven miles of cold trout water on the White River, from Beaver Dam to Houseman Access. Dam releases and Table Rock Lake both shape it: the lake backs up to within about a mile of the dam, so some stretches paddle like a lake. Releases can raise the water fast, and a quiet dam doesn't mean easy water or a safe time to wade. Check posted signs and current Arkansas Game and Fish Commission trout rules before you go.",
+      difficultyRating: 'Class I',
+      region: 'Ozarks',
+      state: 'AR',
+      timezone: 'America/Chicago',
+      riverType: 'dam_tailwater',
+      controllingDamId: 'swl-beaver-dam',
+      // NWS point for Bertrand Boat Ramp, mid-reach (TSA office, zone ARZ002).
+      weather: { city: 'Eureka Springs', lat: 36.4405, lon: -93.8338 },
+      alertSearchTerms: [
+        'beaver tailwater',
+        'beaver dam',
+        'white river',
+        'busch',
+        'eureka springs',
+        'carroll county',
+      ],
+    },
+  },
+  {
     slug: 'taneycomo',
     gnisNames: ['White River'],
     hucs: ['11010003'],
