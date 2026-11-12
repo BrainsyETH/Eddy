@@ -372,7 +372,8 @@
 .admin-body .border-neutral-600 {
   border-color: #dbd5ca;
 }
-.admin-body .text-white {
+.admin-body .text-white,
+.admin-body .text-neutral-100 {
   color: #2d2a24;
 }
 .admin-body .text-neutral-200,
@@ -411,6 +412,7 @@
     [class*='bg-primary-'],
     [class*='bg-blue-'],
     [class*='bg-red-'],
+    [class*='bg-rose-'],
     [class*='bg-green-'],
     [class*='bg-purple-']
   ) {
@@ -424,6 +426,7 @@
   color: #797265;
 }
 .admin-body .hover\:bg-neutral-700:hover,
+.admin-body .hover\:bg-neutral-750:hover,
 .admin-body .hover\:bg-neutral-800:hover {
   background-color: #e5ecea;
 }

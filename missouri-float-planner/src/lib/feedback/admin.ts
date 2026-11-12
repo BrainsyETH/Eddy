@@ -22,6 +22,57 @@ export const MAX_ADMIN_NOTES_LENGTH = 5000;
 
 export const FEEDBACK_PAGE_SIZE = 50;
 
+/** The support address published on /support; replies to it reach the Inbox. */
+export const FEEDBACK_SUPPORT_ADDRESS = 'eddy@eddy.guide';
+export const FEEDBACK_REPLY_SUBJECT = 'Re: your feedback to Eddy';
+
+/** From address for a feedback reply: RESEND_REPLY_FROM, else support. */
+export function feedbackReplyFrom(env: Record<string, string | undefined> = process.env): string {
+  const configured = env.RESEND_REPLY_FROM?.trim();
+  return configured && configured.includes('@') ? configured : FEEDBACK_SUPPORT_ADDRESS;
+}
+
+/** App Store reporting route for community photos; the remedy is a takedown. */
+export const REPORTED_PHOTO_TYPE = 'objectionable_content' satisfies FeedbackType;
+
+export interface ReportedPhotoContext {
+  /** The community_reports row behind the photo. */
+  reportId: string;
+  /** URL the reporter saw; may since have been taken down. */
+  imageUrl: string | null;
+  accessPointName: string | null;
+  description: string | null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Read the photo a "Reported Photo" item points at. Context data is
+ * client-submitted, so every field is checked: only a UUID can address a
+ * report, and only an https URL is rendered as an image.
+ */
+export function reportedPhotoContext(item: Pick<Feedback, 'feedbackType' | 'contextData'>): ReportedPhotoContext | null {
+  if (item.feedbackType !== REPORTED_PHOTO_TYPE || !item.contextData) return null;
+  const data = item.contextData;
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 500) : null);
+  const reportId = text(data.visualId);
+  if (!reportId || !UUID.test(reportId)) return null;
+  // Never truncated: a shortened URL is a different URL.
+  const url = typeof data.imageUrl === 'string' ? data.imageUrl.trim() : '';
+  let imageUrl: string | null = null;
+  try {
+    if (url && url.length <= 2048 && new URL(url).protocol === 'https:') imageUrl = url;
+  } catch {
+    /* Not a URL: show no preview. */
+  }
+  return {
+    reportId,
+    imageUrl,
+    accessPointName: text(data.accessPointName),
+    description: text(data.description),
+  };
+}
+
 export function mapFeedbackRow(row: FeedbackRow): Feedback {
   return {
     id: row.id,
@@ -38,6 +89,8 @@ export function mapFeedbackRow(row: FeedbackRow): Feedback {
     adminNotes: row.admin_notes,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
+    lastRepliedAt: row.last_replied_at ?? null,
+    lastRepliedBy: row.last_replied_by ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
