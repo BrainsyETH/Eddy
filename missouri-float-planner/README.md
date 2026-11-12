@@ -404,9 +404,11 @@ Screenshots and CSV downloads go to `.smoke-gauge` (override with `SMOKE_OUT`).
 
 The generation section includes an icon-and-label Share button. Its preview
 lets people select a posted date, share/copy/download the same PNG, or copy
-the live dam link. Dated image pages under `/dams/<id>/schedule/<date>` expose
-the widget-styled image and hourly text to crawlers. Ordinary dam previews
-remain timeless. See ADR 0015 for freshness, caching and native rollout.
+the live dam link. Dated pages and PNGs under `/dams/<id>/schedule/<date>` are
+public sharing utilities excluded from search with `noindex`. Expired dates
+return 410 with a link to the live dam page. Ordinary dam metadata, sitemap
+entries and previews stay unchanged. See ADR 0015 for freshness, caching and
+native rollout.
 
 The lakes and dams index uses compact cards with generation estimates, release,
 water temperature, and below-dam elevation where readings are available. Wider

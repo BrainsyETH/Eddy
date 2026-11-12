@@ -30,7 +30,7 @@ export function DamScheduleShareControl({ damId, name, dates }: { damId: string;
             title: damScheduleTitle(name, date),
             linkPath: () => linkPath,
             anchor,
-            failureMessage: status => status === 422 ? 'This dated schedule is unavailable. Open the dam for the latest schedule.' : null,
+            failureMessage: status => status === 410 || status === 422 ? 'This dated schedule is unavailable. Open the dam for the latest schedule.' : null,
             defaultFailure: 'Could not prepare this schedule image. Check your connection and try again, or share the dam link.',
           });
         } else if (index === choices.length) {

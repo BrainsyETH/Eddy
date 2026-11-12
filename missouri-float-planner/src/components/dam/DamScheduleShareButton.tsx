@@ -39,7 +39,7 @@ export default function DamScheduleShareButton({ damId, name, dates }: {
     void (async () => {
       try {
         const response = await fetch(damScheduleImagePath(damId, date), { signal: controller.signal });
-        if (response.status === 422) throw new Error('This dated schedule is unavailable. Open the dam for the latest schedule.');
+        if (response.status === 410 || response.status === 422) throw new Error('This dated schedule is unavailable. Open the dam for the latest schedule.');
         if (!response.ok || !response.headers.get('content-type')?.includes('image/png')) throw new Error('Could not prepare the image. Try again or copy the dam link.');
         const blob = await response.blob();
         if (!active) return;

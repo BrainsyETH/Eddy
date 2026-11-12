@@ -60,9 +60,9 @@ const variants = {
   ] } },
 };
 async function checkScheduleSharing(page, name, width) {
-  let imageFailure = false;
+  let imageFailure = 0;
   await page.route('**/dams/*/schedule/*/image.png', async route => {
-    if (imageFailure) return route.fulfill({ status: 503, body: 'Unavailable' });
+    if (imageFailure) return route.fulfill({ status: imageFailure, body: 'Unavailable' });
     const date = new URL(route.request().url()).pathname.split('/').at(-2);
     const response = await page.request.get(`${origin}/dam-layout-check/image?date=${date}`);
     await route.fulfill({ response });
@@ -110,17 +110,23 @@ async function checkScheduleSharing(page, name, width) {
   await shareDialog.screenshot({ path: `${out}/schedule-share-${name}.png` });
   await page.keyboard.press('Escape');
   assert(await scheduleShare.evaluate(el => el === document.activeElement), 'closing restores share button focus');
-  imageFailure = true;
+  imageFailure = 503;
   await scheduleShare.click();
   await shareDialog.getByRole('alert').waitFor();
   await shareDialog.getByRole('button', { name: 'Copy dam link', exact: true }).click();
   assert(await shareDialog.getByText('Dam link copied.', { exact: true }).isVisible(), 'link remains available after image failure');
-  imageFailure = false;
+  imageFailure = 0;
   await page.evaluate(() => Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => false }));
   await shareDialog.getByRole('button', { name: 'Try again', exact: true }).click();
   await shareDialog.getByRole('img', { name: /generation schedule for October 16/ }).waitFor();
   assert.equal(await shareDialog.getByRole('button', { name: 'Share image', exact: true }).count(), 0, 'unsupported file sharing retains copy and download');
   assert(await shareDialog.getByRole('link', { name: 'Download', exact: true }).isVisible());
+  await page.keyboard.press('Escape');
+  imageFailure = 410;
+  await scheduleShare.click();
+  await shareDialog.getByRole('alert').waitFor();
+  assert.match(await shareDialog.getByRole('alert').innerText(), /This dated schedule is unavailable/);
+  assert.equal(await shareDialog.getByRole('link', { name: 'View latest schedule', exact: true }).getAttribute('href'), `/dams/${dam.id}#generation`);
   await page.keyboard.press('Escape');
   await page.unroute('**/dams/*/schedule/*/image.png');
   console.log(`PASS ${name}: schedule sharing, date selection, real PNG, activation, download, cancellation, recovery and focus`);
@@ -203,6 +209,30 @@ export default function Page() {
     await new Promise(r => setTimeout(r, 1000));
   }
   assert(html.includes('Generation schedule') && html.includes('13,200'), `readings and schedule must be server-rendered\n${log.slice(-4000)}`);
+  const expiredUrl = `${origin}/dams/${dam.id}/schedule/2000-01-01`;
+  if (shareOnly) {
+    for (const userAgent of ['Mozilla/5.0', 'Googlebot', 'facebookexternalhit/1.1']) {
+      const response = await fetch(expiredUrl, { headers: { 'User-Agent': userAgent } });
+      assert.equal(response.status, 410, `${userAgent}: expired HTML has a real gone status before streaming`);
+      assert.equal(response.headers.get('x-robots-tag'), 'noindex');
+      assert((await response.text()).includes(`/dams/${dam.id}#generation`));
+    }
+    const png = await fetch(`${expiredUrl}/image.png`);
+    assert.equal(png.status, 410);
+    assert.equal(png.headers.get('x-robots-tag'), 'noindex');
+    const invalid = await fetch(`${origin}/dams/${dam.id}/schedule/invalid`);
+    assert.equal(invalid.status, 404);
+    assert.equal(invalid.headers.get('x-robots-tag'), 'noindex');
+    const ordinaryPreview = await fetch(`${origin}/dams/${dam.id}/opengraph-image/preview`);
+    assert.equal(ordinaryPreview.status, 200, 'the existing dam preview remains available');
+    assert.equal(ordinaryPreview.headers.get('x-robots-tag'), null, 'dated-route exclusion never reaches the normal preview');
+    console.log('PASS search exclusion, real expired/invalid HTTP statuses, and unchanged ordinary dam preview');
+    // Compile the fixture renderer before the client fetch's 30-second timeout.
+    const fixtureImage = await fetch(`${origin}/dam-layout-check/image?date=2026-10-16`);
+    assert.equal(fixtureImage.status, 200, 'fixture renderer produces a real schedule PNG');
+    assert.equal(fixtureImage.headers.get('content-type'), 'image/png');
+    await fixtureImage.arrayBuffer();
+  }
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
   const errors = [];
@@ -211,10 +241,19 @@ export default function Page() {
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
+    // The shared header uses a remote logo through Next's local image optimizer.
+    // Keep fixture checks offline, including server-side optimized image fetches.
+    await page.route('**/_next/image?**', r => r.abort());
     if (shareOnly) {
       await page.goto(url, { waitUntil: 'networkidle' });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: schedule has no horizontal overflow`);
       await checkScheduleSharing(page, name, width);
+      const expired = await page.goto(expiredUrl, { waitUntil: 'networkidle' });
+      assert.equal(expired.status(), 410);
+      assert(await page.getByRole('heading', { name: 'This schedule has expired' }).isVisible());
+      assert.equal(await page.getByRole('link', { name: `Latest ${dam.name} schedule` }).getAttribute('href'), `/dams/${dam.id}#generation`);
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: expired page fits`);
+      await page.screenshot({ path: `${out}/schedule-expired-${name}.png` });
       await page.close();
       continue;
     }

@@ -11,6 +11,13 @@ import { legacyRiverRedirect } from '@/lib/navigation/legacy-river-redirect';
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Keep the dated-share registry/rendering code off ordinary request paths.
+  if (pathname.startsWith('/dams/') && pathname.includes('/schedule/')) {
+    const { damSchedulePageResponse } = await import('@/lib/dam-schedule-page-response');
+    const scheduleResponse = damSchedulePageResponse(request);
+    if (scheduleResponse) return scheduleResponse;
+  }
+
   const gaugeResponse = await gaugeShareRedirect(request);
   if (gaugeResponse) return gaugeResponse;
 

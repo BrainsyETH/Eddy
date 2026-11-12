@@ -5,6 +5,8 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import * as nextServer from 'next/server';
 import * as share from '@shared/dam-schedule-share';
+import * as indexing from './dam-schedule-indexing';
+import { damSchedulePageResponse } from './dam-schedule-page-response';
 import { damScheduleShare, damScheduleImagePath, shareableScheduleDates, validScheduleDate } from '@shared/dam-schedule-share';
 import { damWidgetSnapshot } from '@shared/dam-widget';
 import { renderDamSchedule } from './og/render-dam-schedule';
@@ -99,6 +101,7 @@ test('public image route preserves the exact date, canonical URL and uncached fa
   const dependencies: Record<string, unknown> = {
     'next/server': nextServer,
     '@shared/dam-schedule-share': share,
+    '@/lib/dam-schedule-indexing': { ...indexing, damScheduleExpired: (date: string) => indexing.damScheduleExpired(date, now) },
     '@/lib/flow-providers/usace-registry': { getUsaceDam: (id: string) => id === model.damId ? { swpaCode: 'FGD' } : null },
     '@/lib/dam-schedule-share': { loadDamScheduleShare: async (id: string, date: string) => {
       assert.equal(id, model.damId);
@@ -127,20 +130,79 @@ test('public image route preserves the exact date, canonical URL and uncached fa
   );
   assert.equal((await request('invalid')).status, 404);
   assert.equal((await request(model.date, '', 'unknown')).status, 404);
+  const expired = await request('2026-11-11');
+  assert.equal(expired.status, 410);
+  assert.equal(expired.headers.get('X-Robots-Tag'), 'noindex');
   const redirect = await request(model.date, '?download=1');
   assert.equal(redirect.status, 308);
   assert.equal(redirect.headers.get('Location'), `https://eddy.guide${model.imagePath}`);
   assert.deepEqual(loads, [], 'rejected and noncanonical requests do not fetch a snapshot');
   const image = await request();
   assert.equal(image.headers.get('Content-Type'), 'image/png');
+  assert.equal(image.headers.get('X-Robots-Tag'), 'noindex');
   assert.equal(image.headers.get('Cache-Control'), 'public, max-age=60, s-maxage=300');
   assert.match(image.headers.get('Content-Disposition')!, /2026-11-12-schedule\.png/);
   assert.equal(loads[0], model.date);
-  for (const [state, status] of [['absent', 422], ['failed', 503], ['limited', 429]] as const) {
+  for (const [state, status] of [['absent', 503], ['failed', 503], ['limited', 429]] as const) {
     mode = state;
     const failure = await request();
     assert.equal(failure.status, status);
     assert.equal(failure.headers.get('Cache-Control'), 'no-store');
+    assert.equal(failure.headers.get('X-Robots-Tag'), 'noindex');
     assert.notEqual(failure.headers.get('Content-Type'), 'image/png');
   }
+});
+
+test('expired pages return 410 before streaming, with a live-dam link and no upstream lookup', async () => {
+  const request = (path: string) => new nextServer.NextRequest(`https://eddy.guide${path}`);
+  const path = '/dams/swt-fort-gibson-dam/schedule/2026-11-11';
+  const response = damSchedulePageResponse(request(path), now)!;
+  assert.equal(response.status, 410);
+  assert.equal(response.headers.get('X-Robots-Tag'), 'noindex');
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  const html = await response.text();
+  assert.match(html, /This schedule has expired/);
+  assert.match(html, /href="\/dams\/swt-fort-gibson-dam#generation"/);
+  assert.match(html, /noindex, follow/);
+  assert.equal(damSchedulePageResponse(request('/dams/unknown/schedule/2026-11-11'), now)!.status, 404);
+  assert.equal(damSchedulePageResponse(request('/dams/swt-fort-gibson-dam/schedule/2026-02-30'), now)!.status, 404);
+  for (const unchanged of ['/dams', '/dams/swt-fort-gibson-dam', '/dams/swt-fort-gibson-dam/opengraph-image/preview',
+    '/dams/swt-fort-gibson-dam/schedule/2026-11-12', '/dams/swt-fort-gibson-dam/schedule/2026-11-13', '/rivers', '/sitemap.xml'])
+    assert.equal(damSchedulePageResponse(request(unchanged), now), null, unchanged);
+  // Central midnight, including the fall DST transition; UTC midnight is not expiry.
+  assert.equal(indexing.damScheduleExpired('2026-11-01', Date.parse('2026-11-02T05:59:59Z')), false);
+  assert.equal(indexing.damScheduleExpired('2026-11-01', Date.parse('2026-11-02T06:00:00Z')), true);
+});
+
+test('dated page metadata always excludes search while preserving successful share previews', async () => {
+  const model = damScheduleShare(scheduleShareFixture(), '2026-11-12', now)!;
+  let available = true;
+  const dependencies: Record<string, unknown> = {
+    'react/jsx-runtime': {}, 'next/link': {}, 'next/server': {}, 'next/navigation': {}, 'lucide-react': {},
+    '@shared/dam-schedule-share': share,
+    '@/lib/flow-providers/usace-registry': { getUsaceDam: () => ({ name: model.name, swpaCode: 'FGD' }) },
+    '@/lib/dam-schedule-share': { loadDamScheduleShare: async () => available ? model : null },
+    '@/lib/dam-schedule-indexing': indexing,
+    '@/lib/json-ld': {}, '@/lib/dam-page-copy': { SITE_URL: 'https://eddy.guide' },
+    '@/components/dam/DamScheduleShareButton': {},
+  };
+  const exports: { generateMetadata?: (props: { params: Promise<{ damId: string; date: string }> }) => Promise<import('next').Metadata> } = {};
+  const source = readFileSync('src/app/dams/[damId]/schedule/[date]/page.tsx', 'utf8');
+  runInNewContext(ts.transpileModule(source, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+  } }).outputText, { exports, require: (name: string) => {
+    assert.ok(name in dependencies, `Unexpected page dependency: ${name}`);
+    return dependencies[name];
+  } });
+  const props = { params: Promise.resolve({ damId: model.damId, date: model.date }) };
+  const metadata = await exports.generateMetadata!(props);
+  assert.deepEqual(metadata.robots, { index: false, follow: true });
+  assert.equal(metadata.alternates, undefined, 'utility pages do not nominate a competing canonical');
+  assert.equal(metadata.openGraph?.url, `https://eddy.guide${model.pagePath}`);
+  assert.match(JSON.stringify(metadata.openGraph?.images), /2026-11-12\/image.png/);
+  assert.match(JSON.stringify(metadata.twitter?.images), /2026-11-12\/image.png/);
+  available = false;
+  const unavailable = await exports.generateMetadata!(props);
+  assert.deepEqual(unavailable.robots, { index: false, follow: true });
+  assert.equal(JSON.stringify(unavailable.openGraph?.images), '[]');
 });

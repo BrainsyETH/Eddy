@@ -206,6 +206,12 @@ const nextConfig = {
           },
         ],
       },
+      // Dated sharing utilities (HTML and PNG), including streamed/error responses.
+      // Keep the live /dams/:damId page and its normal preview images searchable.
+      {
+        source: '/dams/:damId/schedule/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
+      },
       // Last match wins. These authenticated, self-contained documents embed
       // fonts as data URLs; the normal app policy would block those fonts.
       // Keep this policy here: config headers override Route Handler headers.

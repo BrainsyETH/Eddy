@@ -119,16 +119,28 @@ paid Read, or safety verdict. A date is fixed, but source revisions are not:
 preparation reads the latest available posted plan for that date. The preview
 and attachment share the same fetched bytes.
 
-The public dated landing page renders a standard HTML image, text provenance
-and an accessible hourly table. The main schedule's Share link reaches it even
-without JavaScript. These paths are crawlable without opening `/embed/` or
-changing ordinary dam link previews. Image discovery and display by search
-engines are not guaranteed. An unavailable date has a noindex explanation and
-link to the current dam; its image returns a non-image 422, never another day.
-This is not a historical schedule archive. Invalid dams/dates return 404,
-transient failures 503. Images are free public presentation, outside x402;
-canonical query removal, a 60/minute/IP fail-closed render limit, one-minute
-browser/five-minute CDN caching and no-store errors bound requests.
+The dated landing page is a public sharing utility, always `noindex, follow`,
+with a standard HTML image, provenance and an accessible hourly table. It has
+no competing canonical nomination and is absent from the sitemap. A narrowly
+scoped `X-Robots-Tag: noindex` covers both the dated HTML and PNG, including
+error responses. These resources remain crawlable so crawlers can read the
+directive and sharing services can fetch OG metadata and images. Do not block
+them in robots.txt. This release deliberately excludes dated exports from
+Google web and image results; visual search discovery belongs in a separate
+change around the permanent dam page. Its metadata, canonical, content,
+sitemap entry and ordinary previews stay unchanged.
+
+This is not a historical schedule archive. After Central midnight, the dated
+HTML and image return 410. A narrow proxy check returns the HTML status before
+Next's loading boundary can stream a 200, with a branded explanation and a
+prominent live-dam link; it performs no upstream lookup. Invalid links return
+404. A missing current/future schedule is treated as temporary: the noindex
+page offers a retry explanation and live-dam link, and the image returns 503.
+Neither substitutes another date or treats a provider outage as permanent loss.
+Images are free public presentation, outside x402; canonical query removal,
+a 60/minute/IP fail-closed render limit, one-minute browser/five-minute CDN
+caching and no-store errors bound requests. Shares send the live-dam URL
+alongside the PNG, and image preparation starts only after opening Share.
 
 Deploy the web image route before distributing the iOS change. Native activity
 sheet appearance and delivery to Messages, Mail, Files and AirDrop remain

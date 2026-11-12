@@ -9,20 +9,20 @@ import { loadDamScheduleShare } from '@/lib/dam-schedule-share';
 import { jsonLdString } from '@/lib/json-ld';
 import { SITE_URL } from '@/lib/dam-page-copy';
 import DamScheduleShareButton from '@/components/dam/DamScheduleShareButton';
+import { DAM_SCHEDULE_ROBOTS, damScheduleExpired } from '@/lib/dam-schedule-indexing';
 
 type Props = { params: Promise<{ damId: string; date: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { damId, date } = await params;
   const dam = getUsaceDam(damId);
-  if (!dam?.swpaCode || !validScheduleDate(date)) return { title: 'Schedule not found', robots: { index: false } };
+  if (!dam?.swpaCode || !validScheduleDate(date)) return { title: 'Schedule not found', robots: DAM_SCHEDULE_ROBOTS };
   const model = await loadDamScheduleShare(damId, date);
   const title = damScheduleTitle(dam.name, date);
   const description = `${dam.name}'s posted generation schedule for ${scheduleShareDate(date)}, Central Time. Source: Southwestern Power Administration. Schedules can change.`;
   return {
     title, description,
-    alternates: { canonical: `${SITE_URL}${damSchedulePath(damId, date)}` },
-    robots: { index: Boolean(model), follow: true, googleBot: { 'max-image-preview': 'large' } },
+    robots: DAM_SCHEDULE_ROBOTS,
     openGraph: { title, description, type: 'website', url: `${SITE_URL}${damSchedulePath(damId, date)}`,
       images: model ? [{ url: `${SITE_URL}${model.imagePath}`, ...DAM_SCHEDULE_IMAGE_SIZE, alt: title }] : [] },
     twitter: { card: 'summary_large_image', title, description, images: model ? [`${SITE_URL}${model.imagePath}`] : [] },
@@ -34,6 +34,7 @@ export default async function ScheduleImagePage({ params }: Props) {
   const { damId, date } = await params;
   const dam = getUsaceDam(damId);
   if (!dam?.swpaCode || !validScheduleDate(date)) notFound();
+  if (damScheduleExpired(date)) notFound(); // Proxy sends 410 before streaming on direct requests.
   const model = await loadDamScheduleShare(damId, date);
   const livePath = `/dams/${damId}#generation`;
   return <main className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
@@ -44,7 +45,7 @@ export default async function ScheduleImagePage({ params }: Props) {
     </div>
     {model ? <>
       <figure>
-        {/* A real, server-rendered image on its dated landing page for crawlers and sharing. */}
+        {/* Public for sharing and previews; this utility and its image are noindex. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={model.imagePath} alt={`${damScheduleTitle(dam.name, date)}. ${model.summary}. ${model.checked}.`} {...DAM_SCHEDULE_IMAGE_SIZE} className="h-auto w-full rounded-xl" />
         <figcaption className="mt-3 space-y-1 text-sm text-neutral-600"><p>{model.summary}</p><p>{model.checked}</p><p>Source: {model.source}</p>{model.warning && <p className="font-medium text-accent-800">{model.warning}</p>}<p>Schedules can change. Times are at the dam; water arrives downstream later. No generation does not mean no water release.</p></figcaption>
@@ -60,6 +61,6 @@ export default async function ScheduleImagePage({ params }: Props) {
         creator: { '@type': 'Organization', name: 'Eddy', url: SITE_URL },
         ...DAM_SCHEDULE_IMAGE_SIZE,
       }) }} />
-    </> : <div className="rounded-xl border border-neutral-200 bg-white p-6"><h2 className="font-heading text-lg font-bold">This dated schedule is unavailable</h2><p className="mt-2 text-neutral-600">A posted schedule is unavailable for this date. Check the dam page for the latest information.</p><Link href={livePath} className="btn-outline mt-4 min-h-11">View latest schedule</Link></div>}
+    </> : <div className="rounded-xl border border-neutral-200 bg-white p-6"><h2 className="font-heading text-lg font-bold">Schedule temporarily unavailable</h2><p className="mt-2 text-neutral-600">We couldn’t load a posted schedule for this date. Try again later or check the latest dam information.</p><Link href={livePath} className="btn-outline mt-4 min-h-11">View latest schedule</Link></div>}
   </main>;
 }
