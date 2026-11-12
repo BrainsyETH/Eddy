@@ -104,6 +104,32 @@ export function validateTiff(bytes: Uint8Array, tile: Tile): void {
     || Math.abs(tie[3] - tile.xmin) > 0.01 || Math.abs(tie[4] - tile.ymax) > 0.01) throw new Error('TIFF is not the requested native F32 grid');
 }
 
+/** NWS answers a coordinate with more than four decimals with a 301 to the
+ * rounded point, and the collector refuses redirects. Four decimals is about
+ * 11 m, far inside one 2.5 km forecast cell, so the mapped cell is the same. */
+export function pointUrl(coordinates: number[]): string {
+  const [lon, lat] = coordinates;
+  if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lon) > 180 || Math.abs(lat) > 90) throw new Error('Invalid forecast sample point');
+  return `https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`;
+}
+/** The only gridpoint layers a rain study reads. A full response carries about
+ * sixty; archiving all of them for every cell and version is eleven times the
+ * bytes with nothing a rainfall comparison can use. */
+export const FORECAST_LAYERS = ['quantitativePrecipitation', 'probabilityOfPrecipitation', 'snowfallAmount', 'iceAccumulation'] as const;
+/** Keep the forecast's identity (grid, update time, validity) and its
+ * precipitation layers exactly as issued. Every other layer is dropped by name
+ * and counted, so the archive says what it left out. */
+export function forecastArchive(value: unknown) {
+  const source = object(value), properties = object(source.properties);
+  const kept: Record<string, unknown> = {}, dropped: string[] = [];
+  for (const [key, entry] of Object.entries(properties)) {
+    const layer = !!entry && typeof entry === 'object' && !Array.isArray(entry) && Array.isArray((entry as { values?: unknown }).values);
+    if (!layer || (FORECAST_LAYERS as readonly string[]).includes(key)) kept[key] = entry;
+    else dropped.push(key);
+  }
+  const document: Record<string, unknown> & { properties: Record<string, unknown> } = { ...source, properties: kept };
+  return { document, layers: FORECAST_LAYERS.filter(key => key in kept), droppedLayers: dropped.sort() };
+}
 export function forecastUrl(value: unknown): string {
   const url = new URL(String(value));
   if (url.origin !== 'https://api.weather.gov' || !/^\/gridpoints\/[A-Z]{3}\/\d+,\d+$/.test(url.pathname) || url.search || url.hash) throw new Error('Unexpected NWS grid URL');

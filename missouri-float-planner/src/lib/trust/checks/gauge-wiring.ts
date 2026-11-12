@@ -92,6 +92,42 @@ export function deriveDualPrimaryFindings(links: GaugeRiverLink[]): RawFinding[]
   return findings.sort((a, b) => a.title.localeCompare(b.title));
 }
 
+export interface WiredStation {
+  gaugeStationId: string;
+  gaugeLabel: string;
+  curated: boolean;
+  active: boolean;
+  riverSlugs: string[];
+}
+
+/**
+ * Pure. Reports active stations that are wired to a river but not curated.
+ *
+ * Migration 00196 states the rule — "every station wired to a river is curated,
+ * by definition" — and applied it once. Nothing kept it true afterwards, and
+ * the gauge cron reads curated and starred stations only. A station wired later
+ * without the flag therefore looks correct everywhere while its readings stop:
+ * Gasconade near Rich Fountain sat frozen at 2026-07-27 for three months while
+ * USGS kept publishing. stale_gauge did not see it because that rule follows a
+ * river's primary gauge, and this was a secondary one.
+ *
+ * Inactive stations are left out: they are deliberately not polled, so the flag
+ * changes nothing for them.
+ */
+export function deriveUncuratedWiringFindings(stations: WiredStation[]): RawFinding[] {
+  return stations
+    .filter((station) => station.active && !station.curated && station.riverSlugs.length > 0)
+    .map((station) => ({
+      entityType: 'gauge' as const,
+      entityKey: station.gaugeStationId,
+      ruleKey: 'gauge_wired_not_curated',
+      title: `${station.gaugeLabel}: wired to a river but not curated`,
+      detail: `Wired to ${[...station.riverSlugs].sort().join(', ')} with curated = false. The gauge cron skips stations that are neither curated nor starred, so this gauge's stored readings are not being updated.`,
+      evidence: { gaugeStationId: station.gaugeStationId, rivers: [...station.riverSlugs].sort() },
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
 export const gaugeWiringCheck: TrustCheck = {
   id: 'gauge_wiring',
   title: 'Gauge-to-river wiring',
@@ -127,6 +163,37 @@ export const gaugeWiringCheck: TrustCheck = {
     // Scope is the primary links examined. Zero of them means either every
     // river lost its primary gauge or the query is broken, and both deserve the
     // empty_scope refusal rather than a clean sweep.
-    return { scopeCount: links.length, findings: deriveDualPrimaryFindings(links) };
+    // Every link this time, primary or not: the station that went stale was a
+    // secondary gauge. Paged, because PostgREST caps a response at 1,000 rows
+    // and a truncated read would resolve real findings as fixed.
+    const wired = new Map<string, WiredStation>();
+    for (let offset = 0; ; offset += 1000) {
+      const page = await ctx.supabase
+        .from('river_gauges')
+        .select('id, gauge_station_id, rivers!inner(slug), gauge_stations!inner(name, usgs_site_id, curated, active)')
+        .order('id')
+        .range(offset, offset + 999);
+      if (page.error) throw new Error(`Failed to load wired stations: ${page.error.message}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of (page.data ?? []) as any[]) {
+        const station: WiredStation = wired.get(row.gauge_station_id) ?? {
+          gaugeStationId: row.gauge_station_id,
+          gaugeLabel: row.gauge_stations?.usgs_site_id
+            ? `${row.gauge_stations.name} (${row.gauge_stations.usgs_site_id})`
+            : (row.gauge_stations?.name ?? row.gauge_station_id),
+          curated: row.gauge_stations?.curated === true,
+          active: row.gauge_stations?.active === true,
+          riverSlugs: [],
+        };
+        station.riverSlugs.push(row.rivers?.slug ?? 'unknown');
+        wired.set(row.gauge_station_id, station);
+      }
+      if ((page.data?.length ?? 0) < 1000) break;
+    }
+
+    return {
+      scopeCount: links.length,
+      findings: [...deriveDualPrimaryFindings(links), ...deriveUncuratedWiringFindings([...wired.values()])],
+    };
   },
 };

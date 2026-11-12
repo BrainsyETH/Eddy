@@ -82,7 +82,7 @@ export const EDDY_KNOWLEDGE_RULES = [
   'knowledge_missing_section',
 ] as const;
 
-export const GAUGE_WIRING_RULES = ['gauge_dual_primary'] as const;
+export const GAUGE_WIRING_RULES = ['gauge_dual_primary', 'gauge_wired_not_curated'] as const;
 
 /**
  * Rules the usgs_site_drift check emits — the only ones in this file that
@@ -216,6 +216,10 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // A gauge that is primary for two rivers makes find(isPrimary) arbitrary —
   // the misassociation class docs/gauge-alerting-misalignment-audit.md is about.
   gauge_dual_primary: 'high',
+  // A wired station the gauge cron is skipping. Its stored reading is frozen
+  // while every surface still presents it as that river's gauge, and nothing
+  // else reports it when the station is a secondary one.
+  gauge_wired_not_curated: 'high',
   // A stored site id USGS has no record of. Nothing will ever read from it, so
   // the gauge is inert whatever the rest of the row says.
   usgs_site_unknown: 'high',
