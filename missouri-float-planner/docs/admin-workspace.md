@@ -101,9 +101,42 @@ Vercel environment; the latest attempted deployment has a separate history link.
   **Remove photo** rejects the report and deletes the file permanently. Either
   action resolves a pending flag. **Open in Reports** links `/admin/reports?id=`,
   which shows only that report until "Show all reports".
+- Feedback can be searched (message, name, email, place name) and filtered by
+  type and status. A type filter or search lists matching reported photos in
+  place instead of pinning them. Each item's context shows as links (river or
+  gauge page, access-point editor and public page) and readable facts; the raw
+  context object stays available under "Raw data".
+- Inbound email can be searched (sender, subject, text) and triaged in bulk:
+  select messages on the current page, or all of them, then mark Read, Unread,
+  Archive or Spam in one request (`PATCH /api/admin/inbound-emails`, at most
+  100 ids). Selection clears when the filter, search or page changes.
+- Feedback items can be answered in place. The reply uses the same composer,
+  templates and rendering as inbound email, quotes the original message, and
+  sends from `RESEND_REPLY_FROM` or else the published support address
+  (`eddy@eddy.guide`), so an answer comes back to the Inbox. A reply moves a
+  pending item to Reviewed and records `last_replied_at`/`last_replied_by`
+  (migration `20261112010743_feedback_reply_tracking.sql`, applied to
+  production 2026-11-12). If those columns are ever missing, the reply still
+  sends and the screen says the reply time was not recorded.
 - The mobile navigation uses a bounded native dialog with Escape/focus handling.
   Navigation and editor surfaces use the existing Eddy teal/sand palette. Pin up
   to four account-specific shortcuts from page headers.
+
+## Float contributions
+
+Admin → Float contributions reviews floats people chose to share. It never
+changes public estimates. The page compares each route's median measured
+moving pace with the median Eddy estimate the paddler planned with (`plannerMph`),
+counts distinct accounts (several trips by one group are not independent), and
+shows the flow range seen. Each trip lists quality checks and can be marked
+**Use** or **Exclude**; pressing the active choice clears it. Excluded trips
+stay listed but leave the route summary.
+
+Decisions live in `float_contribution_reviews` (service role only, RLS on),
+keyed to the archive row and deleted with it. Migration
+`20261112011151_float_contribution_reviews.sql` (applied to production
+2026-11-12); if the table is ever unavailable the page loads read-only and says so. The summary reads the newest 2,000 contributed
+trips and says when that cap is reached.
 
 ## Jobs, incidents and audit history
 

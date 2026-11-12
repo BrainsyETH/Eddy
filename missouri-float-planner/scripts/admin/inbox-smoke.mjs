@@ -103,9 +103,23 @@ try {
       userId: null,
     };
     const reportWrites = [];
+    const replies = [];
+    const searches = [];
     // Older than every other item: before pinning it sat on the last page.
     const feedback = [
-      ...Array.from({ length: 51 }, (_, i) => feedbackItem(i + 1)),
+      ...Array.from({ length: 51 }, (_, i) =>
+        i === 0
+          ? feedbackItem(1, {
+              feedbackType: 'gauge_recalibration',
+              contextType: 'gauge',
+              contextId: '07067000',
+              contextName: 'Current River at Van Buren',
+              contextData: { gaugeHeightFt: 3.2, dischargeCfs: 450, conditionCode: 'good', reportedAt: '2026-07-04T19:10:00Z' },
+              // Resolved server-side by /api/feedback.
+              contextLinks: [{ label: 'Gauge 07067000', href: '/gauges/07067000', external: true }],
+            })
+          : feedbackItem(i + 1),
+      ),
       feedbackItem(99, {
         feedbackType: 'objectionable_content',
         message: 'This photo shows a person',
@@ -116,7 +130,15 @@ try {
       }),
     ];
     const feedbackPatches = [];
-    const emails = [emailItem(1), emailItem(2)];
+    const emails = [
+      emailItem(1),
+      emailItem(2),
+      { ...emailItem(3), status: 'archived' },
+      { ...emailItem(4), status: 'archived' },
+      { ...emailItem(5), status: 'read' },
+    ];
+    const emailSearches = [];
+    const bulkWrites = [];
     let serverUnread = 7;
     const context = await browser.newContext({ viewport });
     const page = await context.newPage();
@@ -134,8 +156,11 @@ try {
       assert.ok(limit <= 100, 'feedback page size stays bounded');
       const type = url.searchParams.get('type');
       const pinnedPhotos = url.searchParams.get('pinned') === 'photos';
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      if (q) searches.push(q);
       const rows = feedback.filter(
         (f) =>
+          (!q || `${f.message} ${f.userEmail}`.toLowerCase().includes(q)) &&
           (!status || f.status === status) &&
           (!type || f.feedbackType === type) &&
           !(pinnedPhotos && f.status === 'pending' && f.feedbackType === 'objectionable_content'),
@@ -164,6 +189,21 @@ try {
       }
       if (path === '/api/admin/stats')
         return json(route, { stats: { pendingFeedback: 51, unapprovedAccessPoints: 0, openCriticalFindings: 0 } });
+      if (/^\/api\/admin\/feedback\/[^/]+\/reply$/.test(path)) {
+        const id = path.split('/')[4];
+        replies.push({ kind: 'feedback', id, ...request.postDataJSON() });
+        const row = feedback.find((f) => f.id === id);
+        Object.assign(row, { status: row.status === 'pending' ? 'reviewed' : row.status, lastRepliedAt: '2026-11-11T20:00:00Z', lastRepliedBy: 'Owner recovery' });
+        return json(route, { feedback: row, from: 'eddy@eddy.guide', warning: null });
+      }
+      if (/^\/api\/admin\/inbound-emails\/[^/]+\/reply$/.test(path)) {
+        const id = path.split('/')[4];
+        replies.push({ kind: 'email', id, ...request.postDataJSON() });
+        const row = emails.find((e) => e.id === id);
+        if (row.status === 'unread') serverUnread--;
+        Object.assign(row, { status: 'read', lastRepliedAt: '2026-11-11T20:00:00Z' });
+        return json(route, { email: row, unread: serverUnread });
+      }
       if (path.startsWith('/api/admin/feedback/')) {
         const id = path.split('/').pop();
         const body = request.postDataJSON();
@@ -185,9 +225,23 @@ try {
         assert.equal(url.searchParams.get('id'), photoReportId, 'Reports opens the linked report only');
         return json(route, { reports: [photoReport], total: 1 });
       }
+      if (path === '/api/admin/inbound-emails' && request.method() === 'PATCH') {
+        const { ids, status } = request.postDataJSON();
+        bulkWrites.push({ ids, status });
+        for (const row of emails.filter((e) => ids.includes(e.id))) {
+          if (row.status === 'unread' && status !== 'unread') serverUnread--;
+          if (row.status !== 'unread' && status === 'unread') serverUnread++;
+          row.status = status;
+        }
+        return json(route, { updated: ids.length, unread: serverUnread });
+      }
       if (path === '/api/admin/inbound-emails') {
         const status = url.searchParams.get('status');
-        const rows = emails.filter((e) => !status || e.status === status);
+        const q = (url.searchParams.get('q') ?? '').toLowerCase();
+        if (q) emailSearches.push(q);
+        const rows = emails.filter(
+          (e) => (!status || e.status === status) && (!q || `${e.fromAddress} ${e.subject}`.toLowerCase().includes(q)),
+        );
         return json(route, { emails: rows, total: rows.length, unread: serverUnread });
       }
       if (path.startsWith('/api/admin/inbound-emails/')) {
@@ -213,6 +267,33 @@ try {
       await pinned.getByText('This photo shows a person').waitFor();
       assert.equal(await page.getByText('This photo shows a person').count(), 1);
 
+      // Context reads as facts and links instead of JSON.
+      await page.getByText('Feedback message 1', { exact: true }).click();
+      await page.getByText('3.2 ft · 450 cfs').waitFor();
+      await page.getByText('Condition shown').waitFor();
+      assert.equal(
+        await page.getByRole('link', { name: 'Gauge 07067000' }).getAttribute('href'),
+        '/gauges/07067000',
+      );
+      assert.equal(await page.getByText('"gaugeHeightFt"').isVisible(), false, 'raw JSON is folded away');
+      await page.screenshot({ path: `${out}/inbox-context-${label}.png`, fullPage: true });
+      await page.getByText('Feedback message 1', { exact: true }).first().click();
+
+      // A type filter lists matching photo reports in place, unpinned.
+      await page.getByLabel('Type:').selectOption('objectionable_content');
+      await page.getByText('1–1 of 1 items').waitFor();
+      assert.equal(await page.getByRole('region', { name: /Reported photos/ }).count(), 0);
+      await page.getByText('This photo shows a person').waitFor();
+      await page.getByLabel('Type:').selectOption('all');
+
+      // Search is debounced and sent to the server.
+      await page.getByLabel('Search feedback').fill('paddler7@');
+      await page.getByText('1–1 of 1 items').waitFor();
+      await page.getByText('Feedback message 7', { exact: true }).waitFor();
+      assert.deepEqual(searches, ['paddler7@'], 'one request after typing stops');
+      await page.getByLabel('Search feedback').fill('');
+      await page.getByText('1–50 of 51 items').waitFor();
+
       // Paging: the total is shown and the 51st item is reachable.
       await page.getByText('1–50 of 51 items').waitFor();
       assert.equal(await page.getByText('Feedback message 51', { exact: true }).count(), 0);
@@ -230,6 +311,21 @@ try {
         assert.deepEqual(feedbackPatches.at(-1), { adminNotes: 'Checked the gauge; reading is right.' });
         assert.equal(feedback[50].status, 'pending');
         assert.equal(await notes.inputValue(), 'Checked the gauge; reading is right.');
+
+        // Reply to the submitter from the item, using a quick-reply template.
+        await page.getByRole('button', { name: 'Reply', exact: true }).click();
+        await page.getByText('To: paddler51@example.com').waitFor();
+        await page.getByText('From: eddy@eddy.guide').waitFor();
+        await page.getByLabel('Template:').selectOption('thanks');
+        await page.getByRole('button', { name: 'Send reply' }).click();
+        await page.getByText('Reply sent from eddy@eddy.guide.').waitFor();
+        assert.equal(replies.at(-1).kind, 'feedback');
+        assert.equal(replies.at(-1).id, feedback[50].id);
+        assert.ok(replies.at(-1).html.length > 20, 'template body is sent');
+        await page.getByText('Replied', { exact: true }).waitFor();
+        await page.getByText(/^Replied on .* by Owner recovery$/).waitFor();
+        await page.screenshot({ path: `${out}/inbox-feedback-reply-${label}.png`, fullPage: true });
+        await page.getByRole('button', { name: 'Close', exact: true }).click();
       }
       await page.screenshot({ path: `${out}/inbox-feedback-${label}.png`, fullPage: true });
 
@@ -263,6 +359,37 @@ try {
         assert.equal(serverUnread, 6);
         assert.equal(await tab.locator('span').innerText(), '6', 'badge shows the server count after triage');
         await page.getByText('1–1 of 1 messages').waitFor();
+
+        // The shared composer still sends email replies and updates the badge.
+        await page.getByText('Email subject 2', { exact: true }).click();
+        await page.getByRole('button', { name: 'Reply', exact: true }).click();
+        await page.getByLabel('Template:').selectOption('thanks');
+        await page.getByRole('button', { name: 'Send reply' }).click();
+        await page.getByText('Reply sent from hello@eddy.guide.').waitFor();
+        assert.equal(replies.at(-1).kind, 'email');
+        assert.equal(await tab.locator('span').innerText(), '5');
+
+        // Search, then bulk-triage the whole page in one request.
+        await page.getByLabel('Status:').selectOption('all');
+        await page.getByText('1–5 of 5 messages').waitFor();
+        await page.getByLabel('Search email').fill('sender4');
+        await page.getByText('1–1 of 1 messages').waitFor();
+        assert.deepEqual(emailSearches, ['sender4']);
+        await page.getByLabel('Search email').fill('');
+        await page.getByText('1–5 of 5 messages').waitFor();
+        await page.getByLabel('Select Email subject 3 from sender3@example.com').check();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('1 selected').waitFor();
+        await page.getByLabel('Select Email subject 3 from sender3@example.com').uncheck();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByLabel('Select all on this page').check();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('5 selected').waitFor();
+        await page.screenshot({ path: `${out}/inbox-email-bulk-${label}.png`, fullPage: true });
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByRole('button', { name: 'Spam' }).click();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('Select all on this page').waitFor();
+        assert.equal(bulkWrites.length, 1, 'one request for the whole selection');
+        assert.equal(bulkWrites[0].status, 'spam');
+        assert.equal(bulkWrites[0].ids.length, 5);
+        assert.equal(await page.getByText('Spam', { exact: true }).count() >= 5, true);
+        assert.equal(await tab.locator('span').innerText(), String(serverUnread));
       }
       await page.screenshot({ path: `${out}/inbox-email-${label}.png`, fullPage: true });
       assert.deepEqual(errors, []);

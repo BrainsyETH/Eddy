@@ -22,6 +22,16 @@ export const MAX_ADMIN_NOTES_LENGTH = 5000;
 
 export const FEEDBACK_PAGE_SIZE = 50;
 
+/** The support address published on /support; replies to it reach the Inbox. */
+export const FEEDBACK_SUPPORT_ADDRESS = 'eddy@eddy.guide';
+export const FEEDBACK_REPLY_SUBJECT = 'Re: your feedback to Eddy';
+
+/** From address for a feedback reply: RESEND_REPLY_FROM, else support. */
+export function feedbackReplyFrom(env: Record<string, string | undefined> = process.env): string {
+  const configured = env.RESEND_REPLY_FROM?.trim();
+  return configured && configured.includes('@') ? configured : FEEDBACK_SUPPORT_ADDRESS;
+}
+
 /** App Store reporting route for community photos; the remedy is a takedown. */
 export const REPORTED_PHOTO_TYPE = 'objectionable_content' satisfies FeedbackType;
 
@@ -79,6 +89,8 @@ export function mapFeedbackRow(row: FeedbackRow): Feedback {
     adminNotes: row.admin_notes,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
+    lastRepliedAt: row.last_replied_at ?? null,
+    lastRepliedBy: row.last_replied_by ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
