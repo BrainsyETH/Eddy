@@ -141,6 +141,13 @@ export default function Fixture() {
     <div data-locked-read><EddyOutlookFooter sections={{ eddyRead: 'Locked Read example', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} /></div>
   </main>;
 }`);
+  await mkdir(`${route}/gauge`, { recursive: true });
+  await writeFile(`${route}/gauge/page.tsx`, `import { notFound } from 'next/navigation';
+import GaugeDetailView from '@/components/gauge/GaugeDetailView';
+export default function Page() {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  return <GaugeDetailView siteId="10000001" />;
+}`);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
     env: { ...process.env, EDDY_DAM_SMOKE: '1', FLOAT_SEARCH_ENABLED: 'true', CAMPING_WEB_ENABLED: 'true', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -508,6 +515,26 @@ export default function Fixture() {
       await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
       await page.screenshot({ path: `${out}/promotions-iphone-${width}.png`, fullPage: true });
     }
+    // Check the invitation inside the actual gauge card, not just in isolation.
+    // All API requests are fixtures, including unavailable chart/weather data.
+    await page.route('**/api/**', route => {
+      const path = new URL(route.request().url()).pathname;
+      const gauge = { id: '10000001', siteId: '10000001', name: 'Test Creek', provider: 'usgs', curated: false,
+        coordinates: { lng: -91.3, lat: 37.1 }, dischargeCfs: 321, gaugeHeightFt: 2.4,
+        readingTimestamp: new Date().toISOString(), readingAgeHours: 0, readingSuspect: false,
+        freshness: 'live', thresholds: null, floodStages: null, publicUrl: null };
+      const body = path === '/api/gauges/10000001' ? { gauge } : path === '/api/gauges' ? { gauges: [] } : null;
+      return route.fulfill({ status: body ? 200 : 404, contentType: 'application/json', body: JSON.stringify(body ?? {}) });
+    });
+    await page.goto('https://eddy.guide/dam-layout-check/gauge', { waitUntil: 'networkidle' });
+    const gaugeCta = page.locator('[data-app-cta="gauge_widget"]');
+    await gaugeCta.waitFor();
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await gaugeCta.scrollIntoViewIfNeeded();
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `gauge invitation fits ${width}px`);
+      await gaugeCta.locator('..').locator('..').screenshot({ path: `${out}/gauge-invitation-${width}.png` });
+    }
     console.log('PASS contextual iPhone actions, deduped impressions, partner campaign, save failure/retry and route changes');
   } finally {
     await context.close();
@@ -558,9 +585,12 @@ export default function Fixture() {
   android.on('pageerror', e => errors.push(e.message));
   await android.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
   await android.goto(url, { waitUntil: 'networkidle' });
+  assert.match(await android.evaluate(() => navigator.userAgent), /Android/);
+  await android.locator('[data-dam-app-cta]').waitFor({ state: 'detached' });
   assert.equal(await android.locator('[data-dam-app-cta]').count(), 0, 'Android omits the iPhone promotion');
   assert(await android.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
   await android.goto(`${origin}/dam-layout-check/promotions`, { waitUntil: 'networkidle' });
+  await android.locator('[data-locked-read]').getByText('Available for iPhone only.', { exact: true }).waitFor();
   const hydrationShift = await android.evaluate(() => window.promotionLayoutShift);
   await writeFile(`${out}/android-hydration.json`, JSON.stringify({ viewport: 390, fixture: 'promotions', layoutShift: hydrationShift, note: 'Single fixture run; not production field CLS.' }, null, 2));
   console.log(`Android promotion fixture layout shift: ${hydrationShift}`);
@@ -572,6 +602,7 @@ export default function Fixture() {
   await android.screenshot({ path: `${out}/promotions-android.png`, fullPage: true });
   for (const path of ['/app', '/app?plan=fixture123']) {
     await android.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
+    await android.getByText('Available for iPhone only.', { exact: true }).waitFor();
     assert(await android.getByText('Available for iPhone only.', { exact: true }).isVisible());
     assert.equal(await android.locator('[data-ga-event="app_store_click"], .app-cta__qr').count(), 0);
   }

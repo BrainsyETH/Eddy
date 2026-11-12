@@ -527,8 +527,6 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
                   </p>
                 </>
               )}
-              <ReportAppCta destination={{ kind: 'gauge', id: gauge.usgsSiteId }} hasRead={Boolean(eddyUpdate?.summaryText)} loading={eddyLoading} />
-
             </div>
 
             {/* Plan Trip CTA */}
@@ -540,6 +538,9 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
                 Plan Trip
               </Link>
             )}
+          </div>
+          <div className="px-4 pb-4 sm:px-6 sm:pb-5">
+            <ReportAppCta destination={{ kind: 'gauge', id: gauge.usgsSiteId }} hasRead={Boolean(eddyUpdate?.summaryText)} loading={eddyLoading} />
           </div>
         </div>
 
