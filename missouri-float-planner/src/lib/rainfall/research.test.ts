@@ -4,7 +4,7 @@ import { gunzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { multiPolygon } from '@turf/turf';
-import { exportParameters, exportResult, forecastMetadata, forecastUrl, hash, interval, nativeTile, samplePoints, validateTiff, type Basin, type Tile } from './research-contract';
+import { exportParameters, exportResult, forecastArchive, forecastMetadata, forecastUrl, hash, interval, nativeTile, pointUrl, samplePoints, validateTiff, type Basin, type Tile } from './research-contract';
 import { pool, collectResearch } from './research-sync';
 import { saveCapture, type Capture } from './research-store';
 
@@ -149,13 +149,14 @@ test('observation collection paginates gauge history and survives one missing ra
     json: async url => {
       if (url.includes('/query?')) return catalog;
       if (url.includes('/info?')) return { pixelType: 'F32', bandCount: 1, pixelSizeX: 1000, pixelSizeY: 1000, origin: grid.origin, extent: { ...grid.extent, spatialReference: { wkid: 3857 } } };
-      if (url.includes('/exportImage?')) {
-        const params = new URL(url).searchParams, id = JSON.parse(params.get('mosaicRule')!).lockRasterIds[0];
-        if (id === 6) throw Error('6h source unavailable');
-        return { width: tile.width, height: tile.height, extent: { ...tile, spatialReference: { wkid: 3857 } }, href: `https://mapservices.weather.noaa.gov/raster/${id}.tif` };
-      }
       return { pixelType: 'F32', bandCount: 1, rasterFunctionInfos: [{ name: 'None' }] };
-    }, bytes: async () => tiff(tile),
+    }, bytes: async url => {
+      assert.equal(new URL(url).pathname.endsWith('/exportImage'), true);
+      const params = new URL(url).searchParams;
+      assert.equal(params.get('f'), 'image'); assert.equal(params.get('compression'), 'None');
+      if (JSON.parse(params.get('mosaicRule')!).lockRasterIds[0] === 6) throw Error('6h source unavailable');
+      return tiff(tile);
+    },
   });
   assert.deepEqual(offsets, [0, 1000]);
   assert.equal(result.monitoring_status, 'partial'); assert.equal(result.failed, 1);
@@ -179,4 +180,65 @@ test('forecasts shared by two basins are fetched once and keep nulls plus both b
   const forecast = saved.find(c => c.kind === 'nws')!;
   assert.deepEqual(forecast.metadata.bindings, [{ point: [-92, 37], basinIds: ['basin', 'second'] }]);
   assert.equal(JSON.parse(Buffer.from(forecast.bytes).toString()).properties.quantitativePrecipitation.values[0].value, null);
+});
+
+test('point lookups never ask NWS for more precision than it serves without a redirect', () => {
+  // NWS answers 37.148234,-91.443156 with a 301 to 37.1482,-91.4432, and the
+  // collector treats a redirect as an error. That failed every lookup in production.
+  assert.equal(pointUrl([-91.443156, 37.148234]), 'https://api.weather.gov/points/37.1482,-91.4432');
+  assert.equal(pointUrl([-92, 37]), 'https://api.weather.gov/points/37.0000,-92.0000');
+  for (const bad of [[NaN, 37], [-91, 91], [181, 37], [-91]]) assert.throws(() => pointUrl(bad));
+});
+
+test('a cold forecast point is resolved with a four-decimal request, cached, then captured', async () => {
+  const saved: Capture[] = [], requested: string[] = [], cached: Record<string, unknown>[] = [];
+  const grid = 'https://api.weather.gov/gridpoints/SGF/133,33';
+  const sample = { ...basin, forecast_points: [[-91.443156, 37.148234]] };
+  const db = { from: (table: string) => table === 'rainfall_research_basins'
+    ? ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [sample], error: null }) }) }) }) })
+    : ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+      upsert: async (row: Record<string, unknown>) => { cached.push(row); return { error: null }; } }),
+    storage: { getBucket: async () => ({ data: { public: false }, error: null }) } } as unknown as SupabaseClient;
+  const response = { properties: { gridId: 'SGF', gridX: 133, gridY: 33, updateTime: new Date().toISOString(),
+    quantitativePrecipitation: { uom: 'wmoUnit:mm', values: [{ validTime: '2026-11-12T00:00:00Z/PT6H', value: 2.5 }] } } };
+  const result = await collectResearch(db, 'forecasts', new AbortController().signal, {
+    save: async (_db, c) => { saved.push(c); return c.bytes.length; }, bytes: async () => new Uint8Array(),
+    json: async u => { requested.push(u); return u.includes('/points/') ? { properties: { forecastGridData: grid } } : response; },
+  });
+  assert.deepEqual(requested, ['https://api.weather.gov/points/37.1482,-91.4432', grid]);
+  assert.equal(result.failed, 0); assert.equal(result.completed, 1);
+  // The cache key and the archived binding keep the exact sample point.
+  assert.equal(cached[0].point_key, '-91.443156,37.148234'); assert.equal(cached[0].grid_url, grid);
+  assert.deepEqual(saved.find(c => c.kind === 'nws')!.metadata.bindings, [{ point: [-91.443156, 37.148234], basinIds: ['basin'] }]);
+});
+
+test('archived forecasts keep their identity and rain layers as issued, and name what was dropped', async () => {
+  const rain = { uom: 'wmoUnit:mm', values: [{ validTime: '2026-11-12T00:00:00Z/PT6H', value: null }, { validTime: '2026-11-12T06:00:00Z/PT6H', value: 3.048 }] };
+  const chance = { uom: 'wmoUnit:percent', values: [{ validTime: '2026-11-12T00:00:00Z/PT12H', value: 70 }] };
+  const response = { '@context': ['x'], id: 'https://api.weather.gov/gridpoints/SGF/133,33', type: 'Feature', geometry: { type: 'Polygon', coordinates: [] },
+    properties: { '@id': 'https://api.weather.gov/gridpoints/SGF/133,33', gridId: 'SGF', gridX: 133, gridY: 33, updateTime: new Date().toISOString(), validTimes: '2026-11-12T00:00:00+00:00/P7D',
+      elevation: { unitCode: 'wmoUnit:m', value: 300 }, quantitativePrecipitation: rain, probabilityOfPrecipitation: chance,
+      temperature: { uom: 'wmoUnit:degC', values: [{ validTime: '2026-11-12T00:00:00Z/PT1H', value: 9 }] },
+      windSpeed: { uom: 'wmoUnit:km_h-1', values: [{ validTime: '2026-11-12T00:00:00Z/PT1H', value: 12 }] } } };
+  const kept = forecastArchive(response);
+  assert.deepEqual(kept.layers, ['quantitativePrecipitation', 'probabilityOfPrecipitation']);
+  assert.deepEqual(kept.droppedLayers, ['temperature', 'windSpeed']);
+  assert.deepEqual(kept.document.properties.quantitativePrecipitation, rain, 'amounts, units, intervals and nulls are untouched');
+  assert.deepEqual(kept.document.properties.probabilityOfPrecipitation, chance);
+  for (const key of ['@id', 'gridId', 'gridX', 'gridY', 'updateTime', 'validTimes', 'elevation']) assert.deepEqual(kept.document.properties[key], (response.properties as Record<string, unknown>)[key]);
+  assert.equal(kept.document.id, response.id); assert.deepEqual(kept.document.geometry, response.geometry);
+  assert.equal('temperature' in kept.document.properties, false);
+
+  const saved: Capture[] = [], url = 'https://api.weather.gov/gridpoints/SGF/133,33';
+  const db = { from: (table: string) => table === 'rainfall_research_basins'
+    ? ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [basin], error: null }) }) }) }) })
+    : ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { grid_url: url, resolved_at: new Date().toISOString() }, error: null }) }) }) }),
+    storage: { getBucket: async () => ({ data: { public: false }, error: null }) } } as unknown as SupabaseClient;
+  await collectResearch(db, 'forecasts', new AbortController().signal, {
+    save: async (_db, c) => { saved.push(c); return c.bytes.length; }, json: async () => response, bytes: async () => new Uint8Array() });
+  const capture = saved.find(c => c.kind === 'nws')!, stored = JSON.parse(Buffer.from(capture.bytes).toString());
+  assert.deepEqual(stored, kept.document, 'the collector archives the trimmed document');
+  assert.deepEqual(capture.metadata.archivedLayers, ['quantitativePrecipitation', 'probabilityOfPrecipitation']);
+  assert.equal(capture.metadata.droppedLayerCount, 2);
+  assert.equal(capture.metadata.sourceBytes, Buffer.from(JSON.stringify(response)).length);
 });

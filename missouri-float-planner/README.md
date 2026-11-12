@@ -369,6 +369,9 @@ at the start of the live report. Upper/Lower Black replace the separate Reaches
 panel and gauge picker. The selected section owns the reading, history, outlook,
 and gauge-specific Eddy summary; Clearwater context appears only below the
 Lower Black chart, with dam release kept distinct from the downstream gauge.
+Section readings use the regular gauge card's condition-aware Eddy otter, with
+water level and flow labeled side by side. Clearwater's link uses Eddy's dam
+artwork, matching iOS; river and spring symbols do not label gauge measurements.
 The section's configured station ID is authoritative: an unavailable station
 shows an unavailable report rather than another section's reading.
 
@@ -733,3 +736,27 @@ own — so changes there can fail these tests by design.
 Private project - not for distribution.
 
 Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and river reports. The fixed-view link contract, public-image payment policy, and app-link activation gates are recorded in [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md).
+
+## River report interpretation and rainfall
+
+The Live report reads in this order: selected section/current conditions, shared
+river chart, **Eddy's Read**, then **Will it hold?** The Read has one heading and
+one Premium CTA. Locked interpretation and context remain a static blurred
+preview with an accessible explanation and a full-width offer on phones; there
+is no button that reveals only more blur. Duplicate context is omitted. Existing public summaries and premium
+access rules are preserved. A dam section still uses its dam interpretation and
+keeps its controlling-dam context with the chart.
+
+Thin dividers separate the Read, Weather and Bottom line while locked prose
+stays blurred. The free outlook says **Next 3 days** (today and the next two
+Central calendar days). Official river heights appear in a separate
+**NWS forecast · daily high** row, with feet and an explicit missing-day state.
+That row has no condition badges: a height rating does not assess the weather
+or recommend the whole day. Forecast classification still informs the Read.
+
+Rain adds a track above the river plot inside the same chart; it never takes
+height away from the river line. A short archive is labelled “Rain record starts…”.
+Its watershed detail opens on demand, with compact visible timestamps and full
+accessible times. See [rainfall history](../docs/rainfall-history.md)
+for the public data gates and rollout; merging the interface does not approve
+research captures for display.

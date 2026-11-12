@@ -1,7 +1,6 @@
 'use client';
 
-import { CloudRain, Thermometer, Waves } from 'lucide-react';
-import ConditionBadge from '@/components/ui/ConditionBadge';
+import { CloudRain, Thermometer } from 'lucide-react';
 import { weatherGlyph } from '@/components/ui/weather-glyph';
 import {
   HEAT_ADVISORY_TEMP_F,
@@ -40,27 +39,25 @@ export default function WillItHold({
       <div className="flex flex-wrap items-start justify-between gap-2 border-b-2 border-primary-100 px-4 py-3 sm:px-5">
         <div>
           <h3 id="river-outlook-heading" className="font-heading text-sm font-bold text-neutral-900">Will it hold?</h3>
-          <p className="font-sans text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Next 72 hours</p>
+          <p className="font-sans text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Next 3 days</p>
         </div>
-        <span className={`inline-flex items-center gap-1 py-1 text-[10px] font-semibold ${
-          outlook.sourceKind === 'official' ? 'text-primary-700' : 'text-neutral-600'
-        }`}>
-          {outlook.sourceKind === 'official'
-            ? <Waves className="h-3 w-3" aria-hidden="true" />
-            : <CloudRain className="h-3 w-3" aria-hidden="true" />}
-          {outlook.sourceLabel}
-        </span>
+        {outlook.sourceKind !== 'official' && (
+          <span className="inline-flex items-center gap-1 py-1 text-[10px] font-semibold text-neutral-600">
+            <CloudRain className="h-3 w-3" aria-hidden="true" />
+            {outlook.sourceLabel}
+          </span>
+        )}
       </div>
 
       {/* The per-day rain chips below carry the same numbers a "Rain watch"
           strip used to repeat directly above them, and "Watch for" states the
           consequence. One place per fact. */}
       <div className="grid flex-1 grid-cols-3 divide-x-2 divide-primary-100">
-        {outlook.days.map(({ date, weather, river }, index) => (
+        {outlook.days.map(({ date, weather }, index) => (
           <div
             key={date}
             className="flex min-w-0 flex-col items-center px-2 py-3 text-center sm:px-3"
-            aria-label={`${formatOutlookDay(date)}, ${weather ? `${weather.tempHigh} degrees high, ${weather.tempLow} degrees low, ${weather.precipitation} percent rain${weather.tempHigh >= HEAT_ADVISORY_TEMP_F ? ', heat advisory range' : ''}` : 'weather unavailable'}${river.valueFt != null ? `, forecast high ${river.valueFt.toFixed(2)} feet` : ''}`}
+            aria-label={`${formatOutlookDay(date)}, ${weather ? `${weather.tempHigh} degrees high, ${weather.tempLow} degrees low, ${weather.precipitation} percent rain${weather.tempHigh >= HEAT_ADVISORY_TEMP_F ? ', heat advisory range' : ''}` : 'weather unavailable'}`}
           >
             <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
               {index === 0 ? 'Today' : (weather?.dayOfWeek ?? formatOutlookDay(date, false))}
@@ -98,22 +95,26 @@ export default function WillItHold({
             ) : (
               <span className="my-3 text-[10px] text-neutral-400">Weather unavailable</span>
             )}
-
-            {outlook.hasOfficialForecast && (
-              <div className="mt-2 w-full border-t-2 border-primary-100 pt-2">
-                {river.valueFt != null ? (
-                  <>
-                    <div className="font-mono text-xs font-bold tabular-nums text-neutral-900">{river.valueFt.toFixed(2)} ft</div>
-                    {river.conditionCode && <ConditionBadge code={river.conditionCode} size="sm" />}
-                  </>
-                ) : (
-                  <span className="text-[10px] text-neutral-400">No river forecast</span>
-                )}
-              </div>
-            )}
           </div>
         ))}
       </div>
+      {outlook.hasOfficialForecast && (
+        <div className="border-t border-neutral-200 py-3" role="group" aria-label="NWS river forecast, daily high">
+          <h4 className="px-4 text-xs font-semibold text-neutral-600 sm:px-5">NWS forecast · daily high</h4>
+          <div className="mt-2 grid grid-cols-3 divide-x divide-neutral-200">
+            {outlook.days.map(({ date, river }) => (
+              <div key={date} className="min-w-0 px-2 text-center sm:px-3">
+                <span className="sr-only">{formatOutlookDay(date)}: </span>
+                {river.valueFt != null ? (
+                  <span className="font-mono text-xs font-bold tabular-nums text-neutral-900">{river.valueFt.toFixed(2)} ft</span>
+                ) : (
+                  <span className="text-[10px] text-neutral-500">No river forecast</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

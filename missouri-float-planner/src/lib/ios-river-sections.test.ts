@@ -118,11 +118,11 @@ test('a non-primary or still-loading station is never read as the primary', () =
   assert.equal(resolveRiverSection({ ...base, gauges: [], gaugesReady: false, primaryGaugeId: 'upper' }).state, 'loading');
 });
 
-test('the upper section links to the dam it does not show; the selector is one compact row', () => {
+test('the dam action stays on its own section; the selector is one compact row', () => {
   const screen = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/river/[slug].tsx', 'utf8');
   assert.match(screen, /primaryGaugeId: river\?\.primaryGaugeId \?\? null/);
-  assert.match(screen, /hasSections && !showDamContext && dam && damSection \? \(/);
-  assert.match(screen, /onPress=\{\(\) => selectSection\(damSection\.sectionSlug\)\}/);
+  assert.match(screen, /hasSections && showDamContext && dam \? \(/);
+  assert.doesNotMatch(screen, /SectionDamLink|hasSections && !showDamContext/);
   const selector = readFileSync('../eddy-ios/src/components/river/RiverSectionSelector.tsx', 'utf8');
   assert.doesNotMatch(selector, /Choose your section|radio-button-(on|off)/);
   assert.match(selector, /minHeight: 44/);

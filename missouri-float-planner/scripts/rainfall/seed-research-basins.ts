@@ -29,14 +29,20 @@ async function main() {
   console.log(JSON.stringify({ apply, basins: rows.length, flagged: rows.filter(row => row.provenance.review.issues.length).map(row => row.usgs_site_id), forecastPoints: rows.reduce((n, row) => n + row.forecast_points.length, 0) }));
   if (!apply) return;
   const db = getScriptClient({ script: 'seed-research-basins', write: true });
-  const current = await db.from('gauge_stations').select('id,usgs_site_id').in('id', rows.map(row => row.gauge_id));
+  const current = await db.from('gauge_stations').select('id,usgs_site_id,active').in('id', rows.map(row => row.gauge_id));
   if (current.error) throw current.error;
   for (const row of rows) if (!current.data?.some(g => g.id === row.gauge_id && g.usgs_site_id === row.usgs_site_id)) throw new Error(`Gauge identity changed: ${row.usgs_site_id}`);
+  // An inactive station has no readings to compare with rain, so its basin would
+  // mark every hourly collection partial. Skip it and say so.
+  const inactive = new Set(current.data?.filter(g => !g.active).map(g => g.id));
+  const seedable = rows.filter(row => !inactive.has(row.gauge_id));
+  if (seedable.length !== rows.length) console.log(JSON.stringify({ skippedInactiveStations: rows.filter(row => inactive.has(row.gauge_id)).map(row => row.usgs_site_id) }));
+  if (!seedable.length) throw new Error('No active stations to seed');
   // A different active version fails the partial unique index; don't silently swap boundaries.
-  const { error } = await db.from('rainfall_research_basins').upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+  const { error } = await db.from('rainfall_research_basins').upsert(seedable, { onConflict: 'id', ignoreDuplicates: true });
   if (error) throw error;
-  const saved = await db.from('rainfall_research_basins').select('id').in('id', rows.map(row => row.id));
-  if (saved.error || saved.data?.length !== rows.length) throw new Error('Basin seed readback failed');
+  const saved = await db.from('rainfall_research_basins').select('id').in('id', seedable.map(row => row.id));
+  if (saved.error || saved.data?.length !== seedable.length) throw new Error('Basin seed readback failed');
   console.log(`Verified ${saved.data.length} private research basins.`);
 }
 main().catch(error => { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; });

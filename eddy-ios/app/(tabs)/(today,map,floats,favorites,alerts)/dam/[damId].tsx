@@ -471,14 +471,14 @@ export default function DamDetailScreen() {
             the rest of the project. */}
         {hasAnything ? (
           <>
-            <View style={styles.section}>
+            {dam.hasTurbines || dam.schedule.length > 0 ? <View style={styles.section}>
               {/* One card, two sections: observed above the rule, scheduled
                   below it. They were two cards saying the same thing twice —
                   a NEXT CHANGE panel over a schedule describing the same plan,
                   each carrying its own copy of the publisher, the freshness and
                   the change warning. See GenerationCard. */}
               <GenerationCard dam={dam} />
-            </View>
+            </View> : null}
             {/* Eddy's Read sits under the hero it interprets: the plan and the
                 measured pattern below are free; the Read of them is Premium. */}
             <View style={styles.section}>

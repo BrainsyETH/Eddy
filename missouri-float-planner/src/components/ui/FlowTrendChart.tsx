@@ -59,7 +59,8 @@ import {
 } from '@shared/chart-model';
 import { chartView, chartReferences } from '@shared/chart-view';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
-import { chartStamp } from '@shared/chart-calendar';
+import { chartStamp, chartShortStamp } from '@shared/chart-calendar';
+import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh, rainHistoryStart, type RainSummary } from '@shared/rainfall';
 import type { ChartScaleMode } from '@shared/chart-share';
 import {
   FLOOD_STAGE_ORDER,
@@ -192,6 +193,8 @@ export interface ChartFloodStages {
 }
 
 interface FlowTrendChartProps {
+  rain?: RainSummary | null;
+  onRainDetails?: () => void;
   gaugeSiteId: string;
   scaleMode?: ChartScaleMode;
   showMedian?: boolean;
@@ -286,6 +289,8 @@ type HoverPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
 
 export default function FlowTrendChart({
   gaugeSiteId,
+  rain = null,
+  onRainDetails,
   days,
   thresholds,
   floodStages,
@@ -503,6 +508,14 @@ export default function FlowTrendChart({
     };
   }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx, lastYear, showMedian, scaleMode, interactive]);
 
+  const rainRows = useMemo(() => {
+    if (!rain || !rainIsFresh(rain) || !rainRange(days) || !history?.requestedWindow) return [];
+    return rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6);
+  }, [rain, history?.requestedWindow, days]);
+  const rainSpace = rainRows.length ? 84 : 0;
+  const rainStart = rainSpace && rain && history?.requestedWindow
+    ? rainHistoryStart(rain.hourly, Date.parse(history.requestedWindow.from), Date.parse(history.requestedWindow.to), days === 1 ? 1 : 6) : null;
+  const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
     const time = chartData.domain.t0 + hoverFraction * (chartData.domain.t1 - chartData.domain.t0);
@@ -674,6 +687,7 @@ export default function FlowTrendChart({
         hovered.kind === 'forecast' ? 'NWS forecast' : getZoneLabel(hovered.point.v),
         formatTooltipDate(hovered.point.t),
         hoveredQualifiers,
+        rainSpace && hovered.kind === 'observed' ? rainReadout(rainAt(rainRows, hovered.point.t), history?.timeZone ?? 'UTC') : null,
         hoveredPrior ? `last year ${hoveredPriorText}, daily average` : null,
       ]
         .filter(Boolean)
@@ -874,7 +888,8 @@ export default function FlowTrendChart({
       <div className="flex">
         {/* Y-axis labels, positioned by VALUE rather than spread evenly: the
             ticks are round numbers now, so they do not sit at even fractions. */}
-        <div className={`relative flex-shrink-0 w-10 pr-1.5 text-right ${chartClassName ?? 'h-32'}`}>
+        <div className={`relative flex-shrink-0 w-10 pr-1.5 text-right ${chartClassName ?? 'h-32'}`} style={{ boxSizing: 'content-box', paddingTop: rainSpace }}>
+          <div className="absolute inset-x-0 bottom-0" style={{ top: rainSpace }}>
           {chartData.yTicks.map((tick) => (
             <span
               key={`ytick-${tick.value}`}
@@ -884,18 +899,38 @@ export default function FlowTrendChart({
               {formatVal(tick.value)}
             </span>
           ))}
+          </div>
         </div>
 
         {/* Chart SVG area */}
         <div
-          ref={chartContainerRef}
+          style={{ boxSizing: 'content-box', paddingTop: rainSpace }}
           className={`relative flex-1 min-w-0 ${chartClassName ?? 'h-32'} ${
             interactive
-              ? 'cursor-crosshair rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500'
+              ? 'cursor-crosshair rounded-sm focus-within:ring-2 focus-within:ring-primary-500'
               : ''
           }`}
-          {...scrubProps}
         >
+          {rainSpace > 0 && <div className="absolute inset-x-0 top-0 h-[84px]" data-rain-track>
+            <div className="flex h-11 items-center justify-between gap-2 text-[11px] text-neutral-600">
+              <button type="button" onClick={onRainDetails} className="min-h-11 font-semibold text-primary-700 underline decoration-primary-200 underline-offset-2" aria-label="Open rain upstream details">Rain upstream</button>
+              <span className="text-right tabular-nums"><span className="block">Scale: 0–{rainMax.toFixed(2)} in</span><span>{days === 1 ? 'Hourly bars' : '6-hour bars'}</span></span>
+            </div>
+            <svg viewBox="0 0 100 18" preserveAspectRatio="none" className="h-8 w-full overflow-hidden" aria-hidden="true"
+              onPointerMove={event => { const rect = event.currentTarget.getBoundingClientRect(); setHoverFraction(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))); }}
+              onPointerDown={event => { const rect = event.currentTarget.getBoundingClientRect(); setHoverFraction(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))); }}>
+              {rainRows.map(row => {
+                const start = Math.max(0, chartData.x(Date.parse(row.start))), end = Math.min(100, chartData.x(Date.parse(row.end)));
+                if (end <= start) return null;
+                return row.inches === null
+                  ? <rect key={row.start} x={start} y={1} width={end - start} height={16} fill="var(--color-neutral-100)" stroke="var(--color-neutral-500)" strokeWidth="0.3" strokeDasharray="1 1" />
+                  : row.inches === 0 ? <line key={row.start} x1={start} x2={end} y1={17} y2={17} stroke="var(--color-primary-700)" strokeWidth="1" />
+                  : <rect key={row.start} x={start} y={17 - Math.max(0.6, row.inches / rainMax * 16)} width={Math.max(0.1, (end - start) * 0.88)} height={Math.max(0.6, row.inches / rainMax * 16)} fill="var(--color-primary-700)" />;
+              })}
+              {hovered && <line x1={chartData.x(hovered.point.t)} x2={chartData.x(hovered.point.t)} y1={0} y2={18} stroke="var(--color-neutral-600)" strokeWidth="0.2" />}
+            </svg>
+          </div>}
+          <div ref={chartContainerRef} data-river-plot className="absolute inset-x-0 bottom-0" style={{ top: rainSpace }} {...scrubProps}>
           {/* When the wrapper is a slider, the SVG is hidden from the
               accessibility tree rather than labelled: two nested announcements —
               a summary of the whole series and the value under the scrub — read
@@ -1261,11 +1296,12 @@ export default function FlowTrendChart({
               is only true because the viewBox spans the container exactly. */}
           {hovered && (
             <div
-              className="absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap"
+              className="hidden sm:block absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-normal"
               style={{
-                left: `${chartData.x(hovered.point.t)}%`,
+                left: `clamp(0px, ${chartData.x(hovered.point.t)}%, max(0px, calc(100% - 16rem)))`,
+                width: 'max-content', maxWidth: 'min(16rem, 100%)',
                 top: `${chartData.y(hovered.point.v)}%`,
-                transform: `translate(${chartData.x(hovered.point.t) > 70 ? '-100%' : '8px'}, -120%)`,
+                transform: chartData.y(hovered.point.v) < 35 ? 'translateY(12px)' : 'translateY(calc(-100% - 8px))',
               }}
             >
               <div className="font-bold tabular-nums">
@@ -1278,6 +1314,7 @@ export default function FlowTrendChart({
                   : <span className="font-medium" style={{ color: '#c4b5fd' }}> — forecast</span>}
               </div>
               <div className="text-neutral-400 text-[10px]">{formatTooltipDate(hovered.point.t)}</div>
+              {rainSpace > 0 && hovered.kind === 'observed' && <div className="text-[10px] text-neutral-300">{rainReadout(rainAt(rainRows, hovered.point.t), history?.timeZone ?? 'UTC')}</div>}
               {hoveredQualifiers && (
                 <div className="text-amber-300 text-[10px]">{hoveredQualifiers}</div>
               )}
@@ -1286,11 +1323,13 @@ export default function FlowTrendChart({
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Threshold labels (right column, outside chart) */}
         {chartData.thresholdLabels.length > 0 && (
-          <div className={`relative flex-shrink-0 w-16 pl-1.5 ${chartClassName ?? 'h-32'}`}>
+          <div className={`relative flex-shrink-0 w-16 pl-1.5 ${chartClassName ?? 'h-32'}`} style={{ boxSizing: 'content-box', paddingTop: rainSpace }}>
+            <div className="absolute inset-x-0 bottom-0" style={{ top: rainSpace }}>
             {chartData.thresholdLabels.map((t) => (
               <div
                 key={`label-${t.key}`}
@@ -1312,6 +1351,7 @@ export default function FlowTrendChart({
                 )}
               </div>
             ))}
+            </div>
           </div>
         )}
       </div>
@@ -1337,6 +1377,16 @@ export default function FlowTrendChart({
           </span>
         ))}
       </div>
+
+      {rainStart && <p className="mt-2 ml-10 text-xs text-neutral-600">Rain record starts <time dateTime={rainStart} title={chartStamp(rainStart, history?.timeZone ?? 'UTC')} aria-label={chartStamp(rainStart, history?.timeZone ?? 'UTC')}>{chartShortStamp(rainStart, history?.timeZone ?? 'UTC')}</time></p>}
+      {interactive && <div className="sm:hidden mt-2 min-h-16 text-xs leading-5 text-neutral-700" aria-hidden="true">
+        {hovered ? <>
+          <div className="flex flex-wrap items-baseline gap-x-2"><strong className="font-mono text-primary-800">{formatTooltipVal(hovered.point.v)} {unitLabel}</strong><span>{formatTooltipDate(hovered.point.t)}{hovered.kind === 'forecast' ? ' · forecast' : ''}</span></div>
+          {rainSpace > 0 && hovered.kind === 'observed' && <div>{rainReadout(rainAt(rainRows, hovered.point.t), history?.timeZone ?? 'UTC')}</div>}
+          {hoveredQualifiers && <div>{hoveredQualifiers}</div>}
+          {showsLastYear && hovered.kind === 'observed' && <div>Last year: {hoveredPriorText}</div>}
+        </> : <span>Touch the chart for a reading.</span>}
+      </div>}
 
       {/* Who measured the line, who predicted the dashed part and when they said
           it, and whether the series was thinned to fit.

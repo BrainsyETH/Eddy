@@ -1251,8 +1251,11 @@ selected section's endpoints, using the website's short labels. Past three
 sections the row scrolls instead of shrinking. Each selection
 owns the readings, chart, weather and Eddy’s Read; the level and flow share one
 card with the chart, and Clearwater context closes only the Lower Black report.
-On Upper Black a single row, "Clearwater Dam · View Lower Black", switches to
-that section instead, so the dam is never lost from the river.
+Section readings use the same condition-aware Eddy otter as regular gauge cards,
+with water level and flow labeled side by side. River/spring and dam-release
+symbols do not decorate these measurements. Dam links use Eddy's dam artwork.
+Clearwater's button appears only with Lower Black selected. Upper Black has no
+dam button or shortcut to the lower section.
 Ordinary rivers retain their gauge picker and the existing Premium flow stays.
 
 The reaches API carries the configured `gaugeStationId`. Missing mappings,
@@ -1407,6 +1410,10 @@ hide its marker. Seasonal copy is omitted for missing statistics, untrusted
 readings or a comparison from another calendar day. Search rows stay compact.
 
 ## Dam details
+
+The generation card and its spacing appear only for a powerhouse or a posted
+generation schedule. Flood-control dams such as Clearwater keep their release
+and water-level readings without an empty generation card above them.
 
 Dam detail readings use Eddy's illustrated metric symbols: Release and Water
 temperature share the web masters; lake and tailwater levels reuse the gauge
@@ -2413,3 +2420,34 @@ after 1.5 seconds is omitted so sharing can continue with the Eddy wordmark.
 The local export uses saved trip facts
 without a condition stamp or private metadata. See ADR 0015 for cache bounds,
 privacy rules and the outstanding physical-device share gates.
+
+### Rain within the river report
+
+River reports explicitly open at 7d. The shared gauge chart retains its 30d
+default for other callers; shared links retain their requested range. Reviewed
+rain can appear on 24h/7d, adding its own height above the existing river plot, with an independent
+inches scale and a shared cursor. Compare contains the remembered Rain switch;
+tapping Rain upstream opens the existing chart sheet (full screen when expanded).
+The native SVG map, totals and hourly list share data/formatting rules with web.
+Map labels have theme-aware halos. Compact visible timestamps retain full
+VoiceOver labels; a short archive is labelled “Rain record starts…”.
+No new native dependency or permission is required.
+
+Eddy's Read follows the chart and precedes the free Will it hold? forecast.
+Subscribers see up to five sentences (640 characters), with distinct Weather
+and Bottom line visible immediately. Read more expands only longer prose.
+Locked previews have no expand button; one accessible Premium offer explains access. Existing Premium authorization and
+the single shared lock remain in force. Switching gauge resets expanded prose.
+
+Read sections keep their thin dividers. The free outlook says **Next 3 days**
+(today and the next two Central calendar days), with official heights separated
+below the weather under **NWS forecast · daily high**. Values retain feet and
+day-specific VoiceOver labels; missing days say “No forecast”. This row has no
+condition ratings, which would imply a verdict on the whole day.
+
+Before distribution, verify the rain switch persists, toggling preserves the
+river plot height while adding/removing the rain track, rain/gauge values scrub together, and opening/closing the
+watershed preserves chart state. Repeat in dark/light, large text, VoiceOver and
+expanded-chart landscape. Verify section changes, missing/stale rain and offline
+failures do not substitute another basin or turn missing amounts into zero.
+Public rollout gates are recorded in `docs/rainfall-history.md` at the repo root.
