@@ -217,7 +217,7 @@ Three faults in the collector as first deployed, and what changed.
   the other dropped layers are not recoverable from these captures.
 - **Every observation run reported partial.** Two seeded stations had no stored
   readings. Big Piney near Houston (06928900) is inactive; migration
-  `20261112004500` disables its research basin and the seed script now skips
+  `20261112004411` disables its research basin and the seed script now skips
   inactive stations, leaving 49 enabled basins. Gasconade near Rich Fountain
   (06934000) was wired to its river without `curated = true`, so the gauge cron
   had skipped it since 2026-07-27 while USGS kept publishing. The same migration

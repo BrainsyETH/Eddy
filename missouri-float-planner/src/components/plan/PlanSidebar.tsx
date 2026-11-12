@@ -218,9 +218,6 @@ export default function PlanSidebar({
           </Card>
         )}
 
-        {hasBothPoints && plan && !isLoading && !isLastValidFallback && !plan.hazardsUnavailable
-          && plan.putIn.id === putInPoint.id && plan.takeOut.id === takeOutPoint.id && <PlanAppCta plan={plan} />}
-
         {/* Upstream warning */}
         {hasBothPoints && plan && plan.putIn.riverMile > plan.takeOut.riverMile && (
           <div className="flex items-center gap-1.5 px-2.5 py-2 bg-red-50 border border-red-200 rounded-md text-[11px] text-red-700 font-medium">
@@ -294,6 +291,9 @@ export default function PlanSidebar({
 
         {/* Outfitters near the put-in — the "book it" moment. */}
         <OutfittersNearby pois={pois} putInPoint={putInPoint} riverSlug={riverSlug} />
+
+        {hasBothPoints && plan && !isLoading && !isLastValidFallback && !plan.hazardsUnavailable
+          && plan.putIn.id === putInPoint.id && plan.takeOut.id === takeOutPoint.id && <PlanAppCta plan={plan} />}
       </div>
 
     </div>
