@@ -173,7 +173,7 @@ export function conditionGlossary(): string {
   const floatable = codes.filter((code) => FLOATABLE_NOW.has(code)).map((code) => `**${code}**`);
   return [
     'Each river is rated from its USGS gauge reading. Rated codes are listed from lowest to highest water.',
-    `Only ${floatable.join(' and ')} mean the river is floatable now.`,
+    `Eddy's "Floatable now" count includes only ${floatable.join(' and ')}. The other codes are not all "do not float": each carries its own guidance below.`,
     '',
     ...lines,
   ].join('\n');
