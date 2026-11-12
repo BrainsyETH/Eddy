@@ -123,19 +123,24 @@ import AppLink from '@/components/AppLink';
 import AppPromotion from '@/components/AppPromotion';
 import PlanAppCta from '@/components/plan/PlanAppCta';
 import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
+import ReportAppCta from '@/components/gauge/ReportAppCta';
+import SiteHeader from '@/components/layout/SiteHeader';
 import type { FloatPlan } from '@/types/api';
 const plan = { river: { id: 'river', name: 'Current River' }, putIn: { id: 'put' }, takeOut: { id: 'take' }, vessel: { id: 'kayak' }, distance: { miles: 8 }, floatTime: { minutes: 180 }, condition: { code: 'good' } } as FloatPlan;
 export default function Fixture() {
   const [changed, setChanged] = useState(false);
-  return <main className="mx-auto max-w-4xl space-y-6 px-3 py-6">
+  const [read, setRead] = useState<'loading' | 'ready' | 'missing'>('missing');
+  return <><div data-header-check><SiteHeader campingEnabled floatSearchEnabled /></div><main className="mx-auto max-w-4xl space-y-6 px-3 py-6">
     <h1>App invitations</h1>
     <AppPromotion><p>Generic invitation <AppLink data-ga-label="fixture_generic">Get Eddy for iPhone</AppLink></p></AppPromotion>
     <section><h2>Planner result</h2><button className="btn-outline mb-2" onClick={() => setChanged(v => !v)}>Change route</button><PlanAppCta plan={{ ...plan, takeOut: { ...plan.takeOut, id: changed ? 'new-take' : 'take' } }} /></section>
     <AppCta destination={{ kind: 'plan', id: 'fixture123' }} title="Follow this float in River Mode" detail="Open the route in Eddy, then start your float when you’re ready." label="shared_plan" />
-    <AppCta destination={{ kind: 'river', id: 'current' }} title="Current River on your Home Screen" detail="Add an Eddy river widget, then choose your river in Edit Widget." label="river_widget" widget variant="inline" />
+    <AppCta destination={{ kind: 'river', id: 'current' }} title="Current River on your Home Screen" detail="Add an Eddy river widget, then choose your river in Edit Widget." label="river_widget" variant="inline" />
     <AppCta destination={{ kind: 'access', id: 'akers-ferry', river: 'current' }} title="Download your float before you head out" detail="Plan your route in Eddy and download its map while you have signal." label="access_offline" />
-    <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={false} />
-  </main>;
+    <div data-report-check><label>Read availability <select value={read} onChange={event => setRead(event.target.value as typeof read)}><option value="loading">Loading</option><option value="ready">Ready</option><option value="missing">Missing</option></select></label><ReportAppCta destination={{kind: 'gauge', id: '07067000'}} hasRead={read === 'ready'} loading={read === 'loading'} /></div>
+    <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} />
+    <div data-locked-read><EddyOutlookFooter sections={{ eddyRead: 'Locked Read example', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} /></div>
+  </main></>;
 }`);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
     env: { ...process.env, EDDY_DAM_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
@@ -459,7 +464,10 @@ export default function Fixture() {
     await page.goto('https://eddy.guide/dam-layout-check/promotions?ct=partner_guide', { waitUntil: 'networkidle' });
     assert.match(await page.locator('[data-ga-label="fixture_generic"]').getAttribute('href'), /^https:\/\/apps.apple.com\//);
     assert.equal(await page.locator('.app-cta__qr').count(), 0, 'iPhone never gets QR controls');
+    assert.equal(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'fixture_generic').length, 0, 'AppLink impressions require an explicit opt-in');
     const shared = page.locator('[data-app-cta="shared_plan"]');
+    assert.equal(await shared.locator('a').first().getAttribute('data-ga-event'), 'app_store_click', 'download is the first and primary iPhone action');
+    assert.match(await shared.locator('.app-cta__open').innerText(), /Already have Eddy/);
     await shared.scrollIntoViewIfNeeded();
     assert.equal(await shared.locator('[data-ga-event="app_open_click"]').getAttribute('href'), 'eddy:///float/fixture123');
     await page.evaluate(() => document.addEventListener('click', event => {
@@ -472,6 +480,12 @@ export default function Fixture() {
     assert.equal(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'shared_plan').length, 1);
     assert.equal(events.filter(event => event[1] === 'app_open_click' && event[2]?.label === 'shared_plan').length, 1);
     assert.equal(events.find(event => event[1] === 'app_open_click' && event[2]?.label === 'shared_plan')[2].app_campaign, 'partner_guide');
+    const report = page.locator('[data-report-check]');
+    for (const state of ['loading', 'ready', 'missing', 'ready']) {
+      await report.getByRole('combobox').selectOption(state);
+      assert.equal(await report.locator('[data-ga-label="gauge_eddy_read"]').count(), state === 'ready' ? 1 : 0);
+      assert.equal(await report.locator('[data-app-cta="gauge_widget"]').count(), state === 'missing' ? 1 : 0);
+    }
     let attempts = 0;
     await page.route('**/api/plan/save', route => {
       attempts++;
@@ -484,6 +498,7 @@ export default function Fixture() {
     await page.getByRole('button', { name: 'Follow this float in River Mode' }).click();
     await page.locator('[data-app-cta="planner_handoff"]').waitFor();
     assert.equal(await page.locator('[data-app-cta="planner_handoff"] [data-ga-event="app_open_click"]').getAttribute('href'), 'eddy:///float/saved123');
+    assert(await page.getByText('Your float is saved', { exact: true }).isVisible());
     assert.equal(attempts, 2, 'one request per explicit attempt');
     await page.getByRole('button', { name: 'Change route' }).click();
     assert.equal(await page.locator('[data-app-cta="planner_handoff"]').count(), 0, 'changing endpoints drops the old handoff');
@@ -510,6 +525,17 @@ export default function Fixture() {
   await desktop.screenshot({ path: `${out}/app-narrow-desktop.png`, fullPage: false });
   await desktop.setViewportSize({ width: 1280, height: 900 });
   await desktop.goto(`${origin}/dam-layout-check/promotions?ct=partner_guide`, { waitUntil: 'networkidle' });
+  for (const width of [1024, 1280]) {
+    await desktop.setViewportSize({ width, height: 900 });
+    const header = desktop.locator('[data-header-check]');
+    const button = header.locator('[data-ga-label="header"]');
+    assert(await button.isVisible());
+    const navBox = await header.getByRole('navigation', { name: 'Main navigation' }).boundingBox();
+    const ctaBox = await button.boundingBox();
+    assert(navBox.x + navBox.width <= ctaBox.x, 'full navigation and download button do not overlap');
+    assert(ctaBox.x + ctaBox.width <= width && ctaBox.height >= 44, 'header CTA fits at lg');
+    await desktop.screenshot({ path: `${out}/header-${width}.png`, fullPage: false });
+  }
   const contextualQr = desktop.locator('[data-app-cta="river_widget"] details');
   await contextualQr.locator('summary').click();
   const qrSrc = await contextualQr.locator('img').getAttribute('src');
@@ -524,14 +550,32 @@ export default function Fixture() {
   assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/float\/fixture123/);
   await desktop.close();
   const android = await browser.newPage({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' });
+  await android.addInitScript(() => {
+    window.promotionLayoutShift = 0;
+    new PerformanceObserver(list => {
+      for (const entry of list.getEntries()) if (!entry.hadRecentInput) window.promotionLayoutShift += entry.value;
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
   android.on('pageerror', e => errors.push(e.message));
   await android.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
   await android.goto(url, { waitUntil: 'networkidle' });
   assert.equal(await android.locator('[data-dam-app-cta]').count(), 0, 'Android omits the iPhone promotion');
   assert(await android.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
   await android.goto(`${origin}/dam-layout-check/promotions`, { waitUntil: 'networkidle' });
+  const hydrationShift = await android.evaluate(() => window.promotionLayoutShift);
+  await writeFile(`${out}/android-hydration.json`, JSON.stringify({ viewport: 390, fixture: 'promotions', layoutShift: hydrationShift, note: 'Single fixture run; not production field CLS.' }, null, 2));
+  console.log(`Android promotion fixture layout shift: ${hydrationShift}`);
   assert.equal(await android.locator('[data-app-cta], [data-ga-label="fixture_generic"], [data-ga-label="river_eddy_read"]').count(), 0, 'Android omits all unsupported app actions');
   assert(await android.getByText('A useful public river summary', { exact: true }).isVisible(), 'Android retains the useful public Read');
+  assert(await android.locator('[data-locked-read]').getByRole('heading', { name: "Eddy's Read" }).isVisible(), 'Android retains the noncompact Read section');
+  assert(await android.locator('[data-locked-read]').getByText('Available for iPhone only.', { exact: true }).isVisible());
+  assert(await android.locator('[data-locked-read] [data-nosnippet]').first().evaluate(el => getComputedStyle(el).filter.includes('blur')), 'Android does not unblur gated content');
+  await android.screenshot({ path: `${out}/promotions-android.png`, fullPage: true });
+  for (const path of ['/app', '/app?plan=fixture123']) {
+    await android.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
+    assert(await android.getByText('Available for iPhone only.', { exact: true }).isVisible());
+    assert.equal(await android.locator('[data-ga-event="app_store_click"], .app-cta__qr').count(), 0);
+  }
   await android.close();
   console.log('PASS Android keeps the schedule; desktop QR retains dam and campaign below 900px');
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');

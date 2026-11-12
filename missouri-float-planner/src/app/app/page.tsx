@@ -12,6 +12,8 @@ import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import { appQrImage } from '@/lib/app-qr';
 import AppQrPrompt from '@/components/AppQrPrompt';
 import ContextAppLanding from '@/components/ContextAppLanding';
+import AppAvailability from '@/components/AppAvailability';
+import AppPromotion from '@/components/AppPromotion';
 import { nativeDestination, type AppDestinationQuery } from '@/lib/app-destination';
 
 type Props = { searchParams: Promise<{ ct?: string | string[]; dam?: string | string[] } & AppDestinationQuery> };
@@ -127,13 +129,12 @@ export default async function AppLandingPage({ searchParams }: Props) {
             </p>
 
             <div className={styles.actions}>
-              <AppLink
+              <AppLink trackView
                 store
                 campaign={campaign}
                 className={styles.appStoreBadge}
                 target="_blank"
                 rel="noopener noreferrer"
-                data-ga-event="app_store_click"
                 data-ga-label="app_landing_hero"
                 data-ga-dam-id={dam?.id}
               >
@@ -150,7 +151,8 @@ export default async function AppLandingPage({ searchParams }: Props) {
               </Link>}
             </div>
 
-            {qr ? <AppQrPrompt {...qr} className={styles.qrPrompt} frameClassName={styles.qrFrame} /> : <div className={styles.qrPrompt}>
+            <AppAvailability />
+            <AppPromotion>{qr ? <AppQrPrompt {...qr} className={styles.qrPrompt} frameClassName={styles.qrFrame} /> : <div className={styles.qrPrompt}>
               <span className={styles.qrFrame}>
                 <Image
                   src="/app-store/eddy-guide-qr.svg"
@@ -163,7 +165,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
                 <strong>Open Eddy on your iPhone</strong>
                 Scan to visit eddy.guide/app
               </span>
-            </div>}
+            </div>}</AppPromotion>
 
             {!dam && <p className={styles.microcopy}>
               Designed for Missouri and Ozarks float rivers. More water is on the way.
@@ -254,13 +256,12 @@ export default async function AppLandingPage({ searchParams }: Props) {
           <p className={styles.eyebrow}>YOUR RIVER GUIDE, IN YOUR POCKET</p>
           <h2>Check the water. Make the plan. Go float.</h2>
         </div>
-        <AppLink
+        <AppLink trackView
           store
           campaign={campaign}
           className={styles.bottomBadge}
           target="_blank"
           rel="noopener noreferrer"
-          data-ga-event="app_store_click"
           data-ga-label="app_landing_footer"
           data-ga-dam-id={dam?.id}
         >

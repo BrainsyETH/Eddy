@@ -125,8 +125,12 @@ behavior and GA4 event receipt remain deployment checks.
 ## Contextual app invitations
 
 `AppCta` owns the compact inline/card treatments and the device-specific actions.
-`AppLink` handles generic links and the existing Read/dam placements; both use
-`useAppPromotionView` so responsive duplicates cannot count two impressions.
+`AppLink` handles generic links and the existing Read/dam placements. Its
+impressions are opt-in (`trackView`); header, footer, home, landing and Read
+placements explicitly opt in so their click-through rates remain comparable.
+Contextual `AppCta` and dam wrappers own their impressions and disable tracking
+on nested links. Both use `useAppPromotionView` so responsive duplicates cannot
+count two impressions.
 Half of an invitation must enter the viewport. Existing analytics host, frame,
 automation and opt-out guards still apply. No native-banner or installed-app
 visibility detection is attempted.
@@ -136,8 +140,8 @@ visibility detection is attempted.
 | `planner_result` | Valid, current route with both endpoints and completed hazard lookup | A user tap saves the route through the existing plan API |
 | `planner_handoff` | The save succeeded | The saved `/float/<code>` native screen |
 | `shared_plan` | A shared plan has loaded | That same saved plan |
-| `river_widget` | River report is loaded | The river detail |
-| `gauge_widget` | Gauge report is loaded | The gauge detail |
+| `river_widget` | Initial Read check finished without an available generated Read | The river detail |
+| `gauge_widget` | Initial Read check finished without an available generated Read | The gauge detail |
 | `access_offline` | Access point detail | That access point in its river |
 
 Preparing a planner handoff does not invoke sharing or start recording. It keeps
@@ -145,17 +149,27 @@ endpoints and vessel, handles save errors with a retry, and abandons a pending
 handoff when the route changes. No save occurs on an impression. A successful
 save supplies a stable link that remains usable after installation.
 
-On iOS, contextual invitations offer an explicit **Open in Eddy** custom-scheme
-link and a separate App Store action. Opening a detail never starts River Mode,
+Each river/gauge report has one invitation slot (`ReportAppCta`). An available
+Read gets the Read action; a settled report without one gets the widget action.
+Initial loading gets neither, and an existing Read keeps its action during
+background refresh. Dam-release tabs use the same public availability check as
+their teaser, rather than promising a Read that has not been published.
+
+On iOS, **Get Eddy for iPhone** is the primary contextual action. A quieter
+**Already have Eddy? Open…** custom-scheme link is explicitly for installed-app
+users; it can fail when Eddy is not installed. The Smart App Banner remains an
+additional opening path, not a dependency for downloading. Opening a detail never starts River Mode,
 creates an alert, configures a widget or downloads a map. Widget copy describes
 manual Edit Widget setup; access copy says to download before losing signal.
-The widget illustration is a crop of the published App Store screenshot, labeled
-as an example rather than live readings. Generic iOS downloads skip `/app`.
+Compact widget invitations have no cropped phone artwork. The dedicated app
+landing retains its full, labeled App Store illustration. Generic iOS downloads
+skip `/app`.
 
 Desktop visitors can expand **Send to iPhone** beside a contextual invitation.
 The QR encodes the same first-party `/app` context and campaign as the link. The
 contextual landing page keeps that QR expanded, provides the store link, and
-supplies the existing native route to Safari's banner. On iPhone it offers Open.
+supplies the existing native route to Safari's banner. On iPhone it offers download
+first, with a secondary Open link.
 A saved-plan landing page also links back to the complete web plan. After a fresh
 install users return to the retained page/link; automatic deferred deep linking
 is not implemented. Existing universal-link claims remain unchanged.
@@ -163,18 +177,33 @@ is not implemented. Existing universal-link claims remain unchanged.
 `app-destination.ts` accepts only bounded plan, river, gauge and river/access
 identifiers. Conflicting/repeated parameters and arbitrary return URLs are not
 accepted. `/api/app/qr` renders only these destinations or the existing promoted
-dams. QR generation stays on the server, without a third-party service.
+dams. QR generation stays on the server, without a third-party service. QR URLs
+always use `https://eddy.guide`, including from a preview; scanning one does not
+verify preview-only code or test-database plans.
 
-Android hides generic and contextual invitations. Public compact Read summaries
-and dam teasers remain; a fully blurred promotional Read block is omitted along
-with its unusable app action. No Android waitlist is introduced.
+Android hides install invitations, not report sections. Public compact Read
+summaries and dam teasers remain; the existing noncompact Read stays blurred,
+with an iPhone-only availability note in place of an unsupported action. No
+entitlement or public response contract changes. Both generic and contextual
+`/app` pages explain that Eddy is iPhone-only and retain their web navigation.
+Device selection remains client-side after neutral SSR; hydration layout shift
+is measured in the browser fixture, not assumed away or fixed by varying caches
+on user agent. No Android waitlist is introduced.
 
 Events: `app_promotion_view` → `app_landing_click` (where applicable) →
 `app_store_click`; `app_open_click` measures an attempt to open an installed app,
 not confirmed app activation. `app_plan_prepare` measures the planner's save
 request. Placement (`label`) stays separate from `app_campaign`; an existing
 partner campaign takes precedence over placement defaults. Neither a store click
-nor an open attempt is an installation. Apple reporting still requires a real
+nor an open attempt is an installation. `AppLink` owns its event name according
+to the actual destination; callers provide placement labels, not event names.
+
+Reporting discontinuity: after this release, generic iPhone header, home and
+footer clicks emit `app_store_click` directly, rather than `app_landing_click`.
+Record the deployment date; a lower landing-click count for those labels is not
+itself a conversion loss. Compare initial CTA clicks across the two event names
+by label/device, while keeping downstream `/app` store clicks separate. Do not
+emit a fake landing event to preserve the old series. Apple reporting still requires a real
 provider token. Native banner taps remain outside the web click listener.
 
 Verify cold/warm Open behavior in Safari and an in-app browser, with and without

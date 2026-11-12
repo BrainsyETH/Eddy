@@ -11,6 +11,23 @@ import { getUsaceDam, hasPowerhouse } from './flow-providers/usace-registry';
 import DamAppCTA from '../components/dam/DamAppCTA';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import { readAppCampaign } from '../components/AppLink';
+import ReportAppCta from '../components/gauge/ReportAppCta';
+
+test('reports offer one Read or widget invitation, and wait for the initial Read check', () => {
+  for (const kind of ['river', 'gauge'] as const) {
+    const destination = { kind, id: kind === 'river' ? 'current' : '07067000' };
+    for (const loading of [false, true]) {
+      const html = renderToStaticMarkup(createElement(ReportAppCta, { destination, hasRead: true, loading }));
+      assert.match(html, new RegExp(`data-ga-label="${kind}_eddy_read"`));
+      assert.doesNotMatch(html, /_widget/);
+      assert.equal((html.match(/<a\s/g) ?? []).length, 1);
+    }
+    const fallback = renderToStaticMarkup(createElement(ReportAppCta, { destination, hasRead: false, loading: false }));
+    assert.match(fallback, new RegExp(`data-app-cta="${kind}_widget"`));
+    assert.doesNotMatch(fallback, /_eddy_read/);
+    assert.equal(renderToStaticMarkup(createElement(ReportAppCta, { destination, hasRead: false, loading: true })), '');
+  }
+});
 
 test('missing and invalid configuration always lead to the published app', () => {
   for (const env of [{}, { url: 'javascript:alert(1)', appId: 'bad' }, { url: 'https://apps.apple.com.evil.test/app/id1' }, { url: 'https://apps.apple.com/not-a-listing' }]) {

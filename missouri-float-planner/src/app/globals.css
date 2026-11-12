@@ -3,21 +3,20 @@
 @tailwind utilities;
 
 /* Quiet app invitations next to route and water data (ADR 0007). */
-.app-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: 1rem; background: var(--color-secondary-50); }
-.app-cta.card-panel { background: var(--color-secondary-50); }
+.app-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: 1rem; }
+/* The compound selector keeps the later .card-panel surface from winning. */
+.app-cta, .app-cta.card-panel { background: var(--color-secondary-50); }
 .app-cta--inline { border-block: 1px solid var(--color-secondary-200); }
 .app-cta__content { display: flex; align-items: flex-start; gap: .75rem; flex: 1 1 220px; min-width: 0; }
 .app-cta__actions { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .25rem; }
 .app-cta__link { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; color: var(--color-primary-800); font-size: .875rem; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.app-cta__open { font-weight: 400; }
 .app-cta__link:hover { color: var(--color-primary-600); }
 .app-cta__link:focus-visible, .app-cta__qr summary:focus-visible { outline: 2px solid var(--color-primary-600); outline-offset: 4px; }
 .app-cta__qr { flex: 0 0 auto; font-size: .75rem; color: var(--color-primary-800); }
 .app-cta__qr summary { cursor: pointer; min-height: 44px; align-content: center; font-weight: 600; }
 .app-cta__qr > div { text-align: center; }
 .app-cta__qr img { background: white; border-radius: 6px; }
-.app-cta__widget { width: 180px; flex: 0 0 180px; margin: 0; }
-.app-cta__widget img { width: 180px; height: 94px; object-fit: cover; object-position: 50% 47%; border-radius: 8px; }
-.app-cta__widget figcaption { margin-top: .25rem; font-size: .65rem; color: var(--color-neutral-500); }
 
 /* =========================================
    Eddy - Organic Brutalist Theme

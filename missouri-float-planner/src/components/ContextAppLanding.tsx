@@ -2,13 +2,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AppCta from './AppCta';
 import AppPromotion from './AppPromotion';
+import AppAvailability from './AppAvailability';
 import SiteFooter from './ui/SiteFooter';
 import type { AppDestination } from '@/lib/app-destination';
 
 export default function ContextAppLanding({ destination, campaign }: { destination: AppDestination; campaign: string | null }) {
   const plan = destination.kind === 'plan';
   const access = destination.kind === 'access';
-  const title = plan ? 'Your float, in Eddy.' : access ? 'Get ready before you head out.' : 'Keep your river close.';
+  const title = plan ? 'Your float is saved.' : access ? 'Get ready before you head out.' : 'Keep your river close.';
   const detail = plan ? 'Open your saved route, then start River Mode when you’re ready.'
     : access ? 'Plan your float in Eddy and download the map before you lose signal.'
     : 'Open this river or gauge in Eddy. Add a Home Screen widget and choose the water you follow.';
@@ -19,6 +20,7 @@ export default function ContextAppLanding({ destination, campaign }: { destinati
         <h1 className="font-display text-3xl font-semibold text-primary-800">{title}</h1>
         <p className="mb-6 mt-3 text-neutral-600">{detail}</p>
         <AppCta destination={destination} campaign={campaign} landing title="Eddy for iPhone" label="app_landing_context" />
+        <AppAvailability />
         <AppPromotion><p className="mt-3 text-sm text-neutral-600">After installing Eddy, return to this page on your iPhone and choose Open.</p></AppPromotion>
         {plan && <Link className="app-cta__link mt-3" href={`/plan/${encodeURIComponent(destination.id)}`}>View your saved plan on the web</Link>}
         <Link href="/app" className="app-cta__link mt-3">See what’s in Eddy</Link>

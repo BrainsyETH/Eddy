@@ -22,7 +22,7 @@ function PlanInvitation({ plan }: { plan: FloatPlan }) {
   const ref = useAppPromotionView<HTMLElement>('planner_result', `${plan.putIn.id}:${plan.takeOut.id}:${plan.vessel.id}`, device !== 'android');
   useEffect(() => () => pending.current?.abort(), []);
   if (device === 'android') return null;
-  if (code) return <AppCta destination={{ kind: 'plan', id: code }} title="Your float is ready in Eddy" label="planner_handoff" />;
+  if (code) return <AppCta destination={{ kind: 'plan', id: code }} title="Your float is saved" detail="Open it in Eddy to follow your route." label="planner_handoff" />;
   async function prepare() {
     if (pending.current) return;
     const controller = new AbortController();

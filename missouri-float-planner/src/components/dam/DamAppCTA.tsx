@@ -23,7 +23,6 @@ export default function DamAppCTA({ damId, damName }: { damId: string; damName: 
         trackView={false}
         campaign={dam.campaign}
         damId={dam.id}
-        data-ga-event="app_landing_click"
         data-ga-label="dam_schedule"
         data-ga-dam-id={dam.id}
         className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-700 underline underline-offset-4 hover:text-primary-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700"

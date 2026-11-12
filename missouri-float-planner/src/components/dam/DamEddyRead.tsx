@@ -31,10 +31,11 @@ const DAM_READ_PITCH = 'What stands out in today’s generation schedule.';
 type ReadState = { damId: string; generatedAt: string | null } | null;
 
 /** When this dam's Read was written, or null; `loading` until the public check answers. */
-function useDamReadWrittenAt(damId: string): { loading: boolean; generatedAt: string | null } {
+export function useDamReadWrittenAt(damId: string | null): { loading: boolean; generatedAt: string | null } {
   const [state, setState] = useState<ReadState>(null);
 
   useEffect(() => {
+    if (!damId) return;
     const controller = new AbortController();
     fetch(`/api/dam-update/${encodeURIComponent(damId)}`, { signal: controller.signal })
       .then((res) => (res.ok ? (res.json() as Promise<DamReadResponse>) : null))
@@ -47,7 +48,7 @@ function useDamReadWrittenAt(damId: string): { loading: boolean; generatedAt: st
 
   // Keyed by dam, so switching tabs never shows the last dam's age.
   const current = state?.damId === damId ? state : null;
-  return { loading: current === null, generatedAt: current?.generatedAt ?? null };
+  return { loading: damId !== null && current === null, generatedAt: current?.generatedAt ?? null };
 }
 
 export default function DamEddyRead({ damId, damName, now }: { damId: string; damName: string; now: number }) {
@@ -82,13 +83,12 @@ export default function DamEddyRead({ damId, damName, now }: { damId: string; da
  * The dam's Read, as the body of the river page's "Eddy's read" slot. The
  * footer of that panel already links to the app, so this carries no link.
  */
-export function DamReadTeaser({ damId, scheduleAbove }: {
-  damId: string;
+export function DamReadTeaser({ loading, generatedAt, scheduleAbove }: {
+  loading: boolean;
+  generatedAt: string | null;
   /** The card above leads with THIS dam's schedule (not another dam's on the same river). */
   scheduleAbove: boolean;
 }) {
-  const { loading, generatedAt } = useDamReadWrittenAt(damId);
-
   if (loading) return <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s read…</p>;
   if (!generatedAt) {
     // Not "unavailable for this river": the dam may simply have no Read yet

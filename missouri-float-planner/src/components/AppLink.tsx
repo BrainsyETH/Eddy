@@ -30,6 +30,8 @@ export function useAppCampaign(initialCampaign?: string | null) {
 }
 
 type Props = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
+  /** Event names follow the actual destination and cannot be caller-overridden. */
+  'data-ga-event'?: never;
   store?: boolean;
   campaign?: string | null;
   damId?: string;
@@ -38,7 +40,7 @@ type Props = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   'data-ga-label'?: string;
 };
 
-export default function AppLink({ store = false, campaign: initialCampaign, damId, destination, trackView = true, ...props }: Props) {
+export default function AppLink({ store = false, campaign: initialCampaign, damId, destination, trackView = false, ...props }: Props) {
   const campaign = useAppCampaign(initialCampaign);
   const device = useAppDevice();
   const directStore = store || (device === 'ios' && !damId && !destination);

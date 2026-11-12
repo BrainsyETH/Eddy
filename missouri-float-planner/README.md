@@ -474,8 +474,10 @@ viewport. See `docs/VISIBILITY_MEASUREMENT.md` for reporting and device checks.
 Contextual invitations also appear after a valid planner result, on loaded shared
 plans, beside river/gauge reports and below access directions. `AppCta` reuses
 Eddy artwork, warm surfaces and quiet outlined actions. Desktop QR codes and
-explicit iPhone Open actions retain the selected destination; downloads have
-separate actions. Android hides the whole invitation. The existing native routes
+secondary iPhone Open actions retain the selected destination; downloading is
+the primary iPhone action. Reports show one Read or widget invitation, depending
+on Read availability. Android hides install actions and retains report sections
+with iPhone-only availability copy. The existing native routes
 handle these links; this does not widen universal links or restore context
 automatically after a fresh installation. See the contextual-invitation section
 of `docs/VISIBILITY_MEASUREMENT.md` for placement labels and verification.
@@ -491,7 +493,10 @@ ignored by Git and returns not-found unless the smoke script's development-only
 flag is set; an uncatchable kill cannot leave a publicly usable fixture page.
 Screenshots go to
 `/tmp/eddy-dam-page` (override with `DAM_SMOKE_OUTPUT`); no live dam data is needed.
-Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run just the dam-to-app flow.
+Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run the dam-to-app and
+contextual invitation checks, including header fit at 1024px, 320px/390px actions,
+Android visibility, Read/widget exclusivity and planner retry. The
+`app-promotions-web` CI job runs these checks and retains screenshots.
 
 ### Lake and dam pilots
 

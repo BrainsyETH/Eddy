@@ -8,13 +8,12 @@ import { useAppPromotionView } from './useAppPromotionView';
 import { appLandingUrl, appStoreUrl } from '@/lib/app-discovery';
 import { destinationCampaign, nativeDestination, type AppDestination } from '@/lib/app-destination';
 
-export default function AppCta({ destination, title, detail, label, variant = 'card', widget = false, landing = false, campaign: initialCampaign }: {
+export default function AppCta({ destination, title, detail, label, variant = 'card', landing = false, campaign: initialCampaign }: {
   destination: AppDestination;
   title: string;
   detail?: string;
   label: string;
   variant?: 'inline' | 'card';
-  widget?: boolean;
   landing?: boolean;
   campaign?: string | null;
 }) {
@@ -35,23 +34,20 @@ export default function AppCta({ destination, title, detail, label, variant = 'c
           {detail && <p className="mt-1 text-sm text-neutral-600">{detail}</p>}
           <div className="app-cta__actions">
             {device === 'ios' ? <>
-              <a className="btn-outline min-h-11" href={`eddy://${nativeDestination(destination)}`}
-                data-ga-event="app_open_click" data-ga-label={label} data-ga-campaign={campaign ?? undefined}>
-                Open {destination.kind === 'plan' ? 'this plan' : noun} in Eddy <ArrowRight className="size-4" aria-hidden="true" />
+              <a className="btn-outline min-h-11" href={appStoreUrl(campaign)} target="_blank" rel="noopener noreferrer"
+                data-ga-event="app_store_click" data-ga-label={label} data-ga-campaign={campaign ?? undefined}>
+                Get Eddy for iPhone <ArrowRight className="size-4" aria-hidden="true" />
               </a>
-              <a className="app-cta__link" href={appStoreUrl(campaign)} target="_blank" rel="noopener noreferrer"
-                data-ga-event="app_store_click" data-ga-label={label} data-ga-campaign={campaign ?? undefined}>Get Eddy for iPhone</a>
+              <a className="app-cta__link app-cta__open" href={`eddy://${nativeDestination(destination)}`}
+                data-ga-event="app_open_click" data-ga-label={label} data-ga-campaign={campaign ?? undefined}>
+                Already have Eddy? Open {destination.kind === 'plan' ? 'this plan' : 'it'}
+              </a>
             </> : <AppLink store={landing} destination={destination} campaign={campaign} trackView={false}
               className="app-cta__link" data-ga-label={label}>Get Eddy for iPhone <ArrowRight className="size-4" aria-hidden="true" /></AppLink>}
           </div>
           {device === 'ios' && destination.kind === 'plan' && <p className="text-xs text-neutral-500">After installing, return here to open your plan.</p>}
         </div>
       </div>
-      {widget && <figure className="app-cta__widget">
-        <Image src="/app-store/08-your-rivers-at-a-glance.webp" width={1206} height={2622}
-          alt="Eddy’s Your rivers Home Screen widget, shown as an example" sizes="180px" />
-        <figcaption>Widget example</figcaption>
-      </figure>}
       {device === 'other' && <details className="app-cta__qr" open={landing}>
         <summary>Send to iPhone</summary>
         <div>

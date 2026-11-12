@@ -9,6 +9,8 @@ export async function GET(request: Request) {
   }
   const { dam, destination, campaign } = appLandingContext(Object.fromEntries(query));
   if (!dam && !destination) return new Response('Invalid app destination', { status: 400 });
+  // Phone handoffs always use the canonical site, including on previews. A scan
+  // therefore cannot verify preview-only code or a plan saved in a test database.
   const href = `https://eddy.guide${appLandingUrl(campaign, dam?.id, destination)}`;
   const svg = await QRCode.toString(href, { type: 'svg', errorCorrectionLevel: 'M', margin: 4 });
   return new Response(svg, { headers: {
