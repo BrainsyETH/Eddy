@@ -394,6 +394,31 @@
 .admin-body .text-green-400 {
   color: #28663a;
 }
+.admin-body .text-amber-200,
+.admin-body .text-amber-300,
+.admin-body .text-amber-400 {
+  color: #854d0e;
+}
+/* Translucent dark status fills become light tints, so the remapped (dark)
+   status text above stays readable on them. */
+.admin-body .bg-green-900\/50,
+.admin-body .bg-green-900\/40 {
+  background-color: #e3f1e6;
+}
+.admin-body .bg-red-900\/50,
+.admin-body .bg-red-900\/40,
+.admin-body .bg-red-900\/20 {
+  background-color: #fbe9e6;
+}
+.admin-body .bg-amber-900\/50 {
+  background-color: #fdf3d7;
+}
+.admin-body .disabled\:bg-neutral-700:disabled {
+  background-color: #e7e1d6;
+}
+.admin-body .disabled\:text-neutral-500:disabled {
+  color: #797265;
+}
 .admin-body .text-orange-300,
 .admin-body .text-orange-400 {
   color: #9a3412;

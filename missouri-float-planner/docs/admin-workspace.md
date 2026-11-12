@@ -157,6 +157,16 @@ Vercel environment; the latest attempted deployment has a separate history link.
   link uses the canonical `/rivers/<state>/<river>/access/<slug>` form and is
   replaced by a note while the point is unapproved.
 
+- **Access points** can be approved where they are listed. "Waiting for
+  approval" in the Show filter lists unapproved points across every river, and
+  both the list card and the editor carry **Approve and publish** with the
+  required put-in/take-out answer, pre-filled from the point's types. The
+  editor's Basics section edits name, river mile, description, ownership,
+  public access, fee, fee notes and amenities; the last two are shown on the
+  public page and had no admin control. Amenities are stored as keys
+  (`src/lib/admin/access-point-fields.ts`), never free text. A save reports
+  when the point is still hidden because it is unapproved.
+
 ## Float contributions
 
 Admin → Float contributions reviews floats people chose to share. It never

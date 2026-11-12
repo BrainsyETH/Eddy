@@ -11,6 +11,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import { changedFields } from '@/lib/access-points/edit-diff';
 import { riverAccessPath } from '@/lib/navigation/river-path';
+import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
+import { ACCESS_POINT_AMENITIES, MAX_FEE_NOTES_LENGTH } from '@/lib/admin/access-point-fields';
+import { OWNERSHIP_TYPES } from '@/constants';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
@@ -25,6 +28,7 @@ import {
   Building,
   Users,
   FileText,
+  Info,
 } from 'lucide-react';
 
 // Types
@@ -55,6 +59,10 @@ interface AccessPointData {
   roadAccess: string | null;
   facilities: string | null;
   feeRequired: boolean;
+  feeNotes: string | null;
+  amenities: string[];
+  isFloatEndpoint?: boolean;
+  createdAt?: string | null;
   directionsOverride: string | null;
   drivingLat: number | null;
   drivingLng: number | null;
@@ -76,12 +84,15 @@ interface AccessPointData {
 // approval, coordinates) is never sent back.
 const EDITABLE_FIELDS = [
   'name', 'riverId', 'riverMile', 'type', 'types', 'isPublic', 'ownership', 'description',
-  'parkingInfo', 'roadAccess', 'facilities', 'feeRequired', 'directionsOverride',
+  'parkingInfo', 'roadAccess', 'facilities', 'feeRequired', 'feeNotes', 'amenities', 'directionsOverride',
   'drivingLat', 'drivingLng', 'imageUrls', 'googleMapsUrl', 'roadSurface',
   'parkingCapacity', 'managingAgency', 'officialSiteUrl', 'localTips',
 ] as const satisfies ReadonlyArray<keyof AccessPointData>;
 
 class StaleSaveError extends Error {}
+
+const INPUT =
+  'w-full px-4 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
 
 const ACCESS_POINT_TYPE_OPTIONS = [
   { value: 'boat_ramp', label: 'Boat Ramp' },
@@ -151,6 +162,7 @@ export default function AdminAccessPointEditPage() {
   // this and carry its version, so a background refetch can neither wipe
   // edits in progress nor quietly re-base them onto newer data.
   const [loaded, setLoaded] = useState<AccessPointData | null>(null);
+  const [saveNotes, setSaveNotes] = useState<string[]>([]);
   useUnsavedAdminChanges(hasChanges);
   const dirtyRef = useRef(false);
   const setHasChanges = (value: boolean) => {
@@ -195,10 +207,40 @@ export default function AdminAccessPointEditPage() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result: { warning?: string; keptLiveAddress?: boolean }) => {
       queryClient.invalidateQueries({ queryKey: ['admin-access-point', id] });
       queryClient.invalidateQueries({ queryKey: ['admin-access-points'] });
       setHasChanges(false);
+      // The API says when a save did not reach the public app, and when a
+      // rename kept the page's existing address. Both used to be dropped.
+      setSaveNotes(
+        [
+          result.warning ? 'Saved, but this point is not approved, so it is still hidden from the app.' : null,
+          result.keptLiveAddress ? 'Renamed. The public page keeps its existing web address.' : null,
+        ].filter((n): n is string => !!n),
+      );
+    },
+  });
+
+  // Approve from the editor. Approval must also say whether the point can be a
+  // put-in or take-out; the box is pre-filled from its types.
+  const [canBeEndpoint, setCanBeEndpoint] = useState<boolean | null>(null);
+  const approveMutation = useMutation({
+    mutationFn: async (isFloatEndpoint: boolean) => {
+      const response = await adminFetch(`/api/admin/access-points/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFloatEndpoint }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Could not approve');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-access-point', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-access-points'] });
     },
   });
 
@@ -206,6 +248,13 @@ export default function AdminAccessPointEditPage() {
   const updateField = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setHasChanges(true);
+    // A "saved" message must not sit beside new unsaved edits.
+    if (saveMutation.isSuccess) saveMutation.reset();
+  };
+
+  const toggleAmenity = (amenity: string) => {
+    const current = formData.amenities || [];
+    updateField('amenities', current.includes(amenity) ? current.filter((a) => a !== amenity) : [...current, amenity]);
   };
 
   // Handle access point type toggle
@@ -320,8 +369,41 @@ export default function AdminAccessPointEditPage() {
 
         {/* Success/Error Messages */}
         {saveMutation.isSuccess && (
-          <div className="mb-6 p-3 bg-green-900/50 border border-green-700 rounded-lg text-green-300 text-sm">
-            Changes saved successfully!
+          <div role="status" className="mb-6 p-3 bg-green-900/50 border border-green-700 rounded-lg text-green-300 text-sm">
+            {saveNotes.length > 0 ? saveNotes.join(' ') : 'Changes saved.'}
+          </div>
+        )}
+
+        {/* Approval: an unapproved point is hidden from the app */}
+        {!ap.approved && (
+          <div className="mb-6 p-4 bg-amber-900/50 border border-amber-700 rounded-lg text-sm">
+            <p className="font-medium text-amber-200">Waiting for approval. This point is hidden from the app.</p>
+            {ap.createdAt && (
+              <p className="text-amber-200 text-xs mt-1">Added {new Date(ap.createdAt).toLocaleDateString()}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-3 mt-3">
+              <label className="flex items-center gap-2 text-amber-200">
+                <input
+                  type="checkbox"
+                  checked={canBeEndpoint ?? defaultFloatEndpoint(ap.types, ap.type)}
+                  onChange={(e) => setCanBeEndpoint(e.target.checked)}
+                />
+                Can be chosen as a put-in or take-out
+              </label>
+              <button
+                onClick={() => approveMutation.mutate(canBeEndpoint ?? defaultFloatEndpoint(ap.types, ap.type))}
+                disabled={approveMutation.isPending || hasChanges}
+                className="px-3 py-1.5 rounded-lg admin-primary disabled:opacity-50"
+              >
+                {approveMutation.isPending ? 'Approving…' : 'Approve and publish'}
+              </button>
+              {hasChanges && <span className="text-xs text-amber-200">Save your changes first.</span>}
+            </div>
+            {approveMutation.isError && (
+              <p role="alert" className="mt-2 text-red-300">
+                {approveMutation.error.message}
+              </p>
+            )}
           </div>
         )}
         {saveMutation.error instanceof StaleSaveError && (
@@ -346,6 +428,131 @@ export default function AdminAccessPointEditPage() {
         )}
 
         <div className="space-y-6">
+          {/* Basics: what the public page leads with */}
+          <FormSection icon={<Info className="w-5 h-5" />} title="Basics">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="ap-name" className="block text-sm font-medium text-neutral-300 mb-2">
+                  Name
+                </label>
+                <input
+                  id="ap-name"
+                  type="text"
+                  value={formData.name || ''}
+                  onChange={(e) => updateField('name', e.target.value)}
+                  className={INPUT}
+                />
+                {ap.approved && (
+                  <p className="text-xs text-neutral-400 mt-1">Renaming keeps the public page’s web address.</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="ap-mile" className="block text-sm font-medium text-neutral-300 mb-2">
+                  River mile
+                </label>
+                <input
+                  id="ap-mile"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={formData.riverMile ?? ''}
+                  onChange={(e) => updateField('riverMile', e.target.value === '' ? null : Number(e.target.value))}
+                  className={INPUT}
+                />
+                <p className="text-xs text-neutral-400 mt-1">
+                  On this river’s own mile numbering. Trip distances are measured between these.
+                </p>
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="ap-description" className="block text-sm font-medium text-neutral-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  id="ap-description"
+                  rows={3}
+                  value={formData.description || ''}
+                  onChange={(e) => updateField('description', e.target.value || null)}
+                  className={INPUT}
+                  placeholder="What a paddler finds here"
+                />
+              </div>
+              <div>
+                <label htmlFor="ap-ownership" className="block text-sm font-medium text-neutral-300 mb-2">
+                  Ownership
+                </label>
+                <select
+                  id="ap-ownership"
+                  value={formData.ownership || ''}
+                  onChange={(e) => updateField('ownership', e.target.value || null)}
+                  className={INPUT}
+                >
+                  <option value="">Not set</option>
+                  {Object.entries(OWNERSHIP_TYPES).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                  {formData.ownership && !(formData.ownership in OWNERSHIP_TYPES) && (
+                    <option value={formData.ownership}>{formData.ownership}</option>
+                  )}
+                </select>
+              </div>
+              <div className="flex flex-col justify-end gap-2">
+                <label className="flex items-center gap-2 text-sm text-neutral-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.isPublic ?? true}
+                    onChange={(e) => updateField('isPublic', e.target.checked)}
+                  />
+                  Open to the public
+                </label>
+                <label className="flex items-center gap-2 text-sm text-neutral-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.feeRequired ?? false}
+                    onChange={(e) => updateField('feeRequired', e.target.checked)}
+                  />
+                  Fee required
+                </label>
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="ap-fee-notes" className="block text-sm font-medium text-neutral-300 mb-2">
+                  Fee notes
+                </label>
+                <input
+                  id="ap-fee-notes"
+                  type="text"
+                  maxLength={MAX_FEE_NOTES_LENGTH}
+                  value={formData.feeNotes || ''}
+                  onChange={(e) => updateField('feeNotes', e.target.value || null)}
+                  className={INPUT}
+                  placeholder="e.g., $5 day use, cash only"
+                />
+              </div>
+              <fieldset className="md:col-span-2">
+                <legend className="block text-sm font-medium text-neutral-300 mb-2">Amenities</legend>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {[
+                    ...ACCESS_POINT_AMENITIES,
+                    // Keys already on this point that are not in the list stay selectable.
+                    ...(formData.amenities || [])
+                      .filter((a) => !ACCESS_POINT_AMENITIES.some((k) => k.value === a))
+                      .map((a) => ({ value: a, label: a.replace(/_/g, ' ') })),
+                  ].map((option) => (
+                    <label key={option.value} className="flex items-center gap-2 text-sm text-neutral-300">
+                      <input
+                        type="checkbox"
+                        checked={(formData.amenities || []).includes(option.value)}
+                        onChange={() => toggleAmenity(option.value)}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          </FormSection>
+
           {/* Access Point Types Section */}
           <FormSection icon={<MapPin className="w-5 h-5" />} title="Access Point Types">
             <div>
