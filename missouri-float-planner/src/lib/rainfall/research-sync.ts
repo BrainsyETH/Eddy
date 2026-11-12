@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MRMS_URL, RAIN_WINDOWS, rasterGrid, selectMrmsRaster } from './source-contract';
-import { type Basin, exportParameters, forecastMetadata, forecastUrl, hash, nativeTile, object, RESEARCH_BUCKET, validateTiff } from './research-contract';
+import { type Basin, exportParameters, forecastArchive, forecastMetadata, forecastUrl, hash, nativeTile, object, pointUrl, RESEARCH_BUCKET, validateTiff } from './research-contract';
 import { type Capture, saveCapture } from './research-store';
 import { publishRain } from './public-store';
 
@@ -103,7 +103,7 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
       let url: string;
       if (cached.data && Date.now() - Date.parse(cached.data.resolved_at) < 7 * 86400_000) url = forecastUrl(cached.data.grid_url);
       else {
-        const response = await deps.json(`https://api.weather.gov/points/${sample.coordinates[1].toFixed(6)},${sample.coordinates[0].toFixed(6)}`, signal);
+        const response = await deps.json(pointUrl(sample.coordinates), signal);
         url = forecastUrl(object(object(response).properties).forecastGridData);
         const { error: writeError } = await db.from('rainfall_research_grid_cache').upsert({ point_key: key, grid_url: url, resolved_at: new Date().toISOString() });
         if (writeError) throw writeError;
@@ -118,8 +118,12 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
       const p = object(object(response).properties);
       if (forecastUrl(`https://api.weather.gov/gridpoints/${p.gridId}/${p.gridX},${p.gridY}`) !== url) throw new Error('NWS grid identity mismatch');
       bindings.sort((a, b) => a.point.join(',').localeCompare(b.point.join(',')));
+      // Validate the whole response above, then keep only what a rain study reads.
+      const kept = forecastArchive(response);
       await archive({ kind: 'nws', sourceKey: url, start: forecast.start, end: forecast.end, issuedAt: forecast.issuedAt,
-        metadata: { ...forecast, bindings, publicUse: false, sampling: 'exploratory; no basin average or coverage claim' }, bytes: jsonBytes(response) });
+        metadata: { ...forecast, bindings, publicUse: false, sampling: 'exploratory; no basin average or coverage claim',
+          archivedLayers: kept.layers, droppedLayerCount: kept.droppedLayers.length, sourceBytes: jsonBytes(response).length },
+        bytes: jsonBytes(kept.document) });
       if (forecast.stale) stale++;
     });
     completed += captures.completed; failed += captures.failed; deferred += captures.deferred;
