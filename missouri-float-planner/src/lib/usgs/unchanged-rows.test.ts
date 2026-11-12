@@ -1,25 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  latestRowUnchanged,
+  gradedOnSameDay,
+  latestReadingUnchanged,
+  latestRowCurrent,
   percentileRowUnchanged,
-  type NextLatestRow,
+  type LatestReading,
   type PercentileValues,
   type StoredLatestRow,
 } from './unchanged-rows';
 
-// These pin the write-skipping that keeps the national crons from rewriting
-// identical rows (the load that exhausted production disk I/O on 2026-11-12).
-// A false "unchanged" would freeze a gauge on an old reading, so each test
-// checks the change that must still be written as well as the skip.
+// These pin the skipping that keeps the national crons from rereading and
+// rewriting rows that have not changed (the load that exhausted production disk
+// I/O on 2026-11-12). A false "unchanged" would freeze a gauge on an old
+// reading or grade, so each test checks what must still be written as well as
+// what is skipped.
 
-const next: NextLatestRow = {
-  gauge_station_id: 'st-1',
+const next: LatestReading = {
   reading_timestamp: '2026-11-12T02:00:00.000Z',
   gauge_height_ft: 3.456,
   discharge_cfs: 412.004,
   qualifiers: ['P'],
-  flow_percentile: 41,
 };
 
 // PostgREST's shape: numeric as numbers at the column's precision, offset timestamps.
@@ -29,32 +30,46 @@ const stored: StoredLatestRow = {
   gauge_height_ft: 3.46,
   discharge_cfs: 412,
   qualifiers: ['P'],
-  flow_percentile: 41,
+  fetched_at: '2026-11-12T02:05:00+00:00',
 };
 
-test('a reading the row already holds is skipped, despite timestamp format and column rounding', () => {
-  assert.equal(latestRowUnchanged(stored, next), true);
-  assert.equal(latestRowUnchanged({ ...stored, gauge_height_ft: '3.46', discharge_cfs: '412.00' }, next), true);
+const sameDay = new Date('2026-11-12T03:20:00Z');
+
+test('a reading the row already holds is unchanged, despite timestamp format and column rounding', () => {
+  assert.equal(latestReadingUnchanged(stored, next), true);
+  assert.equal(latestReadingUnchanged({ ...stored, gauge_height_ft: '3.46', discharge_cfs: '412.00' }, next), true);
 });
 
-test('a gauge with no stored row is always written', () => {
-  assert.equal(latestRowUnchanged(undefined, next), false);
+test('a gauge with no stored row is never skipped', () => {
+  assert.equal(latestReadingUnchanged(undefined, next), false);
+  assert.equal(latestRowCurrent(undefined, next, sameDay), false);
 });
 
-test('a newer reading, a changed value or a changed grade is written', () => {
-  assert.equal(latestRowUnchanged(stored, { ...next, reading_timestamp: '2026-11-12T02:15:00.000Z' }), false);
-  assert.equal(latestRowUnchanged(stored, { ...next, discharge_cfs: 413 }), false);
-  assert.equal(latestRowUnchanged(stored, { ...next, gauge_height_ft: 3.47 }), false);
-  assert.equal(latestRowUnchanged(stored, { ...next, flow_percentile: 42 }), false);
-  assert.equal(latestRowUnchanged(stored, { ...next, flow_percentile: null }), false);
-  assert.equal(latestRowUnchanged(stored, { ...next, qualifiers: ['A'] }), false);
+test('a newer reading or a changed value or qualifier is not skipped', () => {
+  assert.equal(latestReadingUnchanged(stored, { ...next, reading_timestamp: '2026-11-12T02:15:00.000Z' }), false);
+  assert.equal(latestReadingUnchanged(stored, { ...next, discharge_cfs: 413 }), false);
+  assert.equal(latestReadingUnchanged(stored, { ...next, gauge_height_ft: 3.47 }), false);
+  assert.equal(latestReadingUnchanged(stored, { ...next, qualifiers: ['A'] }), false);
 });
 
 test('null and empty qualifiers are the same; a value appearing or clearing is not', () => {
-  assert.equal(latestRowUnchanged({ ...stored, qualifiers: null }, { ...next, qualifiers: [] }), true);
-  assert.equal(latestRowUnchanged({ ...stored, discharge_cfs: null }, next), false);
-  assert.equal(latestRowUnchanged(stored, { ...next, discharge_cfs: null }), false);
-  assert.equal(latestRowUnchanged({ ...stored, reading_timestamp: null }, next), false);
+  assert.equal(latestReadingUnchanged({ ...stored, qualifiers: null }, { ...next, qualifiers: [] }), true);
+  assert.equal(latestReadingUnchanged({ ...stored, discharge_cfs: null }, next), false);
+  assert.equal(latestReadingUnchanged(stored, { ...next, discharge_cfs: null }), false);
+  assert.equal(latestReadingUnchanged({ ...stored, reading_timestamp: null }, next), false);
+});
+
+test('an unchanged reading is regraded once a day, because the percentile depends on the day', () => {
+  assert.equal(latestRowCurrent(stored, next, sameDay), true);
+  const tomorrow = new Date(sameDay.getTime() + 24 * 3_600_000);
+  assert.equal(gradedOnSameDay(stored.fetched_at, tomorrow), false);
+  assert.equal(latestRowCurrent(stored, next, tomorrow), false);
+  assert.equal(gradedOnSameDay(null, sameDay), false);
+  assert.equal(gradedOnSameDay('not a date', sameDay), false);
+});
+
+test('a changed reading is regraded even when the row was written today', () => {
+  assert.equal(latestRowCurrent(stored, { ...next, discharge_cfs: 500 }, sameDay), false);
 });
 
 const values: PercentileValues = {

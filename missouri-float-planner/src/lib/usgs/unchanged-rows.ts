@@ -34,9 +34,9 @@ function sameTextArray(stored: unknown, next: string[] | null): boolean {
 
 // ── gauge_latest ────────────────────────────────────────────────────────────
 
-/** The gauge_latest columns a pass compares (everything but fetched_at). */
+/** The gauge_latest columns a pass reads back to decide what to skip. */
 export const GAUGE_LATEST_COMPARED_COLUMNS =
-  'gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers, flow_percentile';
+  'gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers, fetched_at';
 
 export interface StoredLatestRow {
   gauge_station_id: string;
@@ -44,33 +44,54 @@ export interface StoredLatestRow {
   gauge_height_ft: number | string | null;
   discharge_cfs: number | string | null;
   qualifiers: string[] | null;
-  flow_percentile: number | null;
+  fetched_at: string | null;
 }
 
-export interface NextLatestRow {
-  gauge_station_id: string;
+export interface LatestReading {
   reading_timestamp: string;
   gauge_height_ft: number | null;
   discharge_cfs: number | null;
   qualifiers: string[];
-  flow_percentile: number | null;
 }
 
 /**
- * True when writing `next` would leave the stored row as it is, apart from
- * fetched_at. fetched_at then keeps the time the reading was first stored;
- * readers that need "when did Eddy last reach USGS" take the newest fetched_at
- * across the table, which any changed gauge in the pass keeps current.
+ * True when the stored row already holds this reading: same observation time,
+ * stage, discharge and qualifiers. flow_percentile is not compared, because it
+ * is derived from the reading and the day (see gradedOnSameDay).
  */
-export function latestRowUnchanged(stored: StoredLatestRow | undefined, next: NextLatestRow): boolean {
+export function latestReadingUnchanged(stored: StoredLatestRow | undefined, next: LatestReading): boolean {
   if (!stored) return false;
   return (
     sameTimestamp(stored.reading_timestamp, next.reading_timestamp) &&
     sameNumeric(stored.gauge_height_ft, next.gauge_height_ft, 2) &&
     sameNumeric(stored.discharge_cfs, next.discharge_cfs, 2) &&
-    sameTextArray(stored.qualifiers, next.qualifiers) &&
-    sameNumeric(stored.flow_percentile, next.flow_percentile)
+    sameTextArray(stored.qualifiers, next.qualifiers)
   );
+}
+
+/**
+ * True when the stored row was written (and so graded) on the same calendar
+ * day as `statsDate`. The percentile depends on the day's statistics row, so a
+ * gauge is regraded and rewritten once a day even when its reading is
+ * unchanged. Uses local dates, as leapDayOfYearForDate does when the pass
+ * looks the statistics up.
+ */
+export function gradedOnSameDay(storedFetchedAt: string | null | undefined, statsDate: Date): boolean {
+  if (!storedFetchedAt) return false;
+  const fetched = new Date(storedFetchedAt);
+  return Number.isFinite(fetched.getTime()) && fetched.toDateString() === statsDate.toDateString();
+}
+
+/**
+ * The whole skip rule for one gauge in a national pass: nothing to look up and
+ * nothing to write when the reading is unchanged and was graded today.
+ */
+export function latestRowCurrent(
+  stored: StoredLatestRow | undefined,
+  next: LatestReading,
+  statsDate: Date,
+): boolean {
+  return latestReadingUnchanged(stored, next) && gradedOnSameDay(stored?.fetched_at, statsDate);
 }
 
 // ── usgs_daily_percentiles ──────────────────────────────────────────────────
