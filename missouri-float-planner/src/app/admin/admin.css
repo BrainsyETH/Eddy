@@ -372,7 +372,8 @@
 .admin-body .border-neutral-600 {
   border-color: #dbd5ca;
 }
-.admin-body .text-white {
+.admin-body .text-white,
+.admin-body .text-neutral-100 {
   color: #2d2a24;
 }
 .admin-body .text-neutral-200,
