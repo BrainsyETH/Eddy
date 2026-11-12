@@ -19,6 +19,7 @@ const editorPermissions: Permission[] = [
   ['/api/admin/lake-launches', 'GET'],
   ['/api/admin/lake-launches/:id', 'PATCH'],
   ['/api/admin/hazards', 'GET POST'],
+  ['/api/admin/hazards/mile-hint', 'GET'],
   ['/api/admin/hazards/:id', 'GET PUT DELETE'],
   ['/api/admin/gauges', 'GET'],
   ['/api/admin/gauges/:id', 'GET PUT POST'],

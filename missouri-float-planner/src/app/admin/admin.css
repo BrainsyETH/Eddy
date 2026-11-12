@@ -394,6 +394,10 @@
 .admin-body .text-green-400 {
   color: #28663a;
 }
+.admin-body .text-orange-300,
+.admin-body .text-orange-400 {
+  color: #9a3412;
+}
 .admin-body .text-yellow-200,
 .admin-body .text-yellow-300,
 .admin-body .text-yellow-400 {

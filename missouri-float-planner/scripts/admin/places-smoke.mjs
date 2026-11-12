@@ -89,6 +89,8 @@ async function journey(name, viewports, run) {
   }
 }
 const BOTH = { desktop: { width: 1440, height: 1000 }, mobile: { width: 390, height: 844 } };
+/** Per-journey fixture state, reset by each mock(). */
+const state = {};
 
 try {
   await mkdir(out, { recursive: true });
@@ -147,6 +149,111 @@ try {
       await page.locator('label:text-is("Optimal Max (ft)") + input').fill('');
       await page.getByText('> 6.00 to < 8.00 ft').waitFor();
       assert.equal(await page.getByText(/High is set to/).count(), 0);
+    },
+  });
+
+  // ── Hazards: edit, confirm, retire; no crash without a location ──
+  await journey('hazards', BOTH, {
+    mock: () => {
+      const river = { id: uuid(3), name: 'Current River' };
+      const hazard = (n, extra) => ({
+        id: uuid(10 + n), riverId: river.id, riverName: river.name, name: `Hazard ${n}`, type: 'strainer',
+        description: 'Tree across the channel', severity: 'caution', portageRequired: false, portageSide: null,
+        active: true, seasonalNotes: null, minSafeLevel: null, maxSafeLevel: null, latitude: 37.1, longitude: -91.2,
+        riverMileDownstream: 12.5, createdAt: '2026-01-05T12:00:00Z', updatedAt: '2026-11-11T12:00:00.000Z', ...extra,
+      });
+      state.hazards = [
+        hazard(1, { name: 'Old dam', latitude: null, longitude: null, updatedAt: '2026-06-01T12:00:00.000Z' }),
+        hazard(2, { name: 'Leaning sycamore', riverMileDownstream: null }),
+      ];
+      state.puts = [];
+      state.lists = [];
+      return (route, { path, url, request }) => {
+        if (path === '/api/admin/hazards/mile-hint') {
+          assert.equal(url.searchParams.get('river'), river.id);
+          return json(route, {
+            accessPoints: 2,
+            estimate: {
+              mile: 31.4, offLineMetres: 40,
+              between: [
+                { name: 'Akers Ferry', mile: 29.8, lat: 37, lng: -91 },
+                { name: 'Pulltite', mile: 33.9, lat: 37.1, lng: -91 },
+              ],
+            },
+          });
+        }
+        if (path === '/api/admin/hazards') {
+          state.lists.push(Object.fromEntries(url.searchParams));
+          const status = url.searchParams.get('status');
+          const rows = state.hazards.filter((h) => status !== 'inactive' || !h.active);
+          return json(route, { hazards: rows, total: rows.length, page: 1, limit: 50, rivers: [river] });
+        }
+        if (path.startsWith('/api/admin/hazards/') && request.method() === 'PUT') {
+          const body = request.postDataJSON();
+          const row = state.hazards.find((h) => h.id === path.split('/').pop());
+          assert.equal(body.expectedUpdatedAt, row.updatedAt, 'the loaded version is sent with every write');
+          state.puts.push(body);
+          for (const key of ['active', 'severity', 'riverMileDownstream', 'name']) if (key in body) row[key] = body[key];
+          row.updatedAt = new Date().toISOString();
+          return json(route, { hazard: row });
+        }
+      };
+    },
+    steps: async ({ page, signIn, label }) => {
+      await signIn('/admin/hazards');
+      const oldDam = page.getByRole('button', { name: /Old dam/ });
+      await oldDam.waitFor();
+      // Stale and location-less: flagged on the row, and expanding it does not crash.
+      await oldDam.getByText(/Checked \d+ months ago/).waitFor();
+      await oldDam.click();
+      await page.getByText('No location', { exact: true }).waitFor();
+      await page.screenshot({ path: `${out}/places-hazards-${label}.png`, fullPage: true });
+      if (label !== 'desktop') return;
+
+      await page.getByRole('button', { name: 'Still there' }).click();
+      await oldDam.getByText('Checked today').waitFor();
+      assert.deepEqual(Object.keys(state.puts.at(-1)).sort(), ['confirmCurrent', 'expectedUpdatedAt']);
+      await page.getByRole('button', { name: 'Retire', exact: true }).click();
+      await oldDam.getByText('Retired', { exact: true }).waitFor();
+      assert.equal(state.puts.at(-1).active, false);
+      await page.getByRole('button', { name: 'Make active' }).waitFor();
+
+      // Edit: estimate a river mile from access points, accept it, save.
+      const sycamore = page.getByRole('button', { name: /Leaning sycamore/ });
+      await sycamore.getByText('No river mile').waitFor();
+      await sycamore.click();
+      await page.getByText(/trip plans can’t warn about this hazard/).waitFor();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await page.getByLabel('Severity', { exact: true }).last().selectOption('danger');
+      await page.getByRole('button', { name: 'Estimate from access points' }).click();
+      await page.getByText(/About mile 31\.4, between Akers Ferry \(mile 29\.8\) and Pulltite \(mile 33\.9\)/).waitFor();
+      await page.screenshot({ path: `${out}/places-hazards-edit-${label}.png`, fullPage: true });
+      await page.getByRole('button', { name: 'Use 31.4' }).click();
+      await page.getByRole('button', { name: 'Save changes' }).click();
+      await sycamore.getByText('Mile 31.4').waitFor();
+      await sycamore.getByText('Danger', { exact: true }).waitFor();
+      assert.equal(state.puts.at(-1).riverMileDownstream, 31.4);
+      assert.equal(state.puts.at(-1).severity, 'danger');
+
+      // A new hazard cannot be created without a river.
+      await page.getByRole('button', { name: 'New hazard' }).click();
+      await page.getByLabel('Name *').fill('Low bridge');
+      await page.getByLabel('Latitude *').fill('37.2');
+      await page.getByLabel('Longitude *').fill('-91.3');
+      assert.equal(await page.getByRole('button', { name: 'Create hazard' }).isDisabled(), true);
+      await page.getByLabel('River *').selectOption({ label: 'Current River' });
+      assert.equal(await page.getByRole('button', { name: 'Create hazard' }).isDisabled(), false);
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.getByRole('button', { name: 'Discard changes' }).click().catch(() => {});
+
+      // Filters and search are applied by the server, not to the rows on screen.
+      await page.getByLabel('Status', { exact: true }).selectOption('inactive');
+      await page.getByText('1–1 of 1 hazards').waitFor();
+      assert.equal(state.lists.at(-1).status, 'inactive');
+      await page.getByLabel('Search hazards').fill('dam');
+      await page.waitForFunction(() => true);
+      await page.waitForTimeout(600);
+      assert.equal(state.lists.at(-1).q, 'dam');
     },
   });
 

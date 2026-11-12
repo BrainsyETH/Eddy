@@ -132,6 +132,20 @@ Vercel environment; the latest attempted deployment has a separate history link.
   value is set but has no effect. A save validates every threshold before it
   writes anything, including notes and descriptions.
 
+- **Hazards** can be edited, confirmed, retired and deleted. **Still there**
+  records that an active hazard was checked today (`updated_at` is the
+  last-checked time, the same field the dashboard's 30-day check reads).
+  **Retire** sets `active = false`, which every public reader filters on, and
+  keeps the record; **Delete** removes it. Writes carry the version that was
+  loaded and a mismatch is a 409. Filters, search and paging run on the server.
+- A hazard's **river mile** is entered explicitly, because trip plans match
+  hazards to a float by mile and skip one without it. "Estimate from access
+  points" interpolates between the river's approved access points
+  (`estimateRiverMile`). It is deliberately not a geometric snap: several
+  rivers store a published mile index that differs from the map line by miles
+  (`src/lib/geo/mile-index.ts`), and access points carry whichever numbering
+  their river uses. The estimate is shown for review and never saved on its own.
+
 ## Float contributions
 
 Admin → Float contributions reviews floats people chose to share. It never
