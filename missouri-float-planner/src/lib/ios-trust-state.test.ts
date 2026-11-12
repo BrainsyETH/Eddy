@@ -191,7 +191,10 @@ test('a saved danger above the put-in survives a failed refresh, and older saves
   const partial = { ...plan, hazards: [], hazardsAbovePutIn: [], hazardsUnavailable: true };
   assert.deepEqual(savedFloatLogistics(partial, undefined, saved).hazardsAbovePutIn, plan.hazardsAbovePutIn);
   const { hazardsAbovePutIn: _omitted, ...olderSave } = saved;
+  // Offline, an older save keeps what it actually saved: nothing.
   assert.deepEqual(savedFloatLogistics(partial, undefined, olderSave).hazardsAbovePutIn, []);
+  // Reopened online, the refreshed plan (useSavedFloats.updateLogistics) persists the notice.
+  assert.deepEqual(savedFloatLogistics(plan, undefined, olderSave).hazardsAbovePutIn, plan.hazardsAbovePutIn);
   assert.deepEqual(savedFloatLogistics({ ...plan, hazardsAbovePutIn: undefined }).hazardsAbovePutIn, []);
 });
 

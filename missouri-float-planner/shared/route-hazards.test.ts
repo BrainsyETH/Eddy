@@ -54,8 +54,16 @@ test('a tailwater dam just above the put-in is context, never an in-route hazard
   }]);
   assert.equal('portageRequired' in result.hazardsAbovePutIn[0], false);
   assert.equal(hazardAbovePutInLabel(result.hazardsAbovePutIn[0]), '0.3 mi above your put-in');
-  // A launch at the dam's own mile is the put-in position, not "above".
-  assert.deepEqual(splitRouteHazards([dam], 0, 3.3).hazardsAbovePutIn, []);
+  // At the put-in — exactly, or within the endpoint tolerance on either side —
+  // a hazard appears once, in the route list, never in both lists or neither.
+  for (const start of [0, 0.005, 0.01]) {
+    const at = splitRouteHazards([dam], start, 3.3);
+    assert.deepEqual(at.hazards.map(h => h.id), ['Beaver Dam'], `put-in ${start}`);
+    assert.deepEqual(at.hazardsAbovePutIn, [], `put-in ${start}`);
+  }
+  const justOutside = splitRouteHazards([dam], 0.011, 3.3);
+  assert.deepEqual(justOutside.hazards, []);
+  assert.deepEqual(justOutside.hazardsAbovePutIn.map(h => h.id), ['Beaver Dam']);
 });
 
 test('only danger hazards within 0.5 miles above the put-in are listed, nearest first', () => {

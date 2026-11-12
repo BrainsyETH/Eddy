@@ -59,7 +59,9 @@ export function splitRouteHazards<T extends HazardRow>(rows: readonly T[], start
     if (row.river_mile_downstream == null || row.river_mile_downstream === '') continue;
     const mile = Number(row.river_mile_downstream);
     if (!Number.isFinite(mile)) continue;
-    if (mile < startMile) {
+    // Within the endpoint tolerance a hazard IS at the put-in (hazardRoutePosition
+    // says 'put_in'), so it stays in the route list once, never in both.
+    if (mile < startMile - ENDPOINT_HAZARD_TOLERANCE_MILES) {
       if (row.severity === 'danger' && startMile - mile <= UPSTREAM_DANGER_BUFFER_MILES) {
         hazardsAbovePutIn.push({
           id: row.id, name: row.name, type: row.type, riverMile: mile,
