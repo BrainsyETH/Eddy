@@ -35,6 +35,8 @@
 // are different subjects, and folding them in would rebuild the wall of card
 // this change exists to take down.
 
+import { shareableScheduleDates } from '@eddy/conditions/dam-schedule-share';
+import { DamScheduleShareControl } from './DamScheduleShareControl';
 import { radii } from '@/theme/layout';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamSnapshot } from '@eddy/types';
@@ -123,6 +125,10 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
               which is the thing the separate cards were protecting against and
               the reason they cannot simply be concatenated. */}
           {dam.hasTurbines ? <View style={[styles.rule, { borderTopColor: colors.border }]} /> : null}
+          <View style={styles.scheduleHeading}>
+            <Text style={[styles.scheduleTitle, { color: colors.text }]}>Generation schedule</Text>
+            <DamScheduleShareControl damId={dam.id} name={dam.name} dates={shareableScheduleDates(dam.schedule)} />
+          </View>
           <GenerationSchedule
             schedule={dam.schedule}
             reference={dam.generationReference}
@@ -155,6 +161,8 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
 }
 
 const styles = StyleSheet.create({
+  scheduleHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
+  scheduleTitle: { ...t.base, fontFamily: fonts.heading, flexShrink: 1 },
   card: { borderRadius: radii.card, padding: 16 },
   rule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, marginBottom: 14 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },

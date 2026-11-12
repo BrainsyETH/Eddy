@@ -1,6 +1,7 @@
 // Fixture-only browser check. The ignored route is gated to this dev process;
 // normal exit and SIGINT/SIGTERM remove it (SIGKILL cannot run cleanup).
 // Run: npm run test:dam-page (no production credentials or requests).
+// DAM_SMOKE_SHARE_ONLY=1 runs just schedule sharing at every viewport.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
@@ -14,6 +15,7 @@ const origin = `http://127.0.0.1:${port}`;
 const route = resolve('src/app/dam-layout-check');
 const out = process.env.DAM_SMOKE_OUTPUT || '/tmp/eddy-dam-page';
 const appOnly = process.env.DAM_SMOKE_APP_ONLY === '1';
+const shareOnly = process.env.DAM_SMOKE_SHARE_ONLY === '1';
 const now = Date.parse('2026-10-16T16:30:00Z');
 const at = new Date(now - 10 * 60_000).toISOString();
 const metric = (value, unit = 'cfs') => ({ value, unit, at, staleness: 'fresh' });
@@ -57,6 +59,72 @@ const variants = {
     { startUtc: '2026-10-17T12:00:00Z', endUtc: '2026-10-18T12:00:00Z', generating: true, peakCfs: 13200 },
   ] } },
 };
+async function checkScheduleSharing(page, name, width) {
+  let imageFailure = false;
+  await page.route('**/dams/*/schedule/*/image.png', async route => {
+    if (imageFailure) return route.fulfill({ status: 503, body: 'Unavailable' });
+    const date = new URL(route.request().url()).pathname.split('/').at(-2);
+    const response = await page.request.get(`${origin}/dam-layout-check/image?date=${date}`);
+    await route.fulfill({ response });
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      writeText: async () => {},
+      write: async items => { window.copiedScheduleSize = (await items[0].getType('image/png')).size; },
+    } });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async data => {
+      window.sharedSchedule = { name: data.files[0].name, size: data.files[0].size, text: data.text, activated: navigator.userActivation.isActive };
+      if (window.cancelScheduleShare) throw new DOMException('Cancelled', 'AbortError');
+    } });
+  });
+  const scheduleShare = page.getByRole('link', { name: `Share ${dam.name} generation schedule`, exact: true });
+  assert.equal(await scheduleShare.getAttribute('href'), `/dams/${dam.id}/schedule/2026-10-16`, 'crawler and no-JS path reaches a dated image page');
+  const targetBox = await scheduleShare.boundingBox();
+  assert(targetBox.height >= 44 && targetBox.width >= 44, 'schedule share has a 44px target');
+  await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+  await scheduleShare.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/schedule-control-${name}.png` });
+  await scheduleShare.click();
+  const shareDialog = page.getByRole('dialog', { name: 'Share schedule', exact: true });
+  await shareDialog.getByRole('img', { name: /generation schedule for October 16/ }).waitFor();
+  const shareBox = await shareDialog.boundingBox();
+  assert(shareBox.x >= 0 && shareBox.x + shareBox.width <= width, 'share sheet fits the viewport');
+  await shareDialog.getByLabel('Schedule date').selectOption('2026-10-17');
+  await shareDialog.getByRole('img', { name: /generation schedule for October 17/ }).waitFor();
+  await shareDialog.getByRole('button', { name: 'Share image', exact: true }).click();
+  const attachment = await page.evaluate(() => window.sharedSchedule);
+  assert.equal(attachment.name, `eddy-${dam.id}-2026-10-17-schedule.png`);
+  assert(attachment.size > 5000 && attachment.activated, 'native sharing sends PNG bytes from a direct gesture');
+  assert(attachment.text.includes('October 17, 2026') && attachment.text.includes(`/dams/${dam.id}#generation`));
+  await shareDialog.getByRole('button', { name: 'Copy image', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.copiedScheduleSize), attachment.size, 'clipboard gets the preview PNG bytes');
+  assert(await shareDialog.getByText('Image copied.', { exact: true }).isVisible());
+  await page.evaluate(() => { window.cancelScheduleShare = true; });
+  await shareDialog.getByRole('button', { name: 'Share image', exact: true }).click();
+  assert.equal(await shareDialog.getByRole('alert').count(), 0, 'cancelling share is quiet');
+  const downloadPromise = page.waitForEvent('download');
+  await shareDialog.getByRole('link', { name: 'Download', exact: true }).click();
+  const download = await downloadPromise;
+  assert.equal(download.suggestedFilename(), attachment.name);
+  await shareDialog.screenshot({ path: `${out}/schedule-share-${name}.png` });
+  await page.keyboard.press('Escape');
+  assert(await scheduleShare.evaluate(el => el === document.activeElement), 'closing restores share button focus');
+  imageFailure = true;
+  await scheduleShare.click();
+  await shareDialog.getByRole('alert').waitFor();
+  await shareDialog.getByRole('button', { name: 'Copy dam link', exact: true }).click();
+  assert(await shareDialog.getByText('Dam link copied.', { exact: true }).isVisible(), 'link remains available after image failure');
+  imageFailure = false;
+  await page.evaluate(() => Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => false }));
+  await shareDialog.getByRole('button', { name: 'Try again', exact: true }).click();
+  await shareDialog.getByRole('img', { name: /generation schedule for October 16/ }).waitFor();
+  assert.equal(await shareDialog.getByRole('button', { name: 'Share image', exact: true }).count(), 0, 'unsupported file sharing retains copy and download');
+  assert(await shareDialog.getByRole('link', { name: 'Download', exact: true }).isVisible());
+  await page.keyboard.press('Escape');
+  await page.unroute('**/dams/*/schedule/*/image.png');
+  console.log(`PASS ${name}: schedule sharing, date selection, real PNG, activation, download, cancellation, recovery and focus`);
+}
 let server, browser, cleanupPromise;
 assert(!existsSync(route), 'temporary QA route already exists; refusing to overwrite');
 function cleanup() {
@@ -73,6 +141,17 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 try {
   await mkdir(route, { recursive: true });
   await mkdir(out, { recursive: true });
+  await mkdir(`${route}/image`, { recursive: true });
+  await writeFile(`${route}/image/route.tsx`, `import { notFound } from 'next/navigation';
+import { damScheduleShare } from '@shared/dam-schedule-share';
+import { renderDamSchedule } from '@/lib/og/render-dam-schedule';
+export async function GET(request: Request) {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  const model = damScheduleShare(${JSON.stringify(dam)}, new URL(request.url).searchParams.get('date') ?? '', ${now});
+  if (!model) return new Response('Unavailable', { status: 422 });
+  return new Response(await renderDamSchedule(model), { headers: { 'Content-Type': 'image/png' } });
+}`);
+
   await writeFile(`${route}/page.tsx`, `import { notFound } from 'next/navigation';
 import DamDetail from '@/components/dam/DamDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -132,6 +211,13 @@ export default function Page() {
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
+    if (shareOnly) {
+      await page.goto(url, { waitUntil: 'networkidle' });
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: schedule has no horizontal overflow`);
+      await checkScheduleSharing(page, name, width);
+      await page.close();
+      continue;
+    }
     await page.goto(`${url}/list`, { waitUntil: 'networkidle' });
     const list = page.locator('[data-variant]');
     assert(await page.locator('[data-embed-check]').getByText('Scheduled generation: 12–8 PM', { exact: true }).first().isVisible());
@@ -243,6 +329,8 @@ export default function Page() {
     await page.keyboard.press('Escape');
     assert.equal(await page.getByRole('dialog').count(), 0);
     assert(await trigger.evaluate(el => el === document.activeElement));
+    await checkScheduleSharing(page, name, width);
+
     assert(await detail.getByText('Not through turbines', { exact: true }).isVisible());
     if (name === 'desktop') {
       const before = await detail.getByText(/Last reading/).first().textContent();
@@ -299,6 +387,7 @@ export default function Page() {
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
+  if (!shareOnly) {
   for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration'])) {
     const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
     await page.clock.install({ time: now });
@@ -449,6 +538,7 @@ export default function Page() {
   assert(await android.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
   await android.close();
   console.log('PASS Android keeps the schedule; desktop QR retains dam and campaign below 900px');
+  }
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');
   console.log(`Screenshots: ${out}`);
 } finally {

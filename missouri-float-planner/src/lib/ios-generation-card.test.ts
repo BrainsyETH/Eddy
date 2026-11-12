@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import * as generation from '@shared/dam-generation';
 import * as scheduleCopy from '@shared/dam-schedule-copy';
+import * as scheduleShare from '@shared/dam-schedule-share';
 import type { DamSnapshot } from '@shared/dam-types';
 
 // Run the real container with native hosts stubbed. Its child hero can return
@@ -25,6 +26,8 @@ function renderCard(dam: DamSnapshot) {
     '@/theme/typography': { fonts: {}, type: {} },
     '@eddy/conditions/dam-generation': generation,
     '@eddy/conditions/dam-schedule-copy': scheduleCopy,
+    '@eddy/conditions/dam-schedule-share': scheduleShare,
+    './DamScheduleShareControl': { DamScheduleShareControl: 'ScheduleShare' },
     '@/components/dam/DamGenerationHero': { DamGenerationHero: ({ dam }: { dam: DamSnapshot }) =>
       generation.generationStatusLabel(generation.generationNow(dam)) ? jsx('Hero', {}) : null },
     '@/components/dam/GenerationSchedule': { GenerationSchedule: 'Schedule' },
@@ -66,5 +69,7 @@ test('a schedule without a powerhouse remains visible without an orphan divider'
   assert.ok(result);
   assert.equal(nodes.filter(node => node.type === 'Schedule').length, 1);
   assert.equal(nodes.filter(node => node.type === 'Hero').length, 0);
-  assert.equal(nodes.filter(node => node.type === 'View').length, 1, 'only the card surface remains');
+  assert.ok(nodes.filter(node => node.type === 'View').every(node =>
+    ![node.props.style].flat().some(style => style && typeof style === 'object' && 'borderTopWidth' in style)),
+  'the schedule heading does not introduce an orphan divider');
 });

@@ -1,8 +1,31 @@
 // Clocked WidgetKit presentation uses the dam page's canonical rules. Cached
 // timelines carry local expiry transitions even when iOS defers network refresh.
-import type { DamSnapshot } from './dam-types';
+import type { DamSnapshot, DamScheduleDay } from './dam-types';
 import { generationNow, generationStatusLabel, scheduledChangeSummary, scheduledBar, scheduleWindowSummary } from './dam-generation';
 import { centralDayKey, hourEndingLabel, hourEndingNow, scheduleHoursElapsed, oldestRetrievedAt, scheduleIsStale, SCHEDULE_STALE_AFTER_MINUTES, READING_LAGGING_AFTER_HOURS } from './dam-schedule-copy';
+
+/** The same validated day feeds WidgetKit, web embeds and dated share images. */
+export function damWidgetScheduleDay(day: DamScheduleDay, reference?: DamSnapshot['generationReference']) {
+  return {
+    date: day.scheduleDate,
+    // Additive v1 fields. Older clients ignore them; newer clients never
+    // rescale a low-output day to a full-height peak, even with an old cache.
+    capacityMw: scheduledBar(0, reference) ? reference!.schedulingCapacityMw : null,
+    summary: scheduleWindowSummary(day, reference)?.text ?? null,
+    hours: Array.from({ length: 24 }, (_, index) => {
+      const hourEnding = index + 1;
+      const matches = day.hours.filter(hour => hour.hourEnding === hourEnding);
+      const mw = matches.length === 1 ? matches[0].megawatts : null;
+      const megawatts = typeof mw === 'number' && Number.isFinite(mw) && mw >= 0 ? mw : null;
+      // Additive to v1: a minimum-flow hour runs a unit at low output for
+      // the required release. It is not scheduled generation and must not be
+      // drawn as a generation bar; packets without the key mean "not flagged".
+      return { hourEnding, label: hourEndingLabel(hourEnding), megawatts,
+        fraction: megawatts === null ? null : scheduledBar(megawatts, reference)?.fraction ?? null,
+        ...(megawatts !== null && matches[0].minimumFlow === true ? { minimumFlow: true as const } : {}) };
+    }),
+  };
+}
 
 export function damWidgetSnapshot(dam: DamSnapshot, now = Date.now()) {
   const metric = dam.metrics.generationFlow;
@@ -26,25 +49,7 @@ export function damWidgetSnapshot(dam: DamSnapshot, now = Date.now()) {
     version: 1, id: dam.id, name: dam.name,
     // Additive to v1: older binaries retain their next-change summary. Keep
     // published MW, not estimated cfs; missing hours must never look idle.
-    scheduleDays: dam.schedule.slice(0, 3).map(day => ({
-      date: day.scheduleDate,
-      // Additive v1 fields. Older clients ignore them; newer clients never
-      // rescale a low-output day to a full-height peak, even with an old cache.
-      capacityMw: scheduledBar(0, dam.generationReference) ? dam.generationReference!.schedulingCapacityMw : null,
-      summary: scheduleWindowSummary(day, dam.generationReference)?.text ?? null,
-      hours: Array.from({ length: 24 }, (_, index) => {
-        const hourEnding = index + 1;
-        const matches = day.hours.filter(hour => hour.hourEnding === hourEnding);
-        const mw = matches.length === 1 ? matches[0].megawatts : null;
-        const megawatts = typeof mw === 'number' && Number.isFinite(mw) && mw >= 0 ? mw : null;
-        // Additive to v1: a minimum-flow hour runs a unit at low output for
-        // the required release. It is not scheduled generation and must not be
-        // drawn as a generation bar; packets without the key mean "not flagged".
-        return { hourEnding, label: hourEndingLabel(hourEnding), megawatts,
-          fraction: megawatts === null ? null : scheduledBar(megawatts, dam.generationReference)?.fraction ?? null,
-          ...(megawatts !== null && matches[0].minimumFlow === true ? { minimumFlow: true as const } : {}) };
-      }),
-    })),
+    scheduleDays: dam.schedule.slice(0, 3).map(day => damWidgetScheduleDay(day, dam.generationReference)),
     entries: [...clocks].sort((a, b) => a - b).map(date => {
       const state = generationNow(input, date);
       const scheduleCurrent = scheduleKnown && !scheduleIsStale(checked, date);

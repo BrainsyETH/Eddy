@@ -402,6 +402,12 @@ Screenshots and CSV downloads go to `.smoke-gauge` (override with `SMOKE_OUT`).
 
 ## Dam pages
 
+The generation section includes an icon-and-label Share button. Its preview
+lets people select a posted date, share/copy/download the same PNG, or copy
+the live dam link. Dated image pages under `/dams/<id>/schedule/<date>` expose
+the widget-styled image and hourly text to crawlers. Ordinary dam previews
+remain timeless. See ADR 0015 for freshness, caching and native rollout.
+
 The lakes and dams index uses compact cards with generation estimates, release,
 water temperature, and below-dam elevation where readings are available. Wider
 screens use two columns. Fishery and equipment descriptions stay on the detail
