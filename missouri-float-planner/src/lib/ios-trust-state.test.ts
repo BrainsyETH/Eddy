@@ -183,6 +183,21 @@ test('saved downstream dams survive a failed refresh without becoming in-route h
   assert.deepEqual(savedFloatLogistics({ ...plan, damsBelowTakeOut: [] }, undefined, saved).damsBelowTakeOut, []);
 });
 
+test('a saved danger above the put-in survives a failed refresh, and older saves without it still load', () => {
+  const plan = logisticsPlan();
+  plan.hazardsAbovePutIn = [{ id: 'dam', name: 'Beaver Dam', type: 'other', riverMile: 0, distanceAbovePutInMiles: 0.33 }];
+  const saved = savedFloatLogistics(plan);
+  assert.deepEqual(saved.hazardsAbovePutIn, plan.hazardsAbovePutIn);
+  const partial = { ...plan, hazards: [], hazardsAbovePutIn: [], hazardsUnavailable: true };
+  assert.deepEqual(savedFloatLogistics(partial, undefined, saved).hazardsAbovePutIn, plan.hazardsAbovePutIn);
+  const { hazardsAbovePutIn: _omitted, ...olderSave } = saved;
+  // Offline, an older save keeps what it actually saved: nothing.
+  assert.deepEqual(savedFloatLogistics(partial, undefined, olderSave).hazardsAbovePutIn, []);
+  // Reopened online, the refreshed plan (useSavedFloats.updateLogistics) persists the notice.
+  assert.deepEqual(savedFloatLogistics(plan, undefined, olderSave).hazardsAbovePutIn, plan.hazardsAbovePutIn);
+  assert.deepEqual(savedFloatLogistics({ ...plan, hazardsAbovePutIn: undefined }).hazardsAbovePutIn, []);
+});
+
 
 test('the vessel speed tip follows configured speeds and never invents missing values', async () => {
   const { vesselSpeedInfo } = await import('../../../eddy-ios/src/lib/vesselTypes');

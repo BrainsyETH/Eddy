@@ -406,7 +406,7 @@ export default function PlanSummary({
           </div>
         </div>
 
-        <PlanDownstreamDams dams={displayPlan.damsBelowTakeOut} />
+        <PlanDownstreamDams dams={displayPlan.damsBelowTakeOut} above={displayPlan.hazardsAbovePutIn} />
         {/* Hazards below main row */}
         {displayPlan.hazardsUnavailable && (
           <div className="mt-4"><PlanHazardStatus unavailable /></div>

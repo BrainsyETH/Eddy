@@ -87,7 +87,9 @@ typical duration when available (`estimateBasis: typical`), with independent
 `conditionAvailability.ratingStatus` and `readingStatus`. This is not a positive
 floatability recommendation. Dangerous and regulated-water withholding remains.
 Dams within 0.5 miles below take-out are returned separately in
-`damsBelowTakeOut`; they never become an in-route portage. Unknown portage
+`damsBelowTakeOut`; they never become an in-route portage. Danger-severity
+hazards within 0.5 miles above the put-in, such as the dam over a tailwater
+ramp, are returned in `hazardsAbovePutIn` on the same terms. Unknown portage
 flags remain null. Failed hazard lookups remain explicit errors. Empty searches report `excludedCandidates`,
 `exclusionReasons` and `alertChecks` so agents can explain the outcome.
 `screening` distinguishes eligible, floatable-rated, unsuitable and unknown
