@@ -125,8 +125,8 @@ stay listed but leave the route summary.
 
 Decisions live in `float_contribution_reviews` (service role only, RLS on),
 keyed to the archive row and deleted with it. Migration
-`20261112000740_float_contribution_reviews.sql`; before it is applied the page
-loads read-only and says so. The summary reads the newest 2,000 contributed
+`20261112011151_float_contribution_reviews.sql` (applied to production
+2026-11-12); if the table is ever unavailable the page loads read-only and says so. The summary reads the newest 2,000 contributed
 trips and says when that cap is reached.
 
 ## Jobs, incidents and audit history
