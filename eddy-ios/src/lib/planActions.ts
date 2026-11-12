@@ -30,6 +30,24 @@ export function planShareMessage(plan: FloatPlan, url?: string): string {
   return url ? `${summary}\n${url}` : summary;
 }
 
+/**
+ * A saved float's stored link, only when it was saved for this plan's boat.
+ *
+ * A saved float is matched to a plan by river and ends alone, so the same
+ * stretch rebuilt for another boat still finds it. Its link opens the plan as
+ * saved: sharing it with the rebuilt plan's text would send a raft estimate
+ * above a link that calculates for a kayak. An older save that never recorded
+ * its boat is treated the same way; a fresh link is created instead.
+ */
+export function savedLinkFor(
+  plan: FloatPlan,
+  saved: { shortCode: string; url: string; logistics?: { boatType?: string } } | undefined,
+): SavedLink | undefined {
+  const boat = plan.vessel?.slug;
+  if (!saved || !boat || saved.logistics?.boatType !== boat) return undefined;
+  return { shortCode: saved.shortCode, url: saved.url };
+}
+
 /** Request state outlives the modal's native content, just like the plan does. */
 export function createPlanActions() {
   const states = new WeakMap<FloatPlan, ActionState>();
@@ -64,7 +82,8 @@ export function createPlanActions() {
       if (actions.isSaved(plan)) { actions.forgetPlan(plan); return 'removed' as const; }
       update(plan, { saving: true });
       try {
-        const saved = await actions.savePlan(plan);
+        // The link Share already created for this plan is the one that is kept.
+        const saved = links.get(plan) ?? await actions.savePlan(plan);
         links.set(plan, saved);
         actions.remember(plan, saved);
         return 'saved' as const;
@@ -77,7 +96,7 @@ export function createPlanActions() {
     async share(plan: FloatPlan, actions: {
       savePlan: SavePlan;
       present: (message: string) => Promise<unknown>;
-      /** The link of the saved float this plan matches, when there is one. */
+      /** From savedLinkFor: the matching saved float's link, when it is for this boat. */
       savedLink?: SavedLink;
     }) {
       if (activeShare) return;

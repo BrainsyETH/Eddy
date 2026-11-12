@@ -122,8 +122,12 @@ Already-sent chat previews may remain cached even after deployment.
   (`planShareMessage`). The summary gives the float time when there is one and
   keeps the regulated-water note; a time withheld for today's water is omitted
   instead of described.
-- A plan keeps one link. Sharing a saved float reuses its stored link, and
-  sharing the same plan again reuses the one already created. When a link
+- A plan keeps one link. Sharing a saved float reuses its stored link, sharing
+  the same plan again reuses the one already created, and saving after sharing
+  keeps that link. A saved float is matched by river and ends only, so its
+  link is reused only when it was saved for the same boat (`savedLinkFor`);
+  the same stretch rebuilt for another boat, or an older save with no boat
+  recorded, gets a fresh link that opens the plan the text describes. When a link
   cannot be created the share still goes out with the trip details, and the
   plan sheet says the link is missing.
 - On the web, a link share goes through `shareOrCopy` (`src/lib/share-link.ts`):

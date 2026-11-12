@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import type { FloatPlan } from '@eddy/types';
-import { createPlanActions, planShareMessage, SHARE_WITHOUT_LINK } from '../../../eddy-ios/src/lib/planActions';
+import { createPlanActions, planShareMessage, savedLinkFor, SHARE_WITHOUT_LINK } from '../../../eddy-ios/src/lib/planActions';
 import { linkSharePayload } from '../../../eddy-ios/src/lib/sharePayload';
 import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
 import { floatVessel } from '../../../eddy-ios/src/lib/vesselTypes';
@@ -280,6 +280,57 @@ test('a plan keeps one link: sharing again, or after saving, never creates anoth
   let extra = 0;
   await savedFirst.share(plan, { savePlan: async () => { extra++; return link; }, present: async (message) => { messages.push(message); } });
   assert.equal(extra, 0, 'the link created by Save is the one shared');
+});
+
+test('Share, then Save, then Share uses one link throughout', async () => {
+  const actions = createPlanActions();
+  let created = 0;
+  const savePlan = async () => ({ shortCode: `code${++created}`, url: `https://eddy.guide/plan/code${created}` });
+  const messages: string[] = [];
+  const present = async (message: string) => { messages.push(message); };
+  const remembered: { shortCode: string; url: string }[] = [];
+  let kept = false;
+
+  await actions.share(plan, { savePlan, present });
+  assert.equal(await actions.toggleSave(plan, {
+    savePlan,
+    isSaved: () => kept,
+    forgetPlan: () => { kept = false; },
+    remember: (_plan, saved) => { kept = true; remembered.push(saved); },
+  }), 'saved');
+  await actions.share(plan, { savePlan, present });
+
+  assert.equal(created, 1, 'Save keeps the link Share created');
+  assert.deepEqual(remembered, [{ shortCode: 'code1', url: 'https://eddy.guide/plan/code1' }]);
+  assert.equal(messages[0], messages[1]);
+  assert.match(messages[1], /plan\/code1$/);
+});
+
+test('a saved float lends its link only to a plan for the same boat', async () => {
+  const kayakPlan = { ...plan, vessel: { slug: 'kayak' } } as FloatPlan;
+  const raftPlan = { ...plan, vessel: { slug: 'raft' }, floatTime: { formatted: '5–7 hours' } } as FloatPlan;
+  const savedKayak = { shortCode: 'kayak1', url: 'https://eddy.guide/plan/kayak1', logistics: { boatType: 'kayak' } };
+
+  assert.deepEqual(savedLinkFor(kayakPlan, savedKayak), { shortCode: 'kayak1', url: savedKayak.url });
+  assert.equal(savedLinkFor(raftPlan, savedKayak), undefined, 'a kayak link would open a kayak plan');
+  // An older save never recorded its boat: unknown is not a match.
+  assert.equal(savedLinkFor(kayakPlan, { shortCode: 'old1', url: 'https://eddy.guide/plan/old1' }), undefined);
+  assert.equal(savedLinkFor(kayakPlan, { ...savedKayak, logistics: {} }), undefined);
+  assert.equal(savedLinkFor(plan, savedKayak), undefined, 'a plan with no boat cannot claim a match');
+  assert.equal(savedLinkFor(kayakPlan, undefined), undefined);
+
+  // Save a kayak route, rebuild it as a raft, Share: the raft text gets a raft link.
+  const actions = createPlanActions();
+  let created = 0;
+  const messages: string[] = [];
+  await actions.share(raftPlan, {
+    savedLink: savedLinkFor(raftPlan, savedKayak),
+    savePlan: async () => { created++; return { shortCode: 'raft1', url: 'https://eddy.guide/plan/raft1' }; },
+    present: async (message) => { messages.push(message); },
+  });
+  assert.equal(created, 1);
+  assert.match(messages[0], /5–7 hours\nhttps:\/\/eddy\.guide\/plan\/raft1$/);
+  assert.doesNotMatch(messages[0], /kayak1/);
 });
 
 test('a float saved earlier shares its stored link instead of creating one', async () => {

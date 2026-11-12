@@ -55,7 +55,7 @@ import { matchesPlan, useSavedFloats } from '@/hooks/useSavedFloats';
 import type { Coords } from '@/hooks/useLocation';
 import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
-import { createPlanActions } from '@/lib/planActions';
+import { createPlanActions, savedLinkFor } from '@/lib/planActions';
 import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
 import type { PlanDetailDestination } from '@/lib/planDestinations';
 import { usePlanSupport } from '@/hooks/usePlanSupport';
@@ -196,8 +196,8 @@ export function PlanSheet({
     if (!plan || !visible || !resultReady) return;
     return actions.share(plan, {
       savePlan: saveFloatPlan,
-      // A float already saved keeps its one link instead of minting another.
-      savedLink: keptPlan ? { shortCode: keptPlan.shortCode, url: keptPlan.url } : undefined,
+      // A float already saved for this boat keeps its one link instead of minting another.
+      savedLink: savedLinkFor(plan, keptPlan),
       // The link stays inside the text (see shareMessage in lib/share). A sheet
       // that cannot open throws, and planActions reports it.
       present: (message) => Share.share({ message }),

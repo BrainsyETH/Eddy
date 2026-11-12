@@ -201,8 +201,13 @@ device, so each check is open. The contract is in
       which, and reconsider the payload before release.
 - [ ] **Plan shares.** From the plan sheet and from a saved float, the text is
       the same trip line ending with one link. Sharing a saved float twice
-      sends the same link, as does sharing an unsaved plan twice. A plan whose
-      time is withheld for the water shares no time and no "no estimate" line.
+      sends the same link, as does sharing an unsaved plan twice. Share, then
+      Save, then Share again: one link, and it is the one kept in Favorites. A
+      plan whose time is withheld for the water shares no time and no "no
+      estimate" line.
+- [ ] **A link matches the boat in the text.** Save a route as a kayak,
+      rebuild the same route as a raft, and Share. The link opens a raft plan
+      with the estimate the message states, not the saved kayak plan.
 - [ ] **No link available.** In airplane mode, Share from the plan sheet for a
       float that is not saved: the sheet opens with trip details only, and the
       plan sheet shows that the link is missing. Reconnect and share again: the
