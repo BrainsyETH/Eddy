@@ -36,10 +36,10 @@ def clean(value):
 
 
 def load(protocol):
-    releases = pd.read_csv(DATA / "release_hourly.csv", index_col=0, parse_dates=True)
+    releases = pd.read_csv(DATA / "release_hourly.csv.gz", index_col=0, parse_dates=True)
     releases.index = pd.DatetimeIndex(releases.index).tz_convert("UTC")
     releases = releases.asfreq("1h")
-    tributaries = pd.read_csv(DATA / "tributary_hourly.csv", index_col=0, parse_dates=True)
+    tributaries = pd.read_csv(DATA / "tributary_hourly.csv.gz", index_col=0, parse_dates=True)
     tributaries.index = pd.DatetimeIndex(tributaries.index).tz_convert("UTC")
     tributaries = tributaries.reindex(releases.index)
     stages = {}

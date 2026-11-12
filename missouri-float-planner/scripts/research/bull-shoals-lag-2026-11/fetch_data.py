@@ -109,9 +109,9 @@ def main():
     end = last + ls.HOUR
     releases = releases.loc[:last]
     releases.index.name = "hour_begin_utc"
-    releases.to_csv(data / "release_hourly.csv", float_format="%.1f")
+    releases.to_csv(data / "release_hourly.csv.gz", float_format="%.1f")
 
-    files = {"release_hourly.csv": releases.notna().sum().to_dict()}
+    files = {"release_hourly.csv.gz": releases.notna().sum().to_dict()}
     for key, gauge in src["gauges"].items():
         stage = usgs_series(raw, gauge["usgs_site"], gauge["parameter"], start, end)
         stage.index.name = "time_utc"
@@ -124,8 +124,8 @@ def main():
         for key, t in src["tributaries"].items()
     }).reindex(releases.index)
     tributaries.index.name = "hour_begin_utc"
-    tributaries.to_csv(data / "tributary_hourly.csv", float_format="%.1f")
-    files["tributary_hourly.csv"] = tributaries.notna().sum().to_dict()
+    tributaries.to_csv(data / "tributary_hourly.csv.gz", float_format="%.1f")
+    files["tributary_hourly.csv.gz"] = tributaries.notna().sum().to_dict()
 
     snapshot = {
         "fetched_at_utc": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
