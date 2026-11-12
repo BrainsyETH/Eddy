@@ -109,8 +109,47 @@ export default function Page() {
     assert.equal(check.status, 0, `fixture route must be unavailable in ${mode}: ${check.stderr}`);
   }
   console.log('PASS fixture Git exclusion and dev/production guards');
+  await mkdir(`${route}/promotions`, { recursive: true });
+  await writeFile(`${route}/promotions/page.tsx`, `import { notFound } from 'next/navigation';
+import Fixture from './Fixture';
+export default function Page() {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  return <Fixture />;
+}`);
+  await writeFile(`${route}/promotions/Fixture.tsx`, `'use client';
+import { useState } from 'react';
+import AppCta from '@/components/AppCta';
+import AppLink from '@/components/AppLink';
+import AppPromotion from '@/components/AppPromotion';
+import PlanAppCta from '@/components/plan/PlanAppCta';
+import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
+import ReportAppCta from '@/components/gauge/ReportAppCta';
+import type { FloatPlan } from '@/types/api';
+const plan = { river: { id: 'river', name: 'Current River' }, putIn: { id: 'put' }, takeOut: { id: 'take' }, vessel: { id: 'kayak' }, distance: { miles: 8 }, floatTime: { minutes: 180 }, condition: { code: 'good' } } as FloatPlan;
+export default function Fixture() {
+  const [changed, setChanged] = useState(false);
+  const [read, setRead] = useState<'loading' | 'ready' | 'missing'>('missing');
+  return <main className="mx-auto max-w-4xl space-y-6 px-3 py-6">
+    <h1>App invitations</h1>
+    <AppPromotion><p>Generic invitation <AppLink data-ga-label="fixture_generic">Get Eddy for iPhone</AppLink></p></AppPromotion>
+    <section><h2>Planner result</h2><button className="btn-outline mb-2" onClick={() => setChanged(v => !v)}>Change route</button><PlanAppCta plan={{ ...plan, takeOut: { ...plan.takeOut, id: changed ? 'new-take' : 'take' } }} /></section>
+    <AppCta destination={{ kind: 'plan', id: 'fixture123' }} title="Follow this float in River Mode" detail="Open the route in Eddy, then start your float when you’re ready." label="shared_plan" />
+    <AppCta destination={{ kind: 'river', id: 'current' }} title="Current River on your Home Screen" detail="Add an Eddy river widget, then choose your river in Edit Widget." label="river_widget" variant="inline" />
+    <AppCta destination={{ kind: 'access', id: 'akers-ferry', river: 'current' }} title="Download your float before you head out" detail="Plan your route in Eddy and download its map while you have signal." label="access_offline" />
+    <div data-report-check><label>Read availability <select value={read} onChange={event => setRead(event.target.value as typeof read)}><option value="loading">Loading</option><option value="ready">Ready</option><option value="missing">Missing</option></select></label><ReportAppCta destination={{kind: 'gauge', id: '07067000'}} hasRead={read === 'ready'} loading={read === 'loading'} /></div>
+    <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} />
+    <div data-locked-read><EddyOutlookFooter sections={{ eddyRead: 'Locked Read example', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} /></div>
+  </main>;
+}`);
+  await mkdir(`${route}/gauge`, { recursive: true });
+  await writeFile(`${route}/gauge/page.tsx`, `import { notFound } from 'next/navigation';
+import GaugeDetailView from '@/components/gauge/GaugeDetailView';
+export default function Page() {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  return <GaugeDetailView siteId="10000001" />;
+}`);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
-    env: { ...process.env, EDDY_DAM_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
+    env: { ...process.env, EDDY_DAM_SMOKE: '1', FLOAT_SEARCH_ENABLED: 'true', CAMPING_WEB_ENABLED: 'true', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let log = '';
@@ -347,7 +386,7 @@ export default function Page() {
     window.__eddyAnalyticsId = 'G-FIXTURE123';
     window.damPromotionViews = 0;
     window.gtag = (...args) => {
-      if (args[1] === 'app_promotion_view') window.damPromotionViews++;
+      if (args[1] === 'app_promotion_view' && args[2]?.label === 'dam_schedule') window.damPromotionViews++;
       return window.recordAnalytics(...args);
     };
     window.damDocument = Math.random();
@@ -396,12 +435,14 @@ export default function Page() {
       await page.waitForURL(expectedUrl);
       await page.waitForLoadState('networkidle');
       assert.notEqual(await page.evaluate(() => window.damDocument), oldDocument, 'document navigation refreshes Safari banner');
-      assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} on your Home Screen.`);
+      assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} generation on your Home Screen.`);
+      // networkidle can precede hydration; wait for the device-specific result.
+      await page.locator('[data-app-qr]').waitFor({ state: 'detached' });
       assert.equal(await page.locator('[data-app-qr]').count(), 0, 'iPhone uses the download action without a QR prompt');
       assert(await page.getByRole('img', { name: /Eddy’s Bull Shoals Dam widget/ }).evaluate(el => el.complete && el.naturalWidth > 0), 'real widget screenshot loads');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: app page fits phone`);
       assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), new RegExp(`app-argument=eddy:///dam/${id}(?:,|$)`));
-      const store = page.locator('[data-ga-event="app_store_click"]').first();
+      const store = page.locator('[data-ga-label="app_landing_hero"]');
       assert.equal(new URL(await store.getAttribute('href')).hostname, 'apps.apple.com');
       await page.evaluate(() => document.addEventListener('click', event => {
         if (event.target.closest('[data-ga-event="app_store_click"]')) event.preventDefault();
@@ -410,11 +451,11 @@ export default function Page() {
       // A round trip drains the exposed binding before checking its calls.
       await page.evaluate(() => window.recordAnalytics('flush'));
       assert.deepEqual(errors, [], 'contextual app flow has no browser errors');
-      assert.deepEqual(events.filter(event => event[1] === 'app_promotion_view'), [
+      assert.deepEqual(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'dam_schedule'), [
         ['event', 'app_promotion_view', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check' }],
       ], 'view is counted once after the CTA enters the viewport');
       assert.deepEqual(events.filter(event => ['app_landing_click', 'app_store_click'].includes(event[1])), [
-        ['event', 'app_landing_click', { label: 'dam_schedule', dam_id: id }],
+        ['event', 'app_landing_click', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check', app_campaign: campaign, transport_type: 'beacon' }],
         ['event', 'app_store_click', { label: 'app_landing_hero', dam_id: id, page_path: '/app', app_campaign: campaign, transport_type: 'beacon' }],
       ]);
       await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
@@ -425,8 +466,102 @@ export default function Page() {
     await page.goto('https://eddy.guide/dam-layout-check?variant=norfork', { waitUntil: 'networkidle' });
     assert.equal(await page.locator('[data-dam-app-cta]').count(), 0, 'other dams keep their existing layout');
     await page.goto('https://eddy.guide/app?dam=unknown', { waitUntil: 'networkidle' });
-    assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Find floatable water.');
+    assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Know the river before you go.');
     assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/reports(?:,|$)/);
+    // Actual shared components, no production plan writes or native launches.
+    await page.goto('https://eddy.guide/dam-layout-check/promotions?ct=partner_guide', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => document.querySelector('[data-ga-label="fixture_generic"]')?.href.startsWith('https://apps.apple.com/'));
+    assert.match(await page.locator('[data-ga-label="fixture_generic"]').getAttribute('href'), /^https:\/\/apps.apple.com\//);
+    await page.locator('.app-cta__qr').first().waitFor({ state: 'detached' });
+    assert.equal(await page.locator('.app-cta__qr').count(), 0, 'iPhone never gets QR controls');
+    assert.equal(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'fixture_generic').length, 0, 'AppLink impressions require an explicit opt-in');
+    const shared = page.locator('[data-app-cta="shared_plan"]');
+    assert.equal(await shared.locator('a').first().getAttribute('data-ga-event'), 'app_store_click', 'download is the first and primary iPhone action');
+    assert.match(await shared.locator('.app-cta__open').innerText(), /Already have Eddy/);
+    await shared.scrollIntoViewIfNeeded();
+    assert.equal(await shared.locator('[data-ga-event="app_open_click"]').getAttribute('href'), 'eddy:///float/fixture123');
+    await page.evaluate(() => document.addEventListener('click', event => {
+      if (event.target.closest('[data-ga-event="app_open_click"], [data-ga-event="app_store_click"]')) event.preventDefault();
+    }));
+    await shared.locator('[data-ga-event="app_open_click"]').click();
+    await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
+    await shared.scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.recordAnalytics('flush'));
+    assert.equal(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'shared_plan').length, 1);
+    assert.equal(events.filter(event => event[1] === 'app_open_click' && event[2]?.label === 'shared_plan').length, 1);
+    assert.equal(events.find(event => event[1] === 'app_open_click' && event[2]?.label === 'shared_plan')[2].app_campaign, 'partner_guide');
+    const report = page.locator('[data-report-check]');
+    for (const state of ['loading', 'ready', 'missing', 'ready']) {
+      await report.getByRole('combobox').selectOption(state);
+      assert.equal(await report.locator('[data-ga-label="gauge_eddy_read"]').count(), state === 'ready' ? 1 : 0);
+      assert.equal(await report.locator('[data-app-cta="gauge_widget"]').count(), state === 'missing' ? 1 : 0);
+    }
+    const readAction = report.locator('[data-ga-label="gauge_eddy_read"]');
+    assert.equal(new URL(await readAction.getAttribute('href')).hostname, 'apps.apple.com', 'iPhone Read skips the landing page');
+    assert.equal(await readAction.getAttribute('target'), '_blank', 'the report stays available after installing');
+    await readAction.click();
+    await page.evaluate(() => window.recordAnalytics('flush'));
+    const readClicks = events.filter(event => event[1] === 'app_store_click' && event[2]?.label === 'gauge_eddy_read');
+    assert.equal(readClicks.length, 1);
+    assert.equal(readClicks[0][2].app_campaign, 'partner_guide');
+    let attempts = 0;
+    await page.route('**/api/plan/save', route => {
+      attempts++;
+      assert.equal(route.request().postDataJSON().vesselTypeId, 'kayak');
+      return route.fulfill({ status: attempts === 1 ? 503 : 200, contentType: 'application/json', body: JSON.stringify({ shortCode: 'saved123' }) });
+    });
+    assert.equal(attempts, 0, 'rendering a route never saves it');
+    await page.getByRole('button', { name: 'Follow this float in River Mode' }).click();
+    await page.getByRole('alert').getByText(/Couldn’t save/).waitFor();
+    await page.getByRole('button', { name: 'Follow this float in River Mode' }).click();
+    await page.locator('[data-app-cta="planner_handoff"]').waitFor();
+    assert.equal(await page.locator('[data-app-cta="planner_handoff"] [data-ga-event="app_open_click"]').getAttribute('href'), 'eddy:///float/saved123');
+    assert(await page.getByText('Your float is saved', { exact: true }).isVisible());
+    assert.equal(attempts, 2, 'one request per explicit attempt');
+    await page.getByRole('button', { name: 'Change route' }).click();
+    assert.equal(await page.locator('[data-app-cta="planner_handoff"]').count(), 0, 'changing endpoints drops the old handoff');
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `contextual invitations fit ${width}px`);
+      for (const link of await page.locator('.app-cta a').all()) assert((await link.boundingBox()).height >= 44, 'contextual actions retain touch targets');
+      await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+      await page.screenshot({ path: `${out}/promotions-iphone-${width}.png`, fullPage: true });
+    }
+    await page.goto('https://eddy.guide/app?ct=partner_guide&river=current&feature=read', { waitUntil: 'networkidle' });
+    await page.locator('.app-cta [data-ga-event="app_open_click"]').waitFor();
+    assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Get Eddy’s full Read.');
+    assert(await page.getByText('Read the full daily river report with Eddy Premium in the iPhone app.', { exact: true }).isVisible());
+    assert.equal(await page.locator('.app-cta__qr').count(), 0);
+    assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/river\/current/);
+    await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+    await page.screenshot({ path: `${out}/read-landing-iphone-320.png`, fullPage: true });
+    // Check the invitation inside the actual gauge card, not just in isolation.
+    // All API requests are fixtures, including unavailable chart/weather data.
+    await page.route('**/api/**', route => {
+      const path = new URL(route.request().url()).pathname;
+      const gauge = { id: '10000001', siteId: '10000001', name: 'Test Creek', provider: 'usgs', curated: false,
+        coordinates: { lng: -91.3, lat: 37.1 }, dischargeCfs: 321, gaugeHeightFt: 2.4,
+        readingTimestamp: new Date().toISOString(), readingAgeHours: 0, readingSuspect: false,
+        freshness: 'live', thresholds: null, floodStages: null, publicUrl: null };
+      const body = path === '/api/gauges/10000001' ? { gauge } : path === '/api/gauges' ? { gauges: [] } : null;
+      return route.fulfill({ status: body ? 200 : 404, contentType: 'application/json', body: JSON.stringify(body ?? {}) });
+    });
+    await page.goto('https://eddy.guide/dam-layout-check/gauge', { waitUntil: 'networkidle' });
+    const gaugeCta = page.locator('[data-app-cta="gauge_widget"]');
+    await gaugeCta.waitFor();
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await gaugeCta.scrollIntoViewIfNeeded();
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `gauge invitation fits ${width}px`);
+      await gaugeCta.locator('..').locator('..').screenshot({ path: `${out}/gauge-invitation-${width}.png` });
+    }
+    console.log('PASS contextual iPhone actions, deduped impressions, partner campaign, save failure/retry and route changes');
+  } catch (error) {
+    for (const [index, page] of context.pages().entries()) {
+      await page.screenshot({ path: `${out}/failed-iphone-${index}.png`, fullPage: true }).catch(() => {});
+    }
+    await writeFile(`${out}/browser-errors.json`, JSON.stringify(errors, null, 2));
+    throw error;
   } finally {
     await context.close();
   }
@@ -440,13 +575,78 @@ export default function Page() {
   await writeFile(`${out}/dam-qr.svg`, decodeURIComponent((await qr.locator('img').getAttribute('src')).split(',').slice(1).join(',')));
   await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
   await desktop.screenshot({ path: `${out}/app-narrow-desktop.png`, fullPage: false });
+  await desktop.setViewportSize({ width: 1280, height: 900 });
+  await desktop.goto(`${origin}/dam-layout-check/promotions?ct=partner_guide`, { waitUntil: 'networkidle' });
+  for (const width of [1024, 1280]) {
+    await desktop.setViewportSize({ width, height: 900 });
+    const header = desktop.getByRole('banner');
+    const button = header.locator('[data-ga-label="header"]');
+    assert(await button.isVisible());
+    const navBox = await header.getByRole('navigation', { name: 'Main navigation' }).boundingBox();
+    const ctaBox = await button.boundingBox();
+    assert(navBox.x + navBox.width <= ctaBox.x, 'full navigation and download button do not overlap');
+    assert(ctaBox.x + ctaBox.width <= width && ctaBox.height >= 44, 'header CTA fits at lg');
+    await desktop.screenshot({ path: `${out}/header-${width}.png`, fullPage: false });
+  }
+  const contextualQr = desktop.locator('[data-app-cta="river_widget"] details');
+  await contextualQr.locator('summary').click();
+  const qrSrc = await contextualQr.locator('img').getAttribute('src');
+  assert.equal(qrSrc, '/api/app/qr?ct=partner_guide&river=current');
+  await contextualQr.locator('img').evaluate(img => img.decode());
+  assert(await desktop.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+  await desktop.screenshot({ path: `${out}/promotions-desktop.png`, fullPage: true });
+  const desktopReport = desktop.locator('[data-report-check]');
+  await desktopReport.getByRole('combobox').selectOption('ready');
+  const desktopRead = desktopReport.locator('[data-ga-label="gauge_eddy_read"]');
+  assert.equal(await desktopRead.getAttribute('href'), '/app?ct=partner_guide&gauge=07067000&feature=read');
+  await desktopRead.click();
+  await desktop.waitForURL(`${origin}/app?ct=partner_guide&gauge=07067000&feature=read`);
+  assert.equal(await desktop.getByRole('heading', { level: 1 }).innerText(), 'Get Eddy’s full Read.');
+  assert(await desktop.getByText('Read the full daily river report with Eddy Premium in the iPhone app.', { exact: true }).isVisible());
+  assert.equal(await desktop.locator('.app-cta__qr').getAttribute('open'), '');
+  const readQr = desktop.locator('.app-cta__qr img');
+  assert.equal(await readQr.getAttribute('src'), '/api/app/qr?ct=partner_guide&gauge=07067000&feature=read');
+  await readQr.evaluate(img => img.decode());
+  assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/gauge\/07067000/);
+  await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+  await desktop.screenshot({ path: `${out}/read-landing-desktop.png`, fullPage: true });
+  await desktop.goto(`${origin}/app?ct=partner_guide&plan=fixture123`, { waitUntil: 'networkidle' });
+  assert.equal(await desktop.locator('.app-cta__qr').getAttribute('open'), '', 'landing QR starts open');
+  assert.equal(await desktop.getByRole('link', { name: 'View your saved plan on the web' }).getAttribute('href'), '/plan/fixture123');
+  assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/float\/fixture123/);
   await desktop.close();
   const android = await browser.newPage({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' });
+  await android.addInitScript(() => {
+    window.promotionLayoutShift = 0;
+    new PerformanceObserver(list => {
+      for (const entry of list.getEntries()) if (!entry.hadRecentInput) window.promotionLayoutShift += entry.value;
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
   android.on('pageerror', e => errors.push(e.message));
   await android.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
   await android.goto(url, { waitUntil: 'networkidle' });
+  assert.match(await android.evaluate(() => navigator.userAgent), /Android/);
+  await android.locator('[data-dam-app-cta]').waitFor({ state: 'detached' });
   assert.equal(await android.locator('[data-dam-app-cta]').count(), 0, 'Android omits the iPhone promotion');
   assert(await android.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
+  await android.goto(`${origin}/dam-layout-check/promotions`, { waitUntil: 'networkidle' });
+  await android.locator('[data-locked-read]').getByText('Available for iPhone only.', { exact: true }).waitFor();
+  const hydrationShift = await android.evaluate(() => window.promotionLayoutShift);
+  await writeFile(`${out}/android-hydration.json`, JSON.stringify({ viewport: 390, fixture: 'promotions', layoutShift: hydrationShift, note: 'Single fixture run; not production field CLS.' }, null, 2));
+  console.log(`Android promotion fixture layout shift: ${hydrationShift}`);
+  assert.equal(await android.locator('[data-app-cta], [data-ga-label="fixture_generic"], [data-ga-label="river_eddy_read"]').count(), 0, 'Android omits all unsupported app actions');
+  assert(await android.getByText('A useful public river summary', { exact: true }).isVisible(), 'Android retains the useful public Read');
+  assert(await android.locator('[data-locked-read]').getByRole('heading', { name: "Eddy's Read" }).isVisible(), 'Android retains the noncompact Read section');
+  assert(await android.locator('[data-locked-read]').getByText('Available for iPhone only.', { exact: true }).isVisible());
+  assert(await android.locator('[data-locked-read] [data-nosnippet]').first().evaluate(el => getComputedStyle(el).filter.includes('blur')), 'Android does not unblur gated content');
+  await android.screenshot({ path: `${out}/promotions-android.png`, fullPage: true });
+  for (const path of ['/app', '/app?plan=fixture123', '/app?river=current&feature=read']) {
+    await android.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
+    await android.getByText('Available for iPhone only.', { exact: true }).waitFor();
+    assert(await android.getByText('Available for iPhone only.', { exact: true }).isVisible());
+    assert.equal(await android.locator('[data-ga-event="app_store_click"], .app-cta__qr').count(), 0);
+  }
   await android.close();
   console.log('PASS Android keeps the schedule; desktop QR retains dam and campaign below 900px');
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');

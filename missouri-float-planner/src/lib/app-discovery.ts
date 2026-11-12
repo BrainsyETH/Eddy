@@ -1,4 +1,5 @@
 import { getDamAppPromotion } from './dam-app-promotion';
+import { appDestination, destinationCampaign, destinationParams, type AppDestination, type AppDestinationQuery } from './app-destination';
 
 // Public app identity must keep working without deployment configuration.
 export const DEFAULT_APPLE_APP_ID = '6794933267';
@@ -59,19 +60,22 @@ export function appStoreUrl(campaign?: string | null, config = APP_STORE): strin
   return url.toString();
 }
 
-export function appLandingUrl(campaign?: string | null, damId?: string): string {
+export function appLandingUrl(campaign?: string | null, damId?: string, destination?: AppDestination | null): string {
   const token = campaignToken(campaign);
   const params = new URLSearchParams();
   if (token) params.set('ct', token);
   const dam = getDamAppPromotion(damId);
   if (dam) params.set('dam', dam.id);
+  else destinationParams(destination).forEach((value, key) => params.set(key, value));
   return params.size ? `/app?${params}` : '/app';
 }
 
 /** The query carries dam context through a document navigation to Safari's banner. */
-export function appLandingContext(params: { ct?: unknown; dam?: unknown }) {
-  const dam = getDamAppPromotion(params.dam);
-  return { dam, campaign: campaignToken(params.ct) ?? dam?.campaign ?? null };
+export function appLandingContext(params: { ct?: unknown; dam?: unknown } & AppDestinationQuery) {
+  const hasDestination = ['plan', 'river', 'gauge', 'access'].some(key => params[key as keyof AppDestinationQuery] !== undefined);
+  const dam = hasDestination ? null : getDamAppPromotion(params.dam);
+  const destination = params.dam !== undefined ? null : appDestination(params);
+  return { dam, destination, campaign: campaignToken(params.ct) ?? dam?.campaign ?? destinationCampaign(destination) };
 }
 
 /** Explicit banner taps use existing app routes; ordinary web links stay on the web. */

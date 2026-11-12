@@ -11,6 +11,41 @@ import { getUsaceDam, hasPowerhouse } from './flow-providers/usace-registry';
 import DamAppCTA from '../components/dam/DamAppCTA';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import { readAppCampaign } from '../components/AppLink';
+import ReportAppCta from '../components/gauge/ReportAppCta';
+import ContextAppLanding from '../components/ContextAppLanding';
+
+test('reports offer one Read or widget invitation, and wait for the initial Read check', () => {
+  for (const kind of ['river', 'gauge'] as const) {
+    const destination = { kind, id: kind === 'river' ? 'current' : '07067000' };
+    for (const loading of [false, true]) {
+      const html = renderToStaticMarkup(createElement(ReportAppCta, { destination, hasRead: true, loading }));
+      assert.match(html, new RegExp(`data-ga-label="${kind}_eddy_read"`));
+      assert.match(html, /feature=read/);
+      assert.doesNotMatch(html, /_widget/);
+      assert.equal((html.match(/<a\s/g) ?? []).length, 1);
+    }
+    const fallback = renderToStaticMarkup(createElement(ReportAppCta, { destination, hasRead: false, loading: false }));
+    assert.match(fallback, new RegExp(`data-app-cta="${kind}_widget"`));
+    assert.doesNotMatch(fallback, /_eddy_read/);
+    assert.equal(renderToStaticMarkup(createElement(ReportAppCta, { destination, hasRead: false, loading: true })), '');
+  }
+});
+
+test('Read handoffs explain Premium while widget handoffs retain their own topic', () => {
+  for (const kind of ['river', 'gauge'] as const) {
+    const destination = { kind, id: kind === 'river' ? 'current' : '07067000' };
+    const read = renderToStaticMarkup(createElement(ContextAppLanding, { destination: { ...destination, feature: 'read' }, campaign: 'partner_guide' }));
+    assert.match(read, /Get Eddy’s full Read\./);
+    assert.match(read, /with Eddy Premium in the iPhone app/);
+    assert.match(read, /01-daily-river-report/);
+    assert.match(read, /feature=read/);
+    assert.doesNotMatch(read, /Home Screen widget/);
+    const widget = renderToStaticMarkup(createElement(ContextAppLanding, { destination, campaign: null }));
+    assert.match(widget, /Home Screen widget/);
+    assert.match(widget, /08-your-rivers-at-a-glance/);
+    assert.doesNotMatch(widget, /feature=read/);
+  }
+});
 
 test('missing and invalid configuration always lead to the published app', () => {
   for (const env of [{}, { url: 'javascript:alert(1)', appId: 'bad' }, { url: 'https://apps.apple.com.evil.test/app/id1' }, { url: 'https://apps.apple.com/not-a-listing' }]) {
@@ -121,7 +156,7 @@ test('dam context does not replace partner attribution or accept arbitrary desti
   }
   assert.equal(appLandingUrl('partner_foo', 'https://example.com'), '/app?ct=partner_foo');
   assert.equal(renderToStaticMarkup(createElement(DamAppCTA, { damId: 'swl-norfork-dam', damName: 'Norfork Dam' })), '');
-  assert.deepEqual(appLandingContext({}), { dam: null, campaign: null });
+  assert.deepEqual(appLandingContext({}), { dam: null, destination: null, campaign: null });
 });
 
 test('promotion copy follows the supplied catalog name without a second name registry', () => {
@@ -155,4 +190,81 @@ test('every promoted dam has a powerhouse, so the widget line can promise genera
     const dam = getUsaceDam(id);
     assert.ok(dam && hasPowerhouse(dam), `${id} is promoted as "generation on your Home Screen" but has no powerhouse`);
   }
+});
+
+test('plan, river, gauge and access handoffs retain context through landing, banner and QR', async () => {
+  const { appDestination, nativeDestination } = await import('./app-destination');
+  const { GET } = await import('../app/api/app/qr/route');
+  for (const [params, path] of [
+    [{ plan: 'abc123' }, '/float/abc123'],
+    [{ river: 'current' }, '/river/current'],
+    [{ gauge: '07067000' }, '/gauge/07067000'],
+    [{ river: 'current', feature: 'read' }, '/river/current'],
+    [{ gauge: '07067000', feature: 'read' }, '/gauge/07067000'],
+    [{ river: 'current', access: 'akers-ferry' }, '/river/current/access/akers-ferry'],
+  ] as const) {
+    const destination = appDestination(params)!;
+    assert.equal(nativeDestination(destination), path);
+    const href = appLandingUrl('partner_guide', undefined, destination);
+    const query = Object.fromEntries(new URL(href, 'https://eddy.guide').searchParams);
+    const context = appLandingContext(query);
+    assert.deepEqual(context.destination, destination);
+    assert.equal(context.campaign, 'partner_guide');
+    const content = smartBannerContent(nativeDestination(context.destination!), context.campaign);
+    const argument = content.split(', ').find(part => part.startsWith('app-argument='))!.slice(13);
+    assert.equal(redirectSystemPath({ path: argument, initial: false }), path);
+    assert.match(redirectSystemPath({ path: argument, initial: true }), new RegExp(path + '$'));
+    const qr = await GET(new Request(`https://eddy.guide/api/app/qr?${new URLSearchParams(query)}`));
+    assert.equal(qr.status, 200);
+    assert.equal(qr.headers.get('content-type'), 'image/svg+xml');
+    // Compare the actual encoded SVG with the canonical same-context URL.
+    const QRCode = (await import('qrcode')).default;
+    assert.equal(await qr.text(), await QRCode.toString(`https://eddy.guide${href}`, { type: 'svg', errorCorrectionLevel: 'M', margin: 4 }));
+  }
+});
+
+test('handoffs reject repeated, conflicting and arbitrary destinations', async () => {
+  const { GET } = await import('../app/api/app/qr/route');
+  for (const params of [
+    { plan: ['abc123', 'other'] }, { plan: '../escape' }, { plan: 'a'.repeat(65) },
+    { river: 'https://evil.example' }, { river: 'current', gauge: '07067000' },
+    { access: 'akers' }, { river: 'current', access: '/app' },
+    { dam: 'swl-bull-shoals-dam', plan: 'abc123' },
+    { river: 'current', feature: ['read', 'read'] }, { river: 'current', feature: 'unknown' },
+    { plan: 'abc123', feature: 'read' }, { river: 'current', access: 'akers', feature: 'read' },
+  ]) {
+    const context = appLandingContext(params);
+    assert.equal(context.destination, null);
+    assert.equal(context.dam, null);
+  }
+  for (const query of ['plan=abc&plan=def', 'river=current&feature=read&feature=read', 'river=current&feature=unknown', 'url=https://evil.example', 'plan=..%2Fescape', 'plan=' + 'a'.repeat(513)]) {
+    assert.equal((await GET(new Request(`https://eddy.guide/api/app/qr?${query}`))).status, 400);
+  }
+});
+
+test('saving for the app preserves vessel and endpoints and rejects failures without inventing a link', async t => {
+  const { planAppSaveRequest, savePlanForApp } = await import('./plan-app-handoff');
+  const plan = {
+    river: { id: 'river-id' }, putIn: { id: 'put-in' }, takeOut: { id: 'take-out' }, vessel: { id: 'kayak' },
+    distance: { miles: 8 }, floatTime: { minutes: 180, timeRange: { min: 140, max: 220 } },
+    condition: { code: 'good', gaugeHeightFt: 2.1, dischargeCfs: 300, gaugeName: 'Akers' },
+  } as import('@/types/api').FloatPlan;
+  const body = planAppSaveRequest(plan);
+  assert.equal(body.vesselTypeId, 'kayak');
+  assert.equal(body.startId, 'put-in');
+  assert.equal(body.endId, 'take-out');
+  assert.deepEqual(body.snapshot?.floatTimeRange, { min: 140, max: 220 });
+  let response = new Response(JSON.stringify({ shortCode: 'abc123', url: 'https://evil.example' }));
+  const controller = new AbortController();
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    assert.equal(url, '/api/plan/save');
+    assert.equal(init.signal, controller.signal);
+    assert.deepEqual(JSON.parse(init.body as string), body);
+    return response;
+  });
+  assert.equal(await savePlanForApp(plan, controller.signal), 'abc123');
+  response = new Response('unavailable', { status: 503 });
+  await assert.rejects(savePlanForApp(plan, controller.signal));
+  response = new Response(JSON.stringify({ shortCode: '../../wrong' }));
+  await assert.rejects(savePlanForApp(plan, controller.signal));
 });

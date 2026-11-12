@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import AppPromotion from '@/components/AppPromotion';
 import AppLink from '@/components/AppLink';
 import { ArrowRight, Search } from 'lucide-react';
 import BuildRouteIcon from '@/components/ui/BuildRouteIcon';
@@ -240,13 +241,12 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-10 md:py-12">
+      <AppPromotion><section className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-10 md:py-12">
         <div className="rounded-2xl bg-primary-800 p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div><h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>Take Eddy with you</h2><p className="mt-2 text-sm text-primary-100">Track your trip with River Mode and check river levels from your Home Screen.</p></div>
-          <AppLink data-ga-event="app_landing_click" data-ga-label="homepage_app" className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-500 px-5 py-3 text-sm font-semibold text-white no-underline hover:bg-accent-600 whitespace-nowrap">Get Eddy for iPhone <ArrowRight className="h-4 w-4" aria-hidden="true" /></AppLink>
+          <AppLink trackView data-ga-label="homepage_app" className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-500 px-5 py-3 text-sm font-semibold text-white no-underline hover:bg-accent-600 whitespace-nowrap">Get Eddy for iPhone <ArrowRight className="h-4 w-4" aria-hidden="true" /></AppLink>
         </div>
-      </section>
-
+      </section></AppPromotion>
       <SiteFooter maxWidth="max-w-6xl" />
     </div>
   );

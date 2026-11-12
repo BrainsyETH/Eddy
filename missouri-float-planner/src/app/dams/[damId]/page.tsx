@@ -106,7 +106,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           {/* Without a posted schedule the generation card already offers the
               release line, so the number is not repeated down here. */}
           {dam.infoPhone && dam.schedule.length > 0 && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Release Line: {dam.infoPhone}</Button>}
-          {!getDamAppPromotion(dam.id) && <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>}
+          {!getDamAppPromotion(dam.id) && <AppLink trackView data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Get Eddy for iPhone</AppLink>}
         </div>
         {project && (
           <section aria-labelledby="dam-about-heading" className="mt-6 max-w-3xl">

@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { pageAccess } from '@/lib/data/public-pages';
 
-export const revalidate = 60;
+import AppCta from '@/components/AppCta';
 import AccessPointHeader from '@/components/access-point/AccessPointHeader';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import AccessPointNav from '@/components/access-point/AccessPointNav';
@@ -26,6 +26,8 @@ import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { stateCodeFromSlug, stateName } from '@/lib/navigation/states';
 import Button from '@/components/ui/Button';
+
+export const revalidate = 60;
 
 // Detail section icons, served from public/ rather than the Vercel blob URLs
 // these used to be. The art is in the repo now (design/eddy-emoji, emitted by
@@ -98,6 +100,9 @@ export default async function AccessPointDetailPage({ params }: Props) {
 
         {/* Navigation Buttons */}
         <AccessPointNav accessPoint={accessPoint} />
+
+        <AppCta destination={{ kind: 'access', id: accessSlug, river: riverSlug }}
+          title="Download your float before you head out" detail="Plan your route in Eddy and download its map while you have signal." label="access_offline" />
 
         {/* Collapsible Sections */}
         <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden divide-y divide-neutral-200">

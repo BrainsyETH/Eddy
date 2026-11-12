@@ -628,6 +628,7 @@ export default function RiverGaugeDetail({
         {/* What happens next, in its own card as on iOS. */}
         <section className="card-panel" aria-label="Eddy's Read and three-day outlook">
           <EddyOutlookFooter
+            destination={{ kind: 'river', id: riverSlug }}
             compact={hasSections}
             sections={eddyTakeSections}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
