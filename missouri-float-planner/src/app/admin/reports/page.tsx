@@ -182,6 +182,8 @@ export default function AdminReportsPage() {
   const [statusFilter, setStatusFilter] = useAdminListState('status');
   const [typeFilter, setTypeFilter] = useAdminListState('type');
   const [searchQuery, setSearchQuery] = useAdminListState('q', '', 'replace');
+  // Set by links from elsewhere (a reported photo in Feedback): show one report.
+  const [onlyId, setOnlyId] = useAdminListState('id', '');
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [pageText, setPageText] = useAdminListState('page', '1');
@@ -201,7 +203,7 @@ export default function AdminReportsPage() {
     const generation = ++requestGeneration.current;
     try {
       if(!background)setLoading(true);
-      const res = await adminFetch(`/api/admin/reports?${new URLSearchParams({ page: String(p), limit: String(pageLimit), q: searchQuery, type: typeFilter, status: statusFilter })}`);
+      const res = await adminFetch(`/api/admin/reports?${new URLSearchParams({ page: String(p), limit: String(pageLimit), q: searchQuery, type: typeFilter, status: statusFilter, ...(onlyId ? { id: onlyId } : {}) })}`);
       if (!res.ok) throw new Error('Failed to fetch reports');
       const data = await res.json();
       if (generation !== requestGeneration.current) return;
@@ -214,7 +216,7 @@ export default function AdminReportsPage() {
     } finally {
       if (generation === requestGeneration.current) setLoading(false);
     }
-  }, [page, pageLimit, searchQuery, typeFilter, statusFilter]);
+  }, [page, pageLimit, searchQuery, typeFilter, statusFilter, onlyId]);
 
   useEffect(() => {
     const timer = setTimeout(() => void fetchReports(page), 200);
@@ -230,7 +232,10 @@ export default function AdminReportsPage() {
     detail?.focus({ preventScroll: true });
     detail?.scrollIntoView({ block: 'start', behavior: 'instant' });
   }, [expandedReport, viewMode]);
-  useEffect(() => { setSelectedIds(new Set()); setExpandedReport(null); }, [page, statusFilter, typeFilter, searchQuery, viewMode]);
+  useEffect(() => { setSelectedIds(new Set()); setExpandedReport(null); }, [page, statusFilter, typeFilter, searchQuery, viewMode, onlyId]);
+  useEffect(() => {
+    if (onlyId && reports.some((r) => r.id === onlyId)) setExpandedReport(onlyId);
+  }, [onlyId, reports]);
 
   const updateReport = async (report: Report, newStatus: 'verified' | 'rejected' | 'pending') => {
     if (newStatus === 'rejected' && !await confirm('Reject this report? Its stored photo will be removed and cannot be restored.', {confirmLabel:'Reject report',danger:true})) return;
@@ -448,9 +453,21 @@ export default function AdminReportsPage() {
           <div className="text-center py-12 text-neutral-400">Loading reports...</div>
         ) : (
           <>
+            {onlyId ? (
+              <p className="flex flex-wrap items-center gap-2 text-sm text-neutral-400">
+                {totalReports ? 'Showing one linked report.' : 'The linked report no longer exists.'}
+                <button
+                  onClick={() => setOnlyId('')}
+                  className="px-3 py-1 rounded-lg text-sm admin-secondary"
+                >
+                  Show all reports
+                </button>
+              </p>
+            ) : (
             <p className="text-sm text-neutral-400">
               {totalReports} matching reports · {filteredReports.length} on this page
             </p>
+            )}
             {viewMode === 'list' && (
             <div className="admin-review-layout"><div className="space-y-2">
               {filteredReports.map(report => (

@@ -7,7 +7,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
-import { mapInboundEmailRow } from '@/lib/email/inbound';
+import {
+  countUnreadInboundEmails,
+  mapInboundEmailRow,
+  parseBulkEmailUpdate,
+} from '@/lib/email/inbound';
+import { literalContains } from '@/lib/admin/list-filters';
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 import type { InboundEmail, InboundEmailListResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
@@ -25,17 +31,27 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     let query = supabase
       .from('inbound_emails')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (status && VALID_STATUSES.includes(status)) {
       query = query.eq('status', status);
+    }
+
+    // Literal search over who sent it and what it says.
+    const search = (searchParams.get('q') ?? '').trim().slice(0, 200);
+    if (search) {
+      const value = literalContains(search);
+      query = query.or(
+        `subject.ilike.${value},from_address.ilike.${value},text_body.ilike.${value}`,
+      );
     }
 
     // Unread count powers the sub-tab badge regardless of the active filter.
@@ -64,3 +80,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+/**
+ * PATCH /api/admin/inbound-emails — set one triage status on several messages
+ * at once ({ ids, status }). Returns how many changed and the unread count.
+ */
+async function handlePATCH(request: NextRequest) {
+  try {
+    const authError = await requireAdminAuth(request);
+    if (authError) return authError;
+    const parsed = parseBulkEmailUpdate(await request.json().catch(() => null));
+    if ('error' in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('inbound_emails')
+      .update({ status: parsed.status })
+      .in('id', parsed.ids)
+      .select('id');
+    if (error) {
+      console.error('Error bulk-updating inbound emails:', error);
+      return NextResponse.json({ error: 'Failed to update messages' }, { status: 500 });
+    }
+    return NextResponse.json({
+      updated: data?.length ?? 0,
+      unread: await countUnreadInboundEmails(supabase),
+    });
+  } catch (error) {
+    console.error('Error bulk-updating inbound emails:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export const PATCH = withAdminMutation(handlePATCH);

@@ -13,6 +13,14 @@ import {
   type Feedback,
   type FeedbackListResponse,
 } from '@/types/api';
+import { literalContains } from '@/lib/admin/list-filters';
+import { contextLinks, isLookupId, type ContextLookups } from '@/lib/feedback/context';
+import {
+  FEEDBACK_STATUSES,
+  feedbackReplyFrom,
+  mapFeedbackRow,
+  REPORTED_PHOTO_TYPE,
+} from '@/lib/feedback/admin';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -126,6 +134,47 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Resolve each item's context to links (river/access-point pages, admin
+ * editor). One query per kind for the whole page; a lookup failure only means
+ * fewer links, never a failed list.
+ */
+async function attachContextLinks(
+  supabase: ReturnType<typeof createAdminClient>,
+  feedback: Feedback[],
+) {
+  const ids = (kind: string) => [
+    ...new Set(
+      feedback
+        .filter((f) => f.contextType === kind && isLookupId(f.contextId))
+        .map((f) => f.contextId as string),
+    ),
+  ];
+  const riverIds = ids('river');
+  const pointIds = ids('access_point');
+  const lookups: ContextLookups = { rivers: new Map(), accessPoints: new Map() };
+  const [rivers, points] = await Promise.all([
+    riverIds.length
+      ? supabase.from('rivers').select('id,name,slug,state').in('id', riverIds)
+      : null,
+    pointIds.length
+      ? supabase.from('access_points').select('id,name,slug,rivers(slug,state)').in('id', pointIds)
+      : null,
+  ]);
+  for (const r of rivers?.data ?? []) lookups.rivers.set(r.id, r);
+  for (const p of points?.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const river = (Array.isArray(p.rivers) ? p.rivers[0] : p.rivers) as any;
+    lookups.accessPoints.set(p.id, {
+      name: p.name,
+      slug: p.slug,
+      riverSlug: river?.slug ?? null,
+      riverState: river?.state ?? null,
+    });
+  }
+  for (const item of feedback) item.contextLinks = contextLinks(item, lookups);
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Admin-only: enforce the shared-secret bearer token (same model as /api/admin/*).
@@ -138,18 +187,44 @@ export async function GET(request: NextRequest) {
     // Get query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    // Bounded: an unbounded limit would let one request read the whole table.
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     // Build query
     let query = supabase
       .from('feedback')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (status && ['pending', 'reviewed', 'resolved', 'dismissed'].includes(status)) {
+    if (status && (FEEDBACK_STATUSES as readonly string[]).includes(status)) {
       query = query.eq('status', status);
+    }
+
+    const type = searchParams.get('type');
+    if (type) {
+      if (!(FEEDBACK_TYPES as readonly string[]).includes(type)) {
+        return NextResponse.json({ error: 'Invalid feedback type' }, { status: 400 });
+      }
+      query = query.eq('feedback_type', type);
+    }
+
+    // Search what a person wrote and who they are. Literal match: % and _ in
+    // the query are escaped, and the whole operand is quoted for PostgREST.
+    const search = (searchParams.get('q') ?? '').trim().slice(0, 200);
+    if (search) {
+      const value = literalContains(search);
+      query = query.or(
+        `message.ilike.${value},user_email.ilike.${value},user_name.ilike.${value},context_name.ilike.${value}`,
+      );
+    }
+
+    // The admin inbox pins pending reported photos above the list; this keeps
+    // them from being listed (and paged) a second time underneath.
+    if (searchParams.get('pinned') === 'photos') {
+      query = query.or(`status.neq.pending,feedback_type.neq.${REPORTED_PHOTO_TYPE}`);
     }
 
     const { data, count, error: fetchError } = await query;
@@ -162,29 +237,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform to API format
-    const feedback: Feedback[] = (data || []).map((row) => ({
-      id: row.id,
-      feedbackType: row.feedback_type,
-      userName: row.user_name,
-      userEmail: row.user_email,
-      message: row.message,
-      imageUrl: row.image_url,
-      contextType: row.context_type,
-      contextId: row.context_id,
-      contextName: row.context_name,
-      contextData: row.context_data,
-      status: row.status,
-      adminNotes: row.admin_notes,
-      reviewedBy: row.reviewed_by,
-      reviewedAt: row.reviewed_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    const feedback: Feedback[] = (data || []).map(mapFeedbackRow);
+    await attachContextLinks(supabase, feedback);
 
     return NextResponse.json({
       feedback,
       total: count || 0,
+      replyFrom: feedbackReplyFrom(),
     } as FeedbackListResponse);
   } catch (error) {
     console.error('Error fetching feedback:', error);

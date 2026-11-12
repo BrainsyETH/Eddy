@@ -18,20 +18,14 @@ import {
   Archive,
   Ban,
   Inbox,
-  Send,
-  CheckCircle,
   CornerUpLeft,
 } from 'lucide-react';
 import type { InboundEmail, InboundEmailStatus } from '@/types/api';
-import RichTextEditor from '@/components/admin/RichTextEditor';
-import { REPLY_TEMPLATES } from '@/lib/email/reply-templates';
+import ReplyComposer from '@/components/admin/ReplyComposer';
+import ListPager from '@/components/admin/ListPager';
 
 const EDDY_DOMAIN = 'eddy.guide';
-
-/** True when rich-text HTML has no visible content (e.g. an empty "<p></p>"). */
-function isHtmlEmpty(html: string): boolean {
-  return !html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-}
+const PAGE_SIZE = 50;
 
 /** Best-effort client-side guess of the From address (server decides for real). */
 function replyFromDisplay(email: InboundEmail): string {
@@ -91,15 +85,18 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<InboundEmailStatus | 'all'>('unread');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  // Bulk selection is scoped to the rows on screen and cleared when they change.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
-  // Reply composer state (one open at a time).
+  // Reply composer: one open at a time.
   const [replyingId, setReplyingId] = useState<string | null>(null);
-  const [replyHtml, setReplyHtml] = useState('');
-  const [sending, setSending] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
-  const [replySent, setReplySent] = useState(false);
 
   const reportUnread = useCallback(
     (n: number) => {
@@ -114,7 +111,9 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
     try {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      params.set('limit', '100');
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String((page - 1) * PAGE_SIZE));
+      if (search) params.set('q', search);
 
       const response = await adminFetch(`/api/admin/inbound-emails?${params.toString()}`);
       if (!response.ok) {
@@ -123,17 +122,70 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
       }
       const data = await response.json();
       setEmails(data.emails);
+      setTotal(data.total ?? 0);
       reportUnread(data.unread ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch email');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, reportUnread]);
+  }, [statusFilter, page, search, reportUnread]);
 
   useEffect(() => {
     fetchEmails();
   }, [fetchEmails]);
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [statusFilter, page, search]);
+
+  // Search as you type, without a request per keystroke.
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
+    const timer = setTimeout(() => {
+      setSearch(next);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, search]);
+
+  const visibleSelected = emails.filter((e) => selected.has(e.id)).map((e) => e.id);
+  const allSelected = emails.length > 0 && visibleSelected.length === emails.length;
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const bulkUpdate = async (status: InboundEmailStatus) => {
+    if (!visibleSelected.length) return;
+    setBulkUpdating(true);
+    try {
+      const response = await adminFetch('/api/admin/inbound-emails', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: visibleSelected, status }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to update messages');
+      if (typeof data.unread === 'number') reportUnread(data.unread);
+      setSelected(new Set());
+      await fetchEmails();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update messages');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  // Triaging the last message on a later page steps back instead of showing
+  // an empty page while earlier pages still hold matching mail.
+  useEffect(() => {
+    if (!loading && emails.length === 0 && page > 1) setPage((p) => p - 1);
+  }, [loading, emails.length, page]);
 
   const updateStatus = async (email: InboundEmail, status: InboundEmailStatus) => {
     if (email.status === status) return;
@@ -145,25 +197,20 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
         body: JSON.stringify({ status }),
       });
       if (!response.ok) throw new Error('Failed to update');
-      const { email: updated } = await response.json();
+      const { email: updated, unread } = await response.json();
 
-      // Keep the global unread badge in sync without a full refetch.
-      const wasUnread = email.status === 'unread';
-      const nowUnread = status === 'unread';
-      if (wasUnread !== nowUnread) {
-        // Recompute from the loaded set plus the delta on this row.
-        const delta = nowUnread ? 1 : -1;
-        const localUnread = emails.filter((e) => e.status === 'unread').length + delta;
-        reportUnread(Math.max(0, localUnread));
-      }
+      // The server returns the global unread count with every write; the rows on
+      // this page are not the whole inbox, so they can't be counted locally.
+      if (typeof unread === 'number') reportUnread(unread);
 
-      setEmails((prev) => {
-        // Drop the row when it no longer matches the active (non-"all") filter.
-        if (statusFilter !== 'all' && status !== statusFilter) {
-          return prev.filter((e) => e.id !== email.id);
-        }
-        return prev.map((e) => (e.id === email.id ? (updated as InboundEmail) : e));
-      });
+      // Drop the row when it no longer matches the active (non-"all") filter.
+      const leavesView = statusFilter !== 'all' && status !== statusFilter;
+      if (leavesView) setTotal((t) => Math.max(0, t - 1));
+      setEmails((prev) =>
+        leavesView
+          ? prev.filter((e) => e.id !== email.id)
+          : prev.map((e) => (e.id === email.id ? (updated as InboundEmail) : e)),
+      );
     } catch {
       alert('Failed to update email');
     } finally {
@@ -173,59 +220,49 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
 
   const openReply = (email: InboundEmail) => {
     setReplyingId(email.id);
-    setReplyHtml('');
-    setReplyError(null);
-    setReplySent(false);
     setExpandedId(email.id);
   };
 
-  const cancelReply = () => {
-    setReplyingId(null);
-    setReplyHtml('');
-    setReplyError(null);
-    setReplySent(false);
-  };
-
-  const sendReply = async (email: InboundEmail) => {
-    if (isHtmlEmpty(replyHtml)) return;
-    setSending(true);
-    setReplyError(null);
-    try {
-      const response = await adminFetch(`/api/admin/inbound-emails/${email.id}/reply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: replyHtml }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Failed to send reply');
-
-      // Reflect replied + read state on the row in place — keep it visible so the
-      // "Reply sent" confirmation shows (it clears from a filtered view on the
-      // next refresh). The server marks a replied message read, so drop the
-      // unread count if this was the transition.
-      const updated = data.email as InboundEmail;
-      if (email.status === 'unread' && updated.status !== 'unread') {
-        reportUnread(Math.max(0, emails.filter((e) => e.status === 'unread').length - 1));
-      }
-      setEmails((prev) => prev.map((e) => (e.id === email.id ? updated : e)));
-      setReplySent(true);
-      setReplyHtml('');
-    } catch (err) {
-      setReplyError(err instanceof Error ? err.message : 'Failed to send reply');
-    } finally {
-      setSending(false);
-    }
+  const sendReply = async (email: InboundEmail, html: string) => {
+    const response = await adminFetch(`/api/admin/inbound-emails/${email.id}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Failed to send reply');
+    // Keep the row visible (with its Replied chip) until the next refresh.
+    if (typeof data.unread === 'number') reportUnread(data.unread);
+    setEmails((prev) => prev.map((e) => (e.id === email.id ? (data.email as InboundEmail) : e)));
   };
 
   return (
     <div>
       {/* Filter bar */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-neutral-400">Status:</label>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="email-search" className="sr-only">
+            Search email
+          </label>
+          <input
+            id="email-search"
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search sender, subject or text"
+            className="w-full sm:w-72 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <span className="flex items-center gap-2">
+          <label htmlFor="email-status" className="text-sm text-neutral-400">
+            Status:
+          </label>
           <select
+            id="email-status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as InboundEmailStatus | 'all')}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as InboundEmailStatus | 'all');
+              setPage(1);
+            }}
             className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {FILTER_OPTIONS.map((opt) => (
@@ -234,6 +271,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
               </option>
             ))}
           </select>
+          </span>
         </div>
 
         <button
@@ -258,10 +296,42 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
         </div>
       )}
 
+      {!loading && emails.length > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="flex flex-wrap items-center gap-2 mb-3 text-sm text-neutral-400"
+        >
+          <label className="flex items-center gap-2 pr-2">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={() => setSelected(allSelected ? new Set() : new Set(emails.map((e) => e.id)))}
+            />
+            {visibleSelected.length ? `${visibleSelected.length} selected` : 'Select all on this page'}
+          </label>
+          {visibleSelected.length > 0 &&
+            ACTIONS.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.value}
+                  onClick={() => void bulkUpdate(action.value)}
+                  disabled={bulkUpdating}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium admin-secondary disabled:opacity-50"
+                >
+                  <Icon className="w-3 h-3" />
+                  {action.label}
+                </button>
+              );
+            })}
+        </div>
+      )}
+
       {!loading && emails.length === 0 && (
         <div className="text-center py-12 text-neutral-400">
           <Inbox className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>No email found with the current filter.</p>
+          <p>{search ? `No email matches “${search}”.` : 'No email found with the current filter.'}</p>
         </div>
       )}
 
@@ -278,9 +348,17 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                 key={email.id}
                 className="bg-neutral-800 border border-neutral-700 rounded-xl overflow-hidden"
               >
+                <div className="flex items-start">
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${email.subject || 'message'} from ${email.fromAddress || 'unknown sender'}`}
+                  checked={selected.has(email.id)}
+                  onChange={() => toggleSelected(email.id)}
+                  className="shrink-0 mt-5 ml-4"
+                />
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : email.id)}
-                  className="w-full p-4 text-left hover:bg-neutral-750 transition-colors"
+                  className="flex-1 min-w-0 p-4 text-left hover:bg-neutral-750 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -335,6 +413,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                     </div>
                   </div>
                 </button>
+                </div>
 
                 {isExpanded && (
                   <div className="border-t border-neutral-700 p-4 bg-neutral-850">
@@ -441,86 +520,13 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
 
                       {/* In-app reply composer — sends from eddy.guide via Resend */}
                       {replyingId === email.id && (
-                        <div className="mt-3 bg-neutral-900 border border-neutral-700 rounded-lg p-3">
-                          {replySent ? (
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-2 text-sm text-green-400">
-                                <CheckCircle className="w-4 h-4" />
-                                Reply sent from {replyFromDisplay(email)}.
-                              </span>
-                              <button
-                                onClick={cancelReply}
-                                className="px-3 py-1.5 rounded text-xs font-medium admin-secondary"
-                              >
-                                Close
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="text-xs text-neutral-400 mb-2 space-y-0.5">
-                                <div>
-                                  <span className="text-neutral-500">To:</span> {email.fromAddress}
-                                </div>
-                                <div>
-                                  <span className="text-neutral-500">From:</span> {replyFromDisplay(email)}
-                                </div>
-                                <div>
-                                  <span className="text-neutral-500">Subject:</span> {replySubjectDisplay(email.subject)}
-                                </div>
-                              </div>
-                              <div className="mb-2 flex items-center gap-2">
-                                <label className="text-xs text-neutral-500">Template:</label>
-                                <select
-                                  value=""
-                                  onChange={(e) => {
-                                    const tpl = REPLY_TEMPLATES.find((t) => t.id === e.target.value);
-                                    if (tpl) setReplyHtml(tpl.html);
-                                    e.target.value = '';
-                                  }}
-                                  className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                >
-                                  <option value="">Insert a quick reply…</option>
-                                  {REPLY_TEMPLATES.map((t) => (
-                                    <option key={t.id} value={t.id} title={t.description}>
-                                      {t.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <RichTextEditor
-                                content={replyHtml}
-                                onChange={setReplyHtml}
-                                minHeight="150px"
-                                placeholder="Write your reply…"
-                              />
-                              {replyError && <div className="text-red-400 text-xs mt-2">{replyError}</div>}
-                              <div className="flex items-center gap-2 mt-2">
-                                <button
-                                  onClick={() => sendReply(email)}
-                                  disabled={sending || isHtmlEmpty(replyHtml)}
-                                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {sending ? (
-                                    <div className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <Send className="w-4 h-4" />
-                                  )}
-                                  {sending ? 'Sending…' : 'Send reply'}
-                                </button>
-                                <button
-                                  onClick={cancelReply}
-                                  disabled={sending}
-                                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 admin-secondary"
-                                >
-                                  Cancel
-                                </button>
-                                <span className="text-xs text-neutral-500 ml-auto hidden sm:inline">
-                                  Sends from eddy.guide via Resend
-                                </span>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                        <ReplyComposer
+                          to={email.fromAddress ?? ''}
+                          from={replyFromDisplay(email)}
+                          subject={replySubjectDisplay(email.subject)}
+                          onSend={(html) => sendReply(email, html)}
+                          onClose={() => setReplyingId(null)}
+                        />
                       )}
                     </div>
                   </div>
@@ -530,6 +536,8 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
           })}
         </div>
       )}
+
+      <ListPager page={page} total={total} pageSize={PAGE_SIZE} noun="messages" onPage={setPage} />
     </div>
   );
 }
