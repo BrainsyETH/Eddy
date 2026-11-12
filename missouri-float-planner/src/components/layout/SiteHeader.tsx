@@ -104,7 +104,7 @@ function HeaderContent({ floatSearchEnabled = false, campingEnabled = false, sea
             data-ga-label="header"
             className="hidden lg:inline-flex items-center rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white no-underline transition-colors duration-fast hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
           >
-            Get the App
+            Get Eddy for iPhone
           </AppLink>
 
           {/* Mobile hamburger */}
@@ -150,7 +150,7 @@ function HeaderContent({ floatSearchEnabled = false, campingEnabled = false, sea
               onClick={() => setMobileMenuOpen(false)}
               className="block rounded-lg px-3 py-3 font-semibold text-primary-700 no-underline hover:bg-accent-100 focus-visible:outline-2 focus-visible:outline-primary-600"
             >
-              Get the App
+              Get Eddy for iPhone
             </AppLink>
           </nav>
         </div>

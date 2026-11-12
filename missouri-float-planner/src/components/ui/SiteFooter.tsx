@@ -63,7 +63,7 @@ export default function SiteFooter({
           <div>
             <h3 className="text-white font-semibold mb-2">Connect</h3>
             <ul className="space-y-1.5">
-              <li><AppLink data-ga-event="app_landing_click" data-ga-label="footer" className="text-primary-200 hover:text-white transition-colors">Eddy for iPhone</AppLink></li>
+              <li><AppLink data-ga-event="app_landing_click" data-ga-label="footer" className="text-primary-200 hover:text-white transition-colors">Get Eddy for iPhone</AppLink></li>
               <li><Link href="/support" className="text-primary-200 hover:text-white transition-colors">Support</Link></li>
               <li><Link href="/developers" className="text-primary-200 hover:text-white transition-colors">Developers</Link></li>
               <li><Link href="/embed" className="text-primary-200 hover:text-white transition-colors">Website Widgets</Link></li>

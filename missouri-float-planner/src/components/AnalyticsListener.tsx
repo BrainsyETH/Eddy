@@ -9,7 +9,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAppCampaign } from '@/components/AppLink';
-import { APP_STORE } from '@/lib/app-discovery';
+import { APP_STORE, campaignToken } from '@/lib/app-discovery';
 import { initializeAnalytics, trackEvent, trackPageView, trackNavigationClick } from '@/lib/analytics';
 import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 
@@ -38,9 +38,9 @@ export default function AnalyticsListener({ trackingId }: { trackingId?: string 
       trackEvent(action, {
         ...(label ? { label } : {}),
         ...(dam ? { dam_id: dam.id } : {}),
-        ...(action === 'app_store_click' ? {
+        ...(['app_store_click', 'app_landing_click', 'app_open_click'].includes(action) ? {
           page_path: window.location.pathname,
-          app_campaign: campaign ?? dam?.campaign ?? APP_STORE.campaign ?? 'website_download',
+          app_campaign: campaignToken(el.dataset.gaCampaign) ?? campaign ?? dam?.campaign ?? APP_STORE.campaign ?? 'website_download',
           transport_type: 'beacon',
         } : {}),
       });

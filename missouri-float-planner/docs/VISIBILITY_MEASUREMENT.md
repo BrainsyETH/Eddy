@@ -8,7 +8,7 @@ launch ads, change App Store categories, or change the database.
 
 - `/app` always links to Eddy's published App Store listing. Public identity
   has committed defaults; optional URL/ID overrides remain validated.
-- Header (including the mobile menu), homepage and footer link to `/app`.
+- Header (including the mobile menu), homepage and footer use “Get Eddy for iPhone”. On iOS, generic install links go straight to the store; desktop links go to `/app`. Android hides the invitations after hydration.
 - Root metadata supplies the iPhone Safari banner. River, access, gauge, dam
   and shared-plan pages supply the matching existing `eddy:` route. No new
   universal-link claims or native dependencies are introduced. iOS Safari
@@ -104,12 +104,12 @@ iOS (including iPad desktop mode); viewport width is not a device detector.
 The generic app page keeps its existing QR. This does not implement deferred
 links after a new installation.
 
-The footer emits `app_promotion_view` once per mounted dam page when at least
+The shared visibility hook emits `app_promotion_view` once per placement and context on a page when at least
 half of the invitation enters the viewport, with `label=dam_schedule`, `dam_id`
 and `page_path`. It uses the same GA host, automation, frame and opt-out guards;
 unsupported IntersectionObserver browsers omit the view event without hiding
 the link. This is visibility measurement, not proof the visitor read the text.
-The link emits `app_landing_click` with `label=dam_schedule` and `dam_id`.
+The link emits `app_landing_click` with `label=dam_schedule`, `dam_id`, page path and campaign.
 The two download buttons emit `app_store_click` with `dam_id` plus their
 existing placement, page path and campaign. Register `dam_id` as an
 event-scoped GA4 custom dimension if it is needed in standard reports or
@@ -121,6 +121,67 @@ and delegated click event with all network requests routed locally. It also
 checks single-count visibility, partner attribution, Android hiding, a QR in a
 narrow desktop window, the real screenshot and generic fallbacks. Real iPhone Safari Open
 behavior and GA4 event receipt remain deployment checks.
+
+## Contextual app invitations
+
+`AppCta` owns the compact inline/card treatments and the device-specific actions.
+`AppLink` handles generic links and the existing Read/dam placements; both use
+`useAppPromotionView` so responsive duplicates cannot count two impressions.
+Half of an invitation must enter the viewport. Existing analytics host, frame,
+automation and opt-out guards still apply. No native-banner or installed-app
+visibility detection is attempted.
+
+| Placement label | When shown | Destination |
+| --- | --- | --- |
+| `planner_result` | Valid, current route with both endpoints and completed hazard lookup | A user tap saves the route through the existing plan API |
+| `planner_handoff` | The save succeeded | The saved `/float/<code>` native screen |
+| `shared_plan` | A shared plan has loaded | That same saved plan |
+| `river_widget` | River report is loaded | The river detail |
+| `gauge_widget` | Gauge report is loaded | The gauge detail |
+| `access_offline` | Access point detail | That access point in its river |
+
+Preparing a planner handoff does not invoke sharing or start recording. It keeps
+endpoints and vessel, handles save errors with a retry, and abandons a pending
+handoff when the route changes. No save occurs on an impression. A successful
+save supplies a stable link that remains usable after installation.
+
+On iOS, contextual invitations offer an explicit **Open in Eddy** custom-scheme
+link and a separate App Store action. Opening a detail never starts River Mode,
+creates an alert, configures a widget or downloads a map. Widget copy describes
+manual Edit Widget setup; access copy says to download before losing signal.
+The widget illustration is a crop of the published App Store screenshot, labeled
+as an example rather than live readings. Generic iOS downloads skip `/app`.
+
+Desktop visitors can expand **Send to iPhone** beside a contextual invitation.
+The QR encodes the same first-party `/app` context and campaign as the link. The
+contextual landing page keeps that QR expanded, provides the store link, and
+supplies the existing native route to Safari's banner. On iPhone it offers Open.
+A saved-plan landing page also links back to the complete web plan. After a fresh
+install users return to the retained page/link; automatic deferred deep linking
+is not implemented. Existing universal-link claims remain unchanged.
+
+`app-destination.ts` accepts only bounded plan, river, gauge and river/access
+identifiers. Conflicting/repeated parameters and arbitrary return URLs are not
+accepted. `/api/app/qr` renders only these destinations or the existing promoted
+dams. QR generation stays on the server, without a third-party service.
+
+Android hides generic and contextual invitations. Public compact Read summaries
+and dam teasers remain; a fully blurred promotional Read block is omitted along
+with its unusable app action. No Android waitlist is introduced.
+
+Events: `app_promotion_view` → `app_landing_click` (where applicable) →
+`app_store_click`; `app_open_click` measures an attempt to open an installed app,
+not confirmed app activation. `app_plan_prepare` measures the planner's save
+request. Placement (`label`) stays separate from `app_campaign`; an existing
+partner campaign takes precedence over placement defaults. Neither a store click
+nor an open attempt is an installation. Apple reporting still requires a real
+provider token. Native banner taps remain outside the web click listener.
+
+Verify cold/warm Open behavior in Safari and an in-app browser, with and without
+Eddy installed. Check 320px/390px layouts, narrow desktop QR availability, Android
+hiding, denied storage, save failures/retries, route changes during saves, and
+one impression per visible placement. These device/production checks are separate
+from the repository's pure destination and save-contract tests.
 
 ## Website analytics scope
 

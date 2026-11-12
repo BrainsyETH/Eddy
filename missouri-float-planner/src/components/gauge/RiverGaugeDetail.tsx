@@ -28,6 +28,7 @@ import { resolveHistoryCapabilities } from '@shared/history-capabilities';
 import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import WillItHold from '@/components/gauge/WillItHold';
+import AppCta from '@/components/AppCta';
 import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
@@ -625,9 +626,12 @@ export default function RiverGaugeDetail({
         {hasSections && showDamContext && damFooter}
         </div>
 
+        <AppCta destination={{ kind: 'river', id: riverSlug }} title={`${riverGroup.riverName} on your Home Screen`} detail="Add an Eddy river widget, then choose your river in Edit Widget." label="river_widget" variant="inline" widget />
+
         {/* What happens next, in its own card as on iOS. */}
         <section className="card-panel" aria-label="Eddy's Read and three-day outlook">
           <EddyOutlookFooter
+            destination={{ kind: 'river', id: riverSlug }}
             compact={hasSections}
             sections={eddyTakeSections}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}

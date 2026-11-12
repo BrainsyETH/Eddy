@@ -11,8 +11,10 @@ import { damWidgetHeadline } from '@/lib/dam-app-promotion';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import { appQrImage } from '@/lib/app-qr';
 import AppQrPrompt from '@/components/AppQrPrompt';
+import ContextAppLanding from '@/components/ContextAppLanding';
+import { nativeDestination, type AppDestinationQuery } from '@/lib/app-destination';
 
-type Props = { searchParams: Promise<{ ct?: string | string[]; dam?: string | string[] }> };
+type Props = { searchParams: Promise<{ ct?: string | string[]; dam?: string | string[] } & AppDestinationQuery> };
 
 const pageTitle = 'Eddy River Guide for iPhone — Know the River Before You Go';
 const pageDescription =
@@ -102,12 +104,13 @@ const features = [
 ] as const satisfies readonly { icon: EddyIconName; title: string; copy: string }[];
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const { campaign, dam } = appLandingContext(await searchParams);
-  return { ...pageMetadata, ...appBannerMetadata(dam?.nativePath ?? '/reports', campaign) };
+  const { campaign, dam, destination } = appLandingContext(await searchParams);
+  return { ...pageMetadata, ...appBannerMetadata(destination ? nativeDestination(destination) : dam?.nativePath ?? '/reports', campaign) };
 }
 
 export default async function AppLandingPage({ searchParams }: Props) {
-  const { campaign, dam: promotion } = appLandingContext(await searchParams);
+  const { campaign, dam: promotion, destination } = appLandingContext(await searchParams);
+  if (destination) return <ContextAppLanding destination={destination} campaign={campaign} />;
   const dam = promotion ? getUsaceDam(promotion.id) : undefined;
   const qr = dam ? await appQrImage(campaign, dam.id) : null;
   return (

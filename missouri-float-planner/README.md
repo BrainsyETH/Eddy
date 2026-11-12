@@ -471,6 +471,15 @@ server. `AppLink` and the delegated listener retain click attribution, while
 `app_promotion_view` counts the invitation once when half of it enters the
 viewport. See `docs/VISIBILITY_MEASUREMENT.md` for reporting and device checks.
 
+Contextual invitations also appear after a valid planner result, on loaded shared
+plans, beside river/gauge reports and below access directions. `AppCta` reuses
+Eddy artwork, warm surfaces and quiet outlined actions. Desktop QR codes and
+explicit iPhone Open actions retain the selected destination; downloads have
+separate actions. Android hides the whole invitation. The existing native routes
+handle these links; this does not widen universal links or restore context
+automatically after a fresh installation. See the contextual-invitation section
+of `docs/VISIBILITY_MEASUREMENT.md` for placement labels and verification.
+
 `npm run test:dam-page` checks fixture-rendered dam pages in Chromium at desktop,
 portrait, and landscape sizes, including list cards, list-to-detail navigation,
 disclosure/dialog controls, freshness, missing-data states, and the three dam

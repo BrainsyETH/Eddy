@@ -109,6 +109,34 @@ export default function Page() {
     assert.equal(check.status, 0, `fixture route must be unavailable in ${mode}: ${check.stderr}`);
   }
   console.log('PASS fixture Git exclusion and dev/production guards');
+  await mkdir(`${route}/promotions`, { recursive: true });
+  await writeFile(`${route}/promotions/page.tsx`, `import { notFound } from 'next/navigation';
+import Fixture from './Fixture';
+export default function Page() {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  return <Fixture />;
+}`);
+  await writeFile(`${route}/promotions/Fixture.tsx`, `'use client';
+import { useState } from 'react';
+import AppCta from '@/components/AppCta';
+import AppLink from '@/components/AppLink';
+import AppPromotion from '@/components/AppPromotion';
+import PlanAppCta from '@/components/plan/PlanAppCta';
+import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
+import type { FloatPlan } from '@/types/api';
+const plan = { river: { id: 'river', name: 'Current River' }, putIn: { id: 'put' }, takeOut: { id: 'take' }, vessel: { id: 'kayak' }, distance: { miles: 8 }, floatTime: { minutes: 180 }, condition: { code: 'good' } } as FloatPlan;
+export default function Fixture() {
+  const [changed, setChanged] = useState(false);
+  return <main className="mx-auto max-w-4xl space-y-6 px-3 py-6">
+    <h1>App invitations</h1>
+    <AppPromotion><p>Generic invitation <AppLink data-ga-label="fixture_generic">Get Eddy for iPhone</AppLink></p></AppPromotion>
+    <section><h2>Planner result</h2><button className="btn-outline mb-2" onClick={() => setChanged(v => !v)}>Change route</button><PlanAppCta plan={{ ...plan, takeOut: { ...plan.takeOut, id: changed ? 'new-take' : 'take' } }} /></section>
+    <AppCta destination={{ kind: 'plan', id: 'fixture123' }} title="Follow this float in River Mode" detail="Open the route in Eddy, then start your float when you’re ready." label="shared_plan" />
+    <AppCta destination={{ kind: 'river', id: 'current' }} title="Current River on your Home Screen" detail="Add an Eddy river widget, then choose your river in Edit Widget." label="river_widget" widget variant="inline" />
+    <AppCta destination={{ kind: 'access', id: 'akers-ferry', river: 'current' }} title="Download your float before you head out" detail="Plan your route in Eddy and download its map while you have signal." label="access_offline" />
+    <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={false} />
+  </main>;
+}`);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
     env: { ...process.env, EDDY_DAM_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -347,7 +375,7 @@ export default function Page() {
     window.__eddyAnalyticsId = 'G-FIXTURE123';
     window.damPromotionViews = 0;
     window.gtag = (...args) => {
-      if (args[1] === 'app_promotion_view') window.damPromotionViews++;
+      if (args[1] === 'app_promotion_view' && args[2]?.label === 'dam_schedule') window.damPromotionViews++;
       return window.recordAnalytics(...args);
     };
     window.damDocument = Math.random();
@@ -410,11 +438,11 @@ export default function Page() {
       // A round trip drains the exposed binding before checking its calls.
       await page.evaluate(() => window.recordAnalytics('flush'));
       assert.deepEqual(errors, [], 'contextual app flow has no browser errors');
-      assert.deepEqual(events.filter(event => event[1] === 'app_promotion_view'), [
+      assert.deepEqual(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'dam_schedule'), [
         ['event', 'app_promotion_view', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check' }],
       ], 'view is counted once after the CTA enters the viewport');
       assert.deepEqual(events.filter(event => ['app_landing_click', 'app_store_click'].includes(event[1])), [
-        ['event', 'app_landing_click', { label: 'dam_schedule', dam_id: id }],
+        ['event', 'app_landing_click', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check', app_campaign: campaign, transport_type: 'beacon' }],
         ['event', 'app_store_click', { label: 'app_landing_hero', dam_id: id, page_path: '/app', app_campaign: campaign, transport_type: 'beacon' }],
       ]);
       await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
@@ -425,8 +453,48 @@ export default function Page() {
     await page.goto('https://eddy.guide/dam-layout-check?variant=norfork', { waitUntil: 'networkidle' });
     assert.equal(await page.locator('[data-dam-app-cta]').count(), 0, 'other dams keep their existing layout');
     await page.goto('https://eddy.guide/app?dam=unknown', { waitUntil: 'networkidle' });
-    assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Find floatable water.');
+    assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Know the river before you go.');
     assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/reports(?:,|$)/);
+    // Actual shared components, no production plan writes or native launches.
+    await page.goto('https://eddy.guide/dam-layout-check/promotions?ct=partner_guide', { waitUntil: 'networkidle' });
+    assert.match(await page.locator('[data-ga-label="fixture_generic"]').getAttribute('href'), /^https:\/\/apps.apple.com\//);
+    assert.equal(await page.locator('.app-cta__qr').count(), 0, 'iPhone never gets QR controls');
+    const shared = page.locator('[data-app-cta="shared_plan"]');
+    await shared.scrollIntoViewIfNeeded();
+    assert.equal(await shared.locator('[data-ga-event="app_open_click"]').getAttribute('href'), 'eddy:///float/fixture123');
+    await page.evaluate(() => document.addEventListener('click', event => {
+      if (event.target.closest('[data-ga-event="app_open_click"], [data-ga-event="app_store_click"]')) event.preventDefault();
+    }));
+    await shared.locator('[data-ga-event="app_open_click"]').click();
+    await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
+    await shared.scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.recordAnalytics('flush'));
+    assert.equal(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'shared_plan').length, 1);
+    assert.equal(events.filter(event => event[1] === 'app_open_click' && event[2]?.label === 'shared_plan').length, 1);
+    assert.equal(events.find(event => event[1] === 'app_open_click' && event[2]?.label === 'shared_plan')[2].app_campaign, 'partner_guide');
+    let attempts = 0;
+    await page.route('**/api/plan/save', route => {
+      attempts++;
+      assert.equal(route.request().postDataJSON().vesselTypeId, 'kayak');
+      return route.fulfill({ status: attempts === 1 ? 503 : 200, contentType: 'application/json', body: JSON.stringify({ shortCode: 'saved123' }) });
+    });
+    assert.equal(attempts, 0, 'rendering a route never saves it');
+    await page.getByRole('button', { name: 'Follow this float in River Mode' }).click();
+    await page.getByRole('alert').getByText(/Couldn’t save/).waitFor();
+    await page.getByRole('button', { name: 'Follow this float in River Mode' }).click();
+    await page.locator('[data-app-cta="planner_handoff"]').waitFor();
+    assert.equal(await page.locator('[data-app-cta="planner_handoff"] [data-ga-event="app_open_click"]').getAttribute('href'), 'eddy:///float/saved123');
+    assert.equal(attempts, 2, 'one request per explicit attempt');
+    await page.getByRole('button', { name: 'Change route' }).click();
+    assert.equal(await page.locator('[data-app-cta="planner_handoff"]').count(), 0, 'changing endpoints drops the old handoff');
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `contextual invitations fit ${width}px`);
+      for (const link of await page.locator('.app-cta a').all()) assert((await link.boundingBox()).height >= 44, 'contextual actions retain touch targets');
+      await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+      await page.screenshot({ path: `${out}/promotions-iphone-${width}.png`, fullPage: true });
+    }
+    console.log('PASS contextual iPhone actions, deduped impressions, partner campaign, save failure/retry and route changes');
   } finally {
     await context.close();
   }
@@ -440,6 +508,20 @@ export default function Page() {
   await writeFile(`${out}/dam-qr.svg`, decodeURIComponent((await qr.locator('img').getAttribute('src')).split(',').slice(1).join(',')));
   await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
   await desktop.screenshot({ path: `${out}/app-narrow-desktop.png`, fullPage: false });
+  await desktop.setViewportSize({ width: 1280, height: 900 });
+  await desktop.goto(`${origin}/dam-layout-check/promotions?ct=partner_guide`, { waitUntil: 'networkidle' });
+  const contextualQr = desktop.locator('[data-app-cta="river_widget"] details');
+  await contextualQr.locator('summary').click();
+  const qrSrc = await contextualQr.locator('img').getAttribute('src');
+  assert.equal(qrSrc, '/api/app/qr?ct=partner_guide&river=current');
+  await contextualQr.locator('img').evaluate(img => img.decode());
+  assert(await desktop.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+  await desktop.screenshot({ path: `${out}/promotions-desktop.png`, fullPage: true });
+  await desktop.goto(`${origin}/app?ct=partner_guide&plan=fixture123`, { waitUntil: 'networkidle' });
+  assert.equal(await desktop.locator('.app-cta__qr').getAttribute('open'), '', 'landing QR starts open');
+  assert.equal(await desktop.getByRole('link', { name: 'View your saved plan on the web' }).getAttribute('href'), '/plan/fixture123');
+  assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/float\/fixture123/);
   await desktop.close();
   const android = await browser.newPage({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' });
   android.on('pageerror', e => errors.push(e.message));
@@ -447,6 +529,9 @@ export default function Page() {
   await android.goto(url, { waitUntil: 'networkidle' });
   assert.equal(await android.locator('[data-dam-app-cta]').count(), 0, 'Android omits the iPhone promotion');
   assert(await android.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
+  await android.goto(`${origin}/dam-layout-check/promotions`, { waitUntil: 'networkidle' });
+  assert.equal(await android.locator('[data-app-cta], [data-ga-label="fixture_generic"], [data-ga-label="river_eddy_read"]').count(), 0, 'Android omits all unsupported app actions');
+  assert(await android.getByText('A useful public river summary', { exact: true }).isVisible(), 'Android retains the useful public Read');
   await android.close();
   console.log('PASS Android keeps the schedule; desktop QR retains dam and campaign below 900px');
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');

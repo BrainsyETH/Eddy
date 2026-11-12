@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Check } from 'lucide-react';
+import AppCta from '@/components/AppCta';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { EDDY_IMAGES } from '@/constants';
@@ -171,6 +172,7 @@ export default function SharedPlanPage() {
             onClose={() => {}}
             onShare={handleShare}
           />
+          <div className="mt-4"><AppCta destination={{ kind: 'plan', id: shortCode }} title="Follow this float in River Mode" detail="Open the route in Eddy, then start your float when you’re ready." label="shared_plan" /></div>
         </div>
       </div>
 

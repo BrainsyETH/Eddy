@@ -4,6 +4,8 @@
 // Full-page gauge detail view for individual gauges (fallback when no river association)
 
 import React, { useState, useEffect, useCallback } from 'react';
+import AppCta from '@/components/AppCta';
+import AppLink from '@/components/AppLink';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, MapPin, ExternalLink, Clock, Share2, Check } from 'lucide-react';
@@ -466,6 +468,9 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
             onExpand={() => trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
           />
 
+          <AppCta destination={{ kind: 'gauge', id: gauge.usgsSiteId }} title="Keep this gauge on your Home Screen"
+            detail="Favorite this gauge in Eddy, then choose it in a River level widget." label="gauge_widget" variant="inline" widget />
+
           {/* Supporting readings and weather follow the full-width chart. */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <CurrentReadingCard
@@ -525,13 +530,14 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
                     &ldquo;{eddyDisplayText}&rdquo;
                   </p>
                   {eddyUpdate?.summaryText && (
-                    <Link
-                      href="/app"
+                    <AppLink
+                      destination={{ kind: 'gauge', id: gauge.usgsSiteId }}
+                      data-ga-label="gauge_eddy_read"
                       className="mt-1.5 inline-block text-xs font-semibold underline decoration-1 underline-offset-2 opacity-70 transition-opacity hover:opacity-100"
                       style={{ color: surface.color }}
                     >
-                      Unlock the full read in the iOS app
-                    </Link>
+                      Get Eddy’s full Read in the app
+                    </AppLink>
                   )}
                 </>
               )}
