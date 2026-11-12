@@ -196,9 +196,13 @@ export function PlanSheet({
     if (!plan || !visible || !resultReady) return;
     return actions.share(plan, {
       savePlan: saveFloatPlan,
+      // A float already saved keeps its one link instead of minting another.
+      savedLink: keptPlan ? { shortCode: keptPlan.shortCode, url: keptPlan.url } : undefined,
+      // The link stays inside the text (see shareMessage in lib/share). A sheet
+      // that cannot open throws, and planActions reports it.
       present: (message) => Share.share({ message }),
     });
-  }, [actions, plan, visible, resultReady]);
+  }, [actions, plan, keptPlan, visible, resultReady]);
   const onToggleSave = useCallback(async () => {
     if (!plan || !visible || !resultReady || !savedFloatsReady) return;
     const result = await actions.toggleSave(plan, { isSaved, forgetPlan, savePlan: saveFloatPlan, remember });

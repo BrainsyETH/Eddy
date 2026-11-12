@@ -110,6 +110,22 @@ Already-sent chat previews may remain cached even after deployment.
   reach the recipient undated. A share that does state a condition, such as a
   future alert share, includes the observation's date, time and time zone.
 
+- On iOS, a link share (`shareLink`: river, gauge, dam, access point, chart)
+  hands the system sheet the URL as its only item, with the title as the mail
+  subject (`eddy-ios/src/lib/sharePayload.ts`). React Native passes `message`
+  and `url` to the sheet as two items, so the link in both used to arrive
+  twice. **Unconfirmed on a device:** how Messages, Mail, WhatsApp and Copy
+  present the single-item share has not been checked since this change.
+- A float plan's share text ends with its link, inside the text on purpose: as
+  a separate item, a target that accepts only one could keep the summary and
+  drop the link. The plan sheet and the saved-float screen use the same wording
+  (`planShareMessage`). The summary gives the float time when there is one and
+  keeps the regulated-water note; a time withheld for today's water is omitted
+  instead of described.
+- A plan keeps one link. Sharing a saved float reuses its stored link, and
+  sharing the same plan again reuses the one already created. When a link
+  cannot be created the share still goes out with the trip details, and the
+  plan sheet says the link is missing.
 - On the web, a link share goes through `shareOrCopy` (`src/lib/share-link.ts`):
   the native sheet on touch devices, the clipboard elsewhere. Dismissing the
   sheet does nothing: no copy, no "Copied", no analytics event. A sheet that

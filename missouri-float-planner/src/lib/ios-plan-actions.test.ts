@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import type { FloatPlan } from '@eddy/types';
-import { createPlanActions, planShareMessage } from '../../../eddy-ios/src/lib/planActions';
+import { createPlanActions, planShareMessage, SHARE_WITHOUT_LINK } from '../../../eddy-ios/src/lib/planActions';
+import { linkSharePayload } from '../../../eddy-ios/src/lib/sharePayload';
 import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
 import { floatVessel } from '../../../eddy-ios/src/lib/vesselTypes';
 import { floatDurationLabel, savedFloatPhoto } from '../../../eddy-ios/src/lib/floatPresentation';
@@ -241,16 +242,58 @@ test('duplicate Share taps cannot launch two native dialogs, including while one
   assert.equal(dialogs, 2, 'a dismissed dialog must allow another explicit Share');
 });
 
-test('a link failure shares plain details once without a false save or error state', async () => {
+test('a link failure shares plain details once and says the link is missing, without a false save', async () => {
   const actions = createPlanActions();
   const messages: string[] = [];
+  const noticeAtPresent: (string | null)[] = [];
   await actions.share(plan, {
     savePlan: async () => { throw new Error('offline'); },
-    present: async (message) => { messages.push(message); },
+    present: async (message) => { messages.push(message); noticeAtPresent.push(actions.stateFor(plan).shareError); },
   });
   assert.deepEqual(messages, [planShareMessage(plan)]);
-  assert.equal(actions.stateFor(plan).shareError, null);
+  assert.deepEqual(noticeAtPresent, [SHARE_WITHOUT_LINK], 'said before the sheet opens, not after');
+  assert.equal(actions.stateFor(plan).shareError, SHARE_WITHOUT_LINK);
   assert.equal(actions.isSharing(), false);
+  // The next share retries the link, and a link clears the notice.
+  await actions.share(plan, { savePlan: async () => link, present: async (message) => { messages.push(message); } });
+  assert.equal(messages[1], planShareMessage(plan, link.url));
+  assert.equal(actions.stateFor(plan).shareError, null);
+});
+
+test('a plan keeps one link: sharing again, or after saving, never creates another', async () => {
+  const actions = createPlanActions();
+  let created = 0;
+  const messages: string[] = [];
+  const sharing = {
+    savePlan: async () => ({ shortCode: `code${++created}`, url: `https://eddy.guide/plan/code${created}` }),
+    present: async (message: string) => { messages.push(message); },
+  };
+  await actions.share(plan, sharing);
+  await actions.share(plan, sharing);
+  assert.equal(created, 1);
+  assert.equal(messages[0], messages[1]);
+  assert.match(messages[0], /https:\/\/eddy\.guide\/plan\/code1$/);
+
+  const savedFirst = createPlanActions();
+  const saves = saver(async () => link);
+  assert.equal(await savedFirst.toggleSave(plan, saves), 'saved');
+  let extra = 0;
+  await savedFirst.share(plan, { savePlan: async () => { extra++; return link; }, present: async (message) => { messages.push(message); } });
+  assert.equal(extra, 0, 'the link created by Save is the one shared');
+});
+
+test('a float saved earlier shares its stored link instead of creating one', async () => {
+  const actions = createPlanActions();
+  const stored = { shortCode: 'kept1', url: 'https://eddy.guide/plan/kept1' };
+  let created = 0;
+  const messages: string[] = [];
+  await actions.share(plan, {
+    savedLink: stored,
+    savePlan: async () => { created++; return link; },
+    present: async (message) => { messages.push(message); },
+  });
+  assert.equal(created, 0);
+  assert.deepEqual(messages, [planShareMessage(plan, stored.url)]);
 });
 
 test('native share failure is handled once and releases the guard for retry', async () => {
@@ -315,10 +358,33 @@ test('canceling Share does not cancel an explicit Save of the original plan', as
   assert.deepEqual(saves.remembered, [plan]);
 });
 
-test('shared details retain regulated-water and withheld-time wording', () => {
+test('shared details keep the regulated-water note and never state an undated water verdict', () => {
   assert.match(planShareMessage({ ...plan, floatTime: null, floatTimeWithheldReason: 'regulated' }), /time depends on dam releases/);
-  assert.match(planShareMessage({ ...plan, floatTime: null, floatTimeWithheldReason: undefined }), /no estimate in this water/);
+  // A time withheld for today's water is left out: it would reach the recipient with no date.
+  for (const reason of [undefined, 'dangerous'] as const) {
+    const message = planShareMessage({ ...plan, floatTime: null, floatTimeWithheldReason: reason } as FloatPlan, link.url);
+    assert.equal(message, `Akers → Pulltite on the Current River · 9.5 mi\n${link.url}`);
+    assert.doesNotMatch(message, /this water|estimate/);
+  }
   assert.match(planShareMessage(plan), /Akers → Pulltite.*9.5 mi.*3–5 hours/);
+});
+
+test('an iOS link share hands the system the link once; Android keeps it in the text', () => {
+  const url = 'https://eddy.guide/rivers/missouri/current';
+  const ios = linkSharePayload('ios', 'Current River', url);
+  // React Native passes message and url to the iOS sheet as separate items,
+  // so a link in both arrives twice.
+  assert.deepEqual(ios, { content: { url }, options: { subject: 'Current River' } });
+  assert.ok(!JSON.stringify(ios.content).includes('message'));
+  // Android's share intent reads only message.
+  assert.deepEqual(linkSharePayload('android', 'Current River', url),
+    { content: { title: 'Current River', message: `Current River\n${url}` }, options: {} });
+});
+
+test('every iOS link share goes through the one payload builder', () => {
+  const share = readFileSync('../eddy-ios/src/lib/share.ts', 'utf8');
+  assert.match(share, /linkSharePayload\(Platform\.OS, title, webUrl\(path\)\)/);
+  assert.doesNotMatch(share, /Share\.share\(\{[^}]*\burl\b[^}]*\bmessage\b/, 'no call passes the link as both url and message');
 });
 
 function savedLoader(fetchPlan: (code: string, signal: AbortSignal) => Promise<FloatPlan>, isOffline = async () => false) {
