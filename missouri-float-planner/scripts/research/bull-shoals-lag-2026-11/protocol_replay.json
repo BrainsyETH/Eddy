@@ -1,0 +1,51 @@
+{
+  "study": "Bull Shoals to the Norfork gauge: replay of an at-the-time estimate",
+  "locked_on": "2026-11-12",
+  "question": "Using only readings available when a release increase is three hours old, how often could an arrival estimate be issued for the gauge near Norfork, and how good is it?",
+  "periods": {
+    "development": {"start": "2022-01-01T00:00:00Z", "end_exclusive": "2026-11-12T18:00:00Z",
+                    "note": "All analysed in studies 2 and 3. The rule, model and range are set here."},
+    "untouched_test": {"start": "2019-01-01T00:00:00Z", "end_exclusive": "2022-01-01T00:00:00Z",
+                       "note": "Only row counts were checked before this file was committed (release data is about two-thirds complete in 2019). Scored once."}
+  },
+  "what_counts_as_known": "Hourly release through the third hour of the increase; gauge and tributary readings up to the same moment. Outcomes are attached after every decision is fixed and never feed one.",
+  "rule": {
+    "detected_increase": "Six steady hours (max - min <= 600 cfs), then an hour at least 1,000 cfs above their median.",
+    "decision_time": "When three hours of the increase are in hand.",
+    "withhold_when_in_this_order": [
+      "release data missing in those three hours",
+      "peak of the three hours is under 2,000 cfs above the baseline",
+      "baseline is 1,500 cfs or more",
+      "baseline is 500 cfs or more above the lowest release in the previous 20 hours",
+      "gauge reading missing in the hour before the increase",
+      "gauge at 7 ft or higher in the hour before the increase",
+      "fewer than 6 tributary readings in the 12 hours up to the decision",
+      "Buffalo + Crooked Creek discharge range over those 12 hours above 500 cfs"
+    ],
+    "watch_after_issuing": "Each hour until the water arrives, the same tributary range is recomputed from 12 hours before the decision to now. Above 500 cfs, the estimate is withdrawn from the next hour. It counts as withdrawn only if that is before the observed rise.",
+    "considered_and_dropped": "Withdrawing when the release keeps climbing past its three-hour peak. On development data that happened in about half of events and the three-hour estimate was equally accurate in them, so the rule only cost availability."
+  },
+  "estimate": {
+    "model": "ln(hours) = a + b ln(three-hour peak release) + c gauge height; coefficients in results_replay/frozen_rule.json",
+    "range": "Point estimate minus the early offset to plus the late offset. Offsets are the 97.5th and 2.5th percentiles of leave-one-month-out error on development events, rounded up to a quarter hour.",
+    "fitted_on": "development increases that were issued, not withdrawn before the rise, and evaluated"
+  },
+  "outcome": {
+    "primary": "Study 2's first-rise rule and one-to-one matching, with every detected increase competing for a match.",
+    "pessimistic": "The first gauge rise of any cause in the 5 to 24 hour window, matched or not. Reported alongside as a check on what the ambiguous cases could hide.",
+    "every_detected_increase_is_one_of": ["withheld (with its reason)", "issued and evaluated", "issued, then withdrawn before the rise", "issued, outcome not determined (gauge gap, ambiguous match or no rise found)"]
+  },
+  "pass_marks": {
+    "scored_on": "issued and evaluated increases in the untouched test, primary outcome",
+    "within_2h_of_point_estimate": "80% or more",
+    "more_than_2h_early": "5% or less",
+    "inside_the_range": "90% or more",
+    "before_the_early_edge": "5% or less",
+    "minimum_events": 60,
+    "verdict": "HOLDS when all four are met, DOES_NOT_HOLD when any is missed, INCONCLUSIVE below the minimum"
+  },
+  "always_reported": ["availability against every detected increase", "the pessimistic outcome", "results by year and by rain in hindsight",
+                      "lead time if release data arrives 0, 2 or 5 hours late", "what the watch withdrew and what those would have scored",
+                      "scores with the watch switched off", "gauge datum check against 2025-2026"],
+  "not_covered": "No rain forecast or hourly rain is used; none is available historically here. Real publication delays are not replayed, only assumed. Nothing upstream of mile 41.5."
+}
