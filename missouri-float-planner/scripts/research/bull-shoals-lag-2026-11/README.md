@@ -162,7 +162,14 @@ matched events, with 263 more left out as ambiguous). This is when the drop
 - **Some rises come early.** On held-out months, 7 of 154 events arrived more
   than 2 hours before the prediction, the worst by 5.5 hours; 3 arrived more
   than 2 hours late. A displayed range would need its early edge set from
-  those, not from the average.
+  those, not from the average. Looked at afterwards (post hoc, by hand): three
+  of the seven came when the dam had already run 11,000 to 20,000 cfs for a
+  day and the gauge stood near 9 to 10 ft, and the rise took about 8 hours.
+  The other four were at low water with dry tributaries, and each followed a
+  small release bump 8 to 9 hours earlier that was below the event threshold;
+  the rise that was matched is most likely that bump arriving (about 18.5
+  hours after it on three consecutive days), not the main release. No
+  rainfall data is in the study; tributary flow is the only weather signal.
 - **Only clean starts were scored.** Part A needs six steady hours before the
   increase. Stacked or stepped generation is covered by Part B only.
 - **Nothing is measured between the dam and mile 41.5.** USGS has no stage
