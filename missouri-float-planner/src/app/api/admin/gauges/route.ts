@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,11 +16,27 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Get all gauge stations with their river associations
-    const { data: gaugeStations, error: gaugeError } = await supabase
-      .from('gauge_stations')
-      .select('id, usgs_site_id, name, active, threshold_descriptions, notes')
-      .order('name', { ascending: true });
+    // Only stations linked to a river. gauge_stations also holds the national
+    // tier (~14,000 rows); listing it unfiltered returned the first 1,000 by
+    // name, which contained none of the gauges this tool exists to manage.
+    const { data: links, error: linkError } = await supabase
+      .from('river_gauges')
+      .select('gauge_station_id');
+    if (linkError) {
+      console.error('Error fetching gauge links:', linkError);
+      return NextResponse.json({ error: 'Could not fetch gauge stations' }, { status: 500 });
+    }
+    const gaugeIds = [
+      ...new Set((links ?? []).map((l) => l.gauge_station_id as string | null).filter((id): id is string => !!id)),
+    ];
+
+    const { data: gaugeStations, error: gaugeError } = gaugeIds.length
+      ? await supabase
+          .from('gauge_stations')
+          .select('id, usgs_site_id, name, active, threshold_descriptions, notes, provider, curated')
+          .in('id', gaugeIds)
+          .order('name', { ascending: true })
+      : { data: [], error: null };
 
     if (gaugeError) {
       console.error('Error fetching gauge stations:', gaugeError);
@@ -29,29 +46,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const gaugeIds = (gaugeStations || []).map((g: { id: string }) => g.id);
-
-    // Get latest reading per gauge (gauge_height_ft, discharge_cfs for admin display)
+    // Newest reading per station, from the same two-tier merge the public
+    // pages use (gauge_latest + curated history), so a quiet gauge still shows
+    // its last reading and its age instead of "N/A".
+    const readings = await loadCurrentReadings(supabase, gaugeIds, {
+      stations: (gaugeStations ?? []).map((g) => ({
+        id: g.id,
+        provider: g.provider ?? null,
+        curated: !!g.curated,
+      })),
+    });
     const latestReadings = new Map<string, { gaugeHeightFt: number | null; dischargeCfs: number | null; readingTimestamp: string | null }>();
-    if (gaugeIds.length > 0) {
-      const { data: readings } = await supabase
-        .from('gauge_readings')
-        .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
-        .in('gauge_station_id', gaugeIds)
-        .order('reading_timestamp', { ascending: false });
-
-      if (readings && readings.length > 0) {
-        for (const row of readings) {
-          const gid = row.gauge_station_id as string;
-          if (!latestReadings.has(gid)) {
-            latestReadings.set(gid, {
-              gaugeHeightFt: toNum(row.gauge_height_ft),
-              dischargeCfs: toNum(row.discharge_cfs),
-              readingTimestamp: row.reading_timestamp as string | null,
-            });
-          }
-        }
-      }
+    for (const [id, r] of readings) {
+      latestReadings.set(id, {
+        gaugeHeightFt: toNum(r.gauge_height_ft),
+        dischargeCfs: toNum(r.discharge_cfs),
+        readingTimestamp: r.reading_at ?? null,
+      });
     }
 
     // Get all river_gauges (thresholds) with river info
@@ -107,10 +118,14 @@ export async function GET(request: NextRequest) {
     // Get rivers for names
     const { data: rivers, error: riversError } = await supabase
       .from('rivers')
-      .select('id, name, slug, float_summary, float_tip, description, difficulty_rating, region');
+      .select('id, name, slug, float_summary, float_tip, description, difficulty_rating, region')
+      .order('name', { ascending: true });
 
+    // Without river names every association would read "Unknown River", and a
+    // threshold edit would be made blind. Fail instead.
     if (riversError) {
       console.error('Error fetching rivers:', riversError);
+      return NextResponse.json({ error: 'Could not fetch rivers' }, { status: 500 });
     }
 
     // Create a map of rivers by ID

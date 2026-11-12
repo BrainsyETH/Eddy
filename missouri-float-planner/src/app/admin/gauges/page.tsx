@@ -7,6 +7,7 @@ import { useUnsavedAdminChanges } from '@/components/admin/AdminInteractionProvi
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
+import { formatBand, highFieldIgnored, ladderBands, type BandKey } from '@/lib/gauges/ladder-bands';
 import {
   Activity,
   Save,
@@ -368,6 +369,25 @@ export default function AdminGaugesPage() {
     return fallback;
   };
 
+  /** The ladder as the form currently shows it; blank or unparseable inputs are null. */
+  const draftLadder = (assocId: string) => {
+    const read = (field: keyof RiverAssociation) => {
+      const v = getAssocDisplayValue<number | string | null>(assocId, field, null);
+      if (v === null || v === '') return null;
+      const n = typeof v === 'string' ? parseFloat(v) : v;
+      return Number.isFinite(n) ? n : null;
+    };
+    return {
+      levelTooLow: read('levelTooLow'),
+      levelLow: read('levelLow'),
+      levelOptimalMin: read('levelOptimalMin'),
+      levelOptimalMax: read('levelOptimalMax'),
+      levelHigh: read('levelHigh'),
+      levelDangerous: read('levelDangerous'),
+    };
+  };
+
+
   const getRiverDisplayValue = <T,>(riverId: string, field: keyof River, fallback: T): T => {
     const edits = editedRivers.get(riverId);
     if (edits && field in edits) {
@@ -603,27 +623,12 @@ export default function AdminGaugesPage() {
                               const primaryAssoc = gauge.riverAssociations.find(a => a.isPrimary) || gauge.riverAssociations[0];
                               let rangeText = '';
                               if (primaryAssoc) {
+                                // Same boundaries the public condition uses
+                                // (src/lib/gauges/ladder-bands.ts), including
+                                // unsaved edits in this form.
+                                const band = ladderBands(draftLadder(primaryAssoc.id))[key as BandKey];
                                 const u = getAssocDisplayValue<string>(primaryAssoc.id, 'thresholdUnit', 'ft');
-                                const fmt = (v: number | string | null) => {
-                                  if (v === null || v === '') return null;
-                                  const n = typeof v === 'string' ? parseFloat(v) : v;
-                                  if (isNaN(n)) return null;
-                                  return u === 'cfs' ? n.toLocaleString() : n.toFixed(2);
-                                };
-                                const tooLow = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelTooLow', null);
-                                const low = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelLow', null);
-                                const optMin = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelOptimalMin', null);
-                                const optMax = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelOptimalMax', null);
-                                const high = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelHigh', null);
-                                const dangerous = getAssocDisplayValue<number | null>(primaryAssoc.id, 'levelDangerous', null);
-                                const dec = u === 'cfs' ? 1 : 0.01;
-
-                                if (key === 'tooLow' && tooLow !== null) rangeText = `< ${fmt(tooLow)} ${u}`;
-                                if (key === 'low' && tooLow !== null && low !== null) rangeText = `${fmt(tooLow)} - ${fmt(low - dec)} ${u}`;
-                                if (key === 'good' && low !== null && optMin !== null) rangeText = `${fmt(low)} - ${fmt(optMin - dec)} ${u}`;
-                                if (key === 'flowing' && optMin !== null && optMax !== null) rangeText = `${fmt(optMin)} - ${fmt(optMax)} ${u}`;
-                                if (key === 'high' && high !== null && dangerous !== null) rangeText = `${fmt(high)} - ${fmt(dangerous - dec)} ${u}`;
-                                if (key === 'flood' && dangerous !== null) rangeText = `>= ${fmt(dangerous)} ${u}`;
+                                if (band) rangeText = formatBand(band, u === 'cfs' ? 'cfs' : 'ft');
                               }
 
                               return (
@@ -728,6 +733,18 @@ export default function AdminGaugesPage() {
                                           </div>
                                         ))}
                                       </div>
+
+                                      <p className="text-xs text-neutral-400 mt-2">
+                                        High starts just above Optimal Max. The High field is only used when Optimal
+                                        Max is blank.
+                                        {highFieldIgnored(draftLadder(assoc.id)) && (
+                                          <span className="block text-yellow-400">
+                                            High is set to {String(draftLadder(assoc.id).levelHigh)} {unitLabel} here, but
+                                            readings count as High from just above {String(draftLadder(assoc.id).levelOptimalMax)}{' '}
+                                            {unitLabel}.
+                                          </span>
+                                        )}
+                                      </p>
 
                                       {/* Alternate unit thresholds (shown when user toggles unit on the site) */}
                                       <p className="text-xs text-neutral-500 mt-4 mb-2">Alternate unit — {altUnitLabel === 'cfs' ? 'cfs (discharge)' : 'ft (gauge height)'} <span className="text-neutral-600">(optional, enables unit toggle on site)</span></p>

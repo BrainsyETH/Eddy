@@ -122,6 +122,16 @@ Vercel environment; the latest attempted deployment has a separate history link.
   Navigation and editor surfaces use the existing Eddy teal/sand palette. Pin up
   to four account-specific shortcuts from page headers.
 
+## Places & conditions
+
+- **Gauges** lists only stations linked to a river (`river_gauges`), not the
+  national station table. Each condition's printed range comes from
+  `src/lib/gauges/ladder-bands.ts`, which a test holds to the public classifier
+  (`shared/condition-ladder.ts`): High starts just above Optimal Max, and the
+  High field counts only when Optimal Max is blank. The form warns when a High
+  value is set but has no effect. A save validates every threshold before it
+  writes anything, including notes and descriptions.
+
 ## Float contributions
 
 Admin → Float contributions reviews floats people chose to share. It never
@@ -175,7 +185,8 @@ selection, moderation details, mobile navigation and request failure recovery.
 Role fixtures also cover editor image deletion, revoked access on live requests
 and reload, 403 sign-out, owner self-demotion, role refresh, search history,
 keyboard toggling, narrow-screen detail focus and secondary-button hover colors.
-The Inbox suite (`scripts/admin/inbox-smoke.mjs`, run by the same script) covers
+The Places suite (`scripts/admin/places-smoke.mjs`) covers the gauge ranges
+following unsaved edits. The Inbox suite (`scripts/admin/inbox-smoke.mjs`, run by the same script) covers
 feedback paging past the first page, saving a note without changing status, and
 an email badge that follows the server's unread count after triage.
 
