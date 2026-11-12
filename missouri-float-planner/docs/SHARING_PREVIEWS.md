@@ -33,6 +33,31 @@ Opening the link is how a recipient gets current conditions.
   Local assets remove upstream runtime dependencies; missing deployment assets
   or other serving failures are still possible.
 
+### Guide card
+
+Guides (`/blog/<slug>`) are the one link image that prints a name: the Field
+Notebook card with the guide's title, drawn by `blog/[slug]/opengraph-image`.
+The weekday Facebook guide post is a link post, so this card is the post's
+picture.
+
+- `guideCard()` (`src/lib/og/guide-card.ts`) reads the title with
+  `createPublicCatalogClient`. The image route is ISR, and Next refuses a
+  `no-store` fetch while it renders one; supabase-js returns that refusal as
+  `error` instead of throwing. A no-store client (`createAdminClient`,
+  `createPublicReadClient`) therefore fails on every request without reaching
+  the database. With the error ignored, every guide shipped the generic
+  "Float Trip Guide" card.
+- A failed lookup throws. An error response is not cached and the next request
+  retries; a generic card would be cached here and kept by Facebook. Only a
+  slug with no published guide gets the generic card.
+- `sharing-previews.test.ts` fails if any `opengraph-image`/`twitter-image`
+  route imports a no-store client. `next dev` and a compile-only build render
+  these routes on demand and cannot show the failure: check a full
+  `next build` + `next start`, where the response carries `x-nextjs-cache`.
+- Facebook keeps the picture it scraped. A corrected card reaches new posts;
+  an existing post or a previously shared guide URL changes only after a
+  rescrape (Meta's Sharing Debugger, or its `scrape=true` Graph call).
+
 Regenerate from the web directory with `npm run share:render-previews` on the
 repo's pinned Node version. Inputs are in `scripts/assets/link-previews`;
 original Eddy icons were copied from the existing iOS/marketing assets.
@@ -98,10 +123,10 @@ Already-sent chat previews may remain cached even after deployment.
   link as a side effect.
 - Smart App Banners come from the preceding visibility/downloads PR (#1411).
   This change does not expand AASA paths or change native sharing payloads.
-- Reviewed the iOS gauge entry point: it calls `gaugeSharePath(provider, siteId)`.
-  NWS/unknown providers return null, hiding Share for LID-only gauges. USGS IDs
-  share `/gauges/<siteId>`; USACE IDs share `/dams/<damId>`. This PR does not add
-  a native malformed-USGS-ID guard; normal provider IDs come from the API.
+- The iOS gauge entry point calls `gaugeSharePath(provider, siteId)`.
+  NWS/unknown providers return null, hiding Share for LID-only gauges. USGS and
+  USACE stations share `/share/gauge/<provider>/<id>` (`shared/chart-share.ts`,
+  ADR 0015), which also rejects malformed IDs.
 
 ## Validation and release checks
 

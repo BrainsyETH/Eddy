@@ -12,6 +12,8 @@ import { linkPreviewFile, linkPreviewAsset, type LinkPreviewKind } from './og/li
 import { generateMetadata as planMetadata } from '../app/plan/[shortCode]/layout';
 import { generateImageMetadata as riverImageMetadata } from '../app/rivers/[state]/[slug]/opengraph-image';
 import { generateImageMetadata as damImageMetadata } from '../app/dams/[damId]/opengraph-image';
+import { generateImageMetadata as guideImageMetadata } from '../app/blog/[slug]/opengraph-image';
+import { guideCard, GENERIC_GUIDE_CARD } from './og/guide-card';
 import { publicPageMetadata, ROUTE_SHARE_IMAGE, SHARE_IMAGES } from './seo';
 
 // Exercise actual catalog reads in route tests, independent of warm instances.
@@ -174,6 +176,60 @@ test('image metadata describes the selected photograph or illustration with its 
     const [metadata] = await damImageMetadata({ params: Promise.resolve({ damId }) });
     assert.match(metadata.alt, photo ? /aerial photograph of Bagnell Dam/ : /illustration of a dam/);
     assert.equal(metadata.contentType, photo ? 'image/jpeg' : 'image/png');
+  }
+});
+
+// ── The guide card names its guide ────────────────────────────────────────
+// Next refuses a no-store fetch while it renders an ISR route, and supabase-js
+// returns that refusal as `error`. Read that way, every guide's card silently
+// fell back to "Float Trip Guide" and Facebook scraped it as the preview.
+test('the guide card reads its title through the cacheable public client', async t => {
+  const fetch = publicDatabase(t, (url, init) => {
+    assert.equal(url.pathname, '/rest/v1/blog_posts');
+    assert.equal(url.searchParams.get('slug'), 'eq.caddo-river-float-trips-arkansas');
+    assert.equal(url.searchParams.get('status'), 'eq.published');
+    assert.equal(init?.cache, 'force-cache', 'a no-store read is refused inside an ISR image route');
+    assert.equal(new Headers(init?.headers).get('apikey'), 'test-only-key', 'public RLS, not the service role');
+    return Response.json([{ title: 'Caddo River Float Trip Guide: Caddo Gap & Glenwood', category: 'River Guides' }]);
+  });
+  assert.deepEqual(await guideCard('caddo-river-float-trips-arkansas'),
+    { title: 'Caddo River Float Trip Guide: Caddo Gap & Glenwood', eyebrow: 'River Guide' });
+  const [metadata] = await guideImageMetadata({ params: Promise.resolve({ slug: 'caddo-river-float-trips-arkansas' }) });
+  assert.equal(metadata.alt, 'Eddy guide title card: Caddo River Float Trip Guide: Caddo Gap & Glenwood');
+  assert.equal(fetch.mock.callCount(), 2);
+});
+
+test('a failed guide lookup throws instead of publishing the generic card', async t => {
+  publicDatabase(t, () => Response.json({ message: 'unavailable' }, { status: 503 }));
+  await assert.rejects(guideCard('caddo-river-float-trips-arkansas'), /Guide card lookup failed/);
+  // The page's own metadata calls this; it loses the title, not the page.
+  const [metadata] = await guideImageMetadata({ params: Promise.resolve({ slug: 'caddo-river-float-trips-arkansas' }) });
+  assert.equal(metadata.alt, 'Eddy guide title card');
+});
+
+test('a slug with no published guide is the only case that gets the generic card', async t => {
+  publicDatabase(t, () => Response.json([]));
+  assert.equal(await guideCard('not-a-guide'), null);
+  assert.equal(GENERIC_GUIDE_CARD.title, 'Float Trip Guide');
+});
+
+test('a long guide title is cut at a word boundary the card can fit', async t => {
+  const title = 'Spring River (Arkansas) Float Trip Guide: Mammoth Spring, Hardy, Many Islands & Day Floats';
+  publicDatabase(t, () => Response.json([{ title, category: 'Field Notes' }]));
+  const card = await guideCard('long');
+  assert.ok(card!.title.length <= 76 && card!.title.endsWith('…'));
+  assert.equal(card!.eyebrow, 'Field Notes', 'an unmapped category is its own kicker');
+});
+
+test('no link-image route reads the database with a client Next refuses during ISR', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const images = (await readdir('src/app', { recursive: true }))
+    .filter(entry => /(^|\/)(opengraph|twitter)-image\.tsx$/.test(entry));
+  assert.ok(images.length >= 18, `found only ${images.length} link-image routes`);
+  for (const entry of images) {
+    const source = await readFile(`src/app/${entry}`, 'utf8');
+    assert.doesNotMatch(source, /createAdminClient|createPublicReadClient|supabase\/server/,
+      `src/app/${entry} is cached; a no-store client fails silently there. Use createPublicCatalogClient.`);
   }
 });
 
