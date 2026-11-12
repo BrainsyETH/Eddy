@@ -89,6 +89,11 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
   const [total, setTotal] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  // Bulk selection is scoped to the rows on screen and cleared when they change.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   // Reply composer: one open at a time.
   const [replyingId, setReplyingId] = useState<string | null>(null);
@@ -108,6 +113,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       params.set('limit', String(PAGE_SIZE));
       params.set('offset', String((page - 1) * PAGE_SIZE));
+      if (search) params.set('q', search);
 
       const response = await adminFetch(`/api/admin/inbound-emails?${params.toString()}`);
       if (!response.ok) {
@@ -123,11 +129,57 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, page, reportUnread]);
+  }, [statusFilter, page, search, reportUnread]);
 
   useEffect(() => {
     fetchEmails();
   }, [fetchEmails]);
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [statusFilter, page, search]);
+
+  // Search as you type, without a request per keystroke.
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
+    const timer = setTimeout(() => {
+      setSearch(next);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, search]);
+
+  const visibleSelected = emails.filter((e) => selected.has(e.id)).map((e) => e.id);
+  const allSelected = emails.length > 0 && visibleSelected.length === emails.length;
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const bulkUpdate = async (status: InboundEmailStatus) => {
+    if (!visibleSelected.length) return;
+    setBulkUpdating(true);
+    try {
+      const response = await adminFetch('/api/admin/inbound-emails', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: visibleSelected, status }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to update messages');
+      if (typeof data.unread === 'number') reportUnread(data.unread);
+      setSelected(new Set());
+      await fetchEmails();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update messages');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
 
   // Triaging the last message on a later page steps back instead of showing
   // an empty page while earlier pages still hold matching mail.
@@ -187,10 +239,25 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
   return (
     <div>
       {/* Filter bar */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-neutral-400">Status:</label>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="email-search" className="sr-only">
+            Search email
+          </label>
+          <input
+            id="email-search"
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search sender, subject or text"
+            className="w-full sm:w-72 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <span className="flex items-center gap-2">
+          <label htmlFor="email-status" className="text-sm text-neutral-400">
+            Status:
+          </label>
           <select
+            id="email-status"
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value as InboundEmailStatus | 'all');
@@ -204,6 +271,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
               </option>
             ))}
           </select>
+          </span>
         </div>
 
         <button
@@ -228,10 +296,42 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
         </div>
       )}
 
+      {!loading && emails.length > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="flex flex-wrap items-center gap-2 mb-3 text-sm text-neutral-400"
+        >
+          <label className="flex items-center gap-2 pr-2">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={() => setSelected(allSelected ? new Set() : new Set(emails.map((e) => e.id)))}
+            />
+            {visibleSelected.length ? `${visibleSelected.length} selected` : 'Select all on this page'}
+          </label>
+          {visibleSelected.length > 0 &&
+            ACTIONS.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.value}
+                  onClick={() => void bulkUpdate(action.value)}
+                  disabled={bulkUpdating}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium admin-secondary disabled:opacity-50"
+                >
+                  <Icon className="w-3 h-3" />
+                  {action.label}
+                </button>
+              );
+            })}
+        </div>
+      )}
+
       {!loading && emails.length === 0 && (
         <div className="text-center py-12 text-neutral-400">
           <Inbox className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>No email found with the current filter.</p>
+          <p>{search ? `No email matches “${search}”.` : 'No email found with the current filter.'}</p>
         </div>
       )}
 
@@ -248,9 +348,17 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                 key={email.id}
                 className="bg-neutral-800 border border-neutral-700 rounded-xl overflow-hidden"
               >
+                <div className="flex items-start">
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${email.subject || 'message'} from ${email.fromAddress || 'unknown sender'}`}
+                  checked={selected.has(email.id)}
+                  onChange={() => toggleSelected(email.id)}
+                  className="shrink-0 mt-5 ml-4"
+                />
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : email.id)}
-                  className="w-full p-4 text-left hover:bg-neutral-750 transition-colors"
+                  className="flex-1 min-w-0 p-4 text-left hover:bg-neutral-750 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -305,6 +413,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                     </div>
                   </div>
                 </button>
+                </div>
 
                 {isExpanded && (
                   <div className="border-t border-neutral-700 p-4 bg-neutral-850">

@@ -130,7 +130,15 @@ try {
       }),
     ];
     const feedbackPatches = [];
-    const emails = [emailItem(1), emailItem(2)];
+    const emails = [
+      emailItem(1),
+      emailItem(2),
+      { ...emailItem(3), status: 'archived' },
+      { ...emailItem(4), status: 'archived' },
+      { ...emailItem(5), status: 'read' },
+    ];
+    const emailSearches = [];
+    const bulkWrites = [];
     let serverUnread = 7;
     const context = await browser.newContext({ viewport });
     const page = await context.newPage();
@@ -217,9 +225,23 @@ try {
         assert.equal(url.searchParams.get('id'), photoReportId, 'Reports opens the linked report only');
         return json(route, { reports: [photoReport], total: 1 });
       }
+      if (path === '/api/admin/inbound-emails' && request.method() === 'PATCH') {
+        const { ids, status } = request.postDataJSON();
+        bulkWrites.push({ ids, status });
+        for (const row of emails.filter((e) => ids.includes(e.id))) {
+          if (row.status === 'unread' && status !== 'unread') serverUnread--;
+          if (row.status !== 'unread' && status === 'unread') serverUnread++;
+          row.status = status;
+        }
+        return json(route, { updated: ids.length, unread: serverUnread });
+      }
       if (path === '/api/admin/inbound-emails') {
         const status = url.searchParams.get('status');
-        const rows = emails.filter((e) => !status || e.status === status);
+        const q = (url.searchParams.get('q') ?? '').toLowerCase();
+        if (q) emailSearches.push(q);
+        const rows = emails.filter(
+          (e) => (!status || e.status === status) && (!q || `${e.fromAddress} ${e.subject}`.toLowerCase().includes(q)),
+        );
         return json(route, { emails: rows, total: rows.length, unread: serverUnread });
       }
       if (path.startsWith('/api/admin/inbound-emails/')) {
@@ -346,6 +368,28 @@ try {
         await page.getByText('Reply sent from hello@eddy.guide.').waitFor();
         assert.equal(replies.at(-1).kind, 'email');
         assert.equal(await tab.locator('span').innerText(), '5');
+
+        // Search, then bulk-triage the whole page in one request.
+        await page.getByLabel('Status:').selectOption('all');
+        await page.getByText('1–5 of 5 messages').waitFor();
+        await page.getByLabel('Search email').fill('sender4');
+        await page.getByText('1–1 of 1 messages').waitFor();
+        assert.deepEqual(emailSearches, ['sender4']);
+        await page.getByLabel('Search email').fill('');
+        await page.getByText('1–5 of 5 messages').waitFor();
+        await page.getByLabel('Select Email subject 3 from sender3@example.com').check();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('1 selected').waitFor();
+        await page.getByLabel('Select Email subject 3 from sender3@example.com').uncheck();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByLabel('Select all on this page').check();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('5 selected').waitFor();
+        await page.screenshot({ path: `${out}/inbox-email-bulk-${label}.png`, fullPage: true });
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByRole('button', { name: 'Spam' }).click();
+        await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('Select all on this page').waitFor();
+        assert.equal(bulkWrites.length, 1, 'one request for the whole selection');
+        assert.equal(bulkWrites[0].status, 'spam');
+        assert.equal(bulkWrites[0].ids.length, 5);
+        assert.equal(await page.getByText('Spam', { exact: true }).count() >= 5, true);
+        assert.equal(await tab.locator('span').innerText(), String(serverUnread));
       }
       await page.screenshot({ path: `${out}/inbox-email-${label}.png`, fullPage: true });
       assert.deepEqual(errors, []);
