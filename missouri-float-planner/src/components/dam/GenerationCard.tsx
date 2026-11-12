@@ -7,6 +7,8 @@ import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import DamAppCTA from './DamAppCTA';
+import DamScheduleShareButton from './DamScheduleShareButton';
+import { shareableScheduleDates } from '@shared/dam-schedule-share';
 
 export type ScheduleAvailability = Pick<FullScheduleAvailability, 'title' | 'detail'>;
 
@@ -20,7 +22,7 @@ export default function GenerationCard({ dam, now, availability }: {
   const hasObserved = dam.hasTurbines || Boolean(release);
   const observed = hasObserved && <div className="dam-observed min-w-0 p-4 sm:p-6"><DamGenerationHero dam={dam} now={now} /></div>;
   const schedule = (<div className="min-w-0 p-4 sm:p-6">
-          {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} /> : (
+          {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} shareAction={<DamScheduleShareButton damId={dam.id} name={dam.name} dates={shareableScheduleDates(dam.schedule)} />} /> : (
             <div className="flex min-h-28 flex-col justify-center">
               <h2 className="pr-8 text-base font-bold text-neutral-900">{availability.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600">{availability.detail}</p>

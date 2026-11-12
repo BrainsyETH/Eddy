@@ -98,7 +98,7 @@ export function scheduleSectionCheck(
  * Three states stay distinct in the headline: a posted day with no generation,
  * a posted day carrying only minimum flow, and no posted day at all.
  */
-export default function GenerationSchedule({ schedule, reference, now, compact = false, withTomorrow = !compact, expandedChart = false, info }: {
+export default function GenerationSchedule({ schedule, reference, now, compact = false, withTomorrow = !compact, expandedChart = false, info, shareAction }: {
   schedule: DamScheduleDay[];
   reference?: GenerationReference | null;
   now: number;
@@ -114,6 +114,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
    */
   withTomorrow?: boolean;
   info?: ReactNode;
+  shareAction?: ReactNode;
 }) {
   const today = centralDayKey(now);
   const tomorrow = nextDayKey(today);
@@ -164,13 +165,15 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
           // reach the section through it.
           <Heading className="sr-only">Today’s generation</Heading>
         ) : (
-          <div className="flex min-h-11 items-center justify-between gap-2 pr-10">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          <div className={shareAction ? 'grid min-h-11 grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 pb-2 sm:flex sm:justify-between lg:pr-10' : 'flex min-h-11 items-center justify-between gap-2 pr-10'}>
+            <div className={`flex min-w-0 flex-wrap items-baseline gap-x-2 ${shareAction ? 'col-span-2 sm:flex-1' : ''}`}>
               <Heading className="font-heading text-lg font-bold text-primary-800">
                 Today’s generation schedule <span className="font-normal text-neutral-600">· {scheduleDayLabel(today)}</span>
               </Heading>
-              <span className="text-xs leading-4 text-neutral-600">Central time</span>
+              {!shareAction && <span className="text-xs leading-4 text-neutral-600">Central time</span>}
             </div>
+            {shareAction && <span className="text-xs leading-4 text-neutral-600">Central time</span>}
+            {shareAction}
             {info}
           </div>
         )}

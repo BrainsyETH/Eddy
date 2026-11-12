@@ -255,6 +255,13 @@ with `Unable to resolve module expo-asset`.
 
 ## Dam schedule consistency
 
+The generation section has a bordered 44pt Share control. Choose a posted date
+from the native action sheet to send the same branded PNG the web uses, or
+share the live dam link immediately. Image preparation requires reception;
+unavailable dates offer an explicit error. Deploy the dated web image route
+before distributing this app change. Native share-sheet delivery is unconfirmed
+until device testing (ADR 0015).
+
 Dam detail, Favorites, tailwater cards and the Home Screen widget use the
 project's fixed scheduling capacity, matching the website and embeds. The
 widget packet adds optional `capacityMw`, daily `summary` and hourly `fraction`

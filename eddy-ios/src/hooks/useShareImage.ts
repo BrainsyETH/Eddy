@@ -40,6 +40,8 @@ export interface ShareImageRequest {
   fallbackImage?: () => Promise<string>;
   cache?: boolean;
   prepareTimeoutMs?: number;
+  /** Keep the native activity sheet attached to its initiating control on iPad. */
+  anchor?: number;
 }
 
 export function useShareImage() {
@@ -98,7 +100,7 @@ export function useShareImage() {
           title: options.title,
           url: file.uri,
           message: link ? `${options.title}\n${webUrl(link)}` : options.title,
-        });
+        }, { anchor: options.anchor });
       } catch {
         // As in shareLink: a share-sheet failure costs nothing the user cannot retry.
       }

@@ -21,6 +21,7 @@ const nextConfig = {
     '/api/share/chart/\\[provider\\]/\\[siteId\\]/image': ['./node_modules/geo-tz/data/timezones-1970.*'],
     // The float share image reads its mood sticker and the standard otter.
     '/api/share/float/image': ['./public/icons/eddy-*.png', './public/share/otter-standard.png'],
+    '/dams/\\[damId\\]/schedule/\\[date\\]/image.png': ['./public/icons/eddy-dam.png', './public/share/otter-standard.png', './public/fonts/Geist-Regular.ttf'],
     // Private HTML is served only by the authenticated diagram route.
     '/admin/visuals/*': ['./content/admin-visuals/*.html'],
   },
@@ -204,6 +205,12 @@ const nextConfig = {
             value: [...cspBase, "frame-ancestors 'none'"].join('; '),
           },
         ],
+      },
+      // Dated sharing utilities (HTML and PNG), including streamed/error responses.
+      // Keep the live /dams/:damId page and its normal preview images searchable.
+      {
+        source: '/dams/:damId/schedule/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
       },
       // Last match wins. These authenticated, self-contained documents embed
       // fonts as data URLs; the normal app policy would block those fonts.

@@ -96,6 +96,56 @@ inline and mobile uses its expanded dialog. Dates, zoom, layers and scale live
 in the common component and survive presentation changes. Both platforms allow
 link sharing while image preparation is running.
 
+## Dated dam schedule images — November 12, 2026
+
+The generation section on web and iOS offers a bordered Share control with the
+platform share glyph and a 44px/44pt minimum target. Web opens an accessible
+preview dialog (bottom sheet on small screens), with posted-date selection,
+file sharing where supported, image copy, download, and a separate live-dam
+link. The Share image gesture occurs after preparation to retain browser user
+activation. Escape, backdrop dismissal, focus return, cancellation, retry and
+request cleanup are part of the interaction. iOS uses a native date/action
+sheet followed by the system activity sheet with the PNG and live-dam link;
+the originating control anchors both sheets on iPad. Link sharing needs no
+image request. No new native dependency, permission or association path is added.
+
+Both platforms request `/dams/<id>/schedule/<YYYY-MM-DD>/image.png`. Its
+1200 × 800 PNG uses the existing widget's validated MW packet, fixed capacity,
+missing-hour gaps and minimum-flow baseline. It uses Eddy's widget palette,
+dam icon, otter and Fredoka/Geist fonts. It contains the full schedule date,
+Central Time, SWPA attribution and the actual check date/time; absent or old
+check times remain explicit. It carries no live flow, moving Now marker,
+paid Read, or safety verdict. A date is fixed, but source revisions are not:
+preparation reads the latest available posted plan for that date. The preview
+and attachment share the same fetched bytes.
+
+The dated landing page is a public sharing utility, always `noindex, follow`,
+with a standard HTML image, provenance and an accessible hourly table. It has
+no competing canonical nomination and is absent from the sitemap. A narrowly
+scoped `X-Robots-Tag: noindex` covers both the dated HTML and PNG, including
+error responses. These resources remain crawlable so crawlers can read the
+directive and sharing services can fetch OG metadata and images. Do not block
+them in robots.txt. This release deliberately excludes dated exports from
+Google web and image results; visual search discovery belongs in a separate
+change around the permanent dam page. Its metadata, canonical, content,
+sitemap entry and ordinary previews stay unchanged.
+
+This is not a historical schedule archive. After Central midnight, the dated
+HTML and image return 410. A narrow proxy check returns the HTML status before
+Next's loading boundary can stream a 200, with a branded explanation and a
+prominent live-dam link; it performs no upstream lookup. Invalid links return
+404. A missing current/future schedule is treated as temporary: the noindex
+page offers a retry explanation and live-dam link, and the image returns 503.
+Neither substitutes another date or treats a provider outage as permanent loss.
+Images are free public presentation, outside x402; canonical query removal,
+a 60/minute/IP fail-closed render limit, one-minute browser/five-minute CDN
+caching and no-store errors bound requests. Shares send the live-dam URL
+alongside the PNG, and image preparation starts only after opening Share.
+
+Deploy the web image route before distributing the iOS change. Native activity
+sheet appearance and delivery to Messages, Mail, Files and AirDrop remain
+unconfirmed until checked on an iPhone/iPad; a Metro export is not that evidence.
+
 ## Float share images
 
 A saved float shares as a 1080 × 1920 PNG from `GET /api/share/float/image`,
