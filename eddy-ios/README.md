@@ -2439,6 +2439,12 @@ and Bottom line visible immediately. Read more expands only longer prose.
 Locked previews have no expand button; one accessible Premium offer explains access. Existing Premium authorization and
 the single shared lock remain in force. Switching gauge resets expanded prose.
 
+Read sections keep their thin dividers. The free outlook says **Next 3 days**
+(today and the next two Central calendar days), with official heights separated
+below the weather under **NWS forecast · daily high**. Values retain feet and
+day-specific VoiceOver labels; missing days say “No forecast”. This row has no
+condition ratings, which would imply a verdict on the whole day.
+
 Before distribution, verify the rain switch persists, toggling preserves the
 river plot height while adding/removing the rain track, rain/gauge values scrub together, and opening/closing the
 watershed preserves chart state. Repeat in dark/light, large text, VoiceOver and

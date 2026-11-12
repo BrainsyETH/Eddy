@@ -1,4 +1,4 @@
-// The Read interprets the chart immediately above it; the free 72-hour
+// The Read interprets the chart immediately above it; the free three-day
 // forecast follows. Premium controls only the interpretation, never weather
 // facts. Only longer prose expands; Weather and Bottom line remain visible.
 // The server remains the authority for paid text and selected-gauge freshness.
@@ -11,7 +11,7 @@ import { WeatherIcon } from '@/components/WeatherIcon';
 import { weatherDestination } from '@/lib/weatherDestination';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
-import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
+import { conditionBg, conditionInk } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
 import { ReadHeading } from '@/components/ReadHeading';
 import { Otter } from '@/components/Otter';
@@ -267,33 +267,22 @@ export function EddyTake({
           )}
         </View>
       ) : null}
-      {/* ── The 72-hour strip ───────────────────────────────── */}
+      {/* The three-day weather strip and separate NWS river forecast. */}
       {days.length > 0 ? (
         <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
           disabled={!forecastDestination} accessible={false}
           style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
           <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
             disabled={!forecastDestination} accessibilityRole={forecastDestination ? 'button' : undefined}
-            accessibilityLabel={`Will it hold? Next 72 hours${outlook.weatherLocation ? ` near ${outlook.weatherLocation}` : ''}`}
+            accessibilityLabel={`Will it hold? Next 3 days${outlook.weatherLocation ? ` near ${outlook.weatherLocation}` : ''}`}
             accessibilityHint={forecastDestination ? 'Opens the full weather forecast for this location' : undefined}
             style={styles.stripHead}>
             <View style={styles.stripHeadText}>
               <Text style={[styles.stripTitle, { color: colors.text }]}>Will it hold?</Text>
-              <Text style={[styles.stripSub, { color: colors.textSubtle }]}>Next 72 hours</Text>
+              <Text style={[styles.stripSub, { color: colors.textSubtle }]}>Next 3 days</Text>
             </View>
-            {/* WHERE, not what. This slot used to print sourceLabel — one of
-                three fixed strings, most often "Current river trend + weather
-                outlook", which restated in six words what the strip's own
-                contents already show and told you nothing you could act on.
-
-                A forecast is a point sample, and a Missouri river runs ninety
-                miles; "72 hours" is only useful once you know 72 hours WHERE.
-                The server names the town it actually queried, so this cannot
-                drift from the data beside it.
-
-                The official-vs-guidance distinction that icon used to carry is
-                not lost: hasOfficialForecast gates the stage row below, and
-                isGuidance prints it in words under Weather. */}
+            {/* The location names the weather sample. NWS attribution belongs
+                to the separate river forecast row below. */}
             {outlook.weatherLocation ? (
               <View style={styles.source}>
                 <Ionicons name="location-outline" size={12} color={colors.textMuted} />
@@ -374,57 +363,36 @@ export function EddyTake({
                     No weather
                   </Text>
                 )}
-
-                {/* Forecast stage. Only shown when the NWS actually publishes a
-                    hydrograph for this gauge — otherwise the column would imply
-                    a river prediction we do not have. The unit is disclosed once
-                    below the strip rather than seven times inside it. */}
-                {outlook.hasOfficialForecast ? (
-                  <View style={[styles.forecast, { borderTopColor: colors.border }]}>
-                    {day.river.valueFt != null ? (
-                      <>
-                        <Text style={[styles.forecastValue, { color: colors.text }]}>
-                          {day.river.valueFt.toFixed(2)} ft
-                        </Text>
-                        {day.river.conditionCode ? (
-                          <Text
-                            style={[
-                              styles.forecastCode,
-                              { color: conditionInk(day.river.conditionCode, isDark) },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {conditionLabel(day.river.conditionCode)}
-                          </Text>
-                        ) : null}
-                      </>
-                    ) : (
-                      // The glyph is the whole cell here — nothing beside it says
-                      // what it means, so a screen reader that announces "dash"
-                      // (or skips it) gets no forecast state at all.
-                      <Text
-                        style={[styles.unavailable, { color: colors.textSubtle }]}
-                        accessibilityLabel="No forecast"
-                      >
-                        —
-                      </Text>
-                    )}
-                  </View>
-                ) : null}
               </View>
             ))}
           </View>
 
-          {/* SAY WHICH IS WHICH. The NWS publishes stage only, so the forecast
-              row above is always feet — including on the 18 of 24 rivers rated
-              in cfs, whose reading card a few hundred pixels up now correctly
-              prints cfs. RiverOutlookDay's own type comment demands this:
-              "Never render valueFt beside a cfs reading without saying which is
-              which." Once, under the strip, rather than seven times inside it. */}
+          {/* Official daily highs keep their own label and units. A river-level
+              condition badge here could read as a verdict on the whole day. */}
           {outlook.hasOfficialForecast ? (
-            <Text style={[styles.forecastNote, { color: colors.textSubtle }]}>
-              Forecast in feet.
-            </Text>
+            <View style={[styles.forecast, { borderTopColor: colors.border }]}>
+              <Text style={[styles.forecastLabel, { color: colors.textMuted }]}>NWS forecast · daily high</Text>
+              <View style={styles.forecastRow}>
+                {days.map((day, index) => (
+                  <View key={day.date} style={[
+                    styles.day,
+                    index > 0 ? { borderLeftWidth: 1, borderLeftColor: colors.border } : null,
+                  ]}>
+                    {day.river.valueFt != null ? (
+                      <Text style={[styles.forecastValue, { color: colors.text }]}
+                        accessibilityLabel={`${dayLabel(day.date, index)}, NWS forecast daily high ${day.river.valueFt.toFixed(2)} feet`}>
+                        {day.river.valueFt.toFixed(2)} ft
+                      </Text>
+                    ) : (
+                      <Text style={[styles.unavailable, { color: colors.textSubtle }]}
+                        accessibilityLabel={`${dayLabel(day.date, index)}, no river forecast`}>
+                        No forecast
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </View>
           ) : null}
         </Pressable>
       ) : null}
@@ -450,10 +418,10 @@ const styles = StyleSheet.create({
   heat: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 2 },
   heatText: { fontSize: 12, lineHeight: 17, fontFamily: fonts.heading },
   unavailable: { ...t.xs, fontFamily: fonts.body },
-  forecast: { alignItems: 'center', marginTop: 8, paddingTop: 8, borderTopWidth: 1, width: '100%' },
-  forecastNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 14, paddingBottom: 12 },
+  forecast: { marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
+  forecastLabel: { ...t.xs, fontFamily: fonts.semibold },
+  forecastRow: { flexDirection: 'row', marginTop: 8 },
   forecastValue: { ...t.xs, fontFamily: fonts.monoMedium },
-  forecastCode: { ...t.xs, fontFamily: fonts.semibold, marginTop: 1 },
   // Nudged up so the mark sits on the label's cap height rather than its box —
   // the artwork carries its own margin, which a 13pt glyph does not.
   bottomLineOtter: { marginLeft: -2 },

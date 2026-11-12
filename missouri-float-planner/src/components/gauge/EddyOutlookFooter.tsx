@@ -46,11 +46,11 @@ export default function EddyOutlookFooter({
             : <p aria-hidden="true" data-nosnippet className="pointer-events-none mt-1 select-none text-sm leading-relaxed text-neutral-700 opacity-60 blur-[5px]">{readPreview(sections.eddyRead)}</p>}
           {readIsGenerated && <p className="mt-1 text-xs text-neutral-500">{updatedLabel ? `Written ${updatedLabel}` : 'Generated report'}{gaugeName ? ` · via ${gaugeName}` : ''}</p>}
           {!compact && (weather || (!damRead && bottomLine)) && (
-            <div className="mt-3" aria-hidden="true">
+            <div className="mt-3 space-y-3" aria-hidden="true">
               {/* Presentation only; paid prose remains server-gated. */}
-              {weather && <div className="mb-3"><h4 className="text-xs font-semibold text-neutral-600">Weather</h4>
+              {weather && <div className="border-t border-secondary-200 pt-3"><h4 className="text-xs font-semibold text-neutral-600">Weather</h4>
                 <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm text-neutral-700 opacity-60 blur-[5px]">{weather}</p></div>}
-              {!damRead && bottomLine && <div><h4 className="text-xs font-semibold text-neutral-600">Bottom line</h4>
+              {!damRead && bottomLine && <div className="border-t border-secondary-200 pt-3"><h4 className="text-xs font-semibold text-neutral-600">Bottom line</h4>
                 <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm text-neutral-700 opacity-60 blur-[5px]">{bottomLine}</p></div>}
             </div>
           )}
