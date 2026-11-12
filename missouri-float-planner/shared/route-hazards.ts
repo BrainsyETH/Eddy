@@ -84,6 +84,18 @@ export function splitRouteHazards<T extends HazardRow>(rows: readonly T[], start
   return { hazards, damsBelowTakeOut, hazardsAbovePutIn };
 }
 
+function milesLabel(distance: number): string {
+  return `${distance < 0.1 ? 'Less than 0.1' : distance.toFixed(1)} mi`;
+}
+
+/** Visible row text. The section heading already says put-in or take-out. */
+export function hazardDistanceLabel(hazard: HazardAbovePutIn | DamBelowTakeOut): string {
+  return 'distanceAbovePutInMiles' in hazard
+    ? `${milesLabel(hazard.distanceAbovePutInMiles)} upstream`
+    : `${milesLabel(hazard.distanceBelowTakeOutMiles)} downstream`;
+}
+
+/** Full phrase for screen readers and agents, which read a row without its heading. */
 export function damBelowTakeOutLabel(dam: DamBelowTakeOut): string {
   const distance = dam.distanceBelowTakeOutMiles;
   return `${distance < 0.1 ? 'Less than 0.1' : distance.toFixed(1)} mi below your take-out`;

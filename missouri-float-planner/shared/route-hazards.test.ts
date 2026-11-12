@@ -4,7 +4,7 @@ import test from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
 import PlanDownstreamDams from '../src/components/plan/PlanDownstreamDams';
-import { damBelowTakeOutLabel, hazardAbovePutInLabel, splitRouteHazards } from './route-hazards';
+import { damBelowTakeOutLabel, hazardAbovePutInLabel, hazardDistanceLabel, splitRouteHazards } from './route-hazards';
 
 const row = (id: string, mile: number | string | null, type = 'low_water_dam') => ({
   id, name: id, river_mile_downstream: mile, type, portage_required: true,
@@ -83,13 +83,15 @@ test('web notices are conditional and explicitly place the dam below the landing
   const html = renderToStaticMarkup(createElement(PlanDownstreamDams, { dams: damsBelowTakeOut }));
   assert.match(html, /Below your take-out/);
   assert.match(html, /Shadow Lake Dam/);
-  assert.match(html, /0.3 mi below your take-out/);
+  assert.match(html, /0.3 mi downstream</);
+  assert.doesNotMatch(html, /below your take-out</);
   assert.doesNotMatch(html, /Portage|Hazards on Route/);
   const { hazardsAbovePutIn } = splitRouteHazards([{ ...row('Beaver Dam', 0, 'other'), severity: 'danger' }], 0.33, 3.3);
   const aboveHtml = renderToStaticMarkup(createElement(PlanDownstreamDams, { above: hazardsAbovePutIn }));
   assert.match(aboveHtml, /Above your put-in/);
   assert.match(aboveHtml, /Beaver Dam/);
-  assert.match(aboveHtml, /0.3 mi above your put-in/);
+  assert.match(aboveHtml, /0.3 mi upstream</);
+  assert.equal(hazardDistanceLabel(hazardsAbovePutIn[0]), '0.3 mi upstream');
   assert.doesNotMatch(aboveHtml, /Below your take-out|Portage/);
 });
 

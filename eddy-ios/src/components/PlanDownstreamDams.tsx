@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { damBelowTakeOutLabel, hazardAbovePutInLabel, type DamBelowTakeOut, type HazardAbovePutIn } from '@eddy/conditions/route-hazards';
+import { damBelowTakeOutLabel, hazardAbovePutInLabel, hazardDistanceLabel, type DamBelowTakeOut, type HazardAbovePutIn } from '@eddy/conditions/route-hazards';
 import { ControlIcon } from '@/components/ControlIcon';
 import { planHazardDestination, type PlanDetailDestination } from '@/lib/planDestinations';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -19,7 +19,7 @@ export function PlanDownstreamDams({ dams, above, riverSlug, onOpenDetail }: {
 }) {
   const { colors } = useTheme();
   const destination = planHazardDestination(riverSlug);
-  const group = (heading: string, rows: { id: string; name: string; label: string }[]) => rows.length ? (
+  const group = (heading: string, rows: { id: string; name: string; label: string; spoken: string }[]) => rows.length ? (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Text style={[styles.heading, { color: colors.text }]}>{heading}</Text>
       {rows.map(row => (
@@ -29,7 +29,7 @@ export function PlanDownstreamDams({ dams, above, riverSlug, onOpenDetail }: {
           onPress={destination ? () => onOpenDetail(destination) : undefined}
           style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}
           accessibilityRole={destination ? 'button' : undefined}
-          accessibilityLabel={`${row.name}, ${row.label}`}
+          accessibilityLabel={`${row.name}, ${row.spoken}`}
           accessibilityHint={destination ? 'Opens the river’s hazards' : undefined}
         >
           <View style={styles.text}>
@@ -43,8 +43,8 @@ export function PlanDownstreamDams({ dams, above, riverSlug, onOpenDetail }: {
   ) : null;
   return (
     <>
-      {group('Above your put-in', (above ?? []).map(h => ({ id: h.id, name: h.name, label: hazardAbovePutInLabel(h) })))}
-      {group('Below your take-out', (dams ?? []).map(d => ({ id: d.id, name: d.name, label: damBelowTakeOutLabel(d) })))}
+      {group('Above your put-in', (above ?? []).map(h => ({ id: h.id, name: h.name, label: hazardDistanceLabel(h), spoken: hazardAbovePutInLabel(h) })))}
+      {group('Below your take-out', (dams ?? []).map(d => ({ id: d.id, name: d.name, label: hazardDistanceLabel(d), spoken: damBelowTakeOutLabel(d) })))}
     </>
   );
 }

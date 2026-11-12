@@ -10,7 +10,7 @@ full evidence in [the research record](../reviews/BEAVER_TAILWATER_RESEARCH_2026
 | --- | --- | --- |
 | CWMS location | `Beaver_Dam`, office SWL, 36.421283333333, -93.847616666667 (WGS84), Carroll County | <https://cwms-data.usace.army.mil/cwms-data/locations/Beaver_Dam?office=SWL> |
 | CWMS tailwater sub-location | `Beaver_Dam-Tailwater`, 36.4216715, -93.845085 (station coordinates) | <https://cwms-data.usace.army.mil/cwms-data/locations/Beaver_Dam-Tailwater?office=SWL> |
-| Eddy station | `gauge_stations` provider `usace`, `site_id_external = 'swl-beaver-dam'` (registry entry `swl-beaver-dam` in `src/lib/flow-providers/usace-registry.ts`, same coordinates as CWMS) | migration `20261112170000` |
+| Eddy station | `gauge_stations` provider `usace`, `site_id_external = 'swl-beaver-dam'` (registry entry `swl-beaver-dam` in `src/lib/flow-providers/usace-registry.ts`, same coordinates as CWMS) | migration `20261112162415` |
 | Tailwater temperature | `Beaver_Dam-Tailwater.Temp-Water.Inst.1Hour.0.Decodes-rev` resolves (48.9 °F, 2026-11-12 15:00 UTC); the standard `swlSeries` id works here, unlike Norfork | CWMS catalog |
 
 ## USGS sites on the reach

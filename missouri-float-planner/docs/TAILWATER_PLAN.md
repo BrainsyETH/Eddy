@@ -69,8 +69,8 @@ neither is a recreational threshold.
 
 The White River below Beaver Dam is the fourth tailwater, onboarded the same
 way: Beaver Dam to the Houseman Access ramp (AGFC regulation N1.03), 6.99 mi,
-unrated and wired to the dam's release. Migration `20261112170000` lands it
-inactive and is pending in the ledger. The dossier and access-point file
+unrated and wired to the dam's release. Migration `20261112162415` landed it
+inactive in production on November 12. The dossier and access-point file
 propose Dam Site Boat Ramp, Bertrand Access and Houseman Access as float
 endpoints, and every readiness review is still pending
 ([research](../scripts/ingestion/reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md)).

@@ -1,4 +1,7 @@
--- 20261112170000_beaver_tailwater_lands_inactive.sql
+-- 20261112162415_beaver_tailwater_lands_inactive.sql
+--
+-- Applied to Eddy production on 2026-11-12 through the Supabase API, which
+-- recorded version 20261112162415; the file was renamed to match.
 --
 -- The White River below Beaver Dam, Arkansas, as its own dam-tailwater river,
 -- landed INACTIVE the way 20260824232949 landed the White, Norfork and
@@ -38,7 +41,7 @@ INSERT INTO rivers (
     'Beaver Tailwater', 'beaver-tailwater',
     ST_GeomFromText('LINESTRING(-93.847461 36.421134, -93.843525 36.422003, -93.838628 36.424839, -93.831562 36.433824, -93.82804 36.433875, -93.822037 36.430016, -93.819703 36.430798, -93.819658 36.432621, -93.821379 36.435521, -93.825411 36.438647, -93.836615 36.442138, -93.83717 36.442825, -93.836382 36.444312, -93.836582 36.446817, -93.834685 36.448313, -93.828562 36.450608, -93.825692 36.450577, -93.822625 36.449091, -93.811766 36.446957, -93.805711 36.44861, -93.804465 36.451241, -93.805238 36.454468, -93.814018 36.463197)', 4326),
     6.99, ST_SetSRID(ST_MakePoint(-93.814018, 36.463197), 4326), true,
-    true, 'The White River below Beaver Dam runs about seven miles past Dam Site River Park, Bertrand and the Highway 62 bridge to Houseman Access. Beaver releases and Table Rock Lake both affect this stretch: at normal pool, Table Rock backs water up to within about a mile of the dam. Current and depth can change, and parts of the river may paddle like a lake. A warning horn sounds below the dam when releases start, and fishing, boating and wading are closed within 100 yards of the dam. No generation does not mean low or easy water. Dam observations and generation schedules do not establish a safe wading window; check posted signs and current Arkansas Game and Fish Commission trout regulations, including the special-regulation area below the dam.',
+    true, 'Seven miles of cold trout water on the White River, from Beaver Dam to Houseman Access. Dam releases and Table Rock Lake both shape it: the lake backs up to within about a mile of the dam, so some stretches paddle like a lake. Releases can raise the water fast, and a quiet dam doesn''t mean easy water or a safe time to wade. Check posted signs and current Arkansas Game and Fish Commission trout rules before you go.',
     'Class I', 'Ozarks',
     'AR', 'US', 'America/Chicago',
     'dam_tailwater', 'swl-beaver-dam', false,
@@ -59,7 +62,7 @@ SELECT NULL, 'swl-beaver-dam', 'usace', 'White River below Beaver Dam',
     ST_SetSRID(ST_MakePoint(-93.845085, 36.4216715), 4326), true, true,
     jsonb_build_object(
         'source', 'USACE Little Rock District (CWMS)',
-        'note', 'Total release from Beaver Dam. Two generators, about 3,950 cfs each. A warning horn sounds below the dam when generation or spillway releases start. Releases can change without notice.'
+        'note', 'Total release from Beaver Dam: two generators of about 3,950 cfs each, plus any spillway flow. Releases can change without notice.'
     )
 WHERE NOT EXISTS (
     SELECT 1 FROM public.gauge_stations gs
@@ -125,12 +128,12 @@ BEGIN
     description, severity, portage_required, portage_side, seasonal_notes, active)
   VALUES
     (beaver_id, 'Beaver Dam', 'other', dam, dam_mile,
-     'Beaver Dam, upstream of every access on this river. Fishing, boating and wading are closed within 100 yards of the dam. Follow posted signs and buoys.',
+     'No fishing, boating or wading within 100 yards of the dam. Follow posted signs and buoys.',
      'danger', NULL, NULL,
-     'A horn sounds below the dam when generation or spillway releases start. The river can rise quickly without local rain; leave the water when you hear the horn or see it rising.',
+     'A horn sounds when releases start. Leave the water when you hear it or see the river rising.',
      true),
     (beaver_id, 'Highway 62 bridge (Busch)', 'bridge_piling', bridge, bridge_mile,
-     'US Highway 62 bridge near Busch, between Bertrand and Houseman. Keep clear of the piers.',
+     'Keep clear of the piers.',
      'info', NULL, NULL, NULL, true);
   GET DIAGNOSTICS affected = ROW_COUNT;
   IF affected <> 2 THEN RAISE EXCEPTION 'Expected two Beaver hazards'; END IF;

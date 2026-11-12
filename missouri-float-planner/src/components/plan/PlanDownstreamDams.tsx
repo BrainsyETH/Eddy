@@ -1,6 +1,5 @@
 import {
-  damBelowTakeOutLabel,
-  hazardAbovePutInLabel,
+  hazardDistanceLabel,
   type DamBelowTakeOut,
   type HazardAbovePutIn,
 } from '@shared/route-hazards';
@@ -14,7 +13,7 @@ export default function PlanDownstreamDams({ dams, above }: { dams?: DamBelowTak
         <section className="mt-3 rounded-xl border border-amber-500 bg-amber-50 p-3" aria-label="Above your put-in">
           <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Above your put-in</p>
           <ul className="mt-1 space-y-1 text-sm text-amber-800">
-            {above.map(hazard => <li key={hazard.id}><span className="font-bold">{hazard.name}</span> · {hazardAbovePutInLabel(hazard)}</li>)}
+            {above.map(hazard => <li key={hazard.id}><span className="font-bold">{hazard.name}</span> · {hazardDistanceLabel(hazard)}</li>)}
           </ul>
         </section>
       ) : null}
@@ -22,7 +21,7 @@ export default function PlanDownstreamDams({ dams, above }: { dams?: DamBelowTak
         <section className="mt-3 rounded-xl border border-amber-500 bg-amber-50 p-3" aria-label="Below your take-out">
           <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Below your take-out</p>
           <ul className="mt-1 space-y-1 text-sm text-amber-800">
-            {dams.map(dam => <li key={dam.id}><span className="font-bold">{dam.name}</span> · {damBelowTakeOutLabel(dam)}</li>)}
+            {dams.map(dam => <li key={dam.id}><span className="font-bold">{dam.name}</span> · {hazardDistanceLabel(dam)}</li>)}
           </ul>
         </section>
       ) : null}
