@@ -40,15 +40,47 @@ def main():
         "gauge under 7 ft, tributaries steady, under 0.5 in rain": low & steady & dry,
         "gauge under 7 ft, tributaries moving": low & ~steady,
         "gauge 7 ft or higher": ~low,
-        "dam at minimum flow before the increase (under 1,500 cfs)": from_minimum,
-        "dam at minimum flow, tributaries steady, gauge under 7 ft": from_minimum & steady & low,
+        "low baseline before the increase (under 1,500 cfs)": from_minimum,
+        "low baseline, tributaries steady (hindsight label), gauge under 7 ft": from_minimum & steady & low,
         "dam already running (1,500 cfs or more)": ~from_minimum,
         "dam already running 3,000 cfs or more": t["baseline"] >= 3000,
     }
     out = {"note": "Post hoc cuts of the untouched-test events with the frozen conditions model. Not validated rules.",
            "cuts": {name: {**c.score(error[rows]), "median_delay_h": float(t.loc[rows, "delay_h"].median())}
                     for name, rows in cuts.items()}}
+    # The "tributaries steady" label looks 24 hours past the release. This version
+    # uses only the 12 hours before it, which is what could be known at the time.
+    data = c.load(HERE / "data_conditions" / "test")
+    hour = pd.Timedelta(hours=1)
+
+    def before(start):
+        total = 0.0
+        for column in ("buffalo_cfs", "crooked_cfs"):
+            part = data["flows"][column].loc[start - 12 * hour:start - hour].dropna()
+            if len(part) < 6:
+                return np.nan
+            total += part.max() - part.min()
+        return total
+
+    prior = np.array([before(h) for h in pd.to_datetime(t["hour"])])
+    known_then = from_minimum & low & (prior <= 500)
+    out["gate_using_only_readings_before_the_release"] = {
+        **c.score(error[known_then]), "events": int(known_then.sum()),
+        "share_of_all_detected_starts": float(known_then.sum() / len(pd.read_csv(OUT / "events_test.csv"))),
+        "admitted_that_the_hindsight_label_excluded": int((known_then & ~(from_minimum & steady & low)).sum())}
+    events = pd.read_csv(OUT / "events_test.csv")
+    out["availability"] = {"detected_starts": int(len(events)), "scored_not_stepped": int(len(t)),
+                           "hindsight_normal_group": int((from_minimum & steady & low).sum()),
+                           "share_of_detected_starts": float((from_minimum & steady & low).sum() / len(events))}
+    out["median_delay_h_by_baseline"] = {"under 1,500 cfs": float(t.loc[from_minimum, "delay_h"].median()),
+                                         "1,500 cfs or more": float(t.loc[~from_minimum, "delay_h"].median()),
+                                         "3,000 cfs or more": float(t.loc[t["baseline"] >= 3000, "delay_h"].median())}
+    stepped = events[events["scored"] & events["stepped"] & events[["stage0", "gauge_cfs0", "tributary_cfs"]].notna().all(axis=1)]
+    gap = stepped["surge_delay_h"] - stepped["delay_h"]
+    out["stepped_measure_check"] = {"events": int(len(stepped)), "steepest_rise_before_first_rise": int((gap < 0).sum()),
+                                    "by_more_than_5h": int((gap < -5).sum()), "by_more_than_12h": int((gap < -12).sum())}
     (OUT / "exploratory.json").write_text(json.dumps(clean(out), indent=1) + "\n")
+    print(json.dumps(clean({k: out[k] for k in out if k not in ("cuts", "note")}), indent=1))
     for name, value in out["cuts"].items():
         print(f"{name:62s} n={value['n']:3d} within={value['share_within_2h']:.3f} early={value['share_more_than_2h_early']:.3f}")
 
@@ -83,7 +115,7 @@ def main():
 
     fig, ax = plt.subplots(figsize=(8.6, 4.8))
     shown = t[t["stage0"] <= 14]
-    for rows, colour, label in ((shown["baseline"] < 1500, mf.BLUE, "Dam at minimum flow before the increase"),
+    for rows, colour, label in ((shown["baseline"] < 1500, mf.BLUE, "Low baseline before the increase (under 1,500 cfs)"),
                                 (shown["baseline"] >= 1500, mf.ORANGE, "Dam already running (1,500 cfs or more)")):
         part = shown[rows]
         ax.scatter(part["stage0"], part["error_conditions"], s=44, color=colour, edgecolor=mf.SURFACE,

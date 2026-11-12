@@ -67,7 +67,7 @@
    "early_edge_95_h": 3.4726,
    "median_delay_h": 12.25
   },
-  "dam at minimum flow before the increase (under 1,500 cfs)": {
+  "low baseline before the increase (under 1,500 cfs)": {
    "n": 254,
    "share_within_2h": 0.9606,
    "share_more_than_2h_early": 0.0315,
@@ -78,7 +78,7 @@
    "early_edge_95_h": 1.5589,
    "median_delay_h": 13.25
   },
-  "dam at minimum flow, tributaries steady, gauge under 7 ft": {
+  "low baseline, tributaries steady (hindsight label), gauge under 7 ft": {
    "n": 177,
    "share_within_2h": 0.9831,
    "share_more_than_2h_early": 0.0169,
@@ -111,5 +111,35 @@
    "early_edge_95_h": 5.0708,
    "median_delay_h": 8.25
   }
+ },
+ "gate_using_only_readings_before_the_release": {
+  "n": 185,
+  "share_within_2h": 0.9676,
+  "share_more_than_2h_early": 0.0324,
+  "share_more_than_2h_late": 0.0,
+  "median_abs_error_h": 0.276,
+  "largest_early_h": 8.994,
+  "largest_late_h": 1.086,
+  "early_edge_95_h": 1.5048,
+  "events": 185,
+  "share_of_all_detected_starts": 0.4282,
+  "admitted_that_the_hindsight_label_excluded": 8
+ },
+ "availability": {
+  "detected_starts": 432,
+  "scored_not_stepped": 302,
+  "hindsight_normal_group": 177,
+  "share_of_detected_starts": 0.4097
+ },
+ "median_delay_h_by_baseline": {
+  "under 1,500 cfs": 13.25,
+  "1,500 cfs or more": 10.375,
+  "3,000 cfs or more": 8.25
+ },
+ "stepped_measure_check": {
+  "events": 28,
+  "steepest_rise_before_first_rise": 6,
+  "by_more_than_5h": 3,
+  "by_more_than_12h": 2
  }
 }
