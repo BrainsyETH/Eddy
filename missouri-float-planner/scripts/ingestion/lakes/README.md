@@ -46,6 +46,13 @@ reader is shown the agency's date or "update date unavailable"
 | `lake-polygons/*.geojson` | USGS 3DHP waterbody polygons (layer 60) for Table Rock, Truman and Stockton, generalised to 0.0001° |
 | `existing-access-points-near-pilot-lakes.json` | A read-only production query of access points inside the two lakes' bounding boxes, recorded with the query |
 
+## `2026-11-12/`
+
+The owner's review of the remaining 40 candidates: coordinate corrections,
+two duplicate merges, 35 approvals, and the three Beaver-tailwater ramps left
+pending for a future White River reach. `README.md` there is the record;
+`owner-review.sql` is the guarded transaction that was applied.
+
 ## Reviewing launches
 
 Once migration `20261109224918` is applied and `stage-launch-candidates.sql`
