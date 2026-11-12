@@ -106,9 +106,9 @@ Vercel environment; the latest attempted deployment has a separate history link.
   sends from `RESEND_REPLY_FROM` or else the published support address
   (`eddy@eddy.guide`), so an answer comes back to the Inbox. A reply moves a
   pending item to Reviewed and records `last_replied_at`/`last_replied_by`
-  (migration `20261111235324_feedback_reply_tracking.sql`). Before that
-  migration is applied, the reply still sends and the screen says the reply
-  time was not recorded.
+  (migration `20261112010743_feedback_reply_tracking.sql`, applied to
+  production 2026-11-12). If those columns are ever missing, the reply still
+  sends and the screen says the reply time was not recorded.
 - The mobile navigation uses a bounded native dialog with Escape/focus handling.
   Navigation and editor surfaces use the existing Eddy teal/sand palette. Pin up
   to four account-specific shortcuts from page headers.
