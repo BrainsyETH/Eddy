@@ -434,7 +434,7 @@ export default function Fixture() {
       assert(await page.getByRole('img', { name: /Eddy’s Bull Shoals Dam widget/ }).evaluate(el => el.complete && el.naturalWidth > 0), 'real widget screenshot loads');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: app page fits phone`);
       assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), new RegExp(`app-argument=eddy:///dam/${id}(?:,|$)`));
-      const store = page.locator('[data-ga-event="app_store_click"]').first();
+      const store = page.locator('[data-ga-label="app_landing_hero"]');
       assert.equal(new URL(await store.getAttribute('href')).hostname, 'apps.apple.com');
       await page.evaluate(() => document.addEventListener('click', event => {
         if (event.target.closest('[data-ga-event="app_store_click"]')) event.preventDefault();
