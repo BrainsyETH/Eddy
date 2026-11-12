@@ -1,429 +1,421 @@
-# Rain upstream: NOAA rainfall over each gauge's watershed
+# Rain upstream: rainfall in Eddy's existing charts
 
-Status: **proposed**. Nothing here is implemented. Written 2026-11-11.
+Status: **proposed, revised after owner review on 2026-11-11**. This document
+and the design prototype are the deliverables. No rainfall pipeline, production
+migration, app feature, or release is implemented by this revision.
 
-Design mockup (a private canvas, not in this repository; ask the owner for
-access): the "Eddy Rain Upstream Mockup" canvas has four boards: the iOS
-river screen after a storm, the iOS rain detail screen, the iOS quiet-day
-state, and the web Live report. It uses illustrative sample data. Exports go
-into `design/rain-upstream/` before phase 4 starts.
+## Agreed direction
 
-## Goal
+- Add watershed rainfall to the existing shared charting on web and iOS.
+- Make rainfall easy to find, easy to read, and filterable.
+- Keep the current river-page order and compact chart footprint. There is no
+  standalone Rain upstream card or extra web row above Will it hold?.
+- Use short, human language. Show facts; do not claim rain is arriving or has
+  passed based on an assumed lag.
+- Resolve units, incomplete coverage, forecast geography, and map delivery
+  before shipping. Missing data must never become zero rain.
 
-Eddy tells a floater what the river is doing now. It cannot yet say what is
-about to arrive, because it does not know how much rain fell on the land that
-drains to a gauge. This plan adds that one fact, measured the way NWS river
-forecasters measure it (rain averaged over the watershed above the gauge), and
-uses it in three places:
+The original private Claude canvas remains an unverified reference; it requires
+sign-in and was not visually inspected in this review. The revised, self-contained
+prototype is [Eddy-Rain-Upstream-Mockup.html](../design/rain-upstream/Eddy-Rain-Upstream-Mockup.html).
+Open the downloaded HTML in a browser; it needs no account or external assets.
+The prototype reuses repository fonts and Eddy art. All readings, rainfall,
+condition bands, and forecasts in it are illustrative. It is an HTML design
+prototype, not a native-device verification or a live river report.
 
-1. **Rain upstream, as data.** How much rain fell over the watershed above the
-   selected gauge in the past 6, 24 and 72 hours, and how much is forecast.
-   Free, like the gauge reading.
-2. **Rain on the gauge chart.** Hourly rain bars on the same time axis as the
-   gauge line, so "it rained, then it rose" is visible.
-3. **Rain in Eddy's Read.** The Read may say that rain fell upstream and
-   whether it has likely reached this gauge. It stays qualitative and never
-   predicts a level.
+## Product layout
 
-Out of scope for v1: rain-triggered push alerts, rainfall on the national
-river map (the ~14,300 non-curated gauges), social-post use, snowmelt, and
-any predicted gauge height.
+The sequence remains current conditions → chart → Will it hold? → Eddy's Read.
+Each surface has one job:
 
-## What the code does today
-
-- **Rain is a point sample.** `generateEddyUpdate` fetches OpenWeather at one
-  weather point per river (`src/lib/eddy/generate-update.ts:164`) and passes
-  the last 1 h / 3 h of rain at that point plus a rain-chance percentage.
-- **One prompt line is wrong.** `fetchPrecipitationFromWeather` divides
-  today's rain *probability* by 100 (`src/lib/weather/openweather.ts:255`) and
-  the prompt prints it as inches (`generate-update.ts:493`). A 70% chance
-  reaches the model as "Today's forecast rain: 0.7 in".
-- **Rain lag is a hand-written number.** `river_characteristics.rain_lag_hours`
-  is set for 8 rivers; the deprecated map in `src/lib/eddy/rain-lag.ts` covers
-  one more (Gasconade). All nine are spring-fed. None of the 10 rain-driven
-  rivers has one.
-- **The river forecast in "Will it hold?" uses a retired host.** The outlook
-  route calls `fetchAhpsForecast` (`src/app/api/rivers/[slug]/outlook/route.ts:376`),
-  which reads `water.weather.gov/ahps2`. `src/lib/nws/forecast.ts` documents
-  that host as dead and already implements the NWPS replacement, which the
-  gauge history route uses. The only other caller is
-  `src/app/api/usgs/mo-forecast/route.ts`.
-- **Stored gauge history exists.** `gauge_readings` is written by
-  `update-gauges` hourly (every 15 minutes for fast gauges). That is the series
-  rainfall will be correlated with.
-- **No watershed geometry is stored.** `gauge_stations` has
-  `drainage_area_sqmi` and `huc`, and no polygon.
-- **The UI names differ from the prompt.** The prompt calls the outlook panel
-  "Watch for". Users see it as **"Will it hold?"**, and the Read's forecast
-  paragraph is labelled **"WEATHER"**. This plan uses the user-facing names.
-
-## What was verified on 2026-11-11
-
-Every claim below was run against the live services from a development
-session, using the 50 production gauges that carry a USGS site ID.
-
-| Check | Result |
+| Surface | Rainfall's role |
 | --- | --- |
-| Watershed delineation (USGS NLDI `basin`) | 50 of 50 returned a single polygon, about 1 second each |
-| Delineated area vs stored `drainage_area_sqmi` | 47 of 49 within 5.5%; 42 within 2% |
-| Area outliers needing review | Big Piney near Houston (159 vs 251 sq mi, -37%); Niangua at Windyville (337 vs 377, -11%) |
-| Missing stored area | Elk River at Noel has none; NLDI gives 801 sq mi |
-| Basin-average rainfall (NOAA MRMS image service, polygon statistics) | 150 requests (50 basins, 3 windows) all succeeded in 6.7 s total; largest polygon 1,642 vertices and 121,761 cells |
-| MRMS units | Service text says inches; values behave as **millimetres** (a wet basin returned 26.8 for 24 h; a second source put the same days near 1 inch each) |
-| Rainfall forecast (`api.weather.gov` gridpoints) | `quantitativePrecipitation` returned 6-hourly amounts in mm for the Ozarks grid cell |
-| Co-located USGS rain gauges (parameter 00045) | 13 of the 50 sites report rain, mostly in Arkansas |
+| Compact chart | A short Rain upstream entry in existing chart chrome, opening the expanded chart with rain selected; no new card |
+| Expanded chart | A labelled rain track, shared time axis and selection with the river line; Rain upstream can be turned on/off |
+| Will it hold? | Forecast amounts explicitly labelled Upstream rain, distinct from local rain chance |
+| Eddy's Read | At most one useful factual rain sentence when it changes the story |
+| Rain details | 6 h / 24 h / 72 h totals, watershed map, spatial variation, forecast and source detail |
 
-Two things follow. The delineation is good enough to trust with an automatic
-area check and a manual review list of three. The MRMS unit must be pinned by
-a test before any number is shown.
+### Compact chart and expansion
 
-## Scope
+The initial design places the full rainfall track in the existing expanded
+chart. Tapping Rain upstream opens that chart and enables the layer; the label
+and accessibility hint must make that action clear. The expanded view exposes
+a direct Rain upstream switch, also represented in the existing Compare menu.
+Do not rename or reorganize unrelated chart controls in this feature.
 
-28 active rivers, 54 curated gauges (production count, 2026-11-11).
+Do not add the original 44 pt track above the compact iOS plot: that grows the
+page or reduces the current 208 pt water plot by about a fifth. Reuse the chart's
+existing metadata/control area for the compact entry; measure against a current
+baseline. If that entry cannot fit at a narrow width without losing current
+information, expose it through the existing Compare control rather than adding
+a row. The entry must not displace thresholds, the current reading, freshness,
+or accessibility content. Automatic inline rain bars remain outside the initial
+design unless a later side-by-side review demonstrates an equally readable fit.
 
-| River type | Rivers | Gauges | Gauges that can get a watershed | Treatment |
-| --- | --- | --- | --- | --- |
-| `rain_flashy` | 10 | 17 | 17 | Full feature |
-| `spring_fed_float` | 15 | 32 | 31 | Full feature, with the spring caveat where the notes support it |
-| `dam_tailwater` | 3 | 5 | 2 | Off. Releases set the level |
+- In expansion, reserve a stable rain-track slot while the layer is off so the
+  river plot, axes and readout do not jump when it is toggled.
+- Preserve at least the current compact water-plot height where viewport space
+  permits. In short landscape / large-text layouts use a scrollable expanded
+  surface rather than shrinking labels or clipping the gauge plot.
+- Default the layer on for a newly opened recent view when the user entered via
+  Rain upstream. Explicit on/off choice survives refresh, unit changes and
+  fullscreen transitions. Longer history and custom dates do not auto-enable it.
+- Rainfall works with both feet and cfs. It has its own inches scale; it never
+  changes the water value domain, condition colors, or official flood references.
+- One cursor aligns the hourly rain interval with the river reading. It must
+  label the rain interval and observation/forecast identity, not invent an
+  instantaneous rainfall value at the gauge timestamp.
+- Use the existing rain palette and Eddy weather art. Amount bands have their
+  own definitions; do not apply rain-probability thresholds to inch totals.
+- Solid bars mean radar estimates; outlined/hatched bars mean rainfall forecast.
+  Include text labels so neither color nor tiny dashes carry the distinction alone.
 
-The four gauges without a watershed are Army Corps dam gauges with no USGS
-site ID. The Black below Clearwater Dam is a tailwater *section* on a
-spring-fed river and is also off.
+### Details and forecast
 
-Six gauges drain more than 2,000 sq mi (the largest is the White at Calico
-Rock at 9,980). A single average says little at that size. They show the
-heaviest-spot figure beside the average, and the two White River gauges are
-off anyway as tailwater.
+Rain details open using the existing sheet/fullscreen navigation patterns. The
+watershed is defined once: “The land that drains to this gauge.” Its map stays
+out of the default river page. Show the selected gauge and upstream boundary,
+a labelled accumulation window, an inches legend, and a rain-through time.
+Follow existing public-land outline rules without making the boundary look like
+a route, water edge, or hazard. The prototype does not invent a watershed map;
+real, reviewed geometry and raster delivery are a data-phase gate.
 
-## Sources
+Will it hold? keeps local weather's location label. Upstream forecast amount
+gets a separate “Upstream rain” label, with source/area explanation in details.
+Do not present OpenWeather's local probability and NWS's basin estimate as one
+combined forecast. If adding amounts forces the compact outlook to grow at the
+supported default sizes, keep amounts in rain details until a revised fit is
+reviewed. Leave the existing weather card intact.
 
-| Need | Source | Endpoint | Auth |
-| --- | --- | --- | --- |
-| Watershed polygon | USGS NLDI | `api.water.usgs.gov/nldi/linked-data/nwissite/USGS-{id}/basin` | none |
-| Observed rain, 1 h to 72 h | NOAA/NWS MRMS radar estimate, 1 km, hourly | `mapservices.weather.noaa.gov/raster/rest/services/obs/mrms_qpe/ImageServer/computeStatisticsHistograms` | none |
-| Forecast rain amounts | NWS forecast grid, 2.5 km | `api.weather.gov/gridpoints/{office}/{x},{y}` (`quantitativePrecipitation`) | none; needs a User-Agent |
-| Cross-check | NOAA RFC gauge-corrected estimate | `.../obs/rfc_qpe/MapServer` | none |
-| Ground truth at 13 gauges | USGS rain gauge, parameter 00045 | existing USGS provider | existing key |
+### Copy contract
 
-No new vendor, key or fee. OpenWeather stays for temperature, wind and rain
-*chance*; it stops being the Read's source of rain *amounts*.
+| Situation | Compact wording | Qualification |
+| --- | --- | --- |
+| Recent rain | “0.82 in avg · past 24h” | Under Rain upstream; sample only |
+| Little rain across the basin | “Little rain overall · past 72h” | Only with fresh, sufficient spatial/temporal coverage; do not hide a validated localized event |
+| Radar cannot be refreshed | “Rain data delayed” | Last valid time and amount available in details |
+| Some coverage missing | “Some rain data missing” | Never show a complete total or a dry conclusion |
+| No usable data | “Rain data unavailable” | Preserve the rest of the chart |
+| Fresh rain and a fresh steady gauge | “Rain fell upstream overnight. The river is still steady.” | Use only when both statements are supported |
+| Rain forecast | “Rain is forecast upstream.” | Conditional amount in the forecast surface, no promised river rise |
 
-## Decisions
+Say “radar estimate,” “average,” and the time window wherever an amount could be
+misread. Prefer “Rain through 7 AM” over a fetch-time “Updated 7:04 AM.” Forecasts
+have a separate issued time. Use the station's timezone and a visible zone when
+needed. Reserve “no measurable rain” for a source that actually establishes it;
+a low watershed average alone does not.
 
-1. **Watershed average, not a point.** A point sample near the take-out can
-   read zero while the headwaters got two inches. The watershed mean is the
-   standard hydrology input (mean areal precipitation).
-2. **Store the polygon once.** NLDI is called by a script, not at request
-   time. Watersheds do not change; the hourly job then needs only NOAA.
-3. **MRMS for "now", labelled as an estimate.** It updates a few minutes past
-   each hour. It is radar-only, so it can over- or under-read, and it can show
-   a trace where no rain fell. The UI says "radar estimate" and treats anything
-   under 0.05 in as no measurable rain.
-4. **Convert mm to inches in one function, pinned by a fixture test** that
-   fails if NOAA changes the unit.
-5. **Forecast by sampling the NWS grid inside the watershed.** Up to nine
-   fixed points per watershed, mapped once to NWS grid cells and de-duplicated
-   across gauges. Averaged to a watershed figure. This is coarser than the
-   observed product and is labelled "forecast".
-6. **Code decides the rain state; the model only phrases it.** A pure function
-   classifies each gauge (see *Eddy's Read*). The model never sees raw numbers
-   it could misread as a prediction.
-7. **Rainfall facts are free. The Read stays premium.** Rain upstream is
-   public NOAA data and a safety signal, so it sits with the gauge reading.
-   Interpretation stays in the Read under the existing tiering
-   (`src/lib/eddy/tiered-prose.ts`).
-8. **Rain-to-rise lag starts hand-written and becomes measured.** Fill the 10
-   rain-driven rivers by hand for launch, then derive per-gauge lag from stored
-   rain and `gauge_readings` once enough storms are recorded.
-9. **Never write to production from a development session.** The backfill
-   script is dry-run by default and uses `getScriptClient`.
+## Current code and remaining independent fix
 
-## Data model
+- `src/lib/weather/openweather.ts` still assigns precipitation probability / 100
+  to `forecastRainToday`, described as inches. Remove that field and its prompt
+  use, and audit all callers. Missing rainfall amounts remain unknown.
+- The original plan's AHPS migration task is stale against current `main`:
+  `/api/rivers/[slug]/outlook` and `/api/usgs/mo-forecast` already call
+  `fetchNwsForecastStages` from `src/lib/nws/forecast.ts`. Preserve that work,
+  verify the branch against main before implementation, and do not recreate it.
+- `gauge_readings` already stores gauge history. `gauge_stations` stores
+  drainage area and HUC, not a basin polygon.
+- Hand-written river rain lag exists for some rivers; it is not sufficient
+  evidence for a gauge-specific arrival/passed classification.
+- The two renderers already share chart meaning in
+  `missouri-float-planner/shared/`. Rain must extend that shared logic.
 
-One migration, named `YYYYMMDDHHMMSS_gauge_basin_rainfall.sql`, listed under
-`[pending]` in `supabase/production-migrations.txt` in the same PR and renamed
-to the version production records.
+Paths starting `src/`, `supabase/`, or ingestion `scripts/` below are relative
+to `missouri-float-planner/` unless a repository-root prefix is shown.
 
-```sql
--- Watershed geometry, fetched once per gauge.
-alter table public.gauge_stations
-  add column if not exists basin_geom geometry(MultiPolygon, 4326),
-  add column if not exists basin_area_sqmi numeric(10,2),
-  add column if not exists basin_source text,          -- 'nldi'
-  add column if not exists basin_fetched_at timestamptz,
-  add column if not exists basin_review text,          -- null | 'area_mismatch' | 'approved'
-  add column if not exists basin_qpf_cells jsonb;      -- [{office,x,y}], NWS grid cells inside the basin
+## Scope and earlier investigation
 
--- One row per gauge per hour. rain_1h_in is the chart series; the wider
--- windows are stored as NOAA reports them rather than summed from hours.
-create table public.gauge_basin_rainfall (
-  gauge_station_id uuid not null references public.gauge_stations(id) on delete cascade,
-  valid_at timestamptz not null,          -- end of the hour the estimate covers
-  rain_1h_in numeric(6,2), rain_1h_max_in numeric(6,2),
-  rain_6h_in numeric(6,2), rain_6h_max_in numeric(6,2),
-  rain_24h_in numeric(6,2), rain_24h_max_in numeric(6,2),
-  rain_72h_in numeric(6,2), rain_72h_max_in numeric(6,2),
-  cell_count integer not null,
-  source text not null default 'noaa_mrms',
-  fetched_at timestamptz not null default now(),
-  primary key (gauge_station_id, valid_at)
-);
+The original investigation reported 28 active rivers and 54 curated gauges:
+17 on rain-driven rivers, 32 on spring-fed rivers, and 5 on dam tailwaters.
+Fifty had USGS IDs; all returned an NLDI polygon. Of 49 with stored drainage
+area, 47 reportedly matched within 5.5%. These are recorded prior results,
+not measurements rerun during this design revision. Save reproducible evidence
+and refresh the inventory in phase 2.
 
--- Replaced on every forecast refresh.
-create table public.gauge_basin_rain_forecast (
-  gauge_station_id uuid not null references public.gauge_stations(id) on delete cascade,
-  period_start timestamptz not null,
-  period_hours smallint not null,
-  rain_in numeric(6,2) not null,          -- mean across sampled grid cells
-  rain_max_in numeric(6,2) not null,
-  issued_at timestamptz not null,
-  primary key (gauge_station_id, period_start)
-);
+| Basin needing review | Previously reported result | Gate |
+| --- | --- | --- |
+| Big Piney near Houston | 159 vs 251 sq mi | Check site ID, pour point, boundary and source area |
+| Niangua at Windyville | 337 vs 377 sq mi | Same review |
+| Elk River at Noel | 801 sq mi, no stored comparator | Missing comparator is unreviewed, not automatic approval |
 
-alter table public.gauge_basin_rainfall enable row level security;
-revoke all on public.gauge_basin_rainfall from public, anon, authenticated;
-grant all on public.gauge_basin_rainfall to service_role;
--- same three lines for gauge_basin_rain_forecast
-```
+Quarantine questionable gauges individually; correctly validated gauges can
+proceed. Record review evidence and reviewer/date. Similar area alone does not
+prove the boundary is correct. Surface drainage also does not fully describe
+spring recharge; use the existing spring caveats in details and avoid causal
+claims about steady spring-fed water.
 
-- Server-only, RLS with no policies, the same pattern as
-  `lake_pool_readings` (`20261109224918`). Clients read rainfall through the
-  API, so `make check-db` stays green.
-- Volume: 50 gauges at 24 rows a day is about 440,000 rows a year. Keep it
-  all; the history is what phase 6 learns from.
-- A later column, `river_gauges.rain_lag_hours_measured`, holds the derived lag.
+Exclude dam-controlled gauges/reaches, including the Black below Clearwater,
+through one shared server eligibility rule. Selection of a different gauge must
+change the polygon, totals, history, outlook and Read together. Keep the
+exclusion scoped to the actual controlled water, not the entire river name.
 
-## Pipeline
+Out of scope: national-map rainfall for non-curated gauges, push alerts, social
+use, snowmelt, predicted gauge heights and rain-to-rise countdowns. Free rainfall
+facts with the existing premium Read remains the recommended tiering; no new
+paywall is introduced by this design. Alerts remain a separate future design.
 
-**Backfill script: `scripts/fetch-gauge-basins.ts`**
+## Sources and verification gates
 
-- Dry-run by default, `--apply` to write, client from
-  `getScriptClient({ script, write })` so `EXPECTED_SUPABASE_REF` is enforced.
-  Do not copy the direct-client pattern in `fetch-drainage-areas.ts`; that file
-  is on the shrinking legacy allowlist.
-- For each curated gauge with a USGS site ID: fetch the NLDI polygon, compute
-  its area, compare with `drainage_area_sqmi`. More than 10% apart sets
-  `basin_review = 'area_mismatch'` and the gauge stays out of the feature until
-  a person approves it. Expect two on the first run (Big Piney near Houston,
-  Niangua at Windyville).
-- Sample up to nine points inside the polygon, resolve each through
-  `api.weather.gov/points`, store the distinct grid cells.
-- Add a row to the "Importers & backfills" table in `docs/data-pipeline.md`.
-
-**Hourly cron: `/api/cron/sync-basin-rainfall`**
-
-- Schedule `10 * * * *`. MRMS posts a few minutes after the hour, and :00,
-  :15, :20, :25, :35 and :40 are taken.
-- Follows the cron conventions: `hasValidMachineBearer` with `CRON_SECRET`,
-  wrapped in `withJobRun('sync-basin-rainfall', ...)`, `maxDuration` 120,
-  entries in both the `functions` and `crons` blocks of `vercel.json`, the same
-  entry in `src/lib/admin/dashboard/expected-jobs.json`, and a label in
-  `overview-model.ts`. `dashboard.test.ts` fails without the first three.
-- Per gauge: four polygon-statistics requests (1 h, 6 h, 24 h, 72 h), six
-  gauges at a time. About 200 requests, well under 30 seconds at the measured
-  0.24 s median.
-- Reads the raster's `idp_validendtime` and writes it as `valid_at`, so a
-  repeated run upserts the same row and a late NOAA post is not mislabelled.
-- Every third hour it also refreshes the forecast table from the stored grid
-  cells, one request per distinct cell.
-- A failed gauge is skipped and logged; the others still write.
-- Calls go through `trackedFetch`. Reuse provider `'nws'` for MRMS and
-  gridpoints and `'usgs'` for NLDI with new operation strings; adding a new
-  provider touches four files for no gain.
-- One shared User-Agent constant for NOAA calls, replacing the two inline
-  copies in `src/lib/nws/alerts.ts`.
-
-**Trust checks** (registered in `src/lib/trust/registry.ts`, drained by the
-existing `trust-tick`; no new cron slot):
-
-| Check | Cadence | Rule | Severity |
-| --- | --- | --- | --- |
-| `basin_rainfall_freshness` | hourly | `basin_rainfall_stale`: newest row older than 3 h | medium |
-| | | `basin_rainfall_frozen`: older than 12 h | high |
-| `basin_coverage` | daily | `basin_missing`: eligible gauge with no approved polygon | low |
-
-Each rule needs its severity in `severity.ts` and remediation text in
-`remediation.ts`; `registry.test.ts` and `remediation.test.ts` enforce both.
-Model the freshness check on `checks/dam-freshness.ts`.
-
-## API
-
-Rainfall rides on routes the clients already call. No new endpoint.
-
-| Route | Addition |
+| Need | Source |
 | --- | --- |
-| `GET /api/gauges/[siteId]` | `basinRain` on `GaugeDetail` |
-| `GET /api/gauges/[siteId]/history` | `rain` series aligned to the requested range |
-| `GET /api/rivers/[slug]/outlook` | `rainAmountIn` on each day; `basinRain` summary for the picked gauge |
+| Upstream polygon | USGS NLDI `api.water.usgs.gov/nldi/linked-data/nwissite/USGS-{id}/basin` |
+| Estimated rain | NOAA MRMS `mapservices.weather.noaa.gov/raster/rest/services/obs/mrms_qpe/ImageServer` |
+| Forecast amounts | NWS `api.weather.gov/gridpoints/{office}/{x},{y}` quantitativePrecipitation |
+| Independent areal comparison | NOAA RFC gauge-corrected estimate, with matched spatial/temporal support |
+| Point comparison | USGS parameter 00045 at the reportedly 13 co-located sites |
+
+The original investigation found a unit discrepancy: service text says inches
+while returned statistics appeared to be millimetres. Do not resolve this by
+assuming one fixed conversion from one storm.
+
+Before any public amount or Read input:
+
+1. Record the exact raster/subset, rendering rule, pixel size, coordinate system,
+   accumulation window, valid-end time, native units and conversion path.
+2. Verify dry and wet cases against the underlying product and an independent
+   source with the same time window. Compare point rain to the matching radar
+   cell, not directly to the watershed mean as if they measure the same area.
+3. Mask missing/no-coverage pixels before aggregation. Record valid and expected
+   coverage, not just a positive cell count. Use an area-weighted basin mean;
+   account for pixel projection and boundary weighting explicitly.
+4. Pin request/response fixtures and conversion tests. Add runtime metadata,
+   coverage and sanity checks plus periodic live cross-checks. A fixture alone
+   cannot detect a provider changing its live units. Quarantine suspicious data.
+5. Set spatial/temporal completeness thresholds in code with documented evidence
+   before release. Until then, incomplete coverage cannot support a quiet state,
+   a complete total, or Read interpretation.
+
+NOAA references:
+- [Image service and timestamps](https://mapservices.weather.noaa.gov/raster/rest/services/obs/mrms_qpe/ImageServer)
+- [Raster/renderer selection](https://www.weather.gov/gis/mrms_data_quick_tutorial)
+- [MRMS units and missing/no-coverage codes](https://www.nssl.noaa.gov/projects/mrms/operational/tables.php)
+- [NWS interval and unit contract](https://github.com/weather-gov/api/blob/master/gridpoints.md)
+- [NWS grid mapping refresh](https://www.weather.gov/documentation/services-web-api)
+
+### Forecast sampling
+
+Use representative, area-weighted samples within each basin. Nine is an initial
+budget, not evidence of accuracy for all basin shapes and sizes. Validate against
+a denser reference sample before choosing a cap. Store sample location, mapped
+grid cell, represented weight and mapping date. Deduplicate HTTP fetches while
+retaining each basin's weights. Periodically refresh `/points` mappings.
+
+Read `uom` and each `validTime` interval. Do not assume all periods are six hours,
+fill nulls with zero, duplicate accumulations, or invent hourly storm timing.
+Any proration across day boundaries must be documented as an approximation.
+Return coverage for the next 72 hours; a partly covered forecast is not a full
+72-hour total. Forecast age is independent of observation age. Publish the
+sampling approximation in details as “Upstream forecast estimate.”
+
+## Data contract
+
+Finalize the migration after the source verification, with one ledger entry
+under `[pending]` and the production-recorded version reconciled after apply.
+Use the existing server-only RLS/grant pattern. Suggested storage:
+
+- Basin metadata on `gauge_stations` or a companion versioned table: full
+  MultiPolygon geometry, simplified display geometry, computed area, source,
+  fetched date, review status/evidence, and forecast sample weights/mappings.
+- Rain observations keyed by gauge + basin version + accumulation window +
+  valid-end time. Each window keeps its own time, amount, quality/coverage,
+  product identity and fetched time. Do not force four independently refreshed
+  products into one falsely synchronized row.
+- Keep enough precision for aggregation; round only for display. Store source
+  6/24/72-hour estimates separately from hourly sums.
+- Forecast runs keep issued time and interval start/end, amount, weights and
+  coverage. Replace the current run atomically only after validation; keep
+  provenance sufficient to reproduce a displayed forecast.
+- Retain hourly rainfall for later analysis. Missing hours stay explicit. Daily
+  sums have interval counts/durations and completeness in the station timezone,
+  including 23/25-hour DST days. Never sum overlapping rolling totals.
+
+Public shape (design contract; finalize names with existing types):
 
 ```ts
+type RainQuality = 'ok' | 'partial' | 'stale' | 'unavailable';
+interface RainPeriod {
+  start: string;
+  end: string;
+  amountIn: number | null;
+  quality: RainQuality;
+  coverageFraction: number | null;
+  kind: 'radar_estimate' | 'forecast';
+  issuedAt?: string;
+}
 interface BasinRain {
-  /** 'ok' | 'stale' (older than 3 h) */
-  status: 'ok' | 'stale';
-  validAt: string;                 // ISO
+  gaugeSiteId: string;
+  basinVersion: string;
   basinAreaSqmi: number;
-  past6hIn: number; past24hIn: number; past72hIn: number;
-  heaviest24hIn: number;           // wettest cell in the watershed
-  /** Next 72 h, watershed mean. Null when the forecast is unavailable. */
-  forecast72hIn: number | null;
-  /** Hours from rain to a rise at this gauge. Null when not known. */
-  lagHours: number | null;
-  lagSource: 'local_knowledge' | 'measured' | null;
-  /** Decided in code; see Eddy's Read. */
-  state: 'none' | 'trace' | 'arriving' | 'passed' | 'forecast_only';
-  attribution: string;             // 'Rainfall: NOAA radar estimate'
+  observations: { past6h: RainPeriod; past24h: RainPeriod; past72h: RainPeriod };
+  forecast72h: RainPeriod;
+  spatialVariation: {
+    quality: RainQuality;
+    wettest24hIn: number | null;
+    wetAreaFraction: number | null;
+  };
+  summary: { kind: 'recent' | 'quiet' | 'forecast' | 'partial' | 'stale' | 'unavailable'; text: string };
+  detailsUrl: string;
+  attribution: string;
 }
 ```
 
-- `basinRain` is `null` when the feature does not apply (tailwater, no
-  polygon, polygon under review). Clients hide the section; they do not show
-  an error.
-- History `rain`: `{ t: string; in: number }[]` hourly for 24 h and 7 d,
-  summed to daily bars for 30 d and longer, plus `forecast` bars to the right
-  of now.
-- Mirror every type in `packages/eddy-types/index.ts`, extend
-  `src/lib/gauges/openapi.ts` and its fixtures (new fields are required unless
-  an explicit required list says otherwise), and keep
-  `api-contract-parity.test.ts` and `history-route-contract.test.ts` passing.
-- Offline bundles stay unchanged; they deliberately carry no water state.
+Ineligible gauges use `basinRain: null`. Eligible gauges with an outage retain
+an explicit unavailable/partial state. Do not erase eligibility because a
+provider failed. Forecast and observed rain remain independent facts; a dry
+observation cannot swallow a meaningful forecast branch.
+
+## Pipeline and API
+
+Backfill `scripts/fetch-gauge-basins.ts` is dry-run by default and uses
+`getScriptClient({ script, write })` / `EXPECTED_SUPABASE_REF`. Save a review
+manifest and overlay for each flagged basin. A >10% area mismatch or missing
+comparator holds that basin pending documented review; no blanket approval.
+Add the importer to `docs/data-pipeline.md`.
+
+Proposed hourly `/api/cron/sync-basin-rainfall` at `10 * * * *`: check the current
+cron inventory first. Use `hasValidMachineBearer`, `withJobRun`, `trackedFetch`,
+timeouts, bounded concurrency, retry/backoff and a job deadline. Follow existing
+`vercel.json`, expected-jobs and admin label registration conventions. Reuse
+provider `nws` with distinct operations. Failed gauges/windows do not overwrite
+good data or block other gauges. Poll/validate source timestamps independently
+and upsert idempotently. A late product is not labelled as the current hour.
+
+Forecast refresh every three hours is a starting cadence. Bound its distinct
+cell workload separately from the roughly 200 observed requests/run. Fetch and
+cache cells once per run; do not duplicate overlapping-basin calls. Atomic
+forecast replacement prevents an empty interval between delete and insert.
+
+Trust checks cover per-gauge/window observation freshness (initial warning at
+3 h, high at 12 h), forecast issue age/valid coverage, missing approved basins,
+invalid units/values and insufficient coverage. Register checks, severities and
+remediation with the existing trust system. A fresh 1 h product cannot hide a
+stale 72 h product. Suppress Read input when its required facts are stale.
+
+| Route | Addition |
+| --- | --- |
+| `/api/gauges/[siteId]` | Lightweight BasinRain summary; no full polygon/raster in routine responses |
+| `/api/gauges/[siteId]/history` | RainPeriod series for the requested actual window, with coverage and availability start |
+| `/api/rivers/[slug]/outlook?gaugeId=...` | Explicit upstream rainfall forecast amounts for the selected gauge |
+| `/api/gauges/[siteId]/rain` (lazy detail) | Simplified reviewed GeoJSON, basin version, window metadata, legend and raster descriptor |
+
+The detail route is deliberate: the previous “no new endpoint” constraint did
+not provide a map contract. Its raster descriptor must name the real approved
+NOAA product, selected accumulation interval, timestamp, units, bounds and
+tile/export mechanism. Decide clipping, caching and licensing/attribution in
+phase 2. If the raster is absent or a historical image cannot be retrieved,
+show boundary-only with “Rain map unavailable for this time.” Never drape the
+latest rainfall under historical totals. The current NOAA image service is not
+time-enabled; historical raster support needs its own archive strategy.
+
+Include no-data rendering, map/total version consistency, maximum geometry size
+and simplification tolerance in the detail contract. Raster loading happens on
+demand and cannot slow a current reading or ordinary chart request. Offline
+bundles stay unchanged; no offline state is presented as current rainfall.
+
+## Shared chart implementation
+
+Extend shared chart-model/chart-view plus the versioned chart-share contract
+before editing renderers. The shared layer owns interval clipping, timezone
+bucketing, gaps, rain/forecast identity, axis alignment and accessible readout.
+Update the existing web `GaugeHistoryChart` controller, `FlowTrendChart`, native
+`GaugeChart`, details, fullscreen and hooks. Do not create a second rain chart
+with independent range/zoom state.
+
+- Keep official river-stage forecasts distinct from rainfall forecasts.
+- Past custom dates contain only rain available for that interval; never append
+  today's forecast to a past window. Define long-range/no-history behavior.
+- Hourly bars for short windows; complete daily totals for longer windows, with
+  partial-day markers and actual interval widths. Do not imply pre-collection
+  history exists.
+- Preserve rain selection in share links/exports or explicitly state when a
+  receiving client cannot reproduce it. Current share layers reject unknown
+  values and have ft restrictions; extend deliberately with compatibility tests.
+- Shared cursor, keyboard/VoiceOver navigation and accessible table provide
+  amount, window, coverage and source identity. No tiny-bar-only tap targets.
+- Required API additions stay backward compatible with installed mobile clients.
+  Mirror types in `packages/eddy-types`, OpenAPI and contract fixtures.
+- Summary/history cache keys include selected gauge and required basin/product
+  version. Rapid gauge switching must never flash the previous basin's rain.
 
 ## Eddy's Read
 
-**Fix first, independent of everything else**
+V1 supplies independently validated observed-rain, forecast-rain and gauge-trend
+facts. Code chooses allowed statements. No `arriving` / `passed` enum, no timing
+countdown and no implied safe-to-float verdict from rainfall. Existing hand-set
+lag does not unlock that wording.
 
-- Remove the probability-as-inches line and the `forecastRainToday` field.
-- Move the outlook route and `mo-forecast` from `fetchAhpsForecast` to
-  `fetchNwsForecast`, then delete `src/lib/usgs/ahps-forecast.ts`.
+Qualitative amount bands must be defined per accumulation window and reviewed
+against fixtures before terms like “heavy” ship. Do not equate heavy over 72 h
+with heavy in 1 h, or assume small basin area alone determines response.
 
-**Rain state, decided in code** (`src/lib/eddy/basin-rain-state.ts`, pure, tested):
+Example input: fresh recent rain; fresh steady river; forecast unavailable.
+Allowed: “Rain fell upstream overnight. The river is still steady.”
+Not allowed: “The rise will arrive in four hours” or “The rain has passed.”
+Keep one useful rain sentence within the current Read budget. Drop it when it
+adds nothing. Preserve existing premium/free boundaries and source attribution.
 
-| State | Rule (first match) | What the Read may say |
+Extend the existing fact gate for missing/stale facts, unsupported rainfall
+amounts or units, causal/arrival claims and contradictions with observed trend.
+Apply the same contract to primary and secondary-gauge Reads. The existing
+factual fallback remains the failure path. A prompt instruction alone is not
+the gate.
+
+Read activation stays off until public data is inspectable and replay cases
+pass. Replays need archived, timestamp-matched fixtures from at least five
+storms and five dry spells across representative river types, plus outages,
+localized rain, missing lag and multiple storms. Do not assume one week of new
+collection will contain those storms. Record provenance and limits of fixtures.
+
+## Delivery phases
+
+| # | Deliverable | Release/verification gate |
 | --- | --- | --- |
-| `none` | under 0.05 in over 72 h and under 0.1 in forecast | Nothing about rain |
-| `trace` | under 0.25 in over 72 h | Nothing, unless the river is Too Low and rain is the story |
-| `arriving` | 0.25 in or more inside the lag window, and the gauge has not yet risen to match | Rain fell upstream and is likely still on its way here |
-| `passed` | 0.25 in or more in 72 h, lag window elapsed | Recent rain upstream is the likely reason for the change, stated as likely |
-| `forecast_only` | dry so far, 0.25 in or more forecast | Conditional: "if the rain forecast for the watershed arrives" |
+| 0 | This revised plan and accessible prototype | Review compact fit, rain on/off, all data states, narrow/large text and dark appearance |
+| 1 | Probability-as-inches fix | Audit callers; `make check-web`; preserve existing NWPS migration |
+| 2 | Source validation, basin review, storage, collection, trust, map contract | Reproducible source checks; dry run; migration ledger; `make check-db` after authorized apply; evidence of reliable operation |
+| 3 | Shared contracts/model and web chart integration | `make check-web`; API/share compatibility; baseline layout/interaction checks; public feature flag off until verified |
+| 4 | iOS chart/detail integration | `make check-mobile`, `make bundle-mobile`, `make check-web`; real-device light/dark/large text and installed-client compatibility |
+| 5 | Factual Read integration | Storm/dry/outage replay and fact-gate checks; enable only after public data surfaces can be inspected |
+| 6 | Measured response research, separate future proposal | Event definitions, quality exclusions, validation on held-out storms and uncertainty before any arrival wording is considered |
 
-Thresholds scale down for watersheds under 150 sq mi, which respond to less.
-They are constants in one file and are tuned in phase 3 against replayed
-storms.
+Each implementation phase is its own PR. Phase 0 does not authorize production
+writes or deployments. Phase 2 adds an ADR using the next available number
+(the original plan proposed 0020; check for collisions). Register new test files
+in the explicit web test script. Treat implemented, device-verified and released
+as separate statuses.
 
-**Prompt block** (replaces `[RECENT PRECIPITATION]` in `buildPrompt`):
+### Acceptance checks
 
-```
-[RAIN UPSTREAM — watershed above this gauge, 298 sq mi, NOAA radar estimate]
-State: arriving
-Past 6 h: heavy. Past 24 h: heavy. Past 72 h: heavy.
-Heaviest between 9 PM and 2 AM last night.
-Typical time for rain to reach this gauge: about 4 hours (local knowledge).
-Forecast next 72 h: light.
-```
+- Compare baseline river screen against rain on/off at 320/375/390 px and web
+  mobile/desktop. At default text size the chart/outlook/Read section anchors
+  must not move because rain is toggled or data arrives. No new standalone card.
+- Preserve reading size, threshold labels, forecast identity and the water plot.
+  Large text may reflow naturally for accessibility; never enforce fixed boxes
+  that clip it. Match on/off geometry at each supported text size.
+- Exercise recent rain, quiet, forecast-only, partial, stale, unavailable,
+  excluded tailwater, unknown basin, localized rain and gauge-switch races.
+- Verify rain toggle, range, ft/cfs, zoom, fullscreen, shared selection, share
+  link, accessible data and back navigation on both clients.
+- No provider outage blocks the gauge line, weather or Read fetch. No missing
+  cell/hour becomes zero. No old forecast masquerades as a fresh observation.
+- No Read claims future rise, completed response, numerical stage prediction,
+  or a safe condition based on rainfall.
 
-- Amounts are passed as words (none, light, moderate, heavy, very heavy) from
-  fixed inch bands, so the Read cannot quote a rainfall number it might get
-  wrong and stays inside its existing "leave out rain percentages" rule.
-- The static system prompt gains three sentences under *TREND AND FORECAST*:
-  what each state permits, that rain upstream is evidence for a rise but never
-  proof, and that the block is absent on dam-controlled water. It stays free of
-  river-specific values so the cache prefix is unchanged across calls.
-- The existing rule "leave the forecast to the panel unless rain is already on
-  its way to this gauge" now has data behind it: `arriving` is that case.
-- Secondary-gauge Reads (`generate-gauge-update.ts`) get the same block.
-- `sources_used` gains `'NOAA rainfall'`.
+## Costs and unresolved evidence
 
-**Fact gate** (`src/lib/eddy/report-facts.ts`): add `rainState` to
-`ReportFactsInput` and one contradiction, `rain-upstream`: the text asserts
-rain fell upstream while the state is `none`, or states a rainfall amount in
-inches. Either replaces the report with the factual fallback, as the other
-contradictions do.
+Observed load is about 4,800 requests/day at 50 gauges × 4 windows × 24 runs,
+before exclusions and retries. Nine forecast cells per gauge is up to 450
+distinct cells per refresh (3,600 requests/day at an eight-run cadence), before
+deduplication; the earlier “few hundred” estimate is not established. Measure
+the actual cells, response sizes, retries and tail latency before sizing the job.
 
-**Rollout**: behind an env flag read once per pass. Before turning it on,
-replay at least five recorded storms and five dry spells through the generator
-and review the output by hand.
+The revised per-window schema may produce about 1.75 million observation rows
+per year at that upper scope, plus forecasts and indexes. Measure storage rather
+than retaining the original under-100-MB claim. Public NOAA sources require no
+new vendor key, but compute, database, caching and raster delivery still cost.
 
-## Where a user sees it
-
-Rain uses the existing rain colour ramp (teal, "sky, not water"), never the
-condition colours.
-
-**iOS**
-
-1. **Gauge chart** (`eddy-ios/src/components/GaugeChart.tsx`): a 44 pt rain
-   track above the plot on the shared time axis. Solid bars for measured rain,
-   hollow dashed bars for forecast, matching the NWS-forecast dash convention.
-   Toggled from the existing "Compare" menu, on by default when there is rain
-   in range.
-2. **Rain upstream card** on the river screen, between the chart and "Will it
-   hold?": the 24 h figure, 6 h and 72 h beside it, the heaviest spot, one line
-   on lag, and "NOAA radar estimate · Updated 7:04 AM". Collapses to a single
-   quiet row when the state is `none`.
-3. **Rain detail screen**: the watershed outline on the map with rainfall
-   shading, the same totals, the forecast by day, and a plain explanation of
-   what a watershed is. The outline follows the public-land layer's styling
-   rules: low-alpha fill, thin edge.
-4. **"Will it hold?"**: each day shows the forecast amount under the chance,
-   for example "Rain 70%" then "0.3 in".
-5. **Eddy's Read**: no layout change. The footer becomes "via {gauge} · NOAA
-   rainfall" when the Read used it.
-6. **Gauge sheet** on the map: a "Rain upstream" row in the About tab.
-
-**Web**
-
-1. `FlowTrendChart`: the same rain track above the line.
-2. `WillItHold`: amounts per day.
-3. A "Rain upstream" row in the Live report panel above "Will it hold?".
-4. `about` page: a NOAA rainfall card in "Data Sources", and a line in
-   `llms.txt` "Data Freshness".
-
-**Copy rules**: say "watershed", define it once on the detail screen ("the
-land that drains to this gauge"). Say "radar estimate". Never show a number
-without its window. Dry is stated plainly: "No measurable rain upstream in the
-past 72 hours."
-
-## Phases
-
-| # | Phase | Ships | Validate |
-| --- | --- | --- | --- |
-| 1 | Fixes | Remove fake-inches line; outlook on NWPS | `make check-web`; outlook returns a forecast for a gauge with an NWS LID |
-| 2 | Data | Migration, basin script, hourly cron, trust checks, unit test, ADR | Script dry run; `make check-web`; `make check-db` after applying; a week of rows with no freshness finding |
-| 3 | Read | Rain state, prompt block, fact gate, flag off | Unit tests; replay of 5 storms and 5 dry spells reviewed by hand; then flag on |
-| 4 | API and web | Types, OpenAPI, chart track, rows, about page | `make check-web`; fixtures updated |
-| 5 | iOS | Chart track, card, detail screen, outlook amounts | `make check-mobile`, `make bundle-mobile`, `make check-web`; device check in light and dark |
-| 6 | Measured lag | Derive per-gauge lag from stored rain and readings | Compare against the nine hand-written values; replace only where at least five storms agree |
-
-Each phase is its own PR. Phase 1 can merge today. Phase 2 needs the ADR
-(`docs/decisions/0020-rain-upstream-is-a-watershed-average.md`) because it
-adds a stored upstream and a product rule: rainfall is a watershed average
-from NOAA, shown as an estimate, and never turned into a predicted level.
-
-New test files must be added to the explicit `test` list in
-`missouri-float-planner/package.json`; `registered-tests.test.ts` fails
-otherwise.
-
-## Risks and open questions
-
-| Risk | Mitigation |
-| --- | --- |
-| MRMS unit or schema changes without notice | Fixture test on the conversion; freshness check; cron validates cell count and a sane range (0 to 30 in) before writing |
-| Radar-only estimate is wrong for a storm | "Radar estimate" label; heaviest-spot beside the mean; phase 2 logs MRMS against the 13 co-located USGS rain gauges so the error is known before the Read uses it |
-| NOAA map service is down | Section shows "stale" with the last time; the Read drops the block; nothing else depends on it |
-| The Read overstates cause | State decided in code; amounts as words; fact gate; replay before enabling |
-| Surface watershed misleads on big springs | Spring caveat from existing river notes; no claim that rain explains a steady reading |
-| Hand-written lag is wrong | Shown as "usually about"; replaced by measured values in phase 6 |
-
-Open questions for the owner:
-
-1. Should Rain upstream be free everywhere, as recommended, or premium on iOS?
-2. Is a rain-triggered alert ("heavy rain upstream of a river you follow")
-   wanted after v1? It needs its own design; the alert engine was built for
-   gauge thresholds.
-3. Approve or correct the two area mismatches and the Elk River area before
-   phase 2 applies.
-
-## Cost
-
-No vendor fees. About 4,800 NOAA map requests and a few hundred forecast
-requests a day, one extra Vercel cron, and under 100 MB of rows a year. The
-Read prompt grows by about 60 tokens per call.
+Still to establish during implementation: validated unit path, coverage policy,
+sampling accuracy, three basin reviews, raster delivery, archived storm fixtures,
+and device-level readability. None is presented as already solved by this plan.
