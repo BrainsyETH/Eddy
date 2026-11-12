@@ -70,6 +70,20 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     void cleanup().catch(console.error).finally(() => process.exit(signal === 'SIGINT' ? 130 : 143));
   });
 }
+async function checkPlannerInvitation(page, name) {
+  const cta = page.locator('[data-app-cta="planner_result"]');
+  await cta.scrollIntoViewIfNeeded();
+  assert(await cta.evaluate(el => el.parentElement.lastElementChild === el
+    && el.previousElementSibling.textContent.includes('Outfitters near your put-in')), 'planner invitation is last, directly below outfitters');
+  const outfitters = await page.getByText('Outfitters near your put-in', { exact: true }).locator('..').boundingBox();
+  const box = await cta.boundingBox();
+  assert(box.y >= outfitters.y + outfitters.height, 'planner invitation does not overlap outfitters');
+  assert((await cta.getByRole('button', { name: 'Continue in Eddy' }).boundingBox()).height >= 44);
+  await cta.locator('img').evaluate(img => img.decode());
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: planner fits viewport`);
+  await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+  await page.locator('[data-planner-check]').screenshot({ path: `${out}/planner-invitation-${name}.png` });
+}
 try {
   await mkdir(route, { recursive: true });
   await mkdir(out, { recursive: true });
@@ -140,6 +154,25 @@ export default function Fixture() {
     <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} />
     <div data-locked-read><EddyOutlookFooter sections={{ eddyRead: 'Locked Read example', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} /></div>
   </main>;
+}`);
+  await mkdir(`${route}/planner`, { recursive: true });
+  await writeFile(`${route}/planner/page.tsx`, `import { notFound } from 'next/navigation';
+import Fixture from './Fixture';
+export default function Page() {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  return <Fixture />;
+}`);
+  await writeFile(`${route}/planner/Fixture.tsx`, `'use client';
+import PlanSidebar from '@/components/plan/PlanSidebar';
+import type { AccessPoint, FloatPlan } from '@/types/api';
+import type { PointOfInterest } from '@/types/nps';
+const putIn = { id: 'put', riverId: 'river', slug: 'cedar-grove', name: 'Cedar Grove', riverMile: 9, type: 'access', types: ['access'], isPublic: true, coordinates: { lat: 37.4, lng: -91.5 }, imageUrls: [], amenities: [] } as AccessPoint;
+const takeOut = { ...putIn, id: 'take', slug: 'akers-ferry', name: 'Akers Ferry', riverMile: 17, coordinates: { lat: 37.3, lng: -91.4 } };
+const plan = { river: { id: 'river', name: 'Current River' }, putIn, takeOut, vessel: { id: 'kayak', name: 'Kayak' }, distance: { miles: 8, formatted: '8 mi' }, floatTime: { minutes: 180, formatted: '3 hr', speedMph: 2.7 }, condition: { code: 'good' }, warnings: [] } as FloatPlan;
+const pois = [{ id: 'outfitter', name: 'Current River Outfitters', type: 'outfitter', latitude: 37.401, longitude: -91.501, website: 'https://example.com' }] as PointOfInterest[];
+const noop = () => {};
+export default function Fixture() {
+  return <main data-planner-check className="mx-auto w-full max-w-sm py-6"><PlanSidebar riverName="Current River" riverSlug="current" conditionCode="good" pois={pois} plan={plan} isLoading={false} putInPoint={putIn} takeOutPoint={takeOut} onClearRoute={noop} onClearPutIn={noop} onClearTakeOut={noop} onShare={noop} onDownloadImage={noop} shareStatus="idle" expandedEndpointId={null} onExpandEndpoint={noop} /></main>;
 }`);
   await mkdir(`${route}/gauge`, { recursive: true });
   await writeFile(`${route}/gauge/page.tsx`, `import { notFound } from 'next/navigation';
@@ -511,9 +544,9 @@ export default function Page() {
       return route.fulfill({ status: attempts === 1 ? 503 : 200, contentType: 'application/json', body: JSON.stringify({ shortCode: 'saved123' }) });
     });
     assert.equal(attempts, 0, 'rendering a route never saves it');
-    await page.getByRole('button', { name: 'Follow this float in River Mode' }).click();
+    await page.getByRole('button', { name: 'Continue in Eddy' }).click();
     await page.getByRole('alert').getByText(/Couldn’t save/).waitFor();
-    await page.getByRole('button', { name: 'Follow this float in River Mode' }).click();
+    await page.getByRole('button', { name: 'Continue in Eddy' }).click();
     await page.locator('[data-app-cta="planner_handoff"]').waitFor();
     assert.equal(await page.locator('[data-app-cta="planner_handoff"] [data-ga-event="app_open_click"]').getAttribute('href'), 'eddy:///float/saved123');
     assert(await page.getByText('Your float is saved', { exact: true }).isVisible());
@@ -535,6 +568,11 @@ export default function Page() {
     assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/river\/current/);
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
     await page.screenshot({ path: `${out}/read-landing-iphone-320.png`, fullPage: true });
+    await page.goto('https://eddy.guide/dam-layout-check/planner', { waitUntil: 'networkidle' });
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await checkPlannerInvitation(page, `iphone-${width}`);
+    }
     // Check the invitation inside the actual gauge card, not just in isolation.
     // All API requests are fixtures, including unavailable chart/weather data.
     await page.route('**/api/**', route => {
@@ -615,6 +653,8 @@ export default function Page() {
   assert.equal(await desktop.locator('.app-cta__qr').getAttribute('open'), '', 'landing QR starts open');
   assert.equal(await desktop.getByRole('link', { name: 'View your saved plan on the web' }).getAttribute('href'), '/plan/fixture123');
   assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/float\/fixture123/);
+  await desktop.goto(`${origin}/dam-layout-check/planner`, { waitUntil: 'networkidle' });
+  await checkPlannerInvitation(desktop, 'desktop');
   await desktop.close();
   const android = await browser.newPage({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' });
   await android.addInitScript(() => {

@@ -60,10 +60,23 @@ against the district's own `Flow-Min_Flow` series (minimum-flow turbine flow
 hours render as "Minimum flow" on the chip, hero, schedule and river row.
 
 Floodgate releases are read from each dam's `Flow-Tainter Total` series
-(Bull Shoals, Norfork, Table Rock), never inferred from total flow: Bull
+(Bull Shoals, Norfork, Table Rock, and Beaver since November 12), never inferred from total flow: Bull
 Shoals spilled in May 2017 at about 18,000 cfs total with three turbines out.
 A rating that uses either state still needs its own evidence and sign-off;
 neither is a recreational threshold.
+
+## November 12 Beaver tailwater
+
+The White River below Beaver Dam is the fourth tailwater, onboarded the same
+way: Beaver Dam to the Houseman Access ramp (AGFC regulation N1.03), 6.99 mi,
+unrated and wired to the dam's release. Migration `20261112162415` landed it
+inactive in production on November 12. The dossier and access-point file
+propose Dam Site Boat Ramp, Bertrand Access and Houseman Access as float
+endpoints, and every readiness review is still pending
+([research](../scripts/ingestion/reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md)).
+At Table Rock's normal pool its backwater reaches to within about a mile of
+Beaver Dam, so the river copy says releases and the lake both shape this
+stretch, and float times stay withheld.
 
 ## Where this stands
 

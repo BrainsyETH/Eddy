@@ -406,7 +406,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'trout' as const,
     infoPhone: '866-494-1993',
     generationOnCfs: 100,
-    series: swlSeries('Beaver_Dam', { turbines: true, tailwaterTemp: true }),
+    // Spillway verified 2026-11-12 against the May 2025 spill: Res Out equalled
+    // Plant plus Flow-Tainter Total hour for hour (11,499 = 3,845 + 7,654 cfs on
+    // 2025-05-27 08:00Z).
+    series: swlSeries('Beaver_Dam', { turbines: true, tailwaterTemp: true, spillway: true }),
   },
   'swl-norfork-dam': {
     id: 'swl-norfork-dam',

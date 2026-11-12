@@ -1,4 +1,4 @@
-import type { DamBelowTakeOut } from '@shared/route-hazards';
+import type { DamBelowTakeOut, HazardAbovePutIn } from '@shared/route-hazards';
 // src/types/api.ts
 // API request/response types for Eddy
 
@@ -561,6 +561,8 @@ export type HazardSeverity = 'info' | 'caution' | 'warning' | 'danger';
 export interface FloatPlan {
   /** Dams within 0.5 river miles below the landing; excluded from in-route hazards. */
   damsBelowTakeOut?: DamBelowTakeOut[];
+  /** Danger hazards within 0.5 river miles above the put-in, such as the dam over a tailwater ramp. Context, not on the route. */
+  hazardsAbovePutIn?: HazardAbovePutIn[];
   /** Typical times are not adjusted to the current gauge reading. */
   estimateBasis?: 'today' | 'typical';
   /** Hazard lookup failed; the rest of the plan remains usable. Never persist as a complete plan. */

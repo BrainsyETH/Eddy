@@ -337,6 +337,7 @@ export function createPlanning(
         conditionAvailability: estimate.availability,
         conditionNote: conditionCode === 'unknown' ? estimate.conditionStatusLabel : null,
         damsBelowTakeOut: routeHazards.damsBelowTakeOut,
+        hazardsAbovePutIn: routeHazards.hazardsAbovePutIn,
         estimatedAt: estimate.estimatedAt,
         historicalFlowReference: {
           source: 'USGS daily discharge statistics stored by Eddy',
