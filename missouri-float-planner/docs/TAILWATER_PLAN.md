@@ -65,6 +65,18 @@ Shoals spilled in May 2017 at about 18,000 cfs total with three turbines out.
 A rating that uses either state still needs its own evidence and sign-off;
 neither is a recreational threshold.
 
+## November 12 Beaver tailwater
+
+The White River below Beaver Dam is the fourth tailwater, onboarded the same
+way: Beaver Dam to the Houseman Access ramp (AGFC regulation N1.03), 6.99 mi,
+unrated and wired to the dam's release. Migration `20261112170000` lands it
+inactive and is pending in the ledger. The dossier and access-point file
+propose Dam Site Boat Ramp, Bertrand Access and Houseman Access as float
+endpoints, and every readiness review is still pending
+([research](../scripts/ingestion/reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md)).
+Table Rock's pool can back up the lower reach, which is one more reason float
+times stay withheld.
+
 ## Where this stands
 
 `WATER_REGIMES_STRATEGY.md` sequenced five steps. Steps 1 and 2 are done — the

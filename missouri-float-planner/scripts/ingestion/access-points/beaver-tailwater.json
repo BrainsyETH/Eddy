@@ -1,0 +1,102 @@
+[
+  {
+    "name": "Dam Site Boat Ramp",
+    "kind": "boat_ramp",
+    "expected_mile": 0.33,
+    "lat": 36.422754,
+    "lon": -93.842389,
+    "is_public": true,
+    "ownership": "COE",
+    "managing_agency": "COE",
+    "official_site_url": "https://www.recreation.gov/camping/campgrounds/233099",
+    "facilities": "Concrete one-lane boat ramp in the Corps' Dam Site River Park (Riverview) below Beaver Dam; paved parking, seasonal restroom; Dam Site River campground adjacent (fee, Recreation.gov 233099)",
+    "description": "First ramp below Beaver Dam, inside Dam Site River Park. Fishing, boating and wading are closed within 100 yards of the dam.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf",
+      "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+      "https://www.recreation.gov/camping/campgrounds/233099"
+    ],
+    "is_float_endpoint": true
+  },
+  {
+    "name": "Dam Site Walk-In Access",
+    "kind": "access",
+    "expected_mile": 0.7,
+    "lat": 36.426164,
+    "lon": -93.837829,
+    "is_public": true,
+    "ownership": "COE",
+    "managing_agency": "COE",
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+    "facilities": "Walk-in bank fishing in Dam Site River Park; paved parking. No boat ramp",
+    "description": "Bank fishing in Dam Site River Park. Launch boats from the Dam Site ramp upstream.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf"
+    ],
+    "is_float_endpoint": false
+  },
+  {
+    "name": "Parker Bend Access",
+    "kind": "access",
+    "expected_mile": 1.91,
+    "lat": 36.431122,
+    "lon": -93.82256,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+    "facilities": "Walk-in access and handicapped-accessible bank fishing; gravel parking. No boat ramp",
+    "description": "Walk-in and accessible bank fishing. No boat ramp; Bertrand is the next launch down.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/beavertwmanagementplan2012-2017.pdf",
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf"
+    ],
+    "is_float_endpoint": false
+  },
+  {
+    "name": "Bertrand Access",
+    "kind": "boat_ramp",
+    "expected_mile": 3.3,
+    "lat": 36.440524,
+    "lon": -93.833798,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+    "facilities": "AGFC concrete boat ramp; restroom and parking size unconfirmed",
+    "description": "AGFC ramp mid-reach, above the Highway 62 bridge.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf"
+    ],
+    "is_float_endpoint": true
+  },
+  {
+    "name": "Houseman Access",
+    "kind": "boat_ramp",
+    "expected_mile": 6.99,
+    "lat": 36.462934,
+    "lon": -93.814377,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+    "facilities": "AGFC concrete boat ramp east of Busch at the lower end of the trout water; restroom unconfirmed",
+    "description": "Lower end of the Beaver tailwater trout water, where the river meets Table Rock Lake.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011",
+      "https://howsyourriver.com/access_sites/houseman",
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf"
+    ],
+    "is_float_endpoint": true
+  }
+]

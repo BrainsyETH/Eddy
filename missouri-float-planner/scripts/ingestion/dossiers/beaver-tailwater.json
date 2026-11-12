@@ -1,0 +1,141 @@
+{
+  "_status": "AWAITING REVIEW 2026-11-12 — landed inactive and unrated by migration 20261112170000 (pending). Not signed off; not activated.",
+  "conditionRatingMode": "unrated",
+  "name": "Beaver Tailwater",
+  "slug": "beaver-tailwater",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": null,
+  "riverType": "dam_tailwater",
+  "difficultyRating": "Class I",
+  "description": "The White River below Beaver Dam runs about seven miles past Dam Site River Park and the Highway 62 bridge to Houseman Access, where it meets the upper end of Table Rock Lake. Cold releases from Beaver Dam support a trout fishery, and generation can raise the river quickly. A warning horn sounds below the dam when releases start. Fishing, boating and wading are closed within 100 yards of the dam. Dam observations and generation schedules do not establish a safe wading window; check posted signs and current Arkansas Game and Fish Commission trout regulations.",
+  "managingAuthority": "USACE Little Rock District; Arkansas Game and Fish Commission",
+  "regulations": [
+    {
+      "text": "Beaver Tailwater: White River from 100 yards below Beaver Dam to the boat ramp at Houseman Access. No fishing, boating or wading within 100 yards of Beaver Dam.",
+      "authority": "Arkansas Game and Fish Commission, regulation N1.03",
+      "sourceUrl": "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011",
+      "effectiveDate": "2025-01-01"
+    }
+  ],
+  "permits": [],
+  "accessLaw": {
+    "value": "VERIFY",
+    "source": "",
+    "confidence": "low"
+  },
+  "seasonalClosures": [],
+  "primaryGaugeSiteId": "swl-beaver-dam",
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Eureka Springs",
+    "lat": 36.4405,
+    "lon": -93.8338
+  },
+  "alertSearchTerms": [
+    "beaver tailwater",
+    "beaver dam",
+    "white river",
+    "busch",
+    "eureka springs",
+    "carroll county"
+  ],
+  "research": {
+    "date": "2026-11-12",
+    "sourcesConsulted": [
+      "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md",
+      "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+      "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011",
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf",
+      "https://www.agfc.com/wp-content/uploads/2023/05/beavertwmanagementplan2012-2017.pdf",
+      "https://cwms-data.usace.army.mil/cwms-data/locations/Beaver_Dam?office=SWL",
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
+    ],
+    "openQuestions": [
+      "Table Rock backwater: the Busch gauge (US 62) sat at about the Table Rock pool on 2026-11-12, so the reach below US 62 may be slack lake water at normal pool. Keep float time withheld (unrated tailwater policy).",
+      "The three pending Table Rock lake launches (Beaver Lake Dam Site, Bertrand, Houseman) are these accesses: link or retire them once the access points exist.",
+      "Restrooms and parking at Bertrand and Houseman; a second coordinate source for Bertrand.",
+      "Warning-horn location and any USACE restricted-area limit beyond AGFC's 100 yards.",
+      "Registry wiring (usace-registry tailwater block with waterQualitySiteId 07049691, dams page related rivers) belongs with activation."
+    ],
+    "toVerify": [
+      "Bertrand Boat Ramp pin (AGFC 470) has no second source.",
+      "Endpoint wording: AGFC e-regs title says 'boundary signs at Houseman Access'; sign location unknown."
+    ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Proposed: Dam Site Boat Ramp (0.33) → Bertrand Access (3.30) → Houseman Access (6.99). Parker Bend and the Dam Site walk-in are fishing access, not endpoints."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Agency ramps: USACE Dam Site River Park (AGFC 1608, USACE area 233024) and AGFC 470 / 792. Fees, hours and posted restrictions unconfirmed."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "USACE swl-beaver-dam total release, cfs (CWMS Beaver_Dam). Check freshness in production after the migration lands."
+    },
+    "conditions": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Unrated: no agency release rating for wading or floating. Float time and wading all-clear withheld by shared tailwater code.",
+      "ratingMode": "unrated"
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Migration maps Beaver Dam (0.00, danger; 100-yard closure, warning horn) and US 62 bridge (4.70, info). USACE restricted limits not obtained."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Check get_float_segment for each endpoint pair after access points are approved."
+    },
+    "tailwaterPilot": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Owner review of corridor, endpoints and accepted gaps required before activation.",
+      "floatEndpoints": [
+        "dam-site-boat-ramp",
+        "bertrand-access",
+        "houseman-access"
+      ]
+    }
+  }
+}

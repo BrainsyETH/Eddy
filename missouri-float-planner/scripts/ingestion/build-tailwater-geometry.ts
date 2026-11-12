@@ -185,23 +185,36 @@ const TAILWATERS: TailwaterSpec[] = [
       source: 'CWMS /locations/Beaver_Dam?office=SWL (read 2026-11-12)',
     },
     to: {
-      label: 'PROVISIONAL — Houseman Access',
-      lon: -93.81438,
-      lat: 36.46293,
-      source: 'PROVISIONAL: AGFC Houseman boat ramp pin; replace with the agency-stated tailwater limit',
+      label: 'Houseman Access boat ramp',
+      lon: -93.814377,
+      lat: 36.462934,
+      source:
+        'AGFC regulation N1.03 (eff. 2025-01-01): the Beaver tailwater runs ' +
+        '"from 100 yards below Beaver Dam to the boat ramp at Houseman Access". ' +
+        'Anchored on AGFC public-use facility 792 (Houseman Boat Ramp); ' +
+        'reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md.',
     },
-    expectMiles: [3, 15],
+    // AGFC publishes 7-7.5 mi; OSM measures 6.8.
+    expectMiles: [6, 8.5],
     meta: {
       name: 'Beaver Tailwater',
-      description: 'PROVISIONAL',
+      description: "The White River below Beaver Dam runs about seven miles past Dam Site River Park and the Highway 62 bridge to Houseman Access, where it meets the upper end of Table Rock Lake. Cold releases from Beaver Dam support a trout fishery, and generation can raise the river quickly. A warning horn sounds below the dam when releases start. Fishing, boating and wading are closed within 100 yards of the dam. Dam observations and generation schedules do not establish a safe wading window; check posted signs and current Arkansas Game and Fish Commission trout regulations.",
       difficultyRating: 'Class I',
       region: 'Ozarks',
       state: 'AR',
       timezone: 'America/Chicago',
       riverType: 'dam_tailwater',
       controllingDamId: 'swl-beaver-dam',
-      weather: { city: 'Eureka Springs', lat: 36.4012, lon: -93.7380 },
-      alertSearchTerms: ['beaver tailwater', 'beaver dam', 'white river', 'carroll county'],
+      // NWS point for Bertrand Boat Ramp, mid-reach (TSA office, zone ARZ002).
+      weather: { city: 'Eureka Springs', lat: 36.4405, lon: -93.8338 },
+      alertSearchTerms: [
+        'beaver tailwater',
+        'beaver dam',
+        'white river',
+        'busch',
+        'eureka springs',
+        'carroll county',
+      ],
     },
   },
   {
