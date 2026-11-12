@@ -89,6 +89,8 @@ async function journey(name, viewports, run) {
   }
 }
 const BOTH = { desktop: { width: 1440, height: 1000 }, mobile: { width: 390, height: 844 } };
+/** Per-journey fixture state, reset by each mock(). */
+const state = {};
 
 try {
   await mkdir(out, { recursive: true });
@@ -147,6 +149,239 @@ try {
       await page.locator('label:text-is("Optimal Max (ft)") + input').fill('');
       await page.getByText('> 6.00 to < 8.00 ft').waitFor();
       assert.equal(await page.getByText(/High is set to/).count(), 0);
+    },
+  });
+
+  // ── Hazards: edit, confirm, retire; no crash without a location ──
+  await journey('hazards', BOTH, {
+    mock: () => {
+      const river = { id: uuid(3), name: 'Current River' };
+      const hazard = (n, extra) => ({
+        id: uuid(10 + n), riverId: river.id, riverName: river.name, name: `Hazard ${n}`, type: 'strainer',
+        description: 'Tree across the channel', severity: 'caution', portageRequired: false, portageSide: null,
+        active: true, seasonalNotes: null, minSafeLevel: null, maxSafeLevel: null, latitude: 37.1, longitude: -91.2,
+        riverMileDownstream: 12.5, createdAt: '2026-01-05T12:00:00Z', updatedAt: '2026-11-11T12:00:00.000Z', ...extra,
+      });
+      state.hazards = [
+        hazard(1, { name: 'Old dam', latitude: null, longitude: null, updatedAt: '2026-06-01T12:00:00.000Z' }),
+        hazard(2, { name: 'Leaning sycamore', riverMileDownstream: null }),
+      ];
+      state.puts = [];
+      state.lists = [];
+      return (route, { path, url, request }) => {
+        if (path === '/api/admin/hazards/mile-hint') {
+          assert.equal(url.searchParams.get('river'), river.id);
+          return json(route, {
+            accessPoints: 2,
+            estimate: {
+              mile: 31.4, offLineMetres: 40,
+              between: [
+                { name: 'Akers Ferry', mile: 29.8, lat: 37, lng: -91 },
+                { name: 'Pulltite', mile: 33.9, lat: 37.1, lng: -91 },
+              ],
+            },
+          });
+        }
+        if (path === '/api/admin/hazards') {
+          state.lists.push(Object.fromEntries(url.searchParams));
+          const status = url.searchParams.get('status');
+          const rows = state.hazards.filter((h) => status !== 'inactive' || !h.active);
+          return json(route, { hazards: rows, total: rows.length, page: 1, limit: 50, rivers: [river] });
+        }
+        if (path.startsWith('/api/admin/hazards/') && request.method() === 'PUT') {
+          const body = request.postDataJSON();
+          const row = state.hazards.find((h) => h.id === path.split('/').pop());
+          assert.equal(body.expectedUpdatedAt, row.updatedAt, 'the loaded version is sent with every write');
+          state.puts.push(body);
+          for (const key of ['active', 'severity', 'riverMileDownstream', 'name']) if (key in body) row[key] = body[key];
+          row.updatedAt = new Date().toISOString();
+          return json(route, { hazard: row });
+        }
+      };
+    },
+    steps: async ({ page, signIn, label }) => {
+      await signIn('/admin/hazards');
+      const oldDam = page.getByRole('button', { name: /Old dam/ });
+      await oldDam.waitFor();
+      // Stale and location-less: flagged on the row, and expanding it does not crash.
+      await oldDam.getByText(/Checked \d+ months ago/).waitFor();
+      await oldDam.click();
+      await page.getByText('No location', { exact: true }).waitFor();
+      await page.screenshot({ path: `${out}/places-hazards-${label}.png`, fullPage: true });
+      if (label !== 'desktop') return;
+
+      await page.getByRole('button', { name: 'Still there' }).click();
+      await oldDam.getByText('Checked today').waitFor();
+      assert.deepEqual(Object.keys(state.puts.at(-1)).sort(), ['confirmCurrent', 'expectedUpdatedAt']);
+      await page.getByRole('button', { name: 'Retire', exact: true }).click();
+      await oldDam.getByText('Retired', { exact: true }).waitFor();
+      assert.equal(state.puts.at(-1).active, false);
+      await page.getByRole('button', { name: 'Make active' }).waitFor();
+
+      // Edit: estimate a river mile from access points, accept it, save.
+      const sycamore = page.getByRole('button', { name: /Leaning sycamore/ });
+      await sycamore.getByText('No river mile').waitFor();
+      await sycamore.click();
+      await page.getByText(/trip plans can’t warn about this hazard/).waitFor();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await page.getByLabel('Severity', { exact: true }).last().selectOption('danger');
+      await page.getByRole('button', { name: 'Estimate from access points' }).click();
+      await page.getByText(/About mile 31\.4, between Akers Ferry \(mile 29\.8\) and Pulltite \(mile 33\.9\)/).waitFor();
+      await page.screenshot({ path: `${out}/places-hazards-edit-${label}.png`, fullPage: true });
+      await page.getByRole('button', { name: 'Use 31.4' }).click();
+      await page.getByRole('button', { name: 'Save changes' }).click();
+      await sycamore.getByText('Mile 31.4').waitFor();
+      await sycamore.getByText('Danger', { exact: true }).waitFor();
+      assert.equal(state.puts.at(-1).riverMileDownstream, 31.4);
+      assert.equal(state.puts.at(-1).severity, 'danger');
+
+      // A new hazard cannot be created without a river.
+      await page.getByRole('button', { name: 'New hazard' }).click();
+      await page.getByLabel('Name *').fill('Low bridge');
+      await page.getByLabel('Latitude *').fill('37.2');
+      await page.getByLabel('Longitude *').fill('-91.3');
+      assert.equal(await page.getByRole('button', { name: 'Create hazard' }).isDisabled(), true);
+      await page.getByLabel('River *').selectOption({ label: 'Current River' });
+      assert.equal(await page.getByRole('button', { name: 'Create hazard' }).isDisabled(), false);
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.getByRole('button', { name: 'Discard changes' }).click().catch(() => {});
+
+      // Filters and search are applied by the server, not to the rows on screen.
+      await page.getByLabel('Status', { exact: true }).selectOption('inactive');
+      await page.getByText('1–1 of 1 hazards').waitFor();
+      assert.equal(state.lists.at(-1).status, 'inactive');
+      await page.getByLabel('Search hazards').fill('dam');
+      await page.waitForFunction(() => true);
+      await page.waitForTimeout(600);
+      assert.equal(state.lists.at(-1).q, 'dam');
+    },
+  });
+
+  // ── Access point editor: canonical public link; none while unapproved ──
+  const accessPoint = (extra) => ({
+    id: uuid(40), name: 'Akers Ferry', slug: 'akers-ferry', riverId: uuid(3), riverName: 'Current River',
+    riverSlug: 'current', riverState: 'MO', riverMile: 29.8, type: 'access', types: ['access'], isPublic: true,
+    ownership: null, description: null, parkingInfo: null, roadAccess: null, facilities: null, feeRequired: false,
+    directionsOverride: null, drivingLat: null, drivingLng: null, imageUrls: [], googleMapsUrl: null, approved: true,
+    feeNotes: null, amenities: ['parking', 'hot_showers'], isFloatEndpoint: true, createdAt: '2026-11-03T12:00:00Z',
+    roadSurface: [], parkingCapacity: null, managingAgency: null, officialSiteUrl: null, localTips: null,
+    nearbyServices: [], updatedAt: '2026-11-11T12:00:00.000Z', ...extra,
+  });
+  await journey('access-point-link', { desktop: BOTH.desktop }, {
+    mock: () => {
+      state.point = accessPoint({});
+      return (route, { path }) => {
+        if (path === `/api/admin/access-points/${uuid(40)}`) return json(route, { accessPoint: state.point });
+      };
+    },
+    steps: async ({ page, signIn }) => {
+      await signIn(`/admin/access-points/${uuid(40)}`);
+      const link = page.getByRole('link', { name: 'View public page' });
+      await link.waitFor();
+      assert.equal(await link.getAttribute('href'), '/rivers/missouri/current/access/akers-ferry');
+      state.point = accessPoint({ approved: false });
+      await page.reload();
+      await page.getByText('Not approved yet, so it has no public page.').waitFor();
+      assert.equal(await page.getByRole('link', { name: 'View public page' }).count(), 0);
+    },
+  });
+
+  // ── Access points: approve from the list; edit the basics; honest save messages ──
+  await journey('access-points', BOTH, {
+    mock: () => {
+      state.point = accessPoint({ approved: false, types: ['access'] });
+      state.approvals = [];
+      state.saves = [];
+      return (route, { path, url, request }) => {
+        if (path === '/api/admin/images') return json(route, { images: [] });
+        if (path === '/api/admin/access-points' ) {
+          assert.equal(url.searchParams.get('river'), null, 'the approval view spans every river');
+          return json(route, { accessPoints: [state.point], total: 1, page: 1, limit: 1000 });
+        }
+        if (path === `/api/admin/access-points/${uuid(40)}/approve`) {
+          state.approvals.push(request.postDataJSON());
+          state.point = { ...state.point, approved: true };
+          return json(route, { success: true });
+        }
+        if (path === `/api/admin/access-points/${uuid(40)}`) {
+          if (request.method() === 'PUT') {
+            const body = request.postDataJSON();
+            state.saves.push(body);
+            state.point = { ...state.point, ...body, updatedAt: '2026-11-12T12:00:00.000Z' };
+            return json(route, {
+              accessPoint: state.point,
+              warning: state.point.approved ? undefined : 'not approved',
+              keptLiveAddress: state.point.approved && 'name' in body ? true : undefined,
+            });
+          }
+          return json(route, { accessPoint: state.point });
+        }
+      };
+    },
+    steps: async ({ context, page, signIn, label }) => {
+      await context.route('**/api/rivers', (route) => json(route, { rivers: [{ id: uuid(3), name: 'Current River', slug: 'current' }] }));
+      await signIn('/admin/access-points?missing=pending');
+      await page.getByRole('heading', { name: /Akers Ferry\s*Waiting for approval/ }).waitFor();
+      await page.getByText(/Current River • Mile 29\.8/).waitFor();
+      await page.screenshot({ path: `${out}/places-access-points-${label}.png`, fullPage: true });
+      if (label !== 'desktop') return;
+
+      // The editor says a save did not reach the public app.
+      await page.getByRole('link', { name: 'Edit' }).click();
+      await page.getByText('Waiting for approval. This point is hidden from the app.').waitFor();
+      await page.getByLabel('Description').fill('Gravel bar with a concrete ramp.');
+      await page.getByLabel('Fee notes').fill('$5 day use');
+      await page.getByLabel('Restrooms').check();
+      assert.equal(await page.getByLabel('hot showers').isChecked(), true, 'an existing unknown amenity is kept');
+      assert.equal(await page.getByRole('button', { name: 'Approve and publish' }).isDisabled(), true);
+      await page.screenshot({ path: `${out}/places-access-point-editor-${label}.png`, fullPage: true });
+      await page.getByRole('button', { name: 'Save Changes' }).click();
+      await page.getByText('Saved, but this point is not approved, so it is still hidden from the app.').waitFor();
+      assert.deepEqual(
+        { ...state.saves.at(-1), expectedUpdatedAt: undefined },
+        { description: 'Gravel bar with a concrete ramp.', feeNotes: '$5 day use', amenities: ['parking', 'hot_showers', 'restrooms'], expectedUpdatedAt: undefined },
+      );
+      // A new edit clears the saved message.
+      await page.getByLabel('Fee notes').fill('$5 day use, cash only');
+      assert.equal(await page.getByText(/Saved, but this point/).count(), 0);
+      await page.getByRole('button', { name: 'Save Changes' }).click();
+      await page.getByText(/Saved, but this point/).waitFor();
+
+      // Approve from the editor, with the put-in/take-out answer pre-filled.
+      await page.getByRole('button', { name: 'Approve and publish' }).click();
+      await page.getByRole('link', { name: 'View public page' }).waitFor();
+      assert.deepEqual(state.approvals, [{ isFloatEndpoint: true }]);
+      // Renaming a live point reports that its address was kept.
+      await page.getByLabel('Name', { exact: true }).fill('Akers Ferry Landing');
+      await page.getByRole('button', { name: 'Save Changes' }).click();
+      await page.getByText('Renamed. The public page keeps its existing web address.').waitFor();
+
+      // Approve from the list.
+      state.point = accessPoint({ approved: false, types: ['access'] });
+      await page.goto(origin + '/admin/access-points?missing=pending');
+      await page.getByLabel('Can be chosen as a put-in or take-out').uncheck();
+      await page.getByRole('button', { name: 'Approve Akers Ferry' }).click();
+      await page.getByText('Nothing is waiting for approval.').waitFor();
+      assert.deepEqual(state.approvals.at(-1), { isFloatEndpoint: false });
+    },
+  });
+
+  // ── Points of interest: the count is the matching total; no crash without coordinates ──
+  await journey('pois', { desktop: BOTH.desktop }, {
+    mock: () => (route, { path }) => {
+      if (path === '/api/admin/pois')
+        return json(route, {
+          pois: [{ id: uuid(50), name: 'Blue Spring', slug: 'blue-spring', type: 'spring', description: null, active: false,
+            latitude: null, longitude: null, riverId: null, riverName: null, riverMile: null, images: [], amenities: [], bodyText: null, source: 'manual', npsId: null, npsUrl: null,
+            isOnWater: false, createdAt: '2026-01-05T12:00:00Z' }],
+          rivers: [], total: 53, page: 1, limit: 50,
+        });
+    },
+    steps: async ({ page, signIn }) => {
+      await signIn('/admin/pois');
+      await page.getByText('53 matching points of interest · 1 on this page').waitFor();
+      await page.getByText('Blue Spring').click();
+      await page.getByText('Not set').first().waitFor();
     },
   });
 
