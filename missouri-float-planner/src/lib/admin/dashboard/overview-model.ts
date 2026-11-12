@@ -98,6 +98,7 @@ export function friendlyJob(id: string): string {
     'sync-lake-levels': 'Record lake levels',
     'collect-rainfall': 'Save rainfall history',
     'collect-rainfall-forecasts': 'Save rain forecasts',
+    'log-release-arrivals': 'Log release arrival trial',
     'snapshot-percentiles': 'Update flow comparisons',
     'evaluate-gauge-alerts': 'Check river alerts',
     'deliver-push': 'Send push alerts',

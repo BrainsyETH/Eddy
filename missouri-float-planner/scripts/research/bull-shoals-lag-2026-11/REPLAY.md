@@ -3,6 +3,11 @@
 Research only. Follows [study 2](README.md) and [study 3](STUDY3.md); nothing
 here is approved for display.
 
+**Follow-up:** the forward log this points to is built and switched off; see
+[the trial runbook](../../../../docs/release-arrival-trial.md). The earlier-pulse
+idea below is recorded there as a flag, not a reason to withhold: as a rule it
+would have removed 140 of 388 estimates in 2022-2026.
+
 **Question.** Using only readings available when a release increase is three
 hours old, how often could Eddy issue an arrival estimate for the gauge near
 Norfork, and how good would it be?

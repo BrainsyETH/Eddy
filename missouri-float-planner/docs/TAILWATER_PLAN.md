@@ -184,7 +184,8 @@ is under 7 ft, but nearly half the rises come more than two hours early above
 8.5 ft or when the dam is already generating. A
 [replay](../scripts/research/bull-shoals-lag-2026-11/REPLAY.md) of an
 at-the-time rule on 2019-2021 was inconclusive (39 estimates, 60 needed), so
-the remaining test is a forward log. Nothing is measured between the
+the remaining test is a forward log, now built and switched off
+([runbook](../../docs/release-arrival-trial.md)). Nothing is measured between the
 dam and mile 41.5, and nothing is approved for display; step 2's liability
 decision still comes first.
 
