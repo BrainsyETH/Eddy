@@ -198,8 +198,11 @@ async function handleUpdate(
 
     const supabase = createAdminClient();
 
-    // Update gauge station (descriptions and notes)
-    if (thresholdDescriptions !== undefined || notes !== undefined) {
+    // Descriptions and notes. Run only after every threshold has validated
+    // (below): writing these first used to leave a gauge half-saved when the
+    // ladder was then rejected, while the page reported the whole save failed.
+    const writeStation = async (): Promise<NextResponse | null> => {
+      if (thresholdDescriptions === undefined && notes === undefined) return null;
       const gaugeUpdate: Record<string, unknown> = {};
 
       if (thresholdDescriptions !== undefined) {
@@ -231,7 +234,8 @@ async function handleUpdate(
           { status: 404 }
         );
       }
-    }
+      return null;
+    };
 
     // Update river_gauges (thresholds) if provided
     const updatedAssociations: Array<{ id: string; riverName: string; fieldsUpdated: number }> = [];
@@ -284,6 +288,9 @@ async function handleUpdate(
         if (Object.keys(update).length > 0) planned.push({ id: assoc.id, riverName, update });
       }
 
+      const stationFailure = await writeStation();
+      if (stationFailure) return stationFailure;
+
       for (const { id: assocId, riverName, update } of planned) {
         const { data: updated, error: thresholdError } = await supabase
           .from('river_gauges')
@@ -311,6 +318,9 @@ async function handleUpdate(
 
         updatedAssociations.push({ id: assocId, riverName, fieldsUpdated: Object.keys(update).length });
       }
+    } else {
+      const stationFailure = await writeStation();
+      if (stationFailure) return stationFailure;
     }
 
     return NextResponse.json({ success: true, updatedAssociations }, { headers: CACHE_HEADERS });

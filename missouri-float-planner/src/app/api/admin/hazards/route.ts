@@ -1,17 +1,18 @@
 import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/hazards/route.ts
-// GET /api/admin/hazards - List all river hazards for admin editing
+// GET /api/admin/hazards - List river hazards, filtered and searched server-side
 // POST /api/admin/hazards - Create a new river hazard
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
-import { getCoordinates, getRiverData } from '@/lib/api-utils';
+import { listPage, literalContains } from '@/lib/admin/list-filters';
+import { HAZARD_COLUMNS, formatHazardRow } from '@/lib/admin/hazard-rows';
+import { HAZARD_SEVERITIES, HAZARD_STALE_DAYS, HAZARD_TYPES, parseHazardBody } from '@/lib/admin/hazards';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_HAZARD_TYPES = ['low_water_dam', 'portage', 'strainer', 'rapid', 'private_property', 'waterfall', 'shoal', 'bridge_piling', 'other'];
-const VALID_SEVERITY_LEVELS = ['info', 'caution', 'warning', 'danger'];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,85 +20,66 @@ export async function GET(request: NextRequest) {
     if (authError) return authError;
 
     const supabase = createAdminClient();
-
-    // Pagination params
     const url = new URL(request.url);
-    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    const { page, limit, from, to } = listPage(url.searchParams);
+    const type = url.searchParams.get('type') ?? 'all';
+    const severity = url.searchParams.get('severity') ?? 'all';
+    const river = url.searchParams.get('river') ?? 'all';
+    // active | inactive | stale (active and not checked in 30 days) | all
+    const status = url.searchParams.get('status') ?? 'all';
+    const search = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
 
-    const { data: hazards, error, count } = await supabase
-      .from('river_hazards')
-      .select(`
-        id,
-        river_id,
-        name,
-        type,
-        location,
-        river_mile_downstream,
-        description,
-        severity,
-        portage_required,
-        portage_side,
-        active,
-        seasonal_notes,
-        min_safe_level,
-        max_safe_level,
-        created_at,
-        updated_at,
-        rivers(id, name, slug)
-      `, { count: 'exact' })
-      .order('name', { ascending: true })
-      .range(from, to);
-
-    if (error) {
-      console.error('Error fetching hazards:', error);
-      return NextResponse.json(
-        { error: 'Could not fetch river hazards' },
-        { status: 500 }
-      );
+    if (
+      (type !== 'all' && !(HAZARD_TYPES as readonly string[]).includes(type)) ||
+      (severity !== 'all' && !(HAZARD_SEVERITIES as readonly string[]).includes(severity)) ||
+      (river !== 'all' && !UUID.test(river)) ||
+      !['all', 'active', 'inactive', 'stale'].includes(status)
+    ) {
+      return NextResponse.json({ error: 'Invalid hazard filter' }, { status: 400 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const formatted = (hazards || []).map((hazard: any) => {
-      const riverData = getRiverData(hazard.rivers);
-      const coords = getCoordinates(hazard.location);
-      return {
-        id: hazard.id,
-        riverId: hazard.river_id,
-        riverName: riverData?.name || null,
-        riverSlug: riverData?.slug || null,
-        name: hazard.name,
-        type: hazard.type,
-        latitude: coords?.lat || null,
-        longitude: coords?.lng || null,
-        riverMileDownstream: hazard.river_mile_downstream ? parseFloat(hazard.river_mile_downstream) : null,
-        description: hazard.description,
-        severity: hazard.severity,
-        portageRequired: hazard.portage_required,
-        portageSide: hazard.portage_side,
-        active: hazard.active,
-        seasonalNotes: hazard.seasonal_notes,
-        minSafeLevel: hazard.min_safe_level ? parseFloat(hazard.min_safe_level) : null,
-        maxSafeLevel: hazard.max_safe_level ? parseFloat(hazard.max_safe_level) : null,
-        createdAt: hazard.created_at,
-        updatedAt: hazard.updated_at,
-      };
-    });
+    // Filters run before pagination, so a match is never hidden on a later page.
+    let query = supabase
+      .from('river_hazards')
+      .select(HAZARD_COLUMNS, { count: 'exact' })
+      .order('name', { ascending: true })
+      .order('id', { ascending: true });
+    if (type !== 'all') query = query.eq('type', type);
+    if (severity !== 'all') query = query.eq('severity', severity);
+    if (river !== 'all') query = query.eq('river_id', river);
+    if (status === 'active') query = query.eq('active', true);
+    if (status === 'inactive') query = query.eq('active', false);
+    if (status === 'stale') {
+      query = query
+        .eq('active', true)
+        .lt('updated_at', new Date(Date.now() - HAZARD_STALE_DAYS * 86400000).toISOString());
+    }
+    if (search) {
+      const value = literalContains(search);
+      query = query.or(`name.ilike.${value},description.ilike.${value}`);
+    }
+
+    const [{ data: hazards, error, count }, { data: rivers, error: riverError }] = await Promise.all([
+      query.range(from, to),
+      // Every river, active or not: a hazard can sit on a river that is hidden.
+      supabase.from('rivers').select('id,name').order('name').limit(1000),
+    ]);
+
+    if (error || riverError) {
+      console.error('Error fetching hazards:', error ?? riverError);
+      return NextResponse.json({ error: 'Could not fetch river hazards' }, { status: 500 });
+    }
 
     return NextResponse.json({
-      hazards: formatted,
-      total: count ?? formatted.length,
+      hazards: (hazards ?? []).map(formatHazardRow),
+      total: count ?? 0,
       page,
       limit,
+      rivers: rivers ?? [],
     });
   } catch (error) {
     console.error('Error in admin hazards endpoint:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -106,146 +88,25 @@ async function handlePOST(request: NextRequest) {
     const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
-    const body = await request.json();
-    const {
-      name,
-      riverId,
-      type,
-      latitude,
-      longitude,
-      riverMileDownstream = null,
-      description = null,
-      severity = null,
-      portageRequired = false,
-      portageSide = null,
-      active = true,
-      seasonalNotes = null,
-      minSafeLevel = null,
-      maxSafeLevel = null,
-    } = body;
-
-    // Validate required fields
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!riverId || typeof riverId !== 'string') {
-      return NextResponse.json(
-        { error: 'River ID is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!type || typeof type !== 'string') {
-      return NextResponse.json(
-        { error: 'Type is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate type against enum
-    if (!VALID_HAZARD_TYPES.includes(type)) {
-      return NextResponse.json(
-        { error: `Invalid type. Must be one of: ${VALID_HAZARD_TYPES.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate severity if provided
-    if (severity !== null && !VALID_SEVERITY_LEVELS.includes(severity)) {
-      return NextResponse.json(
-        { error: `Invalid severity. Must be one of: ${VALID_SEVERITY_LEVELS.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Build insert object
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const insertData: Record<string, any> = {
-      name: name.trim(),
-      river_id: riverId,
-      type,
-      description,
-      severity,
-      portage_required: portageRequired,
-      portage_side: portageSide,
-      active,
-      seasonal_notes: seasonalNotes,
-      river_mile_downstream: riverMileDownstream,
-      min_safe_level: minSafeLevel,
-      max_safe_level: maxSafeLevel,
-    };
-
-    // Handle location if lat/lng provided
-    if (typeof latitude === 'number' && typeof longitude === 'number') {
-      insertData.location = `SRID=4326;POINT(${longitude} ${latitude})`;
-    }
+    const parsed = parseHazardBody(await request.json().catch(() => null), 'create');
+    if ('error' in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
     const supabase = createAdminClient();
-
     const { data, error } = await supabase
       .from('river_hazards')
-      .insert(insertData)
-      .select(`
-        id,
-        river_id,
-        name,
-        type,
-        location,
-        river_mile_downstream,
-        description,
-        severity,
-        portage_required,
-        portage_side,
-        active,
-        seasonal_notes,
-        min_safe_level,
-        max_safe_level,
-        created_at,
-        updated_at
-      `)
+      .insert({ active: true, portage_required: false, ...parsed.write })
+      .select(HAZARD_COLUMNS)
       .single();
 
     if (error) {
       console.error('Error creating hazard:', error);
-      return NextResponse.json(
-        { error: 'Could not create river hazard' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Could not create river hazard' }, { status: 500 });
     }
 
-    const coords = getCoordinates(data.location);
-
-    return NextResponse.json({
-      hazard: {
-        id: data.id,
-        riverId: data.river_id,
-        name: data.name,
-        type: data.type,
-        latitude: coords?.lat || null,
-        longitude: coords?.lng || null,
-        riverMileDownstream: data.river_mile_downstream ? parseFloat(data.river_mile_downstream) : null,
-        description: data.description,
-        severity: data.severity,
-        portageRequired: data.portage_required,
-        portageSide: data.portage_side,
-        active: data.active,
-        seasonalNotes: data.seasonal_notes,
-        minSafeLevel: data.min_safe_level ? parseFloat(data.min_safe_level) : null,
-        maxSafeLevel: data.max_safe_level ? parseFloat(data.max_safe_level) : null,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      },
-    }, { status: 201 });
+    return NextResponse.json({ hazard: formatHazardRow(data) }, { status: 201 });
   } catch (error) {
     console.error('Error in create hazard endpoint:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

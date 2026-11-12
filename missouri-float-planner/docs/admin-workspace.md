@@ -122,6 +122,51 @@ Vercel environment; the latest attempted deployment has a separate history link.
   Navigation and editor surfaces use the existing Eddy teal/sand palette. Pin up
   to four account-specific shortcuts from page headers.
 
+## Places & conditions
+
+- **Gauges** lists only stations linked to a river (`river_gauges`), not the
+  national station table. Each condition's printed range comes from
+  `src/lib/gauges/ladder-bands.ts`, which a test holds to the public classifier
+  (`shared/condition-ladder.ts`): High starts just above Optimal Max, and the
+  High field counts only when Optimal Max is blank. The form warns when a High
+  value is set but has no effect. A save validates every threshold before it
+  writes anything, including notes and descriptions.
+
+- **Hazards** can be edited, confirmed, retired and deleted. **Still there**
+  records that an active hazard was checked today (`updated_at` is the
+  last-checked time, the same field the dashboard's 30-day check reads).
+  **Retire** sets `active = false`, which every public reader filters on, and
+  keeps the record; **Delete** removes it. Writes carry the version that was
+  loaded and a mismatch is a 409. Filters, search and paging run on the server.
+- A hazard's **river mile** is entered explicitly, because trip plans match
+  hazards to a float by mile and skip one without it. "Estimate from access
+  points" interpolates between the river's approved access points
+  (`estimateRiverMile`). It is deliberately not a geometric snap: several
+  rivers store a published mile index that differs from the map line by miles
+  (`src/lib/geo/mile-index.ts`), and access points carry whichever numbering
+  their river uses. The estimate is shown for review and never saved on its own.
+
+- **Paged lists must be read in full by callers that need every row.** The
+  points-of-interest list defaults to 50 rows; the Geography map and the Data
+  sync promote use `fetchAllAdminRows` (`src/lib/admin/fetch-all.ts`) to read
+  every page. It throws instead of returning a partial list.
+- **An access point's slug is its public address.** Saving never changes the
+  slug unless the name itself changed, and renaming an approved point keeps its
+  address (`slugForSave`, `src/lib/admin/access-point-slug.ts`). Only an
+  unapproved point's slug follows a rename. The editor's "View public page"
+  link uses the canonical `/rivers/<state>/<river>/access/<slug>` form and is
+  replaced by a note while the point is unapproved.
+
+- **Access points** can be approved where they are listed. "Waiting for
+  approval" in the Show filter lists unapproved points across every river, and
+  both the list card and the editor carry **Approve and publish** with the
+  required put-in/take-out answer, pre-filled from the point's types. The
+  editor's Basics section edits name, river mile, description, ownership,
+  public access, fee, fee notes and amenities; the last two are shown on the
+  public page and had no admin control. Amenities are stored as keys
+  (`src/lib/admin/access-point-fields.ts`), never free text. A save reports
+  when the point is still hidden because it is unapproved.
+
 ## Float contributions
 
 Admin → Float contributions reviews floats people chose to share. It never
@@ -175,7 +220,8 @@ selection, moderation details, mobile navigation and request failure recovery.
 Role fixtures also cover editor image deletion, revoked access on live requests
 and reload, 403 sign-out, owner self-demotion, role refresh, search history,
 keyboard toggling, narrow-screen detail focus and secondary-button hover colors.
-The Inbox suite (`scripts/admin/inbox-smoke.mjs`, run by the same script) covers
+The Places suite (`scripts/admin/places-smoke.mjs`) covers the gauge ranges
+following unsaved edits. The Inbox suite (`scripts/admin/inbox-smoke.mjs`, run by the same script) covers
 feedback paging past the first page, saving a note without changing status, and
 an email badge that follows the server's unread count after triage.
 

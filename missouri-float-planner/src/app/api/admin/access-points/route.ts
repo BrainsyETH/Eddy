@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
         google_maps_url,
         approved,
         updated_at,
+        created_at,
         rivers(id, name, slug)
       `, { count: 'exact' })
       .order('name', { ascending: true }).order('id');
@@ -109,6 +110,7 @@ export async function GET(request: NextRequest) {
         return {
           id: ap.id,
           updatedAt: ap.updated_at ?? null,
+          createdAt: ap.created_at ?? null,
           riverId: ap.river_id,
           riverName: riverData?.name || 'Unknown River',
           riverSlug: riverData?.slug,
