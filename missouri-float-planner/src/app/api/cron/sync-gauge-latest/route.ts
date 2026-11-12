@@ -33,6 +33,11 @@ import {
 import { calculateDischargePercentile } from '@/lib/usgs/gauges';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
+import {
+  GAUGE_LATEST_COMPARED_COLUMNS,
+  latestRowUnchanged,
+  type StoredLatestRow,
+} from '@/lib/usgs/unchanged-rows';
 
 export const dynamic = 'force-dynamic';
 // A full national pass is ~14 regional round trips against USGS plus the
@@ -96,6 +101,44 @@ async function loadStationIds(
   return out;
 }
 
+/**
+ * Every stored gauge_latest row, keyed by station, so the pass can skip gauges
+ * whose reading has not changed since the last run.
+ *
+ * Why: upserting all ~14,000 rows every 15 minutes (81M updates by 2026-11-12)
+ * was the largest single source of the write load that exhausted production
+ * disk I/O and took the site down. Most gauges report every 15-60 minutes and
+ * many lag, so a large share of each pass rewrote identical values.
+ *
+ * Returns null when the read fails; the pass then writes every row, as before,
+ * because a skipped write is worse than a redundant one. Paged and ordered for
+ * the same reason as loadStationIds.
+ */
+async function loadStoredLatest(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<Map<string, StoredLatestRow> | null> {
+  const out = new Map<string, StoredLatestRow>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('gauge_latest')
+      .select(GAUGE_LATEST_COMPARED_COLUMNS)
+      .order('gauge_station_id')
+      .range(from, from + PAGE - 1);
+    if (error) {
+      logger.error('[sync-gauge-latest] stored-row read failed; writing every row', {
+        message: error.message,
+      });
+      return null;
+    }
+    for (const row of (data ?? []) as unknown as StoredLatestRow[]) {
+      out.set(row.gauge_station_id, row);
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
 async function runSync(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -119,6 +162,7 @@ async function runSync(request: NextRequest) {
   const startedAt = Date.now();
   let stationsSeen = 0;
   let written = 0;
+  let unchanged = 0;
   let unknownSites = 0;
   let graded = 0;
   let statsFailedChunks = 0;
@@ -131,6 +175,7 @@ async function runSync(request: NextRequest) {
 
   try {
     const stationIds = await loadStationIds(supabase);
+    const storedLatest = await loadStoredLatest(supabase);
     // One date for the whole pass, so a run straddling midnight UTC cannot
     // grade half the country against one day's row and half against the next.
     const statsDate = new Date();
@@ -200,7 +245,7 @@ async function runSync(request: NextRequest) {
           }
         }
 
-        rows.push({
+        const row: LatestRow = {
           gauge_station_id: stationId,
           reading_timestamp: reading.readingTimestamp,
           gauge_height_ft: reading.gaugeHeightFt,
@@ -208,7 +253,12 @@ async function runSync(request: NextRequest) {
           qualifiers: reading.qualifiers,
           flow_percentile: percentile,
           fetched_at: fetchedAt,
-        });
+        };
+        if (storedLatest && latestRowUnchanged(storedLatest.get(stationId), row)) {
+          unchanged++;
+          continue;
+        }
+        rows.push(row);
       }
 
       stationsSeen += readings.length;
@@ -244,6 +294,7 @@ async function runSync(request: NextRequest) {
     durationMs: Date.now() - startedAt,
     stationsSeen,
     written,
+    unchanged,
     graded,
     statsFailedChunks,
     statsMs,
