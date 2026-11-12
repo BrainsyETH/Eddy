@@ -346,7 +346,7 @@ export function AccessOverviewTab({
             <LinkRow label="View camping" onPress={onOpenCamping} />
           ) : null}
         </Section>
-      ) : onOpenCamping ? (
+      ) : onOpenCamping && services.camping.length === 0 ? (
         <Section separated>
           <LinkRow label="Camping" detail="View camping details" symbol="campground" onPress={onOpenCamping} />
         </Section>

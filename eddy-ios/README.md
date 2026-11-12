@@ -641,8 +641,11 @@ Only `same_place` entries appear under Camping here. `located_at` describes the
 same facility with a potentially different arrival point; it and legacy entries
 remain separate. Names and short distances are never evidence of identity.
 The Camping shortcut selects the existing tab by key and appears only when that
-tab exists. Mixed access/camping fee notes stay intact and expandable in Overview
-until the source provides separately structured charges.
+tab exists and no campground is listed. Listed campgrounds replace that standalone
+shortcut; the Camping tab remains available. Service cards use compact vertical
+spacing while retaining 44-point contact targets. Mixed access/camping fee notes
+stay intact and expandable in Overview until the source provides separately
+structured charges.
 
 ### Search is half local, half server
 

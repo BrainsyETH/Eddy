@@ -22,7 +22,7 @@ export function ServiceContactRow({ service, symbol, onOpenCamping }: {
     : service.relationship === 'located_at' ? 'At this location' : service.distance;
   const heading = (
     <>
-      <EddySymbol name={symbol} size={28} />
+      <EddySymbol name={symbol} size={24} />
       <View style={styles.identity}>
         <Text style={[styles.name, { color: colors.text }]}>{service.name}</Text>
         {onOpenCamping ? (
@@ -67,12 +67,12 @@ export function ServiceContactRow({ service, symbol, onOpenCamping }: {
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 8 },
+  card: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginTop: 8 },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   identity: { flex: 1, minWidth: 0 },
   name: { ...t.base, fontFamily: fonts.semibold },
   meta: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   action: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   actionText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   campingLink: { minHeight: 44 },
