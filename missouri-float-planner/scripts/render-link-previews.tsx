@@ -4,7 +4,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { ImageResponse } from 'next/og';
 import sharp from 'sharp';
 import { loadFredokaFont } from '../src/lib/og/fonts';
-import { LINK_PREVIEW_SIZE, LINK_PREVIEW_PHOTOS, linkPreviewAsset, type LinkPreviewKind } from '../src/lib/og/link-preview';
+import { LINK_PREVIEW_SIZE, LINK_PREVIEW_PHOTOS, RIVER_NAME_LAYOUT, linkPreviewAsset, type LinkPreviewKind } from '../src/lib/og/link-preview';
 
 const TEAL = '#123f46';
 const CREAM = '#f7f3e9';
@@ -60,11 +60,50 @@ async function render(kind: LinkPreviewKind, slug?: string) {
   await writeFile(`public/share/${asset.file}`, bytes);
 }
 
+// Where a river's name goes (src/lib/og/river-card.tsx draws it at request
+// time): the illustration moves right, the photo's gradient deepens, and the
+// wordmark keeps a fixed place so the name can sit above it.
+async function renderNameBase(slug?: string) {
+  const asset = linkPreviewAsset('river', slug);
+  if (!asset.nameFile) return;
+  const photo = asset.sourcePhoto ? await dataUri(asset.sourcePhoto) : null;
+  const icon = await dataUri(photo ? 'eddy-favicon.png' : 'eddy-river.png');
+  const response = new ImageResponse(
+    <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: CREAM }}>
+      {photo ? <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo} alt="" width={1200} height={630} style={{ objectFit: 'cover', objectPosition: '50% 55%' }} />
+        <div style={{ position: 'absolute', left: 0, top: 0, width: 1200, height: 630, background: 'linear-gradient(0deg, rgba(9,45,50,0.82), rgba(9,45,50,0.35) 45%, transparent 70%)' }} />
+      </> : <>
+        <div style={{ position: 'absolute', left: -336, top: -202, width: 828, height: 788, borderRadius: '48%', border: '32px solid #dce9e3', transform: 'rotate(-29deg)' }} />
+        <div style={{ position: 'absolute', right: -384, bottom: -390, width: 876, height: 668, borderRadius: '50%', border: '32px solid #e5e8d8' }} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={icon} alt="" width={380} height={434} style={{ position: 'absolute', left: 756, top: 98, objectFit: 'contain' }} />
+      </>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'absolute', left: RIVER_NAME_LAYOUT.inset, bottom: RIVER_NAME_LAYOUT.inset, height: RIVER_NAME_LAYOUT.wordmark, color: photo ? CREAM : TEAL, fontFamily: 'Fredoka', fontWeight: 600, fontSize: photo ? 46 : RIVER_NAME_LAYOUT.wordmark, lineHeight: 1 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {photo && <img src={icon} alt="" width={RIVER_NAME_LAYOUT.wordmark} height={RIVER_NAME_LAYOUT.wordmark} style={{ objectFit: 'contain' }} />}
+        <span>eddy</span>
+      </div>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 10, background: CORAL }} />
+    </div>,
+    { ...LINK_PREVIEW_SIZE, fonts: loadFredokaFont() },
+  );
+  const rendered = sharp(Buffer.from(await response.arrayBuffer()));
+  // The name is composited onto this and the result re-encoded, so the photo
+  // is stored above the published quality.
+  const bytes = await (photo ? rendered.jpeg({ quality: 93, mozjpeg: true })
+    : rendered.png({ palette: true, quality: 90, effort: 10 })).toBuffer();
+  await writeFile(`public/share/${asset.nameFile}`, bytes);
+}
+
 async function main() {
   await mkdir('public/share', { recursive: true });
   for (const kind of ['river', 'gauge', 'dam', 'access', 'plan'] as const) await render(kind);
   for (const kind of Object.keys(LINK_PREVIEW_PHOTOS) as LinkPreviewKind[]) {
     for (const slug of Object.keys(LINK_PREVIEW_PHOTOS[kind]!)) await render(kind, slug);
   }
+  await renderNameBase();
+  for (const slug of Object.keys(LINK_PREVIEW_PHOTOS.river ?? {})) await renderNameBase(slug);
 }
 void main();

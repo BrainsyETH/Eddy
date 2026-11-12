@@ -1,15 +1,17 @@
 # Sharing previews — MVP
 
 This implements the approved photo and illustration direction. Link images
-contain scenery/artwork and a small Eddy signature. Names, put-in/take-out,
-distance and saved estimates remain in HTML metadata. No link image or
-description publishes a floatability verdict that could outlive its reading.
-Opening the link is how a recipient gets current conditions.
+contain scenery/artwork and a small Eddy signature. A river page and a guide
+also print their own name, which does not go stale. Put-in/take-out, distance
+and saved estimates remain in HTML metadata. No link image or description
+publishes a reading or a floatability verdict that could outlive it. Opening
+the link is how a recipient gets current conditions.
 
 ## Artwork contract
 
 - 1200 × 630, under 200 KB each. Photos are quality-85 JPEG (Current River
-  187,963 bytes; Bagnell 144,150 bytes); illustrations remain PNG. OG and Twitter
+  187,963 bytes unnamed, about 172 KB with its name; Bagnell 144,150 bytes);
+  illustrations remain PNG. OG and Twitter
   use the same source. This is our payload budget, not a claimed WhatsApp limit.
 - 64 px brand inset and centered focal illustration. Check 2:1 and central
   630 × 630 crops. These are design stress tests, not guaranteed safe zones for
@@ -18,11 +20,21 @@ Opening the link is how a recipient gets current conditions.
 - Current River and `ameren-bagnell-dam` use the approved archival photos.
   Other rivers/dams, gauges and access points use the matching Eddy icon.
   Unknown places never inherit another place's photograph.
+- A river page's image (`/rivers/<state>/<slug>`) is that artwork with the
+  river's name and state drawn on at request time (`src/lib/og/river-card.tsx`):
+  the name sits bottom-left above the wordmark, the illustration moves right,
+  and the photo's gradient deepens for contrast. The state line is dropped
+  when the name already contains it ("Spring River (Missouri)"). A name takes
+  the largest size that fits one line and wraps only below 66 px. The left
+  placement means a central square crop can cut the name; the page title beside
+  the thumbnail still names the river. The `/rivers` index, gauges, access
+  points, dams and plans keep unnamed artwork.
 - Saved plans use Eddy holding a map on a schematic route. It is not a map of
   the actual float and contains no user coordinates.
 - Local artwork and embedded fonts make generation deterministic and offline.
   Runtime image responses read committed JPEG/PNG files, without service-role queries,
-  provider calls or third-party image downloads. The image functions explicitly
+  provider calls or third-party image downloads. The two named images below add
+  one cached public catalog read each. The image functions explicitly
   trace `public/share/*.png` and `public/share/*.jpg` into their deployment bundles.
 - `src/lib/og/link-preview.ts` is the manifest for photo selection, source file,
   actual image caption and MIME type. River/dam `generateImageMetadata` uses it
@@ -33,35 +45,41 @@ Opening the link is how a recipient gets current conditions.
   Local assets remove upstream runtime dependencies; missing deployment assets
   or other serving failures are still possible.
 
-### Guide card
+### Named images: river and guide cards
 
-Guides (`/blog/<slug>`) are the one link image that prints a name: the Field
-Notebook card with the guide's title, drawn by `blog/[slug]/opengraph-image`.
-The weekday Facebook guide post is a link post, so this card is the post's
-picture.
+Two link images print a name and read one database row to get it: the river
+card above (`riverCard()`, `src/lib/og/river-card.tsx`) and the guide card.
+Guides (`/blog/<slug>`) get the Field Notebook card with the guide's title,
+drawn by `blog/[slug]/opengraph-image` from `guideCard()`
+(`src/lib/og/guide-card.ts`). The weekday Facebook guide post is a link post,
+so that card is the post's picture.
 
-- `guideCard()` (`src/lib/og/guide-card.ts`) reads the title with
-  `createPublicCatalogClient`. The image route is ISR, and Next refuses a
-  `no-store` fetch while it renders one; supabase-js returns that refusal as
-  `error` instead of throwing. A no-store client (`createAdminClient`,
-  `createPublicReadClient`) therefore fails on every request without reaching
-  the database. With the error ignored, every guide shipped the generic
-  "Float Trip Guide" card.
+- Both read with `createPublicCatalogClient`. These image routes are ISR, and
+  Next refuses a `no-store` fetch while it renders one; supabase-js returns
+  that refusal as `error` instead of throwing. A no-store client
+  (`createAdminClient`, `createPublicReadClient`) therefore fails on every
+  request without reaching the database. With the error ignored, every guide
+  once shipped the generic "Float Trip Guide" card.
 - A failed lookup throws. An error response is not cached and the next request
   retries; a generic card would be cached here and kept by Facebook. Only a
-  slug with no published guide gets the generic card.
+  slug with no published guide, or no river, gets the generic artwork.
 - `sharing-previews.test.ts` fails if any `opengraph-image`/`twitter-image`
-  route imports a no-store client. `next dev` and a compile-only build render
-  these routes on demand and cannot show the failure: check a full
-  `next build` + `next start`, where the response carries `x-nextjs-cache`.
+  route imports a no-store client, and checks both lookups request a cacheable
+  read. `next dev` and a compile-only build render these routes on demand and
+  cannot show the failure: check a full `next build` + `next start`, where the
+  response carries `x-nextjs-cache`.
 - Facebook keeps the picture it scraped. A corrected card reaches new posts;
-  an existing post or a previously shared guide URL changes only after a
-  rescrape (Meta's Sharing Debugger, or its `scrape=true` Graph call).
+  an existing post or a previously shared URL changes only after a rescrape
+  (Meta's Sharing Debugger, or its `scrape=true` Graph call).
 
 Regenerate from the web directory with `npm run share:render-previews` on the
 repo's pinned Node version. Inputs are in `scripts/assets/link-previews`;
 original Eddy icons were copied from the existing iOS/marketing assets.
 Photo provenance and reuse terms are in `public/share/credits.txt`.
+It also writes the name-ready river artwork (`river-name-v1.png`,
+`river-current-name-v1.jpg`; the photo at quality 93, because the name is
+composited on and the result re-encoded at 85). A re-render can rewrite an
+untouched file with different bytes; commit only the files you meant to change.
 Commit inputs, renderer and outputs together; version filenames for revisions.
 Already-sent chat previews may remain cached even after deployment.
 
