@@ -113,6 +113,22 @@ Vercel environment; the latest attempted deployment has a separate history link.
   Navigation and editor surfaces use the existing Eddy teal/sand palette. Pin up
   to four account-specific shortcuts from page headers.
 
+## Float contributions
+
+Admin → Float contributions reviews floats people chose to share. It never
+changes public estimates. The page compares each route's median measured
+moving pace with the median Eddy estimate the paddler planned with (`plannerMph`),
+counts distinct accounts (several trips by one group are not independent), and
+shows the flow range seen. Each trip lists quality checks and can be marked
+**Use** or **Exclude**; pressing the active choice clears it. Excluded trips
+stay listed but leave the route summary.
+
+Decisions live in `float_contribution_reviews` (service role only, RLS on),
+keyed to the archive row and deleted with it. Migration
+`20261112000740_float_contribution_reviews.sql`; before it is applied the page
+loads read-only and says so. The summary reads the newest 2,000 contributed
+trips and says when that cap is reached.
+
 ## Jobs, incidents and audit history
 
 Compilations use a client-generated UUID as an idempotency key. A repeated

@@ -67,6 +67,7 @@ const moderatorPermissions: Permission[] = [
   ['/api/admin/reports', 'GET PATCH'],
   ['/api/admin/reports/:id', 'GET PUT DELETE'],
   ['/api/admin/float-contributions', 'GET'],
+  ['/api/admin/float-contributions/review', 'PUT'],
 ];
 const compile = (rules: Permission[]) =>
   rules.map(([path, methods]) => ({
