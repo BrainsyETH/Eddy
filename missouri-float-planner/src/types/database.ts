@@ -1845,6 +1845,41 @@ export type Database = {
         }
         Relationships: []
       }
+      float_contribution_reviews: {
+        Row: {
+          decision: string
+          float_id: string
+          note: string | null
+          reviewed_at: string
+          reviewed_by: string
+          user_id: string
+        }
+        Insert: {
+          decision: string
+          float_id: string
+          note?: string | null
+          reviewed_at?: string
+          reviewed_by: string
+          user_id: string
+        }
+        Update: {
+          decision?: string
+          float_id?: string
+          note?: string | null
+          reviewed_at?: string
+          reviewed_by?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "float_contribution_reviews_user_id_float_id_fkey"
+            columns: ["user_id", "float_id"]
+            isOneToOne: true
+            referencedRelation: "float_archive"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       float_plans: {
         Row: {
           condition_at_creation: string | null

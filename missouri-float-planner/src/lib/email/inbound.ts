@@ -43,3 +43,24 @@ export async function countUnreadInboundEmails(supabase: CountClient): Promise<n
     .eq('status', 'unread');
   return error ? null : (count ?? 0);
 }
+
+export const INBOUND_EMAIL_STATUSES = ['unread', 'read', 'archived', 'spam'] as const;
+/** Most a single bulk triage may touch: one page of the list. */
+export const MAX_BULK_EMAILS = 100;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Validate a bulk triage body: 1–100 message UUIDs (deduplicated) and one status. */
+export function parseBulkEmailUpdate(
+  body: unknown,
+): { ids: string[]; status: (typeof INBOUND_EMAIL_STATUSES)[number] } | { error: string } {
+  const b = (body ?? {}) as { ids?: unknown; status?: unknown };
+  const ids = Array.isArray(b.ids) ? [...new Set(b.ids)] : [];
+  if (
+    ids.length === 0 ||
+    ids.length > MAX_BULK_EMAILS ||
+    !ids.every((id) => typeof id === 'string' && UUID.test(id))
+  )
+    return { error: `Select between 1 and ${MAX_BULK_EMAILS} messages.` };
+  if (!(INBOUND_EMAIL_STATUSES as readonly unknown[]).includes(b.status)) return { error: 'Invalid status' };
+  return { ids: ids as string[], status: b.status as (typeof INBOUND_EMAIL_STATUSES)[number] };
+}
