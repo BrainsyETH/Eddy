@@ -17,7 +17,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // Imported, not re-declared: flow-providers/usgs.ts exports MODERN_BASE
 // precisely so the by-bbox path here and the by-site path there cannot drift
 // onto different API generations. This file used to keep its own copy.
-import { MODERN_BASE } from '@/lib/flow-providers/usgs';
+import { MODERN_BASE, USGS_TIMEOUT_MS } from '@/lib/flow-providers/usgs';
 
 const PARAM_DISCHARGE = '00060';
 // Missouri + Arkansas bbox with a slim margin. South edge drops to ~33.0
@@ -68,6 +68,7 @@ async function fetchJson(url: URL): Promise<{ features?: OgcFeature[] } | null> 
     const res = await trackedFetch('usgs', 'mo-sites', url.toString(), {
       next: { revalidate: 900 },
       headers: headers(),
+      signal: AbortSignal.timeout(USGS_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     return (await res.json()) as { features?: OgcFeature[] };

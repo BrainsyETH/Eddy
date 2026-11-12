@@ -1,0 +1,638 @@
+{
+  "inspectedAt": "2026-11-11T15:16:03.907Z",
+  "requestCount": 157,
+  "publicationReady": false,
+  "remainingGates": [
+    "native_units_crosscheck",
+    "area_weighted_coverage",
+    "basin_review",
+    "forecast_sampling",
+    "storm_replay"
+  ],
+  "products": [
+    {
+      "rasterId": 158090038,
+      "subset": "conus_QPE_01H",
+      "hours": 1,
+      "start": "2026-11-11T14:00:00.000Z",
+      "end": "2026-11-11T15:00:00.000Z",
+      "stale": false,
+      "nativeUnits": "unverified",
+      "renderingRule": {
+        "rasterFunction": "None"
+      },
+      "mosaicRule": {
+        "mosaicMethod": "esriMosaicLockRaster",
+        "lockRasterIds": [
+          158090038
+        ]
+      }
+    },
+    {
+      "rasterId": 158092838,
+      "subset": "conus_QPE_06H",
+      "hours": 6,
+      "start": "2026-11-11T09:00:00.000Z",
+      "end": "2026-11-11T15:00:00.000Z",
+      "stale": false,
+      "nativeUnits": "unverified",
+      "renderingRule": {
+        "rasterFunction": "None"
+      },
+      "mosaicRule": {
+        "mosaicMethod": "esriMosaicLockRaster",
+        "lockRasterIds": [
+          158092838
+        ]
+      }
+    },
+    {
+      "rasterId": 158084838,
+      "subset": "conus_QPE_24H",
+      "hours": 24,
+      "start": "2026-11-10T14:00:00.000Z",
+      "end": "2026-11-11T14:00:00.000Z",
+      "stale": false,
+      "nativeUnits": "unverified",
+      "renderingRule": {
+        "rasterFunction": "None"
+      },
+      "mosaicRule": {
+        "mosaicMethod": "esriMosaicLockRaster",
+        "lockRasterIds": [
+          158084838
+        ]
+      }
+    },
+    {
+      "rasterId": 158088038,
+      "subset": "conus_QPE_72H",
+      "hours": 72,
+      "start": "2026-11-08T14:00:00.000Z",
+      "end": "2026-11-11T14:00:00.000Z",
+      "stale": false,
+      "nativeUnits": "unverified",
+      "renderingRule": {
+        "rasterFunction": "None"
+      },
+      "mosaicRule": {
+        "mosaicMethod": "esriMosaicLockRaster",
+        "lockRasterIds": [
+          158088038
+        ]
+      }
+    }
+  ],
+  "basins": [
+    {
+      "site": "06923250",
+      "basinAreaSqmi": 336.6775552382141,
+      "sourceAreaSqmi": 377,
+      "differenceFraction": -0.10695608690128887,
+      "sourcePointDistanceM": 0.0010955600184528072,
+      "storedPointDistanceM": 0,
+      "issues": [
+        "basin_area_mismatch"
+      ],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Niangua River at Windyville, MO"
+    },
+    {
+      "site": "06923950",
+      "basinAreaSqmi": 596.636862072598,
+      "sourceAreaSqmi": 598,
+      "differenceFraction": -0.002279494861876291,
+      "sourcePointDistanceM": 0.0010925796132566353,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Niangua River at Tunnel Dam near Macks Creek, MO"
+    },
+    {
+      "site": "06928000",
+      "basinAreaSqmi": 1254.2374296988803,
+      "sourceAreaSqmi": 1250,
+      "differenceFraction": 0.003389943759104244,
+      "sourcePointDistanceM": 0.0019574546313663333,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Gasconade River near Hazelgreen, MO"
+    },
+    {
+      "site": "06928900",
+      "basinAreaSqmi": 158.78216997908373,
+      "sourceAreaSqmi": 251,
+      "differenceFraction": -0.3674017132307421,
+      "sourcePointDistanceM": 0.004464803190017327,
+      "storedPointDistanceM": 958.9802584012327,
+      "issues": [
+        "basin_area_mismatch",
+        "stored_point_mismatch"
+      ],
+      "reviewStatus": "unreviewed",
+      "sourceName": "BIG PINEY RIVER NEAR HOUSTON, MO"
+    },
+    {
+      "site": "06930000",
+      "basinAreaSqmi": 550.8795114254884,
+      "sourceAreaSqmi": 560,
+      "differenceFraction": -0.01628658674019923,
+      "sourcePointDistanceM": 0.002936627523564081,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Big Piney River near Big Piney, MO"
+    },
+    {
+      "site": "06933500",
+      "basinAreaSqmi": 2832.484008365572,
+      "sourceAreaSqmi": 2840,
+      "differenceFraction": -0.0026464759276154195,
+      "sourcePointDistanceM": 0.002946952300418701,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Gasconade River at Jerome, MO"
+    },
+    {
+      "site": "06934000",
+      "basinAreaSqmi": 3189.336385864877,
+      "sourceAreaSqmi": 3180,
+      "differenceFraction": 0.002935970397759992,
+      "sourcePointDistanceM": 0.0010872134986539771,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Gasconade River near Rich Fountain, MO"
+    },
+    {
+      "site": "07010350",
+      "basinAreaSqmi": 199.2243492815586,
+      "sourceAreaSqmi": 199,
+      "differenceFraction": 0.001127383324415087,
+      "sourcePointDistanceM": 0.0038309794973460883,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Meramec River at Cook Station, MO"
+    },
+    {
+      "site": "07013000",
+      "basinAreaSqmi": 781.1709374300071,
+      "sourceAreaSqmi": 781,
+      "differenceFraction": 0.00021886994879275688,
+      "sourcePointDistanceM": 0.004612203124343928,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Meramec River near Steelville, MO"
+    },
+    {
+      "site": "07014000",
+      "basinAreaSqmi": 256.2834815214361,
+      "sourceAreaSqmi": 259,
+      "differenceFraction": -0.010488488334223547,
+      "sourcePointDistanceM": 48.78531245967754,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Huzzah Creek near Steelville, MO"
+    },
+    {
+      "site": "07014500",
+      "basinAreaSqmi": 1486.5905201833712,
+      "sourceAreaSqmi": 1475,
+      "differenceFraction": 0.007857979785336375,
+      "sourcePointDistanceM": 0.0019586077085486063,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Meramec River near Sullivan, MO"
+    },
+    {
+      "site": "07015720",
+      "basinAreaSqmi": 135.7084224113413,
+      "sourceAreaSqmi": 135,
+      "differenceFraction": 0.005247573417342984,
+      "sourcePointDistanceM": 0.0010399292088423705,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Bourbeuse River near High Gate, MO"
+    },
+    {
+      "site": "07016500",
+      "basinAreaSqmi": 803.2678479612255,
+      "sourceAreaSqmi": 808,
+      "differenceFraction": -0.005856623810364517,
+      "sourcePointDistanceM": 0.0019392634493555867,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Bourbeuse River at Union, MO"
+    },
+    {
+      "site": "07018100",
+      "basinAreaSqmi": 738.8186968676205,
+      "sourceAreaSqmi": 735,
+      "differenceFraction": 0.005195505942340781,
+      "sourcePointDistanceM": 0.004077541874354503,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Big River near Richwoods, MO"
+    },
+    {
+      "site": "07018500",
+      "basinAreaSqmi": 917.612685102042,
+      "sourceAreaSqmi": 917,
+      "differenceFraction": 0.0006681407873958024,
+      "sourcePointDistanceM": 0.004594506533563344,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Big River at Byrnesville, MO"
+    },
+    {
+      "site": "07019000",
+      "basinAreaSqmi": 3786.8075431937323,
+      "sourceAreaSqmi": 3788,
+      "differenceFraction": -0.00031479852330193453,
+      "sourcePointDistanceM": 76.12572444064728,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Meramec River near Eureka, MO"
+    },
+    {
+      "site": "07034000",
+      "basinAreaSqmi": 239.96036741914733,
+      "sourceAreaSqmi": 234,
+      "differenceFraction": 0.025471655637381758,
+      "sourcePointDistanceM": 0.0031526198764077165,
+      "storedPointDistanceM": 0.0031526198764077165,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "St. Francis River near Roselle, MO"
+    },
+    {
+      "site": "07037500",
+      "basinAreaSqmi": 948.4172222883931,
+      "sourceAreaSqmi": 956,
+      "differenceFraction": -0.007931775848961216,
+      "sourcePointDistanceM": 0.0039444827940505476,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "St. Francis River near Patterson, MO"
+    },
+    {
+      "site": "07049000",
+      "basinAreaSqmi": 264.70718999600234,
+      "sourceAreaSqmi": 263,
+      "differenceFraction": 0.0064912167148378,
+      "sourcePointDistanceM": 0,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "War Eagle Creek near Hindsville, AR"
+    },
+    {
+      "site": "07050500",
+      "basinAreaSqmi": 528.7511957380399,
+      "sourceAreaSqmi": 527,
+      "differenceFraction": 0.0033229520645918077,
+      "sourcePointDistanceM": 0.003872974071428245,
+      "storedPointDistanceM": 3.4762461588998073e-9,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Kings River near Berryville, AR"
+    },
+    {
+      "site": "07052250",
+      "basinAreaSqmi": 458.3675053426793,
+      "sourceAreaSqmi": 462,
+      "differenceFraction": -0.007862542548313216,
+      "sourcePointDistanceM": 0.00474331745966042,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "James River near Boaz, MO"
+    },
+    {
+      "site": "07052500",
+      "basinAreaSqmi": 991.6871182444704,
+      "sourceAreaSqmi": 987,
+      "differenceFraction": 0.004748853337862626,
+      "sourcePointDistanceM": 0.00297027122598807,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "James River at Galena, MO"
+    },
+    {
+      "site": "07055607",
+      "basinAreaSqmi": 402.37528045583946,
+      "sourceAreaSqmi": 398,
+      "differenceFraction": 0.010993166974471003,
+      "sourcePointDistanceM": 0.0039941089938289745,
+      "storedPointDistanceM": 4.498964472559093e-9,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Crooked Creek at Kelly Crossing at Yellville, AR"
+    },
+    {
+      "site": "07055646",
+      "basinAreaSqmi": 59.46584055980671,
+      "sourceAreaSqmi": 57.4,
+      "differenceFraction": 0.03599025365516915,
+      "sourcePointDistanceM": 0.00012354930928238497,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Buffalo River near Boxley, AR"
+    },
+    {
+      "site": "07055660",
+      "basinAreaSqmi": 116.67018262693328,
+      "sourceAreaSqmi": 116,
+      "differenceFraction": 0.005777436439080023,
+      "sourcePointDistanceM": 0.001998509527356812,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Buffalo River at Ponca, AR"
+    },
+    {
+      "site": "07055680",
+      "basinAreaSqmi": 191.13884077913553,
+      "sourceAreaSqmi": 190,
+      "differenceFraction": 0.005993898837555446,
+      "sourcePointDistanceM": 0.0020316765827363974,
+      "storedPointDistanceM": 4.1518461901218095e-9,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Buffalo River at Pruitt, AR"
+    },
+    {
+      "site": "07056000",
+      "basinAreaSqmi": 829.3667250288994,
+      "sourceAreaSqmi": 829,
+      "differenceFraction": 0.00044237036055415623,
+      "sourcePointDistanceM": 0.0020596799935262144,
+      "storedPointDistanceM": 4.90995127071702e-9,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Buffalo River near St. Joe, AR"
+    },
+    {
+      "site": "07056700",
+      "basinAreaSqmi": 1072.3811051211715,
+      "sourceAreaSqmi": 1070,
+      "differenceFraction": 0.002225331888945288,
+      "sourcePointDistanceM": 0.0002471001987419002,
+      "storedPointDistanceM": 2.370265695365949e-9,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Buffalo River near Harriet, AR"
+    },
+    {
+      "site": "07057370",
+      "basinAreaSqmi": 8035.609796964877,
+      "sourceAreaSqmi": 8040,
+      "differenceFraction": -0.0005460451536222382,
+      "sourcePointDistanceM": 0.0012355009937095012,
+      "storedPointDistanceM": 1.5801771302439662e-9,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "White River near Norfork, AR"
+    },
+    {
+      "site": "07058000",
+      "basinAreaSqmi": 568.8111915139878,
+      "sourceAreaSqmi": 570,
+      "differenceFraction": -0.002085628922828507,
+      "sourcePointDistanceM": 0.004672896347766209,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Bryant Creek near Tecumseh, MO"
+    },
+    {
+      "site": "07060500",
+      "basinAreaSqmi": 9959.96467661162,
+      "sourceAreaSqmi": 9980,
+      "differenceFraction": -0.0020075474337053873,
+      "sourcePointDistanceM": 0.004009405745473827,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "White River at Calico Rock, AR"
+    },
+    {
+      "site": "07061500",
+      "basinAreaSqmi": 492.7827780641212,
+      "sourceAreaSqmi": 484,
+      "differenceFraction": 0.01814623566967191,
+      "sourcePointDistanceM": 0.00012354930928238497,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Black River near Annapolis, MO"
+    },
+    {
+      "site": "07064440",
+      "basinAreaSqmi": 60.858545354786024,
+      "sourceAreaSqmi": 58.8,
+      "differenceFraction": 0.035009274741258964,
+      "sourcePointDistanceM": 0.0010485639713648715,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Current River at Montauk State Park, MO"
+    },
+    {
+      "site": "07064533",
+      "basinAreaSqmi": 294.6636733749476,
+      "sourceAreaSqmi": 295,
+      "differenceFraction": -0.0011400902544148452,
+      "sourcePointDistanceM": 0.003958241341704305,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Current River above Akers, MO"
+    },
+    {
+      "site": "07065200",
+      "basinAreaSqmi": 185.26479762717395,
+      "sourceAreaSqmi": 185,
+      "differenceFraction": 0.001431338525264584,
+      "sourcePointDistanceM": 0.0019873816393187298,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Jacks Fork near Mountain View, MO"
+    },
+    {
+      "site": "07065495",
+      "basinAreaSqmi": 303.5557452653892,
+      "sourceAreaSqmi": 298,
+      "differenceFraction": 0.018643440487883193,
+      "sourcePointDistanceM": 0.0029775235475136665,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Jacks Fork at Alley Spring, MO"
+    },
+    {
+      "site": "07066000",
+      "basinAreaSqmi": 404.02677810403696,
+      "sourceAreaSqmi": 398,
+      "differenceFraction": 0.015142658552856694,
+      "sourcePointDistanceM": 0.004739728176358081,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Jacks Fork at Eminence, MO"
+    },
+    {
+      "site": "07066510",
+      "basinAreaSqmi": 1336.1209285633145,
+      "sourceAreaSqmi": 1340,
+      "differenceFraction": -0.0028948294303623398,
+      "sourcePointDistanceM": 0.0009920233247026737,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Current River above Powder Mill, MO"
+    },
+    {
+      "site": "07067000",
+      "basinAreaSqmi": 1670.0830984130916,
+      "sourceAreaSqmi": 1667,
+      "differenceFraction": 0.0018494891500249837,
+      "sourcePointDistanceM": 0.00012354930928238497,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Current River at Van Buren, MO"
+    },
+    {
+      "site": "07068000",
+      "basinAreaSqmi": 2049.4641976930884,
+      "sourceAreaSqmi": 2038,
+      "differenceFraction": 0.005625219672761732,
+      "sourcePointDistanceM": 123.48249797083399,
+      "storedPointDistanceM": 0,
+      "issues": [
+        "source_point_mismatch"
+      ],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Current River at Doniphan, MO"
+    },
+    {
+      "site": "07069305",
+      "basinAreaSqmi": 844.729489501417,
+      "sourceAreaSqmi": 845,
+      "differenceFraction": -0.0003201307675538551,
+      "sourcePointDistanceM": 0.002343276787114664,
+      "storedPointDistanceM": 1.4984993032731596e-9,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Spring River at Spring Street Bridge at Hardy, AR"
+    },
+    {
+      "site": "07069500",
+      "basinAreaSqmi": 1160.637075389258,
+      "sourceAreaSqmi": 1180,
+      "differenceFraction": -0.01640925814469668,
+      "sourcePointDistanceM": 0.0030313413070219048,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Spring River at Imboden, AR"
+    },
+    {
+      "site": "07071500",
+      "basinAreaSqmi": 785.0626637400825,
+      "sourceAreaSqmi": 793,
+      "differenceFraction": -0.010009251273540373,
+      "sourcePointDistanceM": 0.00301454794327892,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Eleven Point River near Bardley, MO"
+    },
+    {
+      "site": "07185765",
+      "basinAreaSqmi": 447.9978977112651,
+      "sourceAreaSqmi": 425,
+      "differenceFraction": 0.054112700497094414,
+      "sourcePointDistanceM": 0.0029553646278533416,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Spring River at Carthage, MO"
+    },
+    {
+      "site": "07186000",
+      "basinAreaSqmi": 1165.363983050218,
+      "sourceAreaSqmi": 1164,
+      "differenceFraction": 0.0011718067441734874,
+      "sourcePointDistanceM": 0.0031987848481121214,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Spring River near Waco, MO"
+    },
+    {
+      "site": "07188925",
+      "basinAreaSqmi": 800.9412327109127,
+      "sourceAreaSqmi": 801,
+      "differenceFraction": -0.00007336740210650893,
+      "sourcePointDistanceM": 0,
+      "storedPointDistanceM": 0,
+      "issues": [
+        "stored_area_missing"
+      ],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Elk Rv at MO-59, Noel, MO"
+    },
+    {
+      "site": "07252000",
+      "basinAreaSqmi": 373.6940753758266,
+      "sourceAreaSqmi": 373,
+      "differenceFraction": 0.0018607918922965904,
+      "sourcePointDistanceM": 0.002069622966086238,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Mulberry River near Mulberry, AR"
+    },
+    {
+      "site": "07359610",
+      "basinAreaSqmi": 132.21443907179489,
+      "sourceAreaSqmi": 136,
+      "differenceFraction": -0.02783500682503761,
+      "sourcePointDistanceM": 0.0010491505940997637,
+      "storedPointDistanceM": 0,
+      "issues": [],
+      "reviewStatus": "unreviewed",
+      "sourceName": "Caddo River near Caddo Gap, AR"
+    }
+  ],
+  "failures": [
+    {
+      "site": "07057500",
+      "error": "Invalid basin geometry"
+    },
+    {
+      "site": "07063000",
+      "error": "Invalid basin geometry"
+    }
+  ],
+  "skippedWithoutUsgsId": 4,
+  "unprocessed": [],
+  "note": "Raw statistics are diagnostics, not validated rainfall amounts. No dry/rain state may be inferred from these files."
+}

@@ -1,8 +1,11 @@
 // Compact hydrograph shared by River, Gauge and map history.
 // Data geometry, gaps and reading identity come from the shared chart model.
 
+import { useRainfall, useRainPreference } from '@/hooks/useRainfall';
+import { RainDetail } from '@/components/RainDetail';
+import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh, rainHistoryStart } from '@eddy/conditions/rainfall';
 import { chartValueDomain } from '@eddy/conditions/chart-view';
-import { chartStamp } from '@eddy/conditions/chart-calendar';
+import { chartStamp, chartShortStamp } from '@eddy/conditions/chart-calendar';
 import { chartStatisticForUnit, resolutionNotice, type ChartShareState } from '@eddy/conditions/chart-share';
 import { captureNativeChart, nativeChartView } from '@/lib/chartSharing';
 import { ChartShareControl } from '@/components/ChartShareControl';
@@ -133,6 +136,8 @@ const SCRUB_ACTIVATE_X = 8;
 const SCRUB_FAIL_Y = 8;
 
 interface Props {
+  /** The section report supplies the surrounding card; expansion stays full-screen. */
+  embedded?: boolean;
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
   riverId?: string;
@@ -228,7 +233,7 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
   const initialWindow = initialShareState?.loaded ?? givenWindow;
   const initialDays = initialShareState ? Math.max(1, Math.round((Date.parse(initialShareState.loaded.to) - Date.parse(initialShareState.loaded.from)) / 86_400_000)) : givenDays;
   const initialZoomKey = initialShareState ? chartZoomKey(siteId, initialShareState.unit, initialDays, initialShareState.loaded, initialShareState.loaded, initialDays) : null;
-  const [sheet, setSheet] = useState<'compare' | 'data' | 'range' | 'unit' | 'dates' | null>(null);
+  const [sheet, setSheet] = useState<'compare' | 'data' | 'range' | 'unit' | 'dates' | 'rain' | null>(null);
   const [showTypical, setShowTypical] = useState(initialShareState?.layers.includes('typical') ?? false);
   const [showMedian, setShowMedian] = useState(initialShareState?.layers.includes('median') ?? false);
   const [showLastYear, setShowLastYear] = useState(initialShareState?.layers.includes('lastYear') ?? false);
@@ -268,8 +273,11 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
     [showLastYear, lastYearEligible, lastYearDates],
   );
   const lastYear = useLastYearHistory(siteId, lastYearWindow);
+  const [rainOn, setRainOn] = useRainPreference();
+  const rainfall = useRainfall(siteId, provider === 'usgs' && rainRange(days, !!customWindow));
 
   return {
+    rainOn, setRainOn, rainfall,
     sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
     showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
@@ -294,7 +302,7 @@ function GaugeChartInner(props: Props) {
 }
 
 function GaugeChartView({
-  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, title, riverId, riverSlug, initialShareState,
+  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, title, riverId, riverSlug, initialShareState, embedded = false,
   controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
 }: Props & {
   controller: ChartController;
@@ -307,15 +315,15 @@ function GaugeChartView({
   const { fontScale } = useWindowDimensions();
   const [controlsHeight, setControlsHeight] = useState(112 * fontScale);
   const [actionsHeight, setActionsHeight] = useState(44 * fontScale);
-  const chartHeight = expanded
+  const baseChartHeight = expanded
     ? expandedChartHeight(availableHeight, controlsHeight, actionsHeight, fontScale)
     : CHART_HEIGHT * Math.max(1, fontScale);
   const axisFont = 11 * fontScale;
-  const padTop = 30 * fontScale;
   const padBottom = 28 * fontScale;
   const clipId = `gauge-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const { colors, isDark } = useTheme();
   const {
+    rainOn, setRainOn, rainfall,
     sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
     showLastYear, setShowLastYear, lastYearEligible, lastYear,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
@@ -330,6 +338,18 @@ function GaugeChartView({
   const clearScrub = useCallback(() => { setSelection(null); setFinger(null); }, [setSelection]);
 
   const drawnUnit = unitOverride ?? unit;
+  const rain = rainfall.data;
+  const rainEnabled = !!(rainOn && rain && rain.status !== 'unavailable' && rainIsFresh(rain) && !rainfall.failed && matchesRequest && rainRange(days, !!customWindow));
+  const padTop = (30 + (rainEnabled ? 76 : 0)) * fontScale;
+  // Rain adds its own space; the existing river plot keeps its readable height.
+  // The full-screen container already scrolls at large text/landscape sizes.
+  const chartHeight = baseChartHeight + (rainEnabled ? 76 * fontScale : 0);
+  const rainRows = useMemo(() => rainEnabled && rain && history?.requestedWindow
+    ? rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6) : [],
+    [rainEnabled, rain, history, days]);
+  const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
+  const rainStart = rainEnabled && rain && history?.requestedWindow
+    ? rainHistoryStart(rain.hourly, Date.parse(history.requestedWindow.from), Date.parse(history.requestedWindow.to), days === 1 ? 1 : 6) : null;
 
   /**
    * The range the line on screen actually covers, which is NOT always `days`.
@@ -854,7 +874,7 @@ function GaugeChartView({
    * drop in a hurry are spoken too: a forecast is not a measurement, and a
    * provisional reading is not a verified one.
    */
-  const spokenValue = (() => {
+  const gaugeSpokenValue = (() => {
     const at = readoutPoint;
     if (!at) return null;
     const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t, historyTimeZone(history?.timeZone))}`];
@@ -890,7 +910,9 @@ function GaugeChartView({
   };
 
   const currentZone = newest ? zones.find(zone => newest.v <= zone.max || zone.openEnded) : null;
-  const comparisonCount = Number(showTypical && typical.length > 0) + Number(showMedian && typical.length > 0) + Number(lastYearShown) + Number(fullScale);
+  const rainCaption = (at: ScrubbedPoint | null) => rainEnabled && at?.kind === 'observed' ? rainReadout(rainAt(rainRows, at.point.t), historyTimeZone(history?.timeZone)) : null;
+  const spokenValue = [gaugeSpokenValue, rainCaption(readoutPoint)].filter(Boolean).join('. ');
+  const comparisonCount = Number(showTypical && typical.length > 0) + Number(showMedian && typical.length > 0) + Number(lastYearShown) + Number(fullScale) + Number(rainEnabled);
   const drawnRangeLabel = drawnDays === 1 ? 'Past 24 hours' : `Past ${drawnDays} days`;
   const rangeLabel = customWindow ? 'Custom dates' : RANGES.find(r => r.days === days)?.label ?? `${days}d`;
   const rangeSummaryLabel = matchesRequest && history?.resolution === 'daily' ? `${rangeLabel} · daily` : rangeLabel;
@@ -974,7 +996,7 @@ function GaugeChartView({
   const railLabels = selectChartRailLabels(railCandidates, 0, chartHeight, 4 * fontScale);
 
   return (
-    <View style={[styles.card, expanded && styles.expandedCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+    <View style={[styles.card, embedded && styles.embeddedCard, expanded && styles.expandedCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       accessibilityElementsHidden={!active} importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}>
       <View onLayout={expanded ? event => setControlsHeight(event.nativeEvent.layout.height) : undefined}>
         {recentSummary ? <Text style={[styles.caption, { color: colors.textMuted, paddingBottom: 8 }]}>{recentSummary}</Text> : null}
@@ -1032,6 +1054,7 @@ function GaugeChartView({
           band={readoutPoint?.kind === 'observed' ? readoutZone?.label : undefined}
           time={readoutPoint ? scrubTime(readoutPoint.point.t, historyTimeZone(history?.timeZone)) : 'Touch the chart to explore'}
           source={readoutPoint?.kind === 'forecast' ? 'NWS forecast' : observedLabel}
+          rain={rainCaption(readoutPoint)}
           quality={readoutPoint?.kind === 'observed' ? qualifierText(readoutPoint.point.qualifiers) : null}
           comparison={priorPoints.length ? priorText(readoutPoint) : null} /> : null}
       </View>
@@ -1043,6 +1066,18 @@ function GaugeChartView({
             accessibilityActions={[{ name: 'increment', label: 'Later reading' }, { name: 'decrement', label: 'Earlier reading' }]}
             onAccessibilityAction={onAccessibilityAction} onAccessibilityEscape={expanded ? onClose : clearScrub}>
             <Svg width={width} height={chartHeight}>
+              {rainEnabled ? <G>
+                {rainRows.map(row => {
+                  const left = Math.max(padLeft + 4, scale.x(Date.parse(row.start))), right = Math.min(padLeft + plotWidth - 4, scale.x(Date.parse(row.end)));
+                  if (right <= left) return null;
+                  const height = Math.max(1, (row.inches ?? 0) / rainMax * 30 * fontScale);
+                  return row.inches === null
+                    ? <Rect key={row.start} x={left} y={46 * fontScale} width={right - left} height={30 * fontScale} fill={colors.cardRaised} stroke={colors.textMuted} strokeDasharray="2 3" strokeWidth={0.5} />
+                    : row.inches === 0 ? <Line key={row.start} x1={left} x2={right} y1={76 * fontScale} y2={76 * fontScale} stroke={colors.rainLikely} strokeWidth={1.5} />
+                    : <Rect key={row.start} x={left} y={76 * fontScale - height} width={Math.max(0.5, (right - left) * 0.88)} height={height} fill={colors.rainLikely} />;
+                })}
+                {scrubbed ? <Line x1={scale.x(scrubbed.point.t)} x2={scale.x(scrubbed.point.t)} y1={44 * fontScale} y2={padTop + plotHeight} stroke={colors.textMuted} opacity={0.4} /> : null}
+              </G> : null}
               <Defs><ClipPath id={clipId}><Rect x={padLeft} y={padTop} width={plotWidth} height={plotHeight} /></ClipPath></Defs>
               <G clipPath={`url(#${clipId})`}>
                 {currentZone ? <Rect x={padLeft} y={Math.max(padTop, scale.y(currentZone.openEnded ? domain.max : Math.min(currentZone.max, domain.max)))}
@@ -1090,8 +1125,8 @@ function GaugeChartView({
                 <SvgText x={padLeft + plotWidth + 6} y={label.y + axisFont} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{label.secondLine}</SvgText>
               </G> : <SvgText key={label.id} x={padLeft + plotWidth + 16} y={label.y + axisFont * 0.35} fontSize={axisFont}
                 fill={label.kind === 'name' ? colors.text : colors.textMuted} fontFamily={label.kind === 'name' ? fonts.medium : fonts.mono}>{label.text}</SvgText>)}
-              {plotWidth >= axisFont * 7 && (forecastPoints.length > 0 || stageLines.length > 0) ? <SvgText x={padLeft + plotWidth - 3} y={axisFont * 1.8} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{forecastPoints.length ? 'NWS forecast' : 'NWS stages'}</SvgText> : null}
-              {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
+              {plotWidth >= axisFont * 7 && (forecastPoints.length > 0 || stageLines.length > 0) ? <SvgText x={padLeft + plotWidth - 3} y={padTop - axisFont} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{forecastPoints.length ? 'NWS forecast' : 'NWS stages'}</SvgText> : null}
+              {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={padTop - axisFont} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
                 {nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
               {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, viewport ? (viewport.end - viewport.start) / 86_400_000 : drawnDays, historyTimeZone(history?.timeZone))}</SvgText>)}
@@ -1100,7 +1135,7 @@ function GaugeChartView({
               point={{ x: scale.x(scrubbed.point.t), y: scale.y(scrubbed.point.v) }}
               finger={finger}
               value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t, historyTimeZone(history?.timeZone))}
-              source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} quality={scrubQualifiers}
+              source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} rain={rainCaption(scrubbed)} quality={scrubQualifiers}
               comparison={priorPoints.length && scrubbed.kind === 'observed' ? priorText(scrubbed) : null} /> : null}
           </View>
         </GestureDetector> : <View style={[styles.placeholder, { height: chartHeight }]}>
@@ -1109,7 +1144,15 @@ function GaugeChartView({
             <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text></Pressable>
           </> : <Text style={[styles.placeholderText, { color: colors.textMuted }]}>{unavailable ? 'No recent history published for this gauge.' : points.length >= 2 || forecastPoints.length ? 'Use Data & details to read this history at your current text size.' : points.length === 1 ? 'Only one reading in this window — not enough to chart.' : `No ${drawnUnit === 'cfs' ? 'flow' : 'gauge height'} reported in this window.`}</Text>}
         </View>}
+        {rainEnabled && hasPlot ? <View pointerEvents="box-none" style={{ position: 'absolute', left: padLeft, right: padRight, top: 0, height: 44 * fontScale, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open rain upstream details" style={{ minHeight: 44 * fontScale, justifyContent: 'center' }} onPress={() => { clearScrub(); setSheet('rain'); }}>
+            <Text style={[styles.caption, { color: colors.interactive, fontFamily: fonts.semibold }]}>Rain upstream</Text>
+          </Pressable>
+          <View accessible accessibilityLabel={`Scale zero to ${rainMax.toFixed(2)} inches, ${days === 1 ? 'hourly' : 'six-hour'} bars`}><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>0–{rainMax.toFixed(2)} in</Text><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>{days === 1 ? 'Hourly bars' : '6-hour bars'}</Text></View>
+        </View> : null}
       </View>
+      {rainStart ? <Text style={[styles.caption, { color: colors.textMuted, marginTop: 8 }]}
+        accessibilityLabel={`Rain record starts ${chartStamp(rainStart, historyTimeZone(history?.timeZone))}`}>Rain record starts {chartShortStamp(rainStart, historyTimeZone(history?.timeZone))}</Text> : null}
       <View style={[styles.actions, { borderTopColor: colors.border }]}
         onLayout={expanded ? event => setActionsHeight(event.nativeEvent.layout.height) : undefined}>
         {expanded && provider === 'usgs' && <ChartShareControl state={shareState} stationName={title} />}
@@ -1139,8 +1182,10 @@ function GaugeChartView({
           <ControlIcon name="expand-outline" size={20} color={colors.interactive} />
         </Pressable> : null}
       </View>
-      {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
-        {sheet === 'compare' ? <>
+      {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'rain' ? 'Rain upstream' : sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
+        {sheet === 'rain' && siteId ? <RainDetail siteId={siteId} timeZone={historyTimeZone(history?.timeZone)} /> : sheet === 'compare' ? <>
+          {rain ? <ChartComparison label="Rain upstream" detail={rain.status === 'unavailable' || !rainIsFresh(rain) || rainfall.failed ? 'Rain data unavailable' : 'Radar estimate · inches per bar'} value={rainOn} disabled={false} onChange={setRainOn}
+            action={<Pressable accessibilityRole="button" onPress={() => setSheet('rain')} style={styles.toolbarAction}><Text style={[styles.actionText, { color: colors.interactive }]}>Watershed & totals</Text></Pressable>} /> : null}
           <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Middle half of past years' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
           <ChartComparison label="Median" detail="Middle of past years for this date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />
           {lastYearEligible ? <ChartComparison label="Last year"
@@ -1241,7 +1286,7 @@ export function GaugeChart(props: Props) {
       // like an error: same card, same height, same quiet ink. What is missing
       // is one panel, and the reading it charts is still on the screen above.
       fallback={
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, props.embedded && styles.embeddedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
             <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
               Charts need a newer version of the app. Everything else on this
@@ -1260,6 +1305,7 @@ const styles = StyleSheet.create({
   // Page summaries own the current value, rating and freshness. This component
   // owns only the chart: ~310pt at default text size, growing with Dynamic Type.
   card: { marginBottom: 14, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
+  embeddedCard: { marginBottom: 0, paddingBottom: 8, borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
   expandedCard: { marginBottom: 0, paddingTop: 8, paddingBottom: 8, borderTopWidth: 0, borderBottomWidth: 0 },
   expand: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },

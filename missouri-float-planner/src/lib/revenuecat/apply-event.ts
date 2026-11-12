@@ -128,6 +128,30 @@ export async function applyToEntitlement(
 }
 
 /**
+ * Whether a webhook delivery may have left the row without the expiry
+ * RevenueCat knows about, so the route must ask RevenueCat directly.
+ *
+ * Two cases, both seen in production:
+ *
+ *   * A STALE event was dropped. Events written in the same second can land in
+ *     either order. An offer-code redemption followed at once by turning off
+ *     auto-renew sends INITIAL_PURCHASE and CANCELLATION seconds apart. When the
+ *     CANCELLATION is saved first, the INITIAL_PURCHASE is "older" and dropped,
+ *     and it was the only event carrying the expiry. The ordering guard is right
+ *     to refuse it as a write, but that information is now lost.
+ *   * The event carried NO expiry (an UNSUBSCRIBE cancellation, a billing issue
+ *     with no grace date). Applied to a row that never had one, it creates or
+ *     leaves a row with expires_at null: entitled in RevenueCat, locked out here.
+ *
+ * Reconciling is safe in both cases because reconcile_entitlement can only
+ * grant or extend, never revoke (see lib/revenuecat/api.ts).
+ */
+export function needsReconcile(results: ApplyResult[], patch: EntitlementPatch): boolean {
+  if (results.some((r) => r.status === 'stale')) return true;
+  return patch.expires_at == null;
+}
+
+/**
  * Expire the source side of a TRANSFER, under the same ordering guard. A source
  * row that has since seen a newer event (the account bought again) is left
  * alone rather than revoked by a transfer that arrived late.

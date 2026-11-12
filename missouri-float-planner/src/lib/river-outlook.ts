@@ -93,9 +93,8 @@ export interface BuildEddyTakeSectionsInput {
   currentCondition: ConditionCode;
   generatedEddyRead?: string | null;
   /**
-   * The whole river runs at what a dam releases (a dam_tailwater river, which
-   * always has controlling_dam_id). Not a reach: the Black is dam-controlled
-   * only below Clearwater, and its upper river does follow the rain.
+   * The selected water runs at what a dam releases. This can be a whole
+   * tailwater or just Lower Black; Upper Black still follows the rain.
    */
   damControlled?: boolean;
 }

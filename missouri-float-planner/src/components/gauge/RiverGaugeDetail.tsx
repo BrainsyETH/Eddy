@@ -1,7 +1,7 @@
 'use client';
 
 // src/components/gauge/RiverGaugeDetail.tsx
-// Embeddable "Current Conditions" panel for a river — gauge tabs, trend chart,
+// Embeddable live report for a river — section/gauge selection, trend chart,
 // current reading, Eddy Says, and threshold table. Rendered inside the
 // canonical river hub at /rivers/[slug].
 
@@ -36,6 +36,7 @@ import { usePathname } from 'next/navigation';
 import { buildEddyTakeSections } from '@/lib/river-outlook';
 import { buildZones } from '@/lib/gauge/threshold-zones';
 import { ageHoursOf } from '@/lib/utils/reading-age';
+import { shortenGaugeName } from '@/lib/gauge/format-name';
 import {
   rangeLabelForDays,
   trackGaugeContextChanged,
@@ -44,6 +45,10 @@ import {
   trackGaugeSourceOpened,
 } from '@/lib/gauge/analytics';
 import { createPortal } from 'react-dom';
+import RiverSectionSelector from '@/components/river/RiverSectionSelector';
+import { sectionFromUrl, sectionGauge, riverSectionLabel, type RiverReportSection } from '@/lib/river-report-sections';
+
+const NO_SECTIONS: RiverReportSection[] = [];
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
@@ -71,12 +76,10 @@ interface RiverGaugeDetailProps {
   heldDamId?: string | null;
   /** The whole river runs at a dam's release (a dam_tailwater river). */
   damControlled?: boolean;
-  /**
-   * The river's reaches, server-rendered by the page. They sit under the
-   * reading as they do in the app, because "which half of the river" changes
-   * what the reading means.
-   */
-  reachesSlot?: React.ReactNode;
+  /** Curated hydrological sections; ordinary gauge tabs remain on other rivers. */
+  sections?: RiverReportSection[];
+  /** Raw registry slug: an unresolved section must never apply to the whole river. */
+  damSectionSlug?: string | null;
 }
 
 export default function RiverGaugeDetail({
@@ -85,14 +88,59 @@ export default function RiverGaugeDetail({
   damFooter,
   heldDamId = null,
   damControlled = false,
-  reachesSlot,
+  sections = NO_SECTIONS,
+  damSectionSlug = null,
 }: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
-  const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
+  const [selectedSiteId, setActiveSiteId] = useState<string | null>(null);
   const [lastYearFor, setLastYearFor] = useState<string | null>(null);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
   const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
+  const [sectionSlug, setSectionSlug] = useState<string | null>(null);
+  const [sectionReady, setSectionReady] = useState(false);
+  const hasSections = sections.length > 1;
+  const selectedSection = hasSections
+    ? sections.find((section) => section.sectionSlug === sectionSlug) ?? sections[0]
+    : null;
+
+  useEffect(() => {
+    if (!hasSections) return;
+    const readSelection = () => {
+      setSectionSlug(sectionFromUrl(sections, new URL(window.location.href)));
+      setSectionReady(true);
+    };
+    readSelection();
+    window.addEventListener('popstate', readSelection);
+    window.addEventListener('hashchange', readSelection);
+    return () => {
+      window.removeEventListener('popstate', readSelection);
+      window.removeEventListener('hashchange', readSelection);
+    };
+  }, [hasSections, sections]);
+
+  const selectSection = (slug: string) => {
+    setSectionSlug(slug);
+    setLastYearFor(null);
+    const url = new URL(window.location.href);
+    url.searchParams.set('section', slug);
+    // A previous reach anchor must not override this new query selection.
+    if (url.hash.startsWith('#reach-')) url.hash = 'status';
+    window.history.pushState(null, '', url);
+  };
+
+  const activeGauge = useMemo(() => {
+    if (!riverGroup) return null;
+    if (hasSections) return sectionReady ? sectionGauge(selectedSection, riverGroup.allGauges) : null;
+    return riverGroup.allGauges.find((gauge) => gauge.usgsSiteId === selectedSiteId) ?? riverGroup.primaryGauge;
+  }, [riverGroup, hasSections, sectionReady, selectedSection, selectedSiteId]);
+  const activeSiteId = activeGauge?.usgsSiteId ?? null;
+  const showDamContext = !damSectionSlug || selectedSection?.sectionSlug === damSectionSlug
+    || activeSiteId === heldDamId;
+  const selectedDamControlled = damControlled || selectedSection?.riverType === 'dam_tailwater';
+  const sectionSelector = hasSections ? (
+    <RiverSectionSelector sections={sections} selectedSlug={selectedSection?.sectionSlug ?? null} onChange={selectSection} />
+  ) : null;
 
   useEffect(() => {
     setGaugeNavTarget(document.getElementById('gauge-selection-slot'));
@@ -102,13 +150,6 @@ export default function RiverGaugeDetail({
   // the canonical /rivers/[state]/[slug], so append the segment to the path.
   const pathname = usePathname();
   const addPhotoHref = `${pathname}/add-photo`;
-
-  // Set default active gauge when river group loads
-  useEffect(() => {
-    if (riverGroup && !activeSiteId) {
-      setActiveSiteId(riverGroup.primaryGauge.usgsSiteId);
-    }
-  }, [riverGroup, activeSiteId]);
 
   // Prefetch history for all gauges in this river
   useEffect(() => {
@@ -133,11 +174,6 @@ export default function RiverGaugeDetail({
   // Station-level facts the river-group payload does not carry — today that
   // means the NWS flood stages the chart draws.
   const { data: gaugeDetail } = useGaugeDetail(activeSiteId ?? null);
-
-  const activeGauge = useMemo(() => {
-    if (!riverGroup || !activeSiteId) return null;
-    return riverGroup.allGauges.find(g => g.usgsSiteId === activeSiteId) || riverGroup.primaryGauge;
-  }, [riverGroup, activeSiteId]);
 
   // Get the threshold for this river from the active gauge
   const activeThreshold = useMemo(() => {
@@ -356,9 +392,9 @@ export default function RiverGaugeDetail({
       outlook,
       currentCondition: condition.code,
       generatedEddyRead: activeEddyUpdate?.summaryText,
-      damControlled,
+      damControlled: selectedDamControlled,
     }),
-    [condition.code, outlook, activeEddyUpdate?.summaryText, damControlled],
+    [condition.code, outlook, activeEddyUpdate?.summaryText, selectedDamControlled],
   );
 
   const eddySourceGaugeName = activeGauge?.name ?? null;
@@ -416,9 +452,11 @@ export default function RiverGaugeDetail({
   const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || (hasSections && !sectionReady)) {
     return (
-      <section className="space-y-6" aria-busy="true">
+      <section aria-busy="true">
+        {sectionSelector}
+        <div id="river-section-report" className="space-y-6">
         {/* The animation is on each Skeleton, not the section. It was on the
             section, which animates OPACITY, and `animate-none` on a child
             cannot opt out of an inherited opacity animation — so the tailwater
@@ -428,32 +466,35 @@ export default function RiverGaugeDetail({
             the page does not jump when the gauge query settles. */}
         <Skeleton className="h-4 w-40" />
         <Skeleton rounded="xl" className="h-44" />
-        {damLead ? <div className="card-framed bg-white pb-4">{damLead}</div> : null}
-        {reachesSlot}
+        {showDamContext && damLead ? <div className="card-framed bg-white pb-4">{damLead}</div> : null}
         <Skeleton rounded="xl" className="h-72" />
+        </div>
       </section>
     );
   }
 
   if (!riverGroup || !activeGauge) {
     return (
-      <section className="space-y-6">
+      <section>
+        {sectionSelector}
+        <div id="river-section-report" className="space-y-6">
         <Card variant="panel" className="p-6 text-center">
           <p className="text-sm text-neutral-600">
-            Live gauge data isn&apos;t available for this river right now.
+            {selectedSection ? `Live gauge data isn’t available for ${riverSectionLabel(selectedSection).title} right now.` : 'Live gauge data isn’t available for this river right now.'}
           </p>
         </Card>
-        {damLead ? <div className="card-framed bg-white pb-4">{damLead}</div> : null}
-        {reachesSlot}
+        {showDamContext && damLead ? <div className="card-framed bg-white pb-4">{damLead}</div> : null}
+        </div>
       </section>
     );
   }
 
   return (
     <div>
+        {sectionSelector}
         {/* The gauge picker lives in the sticky section bar so it remains close
             to Live report without consuming another row in the report. */}
-        {tabs.length > 1 && gaugeNavTarget && createPortal(
+        {!hasSections && tabs.length > 1 && gaugeNavTarget && createPortal(
             <GaugeTabBar
               gauges={tabs}
               activeSiteId={activeSiteId || ''}
@@ -465,7 +506,7 @@ export default function RiverGaugeDetail({
         {/* Selected-gauge meta — identity only. Freshness is stated on the
             reading card itself, where the number it qualifies actually is;
             Share sits in the hero, Add Photo in the photo gallery. */}
-        <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
+        {!hasSections && <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
           {tabs.length <= 1 && <span className="font-medium text-neutral-600">{activeGauge.name}</span>}
           {/* Provider-driven: a USACE dam slug is not a USGS monitoring
               location, and linking one there is a dead end. Providers with no
@@ -482,14 +523,13 @@ export default function RiverGaugeDetail({
               <ExternalLink className="w-3 h-3" />
             </a>
           )}
-        </div>
+        </div>}
 
-        {/* Same order as the app's river screen: the reading and its
-            verdict, what qualifies it (dam, reaches), how it got here (the
-            chart), what happens next (Will it hold? + Eddy's take), then the
-            reference material. */}
-        <div className="space-y-6">
-        <div>
+        {/* A section owns one reading and its chart. Dam context follows that
+            chart only for the section the dam controls. Other rivers keep
+            their existing gauge picker and dam presentation. */}
+        <div id="river-section-report" className="space-y-6">
+        <div className={hasSections ? 'card-panel min-w-0 overflow-hidden' : undefined}>
           {/* On the dam's own unrated release the dam IS the card: its
               readings, schedule and schedule check, and nothing after. The
               gauge card's water quality, Lately/Safety/Forecast rows and
@@ -518,7 +558,16 @@ export default function RiverGaugeDetail({
               }
               readingAgeHours={activeGauge.readingAgeHours}
               zones={ladderZones}
-              footer={damFooter}
+              embedded={hasSections}
+              sectionHeading={hasSections ? `${shortenGaugeName(activeGauge.name)} gauge` : undefined}
+              source={hasSections && sourceLink ? (
+                <a href={sourceLink.href} target="_blank" rel="noopener noreferrer"
+                  onClick={() => trackGaugeSourceOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
+                  className="inline-flex min-h-6 items-center gap-1 text-xs text-primary-700 hover:underline">
+                  {sourceLink.label}<ExternalLink className="h-3 w-3" aria-hidden="true" />
+                </a>
+              ) : null}
+              footer={!hasSections && showDamContext ? damFooter : null}
             >
               {/* Safety and forecast only — the card above already shows the
                   level, trend and verdict. */}
@@ -543,12 +592,10 @@ export default function RiverGaugeDetail({
             </CurrentReadingCard>
           )}
 
-        </div>
-
-        {reachesSlot}
-
+        <div className={hasSections ? 'border-t border-neutral-200' : 'mt-6'}>
         <GaugeHistoryChart
           key={activeGauge.usgsSiteId}
+          embedded={hasSections}
           riverId={riverGroup.riverId}
           riverSlug={riverSlug}
           provider={gaugeDetail?.provider}
@@ -574,20 +621,25 @@ export default function RiverGaugeDetail({
             colors={{ trigger: '#857D70', triggerBorder: '#C2BAAC', popBg: '#FFFFFF', popBorder: '#DBD5CA', title: '#2D2A24', body: '#524D43', focus: '#2D7889' }} />}
         />
 
+        </div>
+        {hasSections && showDamContext && damFooter}
+        </div>
+
         {/* What happens next, in its own card as on iOS. */}
-        <section className="card-panel" aria-label="72-hour outlook and Eddy's take">
-          <WillItHold
-            key={`outlook-${activeSiteId}`}
-            outlook={outlook}
-            embedded
-          />
+        <section className="card-panel" aria-label="Eddy's Read and 72-hour outlook">
           <EddyOutlookFooter
+            compact={hasSections}
             sections={eddyTakeSections}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
             readIsGenerated={Boolean(activeEddyUpdate?.summaryText)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
             damRead={damTab ? { damId: damTab.damId, scheduleAbove: damLeads } : null}
+          />
+          <WillItHold
+            key={`outlook-${activeSiteId}`}
+            outlook={outlook}
+            embedded
           />
         </section>
 

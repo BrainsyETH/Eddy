@@ -73,6 +73,10 @@ const DOWNSTREAM_AND_CHANGE = [
 
 export function GenerationCard({ dam }: { dam: DamSnapshot }) {
   const { colors, elevation } = useTheme();
+  const hasSchedule = dam.schedule.length > 0;
+  // Flood-control dams can have release readings but no generation content.
+  // The hero returns null for them; its container must disappear too.
+  if (!dam.hasTurbines && !hasSchedule) return null;
 
   const ref = dam.generationReference;
   // The scheduled half of the pair the hero used to draw itself. Read here so
@@ -83,7 +87,6 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
     ? { sentence: scheduled, provenance: scheduledClauseProvenance(dam.schedule, ref) }
     : null;
 
-  const hasSchedule = dam.schedule.length > 0;
   // Eddy's fetch, never SWPA's post — they publish no timestamp of any kind, so
   // the label says "Schedule checked". As old as the OLDEST day, because a
   // section is only as fresh as its weakest part.
@@ -119,7 +122,7 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
               below it is planned. Without it the two halves read as one claim,
               which is the thing the separate cards were protecting against and
               the reason they cannot simply be concatenated. */}
-          <View style={[styles.rule, { borderTopColor: colors.border }]} />
+          {dam.hasTurbines ? <View style={[styles.rule, { borderTopColor: colors.border }]} /> : null}
           <GenerationSchedule
             schedule={dam.schedule}
             reference={dam.generationReference}

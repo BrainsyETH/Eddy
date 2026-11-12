@@ -186,10 +186,12 @@ export default function OperationsPage() {
                 : 'External readiness monitoring is not configured.'}
             </p>
             <p className="text-sm">
-              The repository includes a check that runs outside Eddy every 15
-              minutes. It needs the dedicated read-only monitoring credential in
-              both deployment and workflow settings. A successful page load
-              alone does not prove data is fresh.
+              The repository includes a backstop check that runs outside Eddy
+              a few times a day, on GitHub&apos;s schedule. It is too
+              infrequent to detect an outage promptly; that needs an external
+              uptime service. It needs the dedicated read-only monitoring
+              credential in both deployment and workflow settings. A successful
+              page load alone does not prove data is fresh.
             </p>
             <a
               className="admin-link"
@@ -197,7 +199,7 @@ export default function OperationsPage() {
               target="_blank"
               rel="noreferrer"
             >
-              View uptime checks
+              View backstop checks
             </a>
           </div>
         </>

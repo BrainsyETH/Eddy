@@ -151,6 +151,68 @@ without reloading stops new custom events but cannot unload Google's already
 running automatic tracking. Storage denial does not prevent ordinary visitor
 analytics. This opt-out affects GA4 only, not widget impression accounting.
 
+### Keeping our own browser audits out
+
+Use the shared browser harness for audits of a deployment. From the web folder:
+
+```sh
+# Check only these pages (no crawl).
+BASE_URL=https://eddy.guide npm run audit:pages -- /about /support /rivers/arkansas/buffalo/accesses
+# Crawl up to 120 internal paths from the normal seed pages.
+BASE_URL=https://eddy.guide npm run test:links
+```
+
+An explicit unreachable target fails; only an unavailable default localhost
+server skips. HTTP errors also fail. `PLAYWRIGHT_CHROMIUM_PATH` optionally selects
+an installed browser. A successful redirect is recorded with both response
+statuses, rather than reported as a broken link.
+
+`scripts/lib/audit-browser.ts` creates fresh browser contexts that:
+
+- Set the existing opt-out before document scripts, including new tabs,
+  frames and reloads. Do not conceal `navigator.webdriver` during real audits.
+- Block Google tags/collection, Eddy widget impression beacons and Vercel
+  Web Analytics requests independently of storage. Service workers are disabled
+  so they cannot bypass request interception.
+- Append `EddyAudit/1.0`, the check name and a unique run ID to the browser's
+  user agent. Preserve the underlying desktop/mobile user agent.
+- Write a JSONL log incrementally to `tmp/audits/` (override with
+  `EDDY_AUDIT_OUTPUT`); map/gauge smoke checks place logs in `audits/` beside
+  their screenshots so existing CI artifact uploads retain them. Records
+  include UTC timestamps, run ID, navigation
+  paths, redirect responses, HTTP status, failed document requests and blocked
+  measurements. Query values, fragments, cookies and credentials are omitted.
+  A `browser_closed` record means cleanup ran, not that every assertion passed;
+  an interrupted process may leave a useful partial log.
+
+For a custom check, call `createAuditBrowser(browser, { name, baseURL })`, then
+use its `newPage()` or `newContext()` methods. Close the browser in `finally`.
+When adding page/context request handlers, use `route.fallback()` for unmatched
+requests so the analytics guard still runs. The link checker and the gauge,
+Ozarks map, national map and pinch checks use this harness. Local-only fixture
+checks do not need it; analytics fixtures deliberately exercise normal tracking
+with every network request intercepted.
+
+Keep the visit log with the run's audit evidence; the ignored local directory
+is not a permanent archive. For CI runs, set `EDDY_AUDIT_OUTPUT` to an artifact
+directory and retain it with that run. Node HTTP readiness probes do not execute
+JavaScript or emit GA4 events; their requests are outside this browser log.
+
+To investigate suspicious sessions, compare their property-local times (Eddy's
+GA4 property uses America/Chicago) with the log's UTC times, then match URLs.
+Where request logs are available, the user-agent run ID provides stronger
+attribution. Time/path overlap alone does not prove that an audit caused a GA4
+session. After adoption, compare similar complete days and keep suspected
+automation separate from audience-growth claims; retain the original data.
+External browser/search tools that cannot use this harness can still appear
+in analytics. Record their times and URLs explicitly, and do not claim they
+were excluded. This change cannot identify or remove historical visits.
+
+`npm run test:analytics-browser` checks both ordinary visitor tracking and the
+audit wrapper. The wrapper fixtures conceal WebDriver, deny storage, follow
+redirects, open tabs/frames, send collection requests, and exercise the targeted
+CLI against a local server. They do not send events to production or Google.
+
 The root listener initializes Google once per document with
 `send_page_view: false`. Eddy sends one explicit `page_view` for the initial
 page and each pathname change, including Back/Forward. The last measured

@@ -17,6 +17,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   modernHeaders,
+  USGS_TIMEOUT_MS,
   parseOgcValue,
   toMonitoringLocationId,
   type OgcFeature,
@@ -82,6 +83,7 @@ export async function fetchWaterTemperature(siteId: string): Promise<WaterTemper
     const response = await trackedFetch('usgs', 'water-temperature', url.toString(), {
       headers: modernHeaders(),
       next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(USGS_TIMEOUT_MS),
     });
     if (!response.ok) return null;
 

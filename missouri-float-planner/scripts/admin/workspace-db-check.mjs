@@ -11,7 +11,7 @@ create table public.community_reports(id uuid primary key,status text,created_at
 insert into auth.users values('00000000-0000-4000-8000-000000000001','owner@example.invalid',now(),null),('00000000-0000-4000-8000-000000000002','second@example.invalid',now(),null),('00000000-0000-4000-8000-000000000003','unverified@example.invalid',null,null);`);
 await db.exec(
   readFileSync(
-    'supabase/migrations/20261110222453_admin_workspace.sql',
+    'supabase/migrations/20261111025451_admin_workspace.sql',
     'utf8',
   ),
 );

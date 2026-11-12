@@ -17,7 +17,7 @@ import { withinBudget } from '@/lib/within-budget';
 // and the refusal to promise more than the data supports all live in
 // src/lib/river-outlook.ts and are not restated here.
 //
-// UNITS: the NWS publishes stage only. A cfs-rated river — 18 of 24 active ones
+// UNITS: the outlook reads the NWS forecast as stage. A cfs-rated river — 18 of 24 active ones
 // — must therefore be graded against its FOOT ladder for forecast days, never
 // against the discharge thresholds its live condition uses. That is what
 // stageThresholds below is for, and getting it wrong would print a condition
@@ -64,7 +64,7 @@ import {
   type ConditionThresholds,
 } from '@/lib/conditions';
 import { isGaugeReportCompatible } from '@/lib/eddy/gauge-update-policy';
-import { fetchAhpsForecast } from '@/lib/usgs/ahps-forecast';
+import { fetchNwsForecastStages } from '@/lib/nws/forecast';
 import { fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 import {
@@ -79,6 +79,7 @@ import type { ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 import { optionalEntitlement } from '@/lib/entitlement';
 import { premiumText } from '@/lib/eddy/tiered-prose';
+import { outlookIsDamControlled } from '@/lib/river-section-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -373,7 +374,7 @@ async function _GET(
             return coords ? fetchForecast(coords.lat, coords.lng, weatherKey, providerBudget) : null;
           })
         : Promise.resolve(null),
-      station?.nws_lid ? fetchAhpsForecast(station.nws_lid, providerBudget) : Promise.resolve([]),
+      station?.nws_lid ? fetchNwsForecastStages(station.nws_lid, providerBudget) : Promise.resolve([]),
       supabase
         .from('eddy_updates')
         .select('eddy_read, quote_text, summary_text, condition_code, gauge_height_ft, discharge_cfs, generated_at')
@@ -551,9 +552,9 @@ async function _GET(
       // Whichever report this outlook is about. Only one of the two can be
       // non-null — they are set on opposite sides of `usingPrimary`.
       generatedEddyRead: update?.eddy_read ?? gaugeUpdate?.eddy_read ?? null,
-      // A dam_tailwater river always names its dam; a river with a dam on one
-      // reach (the Black) does not, and keeps the rain sentence.
-      damControlled: river.controlling_dam_id != null,
+      // Resolve through the actual station, so Lower Black's weather copy
+      // describes dam releases without applying that guidance above Clearwater.
+      damControlled: outlookIsDamControlled(slug, station?.usgs_site_id, river.controlling_dam_id),
     });
 
     return NextResponse.json<RiverOutlookApiResponse>(

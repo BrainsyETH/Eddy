@@ -13,6 +13,7 @@
 // row keeps everything reachable.
 
 import { decodeCampsiteNights, type CampsiteNightState, type CampsiteSite } from '@eddy/types';
+import { campingNightWithPolicy } from '@eddy/conditions/camping-policy';
 
 /** A site, resolved to the one night the reader has selected. */
 export interface SiteOnNight {
@@ -120,6 +121,8 @@ export function sitesOnNight(
   sites: CampsiteSite[],
   windowNights: string[],
   date: string,
+  now = Date.now(),
+  observationsFresh = true,
 ): SiteOnNight[] {
   const index = windowNights.indexOf(date);
   if (index < 0) return [];
@@ -129,7 +132,7 @@ export function sitesOnNight(
 
     return {
       site,
-      state: decodeCampsiteNights(site.nights)[index] ?? 'unknown',
+      state: campingNightWithPolicy(observationsFresh ? decodeCampsiteNights(site.nights)[index] ?? 'unknown' : 'unknown', date, site.policy, now),
       tags,
     };
   });
@@ -338,16 +341,20 @@ export function stateLabel(state: CampsiteNightState): string | null {
  * printing "0" on a closed night: a claim about the campground made from an
  * absence of data about it.
  */
-export type ListOutcome = 'sites' | 'none_open' | 'filtered_out' | 'unmeasured';
+export type ListOutcome = 'sites' | 'none_open' | 'no_confirmed_openings' | 'filtered_out' | 'unmeasured';
 
 export function listOutcome(
   entries: SiteOnNight[],
   groups: LoopGroup[],
   filters: SiteFilter[] = [],
 ): ListOutcome {
+  const possible = entries.filter(entry => !filters.length ||
+    filters.some(filter => entry.tags.includes(filter)) || entry.tags.every(tag => !SITE_FILTERS.includes(tag as SiteFilter)));
+  const incomplete = possible.some(entry => entry.state === 'unknown');
   if (groups.length > 0) {
-    return groups.some((group) => group.open.length > 0) ? 'sites' : 'none_open';
+    return groups.some((group) => group.open.length > 0) ? 'sites' : incomplete ? 'no_confirmed_openings' : 'none_open';
   }
+  if (incomplete && entries.some(entry => entry.state !== 'unknown')) return 'no_confirmed_openings';
 
   // No groups, but something here was measured — so the filters are what
   // emptied it. groupSites puts every non-'unknown' entry into open or taken,

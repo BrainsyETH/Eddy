@@ -32,6 +32,7 @@ const ICONS = {
   today: { file: 'eddy-today', size: 18, alt: 'Today' },
   gauge: { file: 'eddy-water-droplet', size: 18, alt: 'Gauge' },
   release: { file: 'eddy-release', size: 32, alt: 'Release' },
+  dam: { file: 'eddy-dam', size: 28, alt: 'Dam' },
   waterTemperature: { file: 'eddy-water-temperature', size: 32, alt: 'Water temperature' },
   // The dam card's stats, matching eddy-ios DamStateCard. `damGauge` is the
   // staff-gauge mark the app uses for river and lake levels; it is not `gauge`

@@ -33,11 +33,14 @@ test('the dam panel is inside the reading card, not a section of its own', () =>
   const detail = read(WEB_DETAIL);
   // On the dam tab the dam block IS the card: nothing of the gauge card follows it.
   assert.match(detail, /\{damLeads \? \(\s*<div className="card-framed bg-white"[^>]*>\s*\{damLead\}\s*<\/div>\s*\) : \(\s*<CurrentReadingCard/);
-  assert.match(detail, /footer=\{damFooter\}/);
+  assert.match(detail, /footer=\{!hasSections && showDamContext \? damFooter : null\}/);
+  // Section reports place the same dam footer after their chart, only below the dam.
+  assert.match(detail, /hasSections && showDamContext && damFooter/);
 
   const ios = read(IOS_RIVER);
   assert.match(ios, /\{damLeads \? \(\s*<RiverDamPanel dam=\{selectedDam\} position="lead"/, 'on the dam tab the dam block is the whole card');
-  assert.match(ios, /!damTab \? <RiverDamPanel dam=\{dam\} position="footer"/, 'a dam tab never borrows the controlling dam footer');
+  assert.match(ios, /!hasSections && showDamContext && !damTab \? <RiverDamPanel dam=\{dam\} position="footer"/, 'a dam tab never borrows the controlling dam footer');
+  assert.match(ios, /hasSections && showDamContext && dam/, 'section reports scope the dam below their chart');
   assert.match(ios, /riverDams\.find\(item => item\.id === shownSiteId\)/);
   assert.match(ios, /heldDamId: selectedDam\?\.id/);
 });
@@ -61,11 +64,11 @@ test('the river card draws the dam the way the dam cards do', () => {
 test("the dam tab's Read is the dam's, with Weather kept and Bottom line dropped", () => {
   const footer = read(WEB_FOOTER);
   assert.match(footer, /<DamReadTeaser/);
-  assert.match(footer, /\{!damRead && \(/, 'Bottom line is drawn only off the dam tab');
+  assert.match(footer, /\{!damRead && bottomLine &&/, 'Bottom line is drawn only off the dam tab');
   assert.match(footer, />Weather</, 'Weather stays on every tab');
 
   const take = read(IOS_TAKE);
-  assert.match(take, /\{damRead \? null : \(/, 'Bottom line is drawn only off the dam tab');
+  assert.match(take, /\{damRead \|\| !bottomLine \? null : \(/, 'Bottom line is drawn only off the dam tab');
   assert.match(take, /LOCKED_DAM_READ_SHAPE/, 'locked, the dam Read frosts under the card\'s one lock');
   assert.match(read(IOS_RIVER), /damRead=\{damTab \?/);
 });

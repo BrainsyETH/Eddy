@@ -57,7 +57,7 @@ setup-web: guard-node ## Install web dependencies (npm ci in missouri-float-plan
 setup-mobile: guard-node ## Install mobile dependencies (plain npm ci — never --legacy-peer-deps)
 	cd $(MOBILE) && npm ci
 
-check-web: guard-node ## Web typecheck + lint + tests (mirrors the lint-and-typecheck CI job)
+check-web: guard-node ## Web typecheck + lint + unit tests (browser checks run separately)
 	cd $(WEB) && npm run typecheck && npm run lint && npm test
 
 # Package scripts rather than the bare binaries, because `typecheck` now
@@ -94,7 +94,7 @@ check-db: guard-node ## Migration + access-slug drift: repo files vs the linked 
 	cd $(WEB) && npm run db:check-access-slugs
 	cd $(WEB) && npm run db:check-client-access
 
-check: check-web check-mobile bundle-mobile ## Everything CI gates on
+check: check-web check-mobile bundle-mobile ## Core app checks (excludes browser suites, DB checks and dependency audit)
 
 # ── Running and shipping the app ────────────────────────────────────────────
 #

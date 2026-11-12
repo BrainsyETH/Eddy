@@ -15,6 +15,7 @@ import {
 } from './clip-credit';
 import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
 import type { SocialPlatform, HookStyle, PlatformAdapter } from './types';
+import { signCoverUrl } from './cover-signature';
 import { MAY_HAVE_PUBLISHED, outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from './publish-outcome';
 
 // The template lives with the credit rule now (clip-credit.ts); re-exported so
@@ -181,11 +182,12 @@ export async function publishClip(
 
     // Branded cover so the Reel's grid thumbnail isn't the black first video
     // frame (clips have no OG cover otherwise). Per-platform for the right size.
-    const coverUrl =
+    const coverUrl = signCoverUrl(
       `https://eddy.guide/api/og/social?type=clip&platform=${platform}` +
       `&id=${encodeURIComponent(clip.id)}` +
       (clip.river_slug ? `&river=${encodeURIComponent(clip.river_slug)}` : '') +
-      (clip.source_creator ? `&creator=${encodeURIComponent(clip.source_creator)}` : '');
+      (clip.source_creator ? `&creator=${encodeURIComponent(clip.source_creator)}` : ''),
+    );
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')

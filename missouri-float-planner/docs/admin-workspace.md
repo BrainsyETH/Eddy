@@ -41,7 +41,7 @@ both new recovery sign-ins and previously issued recovery tokens.
 
 Deployment order:
 
-1. Review and apply `20261110222453_admin_workspace.sql` to the intended database.
+1. Review and apply `20261111025451_admin_workspace.sql` to the intended database.
    Move its actual production version from pending to applied in the migration
    ledger after applying; regenerate database types and run `make check-db`. The migration is additive, enables
    RLS, and grants its tables/functions only to service_role.
@@ -54,9 +54,13 @@ Deployment order:
    removal/demotion of the final active Owner.
 4. For external uptime, configure the same dedicated random `ADMIN_MONITOR_SECRET`
    in the web deployment and GitHub Actions secrets. Enable the repository variable
-   `ADMIN_UPTIME_ENABLED=true`. The workflow checks every 15 minutes, outside Eddy,
-   and fails if readiness or pipeline freshness fails. This credential cannot
-   run crons or perform admin writes. Review GitHub notification settings separately.
+   `ADMIN_UPTIME_ENABLED=true`. The workflow then checks from outside Eddy and
+   fails if readiness or pipeline freshness fails. It is a backstop, not an
+   uptime monitor: GitHub starts scheduled workflows hours late and skips most
+   occurrences of a frequent schedule, so expect a few checks a day. For prompt
+   outage detection, point an external uptime service at the same endpoints
+   (`docs/pipeline-monitoring.md`). This credential cannot run crons or perform
+   admin writes. Review GitHub notification settings separately.
 
 No credentials, memberships, production data, or deployment settings are created
 by this code change. A configured endpoint is not proof an external check ran.

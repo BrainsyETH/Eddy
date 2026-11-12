@@ -142,6 +142,13 @@ until UTC midnight. New instances can still incur rejected budget probes.
   daily p95 values are never averaged. Sampling rates are retained per dimension.
 - Cache-inclusive fetch counters cannot drive provider quota alarms. In
   particular, no OpenWeather 80% billed-quota warning is generated from them.
+- USGS is the one provider whose allowance is read directly. Every USGS
+  response that really reached USGS logs `[usgs-quota]` with the
+  `X-RateLimit-Limit` and `X-RateLimit-Remaining` it reported
+  (`src/lib/telemetry/usgs-quota.ts`): at most once a minute per instance, and
+  at once as a warning below 20% remaining or on a 429. Fetch-cache replays are
+  skipped by their `Date` header. This is a log line, not a counter or an
+  alarm; search the function logs for it.
 
 ## Validation and activation
 

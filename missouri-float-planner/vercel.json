@@ -50,6 +50,12 @@
     },
     "src/app/api/admin/trust/run/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/collect-rainfall/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/cron/collect-rainfall-forecasts/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -208,6 +214,14 @@
     {
       "path": "/api/cron/publish-scheduled-blogs",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/collect-rainfall",
+      "schedule": "18 * * * *"
+    },
+    {
+      "path": "/api/cron/collect-rainfall-forecasts",
+      "schedule": "43 */3 * * *"
     }
   ]
 }

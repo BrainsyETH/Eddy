@@ -1,99 +1,10 @@
-// eddy-ios/src/components/EddyTake.tsx
-// "Eddy's take" — the decision hierarchy, and the 72-hour strip it reasons over.
-//
-// This is the piece the app was missing. Everything else on the river screen
-// reports a fact: the reading, its age, the hazards. None of it says what to do,
-// and a paddler holding a phone at a gravel bar is asking a question, not
-// browsing data.
-//
-// The three-way split is not a layout choice, it is the content model, and it
-// comes from the same server-side functions the website uses:
-//
-//   Eddy's read  the river as it stands now. The long model-written report when
-//                a fresh one exists, otherwise one deterministic line.
-//   Weather      everything forward-looking. Keeping this separate is what stops
-//                the two panels printing the same NWS sentence twice.
-//   Bottom line  the call, derived from the CURRENT condition alone. Leads with
-//                the decision ("Stay off the river today"), never the label —
-//                the condition chip above already shows the band in full colour,
-//                so restating it would spend the loudest line on a repeat.
-//
-// ── ALL THREE ARE PAID NOW, and it is one gate rather than three ────────────
-//
-// Weather and Bottom line used to be free, on the reasoning that they are
-// safety calls. That carve-out is withdrawn: the whole card is Eddy's
-// commentary, and selling a third of it while giving away the two thirds that
-// summarise the same water made the offer incoherent — the paywall was
-// advertising a report whose conclusion the reader already had.
-//
-// WHAT KEEPS THIS HONEST is what is NOT in this card. Every fact a decision
-// actually needs is above it and stays free forever: the condition band in full
-// colour, the reading and its age, the trend, the hazard list, the NWS and NPS
-// notices on the Alerts tab, and every alert. The 72-hour strip below — rain,
-// temperature and the official forecast stage — is also free, deliberately, and
-// is rendered before the gate for that reason. Nobody is short of information
-// about the water; what is sold is Eddy's writing about it.
-//
-// One lock, not three. Three lock rows over three consecutive sections is the
-// same wall drawn three times, and it reads as nagging rather than as an offer.
-//
-// ── The locked card SHOWS ITS SHAPE ─────────────────────────────────────────
-//
-// It used to replace all three sections with a single lock row, so what was for
-// sale was described only in the sales copy — a reader had no way to see that
-// there were three separate pieces of writing behind it, how long they were, or
-// that one of them was a one-line call. A blank wall sells nothing.
-//
-// So the locked state draws the real card: all three headings, sharp, with
-// their bodies obscured and the CTA underneath. The shape is the honest part of
-// the offer, and a fabricated placeholder would advertise a report of a length
-// Eddy did not write.
-//
-// ── Why the smear had to go ─────────────────────────────────────────────────
-//
-// The first version obscured the text with a SHADOW: `color: 'transparent'`
-// plus a shadow of the ink colour at an 8pt radius, which smears each glyph
-// into a band. It was cheap, needed no native module, and it looked like a
-// bug. Reported from the field in exactly those words — that the card "looks
-// like it isn't loading". And it should have been predictable: a low-contrast
-// grey band where text belongs is the universal appearance of a SKELETON, so
-// the card was drawing the one thing every app on the phone uses to mean
-// "still loading", directly below a paragraph that really is a skeleton while
-// entitlement resolves. Two states, one appearance, and the one that meant
-// "pay to read this" was the one nobody recognised.
-//
-// A real blur does not have that problem. expo-blur's BlurView is a
-// UIVisualEffectView — the frosted material iOS uses for its own sheets and
-// nav bars — and nothing on the phone loads that way. It reads as deliberately
-// obscured because on this platform it only ever IS deliberately obscured.
-//
-// ── The first line stays sharp ──────────────────────────────────────────────
-//
-// Blurring all of it is still a wall, just a nicer-looking one. The read now
-// opens with one legible line and blurs from there, which is the pattern every
-// paywalled article on the web settled on for a reason: it turns the card from
-// a locked door into an interrupted sentence. What is given away is one line of
-// a report that runs to paragraphs, and it is the line most likely to make
-// somebody want the rest.
-//
-// The blur is the presentation of the gate, not the authority for the long
-// read. Public outlook responses no longer carry `fullRead`; a locked card uses
-// LOCKED_READ_SHAPE beneath the frost, while an entitled bearer receives the
-// real report. The server, not this visual effect, decides who gets that text.
-// The derived Weather and Bottom line sections remain in the outlook payload;
-// their blur is a presentation tier rather than a secrecy boundary.
-//
-// BOTTOM LINE CLOSES rather than opens. It used to lead, on the reasoning that
-// the answer should come first — but the reading card directly above this
-// already gives the answer in colour, and leading with it here meant the card
-// opened by repeating the thing you had just read. Reading it last, after the
-// river and the sky have been described, is reading it as a conclusion. It gets
-// the favicon otter for the same reason: it is Eddy's line, and the two sections
-// above it are now marked with Eddy's own symbols too.
-//
-// On the web these are three columns; on a phone they stack.
+// The Read interprets the chart immediately above it; the free 72-hour
+// forecast follows. Premium controls only the interpretation, never weather
+// facts. Only longer prose expands; Weather and Bottom line remain visible.
+// The server remains the authority for paid text and selected-gauge freshness.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { readPreview, distinctReadContext } from '@eddy/conditions/read-presentation';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WeatherIcon } from '@/components/WeatherIcon';
@@ -205,12 +116,157 @@ export function EddyTake({
   // far enough that the prose would contradict the condition chip above — so a
   // null here is an ANSWER, and must not be worked around.
   const read = outlook.fullRead || sections?.eddyRead || '';
+  const [expandedRead, setExpandedRead] = useState<string | null>(null);
+  const readKey = `${outlook.gaugeName ?? ''}:${read}`;
+  const expanded = expandedRead === readKey;
+  const preview = readPreview(read, 640, 5);
+  const weatherContext = distinctReadContext(read, sections?.watchFor);
+  const bottomLine = distinctReadContext(`${read} ${weatherContext ?? ''}`, sections?.bottomLine);
   const locked = entitled === false;
   const resolving = entitled === 'pending';
   const failed = entitled === 'error' && !damRead;
 
   return (
     <View style={styles.wrapper}>
+      {/* Interpretation follows the chart, ahead of the free forecast. */}
+      {sections ? (
+        <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+          {/* Wait for entitlement before rendering paid prose or an upgrade offer. */}
+          {resolving ? (
+            <ReadSkeleton label="Loading Eddy's Read" />
+          ) : failed ? (
+            <View style={[styles.loadError, { backgroundColor: colors.cardRaised }]}>
+              <Ionicons name="cloud-offline-outline" size={18} color={colors.textMuted} />
+              <View style={styles.loadErrorCopy}>
+                <Text style={[styles.loadErrorTitle, { color: colors.text }]}>Full read couldn&apos;t load</Text>
+                <Text style={[styles.loadErrorBody, { color: colors.textSubtle }]}>The river facts above are still current.</Text>
+              </View>
+              {onRetry ? (
+                <Pressable
+                  onPress={onRetry}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Try loading Eddy's Read again"
+                >
+                  <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>Try again</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : (
+            <>
+              {/* The Read opens the card; subsequent sections add their own divider. */}
+              <View>
+                <ReadHeading />
+                {damRead ? (
+                  locked ? (
+                    <BlurredProse
+                      text={LOCKED_DAM_READ_SHAPE}
+                      color={colors.textMuted}
+                      style={styles.sectionText}
+                      lines={2}
+                    />
+                  ) : damRead.content ?? <ReadSkeleton label="Loading Eddy's Read for this dam" />
+                ) : locked ? (
+                  // Two lines keep the teaser compact; only its public opener is sharp. The full
+                  // read runs to several paragraphs on a good day, and a locked
+                  // card the height of an unlocked one is a wall again — two
+                  // lines is enough to show this is prose rather than a
+                  // sentence, and the sharp opener is what makes it an
+                  // interrupted one rather than a closed door. With no read
+                  // text the prose is LOCKED_READ_SHAPE, and a readable first
+                  // line of it would pass a made-up sentence off as Eddy's.
+                  <BlurredProse
+                    text={read || LOCKED_READ_SHAPE}
+                    color={colors.textMuted}
+                    style={styles.sectionText}
+                    lines={2}
+                    blurTop={read ? SECTION_TEXT_MARGIN_TOP + SECTION_LINE_HEIGHT : 0}
+                  />
+                ) : read ? (
+                  <Text style={[styles.sectionText, { color: colors.textBody }]}>{expanded ? read : preview}</Text>
+                ) : null}
+              </View>
+
+              {!locked && !damRead && preview !== read ? (
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
+                  onPress={() => setExpandedRead(expanded ? null : readKey)} style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>{expanded ? 'Read less' : 'Read more'}</Text>
+                </Pressable>
+              ) : null}
+              {weatherContext ? <View style={[styles.section, { borderTopColor: colors.border }]}>
+                <View style={styles.sectionHead}>
+                  <EddySymbol name="weather" size={17} />
+                  <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WEATHER</Text>
+                </View>
+                {/* No sharp opener here, nor on the bottom line below. Both are
+                    one or two sentences, so a legible first line would be most
+                    of the section — the read is the only one long enough for an
+                    opener to be a taste rather than the thing itself. */}
+                {locked ? (
+                  <BlurredProse
+                    text={sections.watchFor || LOCKED_WEATHER_SHAPE}
+                    color={colors.textMuted}
+                    style={styles.sectionText}
+                    lines={2}
+                  />
+                ) : (
+                  <Text style={[styles.sectionText, { color: colors.textBody }]}>
+                    {weatherContext}
+                  </Text>
+                )}
+              </View>
+
+              : null}
+              {damRead || !bottomLine ? null : (
+              <View style={[styles.section, { borderTopColor: colors.border }]}>
+                {/* No coloured edge, and no indent. The rule and the 12pt inset
+                    that came with it pushed BOTTOM LINE a centimetre to the
+                    right of EDDY'S READ and WEATHER, so the one section meant
+                    to read as the conclusion of the two above it was the one
+                    that did not line up with them. Three headings on one
+                    margin is what makes them a set.
+
+                    The emphasis it was carrying has not gone anywhere: the
+                    label is still in the accent colour, it still gets the otter
+                    where the others get a glyph, and its text is still the only
+                    body on the card set in the larger face. */}
+                <View>
+                  <View style={styles.sectionHead}>
+                    <Otter mood="favicon" size={18} style={styles.bottomLineOtter} />
+                    <Text style={[styles.sectionLabel, { color: colors.accent }]}>
+                      BOTTOM LINE
+                    </Text>
+                  </View>
+                  {locked ? (
+                    <BlurredProse
+                      text={sections.bottomLine || LOCKED_BOTTOM_LINE_SHAPE}
+                      color={colors.text}
+                      style={styles.bottomLineText}
+                      lines={2}
+                    />
+                  ) : (
+                    <Text style={[styles.bottomLineText, { color: colors.text }]}>
+                      {bottomLine}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              )}
+
+              {/* One shared Premium offer, using the same copy as dam Reads. */}
+              {locked ? <PremiumLockRow onPress={onUpgrade} /> : null}
+
+              {/* Attribution is a fact about which station this describes, and
+                  facts about the water are free — so it survives the lock. */}
+              {outlook.gaugeName ? (
+                <Text style={[styles.attribution, { color: colors.textSubtle }]}>
+                  via {outlook.gaugeName}
+                </Text>
+              ) : null}
+            </>
+          )}
+        </View>
+      ) : null}
       {/* ── The 72-hour strip ───────────────────────────────── */}
       {days.length > 0 ? (
         <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
@@ -371,167 +427,6 @@ export function EddyTake({
             </Text>
           ) : null}
         </Pressable>
-      ) : null}
-
-      {/* ── Eddy's take ─────────────────────────────────────── */}
-      {sections ? (
-        <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-          {/* THE WHOLE CARD IS THE GATE — see the header for what stays free
-              and why that is enough to make this defensible.
-
-              `locked` is entitled === false, never a falsy check: unknown
-              entitlement shows the take. See the prop's comment.
-
-              The skeleton comes FIRST because it is the only branch that is
-              safe while the answer is unknown-but-coming. Showing the take and
-              retracting it leaks the paid thing; showing the lock and
-              retracting it accuses a subscriber of not paying. */}
-          {resolving ? (
-            <ReadSkeleton label="Loading Eddy's Read" />
-          ) : failed ? (
-            <View style={[styles.loadError, { backgroundColor: colors.cardRaised }]}>
-              <Ionicons name="cloud-offline-outline" size={18} color={colors.textMuted} />
-              <View style={styles.loadErrorCopy}>
-                <Text style={[styles.loadErrorTitle, { color: colors.text }]}>Full read couldn&apos;t load</Text>
-                <Text style={[styles.loadErrorBody, { color: colors.textSubtle }]}>The river facts above are still current.</Text>
-              </View>
-              {onRetry ? (
-                <Pressable
-                  onPress={onRetry}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Try loading Eddy's Read again"
-                >
-                  <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>Try again</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : (
-            <>
-              {/* The Read opens the card; subsequent sections add their own divider. */}
-              <View>
-                <ReadHeading />
-                {damRead ? (
-                  locked ? (
-                    <BlurredProse
-                      text={LOCKED_DAM_READ_SHAPE}
-                      color={colors.textMuted}
-                      style={styles.sectionText}
-                      lines={2}
-                    />
-                  ) : damRead.content ?? <ReadSkeleton label="Loading Eddy's Read for this dam" />
-                ) : locked ? (
-                  // Clamped to four lines, the first of them readable. The full
-                  // read runs to several paragraphs on a good day, and a locked
-                  // card the height of an unlocked one is a wall again — four
-                  // lines is enough to show this is prose rather than a
-                  // sentence, and the sharp opener is what makes it an
-                  // interrupted one rather than a closed door. With no read
-                  // text the prose is LOCKED_READ_SHAPE, and a readable first
-                  // line of it would pass a made-up sentence off as Eddy's.
-                  <BlurredProse
-                    text={read || LOCKED_READ_SHAPE}
-                    color={colors.textMuted}
-                    style={styles.sectionText}
-                    lines={4}
-                    blurTop={read ? SECTION_TEXT_MARGIN_TOP + SECTION_LINE_HEIGHT : 0}
-                  />
-                ) : read ? (
-                  <Text style={[styles.sectionText, { color: colors.textBody }]}>{read}</Text>
-                ) : null}
-              </View>
-
-              <View style={[styles.section, { borderTopColor: colors.border }]}>
-                <View style={styles.sectionHead}>
-                  <EddySymbol name="weather" size={17} />
-                  <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WEATHER</Text>
-                </View>
-                {/* No sharp opener here, nor on the bottom line below. Both are
-                    one or two sentences, so a legible first line would be most
-                    of the section — the read is the only one long enough for an
-                    opener to be a taste rather than the thing itself. */}
-                {locked ? (
-                  <BlurredProse
-                    text={sections.watchFor || LOCKED_WEATHER_SHAPE}
-                    color={colors.textMuted}
-                    style={styles.sectionText}
-                    lines={2}
-                  />
-                ) : (
-                  <Text style={[styles.sectionText, { color: colors.textBody }]}>
-                    {sections.watchFor}
-                  </Text>
-                )}
-              </View>
-
-              {damRead ? null : (
-              <View style={[styles.section, { borderTopColor: colors.border }]}>
-                {/* No coloured edge, and no indent. The rule and the 12pt inset
-                    that came with it pushed BOTTOM LINE a centimetre to the
-                    right of EDDY'S READ and WEATHER, so the one section meant
-                    to read as the conclusion of the two above it was the one
-                    that did not line up with them. Three headings on one
-                    margin is what makes them a set.
-
-                    The emphasis it was carrying has not gone anywhere: the
-                    label is still in the accent colour, it still gets the otter
-                    where the others get a glyph, and its text is still the only
-                    body on the card set in the larger face. */}
-                <View>
-                  <View style={styles.sectionHead}>
-                    <Otter mood="favicon" size={18} style={styles.bottomLineOtter} />
-                    <Text style={[styles.sectionLabel, { color: colors.accent }]}>
-                      BOTTOM LINE
-                    </Text>
-                  </View>
-                  {locked ? (
-                    <BlurredProse
-                      text={sections.bottomLine || LOCKED_BOTTOM_LINE_SHAPE}
-                      color={colors.text}
-                      style={styles.bottomLineText}
-                      lines={2}
-                    />
-                  ) : (
-                    <Text style={[styles.bottomLineText, { color: colors.text }]}>
-                      {sections.bottomLine}
-                    </Text>
-                  )}
-                </View>
-              </View>
-              )}
-
-              {/* ── The offer, under the thing being offered ────────────
-                  Last rather than first. Read top to bottom the card now says
-                  "here are the three things, here is what they are, here is how
-                  to read them" — where a lock above them would have been asking
-                  for money before showing what for. Still ONE lock for three
-                  sections, which is the rule this card has always kept. */}
-              {/* ── The offer ──────────────────────────────────────────
-                  Every word comes from premiumCopy, which is where the app's
-                  three subscription surfaces are kept from disagreeing. This
-                  row wrote its own for months and was the reason that module
-                  had to exist; see its header. The row itself lives in
-                  PremiumLock.tsx so the dam card draws the same one.
-
-                  It reads as a CARD now rather than a grey strip: an accent
-                  hairline, the otter that closes the bottom line above it
-                  repeated as a small lock mark, and the title in the display
-                  face the rest of Eddy's voice is set in. The strip version was
-                  the same neutral fill as every disabled row in the app, which
-                  is a strange thing for the one control on the screen that is
-                  asking for money. */}
-              {locked ? <PremiumLockRow onPress={onUpgrade} /> : null}
-
-              {/* Attribution is a fact about which station this describes, and
-                  facts about the water are free — so it survives the lock. */}
-              {outlook.gaugeName ? (
-                <Text style={[styles.attribution, { color: colors.textSubtle }]}>
-                  via {outlook.gaugeName}
-                </Text>
-              ) : null}
-            </>
-          )}
-        </View>
       ) : null}
     </View>
   );

@@ -6,6 +6,7 @@ import {
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,18 @@ export interface MoHistoryBundleResponse {
 }
 
 const DAYS = 30;
+
+/**
+ * Sites fetched from USGS at once. One request used to start a history call
+ * for every gauge in the state together; in waves a slow upstream costs this
+ * route time instead of costing USGS (and the key the crons share) a burst.
+ * Ten keeps a cold load of the ~50 curated gauges to about five waves.
+ */
+const SITE_CONCURRENCY = 10;
+
+// Waves are slower than one burst on a cold cache, so say how long is allowed
+// rather than inherit the platform default.
+export const maxDuration = 60;
 
 /**
  * Down-samples raw 15-minute IV readings into one row per calendar day,
@@ -65,8 +78,13 @@ function dailyAggregate(
     }));
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Reaches USGS on a CDN miss, and any query string is a miss. Per-IP, and
+    // fail-open like the other public read routes (see lib/rate-limit.ts).
+    const limited = await rateLimit(`usgs-history-bundle:${getClientIp(request)}`, 20, 60_000);
+    if (limited) return limited;
+
     const dataset = await fetchMODataset();
     // Every river/gauge binding — primary AND secondary. The scrubber colors
     // each reach from its nearest gauge's condition, so the history for
@@ -98,28 +116,29 @@ export async function GET() {
     };
     const uniqueSites = Array.from(new Set(targets.map((t) => t.site_no)));
     const perSite = new Map<string, SiteHistory>();
-    await Promise.all(
-      uniqueSites.map(async (siteNo) => {
-        const [history, stats] = await Promise.all([
-          fetchHistoricalReadings(siteNo, DAYS),
-          fetchDailyStatistics(siteNo),
-        ]);
-        const dailyRaw = history ? dailyAggregate(history.readings) : [];
-        const daily = dailyRaw.map((d) => ({
-          ...d,
-          percentile:
-            d.dischargeCfs != null && stats
-              ? calculateDischargePercentile(d.dischargeCfs, stats)
-              : null,
-        }));
-        perSite.set(siteNo, {
-          daily,
-          band: stats
-            ? { p25: stats.p25 ?? null, p50: stats.p50 ?? null, p75: stats.p75 ?? null }
+    const loadSite = async (siteNo: string) => {
+      const [history, stats] = await Promise.all([
+        fetchHistoricalReadings(siteNo, DAYS),
+        fetchDailyStatistics(siteNo),
+      ]);
+      const dailyRaw = history ? dailyAggregate(history.readings) : [];
+      const daily = dailyRaw.map((d) => ({
+        ...d,
+        percentile:
+          d.dischargeCfs != null && stats
+            ? calculateDischargePercentile(d.dischargeCfs, stats)
             : null,
-        });
-      }),
-    );
+      }));
+      perSite.set(siteNo, {
+        daily,
+        band: stats
+          ? { p25: stats.p25 ?? null, p50: stats.p50 ?? null, p75: stats.p75 ?? null }
+          : null,
+      });
+    };
+    for (let i = 0; i < uniqueSites.length; i += SITE_CONCURRENCY) {
+      await Promise.all(uniqueSites.slice(i, i + SITE_CONCURRENCY).map(loadSite));
+    }
 
     const results: MoHistoryBundleEntry[] = targets.map((t) => {
       const site = perSite.get(t.site_no);
