@@ -124,13 +124,12 @@ import AppPromotion from '@/components/AppPromotion';
 import PlanAppCta from '@/components/plan/PlanAppCta';
 import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
 import ReportAppCta from '@/components/gauge/ReportAppCta';
-import SiteHeader from '@/components/layout/SiteHeader';
 import type { FloatPlan } from '@/types/api';
 const plan = { river: { id: 'river', name: 'Current River' }, putIn: { id: 'put' }, takeOut: { id: 'take' }, vessel: { id: 'kayak' }, distance: { miles: 8 }, floatTime: { minutes: 180 }, condition: { code: 'good' } } as FloatPlan;
 export default function Fixture() {
   const [changed, setChanged] = useState(false);
   const [read, setRead] = useState<'loading' | 'ready' | 'missing'>('missing');
-  return <><div data-header-check><SiteHeader campingEnabled floatSearchEnabled /></div><main className="mx-auto max-w-4xl space-y-6 px-3 py-6">
+  return <main className="mx-auto max-w-4xl space-y-6 px-3 py-6">
     <h1>App invitations</h1>
     <AppPromotion><p>Generic invitation <AppLink data-ga-label="fixture_generic">Get Eddy for iPhone</AppLink></p></AppPromotion>
     <section><h2>Planner result</h2><button className="btn-outline mb-2" onClick={() => setChanged(v => !v)}>Change route</button><PlanAppCta plan={{ ...plan, takeOut: { ...plan.takeOut, id: changed ? 'new-take' : 'take' } }} /></section>
@@ -140,10 +139,10 @@ export default function Fixture() {
     <div data-report-check><label>Read availability <select value={read} onChange={event => setRead(event.target.value as typeof read)}><option value="loading">Loading</option><option value="ready">Ready</option><option value="missing">Missing</option></select></label><ReportAppCta destination={{kind: 'gauge', id: '07067000'}} hasRead={read === 'ready'} loading={read === 'loading'} /></div>
     <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} />
     <div data-locked-read><EddyOutlookFooter sections={{ eddyRead: 'Locked Read example', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} /></div>
-  </main></>;
+  </main>;
 }`);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
-    env: { ...process.env, EDDY_DAM_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
+    env: { ...process.env, EDDY_DAM_SMOKE: '1', FLOAT_SEARCH_ENABLED: 'true', CAMPING_WEB_ENABLED: 'true', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let log = '';
@@ -429,7 +428,7 @@ export default function Fixture() {
       await page.waitForURL(expectedUrl);
       await page.waitForLoadState('networkidle');
       assert.notEqual(await page.evaluate(() => window.damDocument), oldDocument, 'document navigation refreshes Safari banner');
-      assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} on your Home Screen.`);
+      assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} generation on your Home Screen.`);
       assert.equal(await page.locator('[data-app-qr]').count(), 0, 'iPhone uses the download action without a QR prompt');
       assert(await page.getByRole('img', { name: /Eddy’s Bull Shoals Dam widget/ }).evaluate(el => el.complete && el.naturalWidth > 0), 'real widget screenshot loads');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: app page fits phone`);
@@ -527,7 +526,7 @@ export default function Fixture() {
   await desktop.goto(`${origin}/dam-layout-check/promotions?ct=partner_guide`, { waitUntil: 'networkidle' });
   for (const width of [1024, 1280]) {
     await desktop.setViewportSize({ width, height: 900 });
-    const header = desktop.locator('[data-header-check]');
+    const header = desktop.getByRole('banner');
     const button = header.locator('[data-ga-label="header"]');
     assert(await button.isVisible());
     const navBox = await header.getByRole('navigation', { name: 'Main navigation' }).boundingBox();

@@ -9,6 +9,7 @@
 .app-cta--inline { border-block: 1px solid var(--color-secondary-200); }
 .app-cta__content { display: flex; align-items: flex-start; gap: .75rem; flex: 1 1 220px; min-width: 0; }
 .app-cta__actions { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .25rem; }
+.app-cta__actions > .btn-outline { max-width: 100%; white-space: normal; text-align: center; }
 .app-cta__link { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; color: var(--color-primary-800); font-size: .875rem; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .app-cta__open { font-weight: 400; }
 .app-cta__link:hover { color: var(--color-primary-600); }
