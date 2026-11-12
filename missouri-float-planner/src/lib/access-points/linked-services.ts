@@ -193,13 +193,17 @@ function embeddedType(directoryType: string): string {
 export function withLinkedServices(
   embedded: readonly { name: string; type: string; phone?: string; website?: string }[],
   linked: readonly LinkedService[],
-): { name: string; type: string; phone?: string; website?: string }[] {
+): { name: string; type: string; phone?: string; website?: string; relationship?: 'same_place' | 'located_at' }[] {
   const key = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ');
   const linkedKeys = new Set(linked.map((service) => key(service.name)));
 
   const fromLinks = linked.map((service) => ({
     name: service.name,
     type: embeddedType(service.type),
+    // Only verified links can label camping as on site. Do not infer identity
+    // from the embedded name, distance, or a shared agency website.
+    ...(service.relationship === 'same_place' || service.relationship === 'located_at'
+      ? { relationship: service.relationship } : {}),
     ...(service.phone ? { phone: service.phone } : {}),
     ...(service.website ? { website: service.website } : {}),
   }));

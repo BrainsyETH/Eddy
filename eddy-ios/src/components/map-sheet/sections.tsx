@@ -55,20 +55,23 @@ import { accessAmenities } from './accessAmenities';
 export function Section({
   title,
   symbol,
+  separated = false,
   children,
 }: {
   title?: string;
   symbol?: EddySymbolName;
+  /** Clear boundaries for the access Overview's longer reference sections. */
+  separated?: boolean;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
   if (!children) return null;
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, separated && styles.separatedSection, separated && { borderTopColor: colors.border }]}>
       {title ? (
         <View style={styles.sectionHead}>
-          {symbol ? <EddySymbol name={symbol} size={15} /> : null}
-          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{title}</Text>
+          {symbol ? <EddySymbol name={symbol} size={separated ? 20 : 15} /> : null}
+          <Text accessibilityRole="header" style={[styles.sectionTitle, { color: separated ? colors.text : colors.textMuted }]}>{title}</Text>
         </View>
       ) : null}
       {children}
@@ -588,6 +591,7 @@ export function Retry({ onPress }: { onPress: () => void }) {
 
 const styles = StyleSheet.create({
   section: { marginTop: 14 },
+  separatedSection: { marginTop: 20, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth },
   // The mark sits on the heading's row, and the row carries the margin the
   // title used to. Keeping `marginBottom` on the text as well would double it
   // for a marked heading and leave marked and unmarked sections on different

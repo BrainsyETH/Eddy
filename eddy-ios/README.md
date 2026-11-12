@@ -628,6 +628,22 @@ properly and needs nothing.
 The Map tab is three features sharing one screen, and each of them has a
 constraint worth writing down.
 
+### Access Overview sections
+
+Access sheets separate facilities/fees, Good to know, camping and services with
+quiet dividers and Eddy's existing category art. Service names wrap; descriptions
+can expand; each available contact action remains independently reachable.
+Good to know precedes nearby businesses and retains every word of the supplied
+notes, including restrictions. Sentence/list breaks are presentation only.
+
+`nearbyServices.relationship` carries the server's verified link when present.
+Only `same_place` entries appear under Camping here. `located_at` describes the
+same facility with a potentially different arrival point; it and legacy entries
+remain separate. Names and short distances are never evidence of identity.
+The Camping shortcut selects the existing tab by key and appears only when that
+tab exists. Mixed access/camping fee notes stay intact and expandable in Overview
+until the source provides separately structured charges.
+
 ### Search is half local, half server
 
 `src/hooks/useEddySearch.ts` matches **rivers and gauges in memory** and asks the

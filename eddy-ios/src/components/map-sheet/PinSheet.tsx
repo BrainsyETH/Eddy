@@ -293,7 +293,12 @@ function PinSheetSelection(input: PinSheetProps) {
     // Overview is the fallback rather than an explicit branch: it is the one
     // key accessTabs always emits, so an unreachable `return null` below it
     // would be the only dead line in this dispatch.
-    return <AccessOverviewTab {...shared} />;
+    return (
+      <AccessOverviewTab
+        {...shared}
+        onOpenCamping={tabs.some((tab) => tab.key === 'camping') ? () => setChosen('camping') : null}
+      />
+    );
   };
 
   const renderGaugeTab = (key: GaugeTabKey) => {

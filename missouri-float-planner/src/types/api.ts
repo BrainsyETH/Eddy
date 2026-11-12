@@ -178,6 +178,8 @@ export type NearbyServiceType =
 export interface NearbyService {
   name: string;
   type: NearbyServiceType;
+  /** Verified access-point relationship; absent on legacy/curated nearby entries. */
+  relationship?: 'same_place' | 'located_at';
   phone?: string;
   website?: string;
   distance?: string;  // "2 mi", "0.5 mi"

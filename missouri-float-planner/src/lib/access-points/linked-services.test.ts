@@ -29,6 +29,7 @@ test('a linked row joins the list the sheet already draws', () => {
     type: 'campground',
     phone: '573-226-3945',
     website: 'https://www.nps.gov/ozar',
+    relationship: 'located_at',
   });
   // And the hand-curated entry it did not collide with survives untouched.
   assert.equal(merged[1].name, 'Akers Ferry Canoe Rental');
@@ -55,6 +56,7 @@ test('the canonical row replaces the embedded copy of the same place', () => {
   );
   assert.equal(merged.length, 1, 'case and spacing must not make two entries');
   assert.equal(merged[0].phone, '573-226-3945', 'the richer row wins');
+  assert.equal(merged[0].relationship, 'same_place');
 });
 
 test('the directory vocabulary is translated, never passed through', () => {
@@ -110,5 +112,5 @@ test('absent optional fields stay absent rather than arriving null', () => {
       },
     ],
   );
-  assert.deepEqual(Object.keys(merged[0]).sort(), ['name', 'type']);
+  assert.deepEqual(Object.keys(merged[0]).sort(), ['name', 'relationship', 'type']);
 });
