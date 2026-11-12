@@ -24,8 +24,6 @@ import {
   type Zone,
 } from '@/lib/gauge/threshold-zones';
 import { formatAgeFromHours } from '@/lib/utils/reading-age';
-import { EddyIcon } from '@/components/ui/EddyIcon';
-import ConditionBadge from '@/components/ui/ConditionBadge';
 
 interface CurrentReadingCardProps {
   siteId: string;
@@ -159,12 +157,15 @@ export default function CurrentReadingCard({
             </p>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
-            {conditionCode && <ConditionBadge code={conditionCode} size="sm" />}
+            {conditionCode && <div className="flex min-w-0 items-center gap-3">
+              <Image src={getEddyImageForCondition(conditionCode)} alt="" width={52} height={52}
+                className="h-[52px] w-[52px] shrink-0 object-contain" />
+              <p className="text-lg font-semibold leading-tight" style={{ color: ink }}>{conditionLabel}</p>
+            </div>}
             {source}
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-3 sm:gap-6">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <EddyIcon name="gauge" size={28} className="shrink-0" />
               <div className="min-w-0">
                 <dt className="text-xs text-neutral-600 sm:text-sm">Water level</dt>
                 <dd className="font-mono text-xl font-bold tabular-nums text-neutral-900 sm:text-3xl">
@@ -173,7 +174,6 @@ export default function CurrentReadingCard({
               </div>
             </div>
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <EddyIcon name="river" size={28} className="shrink-0" />
               <div className="min-w-0">
                 <dt className="text-xs text-neutral-600 sm:text-sm">Flow</dt>
                 <dd className="font-mono text-xl font-bold tabular-nums text-neutral-900 sm:text-3xl">

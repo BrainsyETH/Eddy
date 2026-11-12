@@ -13,7 +13,6 @@ import { readingSummaryVerdict } from '@/lib/readingSummary';
 import { Otter, otterForCondition } from './Otter';
 import { ReadingScale } from './ReadingScale';
 import { TREND_ICON, type TrendDirection } from './TrendPill';
-import { EddySymbol } from './EddySymbol';
 
 export interface ReadingInfoItem { label: string; value: string | null | undefined }
 
@@ -83,18 +82,17 @@ export function ReadingSummaryCard({ embedded, sectionReadings, reading, verdict
             {infoButton}
           </View>
           {verdict ? <View style={styles.sectionVerdict}>
-            <Otter mood={otterForCondition(code ?? 'unknown')} size={28} />
+            <Otter mood={otterForCondition(code ?? 'unknown')} size={52} />
             <Text style={[styles.sectionVerdictText, { color: verdict.lastKnown ? colors.textMuted : conditionText(code ?? 'unknown', isDark) }]}>
               {verdict.code === 'unknown' ? statusLabel : readingSummaryVerdict(verdict.code, verdict.lastKnown)}
             </Text>
           </View> : null}
           <View style={[styles.metrics, fontScale > 1.4 && styles.stackedMetrics]}>
             {([
-              { label: 'Water level', symbol: 'water', unit: 'ft', value: sectionReadings.gaugeHeightFt },
-              { label: 'Flow', symbol: 'river', unit: 'cfs', value: sectionReadings.dischargeCfs },
+              { label: 'Water level', unit: 'ft', value: sectionReadings.gaugeHeightFt },
+              { label: 'Flow', unit: 'cfs', value: sectionReadings.dischargeCfs },
             ] as const).map(metric => (
               <View key={metric.unit} style={styles.metric}>
-                <EddySymbol name={metric.symbol} size={28} />
                 <View style={styles.metricCopy}>
                   <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{metric.label}</Text>
                   <Text style={[metric.value == null ? styles.noReading : styles.metricValue, { color: metric.value == null ? colors.textMuted : colors.text }]}>
@@ -174,7 +172,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   sectionStation: { ...t.base, fontFamily: fonts.semibold, marginBottom: 4 },
   sectionVerdict: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  sectionVerdictText: { ...t.sm, fontFamily: fonts.semibold, flex: 1 },
+  sectionVerdictText: { ...t.lg, fontFamily: fonts.semibold, flex: 1 },
   metrics: { flexDirection: 'row', gap: 12, marginVertical: 12 },
   stackedMetrics: { flexDirection: 'column' },
   metric: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7 },

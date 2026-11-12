@@ -1251,11 +1251,11 @@ selected section's endpoints, using the website's short labels. Past three
 sections the row scrolls instead of shrinking. Each selection
 owns the readings, chart, weather and Eddy’s Read; the level and flow share one
 card with the chart, and Clearwater context closes only the Lower Black report.
-River measurements use the same droplet (water level) and river (flow) artwork
-as the web gauge card. A river gauge below a dam still uses river-flow artwork;
-the release symbol belongs to the dam's own release measurement.
-On Upper Black a single row, "Clearwater Dam · View Lower Black", switches to
-that section instead, so the dam is never lost from the river.
+Section readings use the same condition-aware Eddy otter as regular gauge cards,
+with water level and flow labeled side by side. River/spring and dam-release
+symbols do not decorate these measurements. Dam links use Eddy's dam artwork.
+Clearwater's button appears only with Lower Black selected. Upper Black has no
+dam button or shortcut to the lower section.
 Ordinary rivers retain their gauge picker and the existing Premium flow stays.
 
 The reaches API carries the configured `gaugeStationId`. Missing mappings,
