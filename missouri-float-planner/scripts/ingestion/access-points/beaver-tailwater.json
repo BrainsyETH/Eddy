@@ -49,13 +49,33 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
-    "facilities": "Walk-in access and handicapped-accessible bank fishing; gravel parking. No boat ramp",
-    "description": "Walk-in and accessible bank fishing. No boat ramp; Bertrand is the next launch down.",
+    "facilities": "Walk-in access and handicapped-accessible bank fishing; gravel parking. The concrete driveway is AGFC's hatchery-truck access to a stocking chute, not a public boat ramp",
+    "description": "Walk-in and accessible bank fishing. Its concrete driveway is for hatchery trucks, not boats; Bertrand is the next launch down.",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
       "https://www.agfc.com/wp-content/uploads/2023/05/beavertwmanagementplan2012-2017.pdf",
-      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf"
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf",
+      "https://www.agfc.com/news/agfc-boosts-stocking-capability-at-parker-bend"
+    ],
+    "is_float_endpoint": false
+  },
+  {
+    "name": "Bertrand Walk-In Access",
+    "kind": "access",
+    "expected_mile": 3.2,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "COE",
+    "managing_agency": "COE",
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+    "facilities": "Walk-in bank access near Bertrand shown on the 2016-17 AGFC creel-survey map; not in the current AGFC facility layer. Candidate pins: Corps gravel parking areas #2 (36.438524, -93.8301) and #3 (36.439434, -93.831895)",
+    "description": "Walk-in fishing access near Bertrand. Held until a current source confirms where it is and that it is open.",
+    "confidence": "low",
+    "source_urls": [
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf",
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
     ],
     "is_float_endpoint": false
   },

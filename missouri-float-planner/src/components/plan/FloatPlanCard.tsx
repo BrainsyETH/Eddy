@@ -1098,7 +1098,7 @@ function JourneyCenter({
         </div>
       )}
 
-      <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
+      <PlanDownstreamDams dams={plan.damsBelowTakeOut} above={plan.hazardsAbovePutIn} />
       {/* Along Your Route */}
       {plan.hazardsUnavailable && <div className="mt-3"><PlanHazardStatus unavailable /></div>}
       {pointsAlongRoute.length > 0 && (
@@ -1503,7 +1503,7 @@ export function MobileBottomSheet({
           </div>
         )}
 
-        <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
+        <PlanDownstreamDams dams={plan.damsBelowTakeOut} above={plan.hazardsAbovePutIn} />
         {/* Along Your Route */}
         {plan.hazardsUnavailable && <div className="mb-4"><PlanHazardStatus unavailable /></div>}
         {pointsAlongRoute.length > 0 && (

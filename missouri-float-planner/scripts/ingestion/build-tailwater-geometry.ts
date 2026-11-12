@@ -198,7 +198,7 @@ const TAILWATERS: TailwaterSpec[] = [
     expectMiles: [6, 8.5],
     meta: {
       name: 'Beaver Tailwater',
-      description: "The White River below Beaver Dam runs about seven miles past Dam Site River Park and the Highway 62 bridge to Houseman Access, where it meets the upper end of Table Rock Lake. Cold releases from Beaver Dam support a trout fishery, and generation can raise the river quickly. A warning horn sounds below the dam when releases start. Fishing, boating and wading are closed within 100 yards of the dam. Dam observations and generation schedules do not establish a safe wading window; check posted signs and current Arkansas Game and Fish Commission trout regulations.",
+      description: "The White River below Beaver Dam runs about seven miles past Dam Site River Park, Bertrand and the Highway 62 bridge to Houseman Access. Beaver releases and Table Rock Lake both affect this stretch: at normal pool, Table Rock backs water up to within about a mile of the dam. Current and depth can change, and parts of the river may paddle like a lake. A warning horn sounds below the dam when releases start, and fishing, boating and wading are closed within 100 yards of the dam. No generation does not mean low or easy water. Dam observations and generation schedules do not establish a safe wading window; check posted signs and current Arkansas Game and Fish Commission trout regulations, including the special-regulation area below the dam.",
       difficultyRating: 'Class I',
       region: 'Ozarks',
       state: 'AR',

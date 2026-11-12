@@ -560,12 +560,12 @@ test('expected hourly coverage includes all 36 verified streams independently of
   }
 });
 
-test('spillway flow is declared from the district series on the three verified dams only', () => {
+test('spillway flow is declared from the district series on the four verified dams only', () => {
   const declared = Object.values(USACE_DAMS)
     .filter((d) => d.series.spillwayFlow)
     .map((d) => d.id)
     .sort();
-  assert.deepEqual(declared, ['swl-bull-shoals-dam', 'swl-norfork-dam', 'swl-table-rock-dam']);
+  assert.deepEqual(declared, ['swl-beaver-dam', 'swl-bull-shoals-dam', 'swl-norfork-dam', 'swl-table-rock-dam']);
   assert.equal(
     USACE_DAMS['swl-bull-shoals-dam'].series.spillwayFlow?.tsId,
     'Bull_Shoals_Dam.Flow-Tainter Total.Ave.1Hour.1Hour.Regi-Comp'

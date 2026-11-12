@@ -176,3 +176,24 @@ page snippet says **7 mi**. OSM rough: **6.8 mi** dam → Houseman.
 - OSM API map bbox -93.86,36.415,-93.80,36.47 (ways 136170034, 114223771, 1168259132, 456589249, 1279143704, 129105284; nodes 12091120212, 12104606425). Overpass hosts (overpass-api.de, overpass.kumi.systems) were **unreachable through the proxy**.
 - Warning horn: https://dredgewire.com/warning-horn-below-beaver-dam-fully-restored
 - NWS points: https://api.weather.gov/points/36.4405,-93.8338
+
+## Corrections after review (2026-11-12)
+
+- **Backwater reaches nearly to the dam.** Open question 1 understated it.
+  An outside review cited the Corps' Beaver water-control manual: at Table
+  Rock's conservation pool (915 ft), only about the first river mile below
+  Beaver Dam is outside Table Rock's backwater. Eddy's own CWMS read agrees:
+  `Beaver_Dam-Tailwater.Elev-Downstream` was 916.35 ft on 2026-11-12. Backwater
+  does not mean no current everywhere at all times. The river copy now says
+  Beaver releases and Table Rock both affect the stretch, and that parts of it
+  may paddle like a lake. The reach stays unrated with float time withheld.
+- **Parker Bend's concrete driveway is hatchery-truck access to a stocking
+  chute**, not a public boat ramp
+  ([AGFC](https://www.agfc.com/news/agfc-boosts-stocking-capability-at-parker-bend)).
+- **Bertrand Walk-in Access** (creel-survey Fig. 1) is a sixth candidate. It is
+  not in the current AGFC facility layer. Corps gravel parking areas #2
+  (AGFC 2162) and #3 (AGFC 1676) are 150–250 m upstream of the Bertrand ramp.
+  It is held in `access-points/beaver-tailwater.json` without a coordinate.
+- **Spillway series exists:** `Beaver_Dam.Flow-Tainter Total.Ave.1Hour.1Hour.Regi-Comp`
+  returned 49 hourly values (0 cfs) for 2026-11-10/11, the same series the
+  other SWL dams use.
