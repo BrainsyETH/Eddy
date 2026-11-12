@@ -257,6 +257,53 @@ try {
     },
   });
 
+  // ── Access point editor: canonical public link; none while unapproved ──
+  const accessPoint = (extra) => ({
+    id: uuid(40), name: 'Akers Ferry', slug: 'akers-ferry', riverId: uuid(3), riverName: 'Current River',
+    riverSlug: 'current', riverState: 'MO', riverMile: 29.8, type: 'access', types: ['access'], isPublic: true,
+    ownership: null, description: null, parkingInfo: null, roadAccess: null, facilities: null, feeRequired: false,
+    directionsOverride: null, drivingLat: null, drivingLng: null, imageUrls: [], googleMapsUrl: null, approved: true,
+    roadSurface: [], parkingCapacity: null, managingAgency: null, officialSiteUrl: null, localTips: null,
+    nearbyServices: [], updatedAt: '2026-11-11T12:00:00.000Z', ...extra,
+  });
+  await journey('access-point-link', { desktop: BOTH.desktop }, {
+    mock: () => {
+      state.point = accessPoint({});
+      return (route, { path }) => {
+        if (path === `/api/admin/access-points/${uuid(40)}`) return json(route, { accessPoint: state.point });
+      };
+    },
+    steps: async ({ page, signIn }) => {
+      await signIn(`/admin/access-points/${uuid(40)}`);
+      const link = page.getByRole('link', { name: 'View public page' });
+      await link.waitFor();
+      assert.equal(await link.getAttribute('href'), '/rivers/missouri/current/access/akers-ferry');
+      state.point = accessPoint({ approved: false });
+      await page.reload();
+      await page.getByText('Not approved yet, so it has no public page.').waitFor();
+      assert.equal(await page.getByRole('link', { name: 'View public page' }).count(), 0);
+    },
+  });
+
+  // ── Points of interest: the count is the matching total; no crash without coordinates ──
+  await journey('pois', { desktop: BOTH.desktop }, {
+    mock: () => (route, { path }) => {
+      if (path === '/api/admin/pois')
+        return json(route, {
+          pois: [{ id: uuid(50), name: 'Blue Spring', slug: 'blue-spring', type: 'spring', description: null, active: false,
+            latitude: null, longitude: null, riverId: null, riverName: null, riverMile: null, images: [], amenities: [], bodyText: null, source: 'manual', npsId: null, npsUrl: null,
+            isOnWater: false, createdAt: '2026-01-05T12:00:00Z' }],
+          rivers: [], total: 53, page: 1, limit: 50,
+        });
+    },
+    steps: async ({ page, signIn }) => {
+      await signIn('/admin/pois');
+      await page.getByText('53 matching points of interest · 1 on this page').waitFor();
+      await page.getByText('Blue Spring').click();
+      await page.getByText('Not set').first().waitFor();
+    },
+  });
+
   console.log('Places smoke passed');
 } finally {
   await browser?.close();

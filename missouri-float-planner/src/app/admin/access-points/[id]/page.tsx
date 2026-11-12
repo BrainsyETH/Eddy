@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import { changedFields } from '@/lib/access-points/edit-diff';
+import { riverAccessPath } from '@/lib/navigation/river-path';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
@@ -43,6 +44,7 @@ interface AccessPointData {
   riverId: string;
   riverName: string;
   riverSlug: string;
+  riverState: string | null;
   riverMile: number | null;
   type: string;
   types: string[];
@@ -679,16 +681,20 @@ Cell service is spotty here - download maps before leaving Steelville."
             </div>
           </FormSection>
 
-          {/* View Public Page Link */}
+          {/* View Public Page Link: canonical /rivers/<state>/<river>/access/<slug> */}
           <div className="flex justify-end">
-            <Link
-              href={`/rivers/${ap.riverSlug}/access/${ap.slug}`}
-              target="_blank"
-              className="flex items-center gap-2 text-primary-400 hover:text-primary-300 transition-colors"
-            >
-              View public page
-              <ExternalLink className="w-4 h-4" />
-            </Link>
+            {!ap.approved ? (
+              <p className="text-sm text-neutral-400">Not approved yet, so it has no public page.</p>
+            ) : ap.riverState && ap.riverSlug ? (
+              <Link
+                href={riverAccessPath(ap.riverState, ap.riverSlug, ap.slug)}
+                target="_blank"
+                className="flex items-center gap-2 text-primary-400 hover:text-primary-300 transition-colors"
+              >
+                View public page
+                <ExternalLink className="w-4 h-4" />
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>

@@ -11,6 +11,8 @@ import { sanitizeRichText } from '@/lib/sanitize';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
 import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
+import { slugForSave } from '@/lib/admin/access-point-slug';
+
 export const dynamic = 'force-dynamic';
 
 // GET - Fetch a single access point for editing
@@ -59,7 +61,7 @@ export async function GET(
         local_tips,
         nearby_services,
         updated_at,
-        rivers(id, name, slug)
+        rivers(id, name, slug, state)
       `)
       .eq('id', id)
       .single();
@@ -80,6 +82,7 @@ export async function GET(
       riverId: data.river_id,
       riverName: riverData?.name || 'Unknown River',
       riverSlug: riverData?.slug,
+      riverState: riverData?.state ?? null,
       name: data.name,
       slug: data.slug,
       coordinates: {
@@ -193,14 +196,29 @@ async function handlePUT(
       };
     }
 
-    // Handle name update
+    // Handle name update. The slug is a public address and only follows the
+    // name when the point is not live yet (see slugForSave).
+    let keptLiveAddress = false;
     if (typeof name === 'string' && name.trim().length > 0) {
       updateData.name = name.trim();
-      // Generate new slug from name
-      updateData.slug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
+      const { data: current, error: currentError } = await supabase
+        .from('access_points')
+        .select('name, slug, approved')
+        .eq('id', id)
+        .maybeSingle();
+      if (currentError) {
+        console.error('Error loading access point before rename:', currentError);
+        return NextResponse.json({ error: 'Could not update access point' }, { status: 500 });
+      }
+      if (!current) {
+        return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
+      }
+      const decision = slugForSave(
+        { name: current.name, slug: current.slug, approved: !!current.approved },
+        name,
+      );
+      if (decision.slug) updateData.slug = decision.slug;
+      keptLiveAddress = decision.keptLiveAddress;
     }
 
     // Handle type update (single - for backwards compatibility)
@@ -451,7 +469,7 @@ async function handlePUT(
         local_tips,
         nearby_services,
         updated_at,
-        rivers(id, name, slug)
+        rivers(id, name, slug, state)
       `)
       .eq('id', id)
       .single();
@@ -485,6 +503,7 @@ async function handlePUT(
       riverId: data.river_id,
       riverName: riverData?.name || 'Unknown River',
       riverSlug: riverData?.slug,
+      riverState: riverData?.state ?? null,
       name: data.name,
       slug: data.slug,
       coordinates: {
@@ -523,6 +542,8 @@ async function handlePUT(
       accessPoint: formatted,
       // Include a warning if the point is not approved (won't show in production)
       warning: !data.approved ? 'This access point is not approved and will not appear in the public app until approved.' : undefined,
+      // Renamed while live: the page keeps its existing address.
+      keptLiveAddress: keptLiveAddress || undefined,
     });
   } catch (error) {
     console.error('Error in update access point endpoint:', error);
