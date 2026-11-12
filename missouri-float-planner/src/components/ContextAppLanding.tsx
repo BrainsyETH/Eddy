@@ -9,11 +9,13 @@ import type { AppDestination } from '@/lib/app-destination';
 export default function ContextAppLanding({ destination, campaign }: { destination: AppDestination; campaign: string | null }) {
   const plan = destination.kind === 'plan';
   const access = destination.kind === 'access';
-  const title = plan ? 'Your float is saved.' : access ? 'Get ready before you head out.' : 'Keep your river close.';
+  const read = (destination.kind === 'river' || destination.kind === 'gauge') && destination.feature === 'read';
+  const title = read ? 'Get Eddy’s full Read.' : plan ? 'Your float is saved.' : access ? 'Get ready before you head out.' : 'Keep your river close.';
   const detail = plan ? 'Open your saved route, then start River Mode when you’re ready.'
     : access ? 'Plan your float in Eddy and download the map before you lose signal.'
+    : read ? 'Read the full daily river report with Eddy Premium in the iPhone app.'
     : 'Open this river or gauge in Eddy. Add a Home Screen widget and choose the water you follow.';
-  const screenshot = plan ? '03-estimate-your-day' : access ? '05-find-your-river-access' : '08-your-rivers-at-a-glance';
+  const screenshot = read ? '01-daily-river-report' : plan ? '03-estimate-your-day' : access ? '05-find-your-river-access' : '08-your-rivers-at-a-glance';
   return <>
     <main className="mx-auto grid max-w-4xl items-center gap-8 px-4 py-10 sm:grid-cols-[1fr_220px] sm:py-16">
       <div>

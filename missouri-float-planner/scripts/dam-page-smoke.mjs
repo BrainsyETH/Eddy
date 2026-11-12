@@ -496,6 +496,14 @@ export default function Page() {
       assert.equal(await report.locator('[data-ga-label="gauge_eddy_read"]').count(), state === 'ready' ? 1 : 0);
       assert.equal(await report.locator('[data-app-cta="gauge_widget"]').count(), state === 'missing' ? 1 : 0);
     }
+    const readAction = report.locator('[data-ga-label="gauge_eddy_read"]');
+    assert.equal(new URL(await readAction.getAttribute('href')).hostname, 'apps.apple.com', 'iPhone Read skips the landing page');
+    assert.equal(await readAction.getAttribute('target'), '_blank', 'the report stays available after installing');
+    await readAction.click();
+    await page.evaluate(() => window.recordAnalytics('flush'));
+    const readClicks = events.filter(event => event[1] === 'app_store_click' && event[2]?.label === 'gauge_eddy_read');
+    assert.equal(readClicks.length, 1);
+    assert.equal(readClicks[0][2].app_campaign, 'partner_guide');
     let attempts = 0;
     await page.route('**/api/plan/save', route => {
       attempts++;
@@ -519,6 +527,14 @@ export default function Page() {
       await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
       await page.screenshot({ path: `${out}/promotions-iphone-${width}.png`, fullPage: true });
     }
+    await page.goto('https://eddy.guide/app?ct=partner_guide&river=current&feature=read', { waitUntil: 'networkidle' });
+    await page.locator('.app-cta [data-ga-event="app_open_click"]').waitFor();
+    assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Get Eddy’s full Read.');
+    assert(await page.getByText('Read the full daily river report with Eddy Premium in the iPhone app.', { exact: true }).isVisible());
+    assert.equal(await page.locator('.app-cta__qr').count(), 0);
+    assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/river\/current/);
+    await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+    await page.screenshot({ path: `${out}/read-landing-iphone-320.png`, fullPage: true });
     // Check the invitation inside the actual gauge card, not just in isolation.
     // All API requests are fixtures, including unavailable chart/weather data.
     await page.route('**/api/**', route => {
@@ -580,6 +596,21 @@ export default function Page() {
   assert(await desktop.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
   await desktop.screenshot({ path: `${out}/promotions-desktop.png`, fullPage: true });
+  const desktopReport = desktop.locator('[data-report-check]');
+  await desktopReport.getByRole('combobox').selectOption('ready');
+  const desktopRead = desktopReport.locator('[data-ga-label="gauge_eddy_read"]');
+  assert.equal(await desktopRead.getAttribute('href'), '/app?ct=partner_guide&gauge=07067000&feature=read');
+  await desktopRead.click();
+  await desktop.waitForURL(`${origin}/app?ct=partner_guide&gauge=07067000&feature=read`);
+  assert.equal(await desktop.getByRole('heading', { level: 1 }).innerText(), 'Get Eddy’s full Read.');
+  assert(await desktop.getByText('Read the full daily river report with Eddy Premium in the iPhone app.', { exact: true }).isVisible());
+  assert.equal(await desktop.locator('.app-cta__qr').getAttribute('open'), '');
+  const readQr = desktop.locator('.app-cta__qr img');
+  assert.equal(await readQr.getAttribute('src'), '/api/app/qr?ct=partner_guide&gauge=07067000&feature=read');
+  await readQr.evaluate(img => img.decode());
+  assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/gauge\/07067000/);
+  await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+  await desktop.screenshot({ path: `${out}/read-landing-desktop.png`, fullPage: true });
   await desktop.goto(`${origin}/app?ct=partner_guide&plan=fixture123`, { waitUntil: 'networkidle' });
   assert.equal(await desktop.locator('.app-cta__qr').getAttribute('open'), '', 'landing QR starts open');
   assert.equal(await desktop.getByRole('link', { name: 'View your saved plan on the web' }).getAttribute('href'), '/plan/fixture123');
@@ -610,7 +641,7 @@ export default function Page() {
   assert(await android.locator('[data-locked-read]').getByText('Available for iPhone only.', { exact: true }).isVisible());
   assert(await android.locator('[data-locked-read] [data-nosnippet]').first().evaluate(el => getComputedStyle(el).filter.includes('blur')), 'Android does not unblur gated content');
   await android.screenshot({ path: `${out}/promotions-android.png`, fullPage: true });
-  for (const path of ['/app', '/app?plan=fixture123']) {
+  for (const path of ['/app', '/app?plan=fixture123', '/app?river=current&feature=read']) {
     await android.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
     await android.getByText('Available for iPhone only.', { exact: true }).waitFor();
     assert(await android.getByText('Available for iPhone only.', { exact: true }).isVisible());

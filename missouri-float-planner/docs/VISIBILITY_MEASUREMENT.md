@@ -154,6 +154,12 @@ Read gets the Read action; a settled report without one gets the widget action.
 Initial loading gets neither, and an existing Read keeps its action during
 background refresh. Dam-release tabs use the same public availability check as
 their teaser, rather than promising a Read that has not been published.
+Read actions go directly to the App Store on iPhone, retaining campaign attribution
+and keeping the source page open. Desktop Read actions add `feature=read` to the
+river/gauge handoff: the landing page and QR retain that topic, show the daily
+report illustration and explain that the full Read requires Eddy Premium.
+This query parameter changes landing copy only; the banner still opens the same
+river/gauge detail. Widget invitations keep their widget-focused landing.
 
 On iOS, **Get Eddy for iPhone** is the primary contextual action. A quieter
 **Already have Eddy? Open…** custom-scheme link is explicitly for installed-app
@@ -198,8 +204,8 @@ partner campaign takes precedence over placement defaults. Neither a store click
 nor an open attempt is an installation. `AppLink` owns its event name according
 to the actual destination; callers provide placement labels, not event names.
 
-Reporting discontinuity: after this release, generic iPhone header, home and
-footer clicks emit `app_store_click` directly, rather than `app_landing_click`.
+Reporting discontinuity: after this release, iPhone header, home, footer and
+Read clicks emit `app_store_click` directly, rather than `app_landing_click`.
 Record the deployment date; a lower landing-click count for those labels is not
 itself a conversion loss. Compare initial CTA clicks across the two event names
 by label/device, while keeping downstream `/app` store clicks separate. Do not
