@@ -28,6 +28,8 @@ import { stateName } from '@/lib/navigation/states';
 import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
+import { canonicalShareUrl } from '@/lib/share-link';
+import { SHARE_LABEL, ShareAnnouncement, useShareLink } from '@/components/ui/share-link';
 import { chartSharePageRiver, gaugeSharePath, type ChartShareState } from '@shared/chart-share';
 import { thresholdsForUnit } from '@shared/chart-view';
 import { stationTier } from '@shared/station-tier';
@@ -52,7 +54,7 @@ interface GaugeDetailViewProps {
 export default function GaugeDetailView({ siteId, initialShareState, shareUnavailable }: GaugeDetailViewProps) {
   const [sharedView, setSharedView] = useState(initialShareState);
   const [restoreFailed, setRestoreFailed] = useState(false);
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const { status: shareStatus, share } = useShareLink();
   const [lastYearFor, setLastYearFor] = useState<string | null>(
     initialShareState?.layers.includes('lastYear') ? siteId : null,
   );
@@ -182,17 +184,8 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
   })();
 
   // Share handler
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}${gaugeSharePath({ provider: 'usgs', siteId })}`;
-    const isMobile = window.matchMedia('(pointer: coarse)').matches;
-    if (isMobile && navigator.share) {
-      try { await navigator.share({ url: shareUrl }); return; } catch (error) { if (error instanceof Error && error.name === 'AbortError') return; }
-    }
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShareStatus('copied');
-      setTimeout(() => setShareStatus('idle'), 2000);
-    } catch { /* clipboard failed */ }
+  const handleShare = () => {
+    void share({ url: canonicalShareUrl(gaugeSharePath({ provider: 'usgs', siteId })), title: gauge?.name || undefined });
   };
 
   // Build chart thresholds based on selected unit. `unit` declares which one
@@ -405,9 +398,10 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
                   : 'text-neutral-500 hover:text-primary-600'
               }`}
             >
-              {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-              {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+              {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" aria-hidden /> : <Share2 className="w-3.5 h-3.5" aria-hidden />}
+              {shareStatus === 'idle' ? 'Share' : SHARE_LABEL[shareStatus]}
             </button>
+            <ShareAnnouncement status={shareStatus} />
           </div>
         </div>
 

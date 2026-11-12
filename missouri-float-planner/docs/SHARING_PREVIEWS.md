@@ -110,6 +110,20 @@ Already-sent chat previews may remain cached even after deployment.
   reach the recipient undated. A share that does state a condition, such as a
   future alert share, includes the observation's date, time and time zone.
 
+- On the web, a link share goes through `shareOrCopy` (`src/lib/share-link.ts`):
+  the native sheet on touch devices, the clipboard elsewhere. Dismissing the
+  sheet does nothing: no copy, no "Copied", no analytics event. A sheet that
+  fails for another reason falls back to copying. A copy that fails says so
+  ("Couldn’t copy"), and the planner, shared-plan and access-point buttons
+  then offer the link in a prompt. `useShareLink` adds the label and an
+  always-mounted screen-reader announcement. Gauge, dam and chart shares keep
+  their own flow under ADR 0015. `share-link.test.ts` fails if another
+  component calls `navigator.share` itself.
+- River and access-point buttons share the page's canonical path on the
+  current origin, not the address bar, so campaign parameters a visitor
+  arrived with are not passed on. A campground share keeps the address bar:
+  its query is the campground and dates.
+
 ## Behavior
 
 - The Smart App Banner opens the related screen where the app has one:
