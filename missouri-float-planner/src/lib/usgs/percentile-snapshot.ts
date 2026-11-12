@@ -42,6 +42,11 @@ import {
   PARAM_GAGE_HEIGHT,
   fetchDailyStatisticsRows,
 } from '@/lib/flow-providers/usgs-statistics';
+import {
+  PERCENTILE_VALUE_COLUMNS,
+  percentileRowUnchanged,
+  type StoredPercentileRow,
+} from './unchanged-rows';
 
 export { PARAM_DISCHARGE, PARAM_GAGE_HEIGHT };
 
@@ -126,19 +131,31 @@ export function leapDayOfYearForDate(date: Date): number | null {
   return leapDayOfYear(date.getMonth() + 1, date.getDate());
 }
 
+export interface SnapshotSiteResult {
+  /** Rows USGS published for the site (≈366 with a full record; 0 = none). */
+  rows: number;
+  /** Rows actually written: new or changed since the last snapshot. */
+  written: number;
+}
+
 /**
- * Snapshot one site into usgs_daily_percentiles. Returns the number of rows
- * written (≈366 for a site with a full record).
+ * Snapshot one site into usgs_daily_percentiles.
+ *
+ * Writes only rows that are new or whose statistics changed. USGS statistics
+ * change about once a year, and rewriting all ~366 rows on every pass was a
+ * large share of the write load that exhausted production disk I/O on
+ * 2026-11-12 (see unchanged-rows.ts). If the stored rows cannot be read, every
+ * row is written, as before.
  */
 export async function snapshotSite(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   siteId: string,
   parameterCode: SnapshotParameter = PARAM_DISCHARGE
-): Promise<number> {
+): Promise<SnapshotSiteResult> {
   assertSnapshotParameter(parameterCode);
   const rows = await fetchDailyStatisticsRows(siteId, parameterCode);
-  if (!rows.length) return 0;
+  if (!rows.length) return { rows: 0, written: 0 };
 
   const payload = rows.flatMap((row) => {
     const dayOfYear = leapDayOfYear(row.month, row.day);
@@ -165,17 +182,49 @@ export async function snapshotSite(
     }];
   });
 
-  if (!payload.length) return 0;
+  if (!payload.length) return { rows: 0, written: 0 };
 
-  const { error } = await supabase
-    .from('usgs_daily_percentiles')
-    .upsert(payload, { onConflict: 'site_no,parameter_code,day_of_year' });
+  const stored = await readStoredSiteRows(supabase, siteId, parameterCode);
+  const changed = stored
+    ? payload.filter((row) => !percentileRowUnchanged(stored.get(row.day_of_year), row))
+    : payload;
 
-  if (error) {
-    throw new Error(`Failed to upsert percentiles for ${siteId}: ${error.message}`);
+  if (changed.length) {
+    const { error } = await supabase
+      .from('usgs_daily_percentiles')
+      .upsert(changed, { onConflict: 'site_no,parameter_code,day_of_year' });
+
+    if (error) {
+      throw new Error(`Failed to upsert percentiles for ${siteId}: ${error.message}`);
+    }
   }
 
-  return payload.length;
+  return { rows: payload.length, written: changed.length };
+}
+
+/**
+ * The site's stored rows by day_of_year, or null when they could not be read
+ * (the caller then writes everything). One request: ≤366 rows on the primary
+ * key prefix, under PostgREST's 1,000-row cap.
+ */
+async function readStoredSiteRows(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any>,
+  siteId: string,
+  parameterCode: SnapshotParameter,
+): Promise<Map<number, StoredPercentileRow> | null> {
+  const { data, error } = await supabase
+    .from('usgs_daily_percentiles')
+    .select(`day_of_year, source, ${PERCENTILE_VALUE_COLUMNS.join(', ')}`)
+    .eq('site_no', siteId)
+    .eq('parameter_code', parameterCode);
+  if (error) {
+    console.warn(`[percentile-snapshot] could not read stored rows for ${siteId}; writing all: ${error.message}`);
+    return null;
+  }
+  const out = new Map<number, StoredPercentileRow>();
+  for (const row of (data ?? []) as unknown as StoredPercentileRow[]) out.set(row.day_of_year, row);
+  return out;
 }
 
 /** Columns both readers select; one list so they can never drift apart. */
