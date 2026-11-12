@@ -12,6 +12,7 @@ import { getCoordinates, getRiverData } from '@/lib/api-utils';
 import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
 import { slugForSave } from '@/lib/admin/access-point-slug';
+import { MAX_FEE_NOTES_LENGTH, parseAmenities, parseFeeNotes } from '@/lib/admin/access-point-fields';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,9 @@ export async function GET(
         road_access,
         facilities,
         fee_required,
+        fee_notes,
+        amenities,
+        created_at,
         directions_override,
         driving_lat,
         driving_lng,
@@ -100,6 +104,9 @@ export async function GET(
       roadAccess: data.road_access,
       facilities: data.facilities,
       feeRequired: data.fee_required,
+      feeNotes: data.fee_notes ?? null,
+      amenities: data.amenities ?? [],
+      createdAt: data.created_at ?? null,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,
       drivingLng: data.driving_lng ? parseFloat(data.driving_lng) : null,
@@ -152,6 +159,8 @@ async function handlePUT(
       roadAccess,
       facilities,
       feeRequired,
+      feeNotes,
+      amenities,
       riverMile,
       riverId,
       directionsOverride,
@@ -280,6 +289,25 @@ async function handlePUT(
     // Handle facilities update
     if (facilities !== undefined) {
       updateData.facilities = facilities === '' ? null : facilities;
+    }
+
+    // Fee notes and amenities are shown on the public page's Facilities section.
+    if (feeNotes !== undefined) {
+      const parsed = parseFeeNotes(feeNotes);
+      if (parsed === undefined) {
+        return NextResponse.json(
+          { error: `Fee notes must be text of at most ${MAX_FEE_NOTES_LENGTH} characters` },
+          { status: 400 },
+        );
+      }
+      updateData.fee_notes = parsed;
+    }
+    if (amenities !== undefined) {
+      const parsed = parseAmenities(amenities);
+      if (parsed === undefined) {
+        return NextResponse.json({ error: 'Amenities must be a list of amenity keys' }, { status: 400 });
+      }
+      updateData.amenities = parsed;
     }
 
     // Handle feeRequired update
@@ -456,6 +484,9 @@ async function handlePUT(
         road_access,
         facilities,
         fee_required,
+        fee_notes,
+        amenities,
+        created_at,
         directions_override,
         driving_lat,
         driving_lng,
@@ -521,6 +552,9 @@ async function handlePUT(
       roadAccess: data.road_access,
       facilities: data.facilities,
       feeRequired: data.fee_required,
+      feeNotes: data.fee_notes ?? null,
+      amenities: data.amenities ?? [],
+      createdAt: data.created_at ?? null,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,
       drivingLng: data.driving_lng ? parseFloat(data.driving_lng) : null,

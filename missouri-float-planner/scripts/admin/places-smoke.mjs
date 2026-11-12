@@ -263,6 +263,7 @@ try {
     riverSlug: 'current', riverState: 'MO', riverMile: 29.8, type: 'access', types: ['access'], isPublic: true,
     ownership: null, description: null, parkingInfo: null, roadAccess: null, facilities: null, feeRequired: false,
     directionsOverride: null, drivingLat: null, drivingLng: null, imageUrls: [], googleMapsUrl: null, approved: true,
+    feeNotes: null, amenities: ['parking', 'hot_showers'], isFloatEndpoint: true, createdAt: '2026-11-03T12:00:00Z',
     roadSurface: [], parkingCapacity: null, managingAgency: null, officialSiteUrl: null, localTips: null,
     nearbyServices: [], updatedAt: '2026-11-11T12:00:00.000Z', ...extra,
   });
@@ -282,6 +283,86 @@ try {
       await page.reload();
       await page.getByText('Not approved yet, so it has no public page.').waitFor();
       assert.equal(await page.getByRole('link', { name: 'View public page' }).count(), 0);
+    },
+  });
+
+  // ── Access points: approve from the list; edit the basics; honest save messages ──
+  await journey('access-points', BOTH, {
+    mock: () => {
+      state.point = accessPoint({ approved: false, types: ['access'] });
+      state.approvals = [];
+      state.saves = [];
+      return (route, { path, url, request }) => {
+        if (path === '/api/admin/images') return json(route, { images: [] });
+        if (path === '/api/admin/access-points' ) {
+          assert.equal(url.searchParams.get('river'), null, 'the approval view spans every river');
+          return json(route, { accessPoints: [state.point], total: 1, page: 1, limit: 1000 });
+        }
+        if (path === `/api/admin/access-points/${uuid(40)}/approve`) {
+          state.approvals.push(request.postDataJSON());
+          state.point = { ...state.point, approved: true };
+          return json(route, { success: true });
+        }
+        if (path === `/api/admin/access-points/${uuid(40)}`) {
+          if (request.method() === 'PUT') {
+            const body = request.postDataJSON();
+            state.saves.push(body);
+            state.point = { ...state.point, ...body, updatedAt: '2026-11-12T12:00:00.000Z' };
+            return json(route, {
+              accessPoint: state.point,
+              warning: state.point.approved ? undefined : 'not approved',
+              keptLiveAddress: state.point.approved && 'name' in body ? true : undefined,
+            });
+          }
+          return json(route, { accessPoint: state.point });
+        }
+      };
+    },
+    steps: async ({ context, page, signIn, label }) => {
+      await context.route('**/api/rivers', (route) => json(route, { rivers: [{ id: uuid(3), name: 'Current River', slug: 'current' }] }));
+      await signIn('/admin/access-points?missing=pending');
+      await page.getByRole('heading', { name: /Akers Ferry\s*Waiting for approval/ }).waitFor();
+      await page.getByText(/Current River • Mile 29\.8/).waitFor();
+      await page.screenshot({ path: `${out}/places-access-points-${label}.png`, fullPage: true });
+      if (label !== 'desktop') return;
+
+      // The editor says a save did not reach the public app.
+      await page.getByRole('link', { name: 'Edit' }).click();
+      await page.getByText('Waiting for approval. This point is hidden from the app.').waitFor();
+      await page.getByLabel('Description').fill('Gravel bar with a concrete ramp.');
+      await page.getByLabel('Fee notes').fill('$5 day use');
+      await page.getByLabel('Restrooms').check();
+      assert.equal(await page.getByLabel('hot showers').isChecked(), true, 'an existing unknown amenity is kept');
+      assert.equal(await page.getByRole('button', { name: 'Approve and publish' }).isDisabled(), true);
+      await page.screenshot({ path: `${out}/places-access-point-editor-${label}.png`, fullPage: true });
+      await page.getByRole('button', { name: 'Save Changes' }).click();
+      await page.getByText('Saved, but this point is not approved, so it is still hidden from the app.').waitFor();
+      assert.deepEqual(
+        { ...state.saves.at(-1), expectedUpdatedAt: undefined },
+        { description: 'Gravel bar with a concrete ramp.', feeNotes: '$5 day use', amenities: ['parking', 'hot_showers', 'restrooms'], expectedUpdatedAt: undefined },
+      );
+      // A new edit clears the saved message.
+      await page.getByLabel('Fee notes').fill('$5 day use, cash only');
+      assert.equal(await page.getByText(/Saved, but this point/).count(), 0);
+      await page.getByRole('button', { name: 'Save Changes' }).click();
+      await page.getByText(/Saved, but this point/).waitFor();
+
+      // Approve from the editor, with the put-in/take-out answer pre-filled.
+      await page.getByRole('button', { name: 'Approve and publish' }).click();
+      await page.getByRole('link', { name: 'View public page' }).waitFor();
+      assert.deepEqual(state.approvals, [{ isFloatEndpoint: true }]);
+      // Renaming a live point reports that its address was kept.
+      await page.getByLabel('Name', { exact: true }).fill('Akers Ferry Landing');
+      await page.getByRole('button', { name: 'Save Changes' }).click();
+      await page.getByText('Renamed. The public page keeps its existing web address.').waitFor();
+
+      // Approve from the list.
+      state.point = accessPoint({ approved: false, types: ['access'] });
+      await page.goto(origin + '/admin/access-points?missing=pending');
+      await page.getByLabel('Can be chosen as a put-in or take-out').uncheck();
+      await page.getByRole('button', { name: 'Approve Akers Ferry' }).click();
+      await page.getByText('Nothing is waiting for approval.').waitFor();
+      assert.deepEqual(state.approvals.at(-1), { isFloatEndpoint: false });
     },
   });
 
