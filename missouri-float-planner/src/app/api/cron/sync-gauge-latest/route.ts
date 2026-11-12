@@ -35,7 +35,7 @@ import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
 import {
   GAUGE_LATEST_COMPARED_COLUMNS,
-  latestRowUnchanged,
+  latestRowCurrent,
   type StoredLatestRow,
 } from '@/lib/usgs/unchanged-rows';
 
@@ -103,16 +103,19 @@ async function loadStationIds(
 
 /**
  * Every stored gauge_latest row, keyed by station, so the pass can skip gauges
- * whose reading has not changed since the last run.
+ * whose reading has not changed since they were last graded.
  *
- * Why: upserting all ~14,000 rows every 15 minutes (81M updates by 2026-11-12)
- * was the largest single source of the write load that exhausted production
- * disk I/O and took the site down. Most gauges report every 15-60 minutes and
- * many lag, so a large share of each pass rewrote identical values.
+ * Why: on 2026-11-12 production ran out of disk I/O. Only ~4% of the ~14,000
+ * gauges report a new reading in any 15-minute window, but every pass upserted
+ * all of them (81M updates, 19 GB of WAL) and first looked up today's
+ * statistics for all of them, ~70 random-read requests against the 980 MB
+ * usgs_daily_percentiles table (the largest disk reader in the database).
+ * Skipping current rows avoids both. Each gauge is still regraded and
+ * rewritten once a day, when its stored fetched_at falls on an earlier day.
  *
- * Returns null when the read fails; the pass then writes every row, as before,
- * because a skipped write is worse than a redundant one. Paged and ordered for
- * the same reason as loadStationIds.
+ * Returns null when the read fails; the pass then grades and writes every row,
+ * as before, because a skipped write is worse than a redundant one. Paged and
+ * ordered for the same reason as loadStationIds.
  */
 async function loadStoredLatest(
   supabase: ReturnType<typeof createAdminClient>,
@@ -192,6 +195,25 @@ async function runSync(request: NextRequest) {
         continue;
       }
 
+      // Gauges whose stored row is current (same reading, graded today) need
+      // no statistics and no write; see loadStoredLatest.
+      const current = new Set<string>();
+      if (storedLatest) {
+        for (const reading of readings) {
+          const stationId = stationIds.get(reading.siteId);
+          if (!stationId || !reading.readingTimestamp) continue;
+          const next = {
+            reading_timestamp: reading.readingTimestamp,
+            gauge_height_ft: reading.gaugeHeightFt,
+            discharge_cfs: reading.dischargeCfs,
+            qualifiers: reading.qualifiers,
+          };
+          if (latestRowCurrent(storedLatest.get(stationId), next, statsDate)) {
+            current.add(reading.siteId);
+          }
+        }
+      }
+
       // Statistics for this region's gradeable sites only, looked up by site id
       // — see readSnapshotStatisticsForSites for why the old whole-day read
       // silently stopped grading everything west of the Appalachians. A site
@@ -200,7 +222,12 @@ async function runSync(request: NextRequest) {
       const { stats, failedChunks } = await readSnapshotStatisticsForSites(
         supabase,
         readings
-          .filter((reading) => reading.dischargeCfs !== null && stationIds.has(reading.siteId))
+          .filter(
+            (reading) =>
+              reading.dischargeCfs !== null &&
+              stationIds.has(reading.siteId) &&
+              !current.has(reading.siteId),
+          )
           .map((reading) => reading.siteId),
         statsDate,
       );
@@ -226,6 +253,10 @@ async function runSync(request: NextRequest) {
           continue;
         }
         if (!reading.readingTimestamp) continue;
+        if (current.has(reading.siteId)) {
+          unchanged++;
+          continue;
+        }
 
         let percentile: number | null = null;
         if (reading.dischargeCfs !== null) {
@@ -245,7 +276,7 @@ async function runSync(request: NextRequest) {
           }
         }
 
-        const row: LatestRow = {
+        rows.push({
           gauge_station_id: stationId,
           reading_timestamp: reading.readingTimestamp,
           gauge_height_ft: reading.gaugeHeightFt,
@@ -253,12 +284,7 @@ async function runSync(request: NextRequest) {
           qualifiers: reading.qualifiers,
           flow_percentile: percentile,
           fetched_at: fetchedAt,
-        };
-        if (storedLatest && latestRowUnchanged(storedLatest.get(stationId), row)) {
-          unchanged++;
-          continue;
-        }
-        rows.push(row);
+        });
       }
 
       stationsSeen += readings.length;
