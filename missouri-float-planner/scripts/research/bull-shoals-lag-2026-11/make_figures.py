@@ -41,9 +41,13 @@ def title(ax, heading, sub=None):
         ax.text(0, 1.03, sub, transform=ax.transAxes, fontsize=9.5, color=INK2, va="bottom")
 
 
-def save(fig, name):
-    fig.savefig(OUT / name, dpi=150, bbox_inches="tight")
+def save_to(fig, path):
+    fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
+
+
+def save(fig, name):
+    save_to(fig, OUT / name)
 
 
 def example_event(releases, stage):

@@ -5,6 +5,10 @@ folder is approved for display. It is the measurement that
 [TAILWATER_PLAN.md §1](../../../docs/TAILWATER_PLAN.md#1-travel-time-lag--learn-it-do-not-assume-it)
 asks for before any arrival estimate is designed.
 
+**Follow-up:** [study 3](STUDY3.md) scored these models on 2022-2024 and found
+the estimate reliable on a normal river but early on a high or already-running
+one. Read it before relying on anything below.
+
 **Question.** After Bull Shoals Dam raises its release, when does the White
 River start to rise at the two downstream USGS gauges, how does that delay
 change with release level, and is it predictable to within a stated number of
