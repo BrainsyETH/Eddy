@@ -381,7 +381,7 @@ export function buildEddyTakeSections({
   // that genuinely has a sky to describe goes through buildWeatherWatch.
   let watchFor: string;
   if (outlook.sourceKind === 'checking') {
-    watchFor = 'The 72-hour outlook is still coming in. Read the gauge again before you load the boats either way.';
+    watchFor = 'The three-day outlook is still coming in. Read the gauge again before you load the boats either way.';
   } else if (outlook.futureUnavailable) {
     watchFor = 'No weather or river forecast came back, so there is nothing to look ahead at here. Read the gauge again right before you launch and treat the rest as unknown.';
   } else {
@@ -428,7 +428,7 @@ export function buildRiverOutlookState({
     sourceLabel: sourceKind === 'checking'
       ? 'Checking river forecast'
       : sourceKind === 'official'
-        ? 'NWS 72-hour river forecast'
+        ? 'NWS river forecast'
         : 'Current river trend + weather outlook',
     hasOfficialForecast,
     isWeatherLoading: weatherPending,

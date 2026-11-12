@@ -101,7 +101,7 @@ test('builds one official outlook state for the forecast and Eddy footer', () =>
     riverStages: [{ dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 }],
   });
   assert.equal(result.sourceKind, 'official');
-  assert.equal(result.sourceLabel, 'NWS 72-hour river forecast');
+  assert.equal(result.sourceLabel, 'NWS river forecast');
   assert.equal(result.days[0].river.conditionCode, 'flowing');
 });
 

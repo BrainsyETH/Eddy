@@ -12,6 +12,12 @@ const port = 3157, origin = `http://127.0.0.1:${port}`;
 const fixture = resolve('src/app/river-sections-check');
 const out = process.env.SECTIONS_SMOKE_OUTPUT || '/tmp/eddy-river-sections';
 const now = Date.now(), hour = 3_600_000;
+const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(now);
+const outlookDays = Array.from({ length: 3 }, (_, index) => {
+  const day = new Date(`${today}T12:00:00Z`); day.setUTCDate(day.getUTCDate() + index);
+  return { date: day.toISOString().slice(0, 10), dayOfWeek: day.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'America/Chicago' }),
+    tempHigh: [62, 61, 48][index], tempLow: [62, 42, 27][index], condition: 'Clear', conditionIcon: '01d', precipitation: 0, windSpeed: 4, humidity: 50 };
+});
 const sections = [
   { sectionSlug: 'upper-lesterville', name: 'Upper Black (Lesterville to Hwy K / Annapolis)', riverType: 'spring_fed_float', gaugeStationId: 'annapolis' },
   { sectionSlug: 'lower-markham-hammer', name: 'Lower Black (Markham Springs to Hammer, below Clearwater Dam)', riverType: 'dam_tailwater', gaugeStationId: 'poplar-bluff' },
@@ -134,8 +140,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
         return json({ available: true, update: { summaryText: 'Lower Black fixture report.', generatedAt: new Date(now).toISOString() } });
       }
       if (url.pathname.startsWith('/api/eddy-update/')) return json({ available: true, update: { summaryText: 'Upper Black fixture report.', generatedAt: new Date(now).toISOString() } });
-      if (url.pathname.startsWith('/api/weather')) return route.fulfill({ status: 404, body: '{}' });
-      if (url.pathname.startsWith('/api/usgs/mo-forecast')) return json({ entries: [] });
+      if (url.pathname.startsWith('/api/weather')) {
+        if (mode.startsWith('outlook') && mode !== 'outlook-no-weather') return json({ city: 'Annapolis', days: outlookDays });
+        return route.fulfill({ status: 404, body: '{}' });
+      }
+      if (url.pathname.startsWith('/api/usgs/mo-forecast')) {
+        const stages = mode.startsWith('outlook') && mode !== 'outlook-no-river'
+          ? outlookDays.flatMap((day, index) => mode === 'outlook-partial' && index === 2 ? [] : [{ dateTime: `${day.date}T18:00:00Z`, valueFt: mode === 'outlook-partial' && index === 0 ? 0 : 2.2 }])
+          : [];
+        return json({ entries: [{ site_no: station.usgsSiteId, stages }] });
+      }
       if (url.pathname.endsWith('/visuals')) return json({ byLevel: [], currentCondition: 'unknown' });
       return json({ rivers: [], alerts: [], data: [] });
     });
@@ -283,6 +297,40 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await page.locator('#gauge-selection-slot select').waitFor();
     assert.equal(await page.getByRole('radio').count(), 0);
     await page.close(); console.log('PASS ordinary river retains its gauge picker');
+  }
+  for (const [width, mode] of [[1440, 'outlook'], [390, 'outlook'], [320, 'outlook'], [390, 'outlook-partial'], [390, 'outlook-no-river'], [390, 'outlook-no-weather']]) {
+    const { page } = await newPage(width, mode);
+    await page.goto(`${target}?ordinary=1`);
+    const report = page.getByRole('region', { name: "Eddy's Read and three-day outlook" });
+    const weather = page.getByRole('region', { name: 'Will it hold?', exact: true });
+    await weather.getByText('Next 3 days', { exact: true }).waitFor();
+    if (mode === 'outlook-no-weather') await weather.getByText('Weather unavailable', { exact: true }).first().waitFor();
+    else await weather.getByText('27°', { exact: true }).waitFor();
+    const forecast = weather.getByRole('group', { name: 'NWS river forecast, daily high' });
+    if (mode === 'outlook-no-river') {
+      await weather.getByText('Current river trend + weather outlook', { exact: true }).waitFor();
+      assert.equal(await forecast.count(), 0);
+    } else {
+      await forecast.getByRole('heading', { name: 'NWS forecast · daily high', exact: true }).waitFor();
+      assert.equal(await forecast.getByText('2.20 ft', { exact: true }).count(), mode === 'outlook-partial' ? 1 : 3);
+      if (mode === 'outlook-partial') {
+        assert.equal(await forecast.getByText('0.00 ft', { exact: true }).count(), 1);
+        assert.equal(await forecast.getByText('No river forecast', { exact: true }).count(), 1);
+      }
+      const rowY = await forecast.evaluate(node => node.getBoundingClientRect().top);
+      const weatherEnd = await weather.locator(':scope > .grid').evaluate(node => node.getBoundingClientRect().bottom);
+      assert(rowY >= weatherEnd - 1, 'Official heights follow the entire weather row');
+    }
+    assert.equal(await weather.getByText(/^(Good|Flowing|Low|Too Low|High|Flood)$/).count(), 0, 'Weather days must not imply an overall condition rating');
+    const read = page.locator('#eddy-says');
+    for (const label of ['Weather', 'Bottom line']) {
+      const section = read.locator('h4').filter({ hasText: label }).locator('..');
+      assert.equal(await section.evaluate(node => getComputedStyle(node).borderTopWidth), '1px');
+      assert.equal(await section.locator('p').evaluate(node => getComputedStyle(node).filter), 'blur(5px)');
+    }
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No page overflow');
+    await report.screenshot({ path: `${out}/${mode}-${width}.png` });
+    await page.close(); console.log(`PASS ${width}px ${mode}: Read dividers, weather, separate daily highs, missing states`);
   }
   for (const mode of ['dry', 'missing-rain', 'stale-rain', 'short-rain']) {
     const { page } = await newPage(390, mode); await page.goto(target);

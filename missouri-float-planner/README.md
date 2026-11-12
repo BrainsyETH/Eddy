@@ -747,6 +747,13 @@ is no button that reveals only more blur. Duplicate context is omitted. Existing
 access rules are preserved. A dam section still uses its dam interpretation and
 keeps its controlling-dam context with the chart.
 
+Thin dividers separate the Read, Weather and Bottom line while locked prose
+stays blurred. The free outlook says **Next 3 days** (today and the next two
+Central calendar days). Official river heights appear in a separate
+**NWS forecast · daily high** row, with feet and an explicit missing-day state.
+That row has no condition badges: a height rating does not assess the weather
+or recommend the whole day. Forecast classification still informs the Read.
+
 Rain adds a track above the river plot inside the same chart; it never takes
 height away from the river line. A short archive is labelled “Rain record starts…”.
 Its watershed detail opens on demand, with compact visible timestamps and full
