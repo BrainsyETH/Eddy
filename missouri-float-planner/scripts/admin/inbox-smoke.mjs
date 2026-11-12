@@ -104,9 +104,22 @@ try {
     };
     const reportWrites = [];
     const replies = [];
+    const searches = [];
     // Older than every other item: before pinning it sat on the last page.
     const feedback = [
-      ...Array.from({ length: 51 }, (_, i) => feedbackItem(i + 1)),
+      ...Array.from({ length: 51 }, (_, i) =>
+        i === 0
+          ? feedbackItem(1, {
+              feedbackType: 'gauge_recalibration',
+              contextType: 'gauge',
+              contextId: '07067000',
+              contextName: 'Current River at Van Buren',
+              contextData: { gaugeHeightFt: 3.2, dischargeCfs: 450, conditionCode: 'good', reportedAt: '2026-07-04T19:10:00Z' },
+              // Resolved server-side by /api/feedback.
+              contextLinks: [{ label: 'Gauge 07067000', href: '/gauges/07067000', external: true }],
+            })
+          : feedbackItem(i + 1),
+      ),
       feedbackItem(99, {
         feedbackType: 'objectionable_content',
         message: 'This photo shows a person',
@@ -135,8 +148,11 @@ try {
       assert.ok(limit <= 100, 'feedback page size stays bounded');
       const type = url.searchParams.get('type');
       const pinnedPhotos = url.searchParams.get('pinned') === 'photos';
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      if (q) searches.push(q);
       const rows = feedback.filter(
         (f) =>
+          (!q || `${f.message} ${f.userEmail}`.toLowerCase().includes(q)) &&
           (!status || f.status === status) &&
           (!type || f.feedbackType === type) &&
           !(pinnedPhotos && f.status === 'pending' && f.feedbackType === 'objectionable_content'),
@@ -228,6 +244,33 @@ try {
       const pinned = page.getByRole('region', { name: /Reported photos/ });
       await pinned.getByText('This photo shows a person').waitFor();
       assert.equal(await page.getByText('This photo shows a person').count(), 1);
+
+      // Context reads as facts and links instead of JSON.
+      await page.getByText('Feedback message 1', { exact: true }).click();
+      await page.getByText('3.2 ft · 450 cfs').waitFor();
+      await page.getByText('Condition shown').waitFor();
+      assert.equal(
+        await page.getByRole('link', { name: 'Gauge 07067000' }).getAttribute('href'),
+        '/gauges/07067000',
+      );
+      assert.equal(await page.getByText('"gaugeHeightFt"').isVisible(), false, 'raw JSON is folded away');
+      await page.screenshot({ path: `${out}/inbox-context-${label}.png`, fullPage: true });
+      await page.getByText('Feedback message 1', { exact: true }).first().click();
+
+      // A type filter lists matching photo reports in place, unpinned.
+      await page.getByLabel('Type:').selectOption('objectionable_content');
+      await page.getByText('1–1 of 1 items').waitFor();
+      assert.equal(await page.getByRole('region', { name: /Reported photos/ }).count(), 0);
+      await page.getByText('This photo shows a person').waitFor();
+      await page.getByLabel('Type:').selectOption('all');
+
+      // Search is debounced and sent to the server.
+      await page.getByLabel('Search feedback').fill('paddler7@');
+      await page.getByText('1–1 of 1 items').waitFor();
+      await page.getByText('Feedback message 7', { exact: true }).waitFor();
+      assert.deepEqual(searches, ['paddler7@'], 'one request after typing stops');
+      await page.getByLabel('Search feedback').fill('');
+      await page.getByText('1–50 of 51 items').waitFor();
 
       // Paging: the total is shown and the 51st item is reachable.
       await page.getByText('1–50 of 51 items').waitFor();
