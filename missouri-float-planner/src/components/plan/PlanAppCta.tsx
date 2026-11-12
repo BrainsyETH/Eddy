@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import { ArrowRight } from 'lucide-react';
 import type { FloatPlan } from '@/types/api';
 import { savePlanForApp } from '@/lib/plan-app-handoff';
 import { trackEvent } from '@/lib/analytics';
@@ -44,11 +46,17 @@ function PlanInvitation({ plan }: { plan: FloatPlan }) {
       if (pending.current === controller) pending.current = null;
     }
   }
-  return <aside ref={ref} className="app-cta card-panel" data-app-cta="planner_result" aria-label="Take this float into Eddy">
-    <div>
-      <p className="mb-2 text-sm text-neutral-600">Your route, ready to follow on your iPhone.</p>
+  return <aside ref={ref} className="app-cta card-panel" data-app-cta="planner_result" aria-label="Take Eddy along">
+    <div className="w-full">
+      <div className="mb-3 flex items-start gap-3">
+        <Image src="/icons/eddy-wave.png" width={48} height={56} alt="" className="h-14 w-12 shrink-0 object-contain" />
+        <div className="min-w-0">
+          <p className="font-display text-lg font-semibold text-primary-800">Take Eddy along</p>
+          <p className="mt-1 text-sm text-neutral-600">Follow your route in River Mode on your iPhone.</p>
+        </div>
+      </div>
       <Button variant="outline" className="min-h-11 w-full" disabled={status === 'saving'} onClick={prepare}>
-        {status === 'saving' ? 'Preparing your plan…' : 'Follow this float in River Mode'}
+        {status === 'saving' ? 'Preparing your plan…' : <>Continue in Eddy <ArrowRight className="size-4 shrink-0" aria-hidden="true" /></>}
       </Button>
       {status === 'error' && <p role="alert" className="mt-2 text-sm text-neutral-700">Couldn’t save the app link. Your route is still here. Try again.</p>}
       <span role="status" className="sr-only">{status === 'saving' ? 'Saving your route for Eddy' : ''}</span>

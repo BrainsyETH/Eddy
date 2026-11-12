@@ -471,8 +471,9 @@ server. `AppLink` and the delegated listener retain click attribution, while
 `app_promotion_view` counts the invitation once when half of it enters the
 viewport. See `docs/VISIBILITY_MEASUREMENT.md` for reporting and device checks.
 
-Contextual invitations also appear after a valid planner result, on loaded shared
-plans, beside river/gauge reports and below access directions. `AppCta` reuses
+Contextual invitations also appear at the bottom of a valid planner result below
+nearby outfitters, on loaded shared plans, beside river/gauge reports and below
+access directions. `AppCta` reuses
 Eddy artwork, warm surfaces and quiet outlined actions. Desktop QR codes and
 secondary iPhone Open actions retain the selected destination; downloading is
 the primary iPhone action. Reports show one Read or widget invitation, depending
