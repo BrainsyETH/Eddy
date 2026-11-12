@@ -101,6 +101,15 @@ Vercel environment; the latest attempted deployment has a separate history link.
   **Remove photo** rejects the report and deletes the file permanently. Either
   action resolves a pending flag. **Open in Reports** links `/admin/reports?id=`,
   which shows only that report until "Show all reports".
+- Feedback can be searched (message, name, email, place name) and filtered by
+  type and status. A type filter or search lists matching reported photos in
+  place instead of pinning them. Each item's context shows as links (river or
+  gauge page, access-point editor and public page) and readable facts; the raw
+  context object stays available under "Raw data".
+- Inbound email can be searched (sender, subject, text) and triaged in bulk:
+  select messages on the current page, or all of them, then mark Read, Unread,
+  Archive or Spam in one request (`PATCH /api/admin/inbound-emails`, at most
+  100 ids). Selection clears when the filter, search or page changes.
 - Feedback items can be answered in place. The reply uses the same composer,
   templates and rendering as inbound email, quotes the original message, and
   sends from `RESEND_REPLY_FROM` or else the published support address

@@ -13,6 +13,8 @@ import {
   type Feedback,
   type FeedbackListResponse,
 } from '@/types/api';
+import { literalContains } from '@/lib/admin/list-filters';
+import { contextLinks, isLookupId, type ContextLookups } from '@/lib/feedback/context';
 import {
   FEEDBACK_STATUSES,
   feedbackReplyFrom,
@@ -132,6 +134,47 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Resolve each item's context to links (river/access-point pages, admin
+ * editor). One query per kind for the whole page; a lookup failure only means
+ * fewer links, never a failed list.
+ */
+async function attachContextLinks(
+  supabase: ReturnType<typeof createAdminClient>,
+  feedback: Feedback[],
+) {
+  const ids = (kind: string) => [
+    ...new Set(
+      feedback
+        .filter((f) => f.contextType === kind && isLookupId(f.contextId))
+        .map((f) => f.contextId as string),
+    ),
+  ];
+  const riverIds = ids('river');
+  const pointIds = ids('access_point');
+  const lookups: ContextLookups = { rivers: new Map(), accessPoints: new Map() };
+  const [rivers, points] = await Promise.all([
+    riverIds.length
+      ? supabase.from('rivers').select('id,name,slug,state').in('id', riverIds)
+      : null,
+    pointIds.length
+      ? supabase.from('access_points').select('id,name,slug,rivers(slug,state)').in('id', pointIds)
+      : null,
+  ]);
+  for (const r of rivers?.data ?? []) lookups.rivers.set(r.id, r);
+  for (const p of points?.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const river = (Array.isArray(p.rivers) ? p.rivers[0] : p.rivers) as any;
+    lookups.accessPoints.set(p.id, {
+      name: p.name,
+      slug: p.slug,
+      riverSlug: river?.slug ?? null,
+      riverState: river?.state ?? null,
+    });
+  }
+  for (const item of feedback) item.contextLinks = contextLinks(item, lookups);
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Admin-only: enforce the shared-secret bearer token (same model as /api/admin/*).
@@ -168,6 +211,16 @@ export async function GET(request: NextRequest) {
       query = query.eq('feedback_type', type);
     }
 
+    // Search what a person wrote and who they are. Literal match: % and _ in
+    // the query are escaped, and the whole operand is quoted for PostgREST.
+    const search = (searchParams.get('q') ?? '').trim().slice(0, 200);
+    if (search) {
+      const value = literalContains(search);
+      query = query.or(
+        `message.ilike.${value},user_email.ilike.${value},user_name.ilike.${value},context_name.ilike.${value}`,
+      );
+    }
+
     // The admin inbox pins pending reported photos above the list; this keeps
     // them from being listed (and paged) a second time underneath.
     if (searchParams.get('pinned') === 'photos') {
@@ -185,6 +238,7 @@ export async function GET(request: NextRequest) {
     }
 
     const feedback: Feedback[] = (data || []).map(mapFeedbackRow);
+    await attachContextLinks(supabase, feedback);
 
     return NextResponse.json({
       feedback,
