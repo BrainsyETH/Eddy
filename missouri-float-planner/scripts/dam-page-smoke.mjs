@@ -436,6 +436,8 @@ export default function Page() {
       await page.waitForLoadState('networkidle');
       assert.notEqual(await page.evaluate(() => window.damDocument), oldDocument, 'document navigation refreshes Safari banner');
       assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} generation on your Home Screen.`);
+      // networkidle can precede hydration; wait for the device-specific result.
+      await page.locator('[data-app-qr]').waitFor({ state: 'detached' });
       assert.equal(await page.locator('[data-app-qr]').count(), 0, 'iPhone uses the download action without a QR prompt');
       assert(await page.getByRole('img', { name: /Eddy’s Bull Shoals Dam widget/ }).evaluate(el => el.complete && el.naturalWidth > 0), 'real widget screenshot loads');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: app page fits phone`);
@@ -468,7 +470,9 @@ export default function Page() {
     assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/reports(?:,|$)/);
     // Actual shared components, no production plan writes or native launches.
     await page.goto('https://eddy.guide/dam-layout-check/promotions?ct=partner_guide', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => document.querySelector('[data-ga-label="fixture_generic"]')?.href.startsWith('https://apps.apple.com/'));
     assert.match(await page.locator('[data-ga-label="fixture_generic"]').getAttribute('href'), /^https:\/\/apps.apple.com\//);
+    await page.locator('.app-cta__qr').first().waitFor({ state: 'detached' });
     assert.equal(await page.locator('.app-cta__qr').count(), 0, 'iPhone never gets QR controls');
     assert.equal(events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === 'fixture_generic').length, 0, 'AppLink impressions require an explicit opt-in');
     const shared = page.locator('[data-app-cta="shared_plan"]');
@@ -536,6 +540,12 @@ export default function Page() {
       await gaugeCta.locator('..').locator('..').screenshot({ path: `${out}/gauge-invitation-${width}.png` });
     }
     console.log('PASS contextual iPhone actions, deduped impressions, partner campaign, save failure/retry and route changes');
+  } catch (error) {
+    for (const [index, page] of context.pages().entries()) {
+      await page.screenshot({ path: `${out}/failed-iphone-${index}.png`, fullPage: true }).catch(() => {});
+    }
+    await writeFile(`${out}/browser-errors.json`, JSON.stringify(errors, null, 2));
+    throw error;
   } finally {
     await context.close();
   }
