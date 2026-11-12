@@ -146,6 +146,27 @@ Vercel environment; the latest attempted deployment has a separate history link.
   (`src/lib/geo/mile-index.ts`), and access points carry whichever numbering
   their river uses. The estimate is shown for review and never saved on its own.
 
+- **Paged lists must be read in full by callers that need every row.** The
+  points-of-interest list defaults to 50 rows; the Geography map and the Data
+  sync promote use `fetchAllAdminRows` (`src/lib/admin/fetch-all.ts`) to read
+  every page. It throws instead of returning a partial list.
+- **An access point's slug is its public address.** Saving never changes the
+  slug unless the name itself changed, and renaming an approved point keeps its
+  address (`slugForSave`, `src/lib/admin/access-point-slug.ts`). Only an
+  unapproved point's slug follows a rename. The editor's "View public page"
+  link uses the canonical `/rivers/<state>/<river>/access/<slug>` form and is
+  replaced by a note while the point is unapproved.
+
+- **Access points** can be approved where they are listed. "Waiting for
+  approval" in the Show filter lists unapproved points across every river, and
+  both the list card and the editor carry **Approve and publish** with the
+  required put-in/take-out answer, pre-filled from the point's types. The
+  editor's Basics section edits name, river mile, description, ownership,
+  public access, fee, fee notes and amenities; the last two are shown on the
+  public page and had no admin control. Amenities are stored as keys
+  (`src/lib/admin/access-point-fields.ts`), never free text. A save reports
+  when the point is still hidden because it is unapproved.
+
 ## Float contributions
 
 Admin → Float contributions reviews floats people chose to share. It never
