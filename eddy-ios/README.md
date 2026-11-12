@@ -2057,6 +2057,16 @@ or will not arrive remains a tested precedence order
 (`src/lib/notificationCopy.ts`): several reasons can be true at once, and naming
 the wrong one sends someone to fix something that was never the problem.
 
+Enabling or rearming a saved alert also checks notification readiness, including
+after signing back in through Premium restore. Mine and the alert editor keep a
+compact notice visible while active alerts cannot reach this phone. Undetermined
+permission opens the existing primer after the rule saves; iOS denial offers
+Open iOS Settings, an Eddy device opt-out offers Turn on notifications, and a
+missing registration offers Try again. The check uses a fresh permission and
+registration result, not state captured before the save. Notification setup
+failure never rolls back a saved rule or reports that the save failed. Pausing
+an alert does not ask for permission. Restore itself does not override opt-out.
+
 ### Map sheet tab changes and campsite reservations
 
 The access sheet renders its summary and tab bar once, outside the horizontal
