@@ -60,6 +60,7 @@ const moderatorPermissions: Permission[] = [
   ['/api/feedback', 'GET'],
   ['/api/feedback/:id', 'PATCH'],
   ['/api/admin/feedback/:id', 'PATCH'],
+  ['/api/admin/feedback/:id/reply', 'POST'],
   ['/api/admin/inbound-emails', 'GET'],
   ['/api/admin/inbound-emails/:id', 'PATCH'],
   ['/api/admin/inbound-emails/:id/reply', 'POST'],

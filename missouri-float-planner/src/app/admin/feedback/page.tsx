@@ -17,9 +17,12 @@ import ReportedPhotoPanel from '@/components/admin/ReportedPhotoPanel';
 import {
   FEEDBACK_PAGE_SIZE,
   MAX_ADMIN_NOTES_LENGTH,
+  FEEDBACK_REPLY_SUBJECT,
+  FEEDBACK_SUPPORT_ADDRESS,
   REPORTED_PHOTO_TYPE,
   reportedPhotoContext,
 } from '@/lib/feedback/admin';
+import ReplyComposer from '@/components/admin/ReplyComposer';
 import {
   Flag,
   Mail,
@@ -34,6 +37,7 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  CornerUpLeft,
 } from 'lucide-react';
 import type { Feedback, FeedbackStatus } from '@/types/api';
 
@@ -99,6 +103,8 @@ export default function FeedbackAdminPage() {
     }),
   );
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyFrom, setReplyFrom] = useState(FEEDBACK_SUPPORT_ADDRESS);
   const [updating, setUpdating] = useState<string | null>(null);
 
   // Probe the unread-email count on mount so the Email sub-tab shows a badge
@@ -139,6 +145,7 @@ export default function FeedbackAdminPage() {
       const data = await response.json();
       setFeedback(data.feedback);
       setTotal(data.total ?? 0);
+      if (data.replyFrom) setReplyFrom(data.replyFrom);
       setPinned(pinnedResponse ? (await pinnedResponse.json()).feedback : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch feedback');
@@ -184,6 +191,18 @@ export default function FeedbackAdminPage() {
     } finally {
       setUpdating(null);
     }
+  };
+
+  const sendReply = async (item: Feedback, html: string) => {
+    const response = await adminFetch(`/api/admin/feedback/${item.id}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Failed to send reply');
+    replaceItem(data.feedback);
+    return { warning: data.warning ?? null };
   };
 
   const saveNote = async (id: string) => {
@@ -259,6 +278,12 @@ export default function FeedbackAdminPage() {
                   <span className="flex items-center gap-1 px-2 py-1 bg-neutral-700 rounded text-xs text-neutral-300">
                     {getContextIcon(item.contextType)}
                     {item.contextName || item.contextType}
+                  </span>
+                )}
+                {item.lastRepliedAt && (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs border border-green-500/30">
+                    <CornerUpLeft className="w-3 h-3" />
+                    Replied
                   </span>
                 )}
               </div>
@@ -374,6 +399,12 @@ export default function FeedbackAdminPage() {
                 {item.reviewedBy && ` by ${item.reviewedBy}`}
               </div>
             )}
+            {item.lastRepliedAt && (
+              <div className="mb-4 text-xs text-neutral-400">
+                Replied on {formatDate(item.lastRepliedAt)}
+                {item.lastRepliedBy && ` by ${item.lastRepliedBy}`}
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-neutral-700">
@@ -398,7 +429,25 @@ export default function FeedbackAdminPage() {
               {updating === item.id && (
                 <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin ml-2" />
               )}
+              {replyingId !== item.id && (
+                <button
+                  onClick={() => setReplyingId(item.id)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors ml-auto"
+                >
+                  <CornerUpLeft className="w-3 h-3" />
+                  Reply
+                </button>
+              )}
             </div>
+            {replyingId === item.id && (
+              <ReplyComposer
+                to={item.userName ? `${item.userName} <${item.userEmail}>` : item.userEmail}
+                from={replyFrom}
+                subject={FEEDBACK_REPLY_SUBJECT}
+                onSend={(html) => sendReply(item, html)}
+                onClose={() => setReplyingId(null)}
+              />
+            )}
           </div>
         )}
       </div>

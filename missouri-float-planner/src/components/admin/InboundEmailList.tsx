@@ -18,22 +18,14 @@ import {
   Archive,
   Ban,
   Inbox,
-  Send,
-  CheckCircle,
   CornerUpLeft,
 } from 'lucide-react';
 import type { InboundEmail, InboundEmailStatus } from '@/types/api';
-import RichTextEditor from '@/components/admin/RichTextEditor';
+import ReplyComposer from '@/components/admin/ReplyComposer';
 import ListPager from '@/components/admin/ListPager';
-import { REPLY_TEMPLATES } from '@/lib/email/reply-templates';
 
 const EDDY_DOMAIN = 'eddy.guide';
 const PAGE_SIZE = 50;
-
-/** True when rich-text HTML has no visible content (e.g. an empty "<p></p>"). */
-function isHtmlEmpty(html: string): boolean {
-  return !html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-}
 
 /** Best-effort client-side guess of the From address (server decides for real). */
 function replyFromDisplay(email: InboundEmail): string {
@@ -98,12 +90,8 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  // Reply composer state (one open at a time).
+  // Reply composer: one open at a time.
   const [replyingId, setReplyingId] = useState<string | null>(null);
-  const [replyHtml, setReplyHtml] = useState('');
-  const [sending, setSending] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
-  const [replySent, setReplySent] = useState(false);
 
   const reportUnread = useCallback(
     (n: number) => {
@@ -180,46 +168,20 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
 
   const openReply = (email: InboundEmail) => {
     setReplyingId(email.id);
-    setReplyHtml('');
-    setReplyError(null);
-    setReplySent(false);
     setExpandedId(email.id);
   };
 
-  const cancelReply = () => {
-    setReplyingId(null);
-    setReplyHtml('');
-    setReplyError(null);
-    setReplySent(false);
-  };
-
-  const sendReply = async (email: InboundEmail) => {
-    if (isHtmlEmpty(replyHtml)) return;
-    setSending(true);
-    setReplyError(null);
-    try {
-      const response = await adminFetch(`/api/admin/inbound-emails/${email.id}/reply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: replyHtml }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Failed to send reply');
-
-      // Reflect replied + read state on the row in place — keep it visible so the
-      // "Reply sent" confirmation shows (it clears from a filtered view on the
-      // next refresh). The server marks a replied message read, so drop the
-      // unread count if this was the transition.
-      const updated = data.email as InboundEmail;
-      if (typeof data.unread === 'number') reportUnread(data.unread);
-      setEmails((prev) => prev.map((e) => (e.id === email.id ? updated : e)));
-      setReplySent(true);
-      setReplyHtml('');
-    } catch (err) {
-      setReplyError(err instanceof Error ? err.message : 'Failed to send reply');
-    } finally {
-      setSending(false);
-    }
+  const sendReply = async (email: InboundEmail, html: string) => {
+    const response = await adminFetch(`/api/admin/inbound-emails/${email.id}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Failed to send reply');
+    // Keep the row visible (with its Replied chip) until the next refresh.
+    if (typeof data.unread === 'number') reportUnread(data.unread);
+    setEmails((prev) => prev.map((e) => (e.id === email.id ? (data.email as InboundEmail) : e)));
   };
 
   return (
@@ -449,86 +411,13 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
 
                       {/* In-app reply composer — sends from eddy.guide via Resend */}
                       {replyingId === email.id && (
-                        <div className="mt-3 bg-neutral-900 border border-neutral-700 rounded-lg p-3">
-                          {replySent ? (
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-2 text-sm text-green-400">
-                                <CheckCircle className="w-4 h-4" />
-                                Reply sent from {replyFromDisplay(email)}.
-                              </span>
-                              <button
-                                onClick={cancelReply}
-                                className="px-3 py-1.5 rounded text-xs font-medium admin-secondary"
-                              >
-                                Close
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="text-xs text-neutral-400 mb-2 space-y-0.5">
-                                <div>
-                                  <span className="text-neutral-500">To:</span> {email.fromAddress}
-                                </div>
-                                <div>
-                                  <span className="text-neutral-500">From:</span> {replyFromDisplay(email)}
-                                </div>
-                                <div>
-                                  <span className="text-neutral-500">Subject:</span> {replySubjectDisplay(email.subject)}
-                                </div>
-                              </div>
-                              <div className="mb-2 flex items-center gap-2">
-                                <label className="text-xs text-neutral-500">Template:</label>
-                                <select
-                                  value=""
-                                  onChange={(e) => {
-                                    const tpl = REPLY_TEMPLATES.find((t) => t.id === e.target.value);
-                                    if (tpl) setReplyHtml(tpl.html);
-                                    e.target.value = '';
-                                  }}
-                                  className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                >
-                                  <option value="">Insert a quick reply…</option>
-                                  {REPLY_TEMPLATES.map((t) => (
-                                    <option key={t.id} value={t.id} title={t.description}>
-                                      {t.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <RichTextEditor
-                                content={replyHtml}
-                                onChange={setReplyHtml}
-                                minHeight="150px"
-                                placeholder="Write your reply…"
-                              />
-                              {replyError && <div className="text-red-400 text-xs mt-2">{replyError}</div>}
-                              <div className="flex items-center gap-2 mt-2">
-                                <button
-                                  onClick={() => sendReply(email)}
-                                  disabled={sending || isHtmlEmpty(replyHtml)}
-                                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {sending ? (
-                                    <div className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <Send className="w-4 h-4" />
-                                  )}
-                                  {sending ? 'Sending…' : 'Send reply'}
-                                </button>
-                                <button
-                                  onClick={cancelReply}
-                                  disabled={sending}
-                                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 admin-secondary"
-                                >
-                                  Cancel
-                                </button>
-                                <span className="text-xs text-neutral-500 ml-auto hidden sm:inline">
-                                  Sends from eddy.guide via Resend
-                                </span>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                        <ReplyComposer
+                          to={email.fromAddress ?? ''}
+                          from={replyFromDisplay(email)}
+                          subject={replySubjectDisplay(email.subject)}
+                          onSend={(html) => sendReply(email, html)}
+                          onClose={() => setReplyingId(null)}
+                        />
                       )}
                     </div>
                   </div>

@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { adminPermission } from '@/lib/admin/permissions';
 import {
+  FEEDBACK_SUPPORT_ADDRESS,
+  feedbackReplyFrom,
   feedbackUpdate,
   MAX_ADMIN_NOTES_LENGTH,
   REPORTED_PHOTO_TYPE,
@@ -77,4 +80,18 @@ test('client-submitted photo context is never trusted as an id or a URL', () => 
     });
     assert.equal(photo?.imageUrl, null);
   }
+});
+
+test('feedback replies come from the configured address, else the support inbox', () => {
+  assert.equal(feedbackReplyFrom({}), FEEDBACK_SUPPORT_ADDRESS);
+  assert.equal(feedbackReplyFrom({ RESEND_REPLY_FROM: '  ' }), FEEDBACK_SUPPORT_ADDRESS);
+  assert.equal(feedbackReplyFrom({ RESEND_REPLY_FROM: 'not-an-address' }), FEEDBACK_SUPPORT_ADDRESS);
+  assert.equal(feedbackReplyFrom({ RESEND_REPLY_FROM: 'Eddy <hello@eddy.guide>' }), 'Eddy <hello@eddy.guide>');
+});
+
+test('moderators can reply to feedback; editors cannot', () => {
+  const path = '/api/admin/feedback/9b2f3c4d-1111-4222-8333-444455556666/reply';
+  assert.equal(adminPermission('moderator', path, 'POST'), true);
+  assert.equal(adminPermission('editor', path, 'POST'), false);
+  assert.equal(adminPermission('moderator', path, 'GET'), false);
 });

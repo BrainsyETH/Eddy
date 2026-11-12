@@ -977,6 +977,9 @@ export interface Feedback {
   adminNotes: string | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  /** When an admin last emailed the submitter; null when never. */
+  lastRepliedAt: string | null;
+  lastRepliedBy: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -999,6 +1002,8 @@ export interface FeedbackResponse {
 export interface FeedbackListResponse {
   feedback: Feedback[];
   total: number;
+  /** Address admin replies are sent from (admin list only). */
+  replyFrom?: string;
 }
 
 export interface UpdateFeedbackRequest {

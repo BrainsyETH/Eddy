@@ -13,7 +13,12 @@ import {
   type Feedback,
   type FeedbackListResponse,
 } from '@/types/api';
-import { FEEDBACK_STATUSES, mapFeedbackRow, REPORTED_PHOTO_TYPE } from '@/lib/feedback/admin';
+import {
+  FEEDBACK_STATUSES,
+  feedbackReplyFrom,
+  mapFeedbackRow,
+  REPORTED_PHOTO_TYPE,
+} from '@/lib/feedback/admin';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -184,6 +189,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       feedback,
       total: count || 0,
+      replyFrom: feedbackReplyFrom(),
     } as FeedbackListResponse);
   } catch (error) {
     console.error('Error fetching feedback:', error);

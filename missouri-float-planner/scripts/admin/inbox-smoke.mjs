@@ -103,6 +103,7 @@ try {
       userId: null,
     };
     const reportWrites = [];
+    const replies = [];
     // Older than every other item: before pinning it sat on the last page.
     const feedback = [
       ...Array.from({ length: 51 }, (_, i) => feedbackItem(i + 1)),
@@ -164,6 +165,21 @@ try {
       }
       if (path === '/api/admin/stats')
         return json(route, { stats: { pendingFeedback: 51, unapprovedAccessPoints: 0, openCriticalFindings: 0 } });
+      if (/^\/api\/admin\/feedback\/[^/]+\/reply$/.test(path)) {
+        const id = path.split('/')[4];
+        replies.push({ kind: 'feedback', id, ...request.postDataJSON() });
+        const row = feedback.find((f) => f.id === id);
+        Object.assign(row, { status: row.status === 'pending' ? 'reviewed' : row.status, lastRepliedAt: '2026-11-11T20:00:00Z', lastRepliedBy: 'Owner recovery' });
+        return json(route, { feedback: row, from: 'eddy@eddy.guide', warning: null });
+      }
+      if (/^\/api\/admin\/inbound-emails\/[^/]+\/reply$/.test(path)) {
+        const id = path.split('/')[4];
+        replies.push({ kind: 'email', id, ...request.postDataJSON() });
+        const row = emails.find((e) => e.id === id);
+        if (row.status === 'unread') serverUnread--;
+        Object.assign(row, { status: 'read', lastRepliedAt: '2026-11-11T20:00:00Z' });
+        return json(route, { email: row, unread: serverUnread });
+      }
       if (path.startsWith('/api/admin/feedback/')) {
         const id = path.split('/').pop();
         const body = request.postDataJSON();
@@ -230,6 +246,21 @@ try {
         assert.deepEqual(feedbackPatches.at(-1), { adminNotes: 'Checked the gauge; reading is right.' });
         assert.equal(feedback[50].status, 'pending');
         assert.equal(await notes.inputValue(), 'Checked the gauge; reading is right.');
+
+        // Reply to the submitter from the item, using a quick-reply template.
+        await page.getByRole('button', { name: 'Reply', exact: true }).click();
+        await page.getByText('To: paddler51@example.com').waitFor();
+        await page.getByText('From: eddy@eddy.guide').waitFor();
+        await page.getByLabel('Template:').selectOption('thanks');
+        await page.getByRole('button', { name: 'Send reply' }).click();
+        await page.getByText('Reply sent from eddy@eddy.guide.').waitFor();
+        assert.equal(replies.at(-1).kind, 'feedback');
+        assert.equal(replies.at(-1).id, feedback[50].id);
+        assert.ok(replies.at(-1).html.length > 20, 'template body is sent');
+        await page.getByText('Replied', { exact: true }).waitFor();
+        await page.getByText(/^Replied on .* by Owner recovery$/).waitFor();
+        await page.screenshot({ path: `${out}/inbox-feedback-reply-${label}.png`, fullPage: true });
+        await page.getByRole('button', { name: 'Close', exact: true }).click();
       }
       await page.screenshot({ path: `${out}/inbox-feedback-${label}.png`, fullPage: true });
 
@@ -263,6 +294,15 @@ try {
         assert.equal(serverUnread, 6);
         assert.equal(await tab.locator('span').innerText(), '6', 'badge shows the server count after triage');
         await page.getByText('1–1 of 1 messages').waitFor();
+
+        // The shared composer still sends email replies and updates the badge.
+        await page.getByText('Email subject 2', { exact: true }).click();
+        await page.getByRole('button', { name: 'Reply', exact: true }).click();
+        await page.getByLabel('Template:').selectOption('thanks');
+        await page.getByRole('button', { name: 'Send reply' }).click();
+        await page.getByText('Reply sent from hello@eddy.guide.').waitFor();
+        assert.equal(replies.at(-1).kind, 'email');
+        assert.equal(await tab.locator('span').innerText(), '5');
       }
       await page.screenshot({ path: `${out}/inbox-email-${label}.png`, fullPage: true });
       assert.deepEqual(errors, []);

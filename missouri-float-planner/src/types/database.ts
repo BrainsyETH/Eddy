@@ -1742,6 +1742,8 @@ export type Database = {
           feedback_type: string
           id: string
           image_url: string | null
+          last_replied_at: string | null
+          last_replied_by: string | null
           message: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -1760,6 +1762,8 @@ export type Database = {
           feedback_type: string
           id?: string
           image_url?: string | null
+          last_replied_at?: string | null
+          last_replied_by?: string | null
           message: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1778,6 +1782,8 @@ export type Database = {
           feedback_type?: string
           id?: string
           image_url?: string | null
+          last_replied_at?: string | null
+          last_replied_by?: string | null
           message?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
