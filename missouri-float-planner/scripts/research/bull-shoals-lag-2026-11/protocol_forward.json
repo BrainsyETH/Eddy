@@ -1,0 +1,52 @@
+{
+  "study": "Bull Shoals to the Norfork gauge: forward log of at-the-time estimates",
+  "locked_on": "2026-11-12",
+  "locked_before_any_forward_row_exists": true,
+  "question": "When estimates are written before the river can answer, how often can one be issued for the gauge near Norfork, and how good is it?",
+  "rule_version": "norfork-v1",
+  "rule": {
+    "implemented_in": "missouri-float-planner/src/lib/arrival-trial/rule.ts",
+    "same_as": "The replay's frozen rule, model and range (protocol_replay.json, results_replay/frozen_rule.json). rule.test.ts fails unless the port reproduces the Python replay's decisions and outcomes on 42 real release increases.",
+    "differences_from_the_replay": [
+      "A baseline under 300 cfs is withheld as 'release reading implausible' (the replay scored one such record as a miss).",
+      "Tributaries are checked again through every reading in hand when the row is written, and an estimate is withheld as 'tributaries moved before issue' if they have moved more than 500 cfs. The replay's rule stops at the increase's third hour; live decisions are made about 90 minutes later.",
+      "An increase that cannot be decided 10 minutes before its arrival window opens is withheld under its cause: 'release data arrived too late' (by when the data was stored), 'decided too late', 'collection was down' or 'collection paused'. The replay assumed data arrived on time.",
+      "The tributary watch does not withdraw an estimate. The first pass that sees tributaries past the limit while the water is travelling writes a watch event, timed by the database. In the replay a reconstructed watch changed nothing."
+    ],
+    "recorded_but_not_acted_on": "A release in the previous 14 hours at least 500 cfs above the baseline is flagged 'earlier release in transit'. Withholding on it would have removed 140 of 388 estimates in 2022-2026."
+  },
+  "outcomes": {
+    "primary": "The first 0.10 ft rise at the gauge, when it is the only rise in the 5 to 24 hour window and no other detected increase's window holds it (status 'matched'). Error = predicted minus observed hours; positive is an early arrival.",
+    "secondary": "The midpoint of the steepest one-hour rise in the window, compared with the estimate plus 0.75 hours (the development offset between first rise and steepest rise in study 3). Reported with the same statistics; no pass mark.",
+    "every_detected_increase_is_one_of": [
+      "withheld, with its reason, including the four lateness causes",
+      "issued and scored (matched)",
+      "issued, outcome not determined (ambiguous, no rise found, gauge gap or gauge data unavailable)"
+    ],
+    "coverage": "Counted from the trial's first pass. Each pass records that it ran; after downtime the next pass writes a row for every increase since the last finished pass, up to 30 days back, flagged 'written after the fact'. A hydrograph explanation of a miss is analysis and never changes its score."
+  },
+  "pass_marks": {
+    "scored_on": "issued rows whose outcome is matched",
+    "within_2h_of_point_estimate": "80% or more",
+    "more_than_2h_early": "5% or less",
+    "inside_the_range": "90% or more",
+    "before_the_early_edge": "5% or less",
+    "minimum_events": 60,
+    "verdict": "HOLDS when all four are met, DOES_NOT_HOLD when any is missed, INCONCLUSIVE below the minimum"
+  },
+  "when_it_is_scored": "Once, when 60 issued rows have a matched outcome. If that has not happened 12 months after the first row, report INCONCLUSIVE with what exists and keep collecting.",
+  "looking_early": "Counts, job health and data delays may be checked at any time. Accuracy may be looked at, but the rule, model, range and pass marks do not change because of it. Any change is a new rule_version, logged as new rows, with its own count from zero.",
+  "always_reported": [
+    "availability against every detected increase, by withholding reason",
+    "collection coverage: days with a gap in passes, and paused periods",
+    "how many minutes after the third hour each decision was made, and how late release data arrived",
+    "issued rows whose outcome was not determined, and the first rise of any cause for them",
+    "for watch events: hours from the increase to the event, and from the event to the rise",
+    "what withheld rows would have scored, from the estimate saved in their inputs",
+    "results by calendar quarter"
+  ],
+  "scope": "One dam, one gauge 41.5 river miles down. Nothing in the log is shown to users, and a HOLDS verdict supports an estimate at that gauge only: not at accesses without a gauge, not a wading or launch window.",
+  "amended_on": "2026-11-12, after review and before any forward row exists: the issue-time tributary check, lateness filed by cause, pass records, live watch events, and subgroup results standing on their own.",
+  "what_this_tests": "A fixed estimate per release increase. Watch events are recorded as they happen to measure detection time; they do not change an estimate or its score.",
+  "subgroups": "Results are reported pooled and separately for increases flagged 'earlier release in transit', for increases with a watch event before the rise, and for rows written after the fact. The pooled verdict does not extend to a subgroup that misses the marks on its own."
+}

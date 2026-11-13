@@ -477,6 +477,28 @@ actual search time, including after a touch drag. Recheck the native footer
 insets on Expo upgrades: its `react-native-screens/experimental` safe-area
 component follows the native-tabs integration documented by Expo.
 
+## River page photography
+
+River detail uses the existing editorial river-photo catalog, preferring the
+API's selected photo and credit. Current River uses the Montauk waterfall
+photo already in that catalog. Images are consistent across visits; opening a
+page does not fetch or randomly choose an access photo. A missing or failed
+image falls back to the plain title without reserving photo space.
+
+The full-width header is about 236 points tall including the native navigation
+area at standard text sizes. Long names and Dynamic Type expand it. White text
+has a dark backing; Increase Contrast and Reduce Transparency make that backing
+opaque. Supplied credits link to the source/license and disclose cropping.
+The native compact title appears after the large title scrolls behind the bar;
+native back, share, favorite and scroll-edge treatment remain system-managed.
+Gauge selection and river conditions stay on the solid surface immediately below.
+No API deployment is required for this header: the app bundles the shared catalog
+as a fallback for existing cached river responses.
+
+Device verification remains required for native navigation/status-bar contrast
+at each scroll position, restored scroll, Dynamic Type, VoiceOver, Reduce
+Transparency, Increase Contrast, and light/dark appearances.
+
 ## Condition colours and labels
 
 Import them from `@eddy/conditions` via `src/theme/conditions.ts`. Never
@@ -694,6 +716,16 @@ reservation text live under About this campground. The map peek retains its
 availability chart. Choose a longer stay opens the campground detail route with
 the selected night as arrival; the stay picker adds departure and a night count.
 Long campground names and accessibility-sized titles scroll with the site list.
+
+Full access pages, including those opened from Favorites, offer Choose a site
+below the campsite availability chart. Opening it replaces the chart with the
+same `CampgroundSiteBrowser` used by the map Camping tab: measured nights,
+filters, compact expandable site cards, photos, booking and longer stays.
+Individual sites load only after opening the picker; closing it cancels pending
+work. Facility identity remains usable when saved counts expire, without
+presenting those old counts as current. Tracked campgrounds use this picker
+instead of the second external Reserve a site button under Facilities; untracked
+places retain their existing provider links. Inventory failures offer Retry.
 
 Expanding a site also requests `/api/campsites/details` for that exact Eddy
 facility/site pair. Recreation.gov details appear below the photo as branded,
@@ -1885,10 +1917,20 @@ also keep their recap context (`startCondition`, `riverSpan`, `coveredMiles`,
 `startWeather`) under its own `recapContext` capability, by the same rule
 (ADR 0012); `missouri-float-planner/shared/float-recap.ts` reads it for the
 history card and recap.
-The recap leads with a compact condition-tinted mood header, then **Your route**:
-the full start-to-take-out river stretch, progress, credited distance and total
-time. It replaces the recap's whole-river exploration/lifetime panel. Existing
-history and share-image measurement rules remain unchanged. New summaries save
+The recap leads with a compact condition-tinted mood header, then one trip card:
+**Your route**, the full start-to-take-out river stretch, progress, credited
+distance and total time, followed by the moving/breaks breakdown behind a thin
+divider. Share follows the trip card, ahead of the compact starting conditions;
+history, backup and the separate delete action sit below. Large text stacks the
+stat columns and endpoint names. It replaces the recap's whole-river
+exploration/lifetime panel. Existing
+history and share-image measurement rules remain unchanged. Share images use one photo-free river postcard
+composition online and offline: a large river title, compact route/date group,
+Eddy overlapping a curved teal shape and large unboxed stats. The verified
+server condition is a compact badge row; the offline image retains
+its existing condition-free content. The whole-river percentage is omitted
+from the image. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md#float-share-presentation--november-12-2026).
+New summaries save
 `routeSnapshot` (start/take-out miles, start name, calibration, original map-anchor
 IDs/miles and optional download key), without coordinates. A confirmed launch
 uses its access name; an on-water start uses its position relative to the planned
@@ -1914,7 +1956,8 @@ Only confirmed arrival earns **100% complete**. Limited tracking suppresses an
 unconfirmed percentage, but never undoes a confirmed arrival. **Last recorded**
 is not necessarily where the float ended. Maps do not request location and do
 not capture scroll gestures. Both appearances use the downloaded **STYLE_URL**
-(outdoors-v12), with legible light-map overlay ink. Mapbox attribution stays
+(outdoors-v12), with a light visual wash beneath the route overlays, stronger
+route casing, and collision-aware marker labels. Mapbox attribution stays
 visible and separately accessible; both renderers have a VoiceOver description
 that mentions coverage only when present. A river-only
 SVG fallback uses the same geometry when native maps/styles are unavailable.

@@ -1,3 +1,4 @@
+import { compactShareDuration, floatShareLayout } from '../../shared/float-share-layout';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -154,9 +155,9 @@ function localImageHarness() {
         pending.push(() => { previous?.cleanup?.(); effects.set(index, { deps, cleanup: fn() }); });
       },
     },
-    'react-native-svg': { __esModule: true, default: 'Svg', Image: 'Image', Line: 'Line', Rect: 'Rect', Text: 'SvgText' },
+    'react-native-svg': { __esModule: true, default: 'Svg', Image: 'Image', Path: 'Path', Line: 'Line', Rect: 'Rect', Text: 'SvgText' },
     '@/lib/localFloatShare': { localFloatShare: () => ({ river: 'Current River', from: 'Akers', to: 'Pulltite', date: '2026-11-04', duration: '1 hr' }), shareTextLines: (s: string) => [s] },
-    '@/theme/palette': { lightPalette: {} }, '@/theme/typography': { fonts: {} }, '../../assets/otter/standard.png': 1,
+    '@eddy/conditions/float-share-layout': { compactShareDuration, floatShareLayout }, '@/theme/typography': { fonts: {} }, '../../assets/otter/standard.png': 1,
   };
   const exports: { LocalFloatShareImage?: (props: unknown) => unknown } = {};
   runInNewContext(compile(read('src/float/LocalFloatShareImage.tsx') + '\nexports.LocalFloatShareImage = LocalFloatShareImage;'), {

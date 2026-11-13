@@ -419,6 +419,19 @@
 .textButton:hover {
   text-decoration: underline;
 }
+/* What a study is doing, under its task name. Separate from the last result. */
+.jobNote {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.jobNote[data-state='collecting'] b {
+  color: var(--good);
+}
+.jobNote[data-state='issue'] b {
+  color: var(--coral-ink);
+}
 .empty,
 .missing {
   color: var(--muted);
@@ -918,6 +931,8 @@
   border: 2px solid var(--line);
   border-radius: 8px;
   padding: 14px 18px;
+  /* A grid item: without this a wide table widens the page instead of scrolling. */
+  min-width: 0;
 }
 .diagnostics > summary {
   cursor: pointer;
@@ -940,6 +955,7 @@
 .group {
   border-top: 1px solid var(--line);
   padding-top: 10px;
+  min-width: 0;
 }
 .group > summary {
   cursor: pointer;
@@ -1129,6 +1145,10 @@
   padding: 7px 8px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
+}
+/* The task table only: keep the task name and its state line readable on a phone. */
+.jobTable td:first-child {
+  min-width: 190px;
 }
 .detailTable td:not(:first-child) {
   font-variant-numeric: tabular-nums;

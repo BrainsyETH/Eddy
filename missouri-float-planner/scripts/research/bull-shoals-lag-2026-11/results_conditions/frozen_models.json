@@ -1,0 +1,464 @@
+{
+ "fitted_on_events": 186,
+ "first_rise_to_surge_offset_h": 0.75,
+ "models": {
+  "conditions": {
+   "terms": [
+    "ln_qpeak",
+    "stage0",
+    "ln_tributary"
+   ],
+   "coefficients": [
+    4.6091,
+    -0.1995,
+    -0.0191,
+    -0.0159
+   ]
+  },
+  "study 2": {
+   "terms": [
+    "ln_q24",
+    "ln_qpeak"
+   ],
+   "coefficients": [
+    4.5629,
+    -0.0373,
+    -0.1854
+   ]
+  },
+  "height only added": {
+   "terms": [
+    "ln_qpeak",
+    "stage0"
+   ],
+   "coefficients": [
+    4.5418,
+    -0.1987,
+    -0.0247
+   ]
+  },
+  "gauge flow instead of stage": {
+   "terms": [
+    "ln_qpeak",
+    "ln_gauge_cfs0"
+   ],
+   "coefficients": [
+    4.843,
+    -0.1961,
+    -0.057
+   ]
+  }
+ },
+ "stage_reference": {
+  "gauge_cfs_band": [
+   2000,
+   3000
+  ],
+  "median_stage_ft": 5.025
+ },
+ "development": {
+  "release_increases": 261,
+  "scored": 205,
+  "model_comparison_leave_one_month_out": {
+   "all scored": {
+    "conditions": {
+     "n": 205,
+     "share_within_2h": 0.9073,
+     "share_more_than_2h_early": 0.0585,
+     "share_more_than_2h_late": 0.0341,
+     "median_abs_error_h": 0.6506,
+     "largest_early_h": 5.9088,
+     "largest_late_h": 10.1407,
+     "early_edge_95_h": 2.0917
+    },
+    "study 2": {
+     "n": 205,
+     "share_within_2h": 0.8829,
+     "share_more_than_2h_early": 0.0829,
+     "share_more_than_2h_late": 0.0341,
+     "median_abs_error_h": 0.8955,
+     "largest_early_h": 5.3848,
+     "largest_late_h": 9.9426,
+     "early_edge_95_h": 2.3602
+    },
+    "height only added": {
+     "n": 205,
+     "share_within_2h": 0.8927,
+     "share_more_than_2h_early": 0.0585,
+     "share_more_than_2h_late": 0.0488,
+     "median_abs_error_h": 0.7026,
+     "largest_early_h": 5.7057,
+     "largest_late_h": 9.8844,
+     "early_edge_95_h": 2.0479
+    },
+    "gauge flow instead of stage": {
+     "n": 205,
+     "share_within_2h": 0.878,
+     "share_more_than_2h_early": 0.0732,
+     "share_more_than_2h_late": 0.0488,
+     "median_abs_error_h": 0.7309,
+     "largest_early_h": 5.8523,
+     "largest_late_h": 10.0436,
+     "early_edge_95_h": 2.1883
+    },
+    "q24 + qpeak + stage": {
+     "n": 205,
+     "share_within_2h": 0.8976,
+     "share_more_than_2h_early": 0.0537,
+     "share_more_than_2h_late": 0.0488,
+     "median_abs_error_h": 0.7305,
+     "largest_early_h": 5.6609,
+     "largest_late_h": 9.8925,
+     "early_edge_95_h": 2.0499
+    },
+    "q24 + qpeak + gauge flow": {
+     "n": 205,
+     "share_within_2h": 0.878,
+     "share_more_than_2h_early": 0.0683,
+     "share_more_than_2h_late": 0.0537,
+     "median_abs_error_h": 0.7657,
+     "largest_early_h": 5.8038,
+     "largest_late_h": 10.0211,
+     "early_edge_95_h": 2.1713
+    },
+    "stage only": {
+     "n": 205,
+     "share_within_2h": 0.7561,
+     "share_more_than_2h_early": 0.0927,
+     "share_more_than_2h_late": 0.1512,
+     "median_abs_error_h": 1.0244,
+     "largest_early_h": 5.8033,
+     "largest_late_h": 8.8803,
+     "early_edge_95_h": 2.4559
+    },
+    "qpeak only": {
+     "n": 205,
+     "share_within_2h": 0.8878,
+     "share_more_than_2h_early": 0.0976,
+     "share_more_than_2h_late": 0.0146,
+     "median_abs_error_h": 0.8767,
+     "largest_early_h": 5.7255,
+     "largest_late_h": 9.9724,
+     "early_edge_95_h": 2.6766
+    }
+   },
+   "not stepped": {
+    "conditions": {
+     "n": 186,
+     "share_within_2h": 0.9194,
+     "share_more_than_2h_early": 0.0376,
+     "share_more_than_2h_late": 0.043,
+     "median_abs_error_h": 0.4487,
+     "largest_early_h": 2.9158,
+     "largest_late_h": 9.913,
+     "early_edge_95_h": 1.8247
+    },
+    "study 2": {
+     "n": 186,
+     "share_within_2h": 0.8925,
+     "share_more_than_2h_early": 0.0699,
+     "share_more_than_2h_late": 0.0376,
+     "median_abs_error_h": 0.6914,
+     "largest_early_h": 3.0486,
+     "largest_late_h": 9.6442,
+     "early_edge_95_h": 2.0852
+    },
+    "height only added": {
+     "n": 186,
+     "share_within_2h": 0.914,
+     "share_more_than_2h_early": 0.043,
+     "share_more_than_2h_late": 0.043,
+     "median_abs_error_h": 0.5639,
+     "largest_early_h": 3.1617,
+     "largest_late_h": 9.6319,
+     "early_edge_95_h": 1.8077
+    },
+    "gauge flow instead of stage": {
+     "n": 186,
+     "share_within_2h": 0.914,
+     "share_more_than_2h_early": 0.043,
+     "share_more_than_2h_late": 0.043,
+     "median_abs_error_h": 0.6238,
+     "largest_early_h": 3.0056,
+     "largest_late_h": 9.7426,
+     "early_edge_95_h": 1.8912
+    },
+    "q24 + qpeak + stage": {
+     "n": 186,
+     "share_within_2h": 0.914,
+     "share_more_than_2h_early": 0.043,
+     "share_more_than_2h_late": 0.043,
+     "median_abs_error_h": 0.5712,
+     "largest_early_h": 3.2441,
+     "largest_late_h": 9.6355,
+     "early_edge_95_h": 1.8397
+    },
+    "q24 + qpeak + gauge flow": {
+     "n": 186,
+     "share_within_2h": 0.914,
+     "share_more_than_2h_early": 0.043,
+     "share_more_than_2h_late": 0.043,
+     "median_abs_error_h": 0.6299,
+     "largest_early_h": 3.1129,
+     "largest_late_h": 9.7349,
+     "early_edge_95_h": 1.9
+    },
+    "stage only": {
+     "n": 186,
+     "share_within_2h": 0.7849,
+     "share_more_than_2h_early": 0.0591,
+     "share_more_than_2h_late": 0.1559,
+     "median_abs_error_h": 1.0949,
+     "largest_early_h": 4.6409,
+     "largest_late_h": 8.6373,
+     "early_edge_95_h": 2.2383
+    },
+    "qpeak only": {
+     "n": 186,
+     "share_within_2h": 0.9194,
+     "share_more_than_2h_early": 0.0699,
+     "share_more_than_2h_late": 0.0108,
+     "median_abs_error_h": 0.6114,
+     "largest_early_h": 3.5794,
+     "largest_late_h": 9.6333,
+     "early_edge_95_h": 2.2811
+    }
+   },
+   "not stepped, tributaries steady": {
+    "conditions": {
+     "n": 155,
+     "share_within_2h": 0.9419,
+     "share_more_than_2h_early": 0.0258,
+     "share_more_than_2h_late": 0.0323,
+     "median_abs_error_h": 0.4627,
+     "largest_early_h": 2.5621,
+     "largest_late_h": 2.9033,
+     "early_edge_95_h": 1.7405
+    },
+    "study 2": {
+     "n": 155,
+     "share_within_2h": 0.9355,
+     "share_more_than_2h_early": 0.0516,
+     "share_more_than_2h_late": 0.0129,
+     "median_abs_error_h": 0.6828,
+     "largest_early_h": 2.9766,
+     "largest_late_h": 2.0922,
+     "early_edge_95_h": 1.8223
+    },
+    "height only added": {
+     "n": 155,
+     "share_within_2h": 0.9226,
+     "share_more_than_2h_early": 0.0387,
+     "share_more_than_2h_late": 0.0387,
+     "median_abs_error_h": 0.6046,
+     "largest_early_h": 2.3953,
+     "largest_late_h": 3.4051,
+     "early_edge_95_h": 1.5881
+    },
+    "gauge flow instead of stage": {
+     "n": 155,
+     "share_within_2h": 0.929,
+     "share_more_than_2h_early": 0.0387,
+     "share_more_than_2h_late": 0.0323,
+     "median_abs_error_h": 0.6599,
+     "largest_early_h": 2.7774,
+     "largest_late_h": 3.1343,
+     "early_edge_95_h": 1.6985
+    },
+    "q24 + qpeak + stage": {
+     "n": 155,
+     "share_within_2h": 0.9226,
+     "share_more_than_2h_early": 0.0387,
+     "share_more_than_2h_late": 0.0387,
+     "median_abs_error_h": 0.5628,
+     "largest_early_h": 2.4358,
+     "largest_late_h": 3.5727,
+     "early_edge_95_h": 1.6365
+    },
+    "q24 + qpeak + gauge flow": {
+     "n": 155,
+     "share_within_2h": 0.929,
+     "share_more_than_2h_early": 0.0387,
+     "share_more_than_2h_late": 0.0323,
+     "median_abs_error_h": 0.6469,
+     "largest_early_h": 2.7736,
+     "largest_late_h": 3.3925,
+     "early_edge_95_h": 1.7446
+    },
+    "stage only": {
+     "n": 155,
+     "share_within_2h": 0.8129,
+     "share_more_than_2h_early": 0.0452,
+     "share_more_than_2h_late": 0.1419,
+     "median_abs_error_h": 0.9465,
+     "largest_early_h": 4.5684,
+     "largest_late_h": 6.7694,
+     "early_edge_95_h": 1.9461
+    },
+    "qpeak only": {
+     "n": 155,
+     "share_within_2h": 0.9677,
+     "share_more_than_2h_early": 0.0323,
+     "share_more_than_2h_late": 0.0,
+     "median_abs_error_h": 0.5941,
+     "largest_early_h": 3.5233,
+     "largest_late_h": 1.7357,
+     "early_edge_95_h": 1.6804
+    }
+   }
+  },
+  "observed": {
+   "by_river_height": {
+    "under 5 ft": {
+     "n": 34,
+     "median_delay_h": 13.25,
+     "p10_delay_h": 11.9,
+     "p90_delay_h": 16.175,
+     "median_qpeak_cfs": 9951.0,
+     "median_stage_ft": 4.7625,
+     "median_tributary_cfs": 210.9109
+    },
+    "5 to 6 ft": {
+     "n": 82,
+     "median_delay_h": 13.25,
+     "p10_delay_h": 11.525,
+     "p90_delay_h": 15.725,
+     "median_qpeak_cfs": 9652.5,
+     "median_stage_ft": 5.5025,
+     "median_tributary_cfs": 230.4421
+    },
+    "6 to 7 ft": {
+     "n": 54,
+     "median_delay_h": 12.5,
+     "p10_delay_h": 11.5,
+     "p90_delay_h": 13.675,
+     "median_qpeak_cfs": 11661.0,
+     "median_stage_ft": 6.3875,
+     "median_tributary_cfs": 198.1562
+    },
+    "7 to 8.5 ft": {
+     "n": 14,
+     "median_delay_h": 12.5,
+     "p10_delay_h": 10.75,
+     "p90_delay_h": 17.275,
+     "median_qpeak_cfs": 7803.0,
+     "median_stage_ft": 8.15,
+     "median_tributary_cfs": 1643.3458
+    },
+    "over 8.5 ft": {
+     "n": 21,
+     "median_delay_h": 10.75,
+     "p10_delay_h": 7.5,
+     "p90_delay_h": 17.5,
+     "median_qpeak_cfs": 12354.0,
+     "median_stage_ft": 9.835,
+     "median_tributary_cfs": 2624.2542
+    }
+   },
+   "by_weather": {
+    "tributaries moving": {
+     "n": 37,
+     "median_delay_h": 12.25,
+     "p10_delay_h": 9.55,
+     "p90_delay_h": 15.95,
+     "median_qpeak_cfs": 9240.0,
+     "median_stage_ft": 6.695,
+     "median_tributary_cfs": 2551.6708
+    },
+    "tributaries steady": {
+     "n": 168,
+     "median_delay_h": 13.0,
+     "p10_delay_h": 11.25,
+     "p90_delay_h": 15.825,
+     "median_qpeak_cfs": 10894.5,
+     "median_stage_ft": 5.785,
+     "median_tributary_cfs": 194.6281
+    }
+   },
+   "by_rain": {
+    "0.5 inch or more": {
+     "n": 61,
+     "median_delay_h": 12.5,
+     "p10_delay_h": 10.5,
+     "p90_delay_h": 16.5,
+     "median_qpeak_cfs": 10011.0,
+     "median_stage_ft": 5.935,
+     "median_tributary_cfs": 486.0333
+    },
+    "under 0.5 inch": {
+     "n": 144,
+     "median_delay_h": 13.0,
+     "p10_delay_h": 11.075,
+     "p90_delay_h": 15.675,
+     "median_qpeak_cfs": 10714.0,
+     "median_stage_ft": 5.84,
+     "median_tributary_cfs": 218.5008
+    }
+   },
+   "by_stepped": {
+    "False": {
+     "n": 186,
+     "median_delay_h": 13.0,
+     "p10_delay_h": 11.25,
+     "p90_delay_h": 16.0,
+     "median_qpeak_cfs": 10594.5,
+     "median_stage_ft": 5.84,
+     "median_tributary_cfs": 254.1479
+    },
+    "True": {
+     "n": 19,
+     "median_delay_h": 10.75,
+     "p10_delay_h": 7.5,
+     "p90_delay_h": 13.3,
+     "median_qpeak_cfs": 10895.0,
+     "median_stage_ft": 6.25,
+     "median_tributary_cfs": 223.6625
+    }
+   },
+   "by_year": {
+    "2025": {
+     "n": 54,
+     "median_delay_h": 12.25,
+     "p10_delay_h": 10.325,
+     "p90_delay_h": 14.25,
+     "median_qpeak_cfs": 11113.5,
+     "median_stage_ft": 6.2775,
+     "median_tributary_cfs": 274.3727
+    },
+    "2026": {
+     "n": 151,
+     "median_delay_h": 13.0,
+     "p10_delay_h": 11.5,
+     "p90_delay_h": 16.25,
+     "median_qpeak_cfs": 10464.0,
+     "median_stage_ft": 5.66,
+     "median_tributary_cfs": 252.5292
+    }
+   }
+  },
+  "stepped": {
+   "n": 19,
+   "n_not_crowded": 16,
+   "gap_at_dam_h": {
+    "median": 9.0,
+    "p10": 7.0,
+    "p90": 13.6
+   },
+   "gap_at_gauge_h": {
+    "median": 1.25,
+    "p10": 0.75,
+    "p90": 4.375
+   },
+   "first_rise_minus_prediction_h": {
+    "median": -1.635,
+    "p10": -4.9224,
+    "p90": 0.3088
+   },
+   "surge_minus_expected_h": {
+    "median": -0.8611,
+    "p10": -2.4928,
+    "p90": 0.0575
+   }
+  }
+ }
+}
