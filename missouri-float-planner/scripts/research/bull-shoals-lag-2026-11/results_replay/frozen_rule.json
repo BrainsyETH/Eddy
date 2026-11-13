@@ -1,0 +1,132 @@
+{
+ "frozen": {
+  "model": "release size and gauge height",
+  "terms": [
+   "ln_qpeak",
+   "stage0"
+  ],
+  "coefficients": [
+   4.2145,
+   -0.1633,
+   -0.0231
+  ],
+  "range_early_offset_h": 1.5,
+  "range_late_offset_h": 1.25,
+  "fitted_on_events": 310,
+  "rule": {
+   "steady_cfs": 600,
+   "first_hour_rise_cfs": 1000,
+   "decide_after_hours": 3,
+   "min_peak_rise_cfs": 2000,
+   "max_baseline_cfs": 1500,
+   "max_prior_step_cfs": 500,
+   "max_stage_ft": 7.0,
+   "max_tributary_range_cfs": 500,
+   "window_hours": [
+    5,
+    24
+   ]
+  }
+ },
+ "development": {
+  "period": [
+   "2022-01-01",
+   "2026-11-12"
+  ],
+  "availability": {
+   "detected_increases": 811,
+   "withheld": 423,
+   "issued and evaluated": 310,
+   "issued, outcome not determined": 55,
+   "issued, then withdrawn before the rise": 23,
+   "withheld_by_reason": {
+    "release already raised": 195,
+    "increase under 2,000 cfs": 118,
+    "river high": 94,
+    "tributaries moving": 10,
+    "gauge reading missing": 4,
+    "smaller increase went first": 2
+   },
+   "not_determined_because": {
+    "gauge gap": 23,
+    "ambiguous match": 32,
+    "no rise found": 0
+   },
+   "withdrawn_because": {
+    "tributaries started moving": 23
+   }
+  },
+  "model_comparison_leave_one_month_out": {
+   "release size": {
+    "n": 310,
+    "share_within_2h": 0.9839,
+    "share_more_than_2h_early": 0.0161,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3501,
+    "largest_early_h": 7.3033,
+    "largest_late_h": 1.7664,
+    "early_edge_95_h": 1.0578
+   },
+   "release size and gauge height": {
+    "n": 310,
+    "share_within_2h": 0.9839,
+    "share_more_than_2h_early": 0.0161,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3225,
+    "largest_early_h": 7.1855,
+    "largest_late_h": 1.8311,
+    "early_edge_95_h": 1.0726
+   },
+   "release size, gauge height and tributary flow": {
+    "n": 310,
+    "share_within_2h": 0.9806,
+    "share_more_than_2h_early": 0.0161,
+    "share_more_than_2h_late": 0.0032,
+    "median_abs_error_h": 0.2769,
+    "largest_early_h": 7.34,
+    "largest_late_h": 2.0424,
+    "early_edge_95_h": 0.879
+   },
+   "release size and prior-day release": {
+    "n": 310,
+    "share_within_2h": 0.9839,
+    "share_more_than_2h_early": 0.0161,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3161,
+    "largest_early_h": 7.2176,
+    "largest_late_h": 1.9382,
+    "early_edge_95_h": 1.09
+   }
+  },
+  "chosen_model_cv": {
+   "n": 310,
+   "share_within_2h": 0.9839,
+   "share_more_than_2h_early": 0.0161,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 0.3225,
+   "largest_early_h": 7.1855,
+   "largest_late_h": 1.8311,
+   "early_edge_95_h": 1.0726,
+   "share_inside_range": 0.9581,
+   "share_before_early_edge": 0.0194,
+   "share_after_late_edge": 0.0226
+  },
+  "lead_time": {
+   "data 0 h late": {
+    "median_lead_h": 10.75,
+    "p10_lead_h": 9.5,
+    "share_with_3h_or_more": 1.0
+   },
+   "data 2 h late": {
+    "median_lead_h": 8.75,
+    "p10_lead_h": 7.5,
+    "share_with_3h_or_more": 1.0
+   },
+   "data 5 h late": {
+    "median_lead_h": 5.75,
+    "p10_lead_h": 4.5,
+    "share_with_3h_or_more": 0.9935
+   }
+  }
+ }
+}

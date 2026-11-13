@@ -1,0 +1,145 @@
+{
+ "note": "Post hoc cuts of the untouched-test events with the frozen conditions model. Not validated rules.",
+ "cuts": {
+  "all (the pre-set pass mark)": {
+   "n": 302,
+   "share_within_2h": 0.894,
+   "share_more_than_2h_early": 0.0993,
+   "share_more_than_2h_late": 0.0066,
+   "median_abs_error_h": 0.3995,
+   "largest_early_h": 8.994,
+   "largest_late_h": 10.556,
+   "early_edge_95_h": 2.8337,
+   "median_delay_h": 13.125
+  },
+  "gauge under 7 ft": {
+   "n": 203,
+   "share_within_2h": 0.9606,
+   "share_more_than_2h_early": 0.0394,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 0.318,
+   "largest_early_h": 8.994,
+   "largest_late_h": 1.086,
+   "early_edge_95_h": 1.7307,
+   "median_delay_h": 13.25
+  },
+  "gauge under 7 ft, tributaries steady": {
+   "n": 189,
+   "share_within_2h": 0.9788,
+   "share_more_than_2h_early": 0.0212,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 0.302,
+   "largest_early_h": 7.794,
+   "largest_late_h": 1.086,
+   "early_edge_95_h": 1.3932,
+   "median_delay_h": 13.25
+  },
+  "gauge under 7 ft, tributaries steady, under 0.5 in rain": {
+   "n": 138,
+   "share_within_2h": 0.9928,
+   "share_more_than_2h_early": 0.0072,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 0.3235,
+   "largest_early_h": 2.84,
+   "largest_late_h": 1.086,
+   "early_edge_95_h": 1.2768,
+   "median_delay_h": 13.25
+  },
+  "gauge under 7 ft, tributaries moving": {
+   "n": 14,
+   "share_within_2h": 0.7143,
+   "share_more_than_2h_early": 0.2857,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 1.2235,
+   "largest_early_h": 8.994,
+   "largest_late_h": 0.915,
+   "early_edge_95_h": 7.497,
+   "median_delay_h": 12.25
+  },
+  "gauge 7 ft or higher": {
+   "n": 99,
+   "share_within_2h": 0.7576,
+   "share_more_than_2h_early": 0.2222,
+   "share_more_than_2h_late": 0.0202,
+   "median_abs_error_h": 0.742,
+   "largest_early_h": 8.98,
+   "largest_late_h": 10.556,
+   "early_edge_95_h": 3.4726,
+   "median_delay_h": 12.25
+  },
+  "low baseline before the increase (under 1,500 cfs)": {
+   "n": 254,
+   "share_within_2h": 0.9606,
+   "share_more_than_2h_early": 0.0315,
+   "share_more_than_2h_late": 0.0079,
+   "median_abs_error_h": 0.333,
+   "largest_early_h": 8.994,
+   "largest_late_h": 10.556,
+   "early_edge_95_h": 1.5589,
+   "median_delay_h": 13.25
+  },
+  "low baseline, tributaries steady (hindsight label), gauge under 7 ft": {
+   "n": 177,
+   "share_within_2h": 0.9831,
+   "share_more_than_2h_early": 0.0169,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 0.274,
+   "largest_early_h": 7.794,
+   "largest_late_h": 1.086,
+   "early_edge_95_h": 1.0688,
+   "median_delay_h": 13.25
+  },
+  "dam already running (1,500 cfs or more)": {
+   "n": 48,
+   "share_within_2h": 0.5417,
+   "share_more_than_2h_early": 0.4583,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 1.7945,
+   "largest_early_h": 8.98,
+   "largest_late_h": 0.561,
+   "early_edge_95_h": 6.0904,
+   "median_delay_h": 10.375
+  },
+  "dam already running 3,000 cfs or more": {
+   "n": 20,
+   "share_within_2h": 0.1,
+   "share_more_than_2h_early": 0.9,
+   "share_more_than_2h_late": 0.0,
+   "median_abs_error_h": 2.3485,
+   "largest_early_h": 6.891,
+   "largest_late_h": -1.189,
+   "early_edge_95_h": 5.0708,
+   "median_delay_h": 8.25
+  }
+ },
+ "gate_using_only_readings_before_the_release": {
+  "n": 185,
+  "share_within_2h": 0.9676,
+  "share_more_than_2h_early": 0.0324,
+  "share_more_than_2h_late": 0.0,
+  "median_abs_error_h": 0.276,
+  "largest_early_h": 8.994,
+  "largest_late_h": 1.086,
+  "early_edge_95_h": 1.5048,
+  "events": 185,
+  "share_of_all_detected_starts": 0.4282,
+  "admitted_that_the_hindsight_label_excluded": 8
+ },
+ "availability": {
+  "detected_starts": 432,
+  "scored_not_stepped": 302,
+  "hindsight_normal_group": 177,
+  "share_of_detected_starts": 0.4097
+ },
+ "median_delay_h_by_baseline": {
+  "under 1,500 cfs": 13.25,
+  "1,500 cfs or more": 10.375,
+  "3,000 cfs or more": 8.25
+ },
+ "stepped_measure_check": {
+  "events": 28,
+  "steepest_rise_before_first_rise": 6,
+  "by_more_than_5h": 3,
+  "by_more_than_12h": 2
+ }
+}

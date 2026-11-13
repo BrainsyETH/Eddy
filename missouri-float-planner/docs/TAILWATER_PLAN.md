@@ -174,6 +174,21 @@ of uncached fan-out per revalidation.
 
 ## 1. Travel-time lag — learn it, do not assume it
 
+**Measured 2026-11-12:** [study 2](../scripts/research/bull-shoals-lag-2026-11/README.md)
+ran this for Bull Shoals under a protocol fixed in advance. One fixed lag fails,
+as it did in the first study. A lag that depends on release level passes its
+tolerance at the gauge near Norfork (mile 41.5) and is inconclusive at Calico
+Rock. [Study 3](../scripts/research/bull-shoals-lag-2026-11/STUDY3.md) then
+scored it on 2022-2024: within two hours 94 to 98% of the time when the gauge
+is under 7 ft, but nearly half the rises come more than two hours early above
+8.5 ft or when the dam is already generating. A
+[replay](../scripts/research/bull-shoals-lag-2026-11/REPLAY.md) of an
+at-the-time rule on 2019-2021 was inconclusive (39 estimates, 60 needed), so
+the remaining test is a forward log, now built and switched off
+([runbook](../../docs/release-arrival-trial.md)). Nothing is measured between the
+dam and mile 41.5, and nothing is approved for display; step 2's liability
+decision still comes first.
+
 **The gap:** SWPA says the units run 7–11 AM *at the dam*. Nothing says when
 that water reaches the access someone is standing at. Every wade/float window
 downstream of the dam face is wrong without this, and a hand-tuned celerity per
