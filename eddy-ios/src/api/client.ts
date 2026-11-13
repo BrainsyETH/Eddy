@@ -2638,6 +2638,13 @@ export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, si
   );
 }
 
+/** Optional descriptive facts load only after a site is expanded. */
+export function fetchCampsiteDetails(facilityId: string, siteId: string, signal?: AbortSignal) {
+  return get<import('@eddy/conditions/campsite-details').CampsiteDetailsResponse>(
+    `/api/campsites/details?facility=${encodeURIComponent(facilityId)}&site=${encodeURIComponent(siteId)}`, signal,
+  );
+}
+
 export function fetchCampingOverview(signal?: AbortSignal, nights: 21 | 90 = 90): Promise<CampingOverview> {
   return get<CampingOverview>(`/api/camping/availability?nights=${nights}`,signal);
 }

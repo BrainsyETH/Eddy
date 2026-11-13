@@ -5,6 +5,19 @@ import { campsiteTags, SITE_FILTERS, type SiteFilter } from '../components/map-s
 
 export { nextCampingDate, stayNights } from '@eddy/conditions/camping-stay';
 export type { CampingStay, CampsiteStay } from '@eddy/conditions/camping-stay';
+
+/** Strip only an exact campground prefix followed by a separator, never a place-name substring. */
+export function campsiteDisplayName(name: string | null, campground?: string): string {
+  const full = name?.trim() || 'Campsite';
+  const prefix = campground?.trim();
+  if (!prefix || full.slice(0, prefix.length).toLowerCase() !== prefix.toLowerCase()) return full;
+  const rest = full.slice(prefix.length);
+  return /^\s+[-–—:]\s+\S/.test(rest) ? rest.replace(/^\s+[-–—:]\s+/, '') : full;
+}
+
+export function campsiteDisplayLoop(loop: string | null, campground?: string): string | null {
+  return loop?.trim() && loop.trim().toLowerCase() !== campground?.trim().toLowerCase() ? loop.trim() : null;
+}
 /** Both picker presentations use the same dates. Checkout may be the day after
  * the final tracked night, but can never be on or before arrival. */
 export function campingPickerDates(nights: string[], field: 'arrival' | 'departure', arrival: string): string[] {

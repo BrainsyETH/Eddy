@@ -628,6 +628,92 @@ properly and needs nothing.
 The Map tab is three features sharing one screen, and each of them has a
 constraint worth writing down.
 
+### Access Overview sections
+
+The full access page uses a full-width, swipeable photo header in both cached and
+loaded states. Names remain below the image and wrap at larger text sizes; type
+facts use Eddy's category art, while generic Access is omitted. Missing or failed
+photos leave no empty hero. Multiple photos show their page count.
+
+Access sheets separate facilities/fees, Good to know, camping and services with
+quiet dividers. Getting in, Parking, and Facilities & fees retain Eddy's category
+icons in their headings. Service names wrap; descriptions
+can expand; each available contact action remains independently reachable.
+Facilities omits the Parking and Boat ramp chips already shown elsewhere on the
+map, while keeping facility prose, parking details and fees. It also omits Camping
+when the access has a Campground label or Camping tab; nearby campgrounds alone
+never suppress that amenity. Overview's place-type labels are text-only and omit
+generic Access. Map callouts retain their category artwork. Thumbnails, useful
+amenity indicators and action icons remain in the sheet.
+Good to know precedes nearby businesses and retains every word of the supplied
+notes, including restrictions. Sentence/list breaks are presentation only.
+
+`nearbyServices.relationship` carries the server's verified link when present.
+Only `same_place` entries appear under Camping here. `located_at` describes the
+same facility with a potentially different arrival point; it and legacy entries
+remain separate. Names and short distances are never evidence of identity.
+The Camping shortcut selects the existing tab by key and appears only when that
+tab exists and no campground is listed. Listed campgrounds replace that standalone
+shortcut; the Camping tab remains available. Compact service rows place the name,
+distance and 44-point contact controls together. Tapping expands descriptions and
+any extra contact links; on-site camping remains reachable from those details.
+Lodging entries without a valid phone, website or booking destination are omitted
+on both the sheet and full page, so generic town/supply notes do not become dead
+lodging cards. Verified booking links are carried through the detail API.
+Mixed access/camping fee notes
+stay intact and expandable in Overview until the source provides separately
+structured charges.
+
+Camping cards reuse the 44-point campground thumbnail beside their content. The
+service's own photo takes priority; only a verified `same_place` link can reuse
+the access photo. Missing or failed photos show Eddy's campground art. The detail
+API carries service photos from the existing directory media and reviewed photo
+catalog, with the same map/numbered-site exclusions as camping search.
+
+### Campground site browsing
+
+The campground detail sheet and map Camping tab share compact site cards. Photos
+open their gallery independently of booking; tapping a site's summary expands
+photos, nightly availability and available policy links. An exact repeated
+campground prefix and identical loop name are omitted from the compact label.
+Whole-stay results retain their nightly breakdown in details, with no standalone
+green square for a one-night stay. First-come, stale and unavailable results keep
+their distinct wording and booking behavior.
+Site names and amenities align beside square thumbnails; availability and the
+reservation action share a wrapping footer. The photo viewer fits the image's
+aspect ratio in a compact sheet instead of centering it in unused full-screen
+space. Full captions expand on request, credits stay visible, and photos retain
+pinch zoom and previous/next controls. General reservation instructions remain in
+campground details rather than appearing above every site list.
+
+The map tab selects one night using calendar cells. Its heading names that night
+and updates to the matching-site count when filters are active. All-matching site
+kinds become quiet facts instead of filters; selected filters remain reachable at
+zero. The booking button stays above the sites, while official links and original
+reservation text live under About this campground. The map peek retains its
+availability chart. Choose a longer stay opens the campground detail route with
+the selected night as arrival; the stay picker adds departure and a night count.
+Long campground names and accessibility-sized titles scroll with the site list.
+
+Expanding a site also requests `/api/campsites/details` for that exact Eddy
+facility/site pair. Recreation.gov details appear below the photo as branded,
+aligned facts: setting, access, permitted equipment and lengths, on-site
+amenities, specific hookups, arrival times, pets and provider-listed
+accessibility. Capacity and generic hookup labels remain in the summary.
+Provider notes fold under Good to know, followed by the nightly Your stay list.
+Missing fields produce no empty rows. Shared showers, toilets and dump stations
+are not represented as amenities at an individual site, and a fire ring never
+implies that fires are currently permitted.
+
+Details load only while expanded, cancel on collapse and cache separately for
+one hour in the app. A failure offers Retry without affecting availability or
+booking. The API checks the enabled facility, site ownership and returned
+provider IDs; unsupported sources return no additional facts. State Parks keeps
+its existing site summary and photos until its extra fields are verified.
+Deploy this additive API before releasing the updated app; no migration or new
+native dependency is required. Device verification remains separate from the
+local layout and interaction checks.
+
 ### Search is half local, half server
 
 `src/hooks/useEddySearch.ts` matches **rivers and gauges in memory** and asks the

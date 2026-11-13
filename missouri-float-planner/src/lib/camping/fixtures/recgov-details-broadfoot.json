@@ -1,0 +1,150 @@
+{
+  "campsite": {
+    "campsite_id": "10344971",
+    "facility_id": "10344948",
+    "is_accessible": false,
+    "campsite_name": "Broadfoot Campground - Site 1",
+    "is_deactivated": false,
+    "permitted_equipment": [
+      {
+        "campsite_equipment_type_id": 1,
+        "equipment_name": "Tent",
+        "max_length": 0,
+        "is_deactivated": false
+      },
+      {
+        "campsite_equipment_type_id": 2,
+        "equipment_name": "RV",
+        "max_length": 40,
+        "is_deactivated": false
+      },
+      {
+        "campsite_equipment_type_id": 8,
+        "equipment_name": "Vehicle",
+        "max_length": 40,
+        "is_deactivated": false
+      }
+    ],
+    "site_details_map": {
+      "campfire_allowed": {
+        "attribute_name": "Campfire Allowed",
+        "attribute_value": "Yes"
+      },
+      "capacity_rating": {
+        "attribute_name": "Capacity Rating",
+        "attribute_value": "Single"
+      },
+      "checkin_time": {
+        "attribute_name": "Check-In",
+        "attribute_value": "1:00 PM"
+      },
+      "checkout_time": {
+        "attribute_name": "Check-Out",
+        "attribute_value": "12:00 PM"
+      },
+      "condition_rating": {
+        "attribute_name": "Condition Rating",
+        "attribute_value": "Prime"
+      },
+      "location_rating": {
+        "attribute_name": "Location Rating",
+        "attribute_value": "Prime"
+      },
+      "max_num_people": {
+        "attribute_name": "Max Num of People",
+        "attribute_value": "6"
+      },
+      "min_num_people": {
+        "attribute_name": "Min Num of People",
+        "attribute_value": "1"
+      },
+      "mooring": {
+        "attribute_value": "No"
+      },
+      "pets_allowed": {
+        "attribute_name": "Pets Allowed",
+        "attribute_value": "Yes"
+      },
+      "primitive": {
+        "attribute_value": "No"
+      },
+      "proximity_water": {
+        "attribute_name": "Proximity to Water",
+        "attribute_value": "Riverfront"
+      },
+      "sewer_hookup": {
+        "attribute_value": "No"
+      },
+      "shade": {
+        "attribute_name": "Shade",
+        "attribute_value": "Yes"
+      },
+      "site_access": {
+        "attribute_name": "Site Access",
+        "attribute_value": "Drive-In"
+      },
+      "site_rating": {
+        "attribute_name": "Site Rating",
+        "attribute_value": "Prime"
+      },
+      "water_hookup": {
+        "attribute_name": "Water Hookup",
+        "attribute_value": "No"
+      }
+    },
+    "equipment_details_map": {
+      "driveway_entry": {
+        "attribute_value": "Back-in",
+        "attribute_code": "driveway_entry"
+      },
+      "driveway_grade": {
+        "attribute_value": "Slight",
+        "attribute_code": "driveway_grade"
+      },
+      "is_equip_mandatory": {
+        "attribute_value": "true",
+        "attribute_code": "is_equip_mandatory"
+      },
+      "max_num_vehicles": {
+        "attribute_value": "2",
+        "attribute_code": "max_num_vehicles"
+      },
+      "max_vehicle_length": {
+        "attribute_value": "40",
+        "attribute_code": "max_vehicle_length"
+      },
+      "min_num_vehicles": {
+        "attribute_value": "1",
+        "attribute_code": "min_num_vehicles"
+      }
+    },
+    "amenities": [
+      {
+        "attribute_name": "Campfire Rings",
+        "attribute_value": "Campfire Rings"
+      },
+      {
+        "attribute_name": "Picnic Tables",
+        "attribute_value": "Picnic Tables"
+      },
+      {
+        "attribute_name": "Lantern Posts",
+        "attribute_value": "Lantern Posts"
+      }
+    ],
+    "attributes": [
+      {
+        "attribute_name": "Campfire Rings",
+        "attribute_value": "Campfire Rings"
+      },
+      {
+        "attribute_name": "Picnic Tables",
+        "attribute_value": "Picnic Tables"
+      },
+      {
+        "attribute_name": "Lantern Posts",
+        "attribute_value": "Lantern Posts"
+      }
+    ]
+  }
+}

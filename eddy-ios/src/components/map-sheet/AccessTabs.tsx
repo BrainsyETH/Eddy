@@ -15,6 +15,9 @@ import { serviceContactActions } from '@/lib/serviceContactActions';
 // screen holds), both are enhancements to a tab that already answers its
 // question, and neither should hold up the tabs themselves.
 import { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { checkedLabel } from '@/lib/campingHeatmap';
+import { CampingNightPicker } from './CampingNightPicker';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -27,7 +30,7 @@ import type {
   NpsCampgroundSummary,
   ServiceTier,
 } from '@eddy/types';
-import { serviceTiers } from '@eddy/types';
+import { isCampground, serviceTiers } from '@eddy/types';
 import {
   defaultNight,
   localToday,
@@ -50,8 +53,10 @@ import { useCampsiteSites } from '@/hooks/useCampsiteSites';
 import { useObservationClock } from '@/hooks/useObservationClock';
 import {
   filterCounts,
+  isBookable,
+  narrowingSiteFilters,
+  commonSiteFeatures,
   listsRows,
-  siteFilterChips,
   sitesOnNight,
   type SiteFilter,
 } from './siteList';
@@ -62,7 +67,6 @@ import {
   overviewLead,
   parkingLabel,
   roadSurfaceLabel,
-  stripHtml,
   waitingCopy,
 } from '@/lib/accessCopy';
 import {
@@ -79,6 +83,8 @@ import {
   SourceNote,
 } from './sections';
 import { compactFloatEstimate } from './floatEstimate';
+import { ServiceContactRow } from './ServiceContactRow';
+import { accessNoteItems, campingServiceGroups, campgroundThumbnailUrl, visibleNearbyServices } from './overviewDetails';
 import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
@@ -141,12 +147,14 @@ export function AccessOverviewTab({
   detail,
   onOpenDetail,
   onOpenRiver,
+  onOpenCamping,
   status: detailStatus,
   galleryWidth = 320,
   onRetry,
-}: TabProps) {
+}: TabProps & { onOpenCamping: (() => void) | null }) {
   const point = detail?.accessPoint;
   const services = servicesByTier(detail);
+  const camping = campingServiceGroups(services.camping);
   const availability = accessAvailability(point ?? null);
   const { colors } = useTheme();
   // From the detail response when it has landed, from the PIN before that — the
@@ -170,13 +178,21 @@ export function AccessOverviewTab({
     ? point.roadSurface.map(roadSurfaceLabel).join(', ')
     : null;
   const parking = parkingLabel(point?.parkingCapacity);
-  const tips = stripHtml(point?.localTips);
+  const tips = accessNoteItems(point?.localTips);
   const managedBy = point?.managingAgency ? agencyLabel(point.managingAgency) : null;
+  // Parking and boat ramps are already identified elsewhere on the map.
+  // Nearby campgrounds alone do not describe camping at this access.
+  const campingAlreadyShown = Boolean(onOpenCamping) || isCampground(accessPoint);
+  const facilityAmenities = (point?.amenities ?? []).filter((amenity) => {
+    const slug = typeof amenity === 'string' ? amenity.trim().toLowerCase() : '';
+    return slug !== '' && slug !== 'parking' && slug !== 'boat_ramp'
+      && !(slug === 'camping' && campingAlreadyShown);
+  });
 
   const hasGettingIn = Boolean(road || point?.roadAccess);
   const hasParking = Boolean(parking || point?.parkingInfo);
   const hasFacilities = Boolean(
-    point?.amenities?.length || point?.facilities || point?.feeNotes || managedBy,
+    facilityAmenities.length || point?.facilities || point?.feeRequired || point?.feeNotes || managedBy,
   );
   // ── HAS THIS TAB GOT ANYTHING AT ALL? ─────────────────────────────────
   // The river row is not counted. It is present on every access point in the
@@ -208,12 +224,13 @@ export function AccessOverviewTab({
     !hasFacilities &&
     !services.rentals.length &&
     !services.lodging.length &&
-    !tips;
+    !tips.length &&
+    !onOpenCamping;
 
   return (
     <View>
       {onOpenDetail ? <LinkRow label="View full details" symbol="accessPoint" onPress={onOpenDetail} /> : null}
-      <AccessTypeBadges accessPoint={accessPoint} />
+      <AccessTypeBadges accessPoint={accessPoint} showIcons={false} showGenericAccess={false} />
       {!accessPoint.isPublic ? (
         <Prose>Private access — permission may be required.</Prose>
       ) : null}
@@ -274,89 +291,98 @@ export function AccessOverviewTab({
           sleep, who rents boats, anything else. See tabs.ts for why the split
           ended. */}
       {hasGettingIn ? (
-        <Section title="Getting in" symbol="road">
+        <Section title="Getting in" symbol="road" separated>
           <Fact label="Road" value={road} />
           <FoldedProse lines={3} subject="road directions">{point?.roadAccess}</FoldedProse>
         </Section>
       ) : null}
 
       {hasParking ? (
-        <Section title="Parking" symbol="parking">
+        <Section title="Parking" symbol="parking" separated>
           <Fact label="Capacity" value={parking} />
           <FoldedProse lines={3} subject="parking details">{point?.parkingInfo}</FoldedProse>
         </Section>
       ) : null}
 
       {hasFacilities ? (
-        <Section title="Facilities" symbol="facilities">
-          {/* ── THE MARK WHERE THE CATALOG HAS ONE, THE WORD WHERE IT DOES
-              NOT ─────────────────────────────────────────────────────────
-              These were raw database slugs in text pills: `boat_ramp` rendered
-              as "boat_ramp". accessAmenities is the one derivation that turns
-              the column into a label and, for the four the catalog draws, a
-              mark — and it is the same module the river sheet's access rows
-              ask, so a put-in cannot say "Boat ramp" in one place and
-              "boat_ramp" in another. Picnic and store keep the label alone
-              rather than borrow a drawing that means something else. */}
-          <AmenityChips amenities={point?.amenities} />
+        <Section title="Facilities & fees" symbol="facilities" separated>
+          <AmenityChips amenities={facilityAmenities} />
           <FoldedProse lines={3} subject="facilities">{point?.facilities}</FoldedProse>
-          {/* A fee note is a sentence, not a value: the short fact goes in the
-              row and the note folds underneath, like every other paragraph. */}
-          <Fact label="Fees" value={point?.feeRequired ? 'Fee required' : null} />
-          <FoldedProse lines={3} subject="fee details">{point?.feeNotes}</FoldedProse>
-          <Fact label="Managed by" value={managedBy} />
+          {point?.feeRequired || point?.feeNotes ? (
+            <View style={[styles.fees, { borderTopColor: colors.border }]}>
+              <Text style={[styles.feeTitle, { color: colors.text }]}>Fees</Text>
+              {/* Mixed access/camping notes stay intact: moving unstructured
+                  prices could hide a launch or parking charge. */}
+              {point?.feeNotes ? (
+                <FoldedProse lines={3} subject="fee details">{point.feeNotes}</FoldedProse>
+              ) : <Prose>Fee required</Prose>}
+            </View>
+          ) : null}
+          {managedBy ? <Text style={[styles.managedBy, { color: colors.textMuted }]}>Managed by {managedBy}</Text> : null}
           <SourceNote sources={point?.dataSources} />
         </Section>
       ) : null}
 
-      {/* ── Camping nearby ────────────────────────────────────────────────
-          On EVERY access point, not only the ones that are themselves a
-          campground. "Where do I sleep the night before?" is asked at the
-          put-in you are looking at, and answering it only on campground pins
-          answers it in the one place it was not asked.
+      {tips.length ? (
+        <Section title="Good to know" separated>
+          <View style={styles.notes}>
+            {tips.map((tip, index) => (
+              <View key={`${index}:${tip}`} style={styles.note}>
+                <Text accessibilityElementsHidden importantForAccessibility="no" style={[styles.noteBullet, { color: colors.textMuted }]}>•</Text>
+                <Text style={[styles.noteText, { color: colors.textBody }]}>{tip}</Text>
+              </View>
+            ))}
+          </View>
+        </Section>
+      ) : null}
 
-          Name, distance and who runs it — no site counts, no fees. Those exist
-          for NPS sites and not for most others, and a list that showed them
-          where it could would read as though the rest had none.
+      {camping.here.length ? (
+        <Section title="Camping here" separated>
+          {camping.here.map((service) => (
+            <ServiceContactRow
+              key={service.name}
+              service={service}
+              symbol="campground"
+              imageUrl={campgroundThumbnailUrl(service, photos[0])}
+              onOpenCamping={camping.here.length === 1 ? onOpenCamping : null}
+            />
+          ))}
+          {onOpenCamping && camping.here.length > 1 ? (
+            <LinkRow label="View camping" onPress={onOpenCamping} />
+          ) : null}
+        </Section>
+      ) : onOpenCamping && services.camping.length === 0 ? (
+        <Section separated>
+          <LinkRow label="Camping" detail="View camping details" symbol="campground" onPress={onOpenCamping} />
+        </Section>
+      ) : null}
 
-          ── AND IT IS STILL DRAWN EXACTLY ONCE ─────────────────────────────
-          The two service sections below take `rentals` and `lodging` from the
-          same `servicesByTier` call that produced this one, and the tiers
-          partition — so merging Place in could not reintroduce the duplicate
-          that split them in the first place. That property is the reason the
-          merge is safe, and it lives in servicesByTier rather than here. */}
-      {services.camping.length ? (
-        <Section title="Camping nearby">
-          {services.camping.map((service) => (
-            <ServiceContactRow key={service.name} service={service} />
+      {camping.nearby.length ? (
+        <Section title="Camping nearby" separated>
+          {camping.nearby.map((service) => (
+            <ServiceContactRow key={service.name} service={service} symbol="campground" imageUrl={campgroundThumbnailUrl(service, photos[0])} />
           ))}
         </Section>
       ) : null}
 
       {services.rentals.length ? (
-        <Section title="Outfitters and shuttles">
+        <Section title="Outfitters & shuttles" separated>
           {services.rentals.map((service) => (
-            <ServiceContactRow key={service.name} service={service} />
+            <ServiceContactRow key={service.name} service={service} symbol="outfitter" />
           ))}
         </Section>
       ) : null}
 
       {services.lodging.length ? (
-        <Section title="Cabins and lodging">
+        <Section title="Cabins & lodging" separated>
           {services.lodging.map((service) => (
-            <ServiceContactRow key={service.name} service={service} />
+            <ServiceContactRow key={service.name} service={service} symbol="lodging" />
           ))}
         </Section>
       ) : null}
 
-      {tips ? (
-        <Section title="River notes">
-          <Prose>{tips}</Prose>
-        </Section>
-      ) : null}
-
       {point?.river ? (
-        <Section>
+        <Section separated>
           <LinkRow
             label={`View ${point.river.name}`}
             symbol="river"
@@ -499,19 +525,6 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, st
   );
 }
 
-/**
- * How old the site list is, in the reader's own clock.
- *
- * A named site shown as open is a stronger claim than a count, and the sync
- * runs once a night — so the list says when it was checked rather than
- * implying it is live. The row itself opens the booking page, which is.
- */
-function checkedLine(fetchedAt: string): string {
-  const at = new Date(fetchedAt);
-  if (Number.isNaN(at.getTime())) return 'Checked recently';
-  return `Checked ${at.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
-}
-
 /* ── Camping ────────────────────────────────────────────────────────────── */
 
 /**
@@ -539,7 +552,7 @@ function BookButton({ action }: { action: BookingAction }) {
       accessibilityLabel={`${action.label}. Opens in the browser.`}
     >
       <ControlIcon name="calendar-outline" size={16} color={colors.accentFill} />
-      <Text style={[styles.bookText, { color: colors.accentFill }]} numberOfLines={1}>
+      <Text style={[styles.bookText, { color: colors.accentFill }]}>
         {action.label}
       </Text>
       <ControlIcon name="open-outline" size={14} color={colors.accentFill} />
@@ -547,53 +560,18 @@ function BookButton({ action }: { action: BookingAction }) {
   );
 }
 
-/**
- * The night this page is showing, said in words.
- *
- * ── THE PAGE STATES ITS OWN CONTEXT ───────────────────────────────────────
- *
- * Everything below this line — the chips, the filters, the site rows — is about
- * ONE night, and until this existed the only thing on the page that named which
- * was a chip that started off-screen. A reader met a list of campsites and had
- * to infer the day from a control they could not see.
- *
- * So the day comes FIRST and the count second, which is the opposite order to
- * the peek's card. That card is a glance deciding whether to open the sheet at
- * all, and there the number is the point. Here the number is an answer to a
- * question the reader has to know they asked.
- *
- * ── One utterance, not two ────────────────────────────────────────────────
- * Two Texts would be two VoiceOver stops for one statement, and "Friday, Aug
- * 14" followed later by "13 of 52 sites open" is a fragment and an orphan. The
- * same reason NightStrip is a single element.
- */
-function NightStatus({ night }: { night: NightChoice | null }) {
+/** The selected night, or the filtered result, in one heading. */
+function NightStatus({ night, matches }: { night: NightChoice | null; matches?: number }) {
   const { colors } = useTheme();
   if (!night) return null;
-
-  // Null only when the night was never measured, which most campgrounds are.
-  // The day still draws: what the reader is looking at is true either way.
-  const phrase = nightPhrase(night);
-
-  return (
-    <View
-      style={styles.nightStatus}
-      accessible
-      accessibilityLabel={phrase ? `${night.longLabel}. ${phrase}` : night.longLabel}
-    >
-      <Text style={[styles.nightDay, { color: colors.text }]} numberOfLines={1}>
-        {night.longLabel}
-      </Text>
-      {phrase ? (
-        <Text style={[styles.nightPhrase, { color: colors.textMuted }]} numberOfLines={1}>
-          {phrase}
-        </Text>
-      ) : null}
-    </View>
-  );
+  const phrase = matches === undefined ? nightPhrase(night) : `${matches} matching ${matches === 1 ? 'site' : 'sites'}`;
+  return <Text accessibilityRole="header" style={[styles.nightDay, styles.nightStatus, { color: colors.text }]}>
+    {[phrase, night.longLabel].filter(Boolean).join(' · ')}
+  </Text>;
 }
 
 export function AccessCampingTab({ accessPoint, detail, status, active = false, pinAvailability, onRetry }: TabProps) {
+  const router = useRouter();
   const now = useObservationClock();
   const { colors } = useTheme();
   const point = detail?.accessPoint;
@@ -666,24 +644,16 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
   }, [sites, selectedDate, now]);
   const counts = useMemo(() => filterCounts(entries), [entries]);
 
-  // ── HIDDEN CHIPS MUST NOT KEEP FILTERING ────────────────────────────────
-  // Whether the list draws rows is a property of the NIGHT, not the campground:
-  // a fully booked night has nothing in `open` and collapses to summaries even
-  // where every site carries a booking link. So a reader can filter to Electric,
-  // step to a booked-out night, and watch the chip row vanish with the filter
-  // still applied — narrowing a summary they can no longer see the control for.
-  //
-  // The filters are therefore spent only while their row is on screen. The state
-  // survives, so stepping back to a night with rows restores the selection
-  // rather than silently dropping it.
-  //
-  // Within a drawn row, a SELECTED chip stays drawn even at zero (see
-  // siteFilterChips) — it used to vanish while still filtering.
   const individualSites = sites?.facility.source === 'mo_state_parks';
-  const showFilters = useMemo(() => listsRows(entries, individualSites), [entries, individualSites]);
+  const showFilters = filters.length > 0 || listsRows(entries, individualSites);
   const activeFilters = showFilters ? filters : [];
+  const takeable = entries.filter(isBookable);
+  const filterOptions = narrowingSiteFilters(counts, filters, takeable.length);
+  const commonFeatures = commonSiteFeatures(counts, takeable.length).filter(f => !filters.includes(f));
+  const matches = activeFilters.length && sitesStatus === 'ready'
+    ? takeable.filter(entry => activeFilters.some(f => entry.tags.includes(f))).length : undefined;
 
-  // The timeline stays first whether the detail request is pending or ready.
+  // The map peek keeps its overview chart; repeat it here only while details are unavailable.
   const timeline = availability || accessPoint.hasLiveAvailability ? (
     <CampgroundAvailability
       style={styles.availabilityInset}
@@ -729,127 +699,22 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
 
   return (
     <View>
-      {timeline}
-      <NightStatus night={selectedNight} />
+      <NightStatus night={selectedNight} matches={matches} />
+      {sites?.fetchedAt ? <Text style={[styles.checked, { color: colors.textSubtle }]}>{checkedLabel(sites.fetchedAt, now)}</Text> : null}
 
-      {/* The fortnight, at a size that can be tapped — the peek draws the same
-          nights as a chart because fourteen columns is twenty points each and
-          nothing that small may be a control.
+      {offered.length ? <CampingNightPicker nights={offered} selected={selectedDate} onSelect={setSelected} /> : null}
 
-          `scrollToActive` because the selection is NOT the first chip: it opens
-          on the weekend the window describes, which starts life off-screen. See
-          FilterChips. */}
-      {offered.length ? (
-        <FilterChips
-          chips={offered.map((night) => {
-            const phrase = nightPhrase(night);
-            return {
-              key: night.date,
-              label: night.label,
-              // ── A ZERO IS ONLY PRINTED WHERE IT IS TRUE ────────────────
-              // `empty` means the inventory exists and none of it is left, so
-              // "0" is the fact. `dash` means the campground is not offering
-              // the night at all — shut for the season, or not yet released —
-              // and there is no inventory for the zero to be OF. Printing one
-              // there tells a reader to keep refreshing for a cancellation
-              // that is not coming.
-              //
-              // A badgeless chip is unambiguous only because the unmeasured
-              // nights are gone from this row: `offered` is what makes the
-              // absence readable as "not offered" rather than "not known".
-              count: night.mark === 'dash' ? undefined : (night.count ?? undefined),
-              // The date AND the state. The visible chip carries the date in
-              // its label and the state in a badge the ear cannot see, so a
-              // listener given only the phrase would not know which night it
-              // described.
-              accessibilityLabel: phrase ? `${night.longLabel}. ${phrase}` : night.longLabel,
-            };
-          })}
-          active={[selectedDate]}
-          onToggle={setSelected}
-          paddingHorizontal={0}
-          scrollToActive
-        />
-      ) : null}
-
-      {/* ── THE WAY TO BOOK COMES BEFORE THE INVENTORY ────────────────────
-          This sat at the very bottom, under the site list, the whole "About
-          this campground" table, the amenity chips and the season notes. On
-          Onondaga that is sixty-four rows of scrolling before the only link
-          that can actually reserve any of them, and the report was simply that
-          there was no link — which is what a link nobody reaches amounts to.
-
-          The order now matches what a reader is doing: how many are open, on
-          which night, HOW TO TAKE ONE, and then the detail about the place.
-
-          `officialSiteUrl` is no longer gated on the absence of an NPS record.
-          It was, so a state park — which has no NPS row and therefore no
-          reservation URL either — depended on this single row, while a federal
-          site that had both showed only one of them. Both are worth having:
-          they are the booking system and the park's own page. */}
-      {/* ── THE WAY TO PAY IS A BUTTON, NOT ONE OF THREE ROWS ─────────────
-          This was a "Book" section holding up to three LinkRows of identical
-          weight, of which exactly one took a booking — the other two are a park
-          website and an NPS page. A heading that promises booking over a list
-          where booking is one option in three makes the reader do the sorting.
-
-          Outlined rather than filled, deliberately. ADR 0007 gives the app one
-          filled pill per screen and the peek's "Use as put-in" already spends
-          it — and the peek never scrolls away, so a second fill would sit on
-          screen beside the first. A 1.5pt border reads heavier than the
-          outlined Directions beside that pill without competing with the fill.
-
-          See bookingAction for which link it takes and why the state-park case
-          is evidence rather than a guess. */}
+      {/* Keep the booking destination above the site inventory. */}
       {booking ? <BookButton action={booking} /> : null}
 
-      {/* What is left of that section: the pages ABOUT the place, which were
-          never the booking link and no longer sit under a heading claiming they
-          were. Whichever URL the button took is not repeated here. */}
-      {showOfficialSite || nps?.npsUrl ? (
-        <Section>
-          {showOfficialSite ? (
-            <LinkRow
-              label={nps ? 'Park website' : 'Official site'}
-              external
-              onPress={() => void openExternalLink(point.officialSiteUrl as string)}
-            />
-          ) : null}
-          {nps?.npsUrl ? (
-            <LinkRow
-              label="Campground page"
-              external
-              onPress={() => void openExternalLink(nps.npsUrl as string)}
-            />
-          ) : null}
-        </Section>
-      ) : null}
-
-      <Prose>{nps?.reservationInfo ?? null}</Prose>
-
-      {/* ── THE HEADING NAMES THE NIGHT, because the list is one night ────
-          It read "Sites", full stop, above a list built for `selectedDate` —
-          and the control that sets that date is two sections up, on the far
-          side of Book and the reservation prose. Even a reader who knew a night
-          was selected could not see which one from here.
-
-          The night's own label, so the heading and the chip cannot name
-          different days; see NightChoice.longLabel. */}
       {availability?.facilityId ? (
-        <Section
-          title={selectedNight ? `Sites · ${selectedNight.longLabel}` : 'Sites'}
-        >
+        <Section>
           {sitesStatus === 'ready' && sites ? (
             <>
-              {/* ── ONLY WHERE THE LIST IS ROWS ───────────────────────────
-                  Where it collapses to "Basic — 12 of 40 open" per kind, these
-                  chips split the same sites by the same kinds and print the
-                  same counts, and tapping Electric leaves the Electric line the
-                  reader was already reading. Two copies of one breakdown, of
-                  which only this one has to be operated. See listsRows. */}
-              {showFilters ? (
+              {commonFeatures.length ? <Text style={[styles.checked, { color: colors.textMuted }]}>{commonFeatures.join(' · ')}</Text> : null}
+              {showFilters && filterOptions.length ? (
                 <FilterChips
-                  chips={siteFilterChips(counts, filters).map((f) => ({
+                  chips={filterOptions.map((f) => ({
                     key: f,
                     label: f,
                     count: counts[f],
@@ -865,7 +730,12 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
                   paddingHorizontal={0}
                 />
               ) : null}
+              {activeFilters.length ? <Pressable accessibilityRole="button" onPress={() => setFilters([])} style={styles.clearFilters}>
+                <Text style={[styles.bookText, { color: colors.interactive }]}>Clear filters</Text>
+              </Pressable> : null}
               <CampsiteList
+                campgroundName={nps?.name ?? accessPoint.name}
+                now={now}
                 reservationUrl={booking?.url}
                 individualSites={individualSites}
                 photoFacilityId={active && (individualSites || sites.facility.source === 'recreation_gov') ? sites.facility.id : undefined}
@@ -874,14 +744,8 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
                 date={selectedDate}
                 dateLabel={selectedNight?.longLabel}
               />
-              {/* Synced once a night, and a named site is a stronger claim than
-                  a count — so the reader is told how old it is, and the row
-                  itself opens the booking page that is authoritative. */}
-              {sites.fetchedAt ? (
-                <Text style={[styles.checked, { color: colors.textSubtle }]}>
-                  {checkedLine(sites.fetchedAt)}
-                </Text>
-              ) : null}
+              <LinkRow label="Choose a longer stay" symbol="campground" detail={selectedNight?.longLabel}
+                onPress={() => router.push({ pathname: '/camping', params: { facility: availability.facilityId, night: selectedDate, ...(point.river?.slug ? { river: point.river.slug } : {}) } })} />
             </>
           ) : sitesStatus === 'failed' ? (
             <Absent>Sites unavailable right now.</Absent>
@@ -898,6 +762,11 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
       ) : null}
 
       <Section title="About this campground">
+        {showOfficialSite ? <LinkRow label={nps ? 'Park website' : 'Official site'} external
+          onPress={() => void openExternalLink(point.officialSiteUrl as string)} /> : null}
+        {nps?.npsUrl ? <LinkRow label="Campground page" external
+          onPress={() => void openExternalLink(nps.npsUrl as string)} /> : null}
+        <FoldedProse lines={3} subject="reservation information">{nps?.reservationInfo ?? null}</FoldedProse>
         <Fact label="Managed by" value={point.managingAgency ? agencyLabel(point.managingAgency) : null} />
         {/* ── ONE ROW PER AXIS, NOT ONE ROW PER NUMBER ──────────────────────
             These were eight labelled rows carrying one integer each — Sites,
@@ -1038,7 +907,7 @@ export function serviceUrl(service: NearbyService): string | null {
  * is what that floor is for.
  */
 function servicesByTier(detail: AccessPointDetailResponse | null) {
-  const services = detail?.accessPoint?.nearbyServices ?? [];
+  const services = visibleNearbyServices(detail?.accessPoint?.nearbyServices ?? []);
   const inTier = (tier: ServiceTier) =>
     services.filter((service) => serviceTiers(service).includes(tier));
   return {
@@ -1048,36 +917,14 @@ function servicesByTier(detail: AccessPointDetailResponse | null) {
   };
 }
 
-/** Keep the business context visible alongside every available contact method. */
-function ServiceContactRow({ service }: { service: NearbyService }) {
-  const { colors } = useTheme();
-  const actions = serviceContactActions(service);
-  return (
-    <View>
-      <LinkRow
-        label={service.name}
-        detail={[service.distance, service.notes].filter(Boolean).join(' · ') || null}
-      />
-      {actions.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {actions.map((action) => (
-            <Pressable
-              key={action.label}
-              accessibilityRole="link"
-              accessibilityLabel={`${action.label}: ${service.name}`}
-              onPress={() => void openExternalLink(action.url)}
-              style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 8 }}
-            >
-              <Text style={{ ...t.sm, fontFamily: fonts.body, color: colors.interactive }}>{action.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
+  fees: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 12, paddingTop: 12 },
+  feeTitle: { ...t.sm, fontFamily: fonts.semibold },
+  managedBy: { ...t.xs, fontFamily: fonts.body, marginTop: 12 },
+  notes: { gap: 8, marginTop: 4 },
+  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  noteBullet: { ...t.sm, lineHeight: 20 },
+  noteText: { ...t.sm, fontFamily: fonts.body, lineHeight: 20, flex: 1 },
   availabilityInset: { marginHorizontal: 16, marginTop: 12, marginBottom: 14 },
   // flexGrow: 0 is load-bearing, not tidiness — a horizontal ScrollView in a
   // column stretches to fill the cross axis and would squeeze everything below
@@ -1095,18 +942,20 @@ const styles = StyleSheet.create({
     gap: 8,
     // The 44pt touch floor from DESIGN.md §6, same as the peek's action row.
     minHeight: 44,
-    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
     borderRadius: 10,
     // 1.5 rather than 1: this is the page's primary and the outlined control it
     // must out-rank — Directions, in the peek — is a hairline.
     borderWidth: 1.5,
   },
-  bookText: { ...t.sm, fontFamily: fonts.semibold },
+  bookText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
+  clearFilters: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   nightStatus: { marginTop: 10 },
   // t.base rather than the peek card's display face. This names the page's
   // subject; it is not competing with the glance that decided you opened it.
   nightDay: { ...t.base, fontFamily: fonts.heading },
-  nightPhrase: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
   // Section's own spacing, restated here because the heading carries a glyph and
   // Section takes a plain string title.
   group: { marginTop: 14 },

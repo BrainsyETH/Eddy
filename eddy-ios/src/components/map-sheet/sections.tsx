@@ -31,19 +31,8 @@ import { accessBadgeTypes, accessTypeSymbol } from './placeSymbol';
 import { accessAmenities } from './accessAmenities';
 
 /**
- * ── `symbol` IS NOT AVAILABLE TO EVERY HEADING, on purpose ────────────────
- *
- * Three sections take one — Getting in, Parking, Facilities — and they are the
- * same three the full access-point screen marks
- * (app/river/[slug]/access/[accessSlug].tsx). That is the whole rule: the sheet
- * and the screen it links to must not teach different marks for the same
- * heading, and the screen's own note says why the set stops there — giving
- * every heading a sticker turns a scannable column of text into a column of
- * noise.
- *
- * Camping and Outfitters deliberately do NOT take one even though the catalog
- * has both drawings: their rows already carry the mark, in the LinkRow well, so
- * a heading mark would draw the same tent twice nine points apart.
+ * Optional Eddy category art identifies sections such as Getting in, Parking,
+ * and Facilities & fees. Redundant amenity chips are filtered by the caller.
  *
  * ── `children` IS NOT A CONTENT CHECK ─────────────────────────────────────
  * `if (!children)` catches null and undefined and nothing else. A Section whose
@@ -55,20 +44,23 @@ import { accessAmenities } from './accessAmenities';
 export function Section({
   title,
   symbol,
+  separated = false,
   children,
 }: {
   title?: string;
   symbol?: EddySymbolName;
+  /** Clear boundaries for the access Overview's longer reference sections. */
+  separated?: boolean;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
   if (!children) return null;
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, separated && styles.separatedSection, separated && { borderTopColor: colors.border }]}>
       {title ? (
         <View style={styles.sectionHead}>
-          {symbol ? <EddySymbol name={symbol} size={15} /> : null}
-          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{title}</Text>
+          {symbol ? <EddySymbol name={symbol} size={separated ? 20 : 15} /> : null}
+          <Text accessibilityRole="header" style={[styles.sectionTitle, { color: separated ? colors.text : colors.textMuted }]}>{title}</Text>
         </View>
       ) : null}
       {children}
@@ -280,14 +272,20 @@ export function AmenityChips({ amenities }: { amenities: string[] | null | undef
  * here at all, because both callers already carry the notice that explains it,
  * and a place does not need telling twice in nine points of vertical space.
  */
-export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint }) {
+export function AccessTypeBadges({ accessPoint, showIcons = true, showGenericAccess = true }: {
+  accessPoint: MapAccessPoint;
+  /** Overview uses text labels; map callouts retain their category artwork. */
+  showIcons?: boolean;
+  /** Overview already identifies the place as an access point. */
+  showGenericAccess?: boolean;
+}) {
   const { colors } = useTheme();
-  const types = accessBadgeTypes(accessPoint);
+  const types = accessBadgeTypes(accessPoint).filter((type) => showGenericAccess || type !== 'access');
   if (!types.length && !accessPoint.feeRequired) return null;
   return (
     <View style={styles.types}>
       {types.map((type) => {
-        const symbol = accessTypeSymbol(type);
+        const symbol = showIcons ? accessTypeSymbol(type) : null;
         return (
           <View key={type} style={styles.type}>
             {symbol ? <EddySymbol name={symbol} size={16} /> : null}
@@ -588,6 +586,7 @@ export function Retry({ onPress }: { onPress: () => void }) {
 
 const styles = StyleSheet.create({
   section: { marginTop: 14 },
+  separatedSection: { marginTop: 20, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth },
   // The mark sits on the heading's row, and the row carries the margin the
   // title used to. Keeping `marginBottom` on the text as well would double it
   // for a marked heading and leave marked and unmarked sections on different
@@ -609,6 +608,7 @@ const styles = StyleSheet.create({
   // grabber, this sits mid-page with content above and below, so neither
   // direction leaves the parent's bounds.
   foldToggle: {
+    minWidth: 44,
     alignSelf: 'flex-start',
     paddingVertical: 12,
     marginTop: -10,
