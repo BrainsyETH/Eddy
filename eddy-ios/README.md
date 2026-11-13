@@ -477,6 +477,28 @@ actual search time, including after a touch drag. Recheck the native footer
 insets on Expo upgrades: its `react-native-screens/experimental` safe-area
 component follows the native-tabs integration documented by Expo.
 
+## River page photography
+
+River detail uses the existing editorial river-photo catalog, preferring the
+API's selected photo and credit. Current River uses the Montauk waterfall
+photo already in that catalog. Images are consistent across visits; opening a
+page does not fetch or randomly choose an access photo. A missing or failed
+image falls back to the plain title without reserving photo space.
+
+The full-width header is about 236 points tall including the native navigation
+area at standard text sizes. Long names and Dynamic Type expand it. White text
+has a dark backing; Increase Contrast and Reduce Transparency make that backing
+opaque. Supplied credits link to the source/license and disclose cropping.
+The native compact title appears after the large title scrolls behind the bar;
+native back, share, favorite and scroll-edge treatment remain system-managed.
+Gauge selection and river conditions stay on the solid surface immediately below.
+No API deployment is required for this header: the app bundles the shared catalog
+as a fallback for existing cached river responses.
+
+Device verification remains required for native navigation/status-bar contrast
+at each scroll position, restored scroll, Dynamic Type, VoiceOver, Reduce
+Transparency, Increase Contrast, and light/dark appearances.
+
 ## Condition colours and labels
 
 Import them from `@eddy/conditions` via `src/theme/conditions.ts`. Never

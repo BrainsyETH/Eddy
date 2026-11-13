@@ -137,3 +137,12 @@ No located, reusable photograph was found for the following. A generic river pho
 | Lake Taneycomo | Rockaway Beach |
 | Lake Taneycomo | Empire Park, Forsyth |
 | White River | The Narrows |
+
+## iOS river detail headers — November 13, 2026
+
+The iOS river detail header reuses this catalog (Current: the existing Montauk
+waterfall access photo). No new images are acquired. The existing October
+file-specific credits for Buffalo, Caddo, Mulberry and St. Francis are now
+carried in `RIVER_PHOTO_CREDITS` as well as the guide data, so their header
+credits are visible and linked. Headers disclose cropping. Failed or absent
+photos leave a plain title. Other catalog selections are unchanged.

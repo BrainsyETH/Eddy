@@ -28,6 +28,22 @@ export const RIVER_PHOTOS: Record<string, string> = {
 };
 
 export const RIVER_PHOTO_CREDITS: Record<string, { text: string; url: string }> = {
+  "buffalo": {
+    "text": "Thomas & Dianne Jones · CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Misty_Bluff_along_the_Buffalo_River.jpg"
+  },
+  "caddo-river": {
+    "text": "Brandonrush · CC0",
+    "url": "https://commons.wikimedia.org/wiki/File:Norman,_AR_002.jpg"
+  },
+  "mulberry": {
+    "text": "Tim Palmer / USDA Forest Service · Public domain",
+    "url": "https://www.flickr.com/photo.gne?id=25631401007"
+  },
+  "st-francis": {
+    "text": "Formattc · CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Saint_Francis_River,_USA_04-09.jpg"
+  },
   "big-river": {
     "text": "Marcusscotus1 \u00b7 Public domain",
     "url": "https://commons.wikimedia.org/wiki/File:Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG"
