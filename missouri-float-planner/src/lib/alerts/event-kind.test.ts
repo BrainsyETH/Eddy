@@ -3,7 +3,9 @@ import test from 'node:test';
 import {
   EVENT_KINDS,
   classifyEventKind,
+  elevatedRank,
   isPushableKind,
+  worsensWhatWasTold,
   type EventKind,
 } from './event-kind';
 import { computeCondition } from '../conditions';
@@ -81,6 +83,23 @@ test('only floatable, warning and easing are pushable', () => {
   assert.equal(isPushableKind('easing'), true);
   assert.equal(isPushableKind('recovery'), false, 'all-clear is feed-only');
   assert.equal(isPushableKind('info'), false);
+});
+
+// ── what a cooldown may not withhold ─────────────────────────────
+
+test('only a warning worse than the last word passes a cooldown', () => {
+  assert.deepEqual(['good', 'low', 'unknown', null, 'high', 'dangerous'].map(elevatedRank), [0, 0, 0, 0, 1, 2]);
+
+  // Told "high", now flood.
+  assert.equal(worsensWhatWasTold('warning', 'dangerous', elevatedRank('high')), true);
+  // Told nothing elevated, now high.
+  assert.equal(worsensWhatWasTold('warning', 'high', elevatedRank('good')), true);
+  // The same thing again is a repeat.
+  assert.equal(worsensWhatWasTold('warning', 'high', elevatedRank('high')), false);
+  assert.equal(worsensWhatWasTold('warning', 'dangerous', elevatedRank('dangerous')), false);
+  // Better news never jumps the queue, whatever it lands on.
+  assert.equal(worsensWhatWasTold('easing', 'high', elevatedRank('good')), false);
+  assert.equal(worsensWhatWasTold('floatable', 'good', 0), false);
 });
 
 // ── the guard that keeps social behavior unchanged ───────────────

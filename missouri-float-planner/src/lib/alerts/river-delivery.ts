@@ -200,18 +200,43 @@ export async function drainRiverEvents(
   // The cooldown: SENT rows only. The ledger also holds failed sends, stamped
   // with the same sent_at default, and counting those let a failed push
   // suppress its own retry for four hours.
+  //
+  // And this pass's rows only. Gauge alerts write the same ledger with the
+  // river and the same kinds on them, so unfiltered, a push about one station
+  // cooled down the river's own warning — see RecentDelivery.event_source.
   const since = new Date(now.getTime() - COOLDOWN_WINDOW_MS).toISOString();
-  const recentDeliveries = await readAllIn<RecentDelivery>('recent deliveries', userIds, (chunk, from, to) =>
+  const recentRows = await readAllIn<RecentDelivery & { event_id: string }>('recent deliveries', userIds, (chunk, from, to) =>
     supabase
       .from('alert_push_deliveries')
-      .select('user_id, river_id, kind, sent_at, status')
+      .select('event_id, user_id, river_id, kind, sent_at, status, event_source')
       .in('user_id', chunk)
       .eq('status', 'sent')
+      .eq('event_source', 'river_condition')
       .gte('sent_at', since)
       .order('event_id')
       .order('device_token_id')
       .range(from, to),
   );
+
+  // What each recent WARNING said. `low → high` and `high → dangerous` are both
+  // `warning`, and the cooldown must not let the first swallow the second, so
+  // the planner needs the condition and the ledger does not carry it. Skipped
+  // when nobody was warned recently, which is the ordinary pass.
+  const warnedEventIds = [...new Set(recentRows.filter((d) => d.kind === 'warning').map((d) => d.event_id))];
+  const warnedRows = await readAllIn<{ id: string; new_condition_code: string }>('recent warning events', warnedEventIds, (chunk, from, to) =>
+    supabase
+      .from('river_condition_events')
+      .select('id, new_condition_code')
+      .in('id', chunk)
+      .order('id')
+      .range(from, to),
+  );
+  const warnedCode = new Map(warnedRows.map((row) => [row.id, row.new_condition_code]));
+  const recentDeliveries: RecentDelivery[] = recentRows.map((d) => ({
+    ...d,
+    // Absent for a row whose event is gone; the planner then assumes "high".
+    condition_code: warnedCode.get(d.event_id) ?? null,
+  }));
 
   // Who THIS batch of events already reached on an earlier pass. A retry is
   // for the recipients still missing, never for the ones already told.

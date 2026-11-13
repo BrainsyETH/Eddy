@@ -40,7 +40,7 @@ interface FailureRule extends Required<Omit<FailureSpec, 'mode' | 'code' | 'time
 
 /** Column defaults the real tables would apply on insert. */
 const DEFAULTS: Record<string, (now: string) => Row> = {
-  alert_push_deliveries: (now) => ({ sent_at: now, status: 'sent' }),
+  alert_push_deliveries: (now) => ({ sent_at: now, status: 'sent', event_source: 'river_condition' }),
 };
 
 function compare(a: unknown, b: unknown): number {
