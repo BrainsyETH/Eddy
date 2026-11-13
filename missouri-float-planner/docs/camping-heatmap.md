@@ -58,7 +58,7 @@ The full screen is a single list with a pinned date ruler. River filters use cur
 
 The full-screen footer uses the oldest current observation in the visible rows: Updated at [time] for today, otherwise Updated on [date], in America/Chicago. It always includes Reservable sites only. Rows with no current horizon observations say Needs update. Missing individual nights retain their unknown marks. No repeated row summaries or per-row timestamps are shown.
 
-A full-screen campground row opens a native page sheet. The sheet opens on the first weekend night within the horizon, falling back to tonight. It contains a month calendar, selected-night counts, the observation timestamp, a primary Book campsite action when a booking URL exists, secondary map/website actions, and a site list fetched automatically when the sheet opens (using the existing five-minute cache). Loop booking destinations retain the district-permit explanation. Closing preserves the grid and its filters. The existing map camping schedule is unchanged.
+A full-screen campground row opens a native page sheet. The sheet opens on the first weekend night within the horizon, falling back to tonight. It contains a month calendar, selected-night counts, the observation timestamp, a primary Book campsite action when a booking URL exists, secondary map/website actions, and a site list fetched automatically when the sheet opens (using the existing five-minute cache). Loop booking destinations retain the correct reservation URL without the district-permit label. Closing preserves the grid and its filters. The existing map camping schedule is unchanged.
 
 
 ## Ninety-night planning coverage

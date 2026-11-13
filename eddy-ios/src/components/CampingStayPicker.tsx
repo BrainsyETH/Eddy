@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ControlIcon } from './ControlIcon';
 import { AccessibilityInfo, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -72,16 +73,21 @@ export function CampingStayPicker({
         }}
         style={{
           ...button,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: 12,
           backgroundColor: colors.card,
         }}
       >
-        <Text style={[textStyles.body, { color: colors.text }]}>
-          {dateLabel(stay.arrival)} – {dateLabel(stay.departure)}{' '}
-          <Text style={{ color: colors.interactive }}>⌄</Text>
+        <ControlIcon name="calendar-outline" size={18} color={colors.interactive} />
+        <Text style={[textStyles.body, { color: colors.text, flex: 1 }]}>
+          {dateLabel(stay.arrival)} – {dateLabel(stay.departure)}
+          <Text style={[textStyles.caption, { color: colors.textMuted }]}> · {stayNights(stay).length} {stayNights(stay).length === 1 ? 'night' : 'nights'}</Text>
         </Text>
+        <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
       </Pressable>
       {stayNights(stay).length > 14 ? (
         <Text style={{ color: colors.textMuted }}>

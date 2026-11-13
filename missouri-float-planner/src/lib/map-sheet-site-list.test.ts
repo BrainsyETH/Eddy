@@ -450,3 +450,15 @@ test('walk-up and unavailable sites do not offer online booking', () => {
     assert.equal(siteBooking(state, 'https://example.com/site', 'https://example.com/park'), null);
   }
 });
+
+import { commonSiteFeatures, narrowingSiteFilters } from '../../../eddy-ios/src/components/map-sheet/siteList';
+
+test('camping filters hide all-matching kinds but preserve a selected kind at zero or full coverage', () => {
+  const counts = { Tent: 3, RV: 0, Electric: 0, 'No hookup': 52, 'Walk-in': 0, Group: 3 };
+  assert.deepEqual(narrowingSiteFilters(counts, [], 52), ['Tent', 'Group']);
+  assert.deepEqual(commonSiteFeatures(counts, 52), ['No hookup']);
+  assert.deepEqual(narrowingSiteFilters(counts, ['RV', 'No hookup'], 52), ['Tent', 'RV', 'No hookup', 'Group']);
+  const zeros = { Tent: 0, RV: 0, Electric: 0, 'No hookup': 0, 'Walk-in': 0, Group: 0 };
+  assert.deepEqual(narrowingSiteFilters(zeros, ['Group'], 0), ['Group']);
+  assert.deepEqual(commonSiteFeatures(zeros, 0), []);
+});

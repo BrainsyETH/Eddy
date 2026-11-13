@@ -187,6 +187,33 @@ queued reports or offline maps. No new
 native dependency or configuration is introduced. Native export, image
 layout and destination delivery still require the device gates below.
 
+## Float share presentation — November 12, 2026
+
+Online PNGs and offline SVGs share a photo-free 1080 × 1920 river postcard
+composition from `shared/float-share-layout.ts`. It leads with a large river
+name and a compact route/date group on warm paper. Eddy overlaps a curved
+teal water shape; the mood and large trip stats sit on that surface without
+surrounding cards or table dividers. The curves are decorative, not a map or
+progress illustration. A small `eddy.guide` signature closes the image.
+Fredoka marks Eddy and the mood; Geist handles headings, summary stats and
+body copy; Geist Mono handles the flow reading. The server embeds Latin
+subsets of the app’s Geist Regular/Bold fonts without changing other OG images.
+
+Verified server conditions appear in one compact **At start** row with the
+canonical tinted badge. The offline image still makes no condition or mood
+claim. Long names wrap and ellipsize, and absent conditions leave no empty
+panel. Arrival and tracking qualifiers remain visible. The whole-river
+percentage stays in the compatible share payload but is omitted from the
+image, where it could be mistaken for route completion. Credited miles,
+recorded distance, duration, mood gates and condition verification are unchanged.
+High-water mood text uses quiet pale ink on teal; ordinary moods use coral.
+
+The disposable image cache records presentation version 3; older PNGs are
+rebuilt on the next share. Update the server renderer before distributing the
+app update so newly cached online images use the matching presentation.
+No new native dependency or fingerprint input is introduced. Native PNG/font
+rendering and share-sheet delivery still need device verification.
+
 ## Delivery and activation
 
 The dependency order is shared state/web restoration, image sharing, then app

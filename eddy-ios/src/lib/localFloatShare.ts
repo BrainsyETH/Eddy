@@ -1,6 +1,7 @@
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { floatShareState, shareDuration } from '@eddy/conditions/float-share';
 import { recapMeasurements } from './floatHistoryDisplay';
+export { shareTextLines } from '@eddy/conditions/float-share-layout';
 
 /** Local export has no condition stamp, precise times, coordinates, account or start note. */
 export function localFloatShare(trip: CompletedFloat) {
@@ -15,17 +16,3 @@ export function localFloatShare(trip: CompletedFloat) {
     arrival: trip.reachedTakeOut ? 'Reached the take-out' : 'Take-out wasn’t confirmed',
   };
 }
-
-export function shareTextLines(text: string, limit = 28, maxLines = 3): string[] {
-  const words = text.trim().split(/\s+/);
-  const lines: string[] = [];
-  for (const word of words) {
-    const last = lines.at(-1);
-    if (last && last.length + word.length + 1 <= limit) lines[lines.length - 1] += ` ${word}`;
-    else lines.push(word);
-  }
-  const shown = lines.slice(0, maxLines).map(line => line.length > limit ? line.slice(0, limit - 1) + '…' : line);
-  if (lines.length > maxLines) shown[maxLines - 1] = shown[maxLines - 1].slice(0, limit - 1) + '…';
-  return shown;
-}
-

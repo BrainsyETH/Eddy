@@ -54,6 +54,8 @@
 // the circle out where it makes the call.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { campgroundImage, serviceCampgroundImages } from '../camping/overview';
+import { withReviewedPlacePhoto } from '../photos/reviewed';
 
 /** The relationships that say this service's content belongs to this place. */
 const CONTENT_RELATIONSHIPS = ['same_place', 'located_at'];
@@ -74,6 +76,7 @@ export interface LinkedService {
   website: string | null;
   reservationUrl: string | null;
   description: string | null;
+  imageUrl?: string | null;
   /** Which claim brought it here. `same_place` is this place; `located_at` is its facility. */
   relationship: string;
 }
@@ -88,6 +91,7 @@ interface LinkRow {
     website: string | null;
     reservation_url: string | null;
     description: string | null;
+    details: unknown;
     status: string | null;
   } | null;
 }
@@ -110,7 +114,7 @@ export async function loadLinkedServices(
   const { data, error } = await supabase
     .from('access_point_services')
     .select(
-      'relationship, nearby_services(id, name, type, phone, website, reservation_url, description, status)',
+      'relationship, nearby_services(id, name, type, phone, website, reservation_url, description, details, status)',
     )
     .eq('access_point_id', accessPointId)
     .in('relationship', CONTENT_RELATIONSHIPS);
@@ -140,6 +144,9 @@ export async function loadLinkedServices(
       website: row.nearby_services!.website,
       reservationUrl: row.nearby_services!.reservation_url,
       description: row.nearby_services!.description,
+      imageUrl: campgroundImage(serviceCampgroundImages(
+        withReviewedPlacePhoto('nearby_services', row.nearby_services!).details,
+      )),
       relationship: row.relationship,
     }));
 }
@@ -191,17 +198,23 @@ function embeddedType(directoryType: string): string {
  * and the reason this is a replace rather than a merge of fields.
  */
 export function withLinkedServices(
-  embedded: readonly { name: string; type: string; phone?: string; website?: string }[],
+  embedded: readonly { name: string; type: string; phone?: string; website?: string; reservationUrl?: string; imageUrl?: string | null }[],
   linked: readonly LinkedService[],
-): { name: string; type: string; phone?: string; website?: string }[] {
+): { name: string; type: string; phone?: string; website?: string; reservationUrl?: string; imageUrl?: string | null; relationship?: 'same_place' | 'located_at' }[] {
   const key = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ');
   const linkedKeys = new Set(linked.map((service) => key(service.name)));
 
   const fromLinks = linked.map((service) => ({
     name: service.name,
     type: embeddedType(service.type),
+    // Only verified links can label camping as on site. Do not infer identity
+    // from the embedded name, distance, or a shared agency website.
+    ...(service.relationship === 'same_place' || service.relationship === 'located_at'
+      ? { relationship: service.relationship } : {}),
     ...(service.phone ? { phone: service.phone } : {}),
     ...(service.website ? { website: service.website } : {}),
+    ...(service.reservationUrl ? { reservationUrl: service.reservationUrl } : {}),
+    ...(service.imageUrl ? { imageUrl: service.imageUrl } : {}),
   }));
 
   return [...fromLinks, ...embedded.filter((entry) => !linkedKeys.has(key(entry.name)))];
