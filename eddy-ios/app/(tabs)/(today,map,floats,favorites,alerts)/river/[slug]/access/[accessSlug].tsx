@@ -97,7 +97,8 @@ import {
   roadSurfaceLabel,
   stripHtml,
 } from '@/lib/accessCopy';
-import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
+import { AccessCampingSites } from '@/components/AccessCampingSites';
+import { bookingAction } from '@/components/map-sheet/campgroundFacts';
 import { TREND_ICON } from '@/components/TrendPill';
 
 const SERVICE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -506,6 +507,12 @@ export default function AccessPointDetailScreen() {
   }
 
   const { point, camping, gauge, gaugeAge } = presentation;
+  // A stale count does not erase the facility identity needed to browse sites.
+  const campingSource = data ? accessAvailability(data.accessPoint) : saved?.camping?.availability;
+  const campingFacilityId = campingSource?.facilityId;
+  const savedBooking = !data ? saved?.links.find(link => link.label === 'Reservations' && /^https?:/i.test(link.url)) : undefined;
+  const campgroundBooking = bookingAction(point.npsCampground, campingSource?.source,
+    point.booking ?? (savedBooking && campingSource ? { url: savedBooking.url, source: campingSource.source } : null));
   const sharePath = point.path;
   const tips = stripHtml(point.localTips);
   const nearbyServices = visibleNearbyServices(point.nearbyServices);
@@ -618,12 +625,10 @@ export default function AccessPointDetailScreen() {
         </View>
 
         {camping ? <Section title="Campsites">
-          <CampgroundAvailability
-            wrapText style={styles.availabilityInset}
-            availability={camping.availability} name={camping.name} today={camping.today}
-            pending={!camping.availability} pendingLabel="Availability out of date"
-          />
-          {camping.age !== 'Time unknown' ? <Text style={[styles.prose, { color: colors.textMuted }]}>Checked {camping.age}</Text> : null}
+          <AccessCampingSites key={campingFacilityId ?? point.path ?? route}
+            availability={camping.availability} facilityId={campingFacilityId}
+            name={camping.name} today={camping.today} age={camping.age}
+            booking={campgroundBooking} riverSlug={point.river.slug} />
         </Section> : null}
 
         {gauge ? <Section title="River conditions">
@@ -730,7 +735,7 @@ export default function AccessPointDetailScreen() {
                     {point.npsCampground.reservationInfo}
                   </Text>
                 ) : null}
-                {point.npsCampground.reservationUrl ?? point.npsCampground.npsUrl ? (
+                {!campingFacilityId && (point.npsCampground.reservationUrl ?? point.npsCampground.npsUrl) ? (
                   <Pressable
                     onPress={() =>
                       void openExternalLink(
@@ -797,7 +802,7 @@ export default function AccessPointDetailScreen() {
         {presentation.extraFacts.map(fact => <Section key={fact.label} title={fact.label}>
           <Text style={[styles.prose, { color: colors.textMuted }]}>{fact.value}</Text>
         </Section>)}
-        {point.booking && !point.npsCampground?.reservationUrl ? <Pressable
+        {point.booking && !campingFacilityId && !point.npsCampground?.reservationUrl ? <Pressable
           accessibilityRole="button" onPress={() => void openExternalLink(point.booking!.url)}
           style={({ pressed }) => [styles.secondaryAction, styles.photoCta, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}>
           <Text style={[styles.secondaryActionText, { color: colors.interactive }]}>Book campsite</Text>
@@ -898,7 +903,6 @@ function AccessRiverLink({ name, slug }: { name: string; slug: string }) {
 }
 
 const styles = StyleSheet.create({
-  availabilityInset: { marginHorizontal: 16, marginTop: 16, marginBottom: 12 },
   screen: { flex: 1 },
   centre: { alignItems: 'center', justifyContent: 'center' },
   emptyBody: { flexGrow: 1, padding: 32, gap: 10 },

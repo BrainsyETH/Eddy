@@ -14,10 +14,6 @@ import { serviceContactActions } from '@/lib/serviceContactActions';
 // the hazards on this reach. Both want a second request (or state the map
 // screen holds), both are enhancements to a tab that already answers its
 // question, and neither should hold up the tabs themselves.
-import { useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
-import { checkedLabel } from '@/lib/campingHeatmap';
-import { CampingNightPicker } from './CampingNightPicker';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -31,35 +27,17 @@ import type {
   ServiceTier,
 } from '@eddy/types';
 import { isCampground, serviceTiers } from '@eddy/types';
-import {
-  defaultNight,
-  localToday,
-  nightChoices,
-  nightPhrase,
-  type NightChoice,
-} from './availability';
+import { localToday } from './availability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
-import { bookingAction, bookingLine, siteMixLine, type BookingAction } from './campgroundFacts';
+import { bookingAction, bookingLine, siteMixLine } from './campgroundFacts';
 import { CampgroundAvailability } from './CampgroundAvailability';
-import { CampsiteList } from './CampsiteList';
+import { CampgroundSiteBrowser } from '../CampgroundSiteBrowser';
 import {
   AIRBNB_LINK_COLOR,
   airbnbSearchUrl,
   STAY_SEARCH_LABEL,
   staySearchAreaLabel,
 } from '@/lib/stays';
-import { FilterChips } from '@/components/FilterChips';
-import { useCampsiteSites } from '@/hooks/useCampsiteSites';
-import { useObservationClock } from '@/hooks/useObservationClock';
-import {
-  filterCounts,
-  isBookable,
-  narrowingSiteFilters,
-  commonSiteFeatures,
-  listsRows,
-  sitesOnNight,
-  type SiteFilter,
-} from './siteList';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
@@ -535,83 +513,12 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, st
  * has no nps_campgrounds row at all, and a tab that keyed off that would have
  * shown nothing for exactly the sites that most need describing.
  */
-/** The reservation action names the external destination before opening it. */
-function BookButton({ action }: { action: BookingAction }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={() => void openExternalLink(action.url)}
-      style={({ pressed }) => [
-        styles.book,
-        { borderColor: colors.accentFill, opacity: pressed ? 0.6 : 1 },
-      ]}
-      // A link, not a button: it leaves for the browser, and the role is how a
-      // VoiceOver reader knows that before they commit to it. Same distinction
-      // CampsiteList's rows make.
-      accessibilityRole="link"
-      accessibilityLabel={`${action.label}. Opens in the browser.`}
-    >
-      <ControlIcon name="calendar-outline" size={16} color={colors.accentFill} />
-      <Text style={[styles.bookText, { color: colors.accentFill }]}>
-        {action.label}
-      </Text>
-      <ControlIcon name="open-outline" size={14} color={colors.accentFill} />
-    </Pressable>
-  );
-}
-
-/** The selected night, or the filtered result, in one heading. */
-function NightStatus({ night, matches }: { night: NightChoice | null; matches?: number }) {
-  const { colors } = useTheme();
-  if (!night) return null;
-  const phrase = matches === undefined ? nightPhrase(night) : `${matches} matching ${matches === 1 ? 'site' : 'sites'}`;
-  return <Text accessibilityRole="header" style={[styles.nightDay, styles.nightStatus, { color: colors.text }]}>
-    {[phrase, night.longLabel].filter(Boolean).join(' · ')}
-  </Text>;
-}
-
 export function AccessCampingTab({ accessPoint, detail, status, active = false, pinAvailability, onRetry }: TabProps) {
-  const router = useRouter();
-  const now = useObservationClock();
-  const { colors } = useTheme();
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
   const availability = pinAvailability ?? accessAvailability(point);
 
   const today = localToday();
-  const nights = useMemo(() => nightChoices(availability, today), [availability, today]);
-
-  // Only the nights that were measured are offered. An unmeasured one has no
-  // inventory behind it, so a chip for it is a promise this tab cannot keep and
-  // the reader pays a tap to find that out — the rule tabs.ts states for tabs,
-  // one level down. The strip in the peek still draws the gap, which is where
-  // "nothing is known about these nights" belongs.
-  const offered = useMemo(() => nights.filter((night) => night.mark !== 'none'), [nights]);
-
-  // ── The night the card above is describing, which is now TONIGHT ─────────
-  //
-  // This asked for `availability.window.startDate` — the coming Friday — back
-  // when the peek's hero was folded from that same weekend. The hero speaks for
-  // tonight now (see availabilityHero), so opening this tab on Friday would put
-  // "5 open · Tonight" three points above a chip row scrolled to a night three
-  // days out, which is the disagreement the shared derivation exists to make
-  // impossible.
-  //
-  // Still THROUGH defaultNight rather than straight to `today`: tonight may not
-  // have been measured, and that function walks forward to the first night that
-  // was — never backwards past the reader's own day.
-  //
-  // It is NOT the first chip, which is what makes the status line and
-  // `scrollToActive` below load-bearing rather than polish: a default the
-  // reader cannot see is indistinguishable from no default at all.
-  const [selected, setSelected] = useState<string | null>(null);
-  const selectedDate = selected ?? defaultNight(nights, today) ?? today;
-  const selectedNight = useMemo(
-    () => nights.find((night) => night.date === selectedDate) ?? null,
-    [nights, selectedDate],
-  );
-
-  const [filters, setFilters] = useState<SiteFilter[]>([]);
   // The RESPONSE's coordinates, or the pin's. A stay search needs a point on the
   // map and nothing else, so it has no reason to wait for a detail request —
   // and it is the one thing still worth offering when that request brought back
@@ -630,28 +537,6 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
   const showOfficialSite = Boolean(
     point?.officialSiteUrl && point.officialSiteUrl !== booking?.url,
   );
-
-  // Only asked for once this is the live tab — see PinSheet's call site.
-  const { sites, status: sitesStatus } = useCampsiteSites(
-    active ? (availability?.facilityId ?? null) : null,
-  );
-
-  const entries = useMemo(() => {
-    if (!sites) return [];
-    const age = sites.fetchedAt ? now - Date.parse(sites.fetchedAt) : NaN;
-    const fresh = Number.isFinite(age) && age >= 0 && age < 72 * 3600000;
-    return sitesOnNight(sites.sites, sites.window.nights, selectedDate, now, fresh);
-  }, [sites, selectedDate, now]);
-  const counts = useMemo(() => filterCounts(entries), [entries]);
-
-  const individualSites = sites?.facility.source === 'mo_state_parks';
-  const showFilters = filters.length > 0 || listsRows(entries, individualSites);
-  const activeFilters = showFilters ? filters : [];
-  const takeable = entries.filter(isBookable);
-  const filterOptions = narrowingSiteFilters(counts, filters, takeable.length);
-  const commonFeatures = commonSiteFeatures(counts, takeable.length).filter(f => !filters.includes(f));
-  const matches = activeFilters.length && sitesStatus === 'ready'
-    ? takeable.filter(entry => activeFilters.some(f => entry.tags.includes(f))).length : undefined;
 
   // The map peek keeps its overview chart; repeat it here only while details are unavailable.
   const timeline = availability || accessPoint.hasLiveAvailability ? (
@@ -699,67 +584,9 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
 
   return (
     <View>
-      <NightStatus night={selectedNight} matches={matches} />
-      {sites?.fetchedAt ? <Text style={[styles.checked, { color: colors.textSubtle }]}>{checkedLabel(sites.fetchedAt, now)}</Text> : null}
-
-      {offered.length ? <CampingNightPicker nights={offered} selected={selectedDate} onSelect={setSelected} /> : null}
-
-      {/* Keep the booking destination above the site inventory. */}
-      {booking ? <BookButton action={booking} /> : null}
-
-      {availability?.facilityId ? (
-        <Section>
-          {sitesStatus === 'ready' && sites ? (
-            <>
-              {commonFeatures.length ? <Text style={[styles.checked, { color: colors.textMuted }]}>{commonFeatures.join(' · ')}</Text> : null}
-              {showFilters && filterOptions.length ? (
-                <FilterChips
-                  chips={filterOptions.map((f) => ({
-                    key: f,
-                    label: f,
-                    count: counts[f],
-                  }))}
-                  active={filters}
-                  onToggle={(key) =>
-                    setFilters((current) =>
-                      current.includes(key as SiteFilter)
-                        ? current.filter((f) => f !== key)
-                        : [...current, key as SiteFilter],
-                    )
-                  }
-                  paddingHorizontal={0}
-                />
-              ) : null}
-              {activeFilters.length ? <Pressable accessibilityRole="button" onPress={() => setFilters([])} style={styles.clearFilters}>
-                <Text style={[styles.bookText, { color: colors.interactive }]}>Clear filters</Text>
-              </Pressable> : null}
-              <CampsiteList
-                campgroundName={nps?.name ?? accessPoint.name}
-                now={now}
-                reservationUrl={booking?.url}
-                individualSites={individualSites}
-                photoFacilityId={active && (individualSites || sites.facility.source === 'recreation_gov') ? sites.facility.id : undefined}
-                entries={entries}
-                filters={activeFilters}
-                date={selectedDate}
-                dateLabel={selectedNight?.longLabel}
-              />
-              <LinkRow label="Choose a longer stay" symbol="campground" detail={selectedNight?.longLabel}
-                onPress={() => router.push({ pathname: '/camping', params: { facility: availability.facilityId, night: selectedDate, ...(point.river?.slug ? { river: point.river.slug } : {}) } })} />
-            </>
-          ) : sitesStatus === 'failed' ? (
-            <Absent>Sites unavailable right now.</Absent>
-          ) : sitesStatus === 'ready' ? (
-            // Resolved, with nothing to list — an untracked campground, which
-            // is the common case. Absent, never a spinner: this used to fall
-            // through to "Loading sites…" and stay there for good, because
-            // nothing was still coming.
-            null
-          ) : (
-            <Absent>Loading sites…</Absent>
-          )}
-        </Section>
-      ) : null}
+      <CampgroundSiteBrowser key={availability?.facilityId ?? accessPoint.id}
+        availability={availability} name={nps?.name ?? accessPoint.name}
+        booking={booking} riverSlug={point.river?.slug} active={active} />
 
       <Section title="About this campground">
         {showOfficialSite ? <LinkRow label={nps ? 'Park website' : 'Official site'} external
@@ -934,28 +761,6 @@ const styles = StyleSheet.create({
   galleryImage: { aspectRatio: 16 / 10, borderRadius: 12 },
   // The reading block's styles left with it — see AccessGaugeReading in
   // sections.tsx. They were this file's only condition-tinted anything.
-  checked: { ...t.xs, fontFamily: fonts.body, marginTop: 8 },
-  book: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    // The 44pt touch floor from DESIGN.md §6, same as the peek's action row.
-    minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 12,
-    borderRadius: 10,
-    // 1.5 rather than 1: this is the page's primary and the outlined control it
-    // must out-rank — Directions, in the peek — is a hairline.
-    borderWidth: 1.5,
-  },
-  bookText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
-  clearFilters: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
-  nightStatus: { marginTop: 10 },
-  // t.base rather than the peek card's display face. This names the page's
-  // subject; it is not competing with the glance that decided you opened it.
-  nightDay: { ...t.base, fontFamily: fonts.heading },
   // Section's own spacing, restated here because the heading carries a glyph and
   // Section takes a plain string title.
   group: { marginTop: 14 },
