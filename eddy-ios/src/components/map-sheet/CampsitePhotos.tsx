@@ -19,10 +19,12 @@ export function CampsitePhotos({
   photos,
   label,
   large = false,
+  compact = false,
 }: {
   photos: CampsitePhoto[];
   label: string;
   large?: boolean;
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   const [viewport, setViewport] = useState({ width: 1, height: 240 });
@@ -40,7 +42,7 @@ export function CampsitePhotos({
     <>
       {thumbnail ? (
         <Pressable
-          style={large ? styles.large : styles.thumbnail}
+          style={large ? styles.large : compact ? styles.compact : styles.thumbnail}
           onPress={() => setIndex(photos.indexOf(thumbnail))}
           accessibilityRole="button"
           accessibilityLabel={`View ${photos.length} ${photos.length === 1 ? 'photo' : 'photos'} of ${label}`}
@@ -48,7 +50,7 @@ export function CampsitePhotos({
           <ScenicImage
             imageWidth={large ? 1080 : 256}
             source={{ uri: thumbnail.url }}
-            style={large ? styles.large : styles.thumbnail}
+            style={large ? styles.large : compact ? styles.compact : styles.thumbnail}
             contentFit="cover"
             onError={() => fail(thumbnail.url)}
             accessible={false}
@@ -168,6 +170,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   thumbnail: { width: 68, height: 54, borderRadius: 8, overflow: 'hidden' },
+  compact: { width: 88, height: 76, borderRadius: 10, overflow: 'hidden' },
   viewer: { flex: 1 },
   header: {
     flexDirection: 'row',

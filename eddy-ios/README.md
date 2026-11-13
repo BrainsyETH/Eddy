@@ -670,6 +670,25 @@ the access photo. Missing or failed photos show Eddy's campground art. The detai
 API carries service photos from the existing directory media and reviewed photo
 catalog, with the same map/numbered-site exclusions as camping search.
 
+### Campground site browsing
+
+The campground detail sheet and map Camping tab share compact site cards. Photos
+open their gallery independently of booking; tapping a site's summary expands
+photos, nightly availability and available policy links. An exact repeated
+campground prefix and identical loop name are omitted from the compact label.
+Whole-stay results retain their nightly breakdown in details, with no standalone
+green square for a one-night stay. First-come, stale and unavailable results keep
+their distinct wording and booking behavior.
+
+The map tab selects one night using calendar cells. Its heading names that night
+and updates to the matching-site count when filters are active. All-matching site
+kinds become quiet facts instead of filters; selected filters remain reachable at
+zero. The booking button stays above the sites, while official links and original
+reservation text live under About this campground. The map peek retains its
+availability chart. Choose a longer stay opens the campground detail route with
+the selected night as arrival; the stay picker adds departure and a night count.
+Long campground names and accessibility-sized titles scroll with the site list.
+
 ### Search is half local, half server
 
 `src/hooks/useEddySearch.ts` matches **rivers and gauges in memory** and asks the

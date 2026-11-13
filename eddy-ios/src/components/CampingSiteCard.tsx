@@ -1,140 +1,103 @@
-import { openExternalLink } from '@/lib/openExternalLink';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { CampsitePhoto } from '@eddy/types';
+import { campingPolicyNote, campingStayLabel } from '@eddy/conditions/camping-policy';
 import { useTheme } from '@/theme/ThemeProvider';
-import { textStyles } from '@/theme/typography';
+import { fonts, type as t } from '@/theme/typography';
 import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
 import { dateLabel, safeExternalUrl } from '@/lib/campingHeatmap';
-import { campsiteStateLabel, type CampsiteStay } from '@/lib/campingStay';
+import { campsiteDisplayLoop, campsiteDisplayName, campsiteStateLabel, type CampsiteStay } from '@/lib/campingStay';
+import { openExternalLink } from '@/lib/openExternalLink';
 import { campsiteTags } from './map-sheet/siteList';
 import { CampsitePhotos } from './map-sheet/CampsitePhotos';
-import { CampingMark } from './CampingGrid';
-import { useScreenReaderEnabled } from '@/hooks/useScreenReaderEnabled';
-import { campingPolicyNote, campingStayLabel } from '@eddy/conditions/camping-policy';
+import { EddySymbol } from './EddySymbol';
+import { ControlIcon } from './ControlIcon';
 
-export function CampingSiteCard({
-  entry,
-  facilityId,
-  bookingUrl,
-  now,
-}: {
+/** Shared by the campground stay sheet and the map's one-night site list. */
+export function CampingSiteCard({ entry, facilityId, bookingUrl, now, campgroundName, photos: suppliedPhotos, hideLoop = false, dense = false }: {
   entry: CampsiteStay;
-  facilityId: string;
+  facilityId?: string | null;
   bookingUrl?: string | null;
   now: number;
+  campgroundName?: string;
+  photos?: CampsitePhoto[];
+  hideLoop?: boolean;
+  dense?: boolean;
 }) {
   const { colors } = useTheme();
-  const { fontScale } = useWindowDimensions();
-  const screenReader = useScreenReaderEnabled();
-  const listNights = screenReader || fontScale >= 1.3;
-  const photos = useCampsitePhotos(facilityId, entry.site.id);
+  const fetchedPhotos = useCampsitePhotos(suppliedPhotos ? null : facilityId ?? null, entry.site.id);
+  const photos = suppliedPhotos ?? fetchedPhotos?.[entry.site.id] ?? [];
   const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const site = entry.site;
-  const name = site.name || 'Campsite';
-  const tags = campsiteTags(site);
+  const fullName = site.name || 'Campsite';
+  const name = campsiteDisplayName(site.name, campgroundName);
+  const loop = hideLoop ? null : campsiteDisplayLoop(site.loop, campgroundName);
+  const tags = campsiteTags(site).map(tag => tag.startsWith('Sleeps ') ? `Up to ${tag.slice(7)} people` : tag);
   const direct = safeExternalUrl(site.bookingUrl);
   const url = direct ?? safeExternalUrl(bookingUrl);
-  const status = campingStayLabel(entry);
+  const bookingLabel = entry.state === 'unknown' ? 'Check availability' : direct ? 'Book site' : 'Park reservations';
+  const status = entry.state === 'available'
+    ? entry.nights.length === 1 ? 'Available' : `Available all ${entry.nights.length} nights`
+    : campingStayLabel(entry);
   const policyNote = campingPolicyNote(entry, now);
   const policyUrl = safeExternalUrl(site.policy?.sourceUrl);
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        borderRadius: 20,
-        padding: 12,
-        gap: 10,
-      }}
-    >
-      {photos?.[site.id]?.length ? (
-        <CampsitePhotos photos={photos[site.id]} label={name} large />
-      ) : null}
-      <Text style={[textStyles.cardTitle, { color: colors.text }]}>{name}</Text>
-      {site.loop || tags.length ? (
-        <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-          {[site.loop, ...tags].filter(Boolean).join(' · ')}
-        </Text>
-      ) : null}
-      <Text style={[textStyles.body, { color: colors.text }]}>{status}</Text>
-      {policyNote ? <Text style={[textStyles.caption, { color: colors.textMuted }]}>{policyNote}</Text> : null}
-      {policyUrl && entry.nights.some(n => n.observedState !== undefined && n.observedState !== n.state) ? (
-        <Pressable accessibilityRole="link" style={{ minHeight: 44, justifyContent: 'center' }}
-          onPress={() => { setFailed(false); void openExternalLink(policyUrl, () => setFailed(true)); }}>
-          <Text style={{ color: colors.interactive }}>Park’s camping rules ↗</Text>
-        </Pressable>
-      ) : null}
-      {listNights ? <View style={{ gap: 8 }}>
-        {entry.nights.map((n) => <Text key={n.date} style={[textStyles.body, { color: colors.text }]}>
-          {dateLabel(n.date)}: {campsiteStateLabel[n.state]}
-        </Text>)}
-      </View> : <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8 }}
-      >
-        {entry.nights.map((n) => (
-          <View
-            key={n.date}
-            accessible
-            accessibilityLabel={`${dateLabel(n.date)}: ${campsiteStateLabel[n.state]}`}
-            style={{ width: 44, alignItems: 'center', gap: 6 }}
-          >
-            <Text
-              style={{ color: colors.textMuted, fontSize: 12 }}
-            >
-              {dateLabel(n.date, true)}
-            </Text>
-            <View style={{ width: 24, height: 18 }}>
-              <CampingMark
-                mark={
-                  n.state === 'open'
-                    ? 'open-3'
-                    : n.state === 'reserved'
-                      ? 'full'
-                      : n.state === 'closed'
-                        ? 'closed'
-                        : n.state === 'walk_up'
-                          ? 'no-reservable'
-                          : n.state === 'not_yet_released'
-                            ? 'nyr'
-                            : 'unknown'
-                }
-              />
-            </View>
+  const open = (target: string) => { setFailed(false); void openExternalLink(target, () => setFailed(true)); };
+  return <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={styles.row}>
+      {photos.length ? <CampsitePhotos photos={photos} label={fullName} compact={!dense} /> : <View style={[styles.placeholder, dense && styles.smallPlaceholder, { backgroundColor: colors.cardRaised }]}>
+        <EddySymbol name="campground" size={32} />
+      </View>}
+      <View style={styles.body}>
+        <Pressable onPress={() => setExpanded(value => !value)} accessibilityRole="button"
+          accessibilityLabel={`Details for ${fullName}`} accessibilityState={{ expanded }}
+          accessibilityHint={[loop, ...tags, status, 'Shows photos and nightly availability'].filter(Boolean).join('. ')} style={styles.summary}>
+          <View style={styles.nameRow}>
+            <Text style={[styles.name, dense && styles.smallName, { color: colors.text }]}>{name}</Text>
+            <ControlIcon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textMuted} />
           </View>
-        ))}
-      </ScrollView>}
-      {url && (entry.state === 'available' || entry.state === 'unknown') ? (
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={`${entry.state === 'available' ? (direct ? 'Book site' : 'Park reservations') : 'Check availability'} for ${name}`}
-          style={{
-            minHeight: 48,
-            padding: 12,
-            borderRadius: 12,
-            backgroundColor: colors.interactive,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onPress={() => {
-            setFailed(false);
-            void openExternalLink(url, () => setFailed(true));
-          }}
-        >
-          <Text style={[textStyles.body, { color: colors.onInteractive, textAlign: 'center' }]}>
-            {entry.state === 'available'
-              ? direct
-                ? 'Book site ↗'
-                : 'Park reservations ↗'
-              : 'Check availability ↗'}
-          </Text>
+          {loop || tags.length ? <Text style={[styles.meta, { color: colors.textMuted }]}>{[loop, ...tags].filter(Boolean).join(' · ')}</Text> : null}
+          {!dense || entry.state !== 'available' ? <Text style={[styles.status, { color: entry.state === 'available' ? colors.success : colors.textBody }]}>{status}</Text> : null}
         </Pressable>
-      ) : null}
-      {failed ? (
-        <Text style={{ color: colors.error }}>
-          Couldn’t open the link. Try again.
-        </Text>
-      ) : null}
+        {url && (entry.state === 'available' || entry.state === 'unknown') ? <Pressable onPress={() => open(url)}
+          accessibilityRole="link" accessibilityLabel={`${bookingLabel} for ${fullName}`}
+          accessibilityHint={direct ? 'Opens the site reservation page in your browser.' : 'Opens park reservations. Select this site and your dates there.'}
+          style={styles.booking}>
+          <Text style={[styles.bookingText, { color: colors.interactive }]}>{bookingLabel}</Text>
+          <ControlIcon name="open-outline" size={15} color={colors.interactive} />
+        </Pressable> : null}
+      </View>
     </View>
-  );
+    {policyNote ? <Text style={[styles.meta, { color: colors.textMuted }]}>{policyNote}</Text> : null}
+    {expanded ? <View style={[styles.details, { borderTopColor: colors.border }]}>
+      {photos.length ? <CampsitePhotos photos={photos} label={fullName} large /> : null}
+      {name !== fullName ? <Text style={[styles.meta, { color: colors.textMuted }]}>{fullName}</Text> : null}
+      {entry.nights.map(night => <Text key={night.date} style={[styles.night, { color: colors.textBody }]}>
+        {dateLabel(night.date)} · {campsiteStateLabel[night.state]}
+      </Text>)}
+      {!direct && url ? <Text style={[styles.meta, { color: colors.textMuted }]}>Select this site and your dates on the park’s reservation page.</Text> : null}
+      {policyUrl ? <Pressable accessibilityRole="link" onPress={() => open(policyUrl)} style={styles.booking}>
+        <Text style={[styles.bookingText, { color: colors.interactive }]}>Park’s camping rules</Text>
+        <ControlIcon name="open-outline" size={15} color={colors.interactive} />
+      </Pressable> : null}
+    </View> : null}
+    {failed ? <Text style={[styles.meta, { color: colors.error }]}>Couldn’t open the link. Try again.</Text> : null}
+  </View>;
 }
+const styles = StyleSheet.create({
+  card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10, gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  placeholder: { width: 88, height: 76, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  smallPlaceholder: { width: 68, height: 54 },
+  body: { flex: 1, minWidth: 0 },
+  summary: { minHeight: 44, gap: 3 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { ...t.base, fontFamily: fonts.semibold, flex: 1 },
+  smallName: { ...t.sm },
+  meta: { ...t.xs, fontFamily: fonts.body },
+  status: { ...t.xs, fontFamily: fonts.medium },
+  booking: { minHeight: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bookingText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
+  details: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 8 },
+  night: { ...t.sm, fontFamily: fonts.body },
+});
