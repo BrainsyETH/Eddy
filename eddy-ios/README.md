@@ -695,6 +695,25 @@ availability chart. Choose a longer stay opens the campground detail route with
 the selected night as arrival; the stay picker adds departure and a night count.
 Long campground names and accessibility-sized titles scroll with the site list.
 
+Expanding a site also requests `/api/campsites/details` for that exact Eddy
+facility/site pair. Recreation.gov details appear below the photo as branded,
+aligned facts: setting, access, permitted equipment and lengths, on-site
+amenities, specific hookups, arrival times, pets and provider-listed
+accessibility. Capacity and generic hookup labels remain in the summary.
+Provider notes fold under Good to know, followed by the nightly Your stay list.
+Missing fields produce no empty rows. Shared showers, toilets and dump stations
+are not represented as amenities at an individual site, and a fire ring never
+implies that fires are currently permitted.
+
+Details load only while expanded, cancel on collapse and cache separately for
+one hour in the app. A failure offers Retry without affecting availability or
+booking. The API checks the enabled facility, site ownership and returned
+provider IDs; unsupported sources return no additional facts. State Parks keeps
+its existing site summary and photos until its extra fields are verified.
+Deploy this additive API before releasing the updated app; no migration or new
+native dependency is required. Device verification remains separate from the
+local layout and interaction checks.
+
 ### Search is half local, half server
 
 `src/hooks/useEddySearch.ts` matches **rivers and gauges in memory** and asks the

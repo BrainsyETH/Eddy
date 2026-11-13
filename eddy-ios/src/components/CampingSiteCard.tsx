@@ -12,6 +12,7 @@ import { campsiteTags } from './map-sheet/siteList';
 import { CampsitePhotos } from './map-sheet/CampsitePhotos';
 import { EddySymbol } from './EddySymbol';
 import { ControlIcon } from './ControlIcon';
+import { CampingSiteDetails } from './CampingSiteDetails';
 
 /** Shared by the campground stay sheet and the map's one-night site list. */
 export function CampingSiteCard({ entry, facilityId, bookingUrl, now, campgroundName, photos: suppliedPhotos, hideLoop = false, dense = false }: {
@@ -51,7 +52,7 @@ export function CampingSiteCard({ entry, facilityId, bookingUrl, now, campground
       <View style={styles.body}>
         <Pressable onPress={() => setExpanded(value => !value)} accessibilityRole="button"
           accessibilityLabel={`Details for ${fullName}`} accessibilityState={{ expanded }}
-          accessibilityHint={[loop, ...tags, status, 'Shows photos and nightly availability'].filter(Boolean).join('. ')} style={styles.summary}>
+          accessibilityHint={[loop, ...tags, status, 'Shows photos, site details and nightly availability'].filter(Boolean).join('. ')} style={styles.summary}>
           <View style={styles.nameRow}>
             <Text style={[styles.name, dense && styles.smallName, { color: colors.text }]}>{name}</Text>
             <ControlIcon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textMuted} />
@@ -73,7 +74,11 @@ export function CampingSiteCard({ entry, facilityId, bookingUrl, now, campground
     {policyNote ? <Text style={[styles.meta, { color: colors.textMuted }]}>{policyNote}</Text> : null}
     {expanded ? <View style={[styles.details, { borderTopColor: colors.border }]}>
       {photos.length ? <CampsitePhotos photos={photos} label={fullName} large /> : null}
-      {name !== fullName ? <Text style={[styles.meta, { color: colors.textMuted }]}>{fullName}</Text> : null}
+      <CampingSiteDetails facilityId={facilityId} siteId={site.id} onOpenSource={open} />
+      <View style={styles.stayHeading}>
+        <ControlIcon name="calendar-outline" size={17} color={colors.interactive} />
+        <Text accessibilityRole="header" style={[styles.bookingText, { color: colors.text }]}>Your stay</Text>
+      </View>
       {entry.nights.map(night => <Text key={night.date} style={[styles.night, { color: colors.textBody }]}>
         {dateLabel(night.date)} · {campsiteStateLabel[night.state]}
       </Text>)}
@@ -103,5 +108,6 @@ const styles = StyleSheet.create({
   booking: { minHeight: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
   bookingText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   details: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 8 },
+  stayHeading: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 4 },
   night: { ...t.sm, fontFamily: fonts.body },
 });
