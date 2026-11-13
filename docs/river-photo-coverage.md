@@ -146,3 +146,13 @@ file-specific credits for Buffalo, Caddo, Mulberry and St. Francis are now
 carried in `RIVER_PHOTO_CREDITS` as well as the guide data, so their header
 credits are visible and linked. Headers disclose cropping. Failed or absent
 photos leave a plain title. Other catalog selections are unchanged.
+
+## Scenic selection review — November 13, 2026
+
+The subsequent [river-by-river selection review](river-photo-selections-2026-11.md)
+compares the approved access-photo catalog, records the actual photographed
+scenes, and selects 12 replacements plus four missing-river images. Twelve
+existing selections, including Montauk for Current River, are retained.
+The shared catalog now covers 28 active rivers; image credits follow the exact
+selected photo. See that review for source provenance, remaining quality gaps,
+and API/cache delivery behavior.
