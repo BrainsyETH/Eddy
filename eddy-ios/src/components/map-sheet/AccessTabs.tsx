@@ -175,11 +175,16 @@ export function AccessOverviewTab({
   const parking = parkingLabel(point?.parkingCapacity);
   const tips = accessNoteItems(point?.localTips);
   const managedBy = point?.managingAgency ? agencyLabel(point.managingAgency) : null;
+  // Parking and boat ramps are already identified elsewhere on the map.
+  const facilityAmenities = (point?.amenities ?? []).filter((amenity) => {
+    const slug = typeof amenity === 'string' ? amenity.trim().toLowerCase() : '';
+    return slug !== '' && slug !== 'parking' && slug !== 'boat_ramp';
+  });
 
   const hasGettingIn = Boolean(road || point?.roadAccess);
   const hasParking = Boolean(parking || point?.parkingInfo);
   const hasFacilities = Boolean(
-    point?.amenities?.length || point?.facilities || point?.feeRequired || point?.feeNotes || managedBy,
+    facilityAmenities.length || point?.facilities || point?.feeRequired || point?.feeNotes || managedBy,
   );
   // ── HAS THIS TAB GOT ANYTHING AT ALL? ─────────────────────────────────
   // The river row is not counted. It is present on every access point in the
@@ -293,16 +298,7 @@ export function AccessOverviewTab({
 
       {hasFacilities ? (
         <Section title="Facilities & fees" symbol="facilities" separated>
-          {/* ── THE MARK WHERE THE CATALOG HAS ONE, THE WORD WHERE IT DOES
-              NOT ─────────────────────────────────────────────────────────
-              These were raw database slugs in text pills: `boat_ramp` rendered
-              as "boat_ramp". accessAmenities is the one derivation that turns
-              the column into a label and, for the four the catalog draws, a
-              mark — and it is the same module the river sheet's access rows
-              ask, so a put-in cannot say "Boat ramp" in one place and
-              "boat_ramp" in another. Picnic and store keep the label alone
-              rather than borrow a drawing that means something else. */}
-          <AmenityChips amenities={point?.amenities} />
+          <AmenityChips amenities={facilityAmenities} />
           <FoldedProse lines={3} subject="facilities">{point?.facilities}</FoldedProse>
           {point?.feeRequired || point?.feeNotes ? (
             <View style={[styles.fees, { borderTopColor: colors.border }]}>

@@ -633,6 +633,8 @@ constraint worth writing down.
 Access sheets separate facilities/fees, Good to know, camping and services with
 quiet dividers and Eddy's existing category art. Service names wrap; descriptions
 can expand; each available contact action remains independently reachable.
+Facilities omits the Parking and Boat ramp chips already shown elsewhere on the
+map, while keeping facility prose, parking details and fees.
 Good to know precedes nearby businesses and retains every word of the supplied
 notes, including restrictions. Sentence/list breaks are presentation only.
 
