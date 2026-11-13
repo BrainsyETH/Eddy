@@ -128,12 +128,11 @@ Looking at accuracy early does not change the rule or the marks.
 
 ## Turning it on
 
-1. Review and merge. The migration
-   `20261112213000_release_arrival_trial.sql` is listed under `[pending]`.
-2. Apply the migration to production. This needs explicit authorization. Then
-   record the version production assigned in
-   `supabase/production-migrations.txt`, rename the file if it differs, and run
-   `make check-db`.
+1. Review and merge.
+2. The migration `20261113033326_release_arrival_trial.sql` is applied to
+   production and listed under `[applied]` in
+   `supabase/production-migrations.txt`. Run `make check-db` to confirm the
+   repository and production agree.
 3. Set `RELEASE_ARRIVAL_TRIAL_ENABLED=true` in production only. Leave preview
    off if it shares the production database, or it will log duplicate work.
 4. Call the endpoint once with the cron secret. Expect a JSON summary with

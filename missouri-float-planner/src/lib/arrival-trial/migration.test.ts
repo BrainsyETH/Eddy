@@ -7,7 +7,7 @@ import { PGlite } from '@electric-sql/pglite';
 // and cannot be back-dated. Those are properties of the migration, so they are
 // tested against the migration itself.
 
-const MIGRATION = 'supabase/migrations/20261112213000_release_arrival_trial.sql';
+const MIGRATION = 'supabase/migrations/20261113033326_release_arrival_trial.sql';
 
 const COLUMNS =
   'dam_id, gauge_site_id, onset_hour, rule_version, decision, reason, all_reasons, predicted_arrival_at, range_early_at, range_late_at, flags, inputs';
