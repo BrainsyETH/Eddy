@@ -1821,10 +1821,6 @@ select.input {
 /* No side inset on phones: at 320px it left the 24-hour axis 196px wide and its
    first two labels overlapped. The card still overlaps the photo's lower edge. */
 .place-content { position: relative; margin: -1.75rem 0 0; }
-.lake-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
-.lake-facts > div { min-width: 0; padding: .75rem; border: 1px solid var(--color-neutral-200); border-radius: .75rem; background: var(--color-surface); }
-.lake-facts dt { display: flex; align-items: center; gap: .5rem; color: var(--color-neutral-600); font-size: .75rem; }
-.lake-facts dd { display: flex; align-items: center; min-height: 2.75rem; margin-top: .25rem; color: var(--color-primary-800); font-weight: 600; font-size: .875rem; }
 .lake-destination { display: flex; overflow: hidden; min-width: 0; }
 .lake-destination-photo { position: relative; width: 4rem; flex-shrink: 0; }
 .lake-preview-main { display: grid; }
@@ -1836,8 +1832,6 @@ select.input {
 @media (min-width: 640px) {
   .place-header-copy { min-height: 18rem; padding: 1.5rem 2rem 4rem; }
   .place-content { margin: -2rem 1.5rem 0; }
-  .lake-facts > div { padding: 1rem; gap: .75rem; }
-  .lake-facts dd { margin-top: 0; margin-left: 2.25rem; }
   .lake-destination-photo { width: 8rem; }
   .lake-launch-row { grid-template-columns: 7rem minmax(0, 1fr) auto; gap: 1rem; align-items: center; }
   .lake-launch-art { height: 5rem; }
@@ -1847,16 +1841,26 @@ select.input {
   .lake-preview-main { grid-template-columns: minmax(8rem, .7fr) minmax(0, 1fr) minmax(0, 1.4fr); }
   .lake-preview-photo { margin: 1rem 0 1rem 1rem; border-radius: .5rem; overflow: hidden; }
 }
-@media (min-width: 1100px) {
-  .lake-facts { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); }
-}
-/* Keep the 24-hour chart full width on phones, including landscape. */
+/* The release reading is what people open a dam page for, so its row leads the
+   card and the 24-hour chart follows at full width. The row is two columns
+   wherever both fit (from about 360px phones up) and stacks below that. */
 .dam-generation-layout { display: grid; }
-.dam-observed { border-top: 1px solid var(--color-neutral-200); background: var(--color-secondary-50); color: var(--color-neutral-900); }
-.dam-observed:first-child { border-top: 0; border-bottom: 1px solid var(--color-neutral-200); }
-.dam-release-summary { display: grid; gap: 1rem 2rem; }
+.dam-observed { container-type: inline-size; border-bottom: 1px solid var(--color-neutral-200); background: var(--color-secondary-50); color: var(--color-neutral-900); }
+.dam-release-summary { display: grid; gap: 1rem; }
+/* The card's info button sits in the top-right corner, over whichever heading is there. */
+.dam-release-heading { padding-right: 2rem; }
 .dam-turbine-summary { border-top: 1px solid var(--color-neutral-200); padding-top: 1rem; }
 .dam-release-note { grid-column: 1 / -1; }
+@container (min-width: 18rem) {
+  .dam-release-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .dam-release-heading { padding-right: 0; }
+  .dam-turbine-summary { border-top: 0; border-left: 1px solid var(--color-neutral-200); padding-top: 0; padding-left: 1rem; }
+  .dam-turbine-heading { padding-right: 2rem; }
+}
+@container (min-width: 36rem) {
+  .dam-release-summary { column-gap: 2rem; }
+  .dam-turbine-summary { padding-left: 2rem; }
+}
 .dam-timeline-axis { container-type: inline-size; }
 /* The closing midnight repeats the opening label; keep all 24 hours and the
    interactive readout while dropping that label when the plot is narrow. */
@@ -1866,10 +1870,6 @@ select.input {
 .dam-resource-links > * { max-width: 100%; white-space: normal; }
 .dam-measurements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
 .dam-measurements > * { border-top: 1px solid var(--color-neutral-200); padding-top: .75rem; }
-@media (min-width: 640px) {
-  .dam-release-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-  .dam-turbine-summary { border-top: 0; border-left: 1px solid var(--color-neutral-200); padding-top: 0; padding-left: 2rem; }
-}
 @media (min-width: 1100px) {
   .dam-measurements { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 }

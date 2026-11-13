@@ -53,7 +53,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
   return (
     <section aria-label="Reported water release" className="dam-release-summary min-w-0">
       <div className="min-w-0">
-      <h2 className="flex items-center gap-2 pr-8 text-base font-semibold text-primary-900 sm:pr-0">
+      <h2 className="dam-release-heading flex items-center gap-2 text-base font-semibold text-primary-900">
         <EddyIcon name="release" size={28} /> Latest reported release
       </h2>
       {release ? <>
@@ -67,7 +67,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
 
       </div>
       {status && <div className="dam-turbine-summary min-w-0">
-        <h3 className="flex items-start gap-2 text-sm font-semibold leading-5 text-primary-900">
+        <h3 className="dam-turbine-heading flex items-start gap-2 text-sm font-semibold leading-5 text-primary-900">
           <Zap className="mt-0.5 size-4 shrink-0 text-primary-700" aria-hidden="true" /> {status}
         </h3>
         {state.kind !== 'unavailable' && <div className={dimTurbine ? 'opacity-70' : undefined}>

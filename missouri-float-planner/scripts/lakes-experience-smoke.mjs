@@ -43,6 +43,7 @@ try {
 import DamDetail from '@/components/dam/DamDetail';
 import LakeDetail from '@/components/lake/LakeDetail';
 import PlaceHeader from '@/components/lake/PlaceHeader';
+import StationShareButton from '@/components/gauge/StationShareButton';
 import { damLakeExperienceEnabled, lakePageHref } from '@/lib/lakes/public-pages';
 const baseDam = ${JSON.stringify(dam)};
 const baseLake = ${JSON.stringify(lake)};
@@ -66,7 +67,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   if (variant === 'mixed') { lake.pool!.at = '2026-11-08T18:00:00Z'; dam.metrics.poolElevation!.at = lake.pool!.at; }
   if (variant === 'baseline') dam.id = 'swl-bull-shoals-dam';
   const enabled = variant !== 'held' && damLakeExperienceEnabled(dam.id);
-  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader kind={kind === 'lake' ? 'lake' : 'dam'} damId={dam.id} lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader><div className="place-content">{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div></div>;
+  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader kind={kind === 'lake' ? 'lake' : 'dam'} damId={dam.id} actions={kind === 'lake' ? undefined : <StationShareButton station={{ provider: 'usace', siteId: dam.id }} title={dam.name} label="Share" />} lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader><div className="place-content">{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div></div>;
 }
 `);
   assert.equal(spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]).status, 0);
@@ -106,7 +107,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         assert.equal(await page.locator('[data-launch-id]').count(), kind === 'dam' ? 0 : 2, 'launch list belongs only on lake page');
         assert.equal(await page.getByRole('link', { name: /photo credit/i }).count(), 0, 'credits remain on the central credits page');
         if (kind === 'lake') {
-          assert(await page.locator('.lake-facts dd, .lake-launch-filter button').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'facts and filter labels fit their controls');
+          assert(await page.locator('.lake-launch-filter button').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'filter labels fit their controls');
+          assert.equal((await page.locator('[data-lake-detail]').innerText()).match(/reviewed launch/g)?.length, 1, 'the launch count is stated once');
           assert(await page.locator('[aria-labelledby="lake-level-heading"] p.font-mono').evaluate(node => node.scrollWidth <= node.clientWidth), 'lake level and unit fit on one line');
           const launches = await page.locator('[aria-labelledby="lake-launches-heading"]').innerText();
           assert(!/Ramp bottom|Published closure threshold|Elevation cautions use/.test(launches), 'unverified thresholds and footer stay hidden even in an old payload');
@@ -121,14 +123,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           assert((await generation.innerText()).includes('Nov 9'), 'generation is first');
           const scheduleBox = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
           const observedBox = await page.locator('.dam-observed').boundingBox();
-          assert(observedBox.y >= scheduleBox.y + scheduleBox.height, 'observed readings follow the full-width schedule');
-          assert(await page.locator('.dam-observed').evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('[aria-label="Generation schedule"]')) & Node.DOCUMENT_POSITION_PRECEDING)), 'DOM order matches the visual order');
+          assert(scheduleBox.y >= observedBox.y + observedBox.height, 'the release row leads the full-width schedule');
+          assert(await page.locator('.dam-observed').evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('[aria-label="Generation schedule"]')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'DOM order matches the visual order');
           assert(Math.abs(scheduleBox.width - (observedBox.width - (width < 640 ? 32 : 48))) < 3, 'schedule uses the full card width');
           const axesFit = await page.locator('.dam-timeline-axis').evaluateAll(axes => axes.every(axis => {
             const labels = [...axis.children].filter(label => label.getBoundingClientRect().width > 0).map(label => label.getBoundingClientRect());
             return labels.every((label, i) => i === 0 || label.left >= labels[i - 1].right + 2);
           }));
           assert(axesFit, `schedule time labels do not collide at ${width}px`);
+          if (!variant) {
+            const releaseBox = await page.locator('[data-total-release]').boundingBox();
+            const turbineBox = await page.locator('.dam-turbine-summary').boundingBox();
+            assert(releaseBox.y + releaseBox.height <= 600, `total release is on the first screen at ${width}px`);
+            assert(width < 360 ? turbineBox.y >= releaseBox.y + releaseBox.height : turbineBox.x > releaseBox.x && turbineBox.y < releaseBox.y + releaseBox.height, `release and turbine status share a row where both fit at ${width}px`);
+            const tip = await generation.getByRole('button').first().boundingBox();
+            for (const heading of await page.locator('.dam-release-heading, .dam-turbine-heading').all()) {
+              const range = await heading.evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return { right: b.right, top: b.top, bottom: b.bottom }; });
+              assert(range.right <= tip.x || range.bottom <= tip.y || range.top >= tip.y + tip.height, 'card info button does not cover a heading');
+            }
+          }
           const conditions = page.locator('[data-dam-measurements]');
           assert.equal(await conditions.count(), 1, 'one supporting measurement group');
           assert(await conditions.locator('.dam-measurements > div').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'measurements do not overlap');
@@ -190,7 +203,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     assert.equal(await page.locator('[data-dam-measurements]').count(), 1, 'non-pilot keeps the shared measurement card');
     const baselineSchedule = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
     const baselineObserved = await page.locator('.dam-observed').boundingBox();
-    assert(baselineObserved.y >= baselineSchedule.y + baselineSchedule.height, 'non-pilot also uses a full-width schedule before readings');
+    assert(baselineSchedule.y >= baselineObserved.y + baselineObserved.height, 'non-pilot also leads with the release row');
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
     await page.screenshot({ path: `${out}/baseline-dam-${width}.png`, fullPage: true });
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=noSchedule`, { waitUntil: 'networkidle' });

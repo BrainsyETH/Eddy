@@ -101,7 +101,7 @@ export default function LakeLaunches({ lake, now }: { lake: LakeSection; now: nu
   }
   return <Card as="section" variant="panel" className="scroll-mt-24 p-4 sm:p-6" id="boat-launches" aria-labelledby="lake-launches-heading">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 id="lake-launches-heading" className="flex items-center gap-2 font-heading text-xl font-bold text-primary-800"><EddyIcon name="boatRamp" size={28} />Boat launches{lake.launches.length > 0 && <span className="text-base font-normal text-neutral-500">({lake.launches.length})</span>}</h2>
+      <h2 id="lake-launches-heading" className="flex items-center gap-2 font-heading text-xl font-bold text-primary-800"><EddyIcon name="boatRamp" size={28} />Boat launches</h2>
       {lake.launches.length > 0 && <Button variant="outline" size="sm" className="min-h-11" aria-expanded={showMap} aria-controls="lake-launch-map" onClick={() => setShowMap(!showMap)}>{showMap ? 'Hide map' : 'View map'}</Button>}
     </div>
     <p className="mt-2 text-sm text-neutral-600">{lake.launches.length > 0 ? `${lake.launches.length} reviewed ${lake.launches.length === 1 ? 'launch' : 'launches'} · More locations coming as we review them.` : 'Reviewed launch locations are currently unavailable.'}</p>

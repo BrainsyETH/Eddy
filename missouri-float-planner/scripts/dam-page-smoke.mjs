@@ -248,7 +248,7 @@ export default function Page() {
     await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
     const a = await page.locator('.dam-observed').boundingBox();
     const b = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
-    assert(a.y >= b.y + b.height, `${name}: readings follow the full-width schedule`);
+    assert(b.y >= a.y + a.height, `${name}: the release row leads the full-width schedule`);
     const cta = page.locator('[data-dam-app-cta]');
     assert.equal(await cta.locator('a').count(), 1, 'dam promotion has one action');
     assert(await cta.evaluate(el => Boolean(el.closest('section')?.querySelector('[aria-label="Generation schedule"]'))), 'app action belongs to the generation card footer');

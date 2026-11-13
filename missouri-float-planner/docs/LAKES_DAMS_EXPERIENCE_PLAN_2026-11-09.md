@@ -17,7 +17,7 @@ The dam page answers: What's the dam doing, what's scheduled, and what does that
 Page order:
 
 1. Photo header with dam name, location and Share. Keep the photo shallow on mobile, with the primary conditions card overlapping its lower edge. Use verified real dam photography or Eddy artwork.
-2. **Today's generation:** The existing hourly schedule spans the card width, followed by current observed release and turbine status in a compact row (stacked on phones). When no schedule is posted, observations lead before the availability explanation. DOM and visual order agree on phone and desktop.
+2. **Today's generation:** Current observed release and turbine status lead the card in one compact row (stacked only on the narrowest phones), so the release reading is on the first screen. The existing hourly schedule follows at the full card width, or the availability explanation when no schedule is posted. DOM and visual order agree on phone and desktop.
 3. **Conditions:** Lake level and below-dam measurements together, using Eddy icons and clear freshness labels. Display only measurements the source supports.
 4. **Operational interpretation:** Eddy's Read, generation forecasts, and patterns where supported, all ahead of the lake preview. Preserve useful existing ordering within this group.
 5. **Lake preview:** Compact seven-day trend, a brief lake summary, reviewed launch count, and an "Explore [Lake]" action only once that public lake route is approved.

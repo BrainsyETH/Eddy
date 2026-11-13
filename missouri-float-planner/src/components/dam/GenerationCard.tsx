@@ -46,7 +46,7 @@ export default function GenerationCard({ dam, now, availability }: {
         </DamInfoTip>
       </div>
       <div className="dam-generation-layout">
-        {hasSchedule ? <>{schedule}{observed}</> : <>{observed}{schedule}</>}
+        {observed}{schedule}
       </div>
       <DamAppCTA damId={dam.id} damName={dam.name} />
     </Card>
