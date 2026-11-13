@@ -23,6 +23,10 @@ import { join } from 'node:path';
  */
 const KNOWN_MISSING = new Map<string, string>([
   ['chat_logs', 'does NOT exist in production (00078 never applied); chat is disabled — see api/chat/route.ts'],
+  // Not in production yet: created by the pending migration 20261112213000_release_arrival_trial.sql.
+  // After it is applied, regenerate the types and remove both entries (this test fails until then).
+  ['release_arrival_passes', 'pending migration 20261112213000; read by arrival-trial/status.ts, which reports the tables as not set up'],
+  ['release_arrival_predictions', 'pending migration 20261112213000; read by arrival-trial/status.ts, which reports the tables as not set up'],
 ]);
 
 function sourceFiles(dir: string): string[] {

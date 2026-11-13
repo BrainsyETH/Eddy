@@ -3,6 +3,7 @@ import { widgetHistory } from './widgets';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { scheduledJobs, type JobSnapshot } from './jobs-summary';
 import { nextScheduledAt } from './job-schedule';
+import { loadCollection } from '@/lib/arrival-trial/status';
 import {
   dailyCounts,
   friendlyJob,
@@ -207,7 +208,7 @@ export async function overviewData(): Promise<OverviewData> {
   const timelinePromise = (async (): Promise<OverviewData['timeline']> => {
     try {
       const db = createAdminClient();
-      const [recent, status] = await Promise.all([
+      const [recent, status, trial] = await Promise.all([
         db
           .from('admin_job_runs')
           .select('job,started_at,finished_at,status,duration_ms', {
@@ -221,6 +222,7 @@ export async function overviewData(): Promise<OverviewData> {
         db
           .rpc('admin_dashboard_job_status')
           .abortSignal(AbortSignal.timeout(4000)),
+        loadCollection(db, now),
       ]);
       if (
         recent.error ||
@@ -255,6 +257,7 @@ export async function overviewData(): Promise<OverviewData> {
             nextAt,
             lastAt: last?.started_at ?? null,
             lastStatus: last?.status ?? null,
+            ...(id === 'log-release-arrivals' ? { collection: trial } : {}),
             runs: ((recent.data ?? []) as TimelineRun[]).filter(
               (r) => r.job === id,
             ),

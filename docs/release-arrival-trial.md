@@ -138,15 +138,33 @@ Looking at accuracy early does not change the rule or the marks.
    off if it shares the production database, or it will log duplicate work.
 4. Call the endpoint once with the cron secret. Expect a JSON summary with
    `monitoring_status: "ok"`. With the flag off it answers `skipped`.
-5. Confirm the job appears under Jobs in the admin dashboard, that a row
-   appears after the next qualifying release, and that its outcome row appears
-   about 26 hours later.
+5. Confirm **Bull Shoals timing study** in the admin dashboard's task table
+   reads "Collecting", that a row appears after the next qualifying release,
+   and that its outcome row appears about 26 hours later.
 
 To stop deliberately, set the flag to `paused`, not unset. A paused pass
 records only that it was paused, so increases it skips are filed as
 `collection paused`. With the flag unset nothing is recorded, and when
 collection resumes those increases are filed as `collection was down`.
 Existing rows stay either way.
+
+## Reading its state in admin
+
+The task's **Result** column is the last run of the job, and a run reports
+"Skipped" whether the trial is off, paused or simply waiting on another pass.
+The line under the task name is the trial's own state, read from the flag and
+the pass records (`src/lib/arrival-trial/status.ts`):
+
+| Shows | Means |
+| --- | --- |
+| Off · Collection hasn't started | Flag unset; no pass has ever been recorded |
+| Off · Last collected [time] | Flag unset after collecting |
+| Paused · Existing results retained | Flag is `paused` |
+| Collecting · Waiting for the first check | Switched on or resumed; the next hourly pass has not run |
+| Collecting · No qualifying release yet | Passes are clean; no increase has been logged |
+| Collecting · Last checked [time] | Passes are clean; increases have been logged |
+| Collection issue · Last successful check [time] | The newest pass failed to save something, or none has run for over two hours |
+| Collection issue · Results tables are not set up | Flag is set but the migration is not applied |
 
 ## Reading the log
 

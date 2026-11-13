@@ -397,7 +397,10 @@ const META = {
   "/api/cron/sync-dam-history": ["water", "Dam history", "Keeps an hourly record of what each powerhouse actually released."],
   "/api/cron/sync-dam-snapshots": ["water", "Dam snapshots", "Assembles each dam's current state ahead of time so the dam pages load fast."],
   "/api/cron/sync-lake-levels": ["water", "Lake levels", "Records each lake's pool so the lake section can say how the level moved over a day and a week."],
-  "/api/cron/log-release-arrivals": ["water", "Release arrival trial", "Internal test, off unless switched on. When Bull Shoals raises its release, logs when the rule expects the river to rise near Norfork, then what the gauge did. Nothing here is shown to users."],
+  "/api/cron/log-release-arrivals": ["water", "Bull Shoals timing study", "Internal test, off unless switched on. When Bull Shoals raises its release, logs when the rule expects the river to rise near Norfork, then what the gauge did. Nothing here is shown to users."],
+  "/api/cron/record-river-map-frame": ["water", "National map frames", "Saves one frame of the national map just after each national gauge pass: every in-scope gauge plus NOAA's flood status. Old frames are pruned."],
+  "/api/cron/collect-rainfall": ["water", "Rainfall history", "Rain research collection, off unless switched on. Saves each hour's observed rainfall for the river basins."],
+  "/api/cron/collect-rainfall-forecasts": ["water", "Rain forecasts", "Rain research collection, off unless switched on. Saves the rain forecasts for the river basins every three hours."],
   "/api/cron/snapshot-percentiles": ["water", "Historical percentiles", "Works through the station catalog in rotating batches, so Eddy can say how unusual a level is."],
   "/api/cron/evaluate-gauge-alerts": ["alerts", "Check alert rules", "Compares gauges with everyone's alert rules and queues a push for each match."],
   "/api/cron/deliver-push": ["alerts", "Send notifications", "Sends the queued notifications through Expo."],
@@ -416,13 +419,15 @@ const META = {
   "/api/cron/sync-availability": ["land", "Campsite availability", "Refreshes campsite availability, one provider per run so one outage can't eat another's time."],
   "/api/cron/sync-nps": ["land", "National Park Service", "Weekly sync of NPS data."],
   "/api/cron/sync-usfs": ["land", "Forest Service", "Weekly sync of campgrounds and facilities near the rivers, queued for review."],
+  "/api/cron/publish-scheduled-blogs": ["ops", "Scheduled blog posts", "Every five minutes, publishes any blog post whose scheduled time has come."],
   "/api/cron/trust-tick": ["ops", "Check data quality", "Runs whichever data-integrity checks are due and updates the trust ledger."],
   "/api/cron/rollup-telemetry": ["ops", "Summarize app activity", "Rolls up app telemetry into summaries."],
   "/api/cron/revoke-apple-tokens": ["ops", "Apple sign-in revocations", "Works through the queue of Apple sign-in tokens to revoke for deleted accounts."],
 };
 const DOWS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYNAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const meta = (p) => META[p] || META[p.split("?")[0]];
+// A job added to the schedule without a description still gets a dot and a plain name; a test fails until it has one.
+const meta = (p) => META[p] || META[p.split("?")[0]] || ["ops", p.split("?")[0].split("/").pop().replaceAll("-", " "), "No description yet."];
 JOBS.forEach((j, i) => { j.i = i; const m = meta(j.path); j.group = m[0]; j.name = m[1]; j.what = m[2]; if (j.path.includes("source=")) j.name += j.path.includes("mo_state_parks") ? " \u00b7 MO State Parks" : " \u00b7 Recreation.gov"; });
 
 const S = { tz: "central", dow: new Date().getDay(), min: 6 * 60 + 5, playing: false, sel: null };
