@@ -4,8 +4,8 @@ let generation = 0;
 export const shareImageRevision = () => generation;
 
 const MAX_AGE = 30 * 24 * 60 * 60_000;
-// Rebuild older posters after the recap-aligned presentation ships.
-const DESIGN_VERSION = 2;
+// Rebuild older posters after the river-postcard presentation ships.
+const DESIGN_VERSION = 3;
 function files(identity: string, name: string) {
   let hash = 2166136261;
   for (let i = 0; i < identity.length; i++) hash = Math.imul(hash ^ identity.charCodeAt(i), 16777619);

@@ -40,7 +40,10 @@ export function FloatShareImage({ state, names, mood, sticker }: {
       display: 'flex', position: 'absolute', left: item.x, top: item.y,
       width: item.width, height: item.height, background: item.fill, borderRadius: item.radius,
       ...(item.border ? { border: `2px solid ${item.border}` } : {}),
-    }} /> : <div key={i} style={{
+    }} /> : item.kind === 'path' ? <svg key={i} width={FLOAT_SHARE_WIDTH} height={FLOAT_SHARE_HEIGHT}
+      viewBox="0 0 1080 1920" style={{ position: 'absolute', left: 0, top: 0 }}>
+      <path d={item.d} fill={item.fill} stroke={item.stroke} strokeWidth={item.strokeWidth} />
+    </svg> : <div key={i} style={{
       display: 'flex', position: 'absolute', left: item.x, top: item.y, width: item.width,
       fontSize: item.size, lineHeight: 1.2, color: item.color, ...faces[item.face],
       justifyContent: item.center ? 'center' : 'flex-start', whiteSpace: 'nowrap',

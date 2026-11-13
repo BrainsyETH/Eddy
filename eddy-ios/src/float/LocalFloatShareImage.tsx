@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Image, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Image, Path, Rect, Text as SvgText } from 'react-native-svg';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { compactShareDuration, floatShareLayout } from '@eddy/conditions/float-share-layout';
 import { localFloatShare } from '@/lib/localFloatShare';
@@ -40,6 +40,7 @@ function LocalFloatShareImage({ trip, ready, failed }: {
       {layout.elements.map((item, i) => item.kind === 'box'
         ? <Rect key={i} x={item.x} y={item.y} width={item.width} height={item.height} rx={item.radius}
           fill={item.fill} stroke={item.border} strokeWidth={item.border ? 2 : 0} />
+        : item.kind === 'path' ? <Path key={i} d={item.d} fill={item.fill} stroke={item.stroke} strokeWidth={item.strokeWidth} />
         : <SvgText key={i} x={item.center ? item.x + item.width / 2 : item.x} y={item.y + item.size * 0.96}
           fill={item.color} fontFamily={faces[item.face]} fontSize={item.size}
           textAnchor={item.center ? 'middle' : 'start'}>{item.text}</SvgText>)}

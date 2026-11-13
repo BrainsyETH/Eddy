@@ -347,7 +347,7 @@ test('high water is stated on the image, not celebrated', () => {
   };
   // The colour of the element holding the mood line itself, not the wordmark.
   const labelColor = (html: string, text: string) => new RegExp(`color:([^;"]+)[^>]*>${text}<`).exec(html)?.[1];
-  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'dangerous' } })), 'Flood stage'), colors.neutral[600]);
-  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'high' } })), 'Big water'), colors.neutral[600]);
-  assert.equal(labelColor(draw(trip({ startCondition: flowing })), 'Made it!'), colors.primary[700], 'Made it! uses the recap’s teal');
+  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'dangerous' } })), 'Flood stage'), colors.primary[100]);
+  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'high' } })), 'Big water'), colors.primary[100]);
+  assert.equal(labelColor(draw(trip({ startCondition: flowing })), 'Made it!'), colors.accent[400], 'Made it! uses coral on the water shape');
 });

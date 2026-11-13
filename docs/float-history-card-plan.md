@@ -541,7 +541,7 @@ moods use eight stickers, about 154 KB at 300px.
 ## Phase 5: share
 
 Presentation was updated November 12, 2026: online and offline images now use
-the recap-aligned warm card layout. The historical “stamp” below is a flat
+a photo-free river postcard layout with unboxed stats and a curved teal shape. The historical “stamp” below is a flat
 verified condition badge, and the whole-river percentage remains in the
 payload but is no longer printed. See ADR 0015’s float share presentation
 amendment for the current layout; measurement and verification rules remain.

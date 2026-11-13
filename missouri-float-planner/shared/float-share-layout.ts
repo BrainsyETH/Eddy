@@ -7,6 +7,7 @@ export const FLOAT_SHARE_WIDTH = 1080;
 export const FLOAT_SHARE_HEIGHT = 1920;
 export type ShareFace = 'display' | 'heading' | 'body' | 'mono';
 export type ShareElement =
+  | { kind: 'path'; d: string; fill: string; stroke?: string; strokeWidth?: number }
   | { kind: 'box'; x: number; y: number; width: number; height: number; fill: string; radius: number; border?: string }
   | { kind: 'text'; x: number; y: number; width: number; size: number; face: ShareFace; color: string; text: string; center?: boolean };
 
@@ -42,74 +43,62 @@ export function floatShareLayout(input: {
   moodLabel?: string | null; cautious?: boolean;
   condition?: { code: Exclude<ConditionCode, 'unknown'>; cfs: number | null } | null;
 }) {
-  const ink = colors.neutral[900], muted = colors.neutral[600], teal = colors.primary[700];
+  const ink = colors.primary[900], muted = colors.neutral[600];
+  const paper = colors.secondary[50], water = colors.primary[800], onWater = colors.primary[100];
   const elements: ShareElement[] = [];
   const box = (x: number, y: number, width: number, height: number, fill: string, radius = 0, border?: string) =>
     elements.push({ kind: 'box', x, y, width, height, fill, radius, border });
   const text = (value: string, x: number, y: number, width: number, size: number, face: ShareFace = 'body', color: string = ink, center = false) =>
     elements.push({ kind: 'text', text: value, x, y, width, size, face, color, center });
-  const river = shareTextLines(input.river, 18, 3);
-  const from = shareTextLines(input.from, 32, 2), to = shareTextLines(input.to, 32, 2);
-  const titleSize = river.length > 2 ? 60 : 72;
-  const titleHeight = river.length * (titleSize + 10);
-  const routeTop = 180 + titleHeight;
-  const toTop = routeTop + 82 + from.length * 48;
-  const statsTop = toTop + 82 + to.length * 48;
-  const statusTop = statsTop + 202;
-  const cardHeight = statusTop + (input.tracking ? 130 : 88);
-  const conditionHeight = input.condition ? 226 : 0;
-  // Center the complete composition in the story-safe area. Missing conditions
-  // leave no empty card; longer place names consume the available space.
-  const stackHeight = cardHeight + conditionHeight;
-  const cardTop = Math.max(250, Math.round((1920 - stackHeight) / 2));
-  const left = 72, width = 936, inset = 124;
+  const path = (d: string, fill: string, stroke?: string, strokeWidth?: number) =>
+    elements.push({ kind: 'path', d, fill, stroke, strokeWidth });
+  const river = shareTextLines(input.river, 12, 3);
+  const titleSize = river.length === 3 ? 94 : 116;
+  const titleHeight = river.length * (titleSize + 4);
+  const route = shareTextLines(`${input.from} → ${input.to}`, 38, 3);
+  const routeSize = route.length > 1 ? 38 : 44;
+  const routeTop = 280 + titleHeight + 30;
+  const dateTop = routeTop + route.length * (routeSize + 10) + 24;
+  const arrivalTop = dateTop + 54;
+  const heroTop = Math.max(800, arrivalTop + 82);
+  const statsTop = heroTop + 402;
 
-  box(0, 0, 1080, 1920, colors.neutral[50]);
-  text('Eddy', left, cardTop - 142, 300, 68, 'display', teal);
-  text('Float recap', 748, cardTop - 112, 260, 30, 'body', muted);
-  box(left, cardTop - 52, 64, 7, colors.accent[500], 3);
-  box(left, cardTop, width, cardHeight, '#FFFFFF', 36, colors.neutral[200]);
-  text(input.moodLabel ?? 'Your float', inset, cardTop + 52, 600, 32, 'display', input.cautious ? muted : teal);
-  river.forEach((line, i) => text(line, inset, cardTop + 102 + i * (titleSize + 10), 612, titleSize, 'heading'));
-  text(shareDate(input.date), inset, cardTop + 122 + titleHeight, 600, 32, 'body', muted);
-  // The standard PNG has more transparent padding than the mood stickers.
+  box(0, 0, 1080, 1920, paper);
+  text('Eddy', 80, 104, 360, 76, 'display', colors.accent[700]);
+  text('FLOAT RECAP', 752, 144, 248, 28, 'body', muted);
+  river.forEach((line, i) => text(line, 80, 280 + i * (titleSize + 4), 920, titleSize, 'heading'));
+  route.forEach((line, i) => text(line, 80, routeTop + i * (routeSize + 10), 920, routeSize, 'body', colors.primary[700]));
+  text(shareDate(input.date), 80, dateTop, 920, 32, 'body', muted);
+  text(input.arrival, 80, arrivalTop, 920, 28, 'body', muted);
+
+  // A decorative water shape, never route geometry or a progress illustration.
+  path(`M0 ${heroTop + 110} C280 ${heroTop + 10} 440 ${heroTop + 210} 700 ${heroTop + 80} S940 ${heroTop - 40} 1080 ${heroTop + 20} L1080 1920 L0 1920 Z`, water);
+  path(`M-40 ${heroTop + 300} C220 ${heroTop + 205} 400 ${heroTop + 375} 650 ${heroTop + 278} S960 ${heroTop + 135} 1120 ${heroTop + 230}`, 'none', colors.primary[600], 3);
+  text(input.moodLabel ?? 'Your float', 80, heroTop + 158, 510, 64, 'display', input.cautious ? onWater : colors.accent[400]);
+  // The standard PNG carries more transparent padding than the mood stickers.
   const art = input.moodLabel
-    ? { x: 756, y: cardTop + 40, width: 200, height: 200 }
-    : { x: 726, y: cardTop + 10, width: 260, height: 260 };
+    ? { x: 602, y: heroTop - 90, width: 364, height: 364 }
+    : { x: 556, y: heroTop - 136, width: 456, height: 456 };
 
-  const y = cardTop + routeTop;
-  box(inset, y, 832, 2, colors.neutral[200]);
-  text('Your route', inset, y + 32, 832, 30, 'heading', teal);
-  // This is an endpoint list, not a geographic or progress diagram.
-  text('Put-in', inset, y + 88, 170, 27, 'body', muted);
-  from.forEach((line, i) => text(line, 312, y + 84 + i * 48, 644, 38, 'heading'));
-  text('Take-out', inset, cardTop + toTop + 6, 170, 27, 'body', muted);
-  to.forEach((line, i) => text(line, 312, cardTop + toTop + i * 48, 644, 38, 'heading'));
-
-  const statsY = cardTop + statsTop;
-  box(inset, statsY, 832, 2, colors.neutral[200]);
-  box(539, statsY + 42, 2, 108, colors.neutral[200]);
-  const statSize = Math.max(input.distance?.length ?? 1, input.duration.length) > 10 ? 42 : 58;
+  const statSize = Math.max(input.distance?.length ?? 1, input.duration.length) > 10 ? 56 : 88;
   const stat = (value: string, label: string, x: number) => {
-    text(value, x, statsY + 42, 390, statSize, 'mono', ink, true);
-    text(label, x, statsY + 118, 390, 28, 'body', muted, true);
+    text(value, x, statsTop, 430, statSize, 'heading', paper);
+    text(label, x, statsTop + (statSize === 56 ? 84 : 116), 430, 30, 'body', onWater);
   };
-  stat(input.distance ?? '—', input.distanceLabel, inset);
-  stat(input.duration, 'Total time', 566);
-  const statusY = cardTop + statusTop;
-  box(inset, statusY - 8, 832, input.tracking ? 96 : 54, colors.primary[50], 14);
-  text(input.arrival, inset + 24, statusY + 3, 784, 28, 'body', teal);
-  if (input.tracking) text(input.tracking, inset + 24, statusY + 43, 784, 27, 'body', muted);
+  stat(input.distance ?? '—', input.distanceLabel, 80);
+  stat(input.duration, 'Total time', 590);
+  if (input.tracking) text(input.tracking, 80, statsTop + 192, 920, 30, 'body', onWater);
 
   if (input.condition) {
     const condition = CONDITION_SYSTEM[input.condition.code];
-    const conditionY = cardTop + cardHeight + 24;
-    box(left, conditionY, width, 202, '#FFFFFF', 32, colors.neutral[200]);
-    text('Conditions at start', inset, conditionY + 32, 832, 30, 'heading');
-    box(inset, conditionY + 94, 228, 64, condition.bg, 16, condition.chipBorder);
-    text(condition.label, inset + 10, conditionY + 106, 208, 32, 'heading', condition.ink, true);
-    if (input.condition.cfs != null) text(`${input.condition.cfs.toLocaleString('en-US')} cfs`, 396, conditionY + 104, 560, 38, 'mono');
+    const conditionTop = statsTop + (input.tracking ? 264 : 228);
+    text('At start', 80, conditionTop + 10, 170, 30, 'body', onWater);
+    // A white backing keeps the canonical translucent condition tint legible.
+    box(262, conditionTop, 190, 62, paper, 15);
+    box(262, conditionTop, 190, 62, condition.bg, 15);
+    text(condition.label, 272, conditionTop + 10, 170, 32, 'heading', condition.ink, true);
+    if (input.condition.cfs != null) text(`${input.condition.cfs.toLocaleString('en-US')} cfs`, 490, conditionTop + 9, 510, 36, 'mono', paper);
   }
-  text('eddy.guide', 72, cardTop + stackHeight + 62, 936, 36, 'display', teal, true);
+  text('eddy.guide', 80, 1758, 920, 34, 'display', onWater);
   return { elements, art };
 }

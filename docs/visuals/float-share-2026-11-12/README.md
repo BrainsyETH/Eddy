@@ -1,7 +1,9 @@
 # Float share previews — November 12, 2026
 
 Illustrative data rendered from the implementation in this PR. These are not
-recorded user trips or proof of a released build.
+recorded user trips or proof of a released build. The share uses a photo-free
+postcard composition with an oversized title, a decorative water shape, Eddy
+overlapping the curve and open stats. The curve is not a route map.
 
 - `complete.png`: server PNG, reached take-out and verified starting condition.
 - `partial.png`: server PNG, unconfirmed arrival and limited GPS tracking.

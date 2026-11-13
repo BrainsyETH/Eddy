@@ -1892,9 +1892,10 @@ divider. Share follows the trip card, ahead of the compact starting conditions;
 history, backup and the separate delete action sit below. Large text stacks the
 stat columns and endpoint names. It replaces the recap's whole-river
 exploration/lifetime panel. Existing
-history and share-image measurement rules remain unchanged. Share images use the same warm card hierarchy
-online and offline, with shared layout primitives, a smaller otter and aligned
-stats. The verified server condition is a flat badge; the offline image retains
+history and share-image measurement rules remain unchanged. Share images use one photo-free river postcard
+composition online and offline: a large river title, compact route/date group,
+Eddy overlapping a curved teal shape and large unboxed stats. The verified
+server condition is a compact badge row; the offline image retains
 its existing condition-free content. The whole-river percentage is omitted
 from the image. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md#float-share-presentation--november-12-2026).
 New summaries save
