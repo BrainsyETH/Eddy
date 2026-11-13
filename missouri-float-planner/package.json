@@ -50,7 +50,7 @@
     "video:studio": "cd remotion && npx remotion studio",
     "promo:capture": "cd remotion && node scripts/capture-promo.mjs",
     "promo:render": "cd remotion && bash scripts/render-promo.sh",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "typecheck": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit && node --max-old-space-size=4096 node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit",
     "db:readiness": "tsx scripts/ingestion/audit-readiness.ts",
     "test:dam-page": "node scripts/dam-page-smoke.mjs",
     "test:navigation": "node scripts/navigation-smoke.mjs",

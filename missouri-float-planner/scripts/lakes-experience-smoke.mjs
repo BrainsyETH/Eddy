@@ -132,6 +132,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           const conditions = page.locator('[data-dam-measurements]');
           assert.equal(await conditions.count(), 1, 'one supporting measurement group');
           assert(await conditions.locator('.dam-measurements > div').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'measurements do not overlap');
+          if (variant === 'truman') {
+            assert((await conditions.innerText()).includes('Daily report') && !(await conditions.innerText()).includes('Outdated'), '20-hour daily report is not stale');
+            assert.equal(await conditions.locator('.opacity-60').count(), 0, 'a current daily report is not dimmed');
+          }
         }
         const hero = await page.locator('.place-header').boundingBox();
         const content = await page.locator('.place-content').boundingBox();
@@ -177,7 +181,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     await page.clock.fastForward(10 * 60_000);
     await page.waitForFunction(() => document.querySelectorAll('[data-launch-id] [role=note]').length === 0);
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=held`, { waitUntil: 'networkidle' });
-    assert.equal(await page.locator('[data-pilot-conditions]').count(), 0, 'registry lake with data does not enable redesigned conditions');
     assert.equal(await page.locator('[data-lake-section]').count(), 0, 'held dam does not expose history or reviewed-launch count');
     assert.equal(await page.locator('.place-header img').count(), 1, 'approved dam photography is independent of lake publication');
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });

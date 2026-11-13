@@ -80,6 +80,10 @@ jobs:
       # runner of its own, and type-checking that during a Vercel build broke
       # the deploy — Vercel installs only this directory, so the app's
       # node_modules is not there to resolve @eddy/types through.
+      #
+      # The script raises Node's heap limit itself. The test config needs about
+      # 2.4 GB, above Node 20's default, and tsc died with an out-of-memory
+      # abort that reads like a failed check rather than a missing flag.
       - name: Typecheck
         run: npm run typecheck
 
