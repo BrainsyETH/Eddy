@@ -97,6 +97,8 @@ import { HomeScreenWidgetsIntro } from '@/components/HomeScreenWidgetsIntro';
 import { SwipeRow } from '@/components/SwipeRow';
 import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
+import { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
+import { AlertNotificationSetup } from '@/components/AlertNotificationSetup';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 type Segment = 'high-water' | 'rules' | 'notices';
@@ -208,6 +210,9 @@ function AlertsContent() {
     setEnabled,
     remove,
   } = useAlertRules();
+  const notificationSetup = useAlertNotificationSetup();
+  const { afterSave: checkSavedNotifications, dismiss: dismissNotifications } = notificationSetup;
+  const rulesList = useRef<FlatList<AlertRuleGroup>>(null);
   const { colors } = useTheme();
   const router = useRouter();
 
@@ -348,13 +353,17 @@ function AlertsContent() {
   const onToggleRule = useCallback(
     (rule: AlertRule, enabled: boolean) => {
       setRuleError(null);
+      if (!enabled) dismissNotifications();
       // The hook reverts its own optimistic update on failure; all this has to
       // do is say so, or the switch would spring back with no explanation.
-      void setEnabled(rule, enabled).catch(() =>
+      const gated = rules?.some(parent => parent.source === 'river_condition' && parent.id === rule.parentId && !parent.enabled);
+      void checkSavedNotifications(setEnabled(rule, enabled), enabled && !gated).then(({ needsAttention }) => {
+        if (needsAttention) rulesList.current?.scrollToOffset({ offset: 0, animated: true });
+      }).catch(() =>
         setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.'),
       );
     },
-    [setEnabled],
+    [setEnabled, rules, checkSavedNotifications, dismissNotifications],
   );
 
   /**
@@ -532,6 +541,7 @@ function AlertsContent() {
         <FlatList
           contentInsetAdjustmentBehavior="automatic"
           data={ruleGroups}
+          ref={rulesList}
           keyExtractor={(item) => item.key}
           refreshControl={refreshControl}
           ListHeaderComponent={
@@ -542,6 +552,9 @@ function AlertsContent() {
             // away when signed out — see QuietHoursRow.
             <>
               {header}
+              <View style={{ marginHorizontal: 20 }}>
+                <AlertNotificationSetup setup={notificationSetup} active={ruleGroups.some(({ rule }) => rule.enabled && !(rule.oneShot && rule.firedAt))} />
+              </View>
               <QuietHoursRow />
               {/* A one-time, dismissible widget discovery card, then a small
                   permanent setup row. Only Mine: widgets show personal
