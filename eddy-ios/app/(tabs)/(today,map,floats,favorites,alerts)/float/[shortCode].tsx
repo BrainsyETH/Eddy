@@ -9,7 +9,7 @@ import { floatEntryAction } from '@/lib/floatEntry';
 import { YourFloatButton } from '@/float/YourFloatButton';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { FloatPlan } from '@eddy/types';
@@ -19,6 +19,8 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { planShareMessage } from '@/lib/planActions';
+import { shareMessage, webUrl } from '@/lib/share';
 import { SavedFloatDetails } from '@/components/SavedFloatDetails';
 import { createSavedFloatLoader, emptySavedFloatState } from '@/lib/savedFloatLoader';
 import { onForeground } from '@/lib/foreground';
@@ -70,11 +72,12 @@ export default function SavedFloatScreen() {
   }, [load, loader]);
 
   const onShare = useCallback(async () => {
-    const url = stub?.url ?? `https://eddy.guide/plan/${shortCode}`;
-    const summary = plan
-      ? `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted}`
-      : `${stub?.putInName ?? 'A float'} → ${stub?.takeOutName ?? ''}`.trim();
-    await Share.share({ message: `${summary}\n${url}` });
+    const url = stub?.url ?? webUrl(`/plan/${shortCode}`);
+    // The same wording the planner shares; the saved stub covers a plan still loading.
+    const message = plan
+      ? planShareMessage(plan, url)
+      : `${`${stub?.putInName ?? 'A float'} → ${stub?.takeOutName ?? ''}`.trim()}\n${url}`;
+    await shareMessage(message);
   }, [plan, stub, shortCode]);
 
   const saved = plan != null && isSaved(plan);
@@ -96,7 +99,7 @@ export default function SavedFloatScreen() {
       forgetPlan(plan);
       return;
     }
-    remember(plan, { shortCode, url: stub?.url ?? `https://eddy.guide/plan/${shortCode}` });
+    remember(plan, { shortCode, url: stub?.url ?? webUrl(`/plan/${shortCode}`) });
   }, [plan, shortCode, saved, stub, remember, forgetPlan]);
 
   // Offline logistics prefill the same editable readiness screen.

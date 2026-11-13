@@ -186,6 +186,51 @@ Implemented in JavaScript; the following physical-device checks are still open.
 - [ ] River, gauge and dam interpretations use the same otter/Fredoka Read
       heading in light/dark mode and at the largest Dynamic Type size.
 
+### Saved alert notification setup gates — November 12, 2026
+
+JavaScript only; physical-device verification remains open.
+
+- [ ] Sign out, sign in through Premium restore, then resume a saved alert
+      from Mine and from its editor. With permission undetermined, the existing
+      Eddy primer appears after the save. Declining leaves the alert saved and
+      a Turn on notifications action visible.
+- [ ] With notifications denied in iOS, resuming shows Open iOS Settings.
+      Enable there and return: registration refreshes and the notice clears
+      only when the phone is registered. Repeat with Eddy's device opt-out:
+      sign-in preserves it, and Turn on notifications explicitly clears it.
+- [ ] A failed registration offers Try again without claiming the alert failed
+      to save. Rearm a spent one-shot through Save and through the switch;
+      setup remains reachable. Pausing never opens a prompt. Check light/dark,
+      large text and VoiceOver, including the setup notice and its action.
+
+### Share payload gates — November 12, 2026
+
+Implemented in JavaScript (`eddy-ios/src/lib/sharePayload.ts`,
+`planActions.ts`); no native module changed. None of this has been run on a
+device, so each check is open. The contract is in
+`missouri-float-planner/docs/SHARING_PREVIEWS.md`, "Share text".
+
+- [ ] **Link shares send the link once.** From a river, a gauge, a dam, an
+      access point and a chart's Share Link, share to Messages, Mail, Notes and
+      WhatsApp, and use Copy. Each receives the link one time; Messages shows
+      the preview card; Mail has the title as its subject; Copy pastes the link
+      alone. If a target receives nothing usable from a URL-only share, record
+      which, and reconsider the payload before release.
+- [ ] **Plan shares.** From the plan sheet and from a saved float, the text is
+      the same trip line ending with one link. Sharing a saved float twice
+      sends the same link, as does sharing an unsaved plan twice. Share, then
+      Save, then Share again: one link, and it is the one kept in Favorites. A
+      plan whose time is withheld for the water shares no time and no "no
+      estimate" line.
+- [ ] **A link matches the boat in the text.** Save a route as a kayak,
+      rebuild the same route as a raft, and Share. The link opens a raft plan
+      with the estimate the message states, not the saved kayak plan.
+- [ ] **No link available.** In airplane mode, Share from the plan sheet for a
+      float that is not saved: the sheet opens with trip details only, and the
+      plan sheet shows that the link is missing. Reconnect and share again: the
+      link is included and the notice clears. A saved float still shares its
+      stored link offline.
+
 ### October 13 freshness update candidate
 
 The observation-age, Today gauge refresh, and dam-row fixes change JavaScript

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { shareOrCopy } from '@/lib/share-link';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Check, ExternalLink, MapPin, Share2, Users, X } from 'lucide-react';
@@ -50,18 +51,10 @@ export default function CampgroundDetails({ camp, facilities, arrival, departure
   }, [copied]);
   async function share() {
     setShareError(false);
-    if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
-      try {
-        await navigator.share({ title: camp.name, url: window.location.href });
-        return;
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-    } catch { setShareError(true); }
+    // The address bar is the link here: it carries the campground and dates.
+    const outcome = await shareOrCopy({ title: camp.name, url: window.location.href });
+    if (outcome === 'copied') setCopied(true);
+    if (outcome === 'failed') setShareError(true);
   }
   return (
     <>

@@ -10,6 +10,8 @@ import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Share2, Check } from 'lucide-react';
+import { canonicalShareUrl } from '@/lib/share-link';
+import { SHARE_LABEL, ShareAnnouncement, useShareLink } from '@/components/ui/share-link';
 import type { ConditionCode } from '@/types/api';
 import { buildEddyQuote, RIVER_NOTES } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
@@ -58,7 +60,7 @@ function formatGeneratedAge(generatedAt: string): string {
 export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange, embedded, share }: EddyQuoteProps) {
   const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
   const [aiLoaded, setAiLoaded] = useState(false);
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const { status: shareStatus, share: shareLink } = useShareLink();
 
   // Fetch AI-generated update on mount
   useEffect(() => {
@@ -98,28 +100,9 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   // (docs/SHARING_PREVIEWS.md). Opening the link shows current conditions.
   const sharePath = share?.path ?? `/rivers/${riverSlug}`;
   const shareTitle = share?.title;
-  const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}${sharePath}`;
-    const isMobile = window.matchMedia('(pointer: coarse)').matches;
-
-    if (isMobile && navigator.share) {
-      try {
-        await navigator.share(shareTitle ? { title: shareTitle, url } : { url });
-        return;
-      } catch (error) {
-        // Cancelling the sheet is not a failure and must not copy anything.
-        if (error instanceof Error && error.name === 'AbortError') return;
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareStatus('copied');
-      setTimeout(() => setShareStatus('idle'), 2000);
-    } catch {
-      // Clipboard failed
-    }
-  }, [sharePath, shareTitle]);
+  const handleShare = useCallback(() => {
+    void shareLink({ url: canonicalShareUrl(sharePath), title: shareTitle });
+  }, [shareLink, sharePath, shareTitle]);
 
   // Public web callers receive the summary only. Fall back to the static,
   // live-condition copy when no generated summary is available.
@@ -213,9 +196,10 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
               style={shareStatus === 'copied' ? undefined : { color: surface.color }}
               title="Share this report"
             >
-              {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-              {shareStatus === 'copied' ? 'Copied!' : 'Share'}
+              {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" aria-hidden /> : <Share2 className="w-3.5 h-3.5" aria-hidden />}
+              {shareStatus === 'idle' ? 'Share' : SHARE_LABEL[shareStatus]}
             </button>
+            <ShareAnnouncement status={shareStatus} />
           </div>
 
           {(optimalRange || notes) && hasSummary && (

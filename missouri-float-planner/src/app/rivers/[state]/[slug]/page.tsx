@@ -302,7 +302,7 @@ export default async function RiverGuidePage({ params }: Props) {
                       River Guide
                     </Link>
                   )}
-                  <ShareRiverButton className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors" />
+                  <ShareRiverButton path={riverPath(river.state, river.slug)} title={river.name} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors" />
                 </div>
 
                 {/* Meta */}

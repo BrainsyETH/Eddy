@@ -78,7 +78,7 @@ export default async function AccessPointDetailPage({ params }: Props) {
             ]}
           />
 
-          <AccessPointShareButton title={accessPoint.name} />
+          <AccessPointShareButton title={accessPoint.name} path={accessPoint.path} />
         </div>
       </div>
 
