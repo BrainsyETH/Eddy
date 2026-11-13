@@ -10,6 +10,7 @@ import { drainRiverEvents } from './river-delivery';
 import { deliverGaugeAlerts } from './gauge-delivery';
 import { DeliveryReadError } from './delivery-io';
 import { persistGaugeAlertPlan } from './gauge-alert-persist';
+import { loadLastTold } from './gauge-last-told';
 import { planGaugeAlerts, type GaugeAlertSubscription, type StationReading } from './gauge-threshold';
 import type { ExpoMessage, ExpoTicket } from '@/lib/push/expo';
 
@@ -310,6 +311,65 @@ test('a gauge alert delivered but never stamped drained is not sent again', asyn
   assert.deepEqual(t.sent, ['ExponentPushToken[a]'], 'No second push');
   assert.ok(gaugeEvent(db).push_delivered_at);
   assert.equal(gaugeEvent(db).push_outcome, 'sent');
+});
+
+// ── 5b. A warning nobody received does not cool down the next one ────────────
+
+/** gaugeWorld, with its one event a condition rule's flood warning. */
+function floodWorld() {
+  const db = gaugeWorld();
+  Object.assign(gaugeEvent(db), {
+    kind: 'warning',
+    condition_code: 'dangerous',
+    river_id: RIVER,
+    rivers: { name: 'Current River', slug: 'current' },
+    gauge_alert_subscriptions: {
+      ...(gaugeEvent(db).gauge_alert_subscriptions as object),
+      mode: 'condition',
+      condition_kind: 'safety',
+      metric: null,
+      comparator: null,
+      threshold_value: null,
+    },
+  });
+  return db;
+}
+
+/** The rule behind that event, as the evaluator loads it: fired ten minutes ago. */
+const FLOOD_RULE = {
+  id: 'gsub-1',
+  mode: 'condition',
+  last_triggered_at: '2026-07-25T11:50:00.000Z',
+} as GaugeAlertSubscription;
+
+test('a flood warning that exhausts its retries is not counted as told', async () => {
+  // Every send fails until the event is given up. Until then it is on its way
+  // and must hold the rule; afterwards the user has heard nothing, and the
+  // cooldown must not treat the next flood warning as a repeat of this one.
+  const db = floodWorld();
+  const t = transport(new Set(['ExponentPushToken[a]']));
+
+  await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  assert.equal(gaugeEvent(db).push_delivered_at, null, 'Still retrying');
+  assert.equal((await loadLastTold(db, [FLOOD_RULE], NOW)).get('gsub-1'), 'dangerous', 'On its way counts');
+
+  for (let pass = 0; pass < 6 && gaugeEvent(db).push_delivered_at == null; pass++) {
+    await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  }
+  assert.equal(gaugeEvent(db).push_outcome, 'given_up');
+  assert.deepEqual(t.sent, []);
+
+  const lastTold = await loadLastTold(db, [FLOOD_RULE], NOW);
+  assert.equal(lastTold.has('gsub-1'), true);
+  assert.equal(lastTold.get('gsub-1'), null, 'Nothing reached this person');
+});
+
+test('a flood warning that was delivered is what the user was told', async () => {
+  const db = floodWorld();
+  const t = transport();
+  await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  assert.deepEqual(t.sent, ['ExponentPushToken[a]']);
+  assert.equal((await loadLastTold(db, [FLOOD_RULE], NOW)).get('gsub-1'), 'dangerous');
 });
 
 // ── 6. A failed insert preserves the crossing ────────────────────────────────
