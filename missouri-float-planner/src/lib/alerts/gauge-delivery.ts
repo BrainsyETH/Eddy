@@ -35,8 +35,8 @@ import { logger } from '@/lib/logger';
  * pass applies. After a delivery outage, "the Meramec is above 3 ft" must never
  * fire about water that has since dropped.
  */
-const MAX_EVENT_AGE_HOURS = 3;
-const MAX_ATTEMPTS = 5;
+export const MAX_EVENT_AGE_HOURS = 3;
+export const MAX_ATTEMPTS = 5;
 const EVENT_BATCH = 200;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
