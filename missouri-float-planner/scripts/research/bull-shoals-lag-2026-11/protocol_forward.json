@@ -45,8 +45,10 @@
     "what withheld rows would have scored, from the estimate saved in their inputs",
     "results by calendar quarter"
   ],
-  "scope": "One dam, one gauge 41.5 river miles down. Nothing in the log is shown to users, and a HOLDS verdict supports an estimate at that gauge only: not at accesses without a gauge, not a wading or launch window.",
+  "scope": "One dam, one gauge 41.5 river miles down. A HOLDS verdict supports an estimate at that gauge only: not at accesses without a gauge, not a wading or launch window. No estimate is shown to users before its outcome is recorded; see publication.",
   "amended_on": "2026-11-12, after review and before any forward row exists: the issue-time tributary check, lateness filed by cause, pass records, live watch events, and subgroup results standing on their own.",
   "what_this_tests": "A fixed estimate per release increase. Watch events are recorded as they happen to measure detection time; they do not change an estimate or its score.",
-  "subgroups": "Results are reported pooled and separately for increases flagged 'earlier release in transit', for increases with a watch event before the rise, and for rows written after the fact. The pooled verdict does not extend to a subgroup that misses the marks on its own."
+  "subgroups": "Results are reported pooled and separately for increases flagged 'earlier release in transit', for increases with a watch event before the rise, and for rows written after the fact. The pooled verdict does not extend to a subgroup that misses the marks on its own.",
+  "publication": "Results are published after the fact on the public findings page: for an issued estimate whose outcome is matched, the estimate, its range and the observed rise, once the outcome row exists (about 26 hours after the increase). An increase still travelling is published as waiting, with its release time only. Withheld increases are published as counts by reason, and undetermined outcomes as not compared. Publishing changes nothing in the rule, model, range, pass marks or scoring, and the public tally is not the verdict.",
+  "amended_on_2": "2026-11-13, before any forward row exists (0 predictions, 0 outcomes at 18:06 UTC): results are published after their outcome. The earlier text said nothing in the log is shown to users."
 }
