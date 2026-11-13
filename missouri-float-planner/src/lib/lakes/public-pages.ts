@@ -5,8 +5,9 @@ import { getLake, lakeForDam, type LakeEntry } from './registry';
 // an editorial release decision, never a transient database-health check.
 const APPROVED_LAKE_PAGES: readonly string[] = ['table-rock', 'truman'];
 
-// Existing dam pages are public already. Their lake header, measurements and
-// preview need a separate release decision; registry membership is not approval.
+// Existing dam pages are public already. Their lake preview needs a separate
+// release decision; registry membership is not approval. The shared photo header
+// and measurement styling are independent of lake publication (ADR 0019).
 // Background collection can run while both public UI gates remain closed.
 const APPROVED_DAM_LAKE_EXPERIENCES: readonly string[] = ['table-rock', 'truman'];
 

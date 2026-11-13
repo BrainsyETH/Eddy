@@ -16,8 +16,8 @@ The dam page answers: What's the dam doing, what's scheduled, and what does that
 
 Page order:
 
-1. Compact header with dam name, location, and optional verified real dam photography. Photography must not displace the primary generation chart on mobile.
-2. **Today's generation:** Current observed generation or release comes first, followed by the existing full schedule visualization. DOM and visual order agree on phone and desktop.
+1. Photo header with dam name, location and Share. Keep the photo shallow on mobile, with the primary conditions card overlapping its lower edge. Use verified real dam photography or Eddy artwork.
+2. **Today's generation:** The existing hourly schedule spans the card width, followed by current observed release and turbine status in a compact row (stacked on phones). When no schedule is posted, observations lead before the availability explanation. DOM and visual order agree on phone and desktop.
 3. **Conditions:** Lake level and below-dam measurements together, using Eddy icons and clear freshness labels. Display only measurements the source supports.
 4. **Operational interpretation:** Eddy's Read, generation forecasts, and patterns where supported, all ahead of the lake preview. Preserve useful existing ordering within this group.
 5. **Lake preview:** Compact seven-day trend, a brief lake summary, reviewed launch count, and an "Explore [Lake]" action only once that public lake route is approved.
@@ -25,7 +25,7 @@ Page order:
 
 The page must never put a boat-launch directory ahead of generation. Operations-first is capability-aware: retain release information and the existing honest availability explanation for gate-operated dams or dams without a published hourly schedule. Do not create an empty generation panel.
 
-The redesigned condition area and lake preview are limited to the two pilot dams initially. The dam experience has its own explicit release allowlist, separate from lake-page publication. Data collection and backfills never enable the design. Other dam pages retain their existing layout. Shared primitives must pass regression checks across all supported capabilities.
+The redesigned condition area and lake preview are limited to the two pilot dams initially. The dam experience has its own explicit release allowlist, separate from lake-page publication. Data collection and backfills never enable the design. The shared photo header and measurement styling now apply to all dam pages (visual direction approved November 12); lake previews still require the existing publication gate. Shared primitives must pass regression checks across all supported capabilities.
 
 ### Lake page: Recreation and conditions first
 
@@ -66,7 +66,7 @@ The generated mockup is a visual reference, not a source for factual measurement
 - Show rising/falling movement using arrows, a signed measured change and its time window. Use Eddy teal/coral purposefully; no green "good" verdict merely because water rose.
 - Show a shared observation timestamp once, top right, only when all associated observations share it. Identify different measurement times beside the affected value. Never replace observation time with fetch time. Daily lake reports keep their daily qualifier and cadence-aware stale state.
 - Prefer existing quiet panels for measurements and a framed primary chart. No card inside every card, generic placeholder stats, or decorative empty photo space.
-- Cap optional dam photography at a compact header treatment; mobile reviewers must see the generation chart without scrolling through a large hero. Without a verified photo, use the existing compact branded heading.
+- November 12 visual revision: use a wide photo header with overlaid title and a shallow mobile crop; overlap the first conditions card at the lower edge. Keep the complete chart, observations and disclosures intact. Without a verified photo, use the same branded header with Eddy artwork.
 - Each visual PR includes annotated desktop and mobile captures identifying section order, spacing, condition-row behavior and data provenance. All links and interactive controls work in that PR.
 
 ---

@@ -503,10 +503,15 @@ Android visibility, Read/widget exclusivity and planner retry. The
 
 Truman and Table Rock keep generation first, followed by a shared measurement
 row, Eddy's Read and operational forecasts/patterns. The lake preview follows
-those operations; launch directories live on the dedicated lake page. On phones,
-the generation card puts the latest reported release above the full-width schedule,
-consistently across pilot and other dam pages. The compact pilot headers reuse the
-attributed iOS photographs; web copies and provenance live in `public/lakes/`.
+those operations; launch directories live on the dedicated lake page. Posted
+schedules span the full card width, followed by reported release and turbine
+status in a compact row (stacked on phones). Without a posted schedule, the
+observed release leads before the availability explanation. This order is
+consistent across pilot and other dam pages. Dam and lake pages use a shared
+photo header with the primary conditions card overlapping its lower edge. Dam
+headers reuse attributed onboarding photography where available, with an Eddy
+illustration when no photo is approved. Lake pages use their own scenery. Web
+copies and provenance live in `public/lakes/`.
 Photo attribution is shown on `/photo-credits`, available through the shared
 footer, rather than beneath each pilot header image.
 
@@ -514,7 +519,13 @@ footer, rather than beneath each pilot header image.
 reviewed launch locations. Daily reports use a 36-hour freshness limit; hourly
 observations use six hours. Movement ends at the displayed observation, and
 stale observations cannot produce current movement or elevation cautions.
-Reviewed launch locations are not live opening/closure reports.
+Reviewed launch locations are not live opening/closure reports. The lake facts
+strip shows the controlling dam, conservation pool, reviewed-launch count and
+location from existing data. Launch rows use verified ramp photography where
+available and Eddy artwork otherwise, with compact method filters and expandable
+operator/fee/threshold details. Paired recreation and dam cards link to official
+visitor information and the existing generation page. No surface-area or lake
+fishery claims are inferred from the dam registry.
 
 `src/lib/lakes/public-pages.ts` is the shared publication gate for lake routes,
 dam links, Conditions discovery and the sitemap. It starts empty. Add a pilot
@@ -524,7 +535,7 @@ decision: a later data outage renders unavailable states, not a disappearing
 route. Existing dam canonical URLs and the embed/iOS contracts are retained.
 
 `npm run test:lakes` checks fixture pages at 1440, 768, 390 and 320 pixels,
-including the generation-first order, shared observation times, daily cadence,
+including schedule/readings order, time-label spacing, daily cadence,
 launch filters, map keyboard selection, chart controls and missing/stale data.
 It uses port 3141 and the same Chromium setup as `test:dam-page`. Temporary
 fixtures are development-only and removed on exit; screenshots are clearly

@@ -1,0 +1,64 @@
+name: Dam and lake layouts
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/dam-lake-web.yml'
+      - 'missouri-float-planner/src/components/dam/**'
+      - 'missouri-float-planner/src/components/lake/**'
+      - 'missouri-float-planner/src/app/dams/**'
+      - 'missouri-float-planner/src/app/lakes/**'
+      - 'missouri-float-planner/src/app/globals.css'
+      - 'missouri-float-planner/src/lib/lakes/**'
+      - 'missouri-float-planner/shared/dam-*.ts'
+      - 'missouri-float-planner/shared/lake-*.ts'
+      - 'missouri-float-planner/public/lakes/**'
+      - 'missouri-float-planner/scripts/dam-page-smoke.mjs'
+      - 'missouri-float-planner/scripts/lakes-experience-smoke.mjs'
+      - 'missouri-float-planner/scripts/conditions-smoke-server.mjs'
+      - 'missouri-float-planner/package*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dam-lake-layouts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [dam-page, lakes]
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Check layouts and interactions
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          DAM_SMOKE_OUTPUT: ${{ runner.temp }}/dam-lake-previews
+          LAKES_SMOKE_OUTPUT: ${{ runner.temp }}/dam-lake-previews
+        run: npm run test:${{ matrix.suite }}
+      - name: Upload labelled fixture previews
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.suite }}-previews-${{ github.sha }}
+          path: ${{ runner.temp }}/dam-lake-previews
+          if-no-files-found: ignore
+          retention-days: 7

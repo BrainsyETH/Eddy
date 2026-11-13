@@ -51,7 +51,8 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
   const dimRelease = release && readingStaleness(release.at, now) !== 'fresh';
 
   return (
-    <section aria-label="Reported water release" className="min-w-0">
+    <section aria-label="Reported water release" className="dam-release-summary min-w-0">
+      <div className="min-w-0">
       <h2 className="flex items-center gap-2 pr-8 text-base font-semibold text-primary-900 sm:pr-0">
         <EddyIcon name="release" size={28} /> Latest reported release
       </h2>
@@ -64,7 +65,8 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
         {dimRelease && !release.dailyMean && <p className="mt-1 text-xs font-semibold text-accent-900">Outdated release reading</p>}
       </> : <p className="mt-3 text-sm text-neutral-700">Total release unavailable.</p>}
 
-      {status && <div className="mt-4 border-t border-secondary-300 pt-4">
+      </div>
+      {status && <div className="dam-turbine-summary min-w-0">
         <h3 className="flex items-start gap-2 text-sm font-semibold leading-5 text-primary-900">
           <Zap className="mt-0.5 size-4 shrink-0 text-primary-700" aria-hidden="true" /> {status}
         </h3>
@@ -83,11 +85,11 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
         {voiceOver && <p className="sr-only">{voiceOver}</p>}
       </div>}
 
-      {spill && <p className="mt-4 rounded-lg border border-accent-500 bg-accent-50 px-3 py-2 text-sm font-semibold text-accent-900">
+      {spill && <p className="dam-release-note rounded-lg border border-accent-500 bg-accent-50 px-3 py-2 text-sm font-semibold text-accent-900">
         {spillwayReleaseLabel(spill)}
         <span className="block text-xs font-normal text-neutral-700">Through the spillway gates · {relativeAge(spill.observedAt, now)}</span>
       </p>}
-      {comparison.kind === 'other-release' && <p className="mt-3 text-sm text-neutral-700">
+      {comparison.kind === 'other-release' && <p className="dam-release-note text-sm text-neutral-700">
         <span className="font-medium">Not through turbines</span>{' '}
         <span className="font-mono text-primary-900">{Math.round(comparison.otherCfs).toLocaleString()} cfs</span>
       </p>}

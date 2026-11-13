@@ -26,7 +26,7 @@ const lake = {
   operatingRange: { conservationFt: 915, floodFt: 931, source: 'Preview reference', asOf: '2026-11-09' }, poolPosition: 'below_conservation',
   history: Array.from({ length: 8 }, (_, i) => [new Date(now - (7 - i) * 86_400_000 - 3_600_000).toISOString(), 914.8 - i * .4 / 7]).slice(1),
   launches: [
-    { id: 'one', slug: 'example-ramp', name: 'Example trailer ramp', lon: -93.3, lat: 36.6, thresholds: { bottomFt: 704, closureFt: 724, datum: 'NGVD29', source: 'Unreviewed fixture thresholds', sourceUpdatedAt: null }, launchMethods: ['trailer'], amenities: ['parking', 'restroom'], managingAgency: 'Example operator', feeRequired: null },
+    { id: 'one', slug: 'moonshine-beach', name: 'Example trailer ramp', lon: -93.3, lat: 36.6, thresholds: { bottomFt: 704, closureFt: 724, datum: 'NGVD29', source: 'Unreviewed fixture thresholds', sourceUpdatedAt: null }, launchMethods: ['trailer'], amenities: ['parking', 'restroom'], managingAgency: 'Example operator', feeRequired: null },
     { id: 'two', slug: 'example-hand-launch', name: 'Example hand launch', lon: -93.33, lat: 36.63, launchMethods: ['hand'], amenities: ['parking'], managingAgency: 'Example operator', feeRequired: false },
   ], cautionsVerified: false, sources: [],
 };
@@ -52,7 +52,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   const dam = structuredClone(baseDam) as import('@shared/dam-types').DamSnapshot;
   const lake = structuredClone(baseLake) as unknown as import('@shared/lake-types').LakeSection;
   if (variant === 'truman') {
-    dam.id = 'nwk-truman-dam'; dam.name = 'Harry S. Truman Dam'; lake.name = 'Truman Lake'; lake.slug = 'truman';
+    dam.id = 'nwk-truman-dam'; dam.name = 'Harry S. Truman Dam'; lake.name = 'Truman Lake'; lake.slug = 'truman'; lake.states = ['MO'];
     dam.metrics = { poolElevation: { value: 705.4, unit: 'ft', at: '2026-11-08T22:00:00Z', staleness: 'stale' } };
     lake.pool = { valueFt: 705.4, at: '2026-11-08T22:00:00Z', staleness: 'stale', daily: true };
     lake.history = lake.history.map(([at, ft]) => [at, ft - 209]);
@@ -66,7 +66,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   if (variant === 'mixed') { lake.pool!.at = '2026-11-08T18:00:00Z'; dam.metrics.poolElevation!.at = lake.pool!.at; }
   if (variant === 'baseline') dam.id = 'swl-bull-shoals-dam';
   const enabled = variant !== 'held' && damLakeExperienceEnabled(dam.id);
-  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader>{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div>;
+  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader kind={kind === 'lake' ? 'lake' : 'dam'} damId={dam.id} lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader><div className="place-content">{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div></div>;
 }
 `);
   assert.equal(spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]).status, 0);
@@ -100,13 +100,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         await page.goto(`${origin}/lakes-layout-check?kind=${kind}&variant=${variant}`, { waitUntil: 'networkidle' });
         await page.clock.runFor(1000);
         await page.waitForFunction(() => [...document.querySelectorAll('figure > svg[tabindex]')].every(svg => Math.abs(Number(svg.getAttribute('width')) - svg.parentElement.getBoundingClientRect().width) < 2));
+        await page.locator('.place-header img').evaluateAll(nodes => Promise.all(nodes.map(img => img.decode())));
+        assert(await page.locator('.place-header img').evaluateAll(nodes => nodes.every(img => img.naturalWidth > 0)), 'header photos load');
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${kind} ${variant} overflow at ${width}`);
         assert.equal(await page.locator('[data-launch-id]').count(), kind === 'dam' ? 0 : 2, 'launch list belongs only on lake page');
         assert.equal(await page.getByRole('link', { name: /photo credit/i }).count(), 0, 'credits remain on the central credits page');
         if (kind === 'lake') {
+          assert(await page.locator('.lake-facts dd, .lake-launch-filter button').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'facts and filter labels fit their controls');
+          assert(await page.locator('[aria-labelledby="lake-level-heading"] p.font-mono').evaluate(node => node.scrollWidth <= node.clientWidth), 'lake level and unit fit on one line');
           const launches = await page.locator('[aria-labelledby="lake-launches-heading"]').innerText();
           assert(!/Ramp bottom|Published closure threshold|Elevation cautions use/.test(launches), 'unverified thresholds and footer stay hidden even in an old payload');
-          const directions = new URL(await page.getByRole('link', { name: 'Directions', exact: true }).first().getAttribute('href'));
+          const directions = new URL(await page.getByRole('link', { name: /^Directions to/ }).first().getAttribute('href'));
           assert.equal(directions.pathname, '/maps/dir/');
           assert.equal(directions.searchParams.get('destination'), '36.6,-93.3');
         }
@@ -117,16 +121,21 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           assert((await generation.innerText()).includes('Nov 9'), 'generation is first');
           const scheduleBox = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
           const observedBox = await page.locator('.dam-observed').boundingBox();
-          assert(width < 900 ? observedBox.y < scheduleBox.y : observedBox.x < scheduleBox.x, 'current observation leads before the full schedule');
-          assert(await page.locator('.dam-observed').evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('[aria-label="Generation schedule"]')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'DOM order matches the visual order');
-          if (!variant) {
-            const conditions = page.locator('[data-pilot-conditions]');
-            assert.equal((await conditions.innerText()).match(/Observed/g)?.length, 1, 'shared timestamp appears once');
-            const y = await conditions.locator('h3 + p').evaluateAll(nodes => nodes.map(n => Math.round(n.getBoundingClientRect().top)));
-            assert.equal(new Set(y).size, 1, 'three measurement values share one row');
-            assert(await conditions.locator('h3 + p').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'measurements do not overlap');
-          } else assert(!(await page.locator('[data-pilot-conditions]').innerText()).includes('Outdated'), '20-hour daily report is not stale');
+          assert(observedBox.y >= scheduleBox.y + scheduleBox.height, 'observed readings follow the full-width schedule');
+          assert(await page.locator('.dam-observed').evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('[aria-label="Generation schedule"]')) & Node.DOCUMENT_POSITION_PRECEDING)), 'DOM order matches the visual order');
+          assert(Math.abs(scheduleBox.width - (observedBox.width - (width < 640 ? 32 : 48))) < 3, 'schedule uses the full card width');
+          const axesFit = await page.locator('.dam-timeline-axis').evaluateAll(axes => axes.every(axis => {
+            const labels = [...axis.children].filter(label => label.getBoundingClientRect().width > 0).map(label => label.getBoundingClientRect());
+            return labels.every((label, i) => i === 0 || label.left >= labels[i - 1].right + 2);
+          }));
+          assert(axesFit, `schedule time labels do not collide at ${width}px`);
+          const conditions = page.locator('[data-dam-measurements]');
+          assert.equal(await conditions.count(), 1, 'one supporting measurement group');
+          assert(await conditions.locator('.dam-measurements > div').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'measurements do not overlap');
         }
+        const hero = await page.locator('.place-header').boundingBox();
+        const content = await page.locator('.place-content').boundingBox();
+        assert(content.y < hero.y + hero.height && content.y > hero.y + hero.height - 40, 'main card overlaps the photo edge without covering the title');
         await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
         await page.screenshot({ path: `${out}/${variant || 'table-rock'}-${kind}-${width}.png`, fullPage: true });
       }
@@ -155,13 +164,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     assert((await page.locator('[data-lake-detail]').innerText()).includes('Lake level is currently unavailable'));
     assert.equal(await page.locator('[data-launch-id]').count(), 0);
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=mixed`, { waitUntil: 'networkidle' });
-    assert((await page.locator('[data-pilot-conditions]').innerText()).includes('Below dam observed'), 'mixed observations are scoped');
+    assert((await page.locator('[data-dam-measurements]').innerText()).includes('Lake level'), 'mixed-age measurements remain visible');
     await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=stale`, { waitUntil: 'networkidle' });
     assert((await page.locator('[aria-labelledby="lake-level-heading"]').innerText()).includes('Outdated'));
     assert(!(await page.locator('[aria-labelledby="lake-level-heading"]').innerText()).includes('in 24h'), 'stale level does not present current movement');
     await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=caution`, { waitUntil: 'networkidle' });
     await page.clock.runFor(1000);
     assert.equal(await page.locator('[data-launch-id] [role=note]').count(), 1, 'verified fresh caution is visible');
+    await page.locator('[data-launch-id]').first().locator('summary').click();
     const verified = await page.locator('[aria-labelledby="lake-launches-heading"]').innerText();
     assert(verified.includes('Ramp bottom 704 ft') && verified.includes('Published closure threshold 724 ft') && verified.includes('Elevation cautions use'), 'verified thresholds and explanation are available');
     await page.clock.fastForward(10 * 60_000);
@@ -169,25 +179,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=held`, { waitUntil: 'networkidle' });
     assert.equal(await page.locator('[data-pilot-conditions]').count(), 0, 'registry lake with data does not enable redesigned conditions');
     assert.equal(await page.locator('[data-lake-section]').count(), 0, 'held dam does not expose history or reviewed-launch count');
-    assert.equal(await page.locator('img').evaluateAll(nodes => nodes.filter(img => decodeURIComponent(img.src).includes('/lakes/')).length), 0, 'held dam does not expose photo header');
+    assert.equal(await page.locator('.place-header img').count(), 1, 'approved dam photography is independent of lake publication');
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
     await page.screenshot({ path: `${out}/held-dam-${width}.png`, fullPage: true });
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=baseline`, { waitUntil: 'networkidle' });
     await page.clock.runFor(1000);
-    assert.equal(await page.locator('[data-pilot-conditions]').count(), 0, 'non-pilot keeps the established measurement card');
+    assert.equal(await page.locator('[data-dam-measurements]').count(), 1, 'non-pilot keeps the shared measurement card');
     const baselineSchedule = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
     const baselineObserved = await page.locator('.dam-observed').boundingBox();
-    assert(width < 900 ? baselineSchedule.y > baselineObserved.y : baselineSchedule.x > baselineObserved.x, 'non-pilot placement is unchanged');
+    assert(baselineObserved.y >= baselineSchedule.y + baselineSchedule.height, 'non-pilot also uses a full-width schedule before readings');
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
     await page.screenshot({ path: `${out}/baseline-dam-${width}.png`, fullPage: true });
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=noSchedule`, { waitUntil: 'networkidle' });
     assert((await page.locator('[data-dam-detail]').innerText()).includes('Schedule currently unavailable'));
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=gate`, { waitUntil: 'networkidle' });
     const gate = await page.locator('[data-dam-detail]').innerText();
-    assert(gate.includes('Gate-operated releases') && gate.includes('Outdated reading'));
+    assert(gate.includes('Gate-operated releases') && /Outdated (?:release )?reading/.test(gate));
     assert(!gate.includes('Generating now'), 'stale zero release does not describe current operations');
     assert.equal(await page.getByRole('region', { name: 'Generation schedule', exact: true }).count(), 0, 'gate-operated dam has no empty generation chart');
-    console.log(`PASS ${width}px: release gates, observation-first order, hidden unverified thresholds, metrics, filters, map keyboard, chart, missing/stale data and dam regressions`);
+    console.log(`PASS ${width}px: release gates, full-width schedule, readable axis labels, hidden unverified thresholds, metrics, filters, map keyboard, chart, missing/stale data and dam regressions`);
     await page.close();
   }
   assert.deepEqual(errors, [], 'no browser errors');

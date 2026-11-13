@@ -199,7 +199,7 @@ export default function Page() {
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
   const errors = [];
-  for (const [name, width, height, wide] of (appOnly ? [] : [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, false], ['small-landscape', 667, 375, false], ['small-portrait', 320, 720, false]])) {
+  for (const [name, width, height] of (appOnly ? [] : [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, false], ['small-landscape', 667, 375, false], ['small-portrait', 320, 720, false]])) {
     const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 900 });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
@@ -248,7 +248,7 @@ export default function Page() {
     await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
     const a = await page.locator('.dam-observed').boundingBox();
     const b = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
-    assert(wide ? b.x > a.x + a.width - 2 : b.y >= a.y + a.height, `${name}: responsive column placement`);
+    assert(a.y >= b.y + b.height, `${name}: readings follow the full-width schedule`);
     const cta = page.locator('[data-dam-app-cta]');
     assert.equal(await cta.locator('a').count(), 1, 'dam promotion has one action');
     assert(await cta.evaluate(el => Boolean(el.closest('section')?.querySelector('[aria-label="Generation schedule"]'))), 'app action belongs to the generation card footer');
@@ -283,7 +283,7 @@ export default function Page() {
     assert.equal(await days.first().locator('[role="img"] [data-schedule-now]').count(), 1, 'orange is reserved for the Now marker, as on iOS');
     assert(await days.first().getByText('Now', { exact: true }).isVisible());
     assert(await days.first().getByText('Today’s scheduled generation: 12–8 PM', { exact: true }).isVisible());
-    const measurements = page.getByRole('heading', { name: 'Dam & lake', exact: true }).locator('..');
+    const measurements = page.getByRole('heading', { name: 'Water conditions', exact: true }).locator('..');
     const measurementsBox = await measurements.boundingBox();
     const patternBox = await pattern.boundingBox();
     assert(measurementsBox.y + measurementsBox.height <= patternBox.y, 'dam and lake readings are above the pattern');
