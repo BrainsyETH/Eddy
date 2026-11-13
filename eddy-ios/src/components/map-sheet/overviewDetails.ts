@@ -29,3 +29,8 @@ export function campingServiceGroups(services: readonly NearbyService[]) {
     nearby: services.filter((service) => service.relationship !== 'same_place'),
   };
 }
+
+/** Never illustrate a neighbouring campground with this access point's photo. */
+export function campgroundThumbnailUrl(service: NearbyService, accessPhoto?: string | null): string | null {
+  return service.imageUrl || (service.relationship === 'same_place' ? accessPhoto ?? null : null);
+}

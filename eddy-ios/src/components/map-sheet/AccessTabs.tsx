@@ -79,7 +79,7 @@ import {
 } from './sections';
 import { compactFloatEstimate } from './floatEstimate';
 import { ServiceContactRow } from './ServiceContactRow';
-import { accessNoteItems, campingServiceGroups } from './overviewDetails';
+import { accessNoteItems, campingServiceGroups, campgroundThumbnailUrl } from './overviewDetails';
 import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
@@ -339,6 +339,7 @@ export function AccessOverviewTab({
               key={service.name}
               service={service}
               symbol="campground"
+              imageUrl={campgroundThumbnailUrl(service, photos[0])}
               onOpenCamping={camping.here.length === 1 ? onOpenCamping : null}
             />
           ))}
@@ -355,7 +356,7 @@ export function AccessOverviewTab({
       {camping.nearby.length ? (
         <Section title="Camping nearby" separated>
           {camping.nearby.map((service) => (
-            <ServiceContactRow key={service.name} service={service} symbol="campground" />
+            <ServiceContactRow key={service.name} service={service} symbol="campground" imageUrl={campgroundThumbnailUrl(service, photos[0])} />
           ))}
         </Section>
       ) : null}

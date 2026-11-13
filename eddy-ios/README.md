@@ -647,6 +647,12 @@ spacing while retaining 44-point contact targets. Mixed access/camping fee notes
 stay intact and expandable in Overview until the source provides separately
 structured charges.
 
+Camping cards reuse the 44-point campground thumbnail beside their content. The
+service's own photo takes priority; only a verified `same_place` link can reuse
+the access photo. Missing or failed photos show Eddy's campground art. The detail
+API carries service photos from the existing directory media and reviewed photo
+catalog, with the same map/numbered-site exclusions as camping search.
+
 ### Search is half local, half server
 
 `src/hooks/useEddySearch.ts` matches **rivers and gauges in memory** and asks the
