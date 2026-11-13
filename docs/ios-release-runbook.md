@@ -186,6 +186,23 @@ Implemented in JavaScript; the following physical-device checks are still open.
 - [ ] River, gauge and dam interpretations use the same otter/Fredoka Read
       heading in light/dark mode and at the largest Dynamic Type size.
 
+### Saved alert notification setup gates — November 12, 2026
+
+JavaScript only; physical-device verification remains open.
+
+- [ ] Sign out, sign in through Premium restore, then resume a saved alert
+      from Mine and from its editor. With permission undetermined, the existing
+      Eddy primer appears after the save. Declining leaves the alert saved and
+      a Turn on notifications action visible.
+- [ ] With notifications denied in iOS, resuming shows Open iOS Settings.
+      Enable there and return: registration refreshes and the notice clears
+      only when the phone is registered. Repeat with Eddy's device opt-out:
+      sign-in preserves it, and Turn on notifications explicitly clears it.
+- [ ] A failed registration offers Try again without claiming the alert failed
+      to save. Rearm a spent one-shot through Save and through the switch;
+      setup remains reachable. Pausing never opens a prompt. Check light/dark,
+      large text and VoiceOver, including the setup notice and its action.
+
 ### Share payload gates — November 12, 2026
 
 Implemented in JavaScript (`eddy-ios/src/lib/sharePayload.ts`,

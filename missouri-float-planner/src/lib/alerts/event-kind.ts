@@ -63,6 +63,51 @@ export function classifyEventKind(
 }
 
 /**
+ * How far into elevated water a condition is: 0 below it, 1 high, 2 dangerous.
+ *
+ * Not `severity` from shared/condition-system.ts, which orders all six codes
+ * for display. This ranks only the two a `warning` can land on, for the one
+ * question the cooldowns ask: is this worse than what the user last heard?
+ */
+export function elevatedRank(code: ConditionCode | string | null | undefined): number {
+  if (code === 'dangerous') return 2;
+  if (code === 'high') return 1;
+  return 0;
+}
+
+/**
+ * Is this event news that the water got WORSE than the user was last told?
+ *
+ * ── The rule every alert cooldown has to respect ────────────────────────────
+ *
+ * A cooldown exists to stop repeats: a gauge hovering at a band edge must not
+ * buzz a phone every pass. It was also stopping something that is not a repeat.
+ * `low → high` and `high → dangerous` are both `warning`, so a river that came
+ * up to high at 1pm and reached flood at 3pm sent "high water" and then nothing
+ * — the second, worse warning was read as a duplicate of the first. That is how
+ * Ozark rivers actually rise, and it left the user's last word from Eddy less
+ * severe than the river.
+ *
+ * So: a cooldown may withhold a warning only when the user has already heard
+ * something at least as bad. Both passes ask this before honouring theirs.
+ *
+ * It bounds oscillation on its own. At a flapping high/dangerous edge the user
+ * hears "dangerous" once; after that their last word IS dangerous, nothing
+ * outranks it, and the cooldown holds as before.
+ *
+ * `lastToldRank` is what the user last heard, as elevatedRank. Callers that
+ * cannot tell which of high or dangerous an earlier warning was pass 1: an
+ * unknown must not withhold a flood warning, and at worst it repeats one.
+ */
+export function worsensWhatWasTold(
+  kind: EventKind | string,
+  newCode: ConditionCode | string,
+  lastToldRank: number,
+): boolean {
+  return kind === 'warning' && elevatedRank(newCode) > lastToldRank;
+}
+
+/**
  * Kinds that may generate a push. `recovery`/`info` are feed-only.
  *
  * This is now the ONLY thing standing between an event and a notification.
