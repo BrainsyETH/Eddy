@@ -1885,9 +1885,13 @@ also keep their recap context (`startCondition`, `riverSpan`, `coveredMiles`,
 `startWeather`) under its own `recapContext` capability, by the same rule
 (ADR 0012); `missouri-float-planner/shared/float-recap.ts` reads it for the
 history card and recap.
-The recap leads with a compact condition-tinted mood header, then **Your route**:
-the full start-to-take-out river stretch, progress, credited distance and total
-time. It replaces the recap's whole-river exploration/lifetime panel. Existing
+The recap leads with a compact condition-tinted mood header, then one trip card:
+**Your route**, the full start-to-take-out river stretch, progress, credited
+distance and total time, followed by the moving/breaks breakdown behind a thin
+divider. Share follows the trip card, ahead of the compact starting conditions;
+history, backup and the separate delete action sit below. Large text stacks the
+stat columns and endpoint names. It replaces the recap's whole-river
+exploration/lifetime panel. Existing
 history and share-image measurement rules remain unchanged. New summaries save
 `routeSnapshot` (start/take-out miles, start name, calibration, original map-anchor
 IDs/miles and optional download key), without coordinates. A confirmed launch
@@ -1914,7 +1918,8 @@ Only confirmed arrival earns **100% complete**. Limited tracking suppresses an
 unconfirmed percentage, but never undoes a confirmed arrival. **Last recorded**
 is not necessarily where the float ended. Maps do not request location and do
 not capture scroll gestures. Both appearances use the downloaded **STYLE_URL**
-(outdoors-v12), with legible light-map overlay ink. Mapbox attribution stays
+(outdoors-v12), with a light visual wash beneath the route overlays, stronger
+route casing, and collision-aware marker labels. Mapbox attribution stays
 visible and separately accessible; both renderers have a VoiceOver description
 that mentions coverage only when present. A river-only
 SVG fallback uses the same geometry when native maps/styles are unavailable.
