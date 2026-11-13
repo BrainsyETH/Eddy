@@ -630,6 +630,11 @@ constraint worth writing down.
 
 ### Access Overview sections
 
+The full access page uses a full-width, swipeable photo header in both cached and
+loaded states. Names remain below the image and wrap at larger text sizes; type
+facts use Eddy's category art, while generic Access is omitted. Missing or failed
+photos leave no empty hero. Multiple photos show their page count.
+
 Access sheets separate facilities/fees, Good to know, camping and services with
 quiet dividers and plain section headings. Service names wrap; descriptions
 can expand; each available contact action remains independently reachable.
@@ -648,8 +653,13 @@ same facility with a potentially different arrival point; it and legacy entries
 remain separate. Names and short distances are never evidence of identity.
 The Camping shortcut selects the existing tab by key and appears only when that
 tab exists and no campground is listed. Listed campgrounds replace that standalone
-shortcut; the Camping tab remains available. Service cards use compact vertical
-spacing while retaining 44-point contact targets. Mixed access/camping fee notes
+shortcut; the Camping tab remains available. Compact service rows place the name,
+distance and 44-point contact controls together. Tapping expands descriptions and
+any extra contact links; on-site camping remains reachable from those details.
+Lodging entries without a valid phone, website or booking destination are omitted
+on both the sheet and full page, so generic town/supply notes do not become dead
+lodging cards. Verified booking links are carried through the detail API.
+Mixed access/camping fee notes
 stay intact and expandable in Overview until the source provides separately
 structured charges.
 

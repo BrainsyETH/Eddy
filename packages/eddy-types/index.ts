@@ -384,6 +384,7 @@ export interface NearbyService {
   imageUrl?: string | null;
   phone?: string;
   website?: string;
+  reservationUrl?: string;
   /** Pre-composed distance text — "2 mi". Never a number to do maths on. */
   distance?: string;
   notes?: string;

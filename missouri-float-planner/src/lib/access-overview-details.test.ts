@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { accessNoteItems, campingServiceGroups, campgroundThumbnailUrl } from '../../../eddy-ios/src/components/map-sheet/overviewDetails';
+import { accessNoteItems, campingServiceGroups, campgroundThumbnailUrl, visibleNearbyServices } from '../../../eddy-ios/src/components/map-sheet/overviewDetails';
 import { withLinkedServices } from './access-points/linked-services';
 
 test('notes become readable points without dropping restrictions or rewriting advice', () => {
@@ -61,4 +61,23 @@ test('campground thumbnails use their own photo and share access photos only for
   assert.equal(campgroundThumbnailUrl({ ...campground, relationship: 'same_place', imageUrl: ownPhoto }, accessPhoto), ownPhoto);
   assert.equal(campgroundThumbnailUrl({ ...campground, imageUrl: ownPhoto }, accessPhoto), ownPhoto);
   assert.equal(campgroundThumbnailUrl({ ...campground, relationship: 'same_place' }), null);
+});
+
+test('lodging needs a usable destination, while informative camping entries remain visible', () => {
+  const visible = visibleNearbyServices([
+    { name: 'Bourbon', type: 'lodging', distance: '10 miles north', notes: 'Small community on I-44. Gas, basic supplies.' },
+    { name: 'Invalid contacts', type: 'lodging', phone: 'unavailable', website: 'javascript:alert(1)' },
+    { name: 'Phone lodge', type: 'lodging', phone: '573-555-0100' },
+    { name: 'Web lodge', type: 'lodging', website: 'https://example.com/lodge' },
+    { name: 'Bookable cabins', type: 'lodging', reservationUrl: 'https://example.com/reserve' },
+    { name: 'Primitive camp', type: 'campground', notes: 'First-come sites.' },
+  ]);
+  assert.deepEqual(visible.map(service => service.name), ['Phone lodge', 'Web lodge', 'Bookable cabins', 'Primitive camp']);
+});
+
+test('verified booking links survive the API merge and qualify a lodging listing', () => {
+  const services = withLinkedServices([], [{ id: 'lodge', name: 'Cabins', type: 'cabin_lodge',
+    phone: null, website: null, description: null, relationship: 'located_at', reservationUrl: 'https://example.com/book' }]);
+  assert.equal(services[0].reservationUrl, 'https://example.com/book');
+  assert.equal(visibleNearbyServices(services as Parameters<typeof visibleNearbyServices>[0]).length, 1);
 });

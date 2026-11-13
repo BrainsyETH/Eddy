@@ -198,9 +198,9 @@ function embeddedType(directoryType: string): string {
  * and the reason this is a replace rather than a merge of fields.
  */
 export function withLinkedServices(
-  embedded: readonly { name: string; type: string; phone?: string; website?: string; imageUrl?: string | null }[],
+  embedded: readonly { name: string; type: string; phone?: string; website?: string; reservationUrl?: string; imageUrl?: string | null }[],
   linked: readonly LinkedService[],
-): { name: string; type: string; phone?: string; website?: string; imageUrl?: string | null; relationship?: 'same_place' | 'located_at' }[] {
+): { name: string; type: string; phone?: string; website?: string; reservationUrl?: string; imageUrl?: string | null; relationship?: 'same_place' | 'located_at' }[] {
   const key = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ');
   const linkedKeys = new Set(linked.map((service) => key(service.name)));
 
@@ -213,6 +213,7 @@ export function withLinkedServices(
       ? { relationship: service.relationship } : {}),
     ...(service.phone ? { phone: service.phone } : {}),
     ...(service.website ? { website: service.website } : {}),
+    ...(service.reservationUrl ? { reservationUrl: service.reservationUrl } : {}),
     ...(service.imageUrl ? { imageUrl: service.imageUrl } : {}),
   }));
 

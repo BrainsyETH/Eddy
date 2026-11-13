@@ -79,7 +79,7 @@ import {
 } from './sections';
 import { compactFloatEstimate } from './floatEstimate';
 import { ServiceContactRow } from './ServiceContactRow';
-import { accessNoteItems, campingServiceGroups, campgroundThumbnailUrl } from './overviewDetails';
+import { accessNoteItems, campingServiceGroups, campgroundThumbnailUrl, visibleNearbyServices } from './overviewDetails';
 import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
@@ -1059,7 +1059,7 @@ export function serviceUrl(service: NearbyService): string | null {
  * is what that floor is for.
  */
 function servicesByTier(detail: AccessPointDetailResponse | null) {
-  const services = detail?.accessPoint?.nearbyServices ?? [];
+  const services = visibleNearbyServices(detail?.accessPoint?.nearbyServices ?? []);
   const inTier = (tier: ServiceTier) =>
     services.filter((service) => serviceTiers(service).includes(tier));
   return {

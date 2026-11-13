@@ -1,5 +1,6 @@
 import type { NearbyService } from '@eddy/types';
 import { stripHtml } from '../../lib/accessCopy';
+import { serviceContactActions } from '../../lib/serviceContactActions';
 
 /** Keep every word and restriction; only add reading breaks, never summarize. */
 export function accessNoteItems(value: string | null | undefined): string[] {
@@ -33,4 +34,9 @@ export function campingServiceGroups(services: readonly NearbyService[]) {
 /** Never illustrate a neighbouring campground with this access point's photo. */
 export function campgroundThumbnailUrl(service: NearbyService, accessPhoto?: string | null): string | null {
   return service.imageUrl || (service.relationship === 'same_place' ? accessPhoto ?? null : null);
+}
+
+/** Legacy town/supply notes without a destination do not make useful lodging listings. */
+export function visibleNearbyServices(services: readonly NearbyService[]): NearbyService[] {
+  return services.filter(service => service.type !== 'lodging' || serviceContactActions(service).length > 0);
 }

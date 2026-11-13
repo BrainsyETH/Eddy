@@ -1,6 +1,7 @@
 import { serviceContactActions } from '@/lib/serviceContactActions';
 import { openExternalLink } from '@/lib/openExternalLink';
-import { ScenicImage } from '@/components/ScenicImage';
+import { AccessPagePhotos, AccessPageFacts } from '@/components/AccessPageHeader';
+import { visibleNearbyServices } from '@/components/map-sheet/overviewDetails';
 // eddy-ios/app/river/[slug]/access/[accessSlug].tsx
 // One access point: whether you can get down there, and what is waiting.
 //
@@ -45,7 +46,6 @@ import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -61,7 +61,7 @@ import type {
   NearbyAccessPoint,
   NearbyService,
 } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel } from '@eddy/types';
+import { accessPointTypes } from '@eddy/types';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { usePlaceFavorite } from '@/hooks/usePlaceFavorite';
 import { useSavedPlaces } from '@/hooks/useSavedPlaces';
@@ -92,7 +92,6 @@ import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { readRiver } from '@/lib/riverCache';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import {
-  agencyLabel,
   isDemandingSurface,
   parkingLabel,
   roadSurfaceLabel,
@@ -154,41 +153,12 @@ function SeededAccessPoint({
       <Stack.Screen options={{ title: point.name }} />
       <NativeHeaderHome />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
-        {point.imageUrls && point.imageUrls.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.gallery}
-          >
-            {point.imageUrls.map((url) => (
-              <ScenicImage
-                key={url}
-                source={{ uri: url }}
-                style={[styles.galleryImage, { backgroundColor: colors.cardRaised }]}
-                // Required by RN's a11y lint: a photograph must not be
-                // colour-inverted by Smart Invert, unlike UI chrome.
-                accessibilityIgnoresInvertColors
-              />
-            ))}
-          </ScrollView>
-        ) : null}
+        <AccessPagePhotos key={point.id} imageUrls={point.imageUrls} name={point.name} />
 
         <Text style={[styles.name, { color: colors.text }]}>{point.name}</Text>
         {riverName ? <AccessRiverLink name={riverName} slug={riverSlug} /> : null}
 
-        <View style={styles.stats}>
-          {[
-            `Mile ${point.riverMile}`,
-            ...accessPointTypes(point).map(accessTypeLabel),
-            point.isPublic ? 'Public' : 'Private',
-          ]
-            .filter(Boolean)
-            .map((label) => (
-              <View key={label} style={[styles.stat, { backgroundColor: colors.cardRaised }]}>
-                <Text style={[styles.statText, { color: colors.textMuted }]}>{label}</Text>
-              </View>
-            ))}
-        </View>
+        <AccessPageFacts types={accessPointTypes(point)} riverMile={point.riverMile} isPublic={point.isPublic} />
 
         <View style={styles.actions}>
           <Pressable
@@ -314,7 +284,9 @@ function GaugeCard({ status, age, onOpen }: { status: AccessPointGaugeStatus; ag
 
 function ServiceRow({ service }: { service: NearbyService }) {
   const { colors, elevation } = useTheme();
-  const website = serviceContactActions({ website: service.website }).find(action => action.label === 'Website')?.url;
+  const contacts = serviceContactActions(service);
+  const call = contacts.find(action => action.label === 'Call');
+  const destination = contacts.find(action => action.label === 'Book') ?? contacts.find(action => action.label === 'Website');
   const meta = [service.distance, service.notes].filter(Boolean).join(' · ');
 
   return (
@@ -336,9 +308,9 @@ function ServiceRow({ service }: { service: NearbyService }) {
       </View>
       {/* Only what exists. A dialer button on a service with no number is a
           control that fails when pressed, which is worse than one absent. */}
-      {service.phone ? (
+      {call ? (
         <Pressable
-          onPress={() => void Linking.openURL(`tel:${service.phone!.replace(/[^\d+]/g, '')}`)}
+          onPress={() => void openExternalLink(call.url)}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={`Call ${service.name}`}
@@ -346,14 +318,14 @@ function ServiceRow({ service }: { service: NearbyService }) {
           <Ionicons name="call-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
-      {website ? (
+      {destination ? (
         <Pressable
-          onPress={() => void openExternalLink(website)}
+          onPress={() => void openExternalLink(destination.url)}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={`Open ${service.name} website`}
+          accessibilityLabel={`${destination.label}: ${service.name}`}
         >
-          <Ionicons name="open-outline" size={19} color={colors.interactive} />
+          <Ionicons name={destination.label === 'Book' ? 'calendar-outline' : 'open-outline'} size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
     </View>
@@ -536,6 +508,7 @@ export default function AccessPointDetailScreen() {
   const { point, camping, gauge, gaugeAge } = presentation;
   const sharePath = point.path;
   const tips = stripHtml(point.localTips);
+  const nearbyServices = visibleNearbyServices(point.nearbyServices);
   const parking = parkingLabel(point.parkingCapacity);
   const hasRoad = point.roadSurface.length > 0 || Boolean(point.roadAccess);
   const hasParking = Boolean(parking) || Boolean(point.parkingInfo);
@@ -563,33 +536,8 @@ export default function AccessPointDetailScreen() {
       </Stack.Toolbar>
 
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
-        {/* ── What it looks like ──────────────────────────────────
-            A horizontal strip rather than one hero: several photos of a put-in
-            answer more than one does — the ramp, the parking, the water — and
-            coverage is partial enough that a fixed-height hero would be an
-            empty grey box on most points. Absent entirely when there are none.
-
-            These are CURATED images of the place, not community river photos —
-            a different set from the ones the Add a photo button below feeds,
-            which are banded by water level and live on the river screen. */}
-        {point.imageUrls.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.gallery}
-          >
-            {point.imageUrls.map((url) => (
-              <ScenicImage
-                key={url}
-                source={{ uri: url }}
-                style={[styles.galleryImage, { backgroundColor: colors.cardRaised }]}
-                // Required by RN's a11y lint: a photograph must not be
-                // colour-inverted by Smart Invert, unlike UI chrome.
-                accessibilityIgnoresInvertColors
-              />
-            ))}
-          </ScrollView>
-        ) : null}
+        {/* Curated place photos; the title stays below for long names and larger text. */}
+        <AccessPagePhotos key={point.id ?? point.name} imageUrls={point.imageUrls} name={point.name} />
 
         <Text style={[styles.name, { color: colors.text }]}>{point.name}</Text>
         {point.river.name ? <AccessRiverLink name={point.river.name} slug={point.river.slug} /> : null}
@@ -598,21 +546,8 @@ export default function AccessPointDetailScreen() {
             The facts that decide whether to drive here, in one row of chips.
             Private and fee are stated positively rather than by omission: "you
             can walk on but it costs" is a different trip from "you cannot". */}
-        <View style={styles.stats}>
-          {[
-            point.riverMile != null ? `Mile ${point.riverMile}` : null,
-            ...point.types.map(accessTypeLabel),
-            point.isPublic === undefined ? null : point.isPublic ? 'Public' : 'Private',
-            point.feeRequired ? 'Fee required' : null,
-            point.managingAgency ? agencyLabel(point.managingAgency) : null,
-          ]
-            .filter(Boolean)
-            .map((label) => (
-              <View key={label} style={[styles.stat, { backgroundColor: colors.cardRaised }]}>
-                <Text style={[styles.statText, { color: colors.textMuted }]}>{label}</Text>
-              </View>
-            ))}
-        </View>
+        <AccessPageFacts types={point.types} riverMile={point.riverMile} isPublic={point.isPublic}
+          feeRequired={point.feeRequired} managingAgency={point.managingAgency} />
 
         {/* ── Get there ──────────────────────────────────────────
             The primary action, above everything descriptive: someone who opened
@@ -818,9 +753,9 @@ export default function AccessPointDetailScreen() {
           </Section>
         ) : null}
 
-        {point.nearbyServices.length > 0 ? (
-          <Section title="Outfitters and shuttles">
-            {point.nearbyServices.map((service, i) => (
+        {nearbyServices.length > 0 ? (
+          <Section title="Nearby services">
+            {nearbyServices.map((service, i) => (
               <ServiceRow key={`${service.name}-${i}`} service={service} />
             ))}
           </Section>
@@ -987,19 +922,8 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   reportText: { ...t.xs, fontFamily: fonts.medium },
-  body: { paddingTop: 12, paddingBottom: 40 },
-  gallery: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
-  galleryImage: { width: 240, height: 150, borderRadius: 14 },
+  body: { paddingBottom: 40 },
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 12 },
-  stats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: 20,
-    marginTop: 8,
-  },
-  stat: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8 },
-  statText: { ...t.xs, fontFamily: fonts.medium },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, marginTop: 16 },
   /** Under the seeded body, where the sections the request is still fetching go. */
   seedPending: { alignItems: 'center', marginTop: 28 },

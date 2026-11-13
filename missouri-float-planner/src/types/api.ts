@@ -184,6 +184,7 @@ export interface NearbyService {
   imageUrl?: string | null;
   phone?: string;
   website?: string;
+  reservationUrl?: string;
   distance?: string;  // "2 mi", "0.5 mi"
   notes?: string;     // "Weekends only after Labor Day"
 }
