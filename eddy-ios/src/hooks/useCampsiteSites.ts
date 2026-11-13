@@ -19,7 +19,7 @@
 // sites of nearly every campground somebody taps, which is the whole thing this
 // hook exists to avoid. The caller passes null until its tab is the live one.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CampsiteSitesResponse } from '@eddy/types';
 import { fetchCampsiteSites } from '@/api/client';
 import { warn } from '@/lib/monitoring';
@@ -37,8 +37,12 @@ export function useCampsiteSites(
 ): {
   sites: CampsiteSitesResponse | null;
   status: DetailStatus;
+  refresh: () => void;
 } {
-  const key = `${facilityId ?? ''}:${month ?? 'strip'}`;
+  const cacheKey = `${facilityId ?? ''}:${month ?? 'strip'}`;
+  const [retry, setRetry] = useState(0);
+  const refresh = useCallback(() => setRetry(value => value + 1), []);
+  const key = `${cacheKey}:${retry}`;
   const [held, setHeld] = useState<{
     key: string;
     sites: CampsiteSitesResponse | null;
@@ -58,7 +62,7 @@ export function useCampsiteSites(
     if (!facilityId) return;
 
     const controller = new AbortController();
-    const cached = siteCache.get(key);
+    const cached = retry === 0 ? siteCache.get(cacheKey) : undefined;
     const pending =
       cached && Date.now() - cached.at < 300000
         ? Promise.resolve(cached.sites)
@@ -67,8 +71,8 @@ export function useCampsiteSites(
       .then((response) => {
         if (!controller.signal.aborted) {
           if (!cached || Date.now() - cached.at >= 300000) {
-            siteCache.delete(key);
-            siteCache.set(key, { at: Date.now(), sites: response });
+            siteCache.delete(cacheKey);
+            siteCache.set(cacheKey, { at: Date.now(), sites: response });
             if (siteCache.size > 8)
               siteCache.delete(siteCache.keys().next().value!);
           }
@@ -82,7 +86,7 @@ export function useCampsiteSites(
         }
       });
     return () => controller.abort();
-  }, [facilityId, month, key]);
+  }, [facilityId, month, key, cacheKey, retry]);
 
-  return { sites: current?.sites ?? null, status };
+  return { sites: current?.sites ?? null, status, refresh };
 }

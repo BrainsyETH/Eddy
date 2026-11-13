@@ -695,6 +695,16 @@ availability chart. Choose a longer stay opens the campground detail route with
 the selected night as arrival; the stay picker adds departure and a night count.
 Long campground names and accessibility-sized titles scroll with the site list.
 
+Full access pages, including those opened from Favorites, offer Choose a site
+below the campsite availability chart. Opening it replaces the chart with the
+same `CampgroundSiteBrowser` used by the map Camping tab: measured nights,
+filters, compact expandable site cards, photos, booking and longer stays.
+Individual sites load only after opening the picker; closing it cancels pending
+work. Facility identity remains usable when saved counts expire, without
+presenting those old counts as current. Tracked campgrounds use this picker
+instead of the second external Reserve a site button under Facilities; untracked
+places retain their existing provider links. Inventory failures offer Retry.
+
 Expanding a site also requests `/api/campsites/details` for that exact Eddy
 facility/site pair. Recreation.gov details appear below the photo as branded,
 aligned facts: setting, access, permitted equipment and lengths, on-site
