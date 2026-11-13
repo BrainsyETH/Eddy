@@ -82,12 +82,32 @@ test('the trial log is append-only, server-stamped and closed to clients', async
       /permission denied/
     );
 
+    // What is noticed while water travels, and that a pass ran, are logged the same way.
+    const watch = `insert into release_arrival_watch_events (prediction_id, kind, details) values ($1, 'tributaries moving', '{}'::jsonb)`;
+    await db.query(watch, [id]);
+    await assert.rejects(() => db.query(watch, [id]), /first_sighting_only/);
+    await assert.rejects(
+      () => db.query(`insert into release_arrival_watch_events (prediction_id, kind, details, observed_at) values ($1, 'tributaries moving', '{}'::jsonb, now() - interval '5 hours')`, [id]),
+      /permission denied/
+    );
+    await assert.rejects(() => db.query('delete from release_arrival_watch_events'), /permission denied/);
+    await db.query(`insert into release_arrival_passes (rule_version, state, release_through, summary) values ('norfork-v1', 'active', now(), '{"issued":1}'::jsonb)`);
+    await db.query(`insert into release_arrival_passes (rule_version, state, summary) values ('norfork-v1', 'paused', '{}'::jsonb)`);
+    await assert.rejects(
+      () => db.query(`insert into release_arrival_passes (rule_version, state, summary, ran_at) values ('norfork-v1', 'active', '{}'::jsonb, now() - interval '2 days')`),
+      /permission denied/
+    );
+    await assert.rejects(() => db.query(`update release_arrival_passes set state = 'active'`), /permission denied/);
+    await assert.rejects(() => db.query('delete from release_arrival_passes'), /permission denied/);
+    const passes = await db.query<{ n: number }>('select count(*)::int n from release_arrival_passes');
+    assert.equal(passes.rows[0].n, 2);
+
     // The runbook's own queries run against these tables as written.
     const queries = Array.from(
       readFileSync('../docs/release-arrival-trial.md', 'utf8').matchAll(/```sql\n([\s\S]*?)```/g),
       (m) => m[1]
     );
-    assert.equal(queries.length, 2);
+    assert.equal(queries.length, 3);
     const breakdown = await db.query<{ decision: string; reason: string; status: string | null }>(queries[0]);
     assert.deepEqual(
       breakdown.rows.map((r) => `${r.decision}/${r.reason}/${r.status}`).sort(),
@@ -96,6 +116,9 @@ test('the trial log is append-only, server-stamped and closed to clients', async
     const marks = await db.query<{ scored: number; within_2h: string }>(queries[1]);
     assert.equal(Number(marks.rows[0].scored), 1);
     assert.ok(marks.rows[0].within_2h !== null);
+
+    const cover = await db.query<{ state: string; passes: number }>(queries[2]);
+    assert.deepEqual(cover.rows.map((r) => `${r.state}:${r.passes}`).sort(), ['active:1', 'paused:1']);
 
     const stamped = await db.query<{ ok: boolean }>(
       `select bool_and(decided_at between now() - interval '1 minute' and now()) ok from release_arrival_predictions`
@@ -106,6 +129,8 @@ test('the trial log is append-only, server-stamped and closed to clients', async
       await db.exec(`SET ROLE ${role}`);
       await assert.rejects(() => db.query('select * from release_arrival_predictions'), /permission denied/);
       await assert.rejects(() => db.query('select * from release_arrival_outcomes'), /permission denied/);
+      await assert.rejects(() => db.query('select * from release_arrival_watch_events'), /permission denied/);
+      await assert.rejects(() => db.query('select * from release_arrival_passes'), /permission denied/);
     }
   } finally {
     await db.close();

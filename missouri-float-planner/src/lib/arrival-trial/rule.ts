@@ -262,6 +262,27 @@ export function decide(input: DecisionInput): Decision {
 }
 
 /**
+ * How far tributaries have moved between two hour indexes, summed across them.
+ * Unlike the rule's own check this takes whatever readings exist, so it can be
+ * asked again each hour as more arrive. Null when there are none at all.
+ */
+export function tributaryMovement(
+  tributaries: Array<Array<number | null>>,
+  from: number,
+  to: number
+): number | null {
+  let total = 0;
+  let seen = false;
+  for (const values of tributaries) {
+    const part = values.slice(Math.max(from, 0), to).filter(finite);
+    if (!part.length) continue;
+    seen = true;
+    total += Math.max(...part) - Math.min(...part);
+  }
+  return seen ? total : null;
+}
+
+/**
  * Hours after the onset at which tributaries, watched from 12 hours before the
  * decision, first moved past the limit. Null if they never did in the window.
  */

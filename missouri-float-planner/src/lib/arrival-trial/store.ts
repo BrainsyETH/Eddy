@@ -1,7 +1,7 @@
 // src/lib/arrival-trial/store.ts
 // Database and USGS access for the release-arrival trial.
 //
-// Both tables are append-only for the service role (insert and select, no
+// Every table is append-only for the service role (insert and select, no
 // update or delete), which is what makes a logged estimate evidence: once a
 // row is written, neither this code nor a later fix can revise it.
 
@@ -9,10 +9,21 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getFlowProvider } from '@/lib/flow-providers';
 import { logger } from '@/lib/logger';
 import { HOUR_MS, RULE_VERSION, TRIAL_SITES, type Sample } from './rule';
-import type { LoggedIncrease, OutcomeRow, PredictionRow, ReleaseHour, TrialDeps } from './run';
+import type {
+  Coverage,
+  LoggedIncrease,
+  OutcomeRow,
+  PassRow,
+  PredictionRow,
+  ReleaseHour,
+  TrialDeps,
+  WatchEventRow,
+} from './run';
 
 const PREDICTIONS = 'release_arrival_predictions';
 const OUTCOMES = 'release_arrival_outcomes';
+const WATCH_EVENTS = 'release_arrival_watch_events';
+const PASSES = 'release_arrival_passes';
 const UNIQUE_VIOLATION = '23505';
 
 async function readRelease(db: SupabaseClient, fromMs: number, toMs: number): Promise<ReleaseHour[]> {
@@ -24,7 +35,7 @@ async function readRelease(db: SupabaseClient, fromMs: number, toMs: number): Pr
     .gte('observed_hour', new Date(fromMs).toISOString())
     .lte('observed_hour', new Date(toMs).toISOString())
     .order('observed_hour', { ascending: true })
-    .limit(500);
+    .limit(1000);
   if (error) throw new Error(`arrival-trial: release read failed: ${error.message}`);
   return (data ?? []).map((row) => ({
     hourMs: Date.parse(row.observed_hour as string),
@@ -46,22 +57,55 @@ async function loggedSince(db: SupabaseClient, fromMs: number): Promise<LoggedIn
   if (error) throw new Error(`arrival-trial: prediction read failed: ${error.message}`);
   const rows = data ?? [];
   if (rows.length === 0) return [];
-  const done = await db
-    .from(OUTCOMES)
-    .select('prediction_id')
-    .in('prediction_id', rows.map((row) => row.id as string));
+  const ids = rows.map((row) => row.id as string);
+  const [done, seen] = await Promise.all([
+    db.from(OUTCOMES).select('prediction_id').in('prediction_id', ids),
+    db.from(WATCH_EVENTS).select('prediction_id').in('prediction_id', ids),
+  ]);
   if (done.error) throw new Error(`arrival-trial: outcome read failed: ${done.error.message}`);
+  if (seen.error) throw new Error(`arrival-trial: watch read failed: ${seen.error.message}`);
   const finished = new Set((done.data ?? []).map((row) => row.prediction_id as string));
+  const watched = new Set((seen.data ?? []).map((row) => row.prediction_id as string));
   return rows.map((row) => ({
     id: row.id as string,
     onsetHourMs: Date.parse(row.onset_hour as string),
     decision: row.decision as 'issued' | 'withheld',
     predictedArrivalMs: row.predicted_arrival_at ? Date.parse(row.predicted_arrival_at as string) : null,
     hasOutcome: finished.has(row.id as string),
+    hasWatchEvent: watched.has(row.id as string),
   }));
 }
 
-async function insert(db: SupabaseClient, table: string, row: PredictionRow | OutcomeRow) {
+/** When the trial first ran, and every pass since `sinceMs`. */
+async function coverage(db: SupabaseClient, sinceMs: number): Promise<Coverage> {
+  const [first, recent] = await Promise.all([
+    db
+      .from(PASSES)
+      .select('ran_at')
+      .eq('rule_version', RULE_VERSION)
+      .eq('state', 'active')
+      .order('ran_at', { ascending: true })
+      .limit(1),
+    db
+      .from(PASSES)
+      .select('ran_at, state')
+      .eq('rule_version', RULE_VERSION)
+      .gte('ran_at', new Date(sinceMs).toISOString())
+      .order('ran_at', { ascending: true })
+      .limit(2000),
+  ]);
+  if (first.error) throw new Error(`arrival-trial: coverage read failed: ${first.error.message}`);
+  if (recent.error) throw new Error(`arrival-trial: coverage read failed: ${recent.error.message}`);
+  return {
+    firstActiveMs: first.data?.length ? Date.parse(first.data[0].ran_at as string) : null,
+    recent: (recent.data ?? []).map((row) => ({
+      atMs: Date.parse(row.ran_at as string),
+      state: row.state as 'active' | 'paused',
+    })),
+  };
+}
+
+async function insert(db: SupabaseClient, table: string, row: PredictionRow | OutcomeRow | WatchEventRow | PassRow) {
   const { error } = await db.from(table).insert(row);
   if (!error) return 'saved' as const;
   // Two passes overlapping is the only way to get here, and the first row stands.
@@ -111,7 +155,10 @@ export function trialDeps(db: SupabaseClient, now = Date.now()): TrialDeps {
     readStage: (fromMs, toMs) => readUsgs(TRIAL_SITES.gaugeSiteId, 'gaugeHeightFt', fromMs, Math.min(toMs, now)),
     readTributary: (siteId, fromMs, toMs) => readUsgs(siteId, 'dischargeCfs', fromMs, Math.min(toMs, now)),
     loggedSince: (fromMs) => loggedSince(db, fromMs),
+    coverage: (sinceMs) => coverage(db, sinceMs),
     savePrediction: (row) => insert(db, PREDICTIONS, row),
     saveOutcome: (row) => insert(db, OUTCOMES, row),
+    saveWatchEvent: (row) => insert(db, WATCH_EVENTS, row),
+    savePass: async (row) => ((await insert(db, PASSES, row)) === 'saved' ? 'saved' : 'error'),
   };
 }

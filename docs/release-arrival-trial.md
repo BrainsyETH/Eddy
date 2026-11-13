@@ -5,7 +5,13 @@ Bull Shoals Dam raises its release, can Eddy say in advance when the river
 will start to rise at the gauge near Norfork?
 
 **Status: implemented, switched off.** Nothing in this trial is released. It
-writes two private tables and changes no page, widget, alert or Read.
+writes four private tables and changes no page, widget, alert or Read.
+
+**What it tests.** A fixed estimate: one prediction per release increase,
+scored against what the gauge did. Alongside that it records, as it happens,
+the first time a live estimate's conditions are seen to change. That second
+record is there to measure how quickly Eddy would notice; it does not alter
+the estimate or its score.
 
 ## Why it exists
 
@@ -27,12 +33,20 @@ down before the river can answer, then record what the river did.
 2. **Decide once.** When three hours of the increase are in hand, the frozen
    rule either issues an estimate or withholds one with a reason. The row is
    written then and never changed.
-3. **Read the outcome.** At least 26 hours later, a second row records when the
+3. **Watch.** Each hour while an issued estimate's water is still travelling,
+   the tributaries are read again. The first pass that sees them past the
+   limit writes a watch event, timed by the database.
+4. **Read the outcome.** At least 26 hours later, another row records when the
    gauge first rose 0.10 ft, when it rose fastest, and whether that rise can be
    matched to this increase alone.
+5. **Leave a mark.** Every pass ends by recording that it ran.
 
-Every detected increase gets a row, issued or withheld, so availability is
-measured against all of them.
+Every increase detected from the trial's first pass onward gets a row, issued
+or withheld, so availability is measured against all of them. The pass
+records are what make that true after downtime: the next pass reads back to
+the last one that finished and writes a row for each increase in between,
+filed under why it was missed. Rows written that way are flagged `written
+after the fact`. Increases from before the first pass are not logged.
 
 ### The rule (`norfork-v1`)
 
@@ -45,7 +59,23 @@ An estimate is issued only when all of these hold:
 | Peak of the first three hours | at least 2,000 cfs above the baseline |
 | Smaller increase in the previous 20 hours | none of 500 cfs or more |
 | Gauge near Norfork (USGS 07057370) in the hour before | read, and under 7 ft |
-| Buffalo + Crooked Creek discharge, 12 hours up to the decision | read, and moving 500 cfs or less |
+| Buffalo + Crooked Creek discharge, 12 hours up to the increase's third hour | read, and moving 500 cfs or less |
+| The same tributaries, through every reading in hand when the row is written | moving 500 cfs or less |
+
+The last row is not in the replay's rule. Release data reaches Eddy about 85
+minutes late, so the decision is made around hour 4.5, and without this check
+an estimate could go out over a tributary rise already on record. It is filed
+as `tributaries moved before issue`.
+
+When an increase cannot be decided before its arrival window opens, the row
+is withheld under whose delay it was:
+
+| Reason | Meaning |
+| --- | --- |
+| `release data arrived too late` | The third release hour reached Eddy after the deadline, judged by when it was stored |
+| `decided too late` | The data was in hand and a pass ran in time, but no decision was written |
+| `collection was down` | No pass ran in the time available |
+| `collection paused` | The trial was deliberately paused |
 
 The estimate is `ln(hours) = 4.2145 - 0.1633 ln(peak cfs) - 0.0231 x gauge ft`
 after half past the increase's first hour, with a range from 1.5 hours earlier
@@ -60,18 +90,23 @@ result.
 
 ## What makes the log trustworthy
 
-- **Rows cannot be revised.** The service role may insert and read both
-  tables, nothing else. A prediction and its outcome are separate inserts.
+- **Rows cannot be revised.** The service role may insert and read the four
+  tables, nothing else. A prediction, a watch event, an outcome and a pass are
+  separate inserts.
 - **The database stamps the time.** The application cannot supply
-  `decided_at`, and an issued row is rejected unless it is stored before the
-  earliest moment the study counts as an arrival.
+  `decided_at`, `observed_at`, `evaluated_at` or `ran_at`, and an issued row is
+  rejected unless it is stored before the earliest moment the study counts as
+  an arrival.
+- **Failures are loud.** A pass that cannot save a row reports `partial` to
+  the admin job monitor, which raises an incident.
 - **Lateness is recorded, not hidden.** If release data or the job itself is
   too late, the row is withheld with that as its reason.
 - **Inputs are saved with the decision:** each reading used, its own time and
   when Eddy stored it.
 
-`src/lib/arrival-trial/migration.test.ts` checks the first three against the
-migration itself.
+`src/lib/arrival-trial/migration.test.ts` checks the first two against the
+migration itself; `run.test.ts` checks the failure status through the
+monitor's own classifier.
 
 ## Pass marks
 
@@ -107,11 +142,11 @@ Looking at accuracy early does not change the rule or the marks.
    appears after the next qualifying release, and that its outcome row appears
    about 26 hours later.
 
-The first pass after switching on also logs increases from the previous 30
-hours as withheld for lateness; they are real rows and count toward
-availability.
-
-Unset the flag to pause. Existing rows stay.
+To stop deliberately, set the flag to `paused`, not unset. A paused pass
+records only that it was paused, so increases it skips are filed as
+`collection paused`. With the flag unset nothing is recorded, and when
+collection resumes those increases are filed as `collection was down`.
+Existing rows stay either way.
 
 ## Reading the log
 
@@ -145,6 +180,16 @@ where p.rule_version = 'norfork-v1' and p.decision = 'issued' and o.status = 'ma
 `e` is predicted minus observed hours, so a positive value is an early
 arrival.
 
+When collection ran, by day. A day with fewer than 24 active passes had a gap:
+
+```sql
+select date_trunc('day', ran_at) as day, state, count(*)::int as passes
+from release_arrival_passes
+where rule_version = 'norfork-v1'
+group by 1, 2
+order by 1, 2;
+```
+
 ## What a pass would and would not mean
 
 A pass supports an estimate of when a release increase reaches the gauge near
@@ -164,7 +209,16 @@ comes first.
 - The rule cannot see rain coming. Rain during the 13 hours a release is
   travelling caused the largest early arrivals in the studies.
 - A smaller release that ended shortly before can reach the gauge first. Such
-  rows are flagged `earlier release in transit`, not withheld.
+  rows are flagged `earlier release in transit`, not withheld, so the trial
+  collects evidence on both groups. Their results are reported separately, and
+  a pooled pass does not show that flagged increases deserve an estimate.
+- The watch reads tributaries only. It does not watch the release itself or a
+  rain forecast.
+- Accounting for downtime reaches back 30 days. Increases missed in a longer
+  outage are not logged.
+- A row written after the fact uses readings fetched later, limited to those
+  from before its deadline. It counts toward availability; its inputs are not
+  what Eddy held at the time.
 - `received_at` for a release hour is when Eddy first stored it, taken from
   `dam_metric_readings.updated_at`. It is the best available measure of
   publication delay, not an exact one.

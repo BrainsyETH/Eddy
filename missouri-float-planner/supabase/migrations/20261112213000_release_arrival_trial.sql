@@ -10,16 +10,26 @@
 -- tables are where it writes. Nothing here is read by a page, a widget, an
 -- alert or Eddy's Read. See docs/release-arrival-trial.md.
 --
--- ── Why two tables ─────────────────────────────────────────────────────────
--- A prediction and its outcome are written a day apart by different passes.
--- One row with outcome columns would need UPDATE, and a log whose rows can be
--- updated cannot show that an estimate was not adjusted afterwards. So the
--- outcome is its own insert, and neither table grants UPDATE or DELETE to
--- anyone, service role included.
+-- ── Why four tables ────────────────────────────────────────────────────────
+-- A prediction, what is noticed while its water travels, and its outcome are
+-- written hours apart by different passes. One row with columns for each would
+-- need UPDATE, and a log whose rows can be updated cannot show that an estimate
+-- was not adjusted afterwards. So each is its own insert, and no table grants
+-- UPDATE or DELETE to anyone, service role included.
+--
+--   release_arrival_predictions   one per detected increase, at decision time
+--   release_arrival_watch_events  the hour a live estimate's conditions changed
+--   release_arrival_outcomes      what the gauge did, read a day later
+--   release_arrival_passes        that a pass ran, active or paused
+--
+-- The passes table is what lets a missing prediction be explained. Without it
+-- "no row" could mean no release, an outage or a deliberate pause, and the
+-- share of increases the rule could speak on would be unknowable.
 --
 -- ── Why the clock is the database's ────────────────────────────────────────
--- decided_at and evaluated_at take their default and the service role has no
--- INSERT privilege on either column, so the application cannot supply them.
+-- decided_at, observed_at, evaluated_at and ran_at take their default and the
+-- service role has no INSERT privilege on those columns, so the application
+-- cannot supply them.
 -- The check on decided_at then means what it says: an issued estimate was
 -- stored before the earliest moment the study counts as an arrival (five hours
 -- after the increase, which is timed at half past its first hour).
@@ -108,10 +118,44 @@ create table public.release_arrival_outcomes (
     check ((status = 'matched') = (matched_rise_at is not null))
 );
 
+create table public.release_arrival_watch_events (
+  id bigint generated always as identity primary key,
+  prediction_id uuid not null references public.release_arrival_predictions (id),
+
+  -- What was seen. One kind today; a new kind is a deliberate migration.
+  kind text not null check (kind in ('tributaries moving')),
+  details jsonb not null,
+
+  -- When the pass that noticed it wrote the row. This, not a later
+  -- reconstruction, is the record of how quickly a change was caught.
+  observed_at timestamptz not null default now(),
+
+  -- Only the first sighting is evidence of detection time.
+  constraint release_arrival_watch_events_first_sighting_only unique (prediction_id, kind)
+);
+
+create table public.release_arrival_passes (
+  id bigint generated always as identity primary key,
+  rule_version text not null,
+  -- 'paused' is a pass that ran with the trial deliberately stopped.
+  state text not null check (state in ('active', 'paused')),
+  -- The newest release hour in hand, so data delay can be read per pass.
+  release_through timestamptz,
+  summary jsonb not null,
+  ran_at timestamptz not null default now()
+);
+
+create index release_arrival_passes_ran_at_idx
+  on public.release_arrival_passes (rule_version, ran_at desc);
+
 comment on table public.release_arrival_predictions is
   'Internal trial. One row per detected Bull Shoals release increase: whether the frozen rule issued an arrival estimate for the gauge near Norfork, and from what. Append-only; written by /api/cron/log-release-arrivals before the outcome exists. Never a source for anything shown to users.';
 comment on table public.release_arrival_outcomes is
   'Internal trial. What the gauge did after each logged release increase, read at least 26 hours later. Append-only.';
+comment on table public.release_arrival_watch_events is
+  'Internal trial. The first pass at which an issued estimate''s tributaries were seen past the limit while its water was still travelling. Append-only.';
+comment on table public.release_arrival_passes is
+  'Internal trial. One row per pass of /api/cron/log-release-arrivals, written last. A gap is an outage; paused rows are a deliberate stop. Append-only.';
 
 -- ── Grants ─────────────────────────────────────────────────────────────────
 -- Server-side only, and append-only even there. RLS with no policies denies
@@ -120,11 +164,22 @@ comment on table public.release_arrival_outcomes is
 -- nothing else.
 alter table public.release_arrival_predictions enable row level security;
 alter table public.release_arrival_outcomes enable row level security;
+alter table public.release_arrival_watch_events enable row level security;
+alter table public.release_arrival_passes enable row level security;
 
-revoke all on public.release_arrival_predictions, public.release_arrival_outcomes
+revoke all on
+  public.release_arrival_predictions, public.release_arrival_outcomes,
+  public.release_arrival_watch_events, public.release_arrival_passes
   from public, anon, authenticated, service_role;
 
-grant select on public.release_arrival_predictions, public.release_arrival_outcomes to service_role;
+grant select on
+  public.release_arrival_predictions, public.release_arrival_outcomes,
+  public.release_arrival_watch_events, public.release_arrival_passes
+  to service_role;
+
+grant insert (prediction_id, kind, details) on public.release_arrival_watch_events to service_role;
+
+grant insert (rule_version, state, release_through, summary) on public.release_arrival_passes to service_role;
 
 grant insert (
   dam_id, gauge_site_id, onset_hour, rule_version, decision, reason, all_reasons,

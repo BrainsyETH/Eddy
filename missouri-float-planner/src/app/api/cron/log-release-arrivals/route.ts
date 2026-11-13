@@ -11,7 +11,9 @@
 //
 // OFF UNLESS RELEASE_ARRIVAL_TRIAL_ENABLED=true, so deploying the code and
 // starting the trial are separate decisions — the same switch the rainfall
-// research collector uses.
+// research collector uses. Set it to `paused` to stop deliberately: each pass
+// then records only that it was paused, so the increases it skips are not
+// mistaken for an outage later. Unsetting it leaves no record at all.
 //
 // SCHEDULED AT :32 (vercel.json), after sync-dam-history at :25 has stored the
 // newest release hours this reads.
@@ -22,7 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { releaseCronLock, tryCronLockDetailed } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
-import { runTrial } from '@/lib/arrival-trial/run';
+import { recordPause, runTrial } from '@/lib/arrival-trial/run';
 import { trialDeps } from '@/lib/arrival-trial/store';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +40,8 @@ async function run(request: NextRequest) {
   if (!hasValidMachineBearer(request.headers.get('authorization'), secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (process.env.RELEASE_ARRIVAL_TRIAL_ENABLED !== 'true') {
+  const mode = process.env.RELEASE_ARRIVAL_TRIAL_ENABLED;
+  if (mode !== 'true' && mode !== 'paused') {
     return NextResponse.json({ monitoring_status: 'skipped', skipped: true });
   }
 
@@ -52,6 +55,10 @@ async function run(request: NextRequest) {
     );
   }
   try {
+    if (mode === 'paused') {
+      const paused = await recordPause(trialDeps(db));
+      return NextResponse.json(paused, { status: paused.monitoring_status === 'error' ? 503 : 200 });
+    }
     return NextResponse.json(await runTrial(trialDeps(db)));
   } catch (error) {
     logger.warn('log-release-arrivals: pass failed', {
