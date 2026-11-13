@@ -16,7 +16,7 @@ export default function PlaceHeader({ lakeSlug = '', damId, kind = 'dam', title,
   const photo = kind === 'lake' ? lakePhoto(lakeSlug) : damPhoto(damId) ?? lakeDamPhoto(lakeSlug);
   return (
     <header className={`place-header ${photo ? '' : 'place-header--illustrated'}`} data-place-kind={kind}>
-      {photo ? <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 1280px) 1216px, 100vw" preload className="object-cover" /> : <div className="place-header-art" aria-hidden="true"><EddyIcon name={kind === 'lake' ? 'boatRamp' : 'dam'} size={140} /></div>}
+      {photo ? <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 1280px) 1216px, 100vw" preload className="object-cover" style={photo.focus ? { objectPosition: photo.focus } : undefined} /> : <div className="place-header-art" aria-hidden="true"><EddyIcon name={kind === 'lake' ? 'boatRamp' : 'dam'} size={140} /></div>}
       <div className="place-header-shade" />
       <div className="place-header-copy">
         <nav aria-label="Breadcrumb" className="mb-3 flex flex-wrap items-center gap-2 text-xs text-white/90 sm:text-sm">
