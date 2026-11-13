@@ -7,12 +7,14 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { CampsitePhoto } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 /** A separate target from booking: opening a photo never opens Safari. */
 export function CampsitePhotos({
@@ -27,11 +29,20 @@ export function CampsitePhotos({
   compact?: boolean;
 }) {
   const { colors } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
   const [viewport, setViewport] = useState({ width: 1, height: 240 });
+  const [ratios, setRatios] = useState<Record<string, number>>({});
   const [index, setIndex] = useState<number | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
   const thumbnail = photos.find((photo) => !failed.includes(photo.url));
   const selected = index === null ? null : photos[index];
+  const imageHeight = Math.min(width / (ratios[selected?.url ?? ''] ?? 4 / 3), height * 0.55);
+  const rememberRatio = (url: string, width: number, height: number) => {
+    if (width <= 0 || height <= 0) return;
+    const ratio = width / height;
+    setRatios(current => current[url] === ratio ? current : { ...current, [url]: ratio });
+  };
   const fail = (url: string) =>
     setFailed((current) =>
       current.includes(url) ? current : [...current, url],
@@ -53,22 +64,30 @@ export function CampsitePhotos({
             style={large ? styles.large : compact ? styles.compact : styles.thumbnail}
             contentFit="cover"
             onError={() => fail(thumbnail.url)}
+            onLoad={({ source }) => rememberRatio(thumbnail.url, source.width, source.height)}
             accessible={false}
           />
         </Pressable>
       ) : null}
       <Modal
         visible={selected !== null}
-        animationType="slide"
-        presentationStyle="pageSheet"
+        transparent
+        animationType={reducedMotion ? 'none' : 'fade'}
+        presentationStyle="overFullScreen"
         onRequestClose={() => setIndex(null)}
       >
+        <SafeAreaProvider>
+        <SafeAreaView edges={['top', 'left', 'right']} style={styles.anchor} pointerEvents="box-none">
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+          onPress={() => setIndex(null)} accessible={false} />
         <SafeAreaView
+          edges={['bottom']}
           style={[styles.viewer, { backgroundColor: colors.sheetGrouped }]}
           accessibilityViewIsModal
+          onAccessibilityEscape={() => setIndex(null)}
         >
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>{label}</Text>
+            <Text numberOfLines={2} style={[styles.title, { color: colors.text }]}>{label}</Text>
             <Pressable
               onPress={() => setIndex(null)}
               style={styles.control}
@@ -81,19 +100,20 @@ export function CampsitePhotos({
           {selected ? (
             <>
               {failed.includes(selected.url) ? (
-                <View style={styles.unavailable}>
+                <View style={[styles.unavailable, { height: Math.min(imageHeight, 160) }]}>
                   <Text style={{ color: colors.textMuted }}>
                     This photo couldn’t load.
                   </Text>
                 </View>
               ) : (
                 <ScrollView
-                  key={selected.url}
-                  style={styles.imageArea}
+                  key={`image:${selected.url}`}
+                  style={[styles.imageArea, { height: imageHeight }]}
                   contentContainerStyle={styles.imageContent}
                   minimumZoomScale={1}
                   maximumZoomScale={3}
-                  centerContent
+                  showsVerticalScrollIndicator={false}
+                  showsHorizontalScrollIndicator={false}
                   onLayout={(event) => setViewport(event.nativeEvent.layout)}
                 >
                   <ScenicImage
@@ -103,20 +123,16 @@ export function CampsitePhotos({
                     contentFit="contain"
                     accessibilityLabel={selected.title || `Photo of ${label}`}
                     onError={() => fail(selected.url)}
+                    onLoad={({ source }) => rememberRatio(selected.url, source.width, source.height)}
                   />
                 </ScrollView>
               )}
-              <View style={styles.caption}>
-                {selected.title ? (
-                  <Text style={[styles.captionText, { color: colors.text }]}>
-                    {selected.title}
-                  </Text>
-                ) : null}
-                <Text style={[styles.credit, { color: colors.textMuted }]}>
-                  {selected.credit ? `${selected.credit} · ` : ''}
-                  {selected.source ?? 'Recreation.gov'}
-                </Text>
-              </View>
+              <ScrollView key={`caption:${selected.url}`} style={{ maxHeight: height * 0.25, flexGrow: 0, flexShrink: 0 }} contentContainerStyle={styles.caption}>
+                <PhotoCaption photo={selected} />
+              </ScrollView>
+              <Text style={[styles.credit, { color: colors.textMuted }]}>
+                {selected.credit ? `${selected.credit} · ` : ''}{selected.source ?? 'Recreation.gov'}
+              </Text>
               <View style={styles.navigation}>
                 <Pressable
                   style={styles.control}
@@ -157,9 +173,29 @@ export function CampsitePhotos({
             </>
           ) : null}
         </SafeAreaView>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </>
   );
+}
+
+function PhotoCaption({ photo }: { photo: CampsitePhoto }) {
+  const { colors } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  return <>
+    {photo.title ? <View>
+      {/* Measure the full caption once; the visible copy stays short until requested. */}
+      <Text accessible={false} pointerEvents="none" style={[styles.captionText, styles.measureCaption]}
+        onTextLayout={event => setOverflows(event.nativeEvent.lines.length > 2)}>{photo.title}</Text>
+      <Text numberOfLines={expanded ? undefined : 2} style={[styles.captionText, { color: colors.text }]}>{photo.title}</Text>
+      {overflows ? <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
+        onPress={() => setExpanded(value => !value)} style={styles.captionToggle}>
+        <Text style={[styles.captionText, { color: colors.interactive }]}>{expanded ? 'Less' : 'Full caption'}</Text>
+      </Pressable> : null}
+    </View> : null}
+  </>;
 }
 
 const styles = StyleSheet.create({
@@ -170,12 +206,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   thumbnail: { width: 68, height: 54, borderRadius: 8, overflow: 'hidden' },
-  compact: { width: 88, height: 76, borderRadius: 10, overflow: 'hidden' },
-  viewer: { flex: 1 },
+  compact: { width: 88, height: 88, borderRadius: 10, overflow: 'hidden' },
+  anchor: { flex: 1, justifyContent: 'flex-end' },
+  viewer: { maxHeight: '92%', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     gap: 12,
   },
   title: { ...t.lg, fontFamily: fonts.semibold, flex: 1 },
@@ -185,12 +223,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imageArea: { flex: 1 },
+  imageArea: { flexShrink: 1, minHeight: 60 },
   imageContent: { flexGrow: 1 },
-  unavailable: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  caption: { paddingHorizontal: 20, paddingTop: 12 },
+  unavailable: { flexShrink: 1, justifyContent: 'center', alignItems: 'center' },
+  caption: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   captionText: { ...t.sm, fontFamily: fonts.body },
-  credit: { ...t.xs, fontFamily: fonts.body, marginTop: 4 },
+  measureCaption: { position: 'absolute', left: 0, right: 0, opacity: 0 },
+  captionToggle: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  credit: { ...t.xs, fontFamily: fonts.body, marginTop: 4, paddingHorizontal: 16 },
   navigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -679,6 +679,12 @@ campground prefix and identical loop name are omitted from the compact label.
 Whole-stay results retain their nightly breakdown in details, with no standalone
 green square for a one-night stay. First-come, stale and unavailable results keep
 their distinct wording and booking behavior.
+Site names and amenities align beside square thumbnails; availability and the
+reservation action share a wrapping footer. The photo viewer fits the image's
+aspect ratio in a compact sheet instead of centering it in unused full-screen
+space. Full captions expand on request, credits stay visible, and photos retain
+pinch zoom and previous/next controls. General reservation instructions remain in
+campground details rather than appearing above every site list.
 
 The map tab selects one night using calendar cells. Its heading names that night
 and updates to the matching-site count when filters are active. All-matching site

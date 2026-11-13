@@ -279,11 +279,6 @@ export function CampingDetailSheet({
                   First-come sites also offered.
                 </Text>
               ) : null}
-              {row.loopName && booking && firstCome.length !== allEntries.length ? (
-                <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-                  District permits: select this campground.
-                </Text>
-              ) : null}
               {!available.length &&
               booking &&
               (!firstCome.length || unknown.length || unavailable.length) ? (

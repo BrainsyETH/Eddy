@@ -57,8 +57,9 @@ export function CampingSiteCard({ entry, facilityId, bookingUrl, now, campground
             <ControlIcon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textMuted} />
           </View>
           {loop || tags.length ? <Text style={[styles.meta, { color: colors.textMuted }]}>{[loop, ...tags].filter(Boolean).join(' · ')}</Text> : null}
-          {!dense || entry.state !== 'available' ? <Text style={[styles.status, { color: entry.state === 'available' ? colors.success : colors.textBody }]}>{status}</Text> : null}
         </Pressable>
+        <View style={[styles.footer, dense && entry.state === 'available' && styles.bookingOnly]}>
+        {!dense || entry.state !== 'available' ? <Text style={[styles.status, { color: entry.state === 'available' ? colors.success : colors.textBody }]}>{status}</Text> : null}
         {url && (entry.state === 'available' || entry.state === 'unknown') ? <Pressable onPress={() => open(url)}
           accessibilityRole="link" accessibilityLabel={`${bookingLabel} for ${fullName}`}
           accessibilityHint={direct ? 'Opens the site reservation page in your browser.' : 'Opens park reservations. Select this site and your dates there.'}
@@ -66,6 +67,7 @@ export function CampingSiteCard({ entry, facilityId, bookingUrl, now, campground
           <Text style={[styles.bookingText, { color: colors.interactive }]}>{bookingLabel}</Text>
           <ControlIcon name="open-outline" size={15} color={colors.interactive} />
         </Pressable> : null}
+        </View>
       </View>
     </View>
     {policyNote ? <Text style={[styles.meta, { color: colors.textMuted }]}>{policyNote}</Text> : null}
@@ -87,15 +89,17 @@ export function CampingSiteCard({ entry, facilityId, bookingUrl, now, campground
 const styles = StyleSheet.create({
   card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 10, gap: 8 },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  placeholder: { width: 88, height: 76, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  placeholder: { width: 88, height: 88, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   smallPlaceholder: { width: 68, height: 54 },
-  body: { flex: 1, minWidth: 0 },
+  body: { flex: 1, minWidth: 0, gap: 2 },
   summary: { minHeight: 44, gap: 3 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { ...t.base, fontFamily: fonts.semibold, flex: 1 },
   smallName: { ...t.sm },
   meta: { ...t.xs, fontFamily: fonts.body },
-  status: { ...t.xs, fontFamily: fonts.medium },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 8, rowGap: 0 },
+  bookingOnly: { justifyContent: 'flex-end' },
+  status: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1 },
   booking: { minHeight: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
   bookingText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   details: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 8 },

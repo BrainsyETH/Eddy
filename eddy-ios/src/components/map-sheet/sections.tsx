@@ -608,6 +608,7 @@ const styles = StyleSheet.create({
   // grabber, this sits mid-page with content above and below, so neither
   // direction leaves the parent's bounds.
   foldToggle: {
+    minWidth: 44,
     alignSelf: 'flex-start',
     paddingVertical: 12,
     marginTop: -10,
