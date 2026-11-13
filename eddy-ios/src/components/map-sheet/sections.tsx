@@ -31,19 +31,9 @@ import { accessBadgeTypes, accessTypeSymbol } from './placeSymbol';
 import { accessAmenities } from './accessAmenities';
 
 /**
- * ── `symbol` IS NOT AVAILABLE TO EVERY HEADING, on purpose ────────────────
- *
- * Three sections take one — Getting in, Parking, Facilities — and they are the
- * same three the full access-point screen marks
- * (app/river/[slug]/access/[accessSlug].tsx). That is the whole rule: the sheet
- * and the screen it links to must not teach different marks for the same
- * heading, and the screen's own note says why the set stops there — giving
- * every heading a sticker turns a scannable column of text into a column of
- * noise.
- *
- * Camping and Outfitters deliberately do NOT take one even though the catalog
- * has both drawings: their rows already carry the mark, in the LinkRow well, so
- * a heading mark would draw the same tent twice nine points apart.
+ * Access Overview uses plain section headings. Place thumbnails, amenity
+ * indicators and action controls carry the art where it adds information;
+ * a heading does not repeat the same drawing above those rows.
  *
  * ── `children` IS NOT A CONTENT CHECK ─────────────────────────────────────
  * `if (!children)` catches null and undefined and nothing else. A Section whose
@@ -283,14 +273,20 @@ export function AmenityChips({ amenities }: { amenities: string[] | null | undef
  * here at all, because both callers already carry the notice that explains it,
  * and a place does not need telling twice in nine points of vertical space.
  */
-export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint }) {
+export function AccessTypeBadges({ accessPoint, showIcons = true, showGenericAccess = true }: {
+  accessPoint: MapAccessPoint;
+  /** Overview uses text labels; map callouts retain their category artwork. */
+  showIcons?: boolean;
+  /** Overview already identifies the place as an access point. */
+  showGenericAccess?: boolean;
+}) {
   const { colors } = useTheme();
-  const types = accessBadgeTypes(accessPoint);
+  const types = accessBadgeTypes(accessPoint).filter((type) => showGenericAccess || type !== 'access');
   if (!types.length && !accessPoint.feeRequired) return null;
   return (
     <View style={styles.types}>
       {types.map((type) => {
-        const symbol = accessTypeSymbol(type);
+        const symbol = showIcons ? accessTypeSymbol(type) : null;
         return (
           <View key={type} style={styles.type}>
             {symbol ? <EddySymbol name={symbol} size={16} /> : null}

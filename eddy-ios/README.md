@@ -631,10 +631,14 @@ constraint worth writing down.
 ### Access Overview sections
 
 Access sheets separate facilities/fees, Good to know, camping and services with
-quiet dividers and Eddy's existing category art. Service names wrap; descriptions
+quiet dividers and plain section headings. Service names wrap; descriptions
 can expand; each available contact action remains independently reachable.
 Facilities omits the Parking and Boat ramp chips already shown elsewhere on the
-map, while keeping facility prose, parking details and fees.
+map, while keeping facility prose, parking details and fees. It also omits Camping
+when the access has a Campground label or Camping tab; nearby campgrounds alone
+never suppress that amenity. Overview's place-type labels are text-only and omit
+generic Access. Map callouts retain their category artwork. Thumbnails, useful
+amenity indicators and action icons remain in the sheet.
 Good to know precedes nearby businesses and retains every word of the supplied
 notes, including restrictions. Sentence/list breaks are presentation only.
 

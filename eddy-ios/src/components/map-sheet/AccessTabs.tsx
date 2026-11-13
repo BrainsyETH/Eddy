@@ -27,7 +27,7 @@ import type {
   NpsCampgroundSummary,
   ServiceTier,
 } from '@eddy/types';
-import { serviceTiers } from '@eddy/types';
+import { isCampground, serviceTiers } from '@eddy/types';
 import {
   defaultNight,
   localToday,
@@ -176,9 +176,12 @@ export function AccessOverviewTab({
   const tips = accessNoteItems(point?.localTips);
   const managedBy = point?.managingAgency ? agencyLabel(point.managingAgency) : null;
   // Parking and boat ramps are already identified elsewhere on the map.
+  // Nearby campgrounds alone do not describe camping at this access.
+  const campingAlreadyShown = Boolean(onOpenCamping) || isCampground(accessPoint);
   const facilityAmenities = (point?.amenities ?? []).filter((amenity) => {
     const slug = typeof amenity === 'string' ? amenity.trim().toLowerCase() : '';
-    return slug !== '' && slug !== 'parking' && slug !== 'boat_ramp';
+    return slug !== '' && slug !== 'parking' && slug !== 'boat_ramp'
+      && !(slug === 'camping' && campingAlreadyShown);
   });
 
   const hasGettingIn = Boolean(road || point?.roadAccess);
@@ -222,7 +225,7 @@ export function AccessOverviewTab({
   return (
     <View>
       {onOpenDetail ? <LinkRow label="View full details" symbol="accessPoint" onPress={onOpenDetail} /> : null}
-      <AccessTypeBadges accessPoint={accessPoint} />
+      <AccessTypeBadges accessPoint={accessPoint} showIcons={false} showGenericAccess={false} />
       {!accessPoint.isPublic ? (
         <Prose>Private access — permission may be required.</Prose>
       ) : null}
@@ -283,21 +286,21 @@ export function AccessOverviewTab({
           sleep, who rents boats, anything else. See tabs.ts for why the split
           ended. */}
       {hasGettingIn ? (
-        <Section title="Getting in" symbol="road" separated>
+        <Section title="Getting in" separated>
           <Fact label="Road" value={road} />
           <FoldedProse lines={3} subject="road directions">{point?.roadAccess}</FoldedProse>
         </Section>
       ) : null}
 
       {hasParking ? (
-        <Section title="Parking" symbol="parking" separated>
+        <Section title="Parking" separated>
           <Fact label="Capacity" value={parking} />
           <FoldedProse lines={3} subject="parking details">{point?.parkingInfo}</FoldedProse>
         </Section>
       ) : null}
 
       {hasFacilities ? (
-        <Section title="Facilities & fees" symbol="facilities" separated>
+        <Section title="Facilities & fees" separated>
           <AmenityChips amenities={facilityAmenities} />
           <FoldedProse lines={3} subject="facilities">{point?.facilities}</FoldedProse>
           {point?.feeRequired || point?.feeNotes ? (
