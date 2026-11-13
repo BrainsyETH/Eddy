@@ -31,9 +31,8 @@ import { accessBadgeTypes, accessTypeSymbol } from './placeSymbol';
 import { accessAmenities } from './accessAmenities';
 
 /**
- * Access Overview uses plain section headings. Place thumbnails, amenity
- * indicators and action controls carry the art where it adds information;
- * a heading does not repeat the same drawing above those rows.
+ * Optional Eddy category art identifies sections such as Getting in, Parking,
+ * and Facilities & fees. Redundant amenity chips are filtered by the caller.
  *
  * ── `children` IS NOT A CONTENT CHECK ─────────────────────────────────────
  * `if (!children)` catches null and undefined and nothing else. A Section whose

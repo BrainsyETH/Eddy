@@ -636,7 +636,8 @@ facts use Eddy's category art, while generic Access is omitted. Missing or faile
 photos leave no empty hero. Multiple photos show their page count.
 
 Access sheets separate facilities/fees, Good to know, camping and services with
-quiet dividers and plain section headings. Service names wrap; descriptions
+quiet dividers. Getting in, Parking, and Facilities & fees retain Eddy's category
+icons in their headings. Service names wrap; descriptions
 can expand; each available contact action remains independently reachable.
 Facilities omits the Parking and Boat ramp chips already shown elsewhere on the
 map, while keeping facility prose, parking details and fees. It also omits Camping
