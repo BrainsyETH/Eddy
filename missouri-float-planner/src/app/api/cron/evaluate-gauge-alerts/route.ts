@@ -36,6 +36,7 @@ import {
   type LadderRow,
 } from '@/lib/alerts/gauge-threshold';
 import { persistGaugeAlertPlan } from '@/lib/alerts/gauge-alert-persist';
+import { loadLastAnnounced } from '@/lib/alerts/gauge-last-announced';
 import { isRuleLive, parentIdsOf } from '@/lib/alerts/gating';
 import { toNum } from '@/lib/utils/num';
 import { logger } from '@/lib/logger';
@@ -252,12 +253,14 @@ async function run(request: NextRequest) {
     }
 
     const stationIds = [...new Set(subscriptions.map((s) => s.gauge_station_id))];
-    const [readings, ladders] = await Promise.all([
+    const [readings, ladders, lastAnnounced] = await Promise.all([
       loadLatestReadings(supabase, stationIds),
       loadLadders(supabase, subscriptions),
+      // So the cooldown can tell a repeat from the water getting worse.
+      loadLastAnnounced(supabase, subscriptions),
     ]);
 
-    const plan = planGaugeAlerts({ subscriptions, readings, ladders });
+    const plan = planGaugeAlerts({ subscriptions, readings, ladders, lastAnnounced });
 
     // Outbox first, then state, and a fired rule's state only behind a written
     // event — the ordering argument is in lib/alerts/gauge-alert-persist.ts.

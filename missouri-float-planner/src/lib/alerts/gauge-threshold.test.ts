@@ -11,6 +11,8 @@ import {
   type LadderRow,
   type StationReading,
 } from './gauge-threshold';
+import { loadLastAnnounced } from './gauge-last-announced';
+import { FakeOutboxDb } from './fake-outbox-db';
 // Moved out of gauge-threshold so the river delivery pass can reach them too.
 import { isQuietAt, suppressedByQuietHours } from './quiet-hours';
 import type { NotificationPreferences } from '@/types/api';
@@ -286,6 +288,136 @@ test('a floatable-only rule ignores a warning, and a safety rule takes it', () =
   const safety = evaluate(conditionSub({ condition_kind: 'safety' }), dangerous, LADDER);
   assert.equal(safety.fired?.kind, 'warning');
   assert.equal(safety.fired?.condition_code, 'dangerous');
+});
+
+// ── the cooldown stops repeats, not escalations ──────────────────
+
+/** Fired two hours ago, so well inside the six-hour cooldown. */
+const TWO_HOURS_AGO = new Date(NOW.getTime() - 2 * 60 * 60 * 1000).toISOString();
+const FLOOD = reading({ gauge_height_ft: 7.5 });
+
+function cooling(lastConditionCode: string, lastAnnouncedCode?: string | null) {
+  return evaluateSubscription({
+    sub: conditionSub({ last_condition_code: lastConditionCode, last_triggered_at: TWO_HOURS_AGO }),
+    reading: lastConditionCode === 'dangerous' ? reading({ gauge_height_ft: 5.5 }) : FLOOD,
+    ladder: LADDER,
+    now: NOW,
+    lastAnnouncedCode,
+  });
+}
+
+test('a rule that said "high" two hours ago still says "dangerous"', () => {
+  // The bug: the per-rule cooldown read the flood warning as a repeat of the
+  // high-water one, so the worse of the two never went out.
+  const result = cooling('high', 'high');
+  assert.equal(result.skip, null);
+  assert.equal(result.fired?.kind, 'warning');
+  assert.equal(result.fired?.condition_code, 'dangerous');
+  assert.ok(result.state?.last_triggered_at, 'the escalation restarts the cooldown');
+});
+
+test('a rule that already said "dangerous" does not say it again inside the cooldown', () => {
+  // dangerous → high (easing, held back) → dangerous again. The last thing the
+  // user heard is already "dangerous", so this is the repeat the cooldown is for.
+  const result = cooling('high', 'dangerous');
+  assert.equal(result.fired, null);
+  assert.equal(result.skip, 'cooldown');
+  assert.equal(result.state?.last_condition_code, 'dangerous', 'a held-back rule still tracks the water');
+});
+
+test('a rule that said "floatable" two hours ago still warns about high water', () => {
+  // One clock per rule, across kinds — so good news used to hold back the
+  // warning that followed it.
+  const result = evaluateSubscription({
+    sub: conditionSub({ last_condition_code: 'flowing', last_triggered_at: TWO_HOURS_AGO }),
+    reading: reading({ gauge_height_ft: 5.5 }),
+    ladder: LADDER,
+    now: NOW,
+    lastAnnouncedCode: 'flowing',
+  });
+  assert.equal(result.fired?.kind, 'warning');
+  assert.equal(result.fired?.condition_code, 'high');
+});
+
+test('with no record of what a rule last said, a flood warning goes out', () => {
+  // The lookup is best-effort. Unknown is read as "high": it can repeat a flood
+  // warning and cannot withhold one.
+  assert.equal(cooling('high').fired?.condition_code, 'dangerous');
+
+  // No further than that — an unknown still cools a plain "high".
+  const high = evaluateSubscription({
+    sub: conditionSub({ last_condition_code: 'flowing', last_triggered_at: TWO_HOURS_AGO }),
+    reading: reading({ gauge_height_ft: 5.5 }),
+    ladder: LADDER,
+    now: NOW,
+  });
+  assert.equal(high.skip, 'cooldown');
+});
+
+test('easing is still held back by the cooldown', () => {
+  // Only the water getting WORSE passes. dangerous → high is better news.
+  const result = cooling('dangerous', 'dangerous');
+  assert.equal(result.fired, null);
+  assert.equal(result.skip, 'cooldown');
+});
+
+test('planGaugeAlerts hands each rule what it last announced', () => {
+  const rule = conditionSub({ last_condition_code: 'high', last_triggered_at: TWO_HOURS_AGO });
+  const input = {
+    subscriptions: [rule],
+    readings: new Map([[rule.gauge_station_id, FLOOD]]),
+    ladders: new Map([[ladderKey(rule.river_id, rule.gauge_station_id), LADDER]]),
+    now: NOW,
+  };
+  assert.equal(planGaugeAlerts({ ...input, lastAnnounced: new Map([[rule.id, 'dangerous']]) }).fired.length, 0);
+  assert.equal(planGaugeAlerts({ ...input, lastAnnounced: new Map([[rule.id, 'high']]) }).fired.length, 1);
+});
+
+test('loadLastAnnounced reads the newest event of each cooling-down condition rule', async () => {
+  const rule = conditionSub({ id: 'cooling', last_triggered_at: TWO_HOURS_AGO });
+  const db = new FakeOutboxDb(NOW.toISOString()).seed('gauge_alert_events', [
+    { subscription_id: 'cooling', condition_code: 'high', detected_at: new Date(NOW.getTime() - 3 * 3600_000).toISOString() },
+    { subscription_id: 'cooling', condition_code: 'dangerous', detected_at: TWO_HOURS_AGO },
+    // Too old to be what a rule inside its cooldown last said.
+    { subscription_id: 'cooling', condition_code: 'flowing', detected_at: new Date(NOW.getTime() - 9 * 3600_000).toISOString() },
+    { subscription_id: 'someone-else', condition_code: 'high', detected_at: TWO_HOURS_AGO },
+  ]);
+
+  const found = await loadLastAnnounced(db, [rule], NOW);
+  assert.deepEqual([...found], [['cooling', 'dangerous']]);
+});
+
+test('loadLastAnnounced asks nothing when no rule is cooling down', async () => {
+  const db = new FakeOutboxDb(NOW.toISOString());
+  const found = await loadLastAnnounced(
+    db,
+    [
+      conditionSub({ id: 'never-fired' }),
+      conditionSub({ id: 'long-ago', last_triggered_at: new Date(NOW.getTime() - 7 * 3600_000).toISOString() }),
+      // Threshold rules have no condition to escalate.
+      sub({ id: 'threshold', last_triggered_at: TWO_HOURS_AGO }),
+    ],
+    NOW,
+  );
+  assert.equal(found.size, 0);
+  assert.deepEqual(db.log, []);
+});
+
+test('a failed loadLastAnnounced read does not stop the pass, and a flood warning still goes out', async () => {
+  const rule = conditionSub({ last_condition_code: 'high', last_triggered_at: TWO_HOURS_AGO });
+  const db = new FakeOutboxDb(NOW.toISOString()).fail({ table: 'gauge_alert_events', mode: 'select' });
+
+  const lastAnnounced = await loadLastAnnounced(db, [rule], NOW);
+  assert.equal(lastAnnounced.size, 0);
+
+  const plan = planGaugeAlerts({
+    subscriptions: [rule],
+    readings: new Map([[rule.gauge_station_id, FLOOD]]),
+    ladders: new Map([[ladderKey(rule.river_id, rule.gauge_station_id), LADDER]]),
+    lastAnnounced,
+    now: NOW,
+  });
+  assert.equal(plan.fired[0]?.condition_code, 'dangerous');
 });
 
 test('a recovery is recorded but never pushed', () => {

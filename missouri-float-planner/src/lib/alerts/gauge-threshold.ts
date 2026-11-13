@@ -21,12 +21,14 @@
 //     alert_push_deliveries: that ledger's cooldown index is keyed on
 //     (user, river, kind), and a national-tier rule has no river, so every such
 //     rule would share one bucket and four gauges would mute each other.
+//     It stops repeats and nothing else: a warning WORSE than the last thing
+//     the rule announced goes out inside the window. See worsensWhatWasTold.
 //  4. SEEDED STATE. A rule is born knowing which side it is on — see the POST
 //     route — so creating "above 3 ft" on water already at 5.2 ft does not fire
 //     instantly at someone describing what they can already see.
 
 import { classifyReading, hasLadder, type ConditionThresholds } from '@shared/condition-ladder';
-import { classifyEventKind, isPushableKind } from './event-kind';
+import { classifyEventKind, elevatedRank, isPushableKind, worsensWhatWasTold } from './event-kind';
 import { subscriptionKindsFor } from './fanout';
 import { gateReading } from './gate';
 import { describeAlertRule, formatAlertValue } from './rule-copy';
@@ -303,6 +305,17 @@ export interface EvalInput {
   ladder: LadderRow | null;
   now: Date;
   cooldownMs?: number;
+  /**
+   * The condition this rule last ANNOUNCED — the code on its newest outbox
+   * event — when the caller could look it up. Condition mode only.
+   *
+   * Not `last_condition_code`, which tracks the water every pass whether or not
+   * anything was said. This is what the user heard, and it is the only thing
+   * that can tell a repeat from an escalation while the rule is cooling down.
+   * Undefined is read as "high": an unknown may repeat a flood warning and must
+   * never withhold one.
+   */
+  lastAnnouncedCode?: string | null;
 }
 
 export function evaluateSubscription(input: EvalInput): EvalResult {
@@ -392,7 +405,14 @@ export function evaluateSubscription(input: EvalInput): EvalResult {
     // tracks the river. Otherwise a rule cooled down through a dangerous spell
     // would come out of it still believing the water was low.
     if (oneShotSpent) return { fired: null, state, skip: 'one_shot_spent' };
-    if (cooledDown) return { fired: null, state, skip: 'cooldown' };
+    // The cooldown is across kinds here — one clock per rule — so it used to
+    // hold back "dangerous" two hours after "high", and "high" two hours after
+    // "floatable". Neither is a repeat of what the rule last said.
+    const lastToldRank =
+      input.lastAnnouncedCode != null ? elevatedRank(input.lastAnnouncedCode) : 1;
+    if (cooledDown && !worsensWhatWasTold(kind, newCode, lastToldRank)) {
+      return { fired: null, state, skip: 'cooldown' };
+    }
 
     return {
       fired: {
@@ -453,6 +473,11 @@ export interface PlanInput {
   readings: Map<string, StationReading>;
   /** Keyed by `${river_id}:${gauge_station_id}`; condition mode only. */
   ladders: Map<string, LadderRow>;
+  /**
+   * Keyed by subscription id: the condition each rule last announced. Only
+   * rules inside their cooldown need an entry; see EvalInput.lastAnnouncedCode.
+   */
+  lastAnnounced?: Map<string, string | null>;
   now?: Date;
   cooldownMs?: number;
 }
@@ -473,6 +498,7 @@ export function planGaugeAlerts(input: PlanInput): GaugeAlertPlan {
       sub,
       reading: input.readings.get(sub.gauge_station_id),
       ladder: input.ladders.get(ladderKey(sub.river_id, sub.gauge_station_id)) ?? null,
+      lastAnnouncedCode: input.lastAnnounced?.get(sub.id),
       now,
       cooldownMs: input.cooldownMs,
     });

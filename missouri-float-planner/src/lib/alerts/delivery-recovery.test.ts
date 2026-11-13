@@ -92,6 +92,67 @@ for (const table of ['alert_subscriptions', 'device_tokens', 'notification_prefe
   });
 }
 
+// ── 1b. The cooldown reads what an earlier warning SAID ──────────────────────
+
+/** User `a` was pushed `kind` about this river two hours ago, for event `eventId`. */
+function priorSend(db: FakeOutboxDb, eventId: string, overrides: Record<string, unknown> = {}) {
+  return db.seed('alert_push_deliveries', [
+    {
+      event_id: eventId,
+      device_token_id: 'tok-a',
+      user_id: 'a',
+      river_id: RIVER,
+      kind: 'warning',
+      status: 'sent',
+      event_source: 'river_condition',
+      sent_at: '2026-07-25T10:00:00.000Z',
+      ...overrides,
+    },
+  ]);
+}
+
+test('a river that went high, then dangerous, warns the same person twice', async () => {
+  // End to end through the ledger: the earlier send is a `warning` row with no
+  // condition on it, and the pass has to look the event up to learn it said
+  // "high" — otherwise the flood warning is read as a repeat and dropped.
+  const db = riverWorld().seed('river_condition_events', [
+    riverEvent({ id: 'evt-high', new_condition_code: 'high', push_delivered_at: '2026-07-25T10:00:00.000Z' }),
+  ]);
+  priorSend(db, 'evt-high');
+  const t = transport();
+
+  await run(db, t);
+
+  assert.ok(t.sent.includes('ExponentPushToken[a]'), 'The flood warning reaches the person already told "high"');
+});
+
+test('a river already announced as dangerous does not warn the same person again', async () => {
+  const db = riverWorld().seed('river_condition_events', [
+    riverEvent({ id: 'evt-earlier', new_condition_code: 'dangerous', push_delivered_at: '2026-07-25T10:00:00.000Z' }),
+  ]);
+  priorSend(db, 'evt-earlier');
+  const t = transport();
+
+  await run(db, t);
+
+  assert.deepEqual(t.sent.sort(), ['ExponentPushToken[b]', 'ExponentPushToken[c]']);
+});
+
+test('a gauge alert sent about the same river does not cool down the river alert', async () => {
+  // Same ledger, same river id, same kind — a different stretch of water.
+  const db = riverWorld();
+  priorSend(db, 'gauge-evt-1', { event_source: 'gauge_alert' });
+  // Seeded as `dangerous` so that only the source can let this through.
+  db.seed('river_condition_events', [
+    riverEvent({ id: 'gauge-evt-1', new_condition_code: 'dangerous', push_delivered_at: '2026-07-25T10:00:00.000Z' }),
+  ]);
+  const t = transport();
+
+  await run(db, t);
+
+  assert.ok(t.sent.includes('ExponentPushToken[a]'));
+});
+
 // ── 2. One successful recipient does not strand the rest ─────────────────────
 
 test('a partly delivered river event retries exactly the recipients it missed', async () => {
