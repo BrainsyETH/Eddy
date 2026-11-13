@@ -1,15 +1,18 @@
 // src/lib/email/render.ts
 // Renders admin reply emails into Eddy-branded HTML + a plain-text fallback.
-// Brand tokens mirror the marketing emails in /marketing (deep-teal header,
-// Fredoka headings, river-blue links, warm cream background).
+// Brand tokens mirror SiteHeader: warm sandbar chrome, the existing otter,
+// a coral wordmark and teal links. Email clients use system-font fallbacks.
 
 const BRAND = {
-  bg: '#EDEBE6',
+  bg: '#F7F6F3',
   card: '#ffffff',
-  cardBorder: '#2D2A24',
-  header: '#163F4A',
+  cardBorder: '#DBD5CA',
+  header: '#FAF8F4',
+  headerBorder: '#E8DFD0',
+  wordmark: '#E5573F',
+  heading: '#163F4A',
   ink: '#2D2A24',
-  muted: '#6B665C',
+  muted: '#6B6459',
   divider: '#DBD5CA',
   link: '#2D7889',
   logo: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png',
@@ -64,20 +67,16 @@ export function renderReplyEmail(safeContentHtml: string, original?: OriginalMes
   const quoted =
     original?.text && original.text.trim()
       ? `
-              <tr>
-                <td style="padding:2px 26px 0 26px;">
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                    <tr><td style="border-top:1px solid ${BRAND.divider}; padding-top:16px;">
-                      <p style="margin:0 0 8px 0; font-family:${BRAND.bodyFont}; font-size:12px; color:${BRAND.muted};">On ${escapeHtml(
-                        formatWhen(original.date),
-                      )}, ${escapeHtml(original.from || 'someone')} wrote:</p>
-                      <div style="border-left:3px solid ${BRAND.divider}; padding-left:12px; font-family:${BRAND.bodyFont}; font-size:14px; line-height:21px; color:${BRAND.muted}; white-space:pre-wrap;">${escapeHtml(
-                        original.text.trim(),
-                      )}</div>
-                    </td></tr>
-                  </table>
-                </td>
-              </tr>`
+          <tr>
+            <td class="eddy-gutter" style="padding:24px; font-family:${BRAND.bodyFont}; color:${BRAND.muted}; overflow-wrap:break-word; word-wrap:break-word; word-break:break-word;">
+              <p style="margin:0 0 12px 0; font-size:12px; line-height:18px;">On ${escapeHtml(
+                formatWhen(original.date),
+              )}, ${escapeHtml(original.from || 'someone')} wrote:</p>
+              <div style="border-left:2px solid ${BRAND.divider}; padding-left:12px; font-size:14px; line-height:22px; white-space:pre-wrap;">${escapeHtml(
+                original.text.trim(),
+              )}</div>
+            </td>
+          </tr>`
       : '';
 
   return `<!DOCTYPE html>
@@ -87,42 +86,65 @@ export function renderReplyEmail(safeContentHtml: string, original?: OriginalMes
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <style>
+  table { border-spacing:0; mso-table-lspace:0pt; mso-table-rspace:0pt; }
   .eddy-body { font-family:${BRAND.bodyFont}; font-size:16px; line-height:25px; color:${BRAND.ink}; }
   .eddy-body p { margin:0 0 14px 0; }
+  .eddy-body > :last-child { margin-bottom:0; }
   .eddy-body a { color:${BRAND.link}; font-weight:600; }
-  .eddy-body h1,.eddy-body h2,.eddy-body h3,.eddy-body h4 { font-family:${BRAND.headingFont}; color:${BRAND.header}; margin:0 0 12px 0; line-height:1.25; }
+  .eddy-body h1,.eddy-body h2,.eddy-body h3,.eddy-body h4 { font-family:${BRAND.headingFont}; color:${BRAND.heading}; margin:0 0 12px 0; line-height:1.25; }
   .eddy-body h1 { font-size:26px; } .eddy-body h2 { font-size:22px; } .eddy-body h3 { font-size:18px; }
   .eddy-body ul,.eddy-body ol { margin:0 0 14px 0; padding-left:22px; }
   .eddy-body li { margin:0 0 6px 0; }
   .eddy-body blockquote { margin:0 0 14px 0; padding:8px 14px; border-left:3px solid #7FC4D4; background:#F4F2ED; color:#4A463F; }
   .eddy-body img { max-width:100%; height:auto; border-radius:10px; }
   .eddy-body hr { border:none; border-top:1px solid ${BRAND.divider}; margin:18px 0; }
+  @media only screen and (max-width:480px) {
+    .eddy-outer { padding:12px 8px !important; }
+    .eddy-gutter { padding-left:20px !important; padding-right:20px !important; }
+  }
 </style>
 </head>
 <body style="margin:0; padding:0; background-color:${BRAND.bg};">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${BRAND.bg};">
     <tr>
-      <td align="center" style="padding:24px 12px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:${BRAND.card}; border-radius:16px; overflow:hidden; border:2px solid ${BRAND.cardBorder};">
+      <td class="eddy-outer" align="center" style="padding:24px 12px;">
+        <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:600px; table-layout:fixed;">
           <tr>
-            <td style="background-color:${BRAND.header}; padding:16px 26px;">
-              <img src="${BRAND.logo}" width="30" height="30" alt="Eddy" style="vertical-align:middle; border-radius:8px; display:inline-block;">
-              <span style="font-family:${BRAND.headingFont}; font-size:20px; font-weight:700; color:#ffffff; vertical-align:middle; padding-left:10px;">Eddy</span>
-            </td>
-          </tr>
-          <tr>
-            <td class="eddy-body" style="padding:26px 26px 6px 26px;">
-              ${safeContentHtml}
+            <td style="background-color:${BRAND.card}; border:1px solid ${BRAND.cardBorder}; border-radius:12px; overflow:hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; table-layout:fixed;">
+                <tr>
+                  <td class="eddy-gutter" style="background-color:${BRAND.header}; padding:16px 24px; border-bottom:1px solid ${BRAND.headerBorder}; border-radius:11px 11px 0 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td width="32" style="vertical-align:middle;"><img src="${BRAND.logo}" width="32" height="32" alt="" style="border:0; border-radius:6px; display:block;"></td>
+                        <td style="padding-left:10px; font-family:${BRAND.headingFont}; font-size:24px; line-height:32px; font-weight:700; color:${BRAND.wordmark}; vertical-align:middle;">Eddy</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="eddy-body eddy-gutter" style="padding:24px; font-family:${BRAND.bodyFont}; font-size:16px; line-height:25px; color:${BRAND.ink}; overflow-wrap:break-word; word-wrap:break-word; word-break:break-word;">
+                    ${safeContentHtml}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="eddy-gutter" style="padding:0 24px 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="padding-top:12px; border-top:1px solid ${BRAND.divider}; font-family:${BRAND.bodyFont};">
+                          <a href="https://eddy.guide" style="display:inline-block; padding:10px 0; font-size:14px; line-height:24px; color:${BRAND.link}; font-weight:600; text-decoration:underline;">eddy.guide</a>
+                          <p style="margin:0; font-size:12px; line-height:18px; color:${BRAND.muted};">Rivers, lakes &amp; trip planning</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>${quoted}
-          <tr>
-            <td style="padding:18px 26px 22px 26px; border-top:1px solid ${BRAND.divider};">
-              <p style="margin:0; font-family:${BRAND.bodyFont}; font-size:12px; line-height:18px; color:${BRAND.muted};">
-                Eddy · Missouri float trip planner · <a href="https://eddy.guide" style="color:${BRAND.link}; font-weight:600;">eddy.guide</a>
-              </p>
-            </td>
-          </tr>
         </table>
+        <!--[if mso]></td></tr></table><![endif]-->
       </td>
     </tr>
   </table>
@@ -130,9 +152,9 @@ export function renderReplyEmail(safeContentHtml: string, original?: OriginalMes
 </html>`;
 }
 
-/** Plain-text fallback: the reply text, then the quoted original. */
+/** Plain-text fallback: the reply, website footer, then the quoted original. */
 export function buildReplyText(bodyText: string, original?: OriginalMessage): string {
-  const parts = [bodyText.trimEnd()];
+  const parts = [bodyText.trimEnd(), '', 'eddy.guide'];
   if (original?.text && original.text.trim()) {
     const quoted = original.text.trim().split('\n').map((line) => `> ${line}`).join('\n');
     parts.push('', `On ${formatWhen(original.date)}, ${original.from || 'someone'} wrote:`, quoted);
