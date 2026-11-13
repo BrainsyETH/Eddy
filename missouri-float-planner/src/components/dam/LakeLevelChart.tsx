@@ -17,9 +17,7 @@ function useMeasuredWidth<T extends HTMLElement>(): [React.RefObject<T | null>, 
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    // The inset photo layout leaves less than 240px on a 320px phone. Match
-    // the actual plot width so its labels and keyboard/touch coordinates agree.
-    const apply = () => setWidth(Math.max(160, Math.round(el.getBoundingClientRect().width)));
+    const apply = () => setWidth(Math.max(240, Math.round(el.getBoundingClientRect().width)));
     apply();
     const observer = new ResizeObserver(apply);
     observer.observe(el);

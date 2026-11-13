@@ -1818,7 +1818,9 @@ select.input {
 .place-header-art { position: absolute; right: 5%; top: 50%; transform: translateY(-50%); opacity: .35; }
 .place-header-actions { color: white; }
 .place-header-actions button { color: var(--color-primary-800); }
-.place-content { position: relative; margin: -1.75rem .5rem 0; }
+/* No side inset on phones: at 320px it left the 24-hour axis 196px wide and its
+   first two labels overlapped. The card still overlaps the photo's lower edge. */
+.place-content { position: relative; margin: -1.75rem 0 0; }
 .lake-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .lake-facts > div { min-width: 0; padding: .75rem; border: 1px solid var(--color-neutral-200); border-radius: .75rem; background: var(--color-surface); }
 .lake-facts dt { display: flex; align-items: center; gap: .5rem; color: var(--color-neutral-600); font-size: .75rem; }
@@ -1864,9 +1866,6 @@ select.input {
 .dam-resource-links > * { max-width: 100%; white-space: normal; }
 .dam-measurements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
 .dam-measurements > * { border-top: 1px solid var(--color-neutral-200); padding-top: .75rem; }
-@media (min-width: 480px) {
-  .dam-measurements { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
 @media (min-width: 640px) {
   .dam-release-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .dam-turbine-summary { border-top: 0; border-left: 1px solid var(--color-neutral-200); padding-top: 0; padding-left: 2rem; }

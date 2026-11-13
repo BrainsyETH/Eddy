@@ -19,6 +19,8 @@ import { Zap, Clock } from 'lucide-react';
 import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 import type { DamSnapshot } from '@/lib/data/dams';
 import Card from '@/components/ui/Card';
+import type { LakePoolReading } from '@shared/lake-types';
+import { lakeReadingIsStale, lakeReadingLabel } from '@/lib/lakes/presentation';
 // One freshness voice across the dam surfaces, and across web and iOS. See
 // shared/dam-schedule-copy.ts for why the hour arithmetic lives there.
 import {
@@ -105,10 +107,17 @@ export default function DamStateCard({
    * component is for once generation has moved out of it.
    */
   secondary,
+  /**
+   * The lake section's own pool reading, when the page also draws the lake
+   * preview. A daily report (Truman) is current for 36 hours, not six; without
+   * this the card dimmed a reading the preview directly below called current.
+   */
+  lakePool,
   now = Date.now(),
 }: {
   dam: DamSnapshot;
   secondary?: boolean;
+  lakePool?: LakePoolReading;
   now?: number;
 }) {
   const { metrics } = dam;
@@ -268,8 +277,8 @@ export default function DamStateCard({
             icon="damGauge"
             label="Lake level"
             value={`${pool.value.toFixed(2)} ft`}
-            sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at, now)}
-            dim={isStale(pool, now)}
+            sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : lakePool ? lakeReadingLabel(lakePool, now) : relativeAge(pool.at, now)}
+            dim={lakePool ? lakeReadingIsStale(lakePool, now) : isStale(pool, now)}
           />
         )}
         {/* Inflow against release is what says whether the lake is filling, and

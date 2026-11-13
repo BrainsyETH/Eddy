@@ -12,6 +12,7 @@ import { EddyIcon } from '@/components/ui/EddyIcon';
 import LakeConditions from './LakeConditions';
 import LakeLaunches from './LakeLaunches';
 import { damPhoto, lakePhoto, LAKE_RECREATION } from '@/lib/lakes/photography';
+import { stateName } from '@/lib/navigation/states';
 
 function LakeFact({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return <div><dt>{icon}<span>{label}</span></dt><dd>{children}</dd></div>;
@@ -28,7 +29,7 @@ export default function LakeDetail({ lake, damId, damName, renderedAt }: { lake:
       <LakeFact icon={<EddyIcon name="dam" size={28} />} label="Controlling dam"><Link href={`/dams/${damId}`} className="inline-flex min-h-11 items-center gap-2 hover:underline">{damName}<ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Link></LakeFact>
       {lake.operatingRange && <LakeFact icon={<EddyIcon name="damGauge" size={28} />} label="Conservation pool"><span>{lake.operatingRange.conservationFt.toFixed(1)} <span className="font-normal">ft</span></span></LakeFact>}
       <LakeFact icon={<EddyIcon name="boatRamp" size={28} />} label="Reviewed launches"><a href="#boat-launches" className="inline-flex min-h-11 items-center gap-2 hover:underline">{lake.launches.length > 0 ? `${lake.launches.length} locations` : 'Currently unavailable'}<ArrowRight className="size-4 shrink-0" aria-hidden="true" /></a></LakeFact>
-      <LakeFact icon={<MapPin className="size-7 shrink-0 text-primary-600" aria-hidden="true" />} label="Location">{lake.states.map(state => state === 'MO' ? 'Missouri' : state === 'AR' ? 'Arkansas' : state).join(' · ')}</LakeFact>
+      <LakeFact icon={<MapPin className="size-7 shrink-0 text-primary-600" aria-hidden="true" />} label="Location">{lake.states.map(stateName).join(' · ')}</LakeFact>
     </dl>
     <LakeLaunches lake={lake} now={now} />
     <div className="grid gap-4 lg:grid-cols-2">

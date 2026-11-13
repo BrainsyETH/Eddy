@@ -33,7 +33,7 @@ export default function DamDetail({ dam, renderedAt, availability, lake, lakeHre
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
       <GenerationCard dam={dam} now={now} availability={availability} />
-      {hasMeasurements && <DamStateCard dam={dam} secondary now={now} />}
+      {hasMeasurements && <DamStateCard dam={dam} secondary now={now} lakePool={pilot ? lake?.pool : undefined} />}
       {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}
       {dam.pattern && dam.pattern.length > 0 && <DamPatternStrip pattern={dam.pattern} schedule={dam.schedule} reference={dam.generationReference} generationFloorCfs={dam.generationFloorCfs} now={now} />}
