@@ -6,6 +6,7 @@ import test from 'node:test';
 import { FINDINGS, hoursOf, hoursText, quantile, sizeHours, sizeIndexFor, spread, type Stats } from './findings';
 import { frontMile, GAUGE_MILE, MAP, paceShare, PLACES, riverFrame } from './river';
 import { durationText, timeSpan } from './time';
+import { elapsedText, playbackHours, windowPosition } from './presentation';
 
 // ── The page's numbers are the study's numbers ───────────────────────────────
 //
@@ -160,4 +161,19 @@ test('hours and durations read the way people say them', () => {
   const at = (hour: number, minute: number) => Date.UTC(2026, 10, 14, hour, minute);
   assert.equal(timeSpan(at(9, 20), at(10, 30)), '3:20 to 4:30 AM');
   assert.equal(timeSpan(at(17, 40), at(19, 10)), '11:40 AM to 1:10 PM');
+});
+
+test('elapsed labels round consistently without a calendar date', () => {
+  assert.deepEqual([0, 0.25, 5.16, 5.999, 25.5].map(elapsedText), ['0 min', '15 min', '5 hr 10 min', '6 hr', '25 hr 30 min']);
+});
+
+test('both window boundaries count as within, without claiming observed arrival', () => {
+  assert.deepEqual([4, 4.5, 5, 5.5, 6].map((hour) => windowPosition(hour, 4.5, 5.5)), ['before', 'within', 'within', 'within', 'past']);
+});
+
+test('playback includes late recorded rises beyond the normal day view', () => {
+  assert.equal(playbackHours(13.25), 24);
+  assert.equal(playbackHours(24), 24);
+  assert.equal(playbackHours(24.25), 30);
+  assert.equal(playbackHours(32), 36);
 });

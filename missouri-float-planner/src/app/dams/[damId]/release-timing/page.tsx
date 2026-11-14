@@ -97,12 +97,13 @@ export default async function ReleaseTimingPage({ params }: { params: Promise<{ 
               <li><b>A rise:</b> the gauge a tenth of a foot above its three-hour low.</li>
               <li><b>Counted:</b> {F.increases.toLocaleString('en-US')} increases, {span}. {F.scored.toLocaleString('en-US')} matched exactly one rise with a complete gauge record.</li>
               <li><b>A normal river:</b> release began under 1,500 cfs, gauge under 7 ft, no smaller increase in the 20 hours before. {F.normal.toLocaleString('en-US')} releases.</li>
-              <li><b>Map bands:</b> gauge times scaled by distance from the dam.</li>
+              <li><b>Map timing:</b> gauge times scaled by distance from the dam, assuming steady travel.</li>
+              <li><b>Typical window:</b> 10th to 90th percentiles of historical timings. The marker is the median, not a forecast.</li>
             </ul>
             <div className={styles.tableWrap}>
               <table>
                 <thead>
-                  <tr><th>Group</th><th className={styles.num}>Releases</th><th className={styles.num}>Typical</th><th className={styles.num}>8 in 10</th><th className={styles.num}>Earliest</th></tr>
+                  <tr><th>Group</th><th className={styles.num}>Releases</th><th className={styles.num}>Typical</th><th className={styles.num}>Typical window</th><th className={styles.num}>Earliest</th></tr>
                 </thead>
                 <tbody>
                   {groups.map((row) => (
