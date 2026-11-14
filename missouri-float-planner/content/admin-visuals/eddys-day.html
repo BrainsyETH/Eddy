@@ -397,7 +397,7 @@ const META = {
   "/api/cron/sync-dam-history": ["water", "Dam history", "Keeps an hourly record of what each powerhouse actually released."],
   "/api/cron/sync-dam-snapshots": ["water", "Dam snapshots", "Assembles each dam's current state ahead of time so the dam pages load fast."],
   "/api/cron/sync-lake-levels": ["water", "Lake levels", "Records each lake's pool so the lake section can say how the level moved over a day and a week."],
-  "/api/cron/log-release-arrivals": ["water", "Bull Shoals timing study", "Internal test, off unless switched on. When Bull Shoals raises its release, logs when the rule expects the river to rise near Norfork, then what the gauge did. Nothing here is shown to users."],
+  "/api/cron/log-release-arrivals": ["water", "Bull Shoals timing study", "Off unless switched on. When Bull Shoals raises its release, saves when the rule expects the river to rise near Norfork, then what the gauge did. The result is published a day later on the release-timing page; no live estimate is shown."],
   "/api/cron/record-river-map-frame": ["water", "National map frames", "Saves one frame of the national map just after each national gauge pass: every in-scope gauge plus NOAA's flood status. Old frames are pruned."],
   "/api/cron/collect-rainfall": ["water", "Rainfall history", "Rain research collection, off unless switched on. Saves each hour's observed rainfall for the river basins."],
   "/api/cron/collect-rainfall-forecasts": ["water", "Rain forecasts", "Rain research collection, off unless switched on. Saves the rain forecasts for the river basins every three hours."],

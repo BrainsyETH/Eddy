@@ -1,11 +1,14 @@
-# Release-arrival trial (internal)
+# Release-arrival trial
 
-A private log that tests one question before anything is shown to users: when
+A log that tests one question before any live estimate is shown to users: when
 Bull Shoals Dam raises its release, can Eddy say in advance when the river
 will start to rise at the gauge near Norfork?
 
-**Status: implemented, switched off.** Nothing in this trial is released. It
-writes four private tables and changes no page, widget, alert or Read.
+**Status: implemented.** The four tables exist in production and collection
+runs while the flag is set (see [Turning it on](#turning-it-on)). The trial
+changes no widget, alert or Read, and shows no estimate while a release is
+travelling. Its results are published after the fact; see
+[What is published](#what-is-published).
 
 **What it tests.** A fixed estimate: one prediction per release increase,
 scored against what the gauge did. Alongside that it records, as it happens,
@@ -146,6 +149,27 @@ records only that it was paused, so increases it skips are filed as
 `collection paused`. With the flag unset nothing is recorded, and when
 collection resumes those increases are filed as `collection was down`.
 Existing rows stay either way.
+
+## What is published
+
+`/dams/swl-bull-shoals-dam/release-timing` has a section, "How close was
+Eddy?", fed by this log. One function decides what leaves the tables,
+`publicResults` in `src/lib/arrival-trial/public-results.ts`, and its rule is:
+
+- **An estimate is published only with its outcome.** An issued estimate whose
+  outcome is `matched` appears with its window and the observed rise, once the
+  outcome row exists (about 26 hours after the increase).
+- **A release still travelling is "waiting".** Its row carries the release time
+  and nothing else, so nothing on the page can be read as a forecast.
+- **Everything else is accounted for.** Undetermined outcomes are "couldn't
+  compare"; withheld increases are counted by reason. Increases under 2,000 cfs
+  are not listed.
+- **The tally on the page is not the verdict.** The study is scored once, at 60
+  compared estimates, against the pass marks below.
+
+`public-results.test.ts` checks the first two, including that a waiting row
+cannot be turned back into its estimate. The protocol was amended for this on
+2026-11-13, before any row existed.
 
 ## Reading its state in admin
 

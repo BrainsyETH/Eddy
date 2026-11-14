@@ -1,7 +1,8 @@
 // src/app/api/cron/log-release-arrivals/route.ts
 // GET/POST /api/cron/log-release-arrivals — the release-arrival trial.
 //
-// INTERNAL. Writes a private log and changes nothing a visitor can see. When
+// Writes the trial's log. It shows no live estimate anywhere; results are
+// published after the fact (src/lib/arrival-trial/public-results.ts). When
 // Bull Shoals raises its release, this records whether the frozen rule would
 // have estimated the rise at the gauge near Norfork, and a day later what the
 // gauge did. The point is to learn, on predictions fixed before the outcome

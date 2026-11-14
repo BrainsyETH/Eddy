@@ -1,11 +1,13 @@
 // src/lib/arrival-trial/rule.ts
 // The release-arrival rule, as frozen by the replay study.
 //
-// INTERNAL TRIAL ONLY. Nothing here feeds a page, a widget, an alert or Eddy's
-// Read. It decides, three hours into a Bull Shoals release increase, whether an
-// arrival estimate for the gauge near Norfork would be issued, and later reads
-// what the river did. The log it produces is the evidence a public estimate
-// would need; it is not that estimate. See docs/release-arrival-trial.md.
+// A TRIAL, NOT A FORECAST. Nothing here feeds a widget, an alert or Eddy's
+// Read, and no estimate is shown while its water is travelling. It decides,
+// three hours into a Bull Shoals release increase, whether an arrival estimate
+// for the gauge near Norfork would be issued, and later reads what the river
+// did. The log is the evidence a live estimate would need; it is not that
+// estimate. Its results are published after the fact (public-results.ts). See
+// docs/release-arrival-trial.md.
 //
 // This file is a port of scripts/research/bull-shoals-lag-2026-11/replay.py
 // and lagstudy.py. rule.test.ts replays a slice of real data through both and

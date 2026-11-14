@@ -29,6 +29,7 @@ import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
 import { loadLakeSection } from '@/lib/lakes/section';
 import { damLakeExperienceEnabled, lakePageHref } from '@/lib/lakes/public-pages';
 import { damScheduleAvailability } from '@/lib/dam-schedule-availability';
+import { RELEASE_TIMING_DAM_ID, RELEASE_TIMING_PATH } from '@/lib/release-timing/findings';
 
 // Rendered per request, deliberately not ISR. The schedule's "Today" is
 // computed from the render clock, so a cached render served after midnight
@@ -93,6 +94,8 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           </div>
           <div id="dam-resources" className="dam-resource-links mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
             {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>}
+            {/* Measured findings, not a forecast: how long past releases took to reach the gauge near Norfork. */}
+            {dam.id === RELEASE_TIMING_DAM_ID && <Button href={RELEASE_TIMING_PATH} variant="outline" size="sm" className="min-h-11">How long a release takes to reach Norfork <ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>}
             {/* Without a posted schedule the generation card already offers the
                 release line, so the number is not repeated down here. */}
             {dam.infoPhone && dam.schedule.length > 0 && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Release Line: {dam.infoPhone}</Button>}
