@@ -144,13 +144,14 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
               <text {...label(-92.6, 36.222)} className={styles.tWater} textAnchor="middle">Crooked Creek</text>
               <text {...label(-92.385, 36.338)} className={styles.tTown} textAnchor="middle">Mountain Home</text>
             </>}
-            <text {...label(-92.222, 36.252)} x={Math.min(river.width - 84, label(-92.222, 36.252).x)} className={styles.tTown}>Norfork Dam</text>
+            <text {...(river.narrow ? { x: river.width - 8, y: base.norforkDam[1] - 15 } : label(-92.222, 36.252))} textAnchor={river.narrow ? 'end' : 'start'} className={styles.tTown}>Norfork Dam</text>
             <image href={eddyIconUrl('dam')} x={base.norforkDam[0] - 9} y={base.norforkDam[1] - 9} width={18} height={18} aria-hidden="true" />
             {ordered.map(({ p, index, at: [x, y] }) => {
               const on = index === selected;
               const interactive = !p.minor || on;
               const labelled = on || (!p.minor && (!river.narrow || Boolean(p.kind) || p.name === 'Cotter' || p.name === 'Buffalo City' || p.name === 'Calico Rock'));
-              const offset = (river.narrow && p.narrowLabel) || p.label || { dx: 10, dy: 4, anchor: 'start' as const };
+              const offset = (river.narrow && p.minor && x > river.width / 2 ? { dx: -11, dy: 4, anchor: 'end' as const } : null)
+                || (river.narrow && p.narrowLabel) || p.label || { dx: 10, dy: 4, anchor: 'start' as const };
               const pShare = paceShare(p);
               const timed = labelled && pShare !== null && pShare > 0 && (on || p.kind === 'gauge' || p.name === 'Cotter' || p.name === 'Buffalo City');
               const timing = pShare === null ? '' : (shown && p.kind === 'gauge' ? 'Recorded ' : '~') + hoursText(travelHours * pShare) + ' hr';
