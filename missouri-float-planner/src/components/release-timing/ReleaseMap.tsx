@@ -137,14 +137,14 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
               {!shown && <path data-timing-band d={river.slice(frontMile(elapsed, q.p90), frontMile(elapsed, q.p10))} stroke="var(--rt-emph)" strokeOpacity={0.35} strokeWidth={river.narrow ? 15 : 20} />}
               {markerVisible && <circle data-rise-marker cx={frontX} cy={frontY} r={7} fill="var(--rt-emph)" stroke="var(--color-surface)" strokeWidth={3} />}
             </g>
-            <text {...label(river.narrow ? -92.575 : -92.612, 36.398)} className={styles.tWater} textAnchor="middle">Bull Shoals Lake</text>
+            <text {...label(-92.612, 36.398)} {...(river.narrow ? { x: 8 } : {})} className={styles.tWater} textAnchor={river.narrow ? 'start' : 'middle'}>Bull Shoals Lake</text>
             <text {...label(-92.165, 36.335)} className={styles.tWater} textAnchor="middle">Norfork Lake</text>
             {!river.narrow && <>
               <text {...label(-92.497, 36.118)} className={styles.tWater}>Buffalo River</text>
               <text {...label(-92.6, 36.222)} className={styles.tWater} textAnchor="middle">Crooked Creek</text>
               <text {...label(-92.385, 36.338)} className={styles.tTown} textAnchor="middle">Mountain Home</text>
             </>}
-            <text {...label(-92.222, 36.252)} className={styles.tTown}>Norfork Dam</text>
+            <text {...label(-92.222, 36.252)} x={Math.min(river.width - 84, label(-92.222, 36.252).x)} className={styles.tTown}>Norfork Dam</text>
             <image href={eddyIconUrl('dam')} x={base.norforkDam[0] - 9} y={base.norforkDam[1] - 9} width={18} height={18} aria-hidden="true" />
             {ordered.map(({ p, index, at: [x, y] }) => {
               const on = index === selected;
@@ -224,7 +224,7 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
           <div className={styles.ticks}>{ticks.map((hours) => <span key={hours} style={{ left: percent(hours) }}>{hours === 0 ? 'Release' : '+' + hours + ' hr'}</span>)}</div>
         </div>
       </div>
-      <p className={styles.note}>First rise, not peak flow. Only the gauge is measured.</p>
+      <p className={styles.note}>First rise, assuming steady travel. Only the gauge is measured.</p>
       <details className={styles.more}>
         <summary>About this estimate</summary>
         <div>

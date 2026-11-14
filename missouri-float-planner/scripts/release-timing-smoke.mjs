@@ -12,6 +12,10 @@ const origin = 'http://127.0.0.1:' + port;
 const route = resolve('src/app/dam-layout-check');
 const out = process.env.RELEASE_TIMING_OUTPUT || '/tmp/eddy-release-timing';
 const serveOnly = process.argv.includes('--serve');
+// A tall element screenshot can pull the site's sticky header into the middle
+// of the image. Hide it only for the capture, not for interaction checks.
+const screenshotStyle = 'header.sticky, nextjs-portal { visibility: hidden !important; }';
+const capture = (element, name) => element.screenshot({ path: out + '/' + name + '.png', style: screenshotStyle });
 const compared = {
   id: 'compared', kind: 'compared', peakCfs: 13200,
   releasedAt: '2026-11-12T20:30:00Z', estimateAt: '2026-11-13T09:30:00Z',
@@ -107,12 +111,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     await location.selectOption('6');
     await map.getByRole('button', { name: 'Show first rise' }).click();
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': no page overflow');
-    await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
-    await map.screenshot({ path: out + '/map-' + width + '.png' });
-    await page.locator('#how-close').screenshot({ path: out + '/results-' + width + '.png' });
+    await capture(map, 'map-' + width);
+    await capture(page.locator('#how-close'), 'results-' + width);
     await page.getByRole('button', { name: 'Starting release', exact: true }).click();
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': baseline chart fits');
-    await page.locator('#when-it-changes').screenshot({ path: out + '/baseline-' + width + '.png' });
+    await capture(page.locator('#when-it-changes'), 'baseline-' + width);
     await page.getByRole('button', { name: 'Replay release', exact: true }).click();
     await map.getByRole('button', { name: 'Pause', exact: true }).click();
     assert.match(await map.innerText(), /Recorded release · Nov 12, 2026/);
@@ -124,7 +127,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     assert.match(await map.innerText(), /3:45 AM/);
     assert.match(await map.getByRole('status').innerText(), /At the recorded rise/);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': recorded replay fits');
-    await map.screenshot({ path: out + '/replay-' + width + '.png' });
+    await capture(map, 'replay-' + width);
     await map.getByRole('button', { name: 'Back to timing' }).click();
     assert.match(await map.innerText(), /Historical model/);
     await page.close();
@@ -145,7 +148,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
       assert.equal(Number(await map.getByRole('slider').inputValue()), 384);
       assert.equal(Number(await map.getByRole('slider').getAttribute('max')), 432);
     }
-    await page.locator('#how-close').screenshot({ path: out + '/state-' + variant + '.png' });
+    await capture(page.locator('#how-close'), 'state-' + variant);
   }
   assert.deepEqual(errors, []);
   console.log('PASS timing model, observed release, controls, viewport and publication-state checks');

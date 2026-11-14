@@ -123,7 +123,7 @@
 .side h3 { margin-top: -8px; font-family: var(--font-display), system-ui, sans-serif; font-size: 24px; font-weight: 600; line-height: 1.2; color: var(--color-text-primary); }
 .stat { display: grid; gap: 3px; }
 .stat span, .stat small { font-size: 13px; color: var(--color-text-secondary); }
-.stat b { font-family: var(--font-display), system-ui, sans-serif; font-size: 32px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
+.stat b { font-family: var(--font-display), system-ui, sans-serif; font-size: 28px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
 .arrivalWindow { display: grid; gap: 10px; padding: 14px 0 4px; border-top: 1px solid var(--color-border); font-size: 13px; }
 .arrivalWindow > div:first-child { display: grid; gap: 4px; }
 .arrivalWindow span { color: var(--color-text-secondary); }
