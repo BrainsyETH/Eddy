@@ -29,7 +29,8 @@ const variants = {
   late: { results: [{ ...compared, roseAt: '2026-11-14T04:30:00Z', peakCfs: null }], tally: { ...emptyTally, compared: 1 } },
   unavailable: null,
 };
-let server, browser, cleanupPromise;
+let server, browser, activePage, cleanupPromise;
+let log = '';
 assert(!existsSync(route), 'Refusing to overwrite an existing fixture route');
 function cleanup() {
   return cleanupPromise ??= (async () => {
@@ -57,7 +58,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     env: { ...process.env, EDDY_RELEASE_TIMING_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  let log = '';
   server.stdout.on('data', (chunk) => { log += chunk; if (serveOnly) process.stdout.write(chunk); });
   server.stderr.on('data', (chunk) => { log += chunk; if (serveOnly) process.stderr.write(chunk); });
   const url = origin + '/dam-layout-check';
@@ -76,6 +76,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   const errors = [];
   for (const width of [1440, 768, 390, 320]) {
     const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 900 });
+    activePage = page;
     page.on('pageerror', (error) => errors.push(error.message));
     await page.route('**/*', (request) => new URL(request.request().url()).origin === origin ? request.continue() : request.abort());
     await page.goto(url, { waitUntil: 'networkidle' });
@@ -129,6 +130,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     await page.close();
   }
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  activePage = page;
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('**/*', (request) => new URL(request.request().url()).origin === origin ? request.continue() : request.abort());
   for (const [variant, text] of [['empty', 'No results yet'], ['waiting', 'Waiting for gauge readings'], ['unmatched', 'Couldn’t compare'], ['unavailable', 'Results can’t be loaded'], ['early', 'before the window'], ['late', 'after the window']]) {
@@ -147,4 +149,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   }
   assert.deepEqual(errors, []);
   console.log('PASS timing model, observed release, controls, viewport and publication-state checks');
+} catch (error) {
+  if (activePage && !activePage.isClosed()) {
+    await activePage.screenshot({ path: out + '/failure.png', fullPage: true }).catch(() => {});
+    await writeFile(out + '/failure.txt', await activePage.locator('body').innerText().catch(() => '')).catch(() => {});
+  }
+  await writeFile(out + '/server.log', log).catch(() => {});
+  throw error;
 } finally { await cleanup(); }

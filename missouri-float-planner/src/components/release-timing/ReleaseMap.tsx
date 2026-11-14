@@ -111,12 +111,12 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
         <span className={styles.modelLabel}>{shown ? 'Recorded release · ' + datedDay(shown.onsetMs) : 'Historical model · Not live'}</span>
       </div>
       <div className={styles.mapControls}>
-        <label className={styles.locationPick} htmlFor={ids + 'place'}>
-          <span>Location</span>
+        <div className={styles.locationPick}>
+          <label htmlFor={ids + 'place'}>Location</label>
           <select id={ids + 'place'} className="input input--compact" value={selected} onChange={(event) => pickPlace(Number(event.target.value))}>
             {PLACES.map((p, index) => <option key={p.name} value={index}>{p.name}</option>)}
           </select>
-        </label>
+        </div>
         {shown ? <Button variant="outline" size="sm" className="min-h-11" onClick={onClear}>Back to timing</Button> : (
           <div className={styles.sizePick}>
             <span>Generators</span>
