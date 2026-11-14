@@ -1810,20 +1810,66 @@ select.input {
   border-radius: 9999px;
 }
 
-/* Keep the 24-hour chart full width on phones, including landscape. */
+/* Photo-led dam and lake pages, using the shared condition cards below. */
+.place-header { position: relative; isolation: isolate; overflow: hidden; border-radius: 1rem; background: var(--color-primary-800); }
+.place-header[data-place-kind="lake"] > img { object-position: center 80%; }
+.place-header-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(15,45,53,.88), rgba(15,45,53,.22)), linear-gradient(0deg, rgba(15,45,53,.5), transparent); }
+.place-header-copy { position: relative; padding: 1rem 1.25rem 3.75rem; min-height: 14rem; display: flex; flex-direction: column; justify-content: flex-end; }
+.place-header-art { position: absolute; right: 5%; top: 50%; transform: translateY(-50%); opacity: .35; }
+.place-header-actions { color: white; }
+.place-header-actions button { color: var(--color-primary-800); }
+/* No side inset on phones: at 320px it left the 24-hour axis 196px wide and its
+   first two labels overlapped. The card still overlaps the photo's lower edge. */
+.place-content { position: relative; margin: -1.75rem 0 0; }
+.lake-destination { display: flex; overflow: hidden; min-width: 0; }
+.lake-destination-photo { position: relative; width: 4rem; flex-shrink: 0; }
+.lake-preview-main { display: grid; }
+.lake-preview-photo { position: relative; min-height: 8rem; }
+.lake-launch-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; }
+.lake-launch-art { position: relative; display: flex; align-items: center; justify-content: center; height: 4.5rem; overflow: hidden; border-radius: .5rem; background: var(--color-secondary-100); }
+.lake-launch-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; }
+.lake-launch-filter .segmented__option { white-space: normal; padding-inline: .25rem; }
+@media (min-width: 640px) {
+  .place-header-copy { min-height: 18rem; padding: 1.5rem 2rem 4rem; }
+  .place-content { margin: -2rem 1.5rem 0; }
+  .lake-destination-photo { width: 8rem; }
+  .lake-launch-row { grid-template-columns: 7rem minmax(0, 1fr) auto; gap: 1rem; align-items: center; }
+  .lake-launch-art { height: 5rem; }
+  .lake-launch-actions { grid-column: 3; flex-direction: column; align-items: flex-end; gap: 0; }
+}
+@media (min-width: 768px) {
+  .lake-preview-main { grid-template-columns: minmax(8rem, .7fr) minmax(0, 1fr) minmax(0, 1.4fr); }
+  .lake-preview-photo { margin: 1rem 0 1rem 1rem; border-radius: .5rem; overflow: hidden; }
+}
+/* The release reading is what people open a dam page for, so its row leads the
+   card and the 24-hour chart follows at full width. The row is two columns
+   wherever both fit (from about 360px phones up) and stacks below that. */
 .dam-generation-layout { display: grid; }
-.dam-observed { background: var(--color-secondary-100); color: var(--color-neutral-900); }
-.dam-support-layout { display: grid; gap: 1.5rem; align-items: start; }
+.dam-observed { container-type: inline-size; border-bottom: 1px solid var(--color-neutral-200); background: var(--color-secondary-50); color: var(--color-neutral-900); }
+.dam-release-summary { display: grid; gap: 1rem; }
+/* The card's info button sits in the top-right corner, over whichever heading is there. */
+.dam-release-heading { padding-right: 2rem; }
+.dam-turbine-summary { border-top: 1px solid var(--color-neutral-200); padding-top: 1rem; }
+.dam-release-note { grid-column: 1 / -1; }
+@container (min-width: 18rem) {
+  .dam-release-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .dam-release-heading { padding-right: 0; }
+  .dam-turbine-summary { border-top: 0; border-left: 1px solid var(--color-neutral-200); padding-top: 0; padding-left: 1rem; }
+  .dam-turbine-heading { padding-right: 2rem; }
+}
+@container (min-width: 36rem) {
+  .dam-release-summary { column-gap: 2rem; }
+  .dam-turbine-summary { padding-left: 2rem; }
+}
+.dam-timeline-axis { container-type: inline-size; }
+/* The closing midnight repeats the opening label; keep all 24 hours and the
+   interactive readout while dropping that label when the plot is narrow. */
+@container (max-width: 260px) {
+  .dam-timeline-closing-tick { display: none; }
+}
 .dam-resource-links > * { max-width: 100%; white-space: normal; }
-.dam-measurements { display: grid; gap: 1.25rem; }
-.dam-measurements > * + * { border-top: 1px solid var(--color-neutral-200); padding-top: 1.25rem; }
-@media (min-width: 480px) {
-  .dam-measurements { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dam-measurements > * + * { border-top: 0; padding-top: 0; }
-}
-@media (min-width: 900px) {
-  .dam-generation-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr); }
-}
+.dam-measurements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.dam-measurements > * { border-top: 1px solid var(--color-neutral-200); padding-top: .75rem; }
 @media (min-width: 1100px) {
   .dam-measurements { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 }
