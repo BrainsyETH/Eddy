@@ -11,7 +11,7 @@ import Button from '@/components/ui/Button';
 import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
 import { comparison, type PublicResult, type PublicResults } from '@/lib/arrival-trial/public-results';
 import { GAUGE_MILE } from '@/lib/release-timing/river';
-import { clockTime, datedDay, durationText, longDate, shortDate, timeSpan } from '@/lib/release-timing/time';
+import { clockTime, datedDay, durationText, shortDate, timeSpan } from '@/lib/release-timing/time';
 import styles from './release-timing.module.css';
 
 type Compared = Extract<PublicResult, { kind: 'compared' }>;
@@ -23,11 +23,11 @@ const EARLIER_SHOWN = 8;
 /** One plain sentence: where the rise fell against the estimated window. */
 export function outcomeSentence(result: Compared): string {
   const { position, outsideMinutes, fromEstimateMinutes } = comparison(result);
-  if (position !== 'inside') return `The river started rising ${durationText(outsideMinutes)} ${position} the estimated window.`;
+  if (position !== 'inside') return `Rise ${durationText(outsideMinutes)} ${position} the window.`;
   const off = Math.abs(fromEstimateMinutes);
   return off < 8
-    ? 'The river started rising inside the estimated window, right at Eddy’s estimate.'
-    : `The river started rising inside the estimated window, ${durationText(off)} ${fromEstimateMinutes < 0 ? 'before' : 'after'} Eddy’s estimate.`;
+    ? 'Within the window · Near the estimate'
+    : `Within the window · ${durationText(off)} ${fromEstimateMinutes < 0 ? 'early' : 'late'}`;
 }
 const shortOutcome = (result: Compared): string => {
   const { position, outsideMinutes } = comparison(result);
@@ -45,30 +45,27 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
   const reach = Math.max(4 * HOUR_MS, Math.abs(rose - estimate) + HOUR_MS / 2);
   const pad = compact ? 6 : 12;
   const x = (ms: number) => pad + ((ms - (estimate - reach)) / (2 * reach)) * (W - 2 * pad);
-  const H = compact ? 28 : 96;
-  const mid = compact ? 14 : 46;
+  const H = compact ? 28 : 48;
+  const mid = compact ? 14 : 24;
   const band = compact ? 12 : 22;
   const inside = rose >= early && rose <= late;
   const marker = inside ? 'var(--color-primary-700)' : 'var(--color-accent-600)';
-  const roseAnchor = x(rose) < 90 ? 'start' : x(rose) > W - 90 ? 'end' : 'middle';
   return (
     <div ref={frame} className={styles.window}>
+      {!compact && <div className={styles.windowLabels}>
+        <div><span>Estimated window · {shortDate(early)}{shortDate(early) !== shortDate(late) ? '–' + shortDate(late) : ''}</span><b>{timeSpan(early, late)}</b></div>
+        <div><span>Recorded rise · {shortDate(rose)}</span><b>{clockTime(rose)}</b></div>
+      </div>}
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Estimated window ${timeSpan(early, late)}. River rose ${clockTime(rose)}.`}
+        aria-label={`Estimated window ${timeSpan(early, late)}, ${shortDate(early)}${shortDate(early) !== shortDate(late) ? ' to ' + shortDate(late) : ''}. River rose ${clockTime(rose)}, ${shortDate(rose)}.`}
       >
         <line x1={pad} x2={W - pad} y1={mid} y2={mid} stroke="var(--color-border-strong)" strokeWidth={compact ? 1 : 1.5} />
         <rect x={x(early)} y={mid - band / 2} width={Math.max(x(late) - x(early), 4)} height={band} rx={band / 2} fill="var(--color-primary-100)" stroke="var(--color-primary-300)" />
         <line x1={x(estimate)} x2={x(estimate)} y1={mid - band / 2} y2={mid + band / 2} stroke="var(--color-primary-500)" strokeWidth={1.5} strokeDasharray="2 2" />
         <line x1={x(rose)} x2={x(rose)} y1={mid - band / 2 - (compact ? 3 : 7)} y2={mid + band / 2 + (compact ? 3 : 7)} stroke={marker} strokeWidth={compact ? 2.5 : 3} strokeLinecap="round" />
-        {!compact && (
-          <>
-            <circle cx={x(rose)} cy={mid} r={5.5} fill={marker} stroke="var(--color-surface)" strokeWidth={2} />
-            <text x={(x(early) + x(late)) / 2} y={mid - band / 2 - 12} textAnchor="middle">Estimated window {timeSpan(early, late)}</text>
-            <text x={x(rose)} y={mid + band / 2 + 24} textAnchor={roseAnchor} className={styles.mark}>River rose {clockTime(rose)}</text>
-          </>
-        )}
+        {!compact && <circle cx={x(rose)} cy={mid} r={5.5} fill={marker} stroke="var(--color-surface)" strokeWidth={2} />}
       </svg>
     </div>
   );
@@ -95,7 +92,7 @@ export default function HowClose({
     <section id="how-close" className={`card-panel scroll-mt-24 ${styles.close}`} aria-labelledby="how-close-heading">
       <div className={styles.cardHead}>
         <h2 id="how-close-heading">How close was Eddy?</h2>
-        <p>Eddy’s estimate against the rise recorded at the gauge near Norfork, {GAUGE_MILE} miles below the dam.</p>
+        <p>Gauge near Norfork · {GAUGE_MILE} miles downstream · Central time</p>
       </div>
       <div className={styles.cardBody}>
         {results === null ? (
@@ -103,17 +100,16 @@ export default function HowClose({
         ) : shown.length === 0 ? (
           <div className={styles.empty}>
             <b>No results yet</b>
-            <span>The first appears the day after the next release Eddy can estimate.</span>
+            <span>Results appear after the gauge readings are checked.</span>
           </div>
         ) : (
           <>
             {pending.length > 0 && (
               <p className={styles.status}>
-                <b>Waiting for downstream readings.</b>{' '}
+                <b>Waiting for gauge readings.</b>{' '}
                 {pending.length === 1
-                  ? `A release went out ${shortDate(Date.parse(pending[0].releasedAt))} at ${clockTime(Date.parse(pending[0].releasedAt))}.`
-                  : `${pending.length} releases are still on their way.`}{' '}
-                The result appears after the river has answered, about a day later.
+                  ? `Release: ${shortDate(Date.parse(pending[0].releasedAt))}, ${clockTime(Date.parse(pending[0].releasedAt))}.`
+                  : `${pending.length} releases pending.`}
               </p>
             )}
             {latest.kind === 'not-compared' && (
@@ -123,10 +119,10 @@ export default function HowClose({
             )}
             {featured && (
               <div className={styles.featured}>
-                <h3>Release of {longDate(Date.parse(featured.releasedAt))}, at {clockTime(Date.parse(featured.releasedAt))}</h3>
+                <h3>{datedDay(Date.parse(featured.releasedAt))} · Release at {clockTime(Date.parse(featured.releasedAt))}</h3>
                 <WindowGraphic result={featured} />
                 <p className={styles.outcome}>{outcomeSentence(featured)}</p>
-                <div><Button variant="outline" size="sm" className="min-h-11" onClick={() => onPlay(featured)}>Play this release on the map</Button></div>
+                <div><Button variant="outline" size="sm" className="min-h-11" onClick={() => onPlay(featured)}>Replay release</Button></div>
               </div>
             )}
             {earlier.length > 0 && (
@@ -143,12 +139,6 @@ export default function HowClose({
                   </li>
                 ))}
               </ul>
-            )}
-            {results.tally.compared > 0 && (
-              <p className={styles.tally}>
-                {results.tally.insideWindow} of {results.tally.compared} inside the window since {datedDay(Date.parse((oldest ?? latest).releasedAt))}.
-                {results.tally.compared < NEEDED ? ` Too few to judge: the study needs ${NEEDED}.` : ''}
-              </p>
             )}
           </>
         )}
@@ -173,11 +163,15 @@ export default function HowClose({
       <details className={styles.more}>
         <summary>How we compare</summary>
         <div>
+          {results && results.tally.compared > 0 && (
+            <p>{results.tally.insideWindow} of {results.tally.compared} within the window since {datedDay(Date.parse((oldest ?? latest).releasedAt))}.
+              {results.tally.compared < NEEDED ? ` Study target: ${NEEDED} comparisons.` : ''}
+            </p>
+          )}
           <p>
-            When Bull Shoals raises its release by 2,000 cfs or more, Eddy saves an estimate of when the gauge near Norfork will start to rise, with a window around it.
-            A day later it reads the gauge. The estimate is shown here only after that, with the misses.
+            Eddy saves each estimate before the rise, then compares it with the gauge a day later. Results include misses.
           </p>
-          <p>A result here is for that gauge only. It says nothing about Cotter, Rim Shoals or any access without a gauge.</p>
+          <p>These results apply only to the gauge, not to access points.</p>
           {withheld > 0 && results && (
             <>
               <p>Eddy made no estimate for {withheld} release{withheld === 1 ? '' : 's'}:</p>

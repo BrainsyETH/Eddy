@@ -1,6 +1,6 @@
 'use client';
 
-// One row per group of releases: every release as a dot, the middle 8 in 10 as
+// One row per group of releases: every release as a dot, the 10th–90th percentiles as
 // a bar, the typical value as a tick with its number beside it. Shared by the
 // two findings charts so they read the same way.
 
@@ -47,22 +47,25 @@ export default function RangeRows({
 
   return (
     <div ref={frame} className={styles.chart}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+      <svg viewBox={`0 0 ${W} ${H}`} role={onPick ? 'group' : 'img'} aria-label={label}>
         {grid.map((hours) => (
           <g key={hours}>
             <line x1={x(hours)} x2={x(hours)} y1={TOP} y2={H - BOTTOM} stroke="var(--rt-grid)" />
             <text x={x(hours)} y={H - BOTTOM + 18} textAnchor="middle">{hours}</text>
           </g>
         ))}
-        <text x={left} y={H - 6}>{narrow ? 'Hours from release to first rise near Norfork' : 'Hours from the release rising to the river coming up near Norfork'}</text>
+        <text x={left} y={H - 6}>Hours to first rise at the gauge</text>
         {rows.map((row, i) => {
           const y = TOP + i * ROW;
           const mid = y + ROW - 20;
           const on = i === emphasis;
           const stroke = on ? 'var(--rt-emph)' : 'var(--rt-series)';
           return (
-            <g key={row.label} className={onPick ? styles.pick : undefined} onClick={onPick ? () => onPick(i) : undefined}>
-              <title>{`${row.label}: typically ${hoursText(row.median)} hours. 8 in 10 took ${hoursText(row.p10)} to ${hoursText(row.p90)}. Earliest ${hoursText(row.min)}. ${row.n.toLocaleString('en-US')} releases.`}</title>
+            <g key={row.label} className={onPick ? styles.pick : undefined} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined}
+              aria-label={onPick ? row.label : undefined} aria-pressed={onPick ? on : undefined}
+              onClick={onPick ? () => onPick(i) : undefined}
+              onKeyDown={onPick ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPick(i); } } : undefined}>
+              <title>{`${row.label}: typically ${hoursText(row.median)} hours. Typical window ${hoursText(row.p10)} to ${hoursText(row.p90)} hours. ${row.n.toLocaleString('en-US')} releases.`}</title>
               <rect x={0} y={y} width={W} height={ROW} fill="transparent" />
               <text x={left} y={y + 18} className={styles.rowLabel}>{row.label}</text>
               {!narrow && <text x={W} y={y + 18} textAnchor="end">{row.n.toLocaleString('en-US')} releases</text>}

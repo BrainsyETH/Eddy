@@ -15,14 +15,14 @@ import ReleaseMap, { SIZE_OPTIONS, type ShownRelease } from './ReleaseMap';
 import styles from './release-timing.module.css';
 
 const SIZE_LABELS = ['About 1 generator', 'About 2 generators', 'About 3 generators', 'About 4 generators', '5 or more generators'];
-const BASELINE_LABELS = ['Began from a low release (under 1,500 cfs)', 'Dam already releasing 1,500 cfs or more', 'Dam already releasing 3,000 cfs or more'];
+const BASELINE_LABELS = ['Started below 1,500 cfs', 'Already releasing 1,500+ cfs', 'Already releasing 3,000+ cfs'];
 type View = 'height' | 'baseline';
 
 export default function ReleaseTimingReport({ results }: { results: PublicResults | null }) {
   const F = FINDINGS;
   const [size, setSize] = useState(() => sizeIndexFor(F.example.peakCfs));
   const [view, setView] = useState<View>('height');
-  const [shown, setShown] = useState<ShownRelease>(() => ({ onsetMs: F.example.onsetMs, riseMs: F.example.riseMs, sizeIndex: sizeIndexFor(F.example.peakCfs) }));
+  const [shown, setShown] = useState<ShownRelease | null>(null);
   const [playRequest, setPlayRequest] = useState(0);
 
   const bySize = useMemo(() => F.size.map((band, i) => ({ ...band, label: SIZE_LABELS[i], values: sizeHours(i) })), [F]);
@@ -38,7 +38,7 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
 
   const play = (result: Extract<PublicResult, { kind: 'compared' }>) => {
     const sizeIndex = result.peakCfs === null ? size : sizeIndexFor(result.peakCfs);
-    setShown({ onsetMs: Date.parse(result.releasedAt), riseMs: Date.parse(result.roseAt), sizeIndex });
+    setShown({ onsetMs: Date.parse(result.releasedAt), riseMs: Date.parse(result.roseAt) });
     setSize(sizeIndex);
     setPlayRequest((n) => n + 1);
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -47,9 +47,10 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
 
   const band = F.size[size];
   const high = F.height[F.height.length - 1];
+  const changeSize = (index: number) => { setSize(index); setShown(null); };
   return (
     <div className={styles.report}>
-      <ReleaseMap size={size} onSize={setSize} spreads={spreads} shown={shown} playRequest={playRequest} />
+      <ReleaseMap size={size} onSize={changeSize} spreads={spreads} shown={shown} onClear={() => setShown(null)} playRequest={playRequest} />
 
       <HowClose results={results} onPlay={play} />
 
@@ -59,16 +60,16 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
           <div className={styles.answerRow}>
             <p className={styles.answer} aria-live="polite">
               <b>About {hoursText(band.median)} hours</b>
-              <span>8 in 10 took {hoursText(band.p10)} to {hoursText(band.p90)} h · earliest {hoursText(band.min)} h · {band.n.toLocaleString('en-US')} releases</span>
+              <span>Typical window: {hoursText(band.p10)}–{hoursText(band.p90)} hr at the gauge</span>
             </p>
             <div className={styles.sizePick}>
               <span>Generators</span>
-              <Segmented options={SIZE_OPTIONS} value={size} onChange={setSize} size="md" aria-label="Release size, in generators" />
+              <Segmented options={SIZE_OPTIONS} value={size} onChange={changeSize} size="md" aria-label="Release size, in generators" />
             </div>
           </div>
-          <RangeRows rows={bySize} label="Hours to first rise near Norfork, by release size" emphasis={size} onPick={setSize} />
+          <RangeRows rows={bySize} label="Hours to first rise near Norfork, by release size" emphasis={size} onPick={changeSize} />
           <div className={styles.key}>
-            <span><i data-key="bar" />8 in 10 releases</span>
+            <span><i data-key="bar" />Typical window</span>
             <span><i data-key="tick" />typical</span>
             <span><i data-key="dot" />one release</span>
             <span>One generator is about {F.generatorCfs.toLocaleString('en-US')} cfs</span>
@@ -77,11 +78,11 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
       </section>
 
       <section id="when-it-changes" className="card-panel scroll-mt-24" aria-labelledby="when-it-changes-heading">
-        <div className={styles.cardHead}><h2 id="when-it-changes-heading">A river already up answered sooner</h2></div>
+        <div className={styles.cardHead}><h2 id="when-it-changes-heading">Higher water, earlier rise</h2></div>
         <div className={styles.cardBody}>
           <div>
             <Segmented
-              options={[{ value: 'height', label: 'How high the gauge stood' }, { value: 'baseline', label: 'Whether the dam was already releasing' }]}
+              options={[{ value: 'height', label: 'River level' }, { value: 'baseline', label: 'Starting release' }]}
               value={view}
               onChange={setView}
               size="md"
