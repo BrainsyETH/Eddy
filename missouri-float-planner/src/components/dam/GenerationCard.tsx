@@ -45,7 +45,7 @@ export default function GenerationCard({ dam, now, availability }: {
           <p>Check posted warnings and local operating information before entering the water below a dam. No generation scheduled does not mean no water is being released.</p>
         </DamInfoTip>
       </div>
-      <div className={hasObserved ? 'dam-generation-layout' : undefined}>
+      <div className="dam-generation-layout">
         {observed}{schedule}
       </div>
       <DamAppCTA damId={dam.id} damName={dam.name} />

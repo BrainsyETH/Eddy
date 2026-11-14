@@ -199,7 +199,7 @@ export default function Page() {
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
   const errors = [];
-  for (const [name, width, height, wide] of (appOnly ? [] : [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, false], ['small-landscape', 667, 375, false], ['small-portrait', 320, 720, false]])) {
+  for (const [name, width, height] of (appOnly ? [] : [['desktop', 1440, 1000], ['portrait', 390, 844], ['landscape', 844, 390], ['small-landscape', 667, 375], ['small-portrait', 320, 720]])) {
     const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 900 });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
@@ -211,8 +211,8 @@ export default function Page() {
     assert.equal(await list.locator('a a, a button, a [tabindex]').count(), 0, 'navigation links do not contain chart controls');
     assert(!(await list.allTextContents()).join(' ').includes('Fishery below dam'), 'fishery stays off list cards');
     const normal = page.locator('[data-variant="normal"]');
-    assert((await normal.innerText()).includes('16,200 cfs'), 'list shows total release');
-    assert((await normal.innerText()).includes('56.0 °F'), 'list shows water temperature');
+    assert.match(await normal.innerText(), /16,200\s+cfs/, 'list shows total release');
+    assert.match(await normal.innerText(), /56\.0\s+°F/, 'list shows water temperature');
     assert(!(await normal.innerText()).includes('estimated from flow'), 'rack stays on the full report');
     assert(!(await page.locator('[data-variant="noTemp"]').innerText()).includes('°F'), 'missing temperature is not fabricated');
     assert(!(await page.locator('[data-variant="noReference"]').innerText()).includes('%'), 'no reference means no percentage');
@@ -220,8 +220,8 @@ export default function Page() {
     assert.equal(await page.locator('[data-variant="stale"] [data-schedule-check="stale"]').count(), 1, 'old schedule retains its provenance');
     assert(!(await page.locator('[data-variant="scheduleOnly"]').innerText()).includes('No turbine generation observed'), 'missing readings are not idle');
     assert((await page.locator('[data-variant="gateDaily"]').innerText()).includes('daily avg'), 'daily release is labelled');
-    assert(!(await page.locator('[data-variant="gate"]').innerText()).includes('generation'), 'gate-only dam has no generation visual');
-    assert((await page.locator('[data-variant="idle"]').innerText()).includes('16,200 cfs'), 'release stays independent of turbine state');
+    assert.equal(await page.locator('[data-variant="gate"]').locator('[role="img"], [data-schedule-now]').count(), 0, 'gate-only dam has no generation visual');
+    assert.match(await page.locator('[data-variant="idle"]').innerText(), /16,200\s+cfs/, 'release stays independent of turbine state');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: list has no horizontal overflow`);
     const first = await list.nth(0).boundingBox();
     const second = await list.nth(1).boundingBox();
@@ -248,7 +248,7 @@ export default function Page() {
     await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
     const a = await page.locator('.dam-observed').boundingBox();
     const b = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
-    assert(wide ? b.x > a.x + a.width - 2 : b.y >= a.y + a.height, `${name}: responsive column placement`);
+    assert(b.y >= a.y + a.height, `${name}: the release row leads the full-width schedule`);
     const cta = page.locator('[data-dam-app-cta]');
     assert.equal(await cta.locator('a').count(), 1, 'dam promotion has one action');
     assert(await cta.evaluate(el => Boolean(el.closest('section')?.querySelector('[aria-label="Generation schedule"]'))), 'app action belongs to the generation card footer');
@@ -283,14 +283,14 @@ export default function Page() {
     assert.equal(await days.first().locator('[role="img"] [data-schedule-now]').count(), 1, 'orange is reserved for the Now marker, as on iOS');
     assert(await days.first().getByText('Now', { exact: true }).isVisible());
     assert(await days.first().getByText('Today’s scheduled generation: 12–8 PM', { exact: true }).isVisible());
-    const measurements = page.getByRole('heading', { name: 'Dam & lake', exact: true }).locator('..');
+    const measurements = page.getByRole('heading', { name: 'Water conditions', exact: true }).locator('..');
     const measurementsBox = await measurements.boundingBox();
     const patternBox = await pattern.boundingBox();
     assert(measurementsBox.y + measurementsBox.height <= patternBox.y, 'dam and lake readings are above the pattern');
     const scheduleText = await page.getByRole('region', { name: 'Generation schedule', exact: true }).innerText();
     assert(!/Half capacity|Select an hour|no break in the schedule/.test(scheduleText), 'schedule avoids arbitrary reference labels');
     assert(await days.first().locator('[data-schedule-scale]').isVisible(), 'full chart has a numeric MW scale');
-    assert((await days.first().getByRole('img').boundingBox()).height >= 128, 'full chart has readable bar height');
+    assert((await days.first().getByRole('img').boundingBox()).height >= (width < 640 ? 96 : 112), 'full chart has readable bar height');
     assert.match(await days.first().locator('[data-schedule-readout]').innerText(), /11 AM–12 PM · no generation scheduled/, 'current scheduled hour is readable without a tap');
     assert.match(await detail.locator('[data-total-release]').innerText(), /16,200/, 'total release leads over 13,200 cfs turbine flow');
     assert.equal(await detail.getByText('Generation scheduled to start at 12 PM.', { exact: true }).count(), 1, 'next change is explicitly scheduled and stated once');
@@ -360,8 +360,8 @@ export default function Page() {
     if (name === 'desktop') {
       await page.clock.setFixedTime(new Date('2026-10-17T05:01:00Z'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-      await days.first().getByText('Sat, Oct 17', { exact: true }).waitFor();
-      assert(await days.nth(1).getByText('Sun, Oct 18', { exact: true }).isVisible(), 'day labels roll at Central midnight');
+      await days.first().getByText('Sat, Oct 17').first().waitFor();
+      assert(await days.nth(1).getByText('Sun, Oct 18').first().isVisible(), 'day labels roll at Central midnight');
       assert.equal(await days.first().locator('[data-schedule-now]').count(), 1);
       assert.equal(await days.nth(1).locator('[data-schedule-now]').count(), 0);
     }

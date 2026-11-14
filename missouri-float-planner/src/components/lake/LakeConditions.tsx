@@ -17,7 +17,7 @@ export default function LakeConditions({ lake, now }: { lake: LakeSection; now: 
     <div className="mt-4 grid gap-x-8 gap-y-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
       <div>
         {pool ? <>
-          <p className={`font-mono text-4xl text-primary-900 sm:text-5xl ${stale ? 'opacity-70' : ''}`}>{pool.valueFt.toFixed(2)} <span className="font-sans text-base">ft</span></p>
+          <p className={`inline-flex items-baseline gap-2 whitespace-nowrap font-mono text-4xl font-semibold tracking-tight text-primary-900 lg:text-5xl ${stale ? 'opacity-70' : ''}`}>{pool.valueFt.toFixed(2)}<span className="font-sans text-base font-medium tracking-normal">ft</span></p>
           <p className="mt-1 text-xs text-neutral-500">Elevation · {lake.datum}</p>
           {!stale && <div className="mt-3 flex flex-col items-start gap-1"><LakeMovement delta={lake.change24hFt} hours={24} /><LakeMovement delta={lake.change7dFt} hours={168} /></div>}
           <p className="mt-3 text-sm leading-6 text-neutral-700">{poolPositionSentence(lake.poolPosition ?? null, pool.valueFt, lake.operatingRange ?? null)}</p>
