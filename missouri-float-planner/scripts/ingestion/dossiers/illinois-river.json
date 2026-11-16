@@ -1,8 +1,8 @@
 {
-  "_status": "RESEARCH DRAFT 2026-11-02: Illinois River (OK), Watts Public Access Area to Murrell Home Rd above the Barren Fork confluence, under GRDA Scenic Rivers management. Recommend UNRATED (readings-only) for now: GRDA's binding gauge-height rules (OAC 300:40 App. A) set only the high end, and the Chewey and Tahlequah stage records have shifted by up to ~2 ft at the same flow. Every access coordinate is HELD. Not signed off.",
+  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — Tahlequah 07196500 ladder in ft (Flowing 4.0–5.5, High >5.5, Dangerous 7.5 proposed) for the lower section; upper section awaits a Chewey ideal range. Not signed off; readiness pending.",
   "name": "Illinois River",
   "slug": "illinois-river",
-  "primaryGaugeSiteId": "07196090",
+  "primaryGaugeSiteId": "07196500",
   "state": "OK",
   "country": "US",
   "timezone": "America/Chicago",
@@ -196,8 +196,8 @@
         "name": "No Head Hollow Public Access Area"
       },
       "publishedLengthMiles": 38.4,
-      "riverMileStart": null,
-      "riverMileEnd": null,
+      "riverMileStart": 50.3,
+      "riverMileEnd": 88.94,
       "representativeGauge": {
         "siteId": "07196090",
         "rationale": "GRDA's binding rules (OAC 300:40-3-3) set Chewey as the river-level reference upstream of RM 40, and the IRA 1993 guidelines and Diamondhead Resort agree. Under the unrated recommendation it is a measurement link only, in ft (the unit GRDA and the outfitters use). Owner may choose cfs instead.",
@@ -345,14 +345,65 @@
         "name": "Murrell Home Rd Public Access (USACE)"
       },
       "publishedLengthMiles": 20.5,
-      "riverMileStart": null,
-      "riverMileEnd": null,
+      "riverMileStart": 88.94,
+      "riverMileEnd": 108.7,
       "representativeGauge": {
         "siteId": "07196500",
-        "rationale": "GRDA's binding rules (OAC 300:40-3-3) set the Tahlequah gauge as the reference below RM 40, and the IRA 1993 guidelines agree. American Whitewater also uses it. Measurement link only under the unrated recommendation.",
+        "rationale": "Tahlequah (US-62 bridge) is the gauge Tahlequah-area outfitters publish their water-level rules against (Riverbend Floats) and the column GRDA's Appendix A uses for the lower river. Stage is the unit those rules are written in; the stage–discharge relation shifted after 2008, so the ladder uses only post-2008 statements read on today's gauge.",
         "knownBias": "Above the Barren Fork confluence, so it does not represent anything below RM 62.5. Stage at a given flow rose ~1.5–2 ft between 2008 and 2011 (see gauges[].knownBias)."
       },
-      "thresholds": [],
+      "thresholds": [
+        {
+          "level": "optimal_min",
+          "value": 4.0,
+          "unit": "ft",
+          "referenceGauge": "07196500",
+          "referenceGaugeIsPolled": true,
+          "source": "https://www.riverbendfloats.com/water-level-safety- (Riverbend Floats, \"Water Level Safety Guidelines\", 2023-12-02; states the guidelines use the Hwy 62 bridge \"Tahlequah Gauge\") — \"The average water level is 4 ft. to 5.5 ft.\" described as a perfect, easily navigable time to float",
+          "corroboratingSources": [
+            "https://www.eaglebluffresort.com/floating-information/current-illinois-river-levels (Eagle Bluff \"ideal 3.5–5.5 ft\"; gauge not named)",
+            "https://rivers.moherp.org/gauge/?gauge=07196500 (one observed trip, 2011-10-30, Good at 311 cfs / 4.88 ft)"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_max",
+          "value": 5.5,
+          "unit": "ft",
+          "referenceGauge": "07196500",
+          "referenceGaugeIsPolled": true,
+          "source": "https://www.riverbendfloats.com/water-level-safety- (Riverbend Floats, \"Water Level Safety Guidelines\", 2023-12-02; states the guidelines use the Hwy 62 bridge \"Tahlequah Gauge\") — top of the stated 4–5.5 ft average/ideal range",
+          "corroboratingSources": [
+            "https://www.eaglebluffresort.com/floating-information/current-illinois-river-levels (Eagle Bluff \"ideal 3.5–5.5 ft\"; gauge not named)"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "high",
+          "value": 6.0,
+          "unit": "ft",
+          "referenceGauge": "07196500",
+          "referenceGaugeIsPolled": true,
+          "source": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf (OAC 300:40 Appendix A, Tahlequah column) — 6'0\": children 10 and under raft only",
+          "corroboratingSources": [
+            "https://www.riverbendfloats.com/water-level-safety- (Riverbend Floats, \"Water Level Safety Guidelines\", 2023-12-02; states the guidelines use the Hwy 62 bridge \"Tahlequah Gauge\") — 6': children 10 and under raft only; adults urged to wear life jackets at 6 ft or higher"
+          ],
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 7.5,
+          "unit": "ft",
+          "referenceGauge": "07196500",
+          "referenceGaugeIsPolled": true,
+          "source": "https://www.riverbendfloats.com/water-level-safety- (Riverbend Floats, \"Water Level Safety Guidelines\", 2023-12-02; states the guidelines use the Hwy 62 bridge \"Tahlequah Gauge\") — 7.5': \"All floating trip must cease.\" PROPOSED; owner to choose 7.5 vs 9.5 ft",
+          "corroboratingSources": [
+            "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf (OAC 300:40 Appendix A, Tahlequah column) — 7'6\": no floating for children 10 and under",
+            "https://www.americanwhitewater.org/accident/may-30-2020-illinois-river-watts-to-barren-fork-creek/ ; USGS IV 07196500 on 2020-05-30 read 7.73–8.62 ft (https://nwis.waterservices.usgs.gov/nwis/iv/?sites=07196500&parameterCd=00065&startDT=2020-05-30&endDT=2020-05-30)"
+          ],
+          "confidence": "medium"
+        }
+      ],
       "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": null,
@@ -705,12 +756,12 @@
       "notes": "Four USGS gauges confirmed via the NWIS site service and OGC API, with fresh provisional readings 2026-11-01 ~23:00 CST. The proposed primary is Chewey 07196090 (GRDA reference above RM 40) in ft, with Tahlequah 07196500 for the lower section. Remaining: the separate verified-identifiers pass, the datum-history check at Chewey and Tahlequah, and a freshness re-check at activation."
     },
     "conditions": {
-      "ratingMode": "unrated",
+      "ratingMode": "rated",
       "status": "pending",
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Recommend unrated (readings-only). The trusted GRDA/IRA ft ladder gives only high and dangerous, and a ladder without a low end mislabels normal water as Too Low. Stage at a given flow has also drifted ~2 ft at both regulatory gauges. NWPS flood-stage overrides still apply. The GRDA ladder is retained in the research notes for a future rated release. Owner decision required."
+      "notes": "Rated proposal (2026-11-16). Tahlequah ladder in ft: Flowing 4.0–5.5 (Riverbend), High above 5.5 with GRDA/Riverbend 6.0 caution, Dangerous 7.5 (Riverbend 'all floating must cease'; GRDA no children at 7'6\"; the 2020 drowning day read 7.73–8.62 ft). Owner decisions: 7.5 vs 9.5 ft danger line (9.5 = NWS 'all recreational floating ceases' + GRDA no commercial floating + AW 9.6), whether Tahlequah ever reads too low (3-year minimum 4.42 ft), and Chewey's ideal range for the upper section. Chewey high-water evidence (6.0 ft all rafts only: GRDA + Diamondhead; 9.0 ft stop: NWS CWYO2 impact + Diamondhead 'No Floating') is held in the research notes until a Chewey low end exists, because a top-only ladder would badge normal water 'Too Low'."
     },
     "hazards": {
       "status": "pending",
@@ -726,6 +777,5 @@
       "reviewedAt": null,
       "notes": "Not started. Needs NHD import for HUC 11110103 (GNIS 01094043; trim to the state line → Barren Fork confluence), placed and approved access points, and a check of computed distances against GRDA mileage (e.g. Round Hollow → No Head Hollow 13.8 mi; Watts → US-62 52.0 mi)."
     }
-  },
-  "conditionRatingMode": "unrated"
+  }
 }

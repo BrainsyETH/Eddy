@@ -229,3 +229,39 @@ Eddy shows no Dangerous badge; the NWPS flood-stage override still applies above
 - **www.illinoisriver.net (Falcon Floats):** DNS not allowed in this session; it must be
   allowed in the session's network settings to read it.
 - **allamericanfloats.com:** a domain-for-sale placeholder (business status unknown).
+
+## Addendum 2026-11-16: rated proposal
+
+The owner supplied outfitter water-level pages; each was re-read at its source.
+The dossier is now a **rated proposal** with Tahlequah (07196500) as the primary.
+
+### Tahlequah ladder (lower section, ft)
+
+| Eddy band | Anchor | Sources |
+|---|---|---|
+| Flowing (ideal) | 4.0–5.5 | [Riverbend Floats](https://www.riverbendfloats.com/water-level-safety-) (2023-12-02, explicitly "the Hwy 62 bridge gauge known as the Tahlequah Gauge"): "The average water level is 4 ft. to 5.5 ft.", an easily navigable time to float. Corroborating: Eagle Bluff "ideal 3.5–5.5 ft" (gauge unnamed); moherp's one observed trip, Good at 4.88 ft / 311 cfs (2011). |
+| High | above 5.5 (6.0 caution anchor) | GRDA Appendix A 6'0" children raft only; Riverbend 6' children raft only, adults urged into life jackets. |
+| Dangerous | **7.5 proposed** | Riverbend 7.5': "All floating trip must cease." GRDA Appendix A 7'6": no floating for children 10 and under. On 2020-05-30, when a floater drowned on the Watts–Barren Fork reach, Tahlequah read **7.73–8.62 ft**. |
+| (alternative danger line) | 9.5 | NWS TALO2 impact statement: "all recreational floating along the Illinois River ceases at and above 9.5 feet"; GRDA 9'6" no commercial floating; American Whitewater runnable to 9.6 ft. With 9.5, the 2020 drowning day would have badged only "High". |
+
+Too low / low: no source. Tahlequah's three-year minimum stage is 4.42 ft, so a
+reading below the 4.0 ft ideal floor is not expected under the current
+stage–discharge relation. Ask the owner whether late-summer water at 4.4–4.9 ft
+is scrapey enough to deserve a Low band.
+
+### Chewey (upper section): high end only, held
+
+- 6.0 ft all floaters raft only: GRDA Appendix A (Chewey column) and
+  Diamondhead Resort ("Medium Caution Stage – 6'"). 5'6" children raft only (both).
+- 9.0 ft stop: NWS CWYO2 impact statement ("all recreational floating along the
+  Illinois River ceases due to strong turbulence") and Diamondhead ("Action
+  Stage – 9 ft: No Floating"). GRDA's commercial limit is 9'6".
+
+These are not in the dossier's thresholds: a ladder with only high and dangerous
+anchors grades every normal reading "Too Low". The upper section now has mile
+bounds (Eddy 50.3–88.94), so ingest refuses it until Chewey has an ideal range,
+instead of silently grading the upper river on Tahlequah.
+
+Also noted from the owner's sources: a 2025 newspaper quote from a Tahlequah
+outfitter ("stop kayaking and canoeing" at 5–5.5 ft, "stop rafting at seven
+feet") with no gauge named, so not used as an anchor.
