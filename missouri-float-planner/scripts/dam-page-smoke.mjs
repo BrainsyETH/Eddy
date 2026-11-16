@@ -648,6 +648,8 @@ export default function Page() {
   desktop.on('pageerror', e => errors.push(e.message));
   await desktop.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
   await desktop.goto(`${origin}/dam-layout-check?variant=tableRock&ct=partner_guide`, { waitUntil: 'networkidle' });
+  // networkidle can precede hydration and the session campaign effect.
+  await desktop.waitForFunction(() => document.querySelector('[data-dam-app-cta] a')?.dataset.gaCampaign === 'partner_guide');
   const desktopDam = desktop.locator('[data-dam-app-cta] a');
   assert.equal(await desktopDam.count(), 1);
   assert.equal(await desktopDam.getAttribute('href'), '/app?ct=partner_guide&dam=swl-table-rock-dam');
