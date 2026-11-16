@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { RAIN_HOUR } from '@shared/rainfall';
-import { CORRECTED_PRODUCTS, correctedTile, correctedUrl, tileTiff, type CorrectedHours } from './corrected-source';
+import { CORRECTED_PRODUCTS, correctedListed, correctedListUrl, correctedTile, correctedUrl, tileTiff, type CorrectedHours } from './corrected-source';
 import type { Tile } from './research-contract';
 import type { Capture } from './research-store';
 
@@ -13,15 +13,16 @@ interface Input {
 }
 type Fetch = (url: string, signal: AbortSignal) => Promise<Uint8Array>;
 type Archive = (capture: Omit<Capture, 'basinSetHash'>) => Promise<void>;
-const unpublished = (error: unknown) => error instanceof Error && /HTTP 404$/.test(error.message);
 
 /**
  * Archive NOAA's gauge-corrected rainfall on the collector's tile.
  *
  * NOAA keeps every hour, so a run takes whichever recent hours are not yet
  * archived, not only the latest: a failed run or a late file is made up on the
- * next one instead of leaving a hole in the hourly bars. A file that is not
- * published yet is not a failure. The run is stale when the newest archived
+ * next one instead of leaving a hole in the hourly bars. NOAA publishes about
+ * an hour after the hour, so each run first reads NOAA's own list of files and
+ * requests only what is there: an hour that is not published yet is neither a
+ * failed request nor a failure. The run is stale when the newest archived
  * hour is more than three hours old, which is when the public view stops
  * calling itself current.
  */
@@ -48,9 +49,28 @@ export async function collectCorrected(db: SupabaseClient, input: Input, signal:
     if (offset >= 9000) throw new Error('Corrected rainfall inventory exceeds bounded page budget');
   }
   let completed = 0, failed = 0, pending = 0, newest = 0;
+  // One listing per product per UTC day. A listing that cannot be read is one
+  // failure, and its hours are left for the next run.
+  const listings = new Map<string, Promise<Set<string> | null>>();
+  const published = (hours: CorrectedHours, end: string) => {
+    const day = end.slice(0, 10).replaceAll('-', ''), id = `${hours}|${day}`;
+    if (!listings.has(id)) listings.set(id, (async () => {
+      try {
+        signal.throwIfAborted();
+        return correctedListed(Buffer.from(await bytes(correctedListUrl(hours, day), signal)).toString('utf8'), hours);
+      } catch (error) {
+        signal.throwIfAborted();
+        failed++;
+        console.warn('[rainfall-research] Corrected rainfall listing failed', CORRECTED_PRODUCTS[hours].key, day, error instanceof Error ? error.message : 'Source error');
+        return null;
+      }
+    })());
+    return listings.get(id)!.then(ends => ends?.has(end) ?? false);
+  };
   const take = async (hours: CorrectedHours, at: number): Promise<'have' | 'saved' | 'unpublished' | 'failed'> => {
     const end = new Date(at).toISOString(), key = CORRECTED_PRODUCTS[hours].key;
     if (have.has(`${key}|${end}`)) return 'have';
+    if (!await published(hours, end)) return 'unpublished';
     const sourceUrl = correctedUrl(hours, end);
     try {
       signal.throwIfAborted();
@@ -62,7 +82,6 @@ export async function collectCorrected(db: SupabaseClient, input: Input, signal:
       return 'saved';
     } catch (error) {
       signal.throwIfAborted();
-      if (unpublished(error)) return 'unpublished';
       console.warn('[rainfall-research] Corrected rainfall capture failed', key, end, error instanceof Error ? error.message : 'Database or storage error');
       return 'failed';
     }

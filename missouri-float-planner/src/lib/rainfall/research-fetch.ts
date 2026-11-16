@@ -12,11 +12,9 @@ export async function researchFetch(url: string, deadline: AbortSignal): Promise
     try {
       const response = await trackedFetch('nws', parsed.hostname === 'api.weather.gov' ? 'rainfall-research-forecast'
         : parsed.origin === CORRECTED_ORIGIN ? 'rainfall-research-corrected' : 'rainfall-research-mrms', url, {
-        headers: { Accept: 'application/geo+json,application/json,image/tiff', 'User-Agent': 'Eddy rainfall research (https://eddy.guide; support@eddy.guide)' },
+        headers: { Accept: 'application/geo+json,application/json,image/tiff,application/xml;q=0.9,*/*;q=0.8', 'User-Agent': 'Eddy rainfall research (https://eddy.guide; support@eddy.guide)' },
         cache: 'no-store', redirect: 'error', signal: AbortSignal.any([deadline, AbortSignal.timeout(20_000)]),
       });
-      // NOAA's archive answers 404 for an hour it has not published yet. Asking again changes nothing.
-      if (response.status === 404) { failure = new Error('Research source HTTP 404'); break; }
       if (!response.ok) throw new Error(`Research source HTTP ${response.status}`);
       if (!response.body || Number(response.headers.get('content-length') ?? 0) > MAX_BYTES) throw new Error('Source body exceeds limit');
       const reader = response.body.getReader(), chunks: Uint8Array[] = [];

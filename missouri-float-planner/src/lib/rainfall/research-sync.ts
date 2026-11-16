@@ -70,28 +70,37 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
     } catch { failed++; }
 
     // Keep each product's own timestamp. Never add overlapping 6/24/72h totals.
-    const metadata = await deps.json(`${MRMS_URL}?f=json`, signal);
-    const catalog = await deps.json(catalogUrl, signal);
+    // The hosted service is one source among several. If its catalog cannot be
+    // read, count it and carry on: the gauge-corrected step and the public view
+    // below do not depend on it.
     let hostedTile: Tile | null = null;
-    const result = await pool([...RAIN_WINDOWS], signal, async hours => {
-      const raster = selectMrmsRaster(metadata, catalog, hours, Date.now());
-      const info = await deps.json(`${MRMS_URL}/${raster.rasterId}/info?f=json`, signal);
-      const grid = rasterGrid(info), tile = nativeTile(basins, grid), parameters = exportParameters(tile, raster);
-      hostedTile = tile;
-      // Stream the requested TIFF directly: NOAA's JSON href can point at an
-      // unavailable output directory. Actual tags below still prove the grid.
-      const tiff = await deps.bytes(`${MRMS_URL}/exportImage?${parameters}`, signal);
-      validateTiff(tiff, tile);
-      // Catalog IDs can rotate while downloading. Do not label bytes with an old time.
-      const after = selectMrmsRaster(metadata, await deps.json(catalogUrl, signal), hours, Date.now());
-      if (after.rasterId !== raster.rasterId || after.end !== raster.end) throw new Error('MRMS changed during capture');
-      await archive({ kind: 'mrms', sourceKey: raster.subset, start: raster.start, end: raster.end,
-        metadata: { basinIds, raster, grid, tile, parameters: Object.fromEntries(parameters),
-          sourceInfo: info, sourceCatalog: catalog, publicUse: false,
-          quality: 'research_unverified', negativeValues: 'preserved; mask before any aggregation', format: 'GeoTIFF' }, bytes: tiff });
-      if (raster.stale) stale++;
-    });
-    completed += result.completed; failed += result.failed; deferred += result.deferred;
+    try {
+      const metadata = await deps.json(`${MRMS_URL}?f=json`, signal);
+      const catalog = await deps.json(catalogUrl, signal);
+      const result = await pool([...RAIN_WINDOWS], signal, async hours => {
+        const raster = selectMrmsRaster(metadata, catalog, hours, Date.now());
+        const info = await deps.json(`${MRMS_URL}/${raster.rasterId}/info?f=json`, signal);
+        const grid = rasterGrid(info), tile = nativeTile(basins, grid), parameters = exportParameters(tile, raster);
+        hostedTile = tile;
+        // Stream the requested TIFF directly: NOAA's JSON href can point at an
+        // unavailable output directory. Actual tags below still prove the grid.
+        const tiff = await deps.bytes(`${MRMS_URL}/exportImage?${parameters}`, signal);
+        validateTiff(tiff, tile);
+        // Catalog IDs can rotate while downloading. Do not label bytes with an old time.
+        const after = selectMrmsRaster(metadata, await deps.json(catalogUrl, signal), hours, Date.now());
+        if (after.rasterId !== raster.rasterId || after.end !== raster.end) throw new Error('MRMS changed during capture');
+        await archive({ kind: 'mrms', sourceKey: raster.subset, start: raster.start, end: raster.end,
+          metadata: { basinIds, raster, grid, tile, parameters: Object.fromEntries(parameters),
+            sourceInfo: info, sourceCatalog: catalog, publicUse: false,
+            quality: 'research_unverified', negativeValues: 'preserved; mask before any aggregation', format: 'GeoTIFF' }, bytes: tiff });
+        if (raster.stale) stale++;
+      });
+      completed += result.completed; failed += result.failed; deferred += result.deferred;
+    } catch (error) {
+      signal.throwIfAborted();
+      failed++;
+      console.warn('[rainfall-research] Hosted rainfall catalog unavailable', error instanceof Error ? error.message : 'Source error');
+    }
 
     // Public amounts are built from NOAA's gauge-corrected product, never from
     // the radar-only rasters above. It has its own source, so a hosted-service
