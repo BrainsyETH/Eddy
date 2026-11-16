@@ -140,9 +140,12 @@ test('observation collection paginates gauge history and survives one missing ra
       return { data: Array.from({ length: offset === 0 ? 1000 : 2 }, (_, n) => ({ id: offset + n, gauge_station_id: 'gauge' })), error: null };
     },
   };
-  const db = { from: (table: string) => table === 'gauge_readings' ? gaugeQuery : ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [basin], error: null }) }) }) }) }),
+  const archived = { select: () => archived, eq: () => archived, in: () => archived, gte: () => archived, order: () => archived, range: async () => ({ data: [], error: null }) };
+  const db = { from: (table: string) => table === 'gauge_readings' ? gaugeQuery : table === 'rainfall_research_captures' ? archived
+    : ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [basin], error: null }) }) }) }) }),
     storage: { getBucket: async () => ({ data: { public: false }, error: null }) } } as unknown as SupabaseClient;
   const end = Math.floor(Date.now() / 3600_000) * 3600_000;
+  const corrected: string[] = [];
   const catalog = { features: [1, 6, 24, 72].map(hours => ({ attributes: { idp_subset: `conus_QPE_${String(hours).padStart(2, '0')}H`, category: 1, objectid: hours, idp_validendtime: end } })) };
   const result = await collectResearch(db, 'observations', new AbortController().signal, {
     save: async (_db, c) => { saved.push(c); return c.bytes.length; },
@@ -151,6 +154,8 @@ test('observation collection paginates gauge history and survives one missing ra
       if (url.includes('/info?')) return { pixelType: 'F32', bandCount: 1, pixelSizeX: 1000, pixelSizeY: 1000, origin: grid.origin, extent: { ...grid.extent, spatialReference: { wkid: 3857 } } };
       return { pixelType: 'F32', bandCount: 1, rasterFunctionInfos: [{ name: 'None' }] };
     }, bytes: async url => {
+      // NOAA's archive has not published the gauge-corrected hours yet (corrected.test.ts covers the rest).
+      if (new URL(url).origin === 'https://noaa-mrms-pds.s3.amazonaws.com') { corrected.push(url); throw Error('Research source HTTP 404'); }
       assert.equal(new URL(url).pathname.endsWith('/exportImage'), true);
       const params = new URL(url).searchParams;
       assert.equal(params.get('f'), 'image'); assert.equal(params.get('compression'), 'None');
@@ -163,6 +168,8 @@ test('observation collection paginates gauge history and survives one missing ra
   assert.equal(saved.filter(c => c.kind === 'mrms').length, 3);
   assert.equal(saved.find(c => c.kind === 'gauges')?.metadata.rowCount, 1002);
   assert.ok(saved.filter(c => c.kind === 'mrms').every(c => c.metadata.quality === 'research_unverified'));
+  assert.equal(corrected.length, 12 + 4 + 4, 'asks NOAA\'s archive for each recent hour and the newest totals');
+  assert.equal(result.stale, 1, 'no gauge-corrected hour archived yet');
 });
 
 test('forecasts shared by two basins are fetched once and keep nulls plus both bindings', async () => {

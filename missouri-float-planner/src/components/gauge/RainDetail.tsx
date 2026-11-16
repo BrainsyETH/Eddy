@@ -30,7 +30,7 @@ export default function RainDetail({ siteId, timeZone, onClose }: { siteId: stri
       {isError ? <div role="status" className="mt-6 text-sm text-neutral-600">Rain data unavailable. <button onClick={() => void refetch()} className="min-h-11 font-semibold text-primary-700 underline">Try again</button></div>
         : !data || !map ? <p role="status" className="mt-6 text-sm text-neutral-600">Loading rain upstream…</p> : <>
           <p className="mt-4 text-sm font-semibold text-neutral-800">{data.basin.name}</p>
-          <p className="text-xs text-neutral-600">{Math.round(data.basin.areaSqMi).toLocaleString()} sq mi · Radar estimate</p>
+          <p className="text-xs text-neutral-600">{Math.round(data.basin.areaSqMi).toLocaleString()} sq mi · Radar and rain gauges</p>
           <svg viewBox="0 0 320 270" className="mt-4 w-full rounded-xl border border-secondary-200 bg-white" role="img" aria-label={`Watershed upstream of ${data.basin.name}${data.shading ? ', shaded by estimated rain in the past 24 hours' : ', rainfall shading unavailable'}${map.riverName ? `. River: ${map.riverName}. Places: ${map.places.map(place => place.name).join(', ')}.` : ''}`}>
             <defs><pattern id={`${id}-missing`} width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="var(--color-neutral-100)" /><path d="M-1,1L1,-1M0,6L6,0M5,7L7,5" stroke="var(--color-neutral-400)" strokeWidth="1" /></pattern><clipPath id={id}><path d={map.path} fillRule="evenodd" clipRule="evenodd" /></clipPath></defs>
             <path d={map.path} fill={`url(#${id}-missing)`} fillRule="evenodd" />
@@ -53,7 +53,7 @@ export default function RainDetail({ siteId, timeZone, onClose }: { siteId: stri
               {total && <dd className="mt-1 text-xs text-neutral-500"><time dateTime={total.end} title={chartStamp(total.end, timeZone)} aria-label={`Through ${chartStamp(total.end, timeZone)}`}>{chartShortStamp(total.end, timeZone)}</time>{total.coverage < 1 ? ` · ${Math.round(total.coverage * 100)}% coverage` : ''}</dd>}
             </div>; })}
           </dl>
-          <p className="mt-4 text-xs text-neutral-600">Radar estimates can differ from rain measured on the ground. Gaps mean missing data.</p>
+          <p className="mt-4 text-xs text-neutral-600">NOAA estimate from radar and rain gauges. A single gauge can read differently. Gaps mean missing data.</p>
           <details className="mt-4 border-t border-secondary-200 pt-2"><summary className="cursor-pointer py-3 text-sm font-semibold text-primary-800">Hourly rain</summary>
             <div className="max-h-72 overflow-auto"><table className="w-full text-left text-xs"><caption className="sr-only">Estimated upstream rain by hour, in inches</caption><thead><tr><th className="py-2">Hour ending</th><th>Rain</th></tr></thead>
               <tbody>{data.hourly.slice().reverse().map(row => <tr key={row.start} className="border-t border-neutral-200"><td className="py-2">{chartStamp(row.end, timeZone)}</td><td>{rainAmount(usableRain(row) ? row.inches : null)}</td></tr>)}</tbody></table></div>

@@ -10,7 +10,8 @@ model, approve boundaries, or change web/iOS behavior.
 | Record | Cadence | Contents |
 | --- | --- | --- |
 | Basin versions | Seeded once; archived with each distinct inventory | Exact simplified USGS boundary, gauge identity, capture date/hash, source-area and station-point checks, unresolved flags and exploratory forecast points |
-| NOAA MRMS observations | Hourly at :18 | Separate 1/6/24/72-hour source rasters, each with its own valid window, original float pixels, native grid, locked source identity and provenance |
+| NOAA MRMS observations | Hourly at :18 | Separate 1/6/24/72-hour source rasters, each with its own valid window, original float pixels, native grid, locked source identity and provenance. Radar-only; research material, never public amounts |
+| NOAA gauge-corrected rainfall | Same hourly run | MRMS multi-sensor pass 2: every recent 1-hour total not yet archived, and the newest 24 and 72-hour totals, read from NOAA's open archive onto the same tile and saved in the same GeoTIFF form, with the source file's address and SHA-256. The only source of public amounts |
 | NWS forecasts | Every three hours at :43 | Each distinct grid forecast version: grid identity, provider update time, and the four precipitation layers (amount, chance, snowfall, ice) with their original units, intervals and nulls, plus basin/sample bindings. Other layers are dropped and counted |
 | Gauge observations | With each hourly collection | The previous 48 hours of stored stage/discharge, original observation/fetch timestamps and qualifiers; paginated beyond the API's 1,000-row default |
 
@@ -55,8 +56,11 @@ SQL or assume every unreferenced object is safe to remove during a running job.
 
 The existing `gauge_readings` is retained independently. Copies here preserve
 the gauge data known at capture time, including provisional qualifiers. A
-48-hour overlap recovers skipped gauge snapshots; it cannot recover an old MRMS
-hour that NOAA's rolling service no longer serves. Missing hours stay missing.
+48-hour overlap recovers skipped gauge snapshots; it cannot recover an old
+radar-only hour that NOAA's rolling service no longer serves. Those missing
+hours stay missing. Gauge-corrected hours are different: NOAA keeps every file,
+so each run archives any of the last 12 hours it does not have, and
+`scripts/rainfall/backfill-corrected.ts` reaches back further.
 Do not reconstruct hourly rainfall by subtracting overlapping 6/24/72h totals.
 
 Both cron routes use machine bearer authentication, separate locks, bounded
@@ -100,19 +104,21 @@ There are no feature migrations or public-screen changes to roll back.
 
 ## What still gates public rain
 
-- **Product accuracy (open, found 2026-11-16).** The collected product is NOAA's
-  radar-only estimate. In the recorded wet window it read about 1.9 times what
-  75 rain gauges measured; NOAA's gauge-corrected product matched them. Decide
-  what public amounts are built from before any station is released. See
-  *Release review (2026-11-16)*.
-- Raw unit: recorded. Hosted raw values equal NOAA's RadarOnly source file, which
-  NOAA documents in millimetres (`validation/rainfall/2026-11-16-units/`).
-- Boundaries: 42 of 49 enabled basins are reviewed by rule. Seven still need a
-  person: Windyville's area, Doniphan's station point, and five between 2% and
+- **Product: decided 2026-11-16.** Public amounts are built only from NOAA's
+  gauge-corrected product (MRMS multi-sensor QPE, pass 2). The radar-only
+  rasters are still archived for research and are never published. See
+  *Gauge-corrected source (2026-11-16)*.
+- **Reading and unit: recorded** in `validation/rainfall/2026-11-16-corrected/`.
+- **Coverage: recorded per released station** in
+  `validation/rainfall/2026-11-16-jacks-fork/`. A station cannot be added to the
+  release list without its own entry there: `storm-evidence.test.ts` fails.
+- **Boundaries:** 42 of 49 enabled basins are reviewed by rule. Seven still need
+  a person: Windyville's area, Doniphan's station point, and five between 2% and
   5.5% (Carthage, Boxley, Montauk, Caddo Gap, Roselle).
-- Validate area-weighted native-pixel amounts and valid-area coverage, plus
-  representative forecast sampling and partial coverage behavior.
-- Replay storms and quiet days; measure lag on separate events/seasons and
+- **Released stations:** the three Jacks Fork gauges. Each further station needs
+  a reviewed basin, prepared weights and storm evidence.
+- Still open for any wider claim: forecast sampling, partial-coverage behavior
+  in a real outage, and rain lag. Measure lag on separate events and seasons and
   exclude dam-controlled reaches from natural rain-response claims.
 
 The dam study's principle applies: compare an upstream signal with downstream
@@ -170,14 +176,14 @@ Research storage remains private. No client receives a storage URL or raw archiv
 
 Publication is **off** until all of these are true:
 
-1. `src/lib/rainfall/public-policy.ts` records replayable hosted-unit and coverage
+1. `src/lib/rainfall/public-policy.ts` records replayable unit and coverage
    evidence, plus each reviewed station's exact basin version and gauge location.
-   Its evidence entries and station list intentionally start empty.
+   A test ties every listed station to the coverage evidence at that version.
 2. The matching research basin has `review_status=reviewed`.
 3. `RAINFALL_PUBLIC_ENABLED=true` is set on the intended environment.
 
 The collector then derives `published/v1/<site>.json.gz` in the existing private
-bucket after archiving observations. These disposable views can be overwritten;
+bucket after archiving observations. It reads only the gauge-corrected captures. These disposable views can be overwritten;
 raw captures remain immutable. Native uncompressed F32 cells are clipped against
 the basin and weighted by geodesic area. Sparse TIFF blocks without a GDAL nodata tag are valid zero rain. If a nodata
 tag is present, sparse blocks and matching samples are missing; negative and
@@ -249,10 +255,66 @@ radar-only product.
 weights in 1 s. A full eight-day replay is about 194 downloads, so roughly 40 s
 of the hourly run at this rate.
 
-**Still to do for a release:** decide the product; then prepare weights for the
-released basins, add them to `public-policy.ts` with the evidence folders, and
-set `RAINFALL_PUBLIC_ENABLED`. No weights have been prepared and the release
-list is still empty.
+The product decision and what followed are in the next section.
+
+### Gauge-corrected source (2026-11-16)
+
+The owner chose to fix the source before releasing: public amounts come from
+NOAA's gauge-corrected product, not the radar-only one.
+
+**How it is read.** Pass 2 is not on the hosted image service. NOAA publishes it
+as one GRIB2 file per product per hour on its open archive (`noaa-mrms-pds`),
+about 57 minutes after the hour. `corrected-source.ts` reads that file (one
+PNG-packed field on NOAA's 0.01 degree grid, tenths of a millimetre) and takes
+the source cell under the centre of each cell of the collector's existing tile.
+That is the same nearest-cell step NOAA's hosted service applies to the
+radar-only product, so the prepared basin weights, the publisher and the map
+shading are unchanged, and the saved object is the same native GeoTIFF. A cell
+NOAA marks missing or outside coverage is stored as missing. NOAA packs a field at 16
+bits, or at 8 in an hour when no cell needs more; both are read. A file for
+another product or hour, or in any other layout, is refused.
+
+**Collection.** The hourly run asks for each of the last 12 hours it has not
+archived, newest first and at most six per run, then the newest published 24
+and 72-hour totals. A file NOAA has not published yet is not a failure. The run
+reports stale when the newest archived hour is over three hours old, which is
+when the public view stops calling itself current. The source is independent of
+the hosted service: if that is down, the last archived tile is used.
+
+**Timing.** At the :18 run the newest hour is the one that ended 78 minutes
+earlier, so the public view is between about 1 h 20 min and 2 h 20 min behind
+the clock, inside the three-hour freshness limit with one missed run to spare.
+Radar-only would be about an hour fresher and was not chosen.
+
+**Evidence.** Reading and unit: `validation/rainfall/2026-11-16-corrected/`
+(identical to an independent decoder at all 118,195 cells of a wet tile).
+Jacks Fork: `validation/rainfall/2026-11-16-jacks-fork/`, two real storms.
+
+| | Gauge-corrected / gauges | Radar-only / gauges |
+| --- | --- | --- |
+| Louisiana, 2026-11-16, 75 gauges | 1.05 | 1.9 |
+| Ozarks tile, 2026-11-04, 64 gauges | 1.02 | 1.00 |
+| Ozarks tile, 2026-08-08, 32 gauges | 1.18 | 1.40 |
+
+The radar-only product was not always high: in the November storm its middle
+value matched the gauges across the tile, with a wider spread, and over the
+Jacks Fork it was about a quarter below the corrected amount. The corrected
+product is the steadier of the two. Pass 2 uses gauges, so part of its agreement
+is by construction.
+
+**Wording.** The detail screen and chart label say radar and rain gauges, on web
+and iOS. An installed iOS build keeps its old "Radar estimate" wording until it
+is updated; the numbers it shows are the corrected ones.
+
+**Release state.** Implemented: the three Jacks Fork stations are in the release
+list. Production, 2026-11-16: the gauge-corrected archive was backfilled for
+eight days (191 hourly files and the newest 24 and 72-hour totals, about 220 KB
+stored) and the three basins' weights were prepared and read back. A read-only
+run of the publisher against that archive produced all three views as `ready`:
+191 hours each, no missing hour, full coverage, and 0.00 in throughout, because
+the week was dry. It took 40 s from outside the hosting region. Public display
+still needs this change deployed and `RAINFALL_PUBLIC_ENABLED=true` set in
+production. iOS is unconfirmed on a device.
 
 ### Collection fixes (2026-11-12)
 

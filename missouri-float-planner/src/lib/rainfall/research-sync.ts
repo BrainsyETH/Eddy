@@ -3,6 +3,8 @@ import { MRMS_URL, RAIN_WINDOWS, rasterGrid, selectMrmsRaster } from './source-c
 import { type Basin, exportParameters, forecastArchive, forecastMetadata, forecastUrl, hash, nativeTile, object, pointUrl, RESEARCH_BUCKET, validateTiff } from './research-contract';
 import { type Capture, saveCapture } from './research-store';
 import { publishRain } from './public-store';
+import { collectCorrected } from './corrected-sync';
+import type { Tile } from './research-contract';
 
 type Dependencies = {
   json: (url: string, signal: AbortSignal) => Promise<unknown>;
@@ -42,7 +44,7 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
     bytesSaved += await save(db, { ...c, basinSetHash });
   };
   await archive({ kind: 'basins', sourceKey: basinSetHash, metadata: { basinIds, publicUse: false }, bytes: jsonBytes(basins) });
-  let failed = 0, completed = 0, deferred = 0, stale = 0, publishedBasins = 0;
+  let failed = 0, completed = 0, deferred = 0, stale = 0, publishedBasins = 0, correctedPending = 0;
   if (mode === 'observations') {
     // Keep a replayable copy of the gauge record known at collection time.
     // Page explicitly: the hosted API's default 1,000-row limit is not completeness.
@@ -70,10 +72,12 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
     // Keep each product's own timestamp. Never add overlapping 6/24/72h totals.
     const metadata = await deps.json(`${MRMS_URL}?f=json`, signal);
     const catalog = await deps.json(catalogUrl, signal);
+    let hostedTile: Tile | null = null;
     const result = await pool([...RAIN_WINDOWS], signal, async hours => {
       const raster = selectMrmsRaster(metadata, catalog, hours, Date.now());
       const info = await deps.json(`${MRMS_URL}/${raster.rasterId}/info?f=json`, signal);
       const grid = rasterGrid(info), tile = nativeTile(basins, grid), parameters = exportParameters(tile, raster);
+      hostedTile = tile;
       // Stream the requested TIFF directly: NOAA's JSON href can point at an
       // unavailable output directory. Actual tags below still prove the grid.
       const tiff = await deps.bytes(`${MRMS_URL}/exportImage?${parameters}`, signal);
@@ -88,6 +92,14 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
       if (raster.stale) stale++;
     });
     completed += result.completed; failed += result.failed; deferred += result.deferred;
+
+    // Public amounts are built from NOAA's gauge-corrected product, never from
+    // the radar-only rasters above. It has its own source, so a hosted-service
+    // outage does not stop it.
+    try {
+      const corrected = await collectCorrected(db, { basinIds, basinSetHash, now: Date.now(), tile: hostedTile }, signal, deps.bytes, archive);
+      completed += corrected.completed; failed += corrected.failed; stale += corrected.stale; correctedPending = corrected.pending;
+    } catch { failed++; console.warn('[rainfall-research] Corrected rainfall unavailable'); }
   } else {
     const points = new Map<string, { coordinates: number[]; basinIds: string[] }>();
     for (const basin of basins) for (const coordinates of basin.forecast_points) {
@@ -139,5 +151,5 @@ export async function collectResearch(db: SupabaseClient, mode: 'observations' |
     }
     catch { failed++; console.warn('[rainfall-research] Public rain view unavailable'); }
   }
-  return { monitoring_status: failed || deferred || stale ? 'partial' : 'ok', completed, failed, deferred, stale, bytesSaved, basins: basins.length, publishedBasins };
+  return { monitoring_status: failed || deferred || stale ? 'partial' : 'ok', completed, failed, deferred, stale, bytesSaved, basins: basins.length, publishedBasins, correctedPending };
 }
