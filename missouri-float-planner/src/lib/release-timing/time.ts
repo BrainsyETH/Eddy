@@ -39,3 +39,10 @@ export function durationText(minutes: number): string {
   const m = rest === 0 && hours > 0 ? '' : `${rest} minute${rest === 1 ? '' : 's'}`;
   return [h, m].filter(Boolean).join(' ');
 }
+
+const hourOnly = new Intl.DateTimeFormat('en-US', { timeZone: ZONE, hour: 'numeric' });
+/**
+ * "5 AM hour". Releases are published as hourly averages, so a release is
+ * known to the hour it began in and no closer; a clock time would be invented.
+ */
+export const releaseHour = (ms: number): string => `${hourOnly.format(ms)} hour`;

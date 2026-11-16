@@ -11,13 +11,12 @@ import Button from '@/components/ui/Button';
 import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
 import { comparison, type PublicResult, type PublicResults } from '@/lib/arrival-trial/public-results';
 import { GAUGE_MILE } from '@/lib/release-timing/river';
-import { clockTime, datedDay, durationText, shortDate, timeSpan } from '@/lib/release-timing/time';
+import { progressSlots, RESULTS_NEEDED } from '@/lib/release-timing/presentation';
+import { clockTime, datedDay, durationText, releaseHour, shortDate, timeSpan } from '@/lib/release-timing/time';
 import styles from './release-timing.module.css';
 
 type Compared = Extract<PublicResult, { kind: 'compared' }>;
 const HOUR_MS = 3_600_000;
-/** The study scores once this many estimates have been compared (protocol_forward.json). */
-const NEEDED = 60;
 const EARLIER_SHOWN = 8;
 
 /** One plain sentence: where the rise fell against the estimated window. */
@@ -86,7 +85,16 @@ export default function HowClose({
   const latest = shown[0];
   const earlier = shown.filter((r) => r !== featured && r.kind !== 'waiting').slice(0, EARLIER_SHOWN);
   const withheld = results?.tally.noEstimate.reduce((sum, row) => sum + row.count, 0) ?? 0;
-  const oldest = results?.results[results.results.length - 1];
+  const slots = progressSlots(results);
+  const inside = slots.filter((slot) => slot === 'inside').length;
+  const outside = slots.filter((slot) => slot === 'outside').length;
+  const others = results
+    ? [
+        results.tally.waiting > 0 && `${results.tally.waiting} waiting`,
+        withheld > 0 && `${withheld} with no estimate`,
+        results.tally.notCompared > 0 && `${results.tally.notCompared} couldn’t be compared`,
+      ].filter(Boolean)
+    : [];
 
   return (
     <section id="how-close" className={`card-panel scroll-mt-24 ${styles.close}`} aria-labelledby="how-close-heading">
@@ -95,6 +103,19 @@ export default function HowClose({
         <p>Gauge near Norfork · {GAUGE_MILE} miles downstream · Central time</p>
       </div>
       <div className={styles.cardBody}>
+        {results !== null && (
+          <div className={styles.progress}>
+            <p><b>{inside + outside} of {RESULTS_NEEDED}</b> results in before we call it.{others.length > 0 ? ` Also ${others.join(', ')}.` : ''}</p>
+            <div className={styles.slots} role="img" aria-label={`${inside + outside} of ${RESULTS_NEEDED} results in: ${inside} inside the estimated window, ${outside} outside it.`}>
+              {slots.map((slot, k) => <i key={k} data-slot={slot} />)}
+            </div>
+            <div className={styles.slotKey}>
+              <span><i data-slot="inside" />Inside the window</span>
+              <span><i data-slot="outside" />Outside it</span>
+              <span><i data-slot="open" />Still to come</span>
+            </div>
+          </div>
+        )}
         {results === null ? (
           <p className={styles.status}>Results can’t be loaded right now.</p>
         ) : shown.length === 0 ? (
@@ -108,7 +129,7 @@ export default function HowClose({
               <p className={styles.status}>
                 <b>Waiting for gauge readings.</b>{' '}
                 {pending.length === 1
-                  ? `Release: ${shortDate(Date.parse(pending[0].releasedAt))}, ${clockTime(Date.parse(pending[0].releasedAt))}.`
+                  ? `Released ${shortDate(Date.parse(pending[0].releasedAt))}, in the ${releaseHour(Date.parse(pending[0].releasedAt))}.`
                   : `${pending.length} releases pending.`}
               </p>
             )}
@@ -119,7 +140,7 @@ export default function HowClose({
             )}
             {featured && (
               <div className={styles.featured}>
-                <h3>{datedDay(Date.parse(featured.releasedAt))} · Release at {clockTime(Date.parse(featured.releasedAt))}</h3>
+                <h3>{datedDay(Date.parse(featured.releasedAt))} · Released in the {releaseHour(Date.parse(featured.releasedAt))}</h3>
                 <WindowGraphic result={featured} />
                 <p className={styles.outcome}>{outcomeSentence(featured)}</p>
                 <div><Button variant="outline" size="sm" className="min-h-11" onClick={() => onPlay(featured)}>Replay release</Button></div>
@@ -149,7 +170,7 @@ export default function HowClose({
           <div>
             <dl>
               <dt>Release rose at the dam</dt>
-              <dd>{clockTime(Date.parse(featured.releasedAt))}, {shortDate(Date.parse(featured.releasedAt))}</dd>
+              <dd>{releaseHour(Date.parse(featured.releasedAt))}, {shortDate(Date.parse(featured.releasedAt))}</dd>
               <dt>Estimated window</dt>
               <dd>{timeSpan(Date.parse(featured.earlyAt), Date.parse(featured.lateAt))}, {shortDate(Date.parse(featured.estimateAt))}</dd>
               <dt>Eddy’s estimate</dt>
@@ -163,13 +184,9 @@ export default function HowClose({
       <details className={styles.more}>
         <summary>How we compare</summary>
         <div>
-          {results && results.tally.compared > 0 && (
-            <p>{results.tally.insideWindow} of {results.tally.compared} within the window since {datedDay(Date.parse((oldest ?? latest).releasedAt))}.
-              {results.tally.compared < NEEDED ? ` Study target: ${NEEDED} comparisons.` : ''}
-            </p>
-          )}
           <p>
             Eddy saves each estimate before the rise, then compares it with the gauge a day later. Results include misses.
+            We judge the estimates once {RESULTS_NEEDED} have been compared, not before.
           </p>
           <p>These results apply only to the gauge, not to access points.</p>
           {withheld > 0 && results && (

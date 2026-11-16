@@ -1,17 +1,21 @@
 // src/app/dams/[damId]/release-timing/page.tsx
 // How long a Bull Shoals release takes to reach the gauge near Norfork.
 //
-// A findings page, not a forecast: what 695 measured releases did, and, in
-// "How close was Eddy?", each estimate the release-arrival trial saved
-// beforehand next to what the gauge then recorded. Estimates appear only after
-// their outcome (src/lib/arrival-trial/public-results.ts). One dam has this
-// page; every other dam id is not found.
+// A findings page, not a forecast. It opens with what the study is in four
+// labelled facts, then answers three questions in order: how long it takes (the
+// map), how close Eddy has been (each estimate the release-arrival trial saved
+// beforehand next to what the gauge then recorded), and what changes it. A
+// research log shows where the work stands. Estimates appear only after their
+// outcome (src/lib/arrival-trial/public-results.ts). One dam has this page;
+// every other dam id is not found.
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import ReleaseTimingIntro, { RELEASE_TIMING_TITLE } from '@/components/release-timing/ReleaseTimingIntro';
 import ReleaseTimingReport from '@/components/release-timing/ReleaseTimingReport';
+import ResearchLog from '@/components/release-timing/ResearchLog';
 import styles from '@/components/release-timing/release-timing.module.css';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { loadPublicResults } from '@/lib/arrival-trial/public-results';
@@ -23,7 +27,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 // New results arrive about once a day per release, a day late by design.
 export const revalidate = 1800;
 
-const TITLE = 'How long a Bull Shoals release takes to reach Norfork';
+const TITLE = RELEASE_TIMING_TITLE;
 
 export async function generateMetadata({ params }: { params: Promise<{ damId: string }> }): Promise<Metadata> {
   const { damId } = await params;
@@ -50,7 +54,7 @@ export default async function ReleaseTimingPage({ params }: { params: Promise<{ 
   const dam = damId === RELEASE_TIMING_DAM_ID ? getUsaceDam(damId) : null;
   if (!dam) notFound();
   const F = FINDINGS;
-  const high = F.height[F.height.length - 1];
+  const trial = await results();
   const groups = [
     ...F.size.map((band) => ({ ...band, label: `${band.label} generator${band.label === 'About 1' ? '' : 's'}, normal river` })),
     ...F.height.map((band) => ({ ...band, label: `Gauge ${band.label.toLowerCase()}` })),
@@ -65,27 +69,13 @@ export default async function ReleaseTimingPage({ params }: { params: Promise<{ 
           <Link href={`/dams/${damId}`} className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-primary-700 hover:text-primary-800">
             <ChevronLeft className="size-4" aria-hidden="true" /> {dam.name}
           </Link>
-          <header>
-            <p className="text-xs font-semibold uppercase tracking-wider text-secondary-700">Our findings · Bull Shoals Dam</p>
-            <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-primary-800 sm:text-5xl" style={{ fontFamily: 'var(--font-display)' }}>{TITLE}</h1>
-            <p className="mt-3 max-w-2xl text-lg leading-relaxed text-neutral-600">
-              We followed <b className="font-semibold text-neutral-900">{F.scored.toLocaleString('en-US')}</b> release increases 41.5 miles down the White River, from the dam to the gauge near Norfork.
-            </p>
-            <p className="mt-2 text-sm text-neutral-500">Measured {span}</p>
-          </header>
         </div>
 
-        <div className={styles.facts}>
-          <div className={styles.fact}><strong>About {hoursText(F.normalAll.median)} h</strong><span>typical, on a normal river</span></div>
-          <div className={styles.fact}><strong>{hoursText(F.size[F.size.length - 1].median)} to {hoursText(F.size[0].median)} h</strong><span>biggest releases to smallest</span></div>
-          <div className={styles.fact}><strong>{hoursText(F.normalAll.median - high.median)} h sooner</strong><span>when the river was already high</span></div>
-        </div>
+        <ReleaseTimingIntro results={trial} />
 
-        <ReleaseTimingReport results={await results()} />
+        <ReleaseTimingReport results={trial} />
 
-        <p className={styles.warn} role="note">
-          <b>What the river did, not a forecast.</b> Releases change without notice, and water can rise faster than anything shown here. Don’t use this page to decide whether it is safe to wade or launch.
-        </p>
+        <ResearchLog results={trial} />
 
         <details id="how-we-measured" className={styles.method}>
           <summary>How we measured</summary>
@@ -93,11 +83,12 @@ export default async function ReleaseTimingPage({ params }: { params: Promise<{ 
             <ul>
               <li><b>Releases:</b> hourly, from the U.S. Army Corps of Engineers.</li>
               <li><b>River level:</b> every 15 minutes, from USGS gauge 07057370.</li>
-              <li><b>An increase:</b> 2,000 cfs or more within three hours, after six steady hours.</li>
+              <li><b>An increase:</b> after six steady hours, a first hour at least 1,000 cfs higher, reaching 2,000 cfs or more within three hours.</li>
+              <li><b>Not counted yet:</b> releases that start more slowly than that. Releases are published as hourly averages, so one that begins late in an hour can look like a slow start.</li>
               <li><b>A rise:</b> the gauge a tenth of a foot above its three-hour low.</li>
               <li><b>Counted:</b> {F.increases.toLocaleString('en-US')} increases, {span}. {F.scored.toLocaleString('en-US')} matched exactly one rise with a complete gauge record.</li>
               <li><b>A normal river:</b> release began under 1,500 cfs, gauge under 7 ft, no smaller increase in the 20 hours before. {F.normal.toLocaleString('en-US')} releases.</li>
-              <li><b>Map timing:</b> gauge times scaled by distance from the dam, assuming steady travel.</li>
+              <li><b>Rough guide upstream:</b> the gauge’s typical time scaled by distance from the dam, assuming steady travel, to the nearest half hour. Not measured.</li>
               <li><b>Typical window:</b> 10th to 90th percentiles of historical timings. The marker is the median, not a forecast.</li>
             </ul>
             <div className={styles.tableWrap}>
@@ -118,18 +109,6 @@ export default async function ReleaseTimingPage({ params }: { params: Promise<{ 
                 </tbody>
               </table>
             </div>
-          </div>
-        </details>
-
-        <details id="still-testing" className={styles.method}>
-          <summary>What we are still testing</summary>
-          <div>
-            <p>We have not shown that an arrival can be called ahead of time.</p>
-            <ul>
-              <li><b>2022 to 2024:</b> a formula built on other years landed within two hours about 9 times in 10. About 1 in 10 came more than two hours early, mostly on a high river.</li>
-              <li><b>2019 to 2021:</b> a stricter rule applied to only 39 releases. Too few to judge.</li>
-              <li><b>Now:</b> Eddy saves an estimate at each increase, before the river answers, and checks it against the gauge a day later. Results appear above, under “How close was Eddy?”</li>
-            </ul>
           </div>
         </details>
 
