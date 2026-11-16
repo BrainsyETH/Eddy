@@ -116,6 +116,40 @@ try {
       userId: null,
     },
   ];
+  // Float-contribution fixture: two accounts on one route, one drifty trip.
+  const contributionReviews = [];
+  let floatExcluded = false;
+  const floatTrip = (userId, id, movingMph, extra = {}) => ({
+    userId,
+    floatId: id,
+    updatedAt: '2026-07-05T00:00:00Z',
+    review: null,
+    float: {
+      version: 1, id, riverSlug: 'current', riverName: 'Current River',
+      putInId: 'akers', putInName: 'Akers Ferry', takeOutId: 'pulltite', takeOutName: 'Pulltite',
+      boatType: 'canoe', startedAt: Date.parse('2026-07-04T14:00:00Z'), endedAt: Date.parse('2026-07-04T18:00:00Z'),
+      elapsedMs: 14400000, movingMs: 10800000, stoppedMs: 3600000, unknownMs: 0, distanceMiles: 9.8,
+      movingMph, plannerMph: 3, firstMile: 0, lastMile: 9.8, reachedTakeOut: true, measurementVersion: 1,
+      water: { gaugeName: 'Current River at Akers', gaugeStationId: 'g', observedAt: '2026-07-04T13:45:00Z', heightFt: 2.1, dischargeCfs: 400 },
+      ...extra,
+    },
+  });
+  const contributionFixture = () => {
+    const trips = [
+      floatTrip('11111111-2222-4333-8444-555555555555', 'steady', 3.3),
+      floatTrip('9b2f3c4d-1111-4222-8333-444455556666', 'drifty', 3.3, { unknownMs: 7200000 }),
+    ];
+    if (floatExcluded) trips[1].review = { decision: 'exclude', note: null, reviewedBy: 'Owner recovery', reviewedAt: '2026-11-11T20:00:00Z' };
+    return {
+      summary: [{
+        key: 'current|akers|pulltite', riverSlug: 'current', riverName: 'Current River', routeLabel: 'Akers Ferry → Pulltite',
+        trips: floatExcluded ? 1 : 2, accounts: floatExcluded ? 1 : 2, paired: floatExcluded ? 1 : 2,
+        medianMovingMph: 3.3, medianPlannerMph: 3, medianDifference: 0.1, minCfs: 400, maxCfs: 400, excluded: floatExcluded ? 1 : 0,
+      }],
+      rivers: [{ slug: 'current', name: 'Current River', trips: 2 }],
+      trips, count: 2, accounts: 2, page: 1, pageSize: 50, capped: false, reviewsAvailable: true,
+    };
+  };
   await context.route('**/api/admin/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -213,6 +247,17 @@ try {
         total: q ? 1 : 2,
       });
     }
+    if (path === '/api/admin/float-contributions/review') {
+      const body = request.postDataJSON();
+      contributionReviews.push(body);
+      floatExcluded = body.decision === 'exclude';
+      return reply({
+        review: body.decision
+          ? { decision: body.decision, note: null, reviewedBy: 'Owner recovery', reviewedAt: '2026-11-11T20:00:00Z' }
+          : null,
+      });
+    }
+    if (path === '/api/admin/float-contributions') return reply(contributionFixture());
     if (path === '/api/admin/lake-launches') return route.abort('failed');
     return reply({ error: 'Unmocked admin endpoint' }, 500);
   });
@@ -331,6 +376,37 @@ try {
     ),
     'mobile page should not overflow',
   );
+  // Float contributions: route summary against Eddy's estimate, and review.
+  for (const viewport of [
+    { width: 1440, height: 1000, label: 'desktop' },
+    { width: 390, height: 844, label: 'mobile' },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(origin + '/admin/float-contributions');
+    const summary = page.getByRole('region', { name: 'By route' });
+    await summary.getByText('Akers Ferry → Pulltite').waitFor();
+    await summary.getByText('10% faster').waitFor();
+    await summary.getByText('2 accounts').waitFor();
+    await page.getByText('Over 20% unobserved').waitFor();
+    assert.ok(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      'contribution tables scroll inside their frame, not the page',
+    );
+    await page.screenshot({ path: `${out}/float-contributions-${viewport.label}.png`, fullPage: true });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const reviewGroup = page.getByRole('group', { name: 'Review Akers Ferry → Pulltite' }).last();
+  await reviewGroup.getByRole('button', { name: 'Exclude' }).click();
+  await page.getByRole('region', { name: 'By route' }).getByText('1 excluded', { exact: false }).waitFor();
+  assert.deepEqual(contributionReviews.at(-1), {
+    userId: '9b2f3c4d-1111-4222-8333-444455556666',
+    floatId: 'drifty',
+    decision: 'exclude',
+  });
+  assert.equal(await reviewGroup.getByRole('button', { name: 'Exclude' }).getAttribute('aria-pressed'), 'true');
+  await reviewGroup.getByRole('button', { name: 'Exclude' }).click();
+  await page.getByRole('region', { name: 'By route' }).getByText('1 excluded', { exact: false }).waitFor({ state: 'detached' });
+  assert.equal(contributionReviews.at(-1).decision, null, 'pressing the active decision clears it');
   await page.goto(origin + '/admin/lakes');
   await page.getByRole('button', { name: 'Try again' }).waitFor();
   await checkAccessChanges(browser, origin, post, reports);

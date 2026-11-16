@@ -1,4 +1,3 @@
-import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/src/components/map-sheet/CampsiteList.tsx
 // Which site, not just how many.
 //
@@ -16,18 +15,15 @@ import { openExternalLink } from '@/lib/openExternalLink';
 
 import { useState } from 'react';
 import type { CampsitePhoto } from '@eddy/types';
-import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
-import { CampsitePhotos } from './CampsitePhotos';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ControlIcon } from '@/components/ControlIcon';
+import { CampingSiteCard } from '../CampingSiteCard';
+import { campingStayState } from '@eddy/conditions/camping-policy';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { siteBooking } from './siteBooking';
 import { spokenWeekday } from './availability';
 import {
   groupSites,
   listOutcome,
-  stateLabel,
   summariseByKind,
   type LoopGroup,
   type SiteOnNight,
@@ -36,61 +32,14 @@ import {
 /** Rows per loop before the list asks whether you meant it. */
 const VISIBLE_PER_LOOP = 12;
 
-function SiteRow({ entry, date, photos: suppliedPhotos, photoFacilityId, reservationUrl }: {
+function SiteRow({ entry, date, photos, photoFacilityId, reservationUrl, campgroundName, hideLoop, now }: {
   entry: SiteOnNight; date: string; photos?: CampsitePhoto[]; photoFacilityId?: string; reservationUrl?: string;
+  campgroundName?: string; hideLoop: boolean; now: number;
 }) {
-  const { colors } = useTheme();
-  const { site, tags, state } = entry;
-  const sitePhotos = useCampsitePhotos(photoFacilityId ?? null, site.id);
-  const photos = suppliedPhotos ?? sitePhotos?.[site.id];
-  const badge = stateLabel(state);
-  const label = site.name ?? `Site ${site.id.slice(0, 6)}`;
-  const detail = [badge, ...tags].filter(Boolean).join(' · ');
-
-  const booking = siteBooking(state, site.bookingUrl, reservationUrl);
-  const openable = Boolean(booking);
-
-  return (
-    <View style={[styles.siteRow, photos?.length ? styles.photoRow : null]}>
-      {photos?.length ? <CampsitePhotos key={photos.map((photo) => photo.url).join('|')} photos={photos} label={label} /> : null}
-      <Pressable
-        onPress={() => {
-          if (booking) void openExternalLink(booking.url, () => {
-            Alert.alert('Couldn’t open reservations', 'Please try again.');
-          });
-        }}
-        disabled={!openable}
-        style={({ pressed }) => [styles.row, styles.booking, { opacity: pressed && openable ? 0.6 : 1 }]}
-        // A row that opens a reservation page is a link, not a button. LinkRow hardcodes
-        // `button`, which is why this one is built here rather than reusing it.
-        accessibilityRole={openable ? 'link' : 'text'}
-        accessibilityLabel={
-          `${label}${site.loop ? `, ${site.loop}` : ''}` +
-          `${detail ? `, ${detail}` : ''}, open ${spokenWeekday(date)}` +
-          `${booking ? (booking.direct ? '. Opens the site reservation page.' : '. Opens park reservations. Select this site and date there.') : ''}`
-        }
-      >
-        <View style={styles.rowText}>
-          <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
-            {label}
-          </Text>
-          {detail ? (
-            <Text style={[styles.rowDetail, { color: colors.textMuted }]} numberOfLines={1}>
-              {detail}
-            </Text>
-          ) : null}
-          {booking ? (
-            <Text style={[styles.rowDetail, { color: colors.interactive }]}>
-              {booking.direct ? 'Book site' : 'Reserve through park · select this site and date there'}
-            </Text>
-          ) : null}
-        </View>
-        {openable ? (
-          <ControlIcon name="open-outline" size={16} color={colors.textSubtle} />
-        ) : null}
-      </Pressable>
-    </View>
-  );
+  const nights = [{ date, state: entry.state }];
+  return <CampingSiteCard entry={{ site: entry.site, nights, state: campingStayState(nights) }}
+    facilityId={photoFacilityId} photos={photos} bookingUrl={reservationUrl} now={now}
+    campgroundName={campgroundName} hideLoop={hideLoop} dense />;
 }
 
 /** Compact counts for fully booked loops or feeds without site-level content. */
@@ -127,6 +76,8 @@ function Loop({
   group,
   date,
   showName,
+  campgroundName,
+  now,
   photos,
   individualSites,
   photoFacilityId,
@@ -134,6 +85,8 @@ function Loop({
 }: {
   group: LoopGroup;
   date: string;
+  campgroundName?: string;
+  now: number;
   photos?: Record<string, CampsitePhoto[]>;
   individualSites?: boolean;
   photoFacilityId?: string;
@@ -165,7 +118,7 @@ function Loop({
       {!tappable ? <KindSummaries group={group} date={date} /> : null}
 
       {tappable
-        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} photoFacilityId={photoFacilityId} reservationUrl={reservationUrl} />)
+        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} photoFacilityId={photoFacilityId} reservationUrl={reservationUrl} campgroundName={campgroundName} hideLoop={showName} now={now} />)
         : null}
 
       {tappable && hidden > 0 ? (
@@ -204,7 +157,11 @@ export function CampsiteList({
   individualSites,
   photoFacilityId,
   reservationUrl,
+  campgroundName,
+  now,
 }: {
+  campgroundName?: string;
+  now: number;
   photos?: Record<string, CampsitePhoto[]>;
   individualSites?: boolean;
   photoFacilityId?: string;
@@ -250,6 +207,8 @@ export function CampsiteList({
           reservationUrl={reservationUrl}
           date={date}
           showName={groups.length > 1}
+          campgroundName={campgroundName}
+          now={now}
         />
       ))}
       {outcome === 'sites' ? null : (
@@ -271,16 +230,9 @@ export function CampsiteList({
 }
 
 const styles = StyleSheet.create({
-  loop: { marginTop: 10 },
+  loop: { marginTop: 10, gap: 8 },
   loopName: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  // The 44pt floor from DESIGN.md §6, same as LinkRow's.
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  siteRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  photoRow: { paddingVertical: 4 },
-  booking: { flex: 1, minWidth: 0 },
-  rowText: { flex: 1, minWidth: 0 },
   rowLabel: { ...t.sm, fontFamily: fonts.medium },
-  rowDetail: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
   // Not 44: these are not controls, and a facility with six kinds should not
   // spend 264pt saying so.
   summaryRow: {

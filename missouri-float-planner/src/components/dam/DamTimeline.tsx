@@ -231,11 +231,11 @@ export default function DamTimeline({
           </>}
         </div>
 
-        <div aria-hidden="true" className="relative mt-1 h-4 text-xs leading-4 tabular-nums text-neutral-600">
+        <div aria-hidden="true" className="dam-timeline-axis relative mt-1 h-4 text-xs leading-4 tabular-nums text-neutral-600">
           {TICKS.filter((tick) => !compact || tick.at < 1).map((tick) => (
             <span
               key={tick.at}
-              className={`absolute top-0 whitespace-nowrap ${tick.at === 0 ? '' : tick.at === 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
+              className={`absolute top-0 whitespace-nowrap ${tick.at === 0 ? '' : tick.at === 1 ? 'dam-timeline-closing-tick -translate-x-full' : '-translate-x-1/2'}`}
               style={{ left: `${tick.at * 100}%` }}
             >
               {tick.label}

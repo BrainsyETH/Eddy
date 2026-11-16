@@ -1,0 +1,202 @@
+{
+  "study": "Bull Shoals release vs downstream gauges, study 2",
+  "locked_on": "2026-11-12",
+  "locked_before_any_analysis_of_real_data": true,
+  "question": "After Bull Shoals Dam raises its release, when does the White River start to rise at the two downstream USGS gauges, how does that delay change with release level, and is it predictable to within a stated number of hours?",
+  "what_was_known_when_this_was_written": [
+    "Study 1 (2026-08-08 to about 2026-10-15) found best-aligned lags of 12 h (near Norfork) and 17 h (Calico Rock) and failed its held-out check; its review recommended every change listed under changes_from_study_1.",
+    "Row counts and date coverage of each source were checked. No release or stage values were plotted, correlated or summarised before this file was committed."
+  ],
+  "changes_from_study_1": [
+    "Daily cycle handled up front: the delay is estimated from a distributed-lag regression on all lags at once, cross-checked by a prewhitened cross-correlation, not from a raw cross-correlation.",
+    "Delay is allowed to depend on release level.",
+    "Norfork Dam's release is a separate input at Calico Rock.",
+    "Pass marks are error tolerances in hours, not a correlation floor.",
+    "The locked test uses only data from after study 1 was reviewed.",
+    "Held-out results carry block-bootstrap intervals.",
+    "All inputs come from public Corps and USGS services."
+  ],
+  "sources": {
+    "bull_shoals_release": {
+      "service": "USACE CWMS Data API",
+      "office": "SWL",
+      "ts_id": "Bull_Shoals_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp",
+      "unit": "cfs"
+    },
+    "norfork_release": {
+      "service": "USACE CWMS Data API",
+      "office": "SWL",
+      "ts_id": "Norfork_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp",
+      "unit": "cfs"
+    },
+    "gauges": {
+      "norfork": {
+        "usgs_site": "07057370",
+        "name": "White River near Norfork, AR",
+        "parameter": "00065",
+        "river_mile_below_dam": 41.5
+      },
+      "calico": {
+        "usgs_site": "07060500",
+        "name": "White River at Calico Rock, AR",
+        "parameter": "00065",
+        "river_mile_below_dam": 60.1
+      }
+    },
+    "tributaries": {
+      "buffalo": {
+        "usgs_site": "07056700",
+        "name": "Buffalo River near Harriet, AR",
+        "parameter": "00060"
+      },
+      "crooked": {
+        "usgs_site": "07055607",
+        "name": "Crooked Creek at Kelly Crossing at Yellville, AR",
+        "parameter": "00060"
+      }
+    },
+    "river_mile_basis": "Gauge coordinates projected onto Eddy's White River line (rivers.slug = 'white'), read-only, 2026-11-12."
+  },
+  "time_conventions": {
+    "all_times": "UTC",
+    "release": "CWMS hourly means are period-ending. Each value is re-stamped to the hour it covers: the point stamped 13:00Z becomes hour 12:00Z, covering [12:00, 13:00).",
+    "hourly_stage": "Mean of the 15-minute samples inside the same [h, h+1) hour; at least 3 samples required.",
+    "onset_time": "A dam onset in hour h is timed at h + 0.5 h. This carries about +/-0.6 h of unavoidable error."
+  },
+  "periods": {
+    "development": {
+      "start": "2025-01-01T00:00:00Z",
+      "end_exclusive": "2026-10-17T00:00:00Z"
+    },
+    "locked_test": {
+      "start": "2026-10-17T00:00:00Z",
+      "end_exclusive": "snapshot end, recorded in results.json"
+    },
+    "rule": "Everything is fitted on development data only. The locked test is scored once."
+  },
+  "part_a_events": {
+    "purpose": "The product quantity: time from a release increase to the first rise at a gauge.",
+    "dam_rise_onset": {
+      "baseline": "median release over the 6 hours before hour h",
+      "baseline_must_be_steady_cfs": 600,
+      "first_hour_rise_cfs": 1000,
+      "peak_window_hours": 3,
+      "peak_rise_cfs": 2000,
+      "definition": "Hour h is an onset when the previous 6 hours are all present with max - min <= 600 cfs, release(h) - baseline >= 1000 cfs, and max(release[h..h+2]) - baseline >= 2000 cfs."
+    },
+    "dam_fall_onset": {
+      "baseline": "median release over the 3 hours before hour h",
+      "baseline_must_be_steady": "max - min <= max(600 cfs, 15% of baseline)",
+      "definition": "Mirror of the rise rule: baseline - release(h) >= 1000 cfs and baseline - min(release[h..h+2]) >= 2000 cfs.",
+      "status": "secondary, descriptive only, no pass mark"
+    },
+    "gauge_onset": {
+      "threshold_ft": 0.1,
+      "lookback_hours": 3,
+      "refractory_hours": 2,
+      "definition": "Rise: first 15-minute sample where stage is >= 0.10 ft above its minimum over the previous 3 hours, after at least 2 hours below that mark. Fall is the mirror against the 3-hour maximum."
+    },
+    "search_windows_hours": {
+      "norfork": {
+        "rise": [
+          5,
+          24
+        ],
+        "fall": [
+          5,
+          30
+        ]
+      },
+      "calico": {
+        "rise": [
+          10,
+          34
+        ],
+        "fall": [
+          10,
+          42
+        ]
+      },
+      "basis": "Guide speed tables (1.75 to 5 mph) and study 1's flow strata; deliberately wide."
+    },
+    "matching": "A dam onset is matched only when exactly one gauge onset falls in its window and that gauge onset falls in no other dam onset's window. Zero candidates and ambiguous cases are counted and reported, never forced.",
+    "exclusions": {
+      "tributary": "Excluded when (max - min of Buffalo discharge) + (max - min of Crooked Creek discharge) over [onset - 12 h, onset + window end] exceeds 500 cfs, or when either tributary has data for fewer than half the hours in that span.",
+      "stage_gaps": "Excluded when the gauge has a gap longer than 30 minutes in [onset - 3 h, onset + window end].",
+      "norfork_dam_at_calico": "Calico Rock only: excluded when Norfork Dam's release max - min over [onset, onset + 32 h] exceeds 600 cfs, or when fewer than 90% of those hours are present."
+    },
+    "features": {
+      "q24": "mean Bull Shoals release over the 24 hours before the onset hour",
+      "qpeak": "max release over [h, h+2]"
+    },
+    "models": {
+      "flow": "ln(delay_hours) = a + b ln(q24) + c ln(qpeak), ordinary least squares",
+      "constant": "delay = development median",
+      "guides": "delay = river miles / speed, speed from the His Place / Ember Shoals table by generators' worth = qpeak / 3300 cfs: <=1: 1.875, <=2: 2.375, <=4: 2.875, <=6: 3.375, >6: 4.25 mph. Not fitted."
+    },
+    "validation": {
+      "cross_validation": "Leave one calendar month out across the development period; errors pooled over all held-out months.",
+      "locked_test": "Models fitted on all development events, scored on locked-test events."
+    },
+    "pass_mark": {
+      "tolerance_hours": {
+        "norfork": 2.0,
+        "calico": 3.0
+      },
+      "share_within_tolerance": 0.8,
+      "applies_to": "the flow model, rise events",
+      "required": "both the cross-validation and the locked test must meet the share",
+      "minimum_events": {
+        "development": 40,
+        "locked_test": 10
+      },
+      "if_below_minimum": "INCONCLUSIVE, not PASS or FAIL"
+    },
+    "always_reported": [
+      "counts at every exclusion step",
+      "share within tolerance, median absolute error, mean signed error and the half-widths that cover 80% and 90% of events, for all three models",
+      "errors by qpeak tercile"
+    ]
+  },
+  "part_b_distributed_lag": {
+    "purpose": "Study 1's correlation question done properly: the hour-by-hour response of stage to release, with the daily cycle and Norfork accounted for.",
+    "response": "hourly change in mean stage, ft",
+    "inputs": "hourly change in Bull Shoals release (1000 cfs), lags 0..K; at Calico Rock also hourly change in Norfork Dam release, lags 0..24",
+    "max_lag_hours": {
+      "norfork": 36,
+      "calico": 48
+    },
+    "regimes": "Terciles of mean Bull Shoals release over the 36 hours before each hour; cut points from development hours only.",
+    "fit": "Ordinary least squares with intercept, one fit per regime plus one pooled fit. Hours need every lagged input present.",
+    "tributary_filter": "Hours are dropped when Buffalo + Crooked Creek discharge range over the previous 24 hours exceeds 500 cfs or either has fewer than 12 of those hours.",
+    "summaries": {
+      "peak_lag": "lag with the largest coefficient",
+      "first_response_lag": "smallest lag whose coefficient is at least 25% of the largest",
+      "interval": "block bootstrap resampling whole 7-day calendar blocks, 300 resamples, 95% percentile interval, development data"
+    },
+    "locked_test_skill": "Correlation between predicted and observed hourly stage change on locked-test hours using development coefficients, for the regime model and the pooled model, with a block-bootstrap 95% interval (whole 48-hour calendar blocks, 1000 resamples).",
+    "pass_mark": {
+      "name": "lag stability",
+      "definition": "Shift the Bull Shoals part of the development prediction by s whole hours, s in [-6, 6] (positive = the river responds later than in development); s_best maximises the locked-test correlation of the regime model. Pass when |s_best| <= tolerance.",
+      "tolerance_hours": {
+        "norfork": 2,
+        "calico": 3
+      },
+      "minimum_valid_test_hours": 240,
+      "if_below_minimum": "INCONCLUSIVE"
+    },
+    "cross_check": {
+      "name": "prewhitened cross-correlation",
+      "definition": "Fit AR(50) to the hourly release change on development data, apply the same filter to release and stage changes, correlate at lags -12..48, pooled and per regime.",
+      "diagnostic": "Largest absolute correlation at negative lags divided by the positive-lag peak. Study 1's raw series gave a ratio near 1; a clean filter should give well under 0.5.",
+      "status": "descriptive, no pass mark"
+    }
+  },
+  "verdict_per_gauge": {
+    "SUPPORTED": "Part A passes and Part B lag stability passes.",
+    "NOT_APPROVED": "Part A fails, or Part B lag stability fails.",
+    "INCONCLUSIVE": "Neither part fails, and at least one has too little data to judge. Everything measured is still reported.",
+    "meaning_of_supported": "A flow-dependent first-rise range at that gauge is defensible as a labelled estimate. It is not a wading or launch window and says nothing about accesses without a gauge."
+  },
+  "deviations": "Any departure from this file after it is committed is listed in README.md under Deviations, with the reason and whether results had been seen."
+}

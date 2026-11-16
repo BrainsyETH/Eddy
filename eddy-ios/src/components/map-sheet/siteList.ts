@@ -116,6 +116,15 @@ export function campsiteTags(site: CampsiteSite): string[] {
   return tags;
 }
 
+/** A selected filter stays reachable at zero; an all-matching one narrows nothing. */
+export function narrowingSiteFilters(counts: Record<SiteFilter, number>, selected: readonly SiteFilter[], total: number): SiteFilter[] {
+  return SITE_FILTERS.filter(filter => selected.includes(filter) || (counts[filter] > 0 && counts[filter] < total));
+}
+
+export function commonSiteFeatures(counts: Record<SiteFilter, number>, total: number): SiteFilter[] {
+  return total > 0 ? SITE_FILTERS.filter(filter => counts[filter] === total) : [];
+}
+
 /** Every site resolved to one night, with its display tags. */
 export function sitesOnNight(
   sites: CampsiteSite[],

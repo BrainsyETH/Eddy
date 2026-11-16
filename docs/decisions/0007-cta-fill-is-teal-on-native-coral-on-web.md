@@ -54,3 +54,13 @@ Conditions ladder begins directly below. The restyle also brings the hero and
 site header in line with the iOS app's light chrome. `.btn-primary` stays coral,
 and so does every other web CTA; this is not the site-wide migration the last
 paragraph describes.
+
+## Amendment — contextual app invitations (2026-11)
+
+App invitations beside river conditions and completed route summaries use warm
+Secondary-50 surfaces, Primary-800 text and the neutral `outline` button style.
+They must not compete with the condition ladder or the route's primary controls.
+`AppCta` owns these compact inline/card variants; it reuses Eddy's existing art
+and labels screenshot examples explicitly. QR handoffs expand in place on desktop.
+The softer Read treatment stays intact. This extends the adjacency rationale to
+these invitations without changing generic marketing CTA fills or native colors.

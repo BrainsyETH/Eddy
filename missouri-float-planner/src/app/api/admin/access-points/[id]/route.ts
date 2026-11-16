@@ -11,6 +11,9 @@ import { sanitizeRichText } from '@/lib/sanitize';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
 import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
+import { slugForSave } from '@/lib/admin/access-point-slug';
+import { MAX_FEE_NOTES_LENGTH, parseAmenities, parseFeeNotes } from '@/lib/admin/access-point-fields';
+
 export const dynamic = 'force-dynamic';
 
 // GET - Fetch a single access point for editing
@@ -46,6 +49,9 @@ export async function GET(
         road_access,
         facilities,
         fee_required,
+        fee_notes,
+        amenities,
+        created_at,
         directions_override,
         driving_lat,
         driving_lng,
@@ -59,7 +65,7 @@ export async function GET(
         local_tips,
         nearby_services,
         updated_at,
-        rivers(id, name, slug)
+        rivers(id, name, slug, state)
       `)
       .eq('id', id)
       .single();
@@ -80,6 +86,7 @@ export async function GET(
       riverId: data.river_id,
       riverName: riverData?.name || 'Unknown River',
       riverSlug: riverData?.slug,
+      riverState: riverData?.state ?? null,
       name: data.name,
       slug: data.slug,
       coordinates: {
@@ -97,6 +104,9 @@ export async function GET(
       roadAccess: data.road_access,
       facilities: data.facilities,
       feeRequired: data.fee_required,
+      feeNotes: data.fee_notes ?? null,
+      amenities: data.amenities ?? [],
+      createdAt: data.created_at ?? null,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,
       drivingLng: data.driving_lng ? parseFloat(data.driving_lng) : null,
@@ -149,6 +159,8 @@ async function handlePUT(
       roadAccess,
       facilities,
       feeRequired,
+      feeNotes,
+      amenities,
       riverMile,
       riverId,
       directionsOverride,
@@ -193,14 +205,29 @@ async function handlePUT(
       };
     }
 
-    // Handle name update
+    // Handle name update. The slug is a public address and only follows the
+    // name when the point is not live yet (see slugForSave).
+    let keptLiveAddress = false;
     if (typeof name === 'string' && name.trim().length > 0) {
       updateData.name = name.trim();
-      // Generate new slug from name
-      updateData.slug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
+      const { data: current, error: currentError } = await supabase
+        .from('access_points')
+        .select('name, slug, approved')
+        .eq('id', id)
+        .maybeSingle();
+      if (currentError) {
+        console.error('Error loading access point before rename:', currentError);
+        return NextResponse.json({ error: 'Could not update access point' }, { status: 500 });
+      }
+      if (!current) {
+        return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
+      }
+      const decision = slugForSave(
+        { name: current.name, slug: current.slug, approved: !!current.approved },
+        name,
+      );
+      if (decision.slug) updateData.slug = decision.slug;
+      keptLiveAddress = decision.keptLiveAddress;
     }
 
     // Handle type update (single - for backwards compatibility)
@@ -262,6 +289,25 @@ async function handlePUT(
     // Handle facilities update
     if (facilities !== undefined) {
       updateData.facilities = facilities === '' ? null : facilities;
+    }
+
+    // Fee notes and amenities are shown on the public page's Facilities section.
+    if (feeNotes !== undefined) {
+      const parsed = parseFeeNotes(feeNotes);
+      if (parsed === undefined) {
+        return NextResponse.json(
+          { error: `Fee notes must be text of at most ${MAX_FEE_NOTES_LENGTH} characters` },
+          { status: 400 },
+        );
+      }
+      updateData.fee_notes = parsed;
+    }
+    if (amenities !== undefined) {
+      const parsed = parseAmenities(amenities);
+      if (parsed === undefined) {
+        return NextResponse.json({ error: 'Amenities must be a list of amenity keys' }, { status: 400 });
+      }
+      updateData.amenities = parsed;
     }
 
     // Handle feeRequired update
@@ -438,6 +484,9 @@ async function handlePUT(
         road_access,
         facilities,
         fee_required,
+        fee_notes,
+        amenities,
+        created_at,
         directions_override,
         driving_lat,
         driving_lng,
@@ -451,7 +500,7 @@ async function handlePUT(
         local_tips,
         nearby_services,
         updated_at,
-        rivers(id, name, slug)
+        rivers(id, name, slug, state)
       `)
       .eq('id', id)
       .single();
@@ -485,6 +534,7 @@ async function handlePUT(
       riverId: data.river_id,
       riverName: riverData?.name || 'Unknown River',
       riverSlug: riverData?.slug,
+      riverState: riverData?.state ?? null,
       name: data.name,
       slug: data.slug,
       coordinates: {
@@ -502,6 +552,9 @@ async function handlePUT(
       roadAccess: data.road_access,
       facilities: data.facilities,
       feeRequired: data.fee_required,
+      feeNotes: data.fee_notes ?? null,
+      amenities: data.amenities ?? [],
+      createdAt: data.created_at ?? null,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,
       drivingLng: data.driving_lng ? parseFloat(data.driving_lng) : null,
@@ -523,6 +576,8 @@ async function handlePUT(
       accessPoint: formatted,
       // Include a warning if the point is not approved (won't show in production)
       warning: !data.approved ? 'This access point is not approved and will not appear in the public app until approved.' : undefined,
+      // Renamed while live: the page keeps its existing address.
+      keptLiveAddress: keptLiveAddress || undefined,
     });
   } catch (error) {
     console.error('Error in update access point endpoint:', error);

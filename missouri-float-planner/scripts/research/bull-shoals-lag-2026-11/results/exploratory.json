@@ -1,0 +1,58 @@
+{
+ "note": "Post hoc. Not pre-registered; no verdict depends on these.",
+ "norfork_flow_model_miss_direction_cv": {
+  "n": 154,
+  "arrived_more_than_2h_earlier_than_predicted": 7,
+  "arrived_more_than_2h_later_than_predicted": 3,
+  "largest_early_arrival_h": 5.493,
+  "largest_late_arrival_h": 2.25,
+  "share_arriving_no_more_than_1h_early": 0.8506,
+  "share_arriving_no_more_than_2h_early": 0.9545
+ },
+ "resort_table_error_by_generators_worth": {
+  "up to 2": {
+   "n": 35,
+   "mean_hours_table_is_late": 3.5025
+  },
+  "2 to 4": {
+   "n": 73,
+   "mean_hours_table_is_late": 1.7364
+  },
+  "4 to 6": {
+   "n": 44,
+   "mean_hours_table_is_late": 0.4551
+  },
+  "over 6": {
+   "n": 2,
+   "mean_hours_table_is_late": 0.14
+  }
+ },
+ "norfork_arrival_mark_sensitivity": {
+  "0.05 ft": {
+   "development_events": 140,
+   "median_delay_h": 12.5,
+   "cv_share_within_2h": 0.8571,
+   "locked_test_events": 15,
+   "locked_test_share_within_2h": 1.0
+  },
+  "0.10 ft": {
+   "development_events": 154,
+   "median_delay_h": 12.75,
+   "cv_share_within_2h": 0.9351,
+   "locked_test_events": 14,
+   "locked_test_share_within_2h": 1.0
+  },
+  "0.20 ft": {
+   "development_events": 157,
+   "median_delay_h": 13.0,
+   "cv_share_within_2h": 0.949,
+   "locked_test_events": 14,
+   "locked_test_share_within_2h": 1.0
+  }
+ },
+ "norfork_implied_speed_mph": {
+  "low": 2.7667,
+  "middle": 3.2549,
+  "high": 3.3878
+ }
+}

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { withLinkedServices } from './linked-services';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadLinkedServices, withLinkedServices } from './linked-services';
+import { reviewedPhotos } from '../photos/reviewed';
 
 // Covers the merge rule in linked-services.ts. The read itself is a query;
 // this is the part that decides what a sheet ends up rendering, and it is the
@@ -29,6 +31,7 @@ test('a linked row joins the list the sheet already draws', () => {
     type: 'campground',
     phone: '573-226-3945',
     website: 'https://www.nps.gov/ozar',
+    relationship: 'located_at',
   });
   // And the hand-curated entry it did not collide with survives untouched.
   assert.equal(merged[1].name, 'Akers Ferry Canoe Rental');
@@ -55,6 +58,7 @@ test('the canonical row replaces the embedded copy of the same place', () => {
   );
   assert.equal(merged.length, 1, 'case and spacing must not make two entries');
   assert.equal(merged[0].phone, '573-226-3945', 'the richer row wins');
+  assert.equal(merged[0].relationship, 'same_place');
 });
 
 test('the directory vocabulary is translated, never passed through', () => {
@@ -110,5 +114,37 @@ test('absent optional fields stay absent rather than arriving null', () => {
       },
     ],
   );
-  assert.deepEqual(Object.keys(merged[0]).sort(), ['name', 'type']);
+  assert.deepEqual(Object.keys(merged[0]).sort(), ['name', 'relationship', 'type']);
+});
+
+test('linked service photos reach the embedded listing without borrowing another service photo', async () => {
+  const reviewed = reviewedPhotos.find(photo => photo.table === 'nearby_services')!;
+  const base = { type: 'campground', phone: null, website: null, reservation_url: null, description: null, status: 'open' };
+  const rows = [
+    { relationship: 'located_at', nearby_services: { ...base, id: 'photo', name: 'Photo Camp', details: JSON.stringify({ images: [
+      { url: 'https://example.com/map.jpg', title: 'Campground map' },
+      { url: 'https://example.com/site.jpg', title: 'Site #14' },
+      { url: 'http://example.com/unsafe.jpg' },
+      { url: 'https://example.com/camp.jpg', title: 'Campground' },
+    ] }) } },
+    { relationship: 'same_place', nearby_services: { ...base, id: 'bare', name: 'Bare Camp', details: null } },
+    { relationship: 'same_place', nearby_services: { ...base, id: reviewed.id, name: reviewed.name, details: {} } },
+  ];
+  const query = {
+    select(columns: string) { assert.match(columns, /\bdetails\b/); return query; },
+    eq(column: string, value: string) { assert.equal(column, 'access_point_id'); assert.equal(value, 'access'); return query; },
+    async in(column: string, values: string[]) {
+      assert.equal(column, 'relationship');
+      assert.deepEqual(values, ['same_place', 'located_at']);
+      return { data: rows, error: null };
+    },
+  };
+  const client = { from(table: string) { assert.equal(table, 'access_point_services'); return query; } } as unknown as SupabaseClient;
+  const linked = await loadLinkedServices(client, 'access');
+  const embedded = [{ name: 'Legacy Camp', type: 'campground', imageUrl: 'https://example.com/legacy.jpg' }];
+  const merged = withLinkedServices(embedded, linked);
+  assert.equal(merged[0].imageUrl, 'https://example.com/camp.jpg');
+  assert.equal(merged[1].imageUrl, undefined);
+  assert.equal(merged[2].imageUrl, reviewed.image.url);
+  assert.equal(merged[3].imageUrl, embedded[0].imageUrl);
 });

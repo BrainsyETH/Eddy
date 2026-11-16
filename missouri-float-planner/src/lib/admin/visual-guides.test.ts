@@ -112,6 +112,25 @@ test('daily guide schedules match the deployed cron catalog', async () => {
   assert.deepEqual(jobs.map((job: { path: string; cron: string }) => ({ path: job.path, schedule: job.cron })), config.crons);
 });
 
+test('every scheduled job in the daily guide has a description, and an undescribed one cannot stop the page', async () => {
+  const html = await readFile('content/admin-visuals/eddys-day.html', 'utf8');
+  const source = html.slice(html.indexOf('const JOBS ='), html.indexOf('const S ='));
+  const jobs: Array<{ path: string; group: string; name: string; what: string }> = JSON.parse(
+    JSON.stringify(runInNewContext(`${source}\nJOBS`, { Date })),
+  );
+  assert.ok(jobs.length > 30);
+  for (const job of jobs) {
+    assert.match(job.group, /^(water|alerts|eddy|social|land|ops)$/, job.path);
+    assert.notEqual(job.what, 'No description yet.', `${job.path} has no description in META`);
+    assert.ok(job.name && job.what, job.path);
+  }
+  // The same code with a job the descriptions do not know: it used to throw here.
+  const unknown = source.replace('const JOBS = [', 'const JOBS = [{"path":"/api/cron/brand-new-job","cron":"0 * * * *","utc":[0],"dow":null},');
+  assert.notEqual(unknown, source);
+  const [first] = JSON.parse(JSON.stringify(runInNewContext(`${unknown}\nJOBS`, { Date })));
+  assert.deepEqual([first.group, first.name, first.what], ['ops', 'brand new job', 'No description yet.']);
+});
+
 test('the iPhone tour follows the current native tab order', async () => {
   const layout = await readFile('../eddy-ios/app/(tabs)/_layout.tsx', 'utf8');
   const expected = [...layout.matchAll(/<NativeTabs.Trigger.Label>([^<]+)</g)].map(match => match[1].toLowerCase());

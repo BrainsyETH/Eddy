@@ -6,6 +6,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import PlanAppCta from './PlanAppCta';
 import { Share2, Download, Check, CalendarPlus, Mail } from 'lucide-react';
 import ShuttleRoute from './ShuttleRoute';
 import ClearRouteButton from './ClearRouteButton';
@@ -290,6 +291,9 @@ export default function PlanSidebar({
 
         {/* Outfitters near the put-in — the "book it" moment. */}
         <OutfittersNearby pois={pois} putInPoint={putInPoint} riverSlug={riverSlug} />
+
+        {hasBothPoints && plan && !isLoading && !isLastValidFallback && !plan.hazardsUnavailable
+          && plan.putIn.id === putInPoint.id && plan.takeOut.id === takeOutPoint.id && <PlanAppCta plan={plan} />}
       </div>
 
     </div>

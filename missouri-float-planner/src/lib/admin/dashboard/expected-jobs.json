@@ -162,5 +162,9 @@
   {
     "path": "/api/cron/collect-rainfall-forecasts",
     "schedule": "43 */3 * * *"
+  },
+  {
+    "path": "/api/cron/log-release-arrivals",
+    "schedule": "32 * * * *"
   }
 ]

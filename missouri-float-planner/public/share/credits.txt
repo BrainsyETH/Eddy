@@ -18,7 +18,8 @@ Source: https://commons.wikimedia.org/wiki/File:UserKTrimble-AP_of_Bagnell_Dam_M
 CC0: https://creativecommons.org/publicdomain/zero/1.0/
 
 Both photographs are archival scenery, not current conditions or releases.
-Eddy derivatives crop/resize the photographs and add a gradient and brand mark.
+Eddy derivatives crop/resize the photographs and add a gradient and brand mark;
+the Current River derivative on its river page also carries the river's name.
 Original Eddy illustrations and branding belong to Eddy. The photo licenses
 do not apply to Eddy artwork or application source code. No agency endorsement
 is implied.

@@ -15,6 +15,7 @@ import type { POI } from './POIEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
 import CreatePOIModal from './CreatePOIModal';
 import { adminFetch } from '@/hooks/useAdminAuth';
+import { fetchAllAdminRows } from '@/lib/admin/fetch-all';
 import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 import { POI_TYPES } from '@/constants';
 import { stageMove, type StagedMove } from '@/lib/access-points/edit-diff';
@@ -155,10 +156,16 @@ export default function GeographyEditor() {
       }
       setError(null);
 
-      const [riversRes, accessPointsRes, poisRes] = await Promise.all([
+      // The POI list is paged (50 by default), so every page is read. A POI
+      // failure must not take the access points down with it, but it is
+      // reported: an empty map would otherwise look like "no POIs here".
+      const [riversRes, accessPointsRes, poisResult] = await Promise.all([
         adminFetch('/api/admin/rivers'),
         adminFetch('/api/admin/access-points'),
-        adminFetch('/api/admin/pois'),
+        fetchAllAdminRows<POI>(adminFetch, '/api/admin/pois', 'pois').then(
+          (rows) => ({ rows }),
+          () => ({ rows: null }),
+        ),
       ]);
 
       if (!riversRes.ok || !accessPointsRes.ok) {
@@ -171,10 +178,8 @@ export default function GeographyEditor() {
       setRivers(riversData.rivers || []);
       setAccessPoints(accessPointsData.accessPoints || []);
 
-      if (poisRes.ok) {
-        const poisData = await poisRes.json();
-        setPois(poisData.pois || []);
-      }
+      if (poisResult.rows) setPois(poisResult.rows);
+      else setError('Points of interest could not be loaded. Access points are shown; refresh to try again.');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('Error loading data:', err);

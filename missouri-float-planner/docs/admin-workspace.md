@@ -94,9 +94,94 @@ Vercel environment; the latest attempted deployment has a separate history link.
   records, and the bulk bar shows that same visible count. On narrow screens, opening a report focuses and scrolls to its details. Checkboxes and detail buttons are separate keyboard controls; changing filters, page or view clears selections. Reject/delete
   confirmations disclose permanent photo removal. Verified reports may return
   to review; rejected photos cannot be restored by changing their status.
+- Pending "Reported Photo" feedback (the App Store reporting route) is pinned
+  above the feedback list and excluded from its pages. Each item shows the photo
+  and its live state from the report. **Hide photo** returns the report to review:
+  it leaves the app, but the stored file stays reachable at its URL until removed.
+  **Remove photo** rejects the report and deletes the file permanently. Either
+  action resolves a pending flag. **Open in Reports** links `/admin/reports?id=`,
+  which shows only that report until "Show all reports".
+- Feedback can be searched (message, name, email, place name) and filtered by
+  type and status. A type filter or search lists matching reported photos in
+  place instead of pinning them. Each item's context shows as links (river or
+  gauge page, access-point editor and public page) and readable facts; the raw
+  context object stays available under "Raw data".
+- Inbound email can be searched (sender, subject, text) and triaged in bulk:
+  select messages on the current page, or all of them, then mark Read, Unread,
+  Archive or Spam in one request (`PATCH /api/admin/inbound-emails`, at most
+  100 ids). Selection clears when the filter, search or page changes.
+- Feedback items can be answered in place. The reply uses the same composer,
+  templates and rendering as inbound email, quotes the original message, and
+  sends from `RESEND_REPLY_FROM` or else the published support address
+  (`eddy@eddy.guide`), so an answer comes back to the Inbox. A reply moves a
+  pending item to Reviewed and records `last_replied_at`/`last_replied_by`
+  (migration `20261112010743_feedback_reply_tracking.sql`, applied to
+  production 2026-11-12). If those columns are ever missing, the reply still
+  sends and the screen says the reply time was not recorded.
 - The mobile navigation uses a bounded native dialog with Escape/focus handling.
   Navigation and editor surfaces use the existing Eddy teal/sand palette. Pin up
   to four account-specific shortcuts from page headers.
+
+## Places & conditions
+
+- **Gauges** lists only stations linked to a river (`river_gauges`), not the
+  national station table. Each condition's printed range comes from
+  `src/lib/gauges/ladder-bands.ts`, which a test holds to the public classifier
+  (`shared/condition-ladder.ts`): High starts just above Optimal Max, and the
+  High field counts only when Optimal Max is blank. The form warns when a High
+  value is set but has no effect. A save validates every threshold before it
+  writes anything, including notes and descriptions.
+
+- **Hazards** can be edited, confirmed, retired and deleted. **Still there**
+  records that an active hazard was checked today (`updated_at` is the
+  last-checked time, the same field the dashboard's 30-day check reads).
+  **Retire** sets `active = false`, which every public reader filters on, and
+  keeps the record; **Delete** removes it. Writes carry the version that was
+  loaded and a mismatch is a 409. Filters, search and paging run on the server.
+- A hazard's **river mile** is entered explicitly, because trip plans match
+  hazards to a float by mile and skip one without it. "Estimate from access
+  points" interpolates between the river's approved access points
+  (`estimateRiverMile`). It is deliberately not a geometric snap: several
+  rivers store a published mile index that differs from the map line by miles
+  (`src/lib/geo/mile-index.ts`), and access points carry whichever numbering
+  their river uses. The estimate is shown for review and never saved on its own.
+
+- **Paged lists must be read in full by callers that need every row.** The
+  points-of-interest list defaults to 50 rows; the Geography map and the Data
+  sync promote use `fetchAllAdminRows` (`src/lib/admin/fetch-all.ts`) to read
+  every page. It throws instead of returning a partial list.
+- **An access point's slug is its public address.** Saving never changes the
+  slug unless the name itself changed, and renaming an approved point keeps its
+  address (`slugForSave`, `src/lib/admin/access-point-slug.ts`). Only an
+  unapproved point's slug follows a rename. The editor's "View public page"
+  link uses the canonical `/rivers/<state>/<river>/access/<slug>` form and is
+  replaced by a note while the point is unapproved.
+
+- **Access points** can be approved where they are listed. "Waiting for
+  approval" in the Show filter lists unapproved points across every river, and
+  both the list card and the editor carry **Approve and publish** with the
+  required put-in/take-out answer, pre-filled from the point's types. The
+  editor's Basics section edits name, river mile, description, ownership,
+  public access, fee, fee notes and amenities; the last two are shown on the
+  public page and had no admin control. Amenities are stored as keys
+  (`src/lib/admin/access-point-fields.ts`), never free text. A save reports
+  when the point is still hidden because it is unapproved.
+
+## Float contributions
+
+Admin → Float contributions reviews floats people chose to share. It never
+changes public estimates. The page compares each route's median measured
+moving pace with the median Eddy estimate the paddler planned with (`plannerMph`),
+counts distinct accounts (several trips by one group are not independent), and
+shows the flow range seen. Each trip lists quality checks and can be marked
+**Use** or **Exclude**; pressing the active choice clears it. Excluded trips
+stay listed but leave the route summary.
+
+Decisions live in `float_contribution_reviews` (service role only, RLS on),
+keyed to the archive row and deleted with it. Migration
+`20261112011151_float_contribution_reviews.sql` (applied to production
+2026-11-12); if the table is ever unavailable the page loads read-only and says so. The summary reads the newest 2,000 contributed
+trips and says when that cap is reached.
 
 ## Jobs, incidents and audit history
 
@@ -135,6 +220,10 @@ selection, moderation details, mobile navigation and request failure recovery.
 Role fixtures also cover editor image deletion, revoked access on live requests
 and reload, 403 sign-out, owner self-demotion, role refresh, search history,
 keyboard toggling, narrow-screen detail focus and secondary-button hover colors.
+The Places suite (`scripts/admin/places-smoke.mjs`) covers the gauge ranges
+following unsaved edits. The Inbox suite (`scripts/admin/inbox-smoke.mjs`, run by the same script) covers
+feedback paging past the first page, saving a note without changing status, and
+an email badge that follows the server's unread count after triage.
 
 `npm run test:admin-db` applies the migration to an ephemeral PGlite PostgreSQL
 database with minimal fixtures. It exercises duplicate-member guidance, final-owner protection, stale writes,

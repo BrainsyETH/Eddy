@@ -5,7 +5,7 @@ import { withAdminMutation } from '@/lib/admin/mutation-audit';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +18,7 @@ async function handlePOST(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
     // ── Approval must answer the second question too ──────────────────────
@@ -54,7 +55,7 @@ async function handlePOST(
       })
       .eq('id', id)
       .select('id, name, approved, is_float_endpoint')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error approving access point:', error);
@@ -64,6 +65,7 @@ async function handlePOST(
       );
     }
 
+    if (!data) return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
     console.log(`Access point approved: ${data.name} (${data.id})`);
 
     return NextResponse.json({
@@ -89,6 +91,7 @@ async function handleDELETE(
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -99,7 +102,7 @@ async function handleDELETE(
       })
       .eq('id', id)
       .select('id, name, approved')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error unapproving access point:', error);
@@ -109,6 +112,7 @@ async function handleDELETE(
       );
     }
 
+    if (!data) return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
     console.log(`Access point unapproved: ${data.name} (${data.id})`);
 
     return NextResponse.json({

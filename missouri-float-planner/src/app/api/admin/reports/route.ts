@@ -9,7 +9,7 @@ import { withAdminMutation } from '@/lib/admin/mutation-audit';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth, getAdminIdentity } from '@/lib/admin-auth';
+import { requireAdminAuth, getAdminIdentity, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
 import { QUARANTINE_BUCKET } from '@/lib/uploads/visual-moderation';
 import { applyMediaTransitions } from '@/lib/uploads/apply-media-transitions';
@@ -36,7 +36,13 @@ export async function GET(request: NextRequest) {
 
     const status = url.searchParams.get('status') ?? 'all';
     if (!['all','pending','verified','rejected'].includes(status) || !['all','hazard','water_level','debris','river_visual'].includes(type)) return NextResponse.json({error:'Invalid report filter'},{status:400});
-    const {data:matches,error:matchError,count} = await supabase.rpc('admin_report_matches',{p_search:search,p_status:status,p_type:type},{count:'exact'}).order('status').order('created_at',{ascending:false}).order('id').range(from,to);
+    // `id` opens one report directly (e.g. from a reported-photo flag in the
+    // Feedback inbox). It replaces the other filters rather than combining.
+    const onlyId = url.searchParams.get('id');
+    if (onlyId && !isValidUUID(onlyId)) return invalidIdResponse();
+    const {data:matches,error:matchError,count} = onlyId
+      ? await supabase.from('community_reports').select('id',{count:'exact'}).eq('id',onlyId)
+      : await supabase.rpc('admin_report_matches',{p_search:search,p_status:status,p_type:type},{count:'exact'}).order('status').order('created_at',{ascending:false}).order('id').range(from,to);
     if(matchError) return NextResponse.json({error:'Could not search the report queue.'},{status:500});
     if(!matches?.length) return NextResponse.json({reports:[],total:count ?? 0,page,limit});
     const { data: reports, error } = await supabase

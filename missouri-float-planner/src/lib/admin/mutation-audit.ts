@@ -18,7 +18,8 @@ const records: Record<string, { table: string; columns: string }> = {
   },
   hazards: {
     table: 'river_hazards',
-    columns: 'id,name,description,type,active',
+    columns:
+      'id,name,description,type,severity,active,river_id,river_mile_downstream,portage_required,portage_side,seasonal_notes,updated_at',
   },
   reports: {
     table: 'community_reports',

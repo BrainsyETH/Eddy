@@ -25,9 +25,11 @@ status nobody has looked at since 2022.
    Conditions and operational interpretation precede the compact lake preview.
    Lake pages put conditions then reviewed launches first. Both destinations
    link only when the dedicated lake page has passed its public release gate.
-   The dam photo header, replacement conditions card and lake preview have
-   their own explicit release gate. Registry membership or recorded history
-   never enables them. Background collection may run while both UI gates
+   The dam lake preview has its own explicit release gate. Registry membership
+   or recorded history never enables it. The November 12 visual revision makes
+   the photo header and shared measurement styling common to dam pages, using
+   approved photography or Eddy artwork, independently of lake publication.
+   Background collection may run while both lake UI gates
    remain closed. See
    `missouri-float-planner/docs/LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md`.
 2. **Three timestamps, never conflated.** `source_updated_at` is the agency's

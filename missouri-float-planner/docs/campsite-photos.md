@@ -1,5 +1,39 @@
 # Individual campsite photos
 
+## Expanded iOS site details
+
+`/api/campsites/details?facility=<Eddy UUID>&site=<Eddy UUID>` is a separate,
+optional read for expanded iOS cards. It uses public RLS to verify an enabled
+facility and the site's membership before resolving provider IDs. Recreation.gov
+data comes from `https://www.recreation.gov/api/camps/campsites/{source_site_id}`;
+both the returned facility and site IDs must match. The public website endpoint
+is unofficial and may change independently of Eddy. Unknown/malformed responses
+and provider failures return an uncached 503, not cached empty details.
+
+Confirmed source fields become an allowlisted set of site facts. Provider
+display maps take precedence over legacy attribute arrays. Zero equipment lengths
+mean unknown, not zero-length equipment or unlimited fit. Only explicit on-site
+amenities such as picnic tables, fire rings and lantern posts are included;
+shared showers, toilets and dump stations are omitted. Fire permission and
+generic ratings are omitted. Active provider notes retain their complete text
+as folded plain text with the official site link.
+
+Broadfoot Site 1 (10344971) and Buffalo Point B31 (6506) were read directly from
+the provider on 2026-11-13 UTC. Reduced responses preserving the relevant fields
+live in `src/lib/camping/fixtures/recgov-details-*.json`. Parser and route tests
+cover missing values, restrictions, source-ID mismatches, unsupported sources,
+ownership, caching, retries and rate limits. Missouri State Parks' detail service
+returned HTTP 403 during this verification; extra fields are not mapped yet.
+Its existing photos and summaries are unchanged.
+
+Provider detail responses cache for 24 hours, successful API responses for one
+hour with one day of stale-while-revalidate, and native request results for one
+hour. The route allows 60 requests per client per minute. Collapsed cards make
+no detail request; collapsing cancels outstanding work. Release the API before
+the updated app. No migration or provider credentials are needed.
+
+## Photo requests
+
 The iOS Camping tab requests `/api/campsites/photos?media=2&facility=<Eddy UUID>&site=<Eddy site UUID>` after
 site inventory arrives, only while Camping is active. Availability never waits
 for media. Photos map Eddy site UUIDs to up to eight images with titles and credits.

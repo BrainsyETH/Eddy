@@ -112,9 +112,9 @@ async function main() {
         if (rows.length) ok++;
         else empty++;
       } else {
-        const written = await snapshotSite(supabase, siteId, parameterCode);
-        if (written) {
-          console.log(`${label}: wrote ${written} row(s)`);
+        const { rows, written } = await snapshotSite(supabase, siteId, parameterCode);
+        if (rows) {
+          console.log(`${label}: wrote ${written} of ${rows} row(s) (${rows - written} unchanged)`);
           ok++;
         } else {
           // Common and not an error: many gauges have too short a record for

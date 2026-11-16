@@ -80,6 +80,10 @@ jobs:
       # runner of its own, and type-checking that during a Vercel build broke
       # the deploy — Vercel installs only this directory, so the app's
       # node_modules is not there to resolve @eddy/types through.
+      #
+      # The script raises Node's heap limit itself. The test config needs about
+      # 2.4 GB, above Node 20's default, and tsc died with an out-of-memory
+      # abort that reads like a failed check rather than a missing flag.
       - name: Typecheck
         run: npm run typecheck
 
@@ -106,6 +110,73 @@ jobs:
         with:
           name: river-guide-previews-${{ github.sha }}
           path: ${{ runner.temp }}/river-guide-previews
+          if-no-files-found: ignore
+          retention-days: 7
+
+  release-timing-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Check release timing on desktop and mobile
+        env:
+          RELEASE_TIMING_OUTPUT: ${{ runner.temp }}/release-timing-previews
+        run: npm run test:release-timing
+      - name: Upload release timing previews
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-timing-previews-${{ github.sha }}
+          path: ${{ runner.temp }}/release-timing-previews
+          if-no-files-found: ignore
+          retention-days: 7
+
+  app-promotions-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Check analytics guards
+        run: npm run test:analytics-browser
+      - name: Check app invitations on desktop, iPhone and Android
+        env:
+          DAM_SMOKE_APP_ONLY: '1'
+          DAM_SMOKE_OUTPUT: ${{ runner.temp }}/app-promotion-previews
+        run: npm run test:dam-page
+      - name: Upload app invitation previews
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app-promotion-previews-${{ github.sha }}
+          path: ${{ runner.temp }}/app-promotion-previews
           if-no-files-found: ignore
           retention-days: 7
 

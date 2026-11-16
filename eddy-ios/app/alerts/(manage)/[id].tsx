@@ -44,6 +44,8 @@ import { ConditionCodeChips } from '@/components/ConditionCodeChips';
 import { RiverGaugeAlerts } from '@/components/RiverGaugeAlerts';
 import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { useAlertRules } from '@/hooks/useAlertRules';
+import { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
+import { AlertNotificationSetup } from '@/components/AlertNotificationSetup';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -59,6 +61,8 @@ export default function EditAlertScreen() {
   const close = useCloseAlertCreation();
   const { colors, elevation } = useTheme();
   const { rules, ready, update, remove, setEnabled: setRuleEnabled } = useAlertRules();
+  const notificationSetup = useAlertNotificationSetup();
+  const editorScroll = useRef<ScrollView>(null);
 
   const rule = useMemo(
     () => (rules ?? []).find((r) => r.id === id && (!source || r.source === source)) ?? null,
@@ -179,7 +183,7 @@ export default function EditAlertScreen() {
     setError(null);
     setSaving(true);
     try {
-      const result = await update(rule, {
+      const { value: result, needsAttention: needsNotifications } = await notificationSetup.afterSave(update(rule, {
         // No `enabled` here: the Active switch already persisted itself. Sending
         // it again would also override the server's rearm default below, which
         // is what turns a spent one-shot back on.
@@ -196,16 +200,18 @@ export default function EditAlertScreen() {
         // user editing a rule that cannot fire, with no visible way to revive
         // it — the edit IS the request to have it work again.
         ...(spent ? { rearm: true } : {}),
-      });
+      }), !gatedByParent && (rule.enabled || spent));
 
       // STAY ON THE SCREEN when the rule saved into a state it cannot fire
       // from. Popping back would hide the one explanation of why nothing is
       // going to happen, and the fix — a different number — is on this screen.
       setBaseline(draft);
+      if (needsNotifications) editorScroll.current?.scrollTo({ y: 0, animated: true });
       if (result?.state === 'inside') {
         setSeed(result);
         return;
       }
+      if (needsNotifications) return;
       allowExitRef.current = true;
       busyRef.current = false;
       close();
@@ -229,7 +235,10 @@ export default function EditAlertScreen() {
   const onToggleActive = async (next: boolean) => {
     if (!rule || busyRef.current) return;
     busyRef.current = true; setStatusSaving(true); setEnabledError(null);
-    try { await setRuleEnabled(rule, next); }
+    if (!next) notificationSetup.dismiss();
+    try {
+      await notificationSetup.afterSave(setRuleEnabled(rule, next), next && !gatedByParent);
+    }
     catch { setEnabledError(next ? 'Could not resume that alert.' : 'Could not pause that alert.'); }
     finally { busyRef.current = false; setStatusSaving(false); }
   };
@@ -325,7 +334,7 @@ export default function EditAlertScreen() {
       <Stack.Screen options={{ title: 'Edit alert', gestureEnabled: !busy }} />
 
 
-      <ScrollView contentInsetAdjustmentBehavior="automatic" pointerEvents={busy ? 'none' : 'auto'} accessibilityElementsHidden={busy} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={editorScroll} contentInsetAdjustmentBehavior="automatic" pointerEvents={busy ? 'none' : 'auto'} accessibilityElementsHidden={busy} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={[styles.targetName, { color: colors.text }]} accessibilityRole="header">
           {targetName}
         </Text>
@@ -432,6 +441,7 @@ export default function EditAlertScreen() {
         {enabledError ? (
           <Text style={[styles.errorText, { color: colors.error }]}>{enabledError}</Text>
         ) : null}
+        <AlertNotificationSetup setup={notificationSetup} active={rule.enabled && !spent && !gatedByParent} />
 
         {rule.mode === 'condition' ? (
           <>

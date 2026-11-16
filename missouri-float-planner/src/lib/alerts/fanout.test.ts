@@ -161,6 +161,118 @@ test('a recent floatable never suppresses a safety warning', () => {
   assert.equal(result.messages.length, 1);
 });
 
+// ── the cooldown stops repeats, not escalations ──────────────────
+
+/** A river that was `high` and has now reached flood. */
+const escalation = () =>
+  event('warning', { id: 'evt-flood', old_condition_code: 'high', new_condition_code: 'dangerous' });
+
+test('"high water" two hours ago does not withhold "dangerous water" now', () => {
+  // The bug. low → high and high → dangerous are both `warning`, so the second
+  // read as a repeat of the first and a river that rose into flood inside four
+  // hours sent "high water" and then nothing.
+  const result = plan({
+    events: [escalation()],
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'warning', sent_at: '2026-07-25T10:00:00.000Z', condition_code: 'high' },
+    ],
+  });
+  assert.equal(result.messages.length, 1);
+  assert.match(result.messages[0].message.title ?? '', /dangerous water/);
+  assert.equal(result.skipped.cooldown, undefined);
+});
+
+test('a second "dangerous" inside the window is still a repeat', () => {
+  // What keeps a gauge flapping across the flood line from buzzing every pass:
+  // once the user's last word is "dangerous", nothing outranks it.
+  const result = plan({
+    events: [escalation()],
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'warning', sent_at: '2026-07-25T10:00:00.000Z', condition_code: 'dangerous' },
+    ],
+  });
+  assert.equal(result.messages.length, 0);
+  assert.equal(result.skipped.cooldown, 1);
+});
+
+test('a second "high" inside the window is still a repeat', () => {
+  const result = plan({
+    events: [event('warning', { old_condition_code: 'good', new_condition_code: 'high' })],
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'warning', sent_at: '2026-07-25T10:00:00.000Z', condition_code: 'high' },
+    ],
+  });
+  assert.equal(result.messages.length, 0);
+  assert.equal(result.skipped.cooldown, 1);
+});
+
+test('flood again after "easing" is told again, because easing was the last word', () => {
+  // dangerous (10:00) → easing (11:00) → dangerous now. Staying quiet would
+  // leave the user holding "easing" about a river back in flood.
+  const result = plan({
+    events: [escalation()],
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'warning', sent_at: '2026-07-25T10:00:00.000Z', condition_code: 'dangerous' },
+      { user_id: USER, river_id: RIVER, kind: 'easing', sent_at: '2026-07-25T11:00:00.000Z' },
+    ],
+  });
+  assert.equal(result.messages.length, 1);
+});
+
+test('an earlier warning with no known condition never withholds a flood warning', () => {
+  // The ledger does not carry the condition; the delivery pass looks it up. If
+  // that comes back empty the planner must assume the milder reading.
+  const flood = plan({
+    events: [escalation()],
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'warning', sent_at: '2026-07-25T10:00:00.000Z' },
+    ],
+  });
+  assert.equal(flood.messages.length, 1);
+
+  // ...and assumes no more than that: an unknown still cools a plain "high".
+  const high = plan({
+    events: [event('warning', { old_condition_code: 'good', new_condition_code: 'high' })],
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'warning', sent_at: '2026-07-25T10:00:00.000Z' },
+    ],
+  });
+  assert.equal(high.messages.length, 0);
+});
+
+test('high then dangerous in ONE pass sends both, in that order', () => {
+  const result = plan({
+    events: [
+      event('warning', { id: 'evt-high', old_condition_code: 'good', new_condition_code: 'high' }),
+      escalation(),
+    ],
+  });
+  assert.deepEqual(result.messages.map((m) => m.eventId), ['evt-high', 'evt-flood']);
+});
+
+test('only a warning can pass the cooldown this way', () => {
+  // A repeat floatable is a repeat however the water got there.
+  const result = plan({
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'floatable', sent_at: '2026-07-25T10:00:00.000Z' },
+    ],
+  });
+  assert.equal(result.messages.length, 0);
+});
+
+test('a gauge alert about the same river does not cool down the river alert', () => {
+  // The ledger is shared. A "high water" push for one station up the river
+  // carries the river's id and kind `warning`, and used to silence the river's
+  // own warning for four hours.
+  const result = plan({
+    events: [event('warning', { old_condition_code: 'good', new_condition_code: 'high' })],
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'warning', sent_at: '2026-07-25T11:00:00.000Z', event_source: 'gauge_alert' },
+    ],
+  });
+  assert.equal(result.messages.length, 1);
+});
+
 test('a FAILED send does not start the cooldown', () => {
   // The regression. The ledger records failures with the same sent_at default,
   // and reading them as sends let a failed push suppress its own retry: the

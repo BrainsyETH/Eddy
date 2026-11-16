@@ -646,3 +646,16 @@ test('the no-match line names the selected kinds in chip order', () => {
   assert.equal(noFilteredSitesLine(['Group', 'RV', 'Tent']), 'No tent, RV or group sites');
   assert.equal(noFilteredSitesLine(['No hookup']), 'No non-hookup sites');
 });
+
+import { campsiteDisplayName, campsiteDisplayLoop } from '../../../eddy-ios/src/lib/campingStay';
+
+test('compact campsite names remove only the exact repeated campground prefix', () => {
+  assert.equal(campsiteDisplayName('Log Yard Campground - Site 4', 'Log Yard Campground'), 'Site 4');
+  assert.equal(campsiteDisplayName('LOG YARD CAMPGROUND — Site 4', 'Log Yard Campground'), 'Site 4');
+  assert.equal(campsiteDisplayName('Log Yard Campground Annex - Site 4', 'Log Yard Campground'), 'Log Yard Campground Annex - Site 4');
+  assert.equal(campsiteDisplayName('Electric 50 amp #178', 'Onondaga'), 'Electric 50 amp #178');
+  assert.equal(campsiteDisplayName('Log Yard Campground', 'Log Yard Campground'), 'Log Yard Campground');
+  assert.equal(campsiteDisplayName(null, 'Log Yard Campground'), 'Campsite');
+  assert.equal(campsiteDisplayLoop(' Log Yard Campground ', 'Log Yard Campground'), null);
+  assert.equal(campsiteDisplayLoop('PULLTITE GROUP SITES', 'Pulltite'), 'PULLTITE GROUP SITES');
+});

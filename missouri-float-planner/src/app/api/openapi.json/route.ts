@@ -583,6 +583,15 @@ const spec = {
               distanceBelowTakeOutMiles: { type: 'number', minimum: 0, maximum: 0.5 },
             } },
           },
+          hazardsAbovePutIn: {
+            type: 'array',
+            description: 'Danger-severity hazards within 0.5 river miles above the put-in, such as the dam over a tailwater ramp. Context for the trip, not floated through; no portage is implied.',
+            items: { type: 'object', required: ['id', 'name', 'type', 'riverMile', 'distanceAbovePutInMiles'], properties: {
+              id: { type: 'string', format: 'uuid' }, name: { type: 'string' },
+              type: { type: 'string' }, riverMile: { type: 'number' },
+              distanceAbovePutInMiles: { type: 'number', exclusiveMinimum: 0, maximum: 0.5 },
+            } },
+          },
           warnings: { type: 'array', items: { type: 'string' } },
         },
       },

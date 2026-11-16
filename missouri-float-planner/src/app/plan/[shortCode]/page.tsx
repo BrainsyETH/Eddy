@@ -9,11 +9,13 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Check } from 'lucide-react';
+import AppCta from '@/components/AppCta';
 import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { EDDY_IMAGES } from '@/constants';
 import type { FloatPlan } from '@/types/api';
 import { loadSharedPlan } from '@/lib/shared-plan-load';
+import { ShareAnnouncement, useShareLink } from '@/components/ui/share-link';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
@@ -34,7 +36,7 @@ export default function SharedPlanPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<'not-found' | 'unavailable' | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [copied, setCopied] = useState(false);
+  const { status: shareStatus, share } = useShareLink();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,29 +57,9 @@ export default function SharedPlanPage() {
 
   const handleShare = async () => {
     const shareUrl = `https://eddy.guide/plan/${encodeURIComponent(shortCode)}`;
-    const isMobile = window.matchMedia('(pointer: coarse)').matches;
-
-    // Mobile: use native share sheet. Desktop: copy to clipboard.
-    if (isMobile && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Float Plan - ${plan?.river.name ?? 'River'}`,
-          url: shareUrl,
-        });
-        return;
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        // Only a genuine sharing failure offers a clipboard fallback.
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      window.prompt('Copy this link:', shareUrl);
-    }
+    const outcome = await share({ title: `Float Plan - ${plan?.river.name ?? 'River'}`, url: shareUrl });
+    // Last resort when the clipboard is unavailable: show the link to copy by hand.
+    if (outcome === 'failed') window.prompt('Copy this link:', shareUrl);
   };
 
   if (isLoading) {
@@ -133,10 +115,12 @@ export default function SharedPlanPage() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
-      {/* Non-blocking "copied" toast (replaces a blocking alert()) */}
-      {copied && (
+      {/* Non-blocking "copied" toast (replaces a blocking alert()). The
+          announcement lives in an always-mounted region beside it. */}
+      <ShareAnnouncement status={shareStatus} />
+      {shareStatus === 'copied' && (
         <div
-          role="status"
+          aria-hidden
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-neutral-900 bg-neutral-900 text-white text-sm font-bold shadow-[3px_3px_0_#4EB86B]"
         >
           <Check size={16} className="text-support-400" />
@@ -171,6 +155,7 @@ export default function SharedPlanPage() {
             onClose={() => {}}
             onShare={handleShare}
           />
+          <div className="mt-4"><AppCta destination={{ kind: 'plan', id: shortCode }} title="Follow this float in River Mode" detail="Open the route in Eddy, then start your float when you’re ready." label="shared_plan" /></div>
         </div>
       </div>
 

@@ -14,6 +14,14 @@ export function relativeRun(at: string | null, now = Date.now()) {
   if (minutes < 1440) return `${Math.floor(minutes / 60)} hr ago`;
   return `${Math.floor(minutes / 1440)} days ago`;
 }
+const centralTime = (at: string) =>
+  new Date(at).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Chicago',
+  });
 export default function JobStatusTable({
   timeline,
   metrics,
@@ -26,7 +34,7 @@ export default function JobStatusTable({
     return <p className={styles.empty}>Task history did not load.</p>;
   return (
     <div className={styles.tableScroll}>
-      <table className={styles.detailTable}>
+      <table className={`${styles.detailTable} ${styles.jobTable}`}>
         <thead>
           <tr>
             <th>Task</th>
@@ -57,21 +65,19 @@ export default function JobStatusTable({
                   >
                     {job.label}
                   </button>
+                  {job.collection && (
+                    <span className={styles.jobNote} data-state={job.collection.state}>
+                      <b>{job.collection.headline}</b> · {job.collection.detail}
+                      {job.collection.at ? ` ${centralTime(job.collection.at)} CT` : ''}
+                    </span>
+                  )}
                 </td>
                 <td>{relativeRun(job.lastAt)}</td>
                 <td>
                   <Status tone={result.tone}>{result.text}</Status>
                 </td>
                 <td>
-                  {job.nextAt
-                    ? new Date(job.nextAt).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        timeZone: 'America/Chicago',
-                      })
-                    : '—'}
+                  {job.nextAt ? centralTime(job.nextAt) : '—'}
                 </td>
               </tr>
             );

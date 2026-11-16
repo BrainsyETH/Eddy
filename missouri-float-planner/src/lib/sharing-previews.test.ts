@@ -10,8 +10,11 @@ import { sharedPlanMetadata } from './og/shared-plan-metadata';
 import { linkPreviewResponse } from './og/link-preview-response';
 import { linkPreviewFile, linkPreviewAsset, type LinkPreviewKind } from './og/link-preview';
 import { generateMetadata as planMetadata } from '../app/plan/[shortCode]/layout';
-import { generateImageMetadata as riverImageMetadata } from '../app/rivers/[state]/[slug]/opengraph-image';
+import riverImage, { generateImageMetadata as riverImageMetadata } from '../app/rivers/[state]/[slug]/opengraph-image';
+import { riverCard, riverNameSize } from './og/river-card';
 import { generateImageMetadata as damImageMetadata } from '../app/dams/[damId]/opengraph-image';
+import { generateImageMetadata as guideImageMetadata } from '../app/blog/[slug]/opengraph-image';
+import { guideCard, GENERIC_GUIDE_CARD } from './og/guide-card';
 import { publicPageMetadata, ROUTE_SHARE_IMAGE, SHARE_IMAGES } from './seo';
 
 // Exercise actual catalog reads in route tests, independent of warm instances.
@@ -163,10 +166,32 @@ test('an unknown place never borrows another named location’s photograph', () 
   assert.equal(linkPreviewFile('river', 'constructor'), 'river-v1.png');
 });
 
-test('image metadata describes the selected photograph or illustration with its actual MIME type', async () => {
+// ── A river's link image names the river ──────────────────────────────────
+const RIVER_ROWS: Record<string, { name: string; state: string }> = {
+  current: { name: 'Current River', state: 'MO' },
+  'jacks-fork': { name: 'Jacks Fork River', state: 'MO' },
+  'spring-river-mo': { name: 'Spring River (Missouri)', state: 'MO' },
+};
+
+function riverDatabase(t: TestContext) {
+  const reads: string[] = [];
+  publicDatabase(t, (url, init) => {
+    // The image library loads its own inlined WebAssembly through fetch once. Not a network call.
+    if (url.protocol === 'data:') return new Response(Buffer.from(url.href.split(',')[1], 'base64'), { headers: { 'content-type': 'application/wasm' } });
+    reads.push(url.pathname);
+    assert.equal(url.pathname, '/rest/v1/rivers');
+    assert.equal(init?.cache, 'force-cache', 'a no-store read is refused inside an ISR image route');
+    const row = RIVER_ROWS[(url.searchParams.get('slug') ?? '').replace(/^eq\./, '')];
+    return Response.json(row ? [row] : []);
+  });
+  return reads;
+}
+
+test('image metadata describes the selected photograph or illustration with its actual MIME type', async t => {
+  riverDatabase(t);
   for (const [slug, photo] of [['current', true], ['jacks-fork', false]] as const) {
     const [metadata] = await riverImageMetadata({ params: Promise.resolve({ slug }) });
-    assert.match(metadata.alt, photo ? /red kayak beside the Current River/ : /illustration of a river/);
+    assert.match(metadata.alt, photo ? /^Current River\. .*red kayak beside the Current River/ : /^Jacks Fork River\. Eddy illustration of a river/);
     assert.equal(metadata.contentType, photo ? 'image/jpeg' : 'image/png');
     assert.doesNotMatch(metadata.alt, / or /);
   }
@@ -174,6 +199,116 @@ test('image metadata describes the selected photograph or illustration with its 
     const [metadata] = await damImageMetadata({ params: Promise.resolve({ damId }) });
     assert.match(metadata.alt, photo ? /aerial photograph of Bagnell Dam/ : /illustration of a dam/);
     assert.equal(metadata.contentType, photo ? 'image/jpeg' : 'image/png');
+  }
+});
+
+test('a river link image draws the river name onto its artwork within the image budget', async t => {
+  const reads = riverDatabase(t);
+  const nameArea = { left: 64, top: 250, width: 640, height: 222 };
+  for (const [slug, artwork, type] of [['current', 'river-current-name-v1.jpg', 'image/jpeg'], ['jacks-fork', 'river-name-v1.png', 'image/png']] as const) {
+    const response = await riverImage({ params: Promise.resolve({ slug }) });
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const { width, height, format } = await sharp(bytes).metadata();
+    assert.equal(response.headers.get('content-type'), type);
+    assert.equal(format, type === 'image/jpeg' ? 'jpeg' : 'png');
+    assert.deepEqual([width, height], [1200, 630]);
+    assert.ok(bytes.length < 200_000, `${slug} is ${bytes.length} bytes`);
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=86400, s-maxage=86400');
+    // The name is the only thing added.
+    const region = (input: Buffer | string, area: typeof nameArea) => sharp(input).extract(area).greyscale().raw().toBuffer();
+    const difference = async (area: typeof nameArea) => {
+      const [drawn, blank] = await Promise.all([region(bytes, area), region(`public/share/${artwork}`, area)]);
+      return drawn.reduce((sum, value, index) => sum + Math.abs(value - blank[index]), 0) / drawn.length;
+    };
+    const [name, corner] = [await difference(nameArea), await difference({ left: 900, top: 20, width: 280, height: 60 })];
+    assert.ok(name > 8, `${slug}: no name drawn`);
+    // Re-encoding a photograph moves every pixel a little; the name moves its area far more.
+    assert.ok(corner < name / 4, `${slug}: artwork changed outside the name`);
+  }
+  assert.equal(reads.length, 2, 'one catalog read per image, nothing else');
+});
+
+test('a slug with no river keeps the unnamed illustration; a failed lookup is an error', async t => {
+  riverDatabase(t);
+  assert.equal(await riverCard('not-a-river'), null);
+  const response = await riverImage({ params: Promise.resolve({ slug: 'not-a-river' }) });
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile('public/share/river-v1.png'));
+  const [metadata] = await riverImageMetadata({ params: Promise.resolve({ slug: 'not-a-river' }) });
+  assert.equal(metadata.alt, 'Eddy illustration of a river.');
+
+  t.mock.restoreAll();
+  publicDatabase(t, () => Response.json({ message: 'unavailable' }, { status: 503 }));
+  await assert.rejects(riverImage({ params: Promise.resolve({ slug: 'current' }) }), /River card lookup failed/);
+  // The page's own metadata calls this; it loses the name, not the page.
+  const [fallback] = await riverImageMetadata({ params: Promise.resolve({ slug: 'current' }) });
+  assert.match(fallback.alt, /^Archival photograph of a red kayak/);
+});
+
+test('the state sits above the name unless the name already says it', async t => {
+  riverDatabase(t);
+  assert.deepEqual(await riverCard('current'), { name: 'Current River', state: 'Missouri' });
+  assert.deepEqual(await riverCard('spring-river-mo'), { name: 'Spring River (Missouri)', state: null });
+});
+
+test('river names take the largest size that fits one line, and wrap only when they must', () => {
+  assert.equal(riverNameSize('Elk River', 660), 116);
+  assert.equal(riverNameSize('Current River', 1000), 116);
+  const eleven = riverNameSize('Eleven Point River', 660);
+  assert.ok(eleven >= 66 && eleven < 84, `one line at ${eleven}`);
+  assert.equal(riverNameSize('Buffalo National River', 660), 84, 'wraps to two lines');
+});
+
+// ── The guide card names its guide ────────────────────────────────────────
+// Next refuses a no-store fetch while it renders an ISR route, and supabase-js
+// returns that refusal as `error`. Read that way, every guide's card silently
+// fell back to "Float Trip Guide" and Facebook scraped it as the preview.
+test('the guide card reads its title through the cacheable public client', async t => {
+  const fetch = publicDatabase(t, (url, init) => {
+    assert.equal(url.pathname, '/rest/v1/blog_posts');
+    assert.equal(url.searchParams.get('slug'), 'eq.caddo-river-float-trips-arkansas');
+    assert.equal(url.searchParams.get('status'), 'eq.published');
+    assert.equal(init?.cache, 'force-cache', 'a no-store read is refused inside an ISR image route');
+    assert.equal(new Headers(init?.headers).get('apikey'), 'test-only-key', 'public RLS, not the service role');
+    return Response.json([{ title: 'Caddo River Float Trip Guide: Caddo Gap & Glenwood', category: 'River Guides' }]);
+  });
+  assert.deepEqual(await guideCard('caddo-river-float-trips-arkansas'),
+    { title: 'Caddo River Float Trip Guide: Caddo Gap & Glenwood', eyebrow: 'River Guide' });
+  const [metadata] = await guideImageMetadata({ params: Promise.resolve({ slug: 'caddo-river-float-trips-arkansas' }) });
+  assert.equal(metadata.alt, 'Eddy guide title card: Caddo River Float Trip Guide: Caddo Gap & Glenwood');
+  assert.equal(fetch.mock.callCount(), 2);
+});
+
+test('a failed guide lookup throws instead of publishing the generic card', async t => {
+  publicDatabase(t, () => Response.json({ message: 'unavailable' }, { status: 503 }));
+  await assert.rejects(guideCard('caddo-river-float-trips-arkansas'), /Guide card lookup failed/);
+  // The page's own metadata calls this; it loses the title, not the page.
+  const [metadata] = await guideImageMetadata({ params: Promise.resolve({ slug: 'caddo-river-float-trips-arkansas' }) });
+  assert.equal(metadata.alt, 'Eddy guide title card');
+});
+
+test('a slug with no published guide is the only case that gets the generic card', async t => {
+  publicDatabase(t, () => Response.json([]));
+  assert.equal(await guideCard('not-a-guide'), null);
+  assert.equal(GENERIC_GUIDE_CARD.title, 'Float Trip Guide');
+});
+
+test('a long guide title is cut at a word boundary the card can fit', async t => {
+  const title = 'Spring River (Arkansas) Float Trip Guide: Mammoth Spring, Hardy, Many Islands & Day Floats';
+  publicDatabase(t, () => Response.json([{ title, category: 'Field Notes' }]));
+  const card = await guideCard('long');
+  assert.ok(card!.title.length <= 76 && card!.title.endsWith('…'));
+  assert.equal(card!.eyebrow, 'Field Notes', 'an unmapped category is its own kicker');
+});
+
+test('no link-image route reads the database with a client Next refuses during ISR', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const images = (await readdir('src/app', { recursive: true }))
+    .filter(entry => /(^|\/)(opengraph|twitter)-image\.tsx$/.test(entry));
+  assert.ok(images.length >= 18, `found only ${images.length} link-image routes`);
+  for (const entry of images) {
+    const source = await readFile(`src/app/${entry}`, 'utf8');
+    assert.doesNotMatch(source, /createAdminClient|createPublicReadClient|supabase\/server/,
+      `src/app/${entry} is cached; a no-store client fails silently there. Use createPublicCatalogClient.`);
   }
 });
 

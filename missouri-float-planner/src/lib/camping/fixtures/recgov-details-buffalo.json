@@ -1,0 +1,354 @@
+{
+  "campsite": {
+    "campsite_id": "6506",
+    "facility_id": "234043",
+    "is_accessible": false,
+    "campsite_name": "B31",
+    "is_deactivated": false,
+    "permitted_equipment": [
+      {
+        "campsite_equipment_type_id": 2,
+        "equipment_name": "RV",
+        "max_length": 47,
+        "is_deactivated": false
+      },
+      {
+        "campsite_equipment_type_id": 3,
+        "equipment_name": "Trailer",
+        "max_length": 47,
+        "is_deactivated": false
+      },
+      {
+        "campsite_equipment_type_id": 6,
+        "equipment_name": "Pickup Camper",
+        "max_length": 47,
+        "is_deactivated": false
+      },
+      {
+        "campsite_equipment_type_id": 7,
+        "equipment_name": "Pop up",
+        "max_length": 47,
+        "is_deactivated": false
+      },
+      {
+        "campsite_equipment_type_id": 9,
+        "equipment_name": "Fifth Wheel",
+        "max_length": 47,
+        "is_deactivated": false
+      },
+      {
+        "campsite_equipment_type_id": 13,
+        "equipment_name": "Caravan/Camper Van",
+        "max_length": 47,
+        "is_deactivated": false
+      }
+    ],
+    "site_details_map": {
+      "campfire_allowed": {
+        "attribute_id": 9,
+        "attribute_name": "Campfire Allowed",
+        "attribute_value": "Yes",
+        "attribute_code": "campfire_allowed"
+      },
+      "capacity_rating": {
+        "attribute_id": 10,
+        "attribute_name": "Capacity/Size Rating",
+        "attribute_value": "Single",
+        "attribute_code": "capacity_rating"
+      },
+      "checkin_time": {
+        "attribute_id": 11,
+        "attribute_name": "Checkin Time",
+        "attribute_value": "1:00 PM",
+        "attribute_code": "checkin_time"
+      },
+      "checkout_time": {
+        "attribute_id": 12,
+        "attribute_name": "Checkout Time",
+        "attribute_value": "12:00 PM",
+        "attribute_code": "checkout_time"
+      },
+      "electric_hookup": {
+        "attribute_name": "Electricity Hookup",
+        "attribute_value": "20/30/50",
+        "units": "amp"
+      },
+      "max_num_people": {
+        "attribute_id": 52,
+        "attribute_name": "Max Num of People",
+        "attribute_value": "6",
+        "attribute_code": "max_num_people"
+      },
+      "min_num_people": {
+        "attribute_id": 56,
+        "attribute_name": "Min Num of People",
+        "attribute_value": "1",
+        "attribute_code": "min_num_people"
+      },
+      "pets_allowed": {
+        "attribute_id": 65,
+        "attribute_name": "Pets Allowed",
+        "attribute_value": "Yes",
+        "attribute_code": "pets_allowed"
+      },
+      "sewer_hookup": {
+        "attribute_value": "No"
+      },
+      "shade": {
+        "attribute_id": 77,
+        "attribute_name": "Shade",
+        "attribute_value": "Yes",
+        "attribute_code": "shade"
+      },
+      "water_hookup": {
+        "attribute_name": "Water Hookup",
+        "attribute_value": "Yes"
+      }
+    },
+    "equipment_details_map": {
+      "driveway_entry": {
+        "attribute_id": 23,
+        "attribute_name": "Driveway Entry",
+        "attribute_value": "Back-In",
+        "attribute_code": "driveway_entry"
+      },
+      "driveway_surface": {
+        "attribute_id": 26,
+        "attribute_name": "Driveway Surface",
+        "attribute_value": "Paved",
+        "attribute_code": "driveway_surface"
+      },
+      "is_equip_mandatory": {
+        "attribute_name": "Is Equipment Mandatory",
+        "attribute_value": "true",
+        "attribute_code": "is_equip_mandatory"
+      },
+      "max_num_vehicles": {
+        "attribute_id": 53,
+        "attribute_name": "Max Num of Vehicles",
+        "attribute_value": "2",
+        "attribute_code": "max_num_vehicles"
+      },
+      "max_vehicle_length": {
+        "attribute_id": 54,
+        "attribute_name": "Max Vehicle Length",
+        "attribute_value": "47",
+        "attribute_code": "max_vehicle_length"
+      },
+      "tent_pad_length": {
+        "attribute_name": "Tent Pad Length",
+        "attribute_value": "11",
+        "attribute_code": "tent_pad_length"
+      },
+      "tent_pad_width": {
+        "attribute_name": "Tent Pad Width",
+        "attribute_value": "11",
+        "attribute_code": "tent_pad_width"
+      }
+    },
+    "amenities": [
+      {
+        "attribute_id": 29,
+        "attribute_name": "Electricity Hookup",
+        "attribute_value": "50",
+        "attribute_code": "electric_hookup"
+      },
+      {
+        "attribute_id": 97,
+        "attribute_name": "Water Hookup",
+        "attribute_value": "Y",
+        "attribute_code": "water_hookup"
+      },
+      {
+        "attribute_name": "Campfire Rings",
+        "attribute_value": "Campfire Rings"
+      },
+      {
+        "attribute_name": "Drinking Water",
+        "attribute_value": "Drinking Water"
+      },
+      {
+        "attribute_name": "Dump Station",
+        "attribute_value": "Dump Station"
+      },
+      {
+        "attribute_name": "Flush Toilets",
+        "attribute_value": "Flush Toilets"
+      },
+      {
+        "attribute_name": "Paved Parking",
+        "attribute_value": "Paved Parking"
+      },
+      {
+        "attribute_id": 65,
+        "attribute_name": "Pets Allowed",
+        "attribute_value": "Domestic",
+        "attribute_code": "pets_allowed"
+      },
+      {
+        "attribute_name": "Picnic Tables",
+        "attribute_value": "Picnic Tables"
+      },
+      {
+        "attribute_name": "Showers",
+        "attribute_value": "Showers"
+      }
+    ],
+    "attributes": [
+      {
+        "attribute_id": 77,
+        "attribute_name": "Shade",
+        "attribute_value": "Partial",
+        "attribute_code": "shade"
+      },
+      {
+        "attribute_id": 83,
+        "attribute_name": "Site Reserve Type",
+        "attribute_value": "Site-Specific",
+        "attribute_code": "campsite_reserve_type"
+      },
+      {
+        "attribute_id": 53,
+        "attribute_name": "Max Num of Vehicles",
+        "attribute_value": "2",
+        "attribute_code": "max_num_vehicles"
+      },
+      {
+        "attribute_id": 23,
+        "attribute_name": "Driveway Entry",
+        "attribute_value": "Back-In",
+        "attribute_code": "driveway_entry"
+      },
+      {
+        "attribute_id": 56,
+        "attribute_name": "Min Num of People",
+        "attribute_value": "1",
+        "attribute_code": "min_num_people"
+      },
+      {
+        "attribute_id": 26,
+        "attribute_name": "Driveway Surface",
+        "attribute_value": "Paved",
+        "attribute_code": "driveway_surface"
+      },
+      {
+        "attribute_id": 11,
+        "attribute_name": "Checkin Time",
+        "attribute_value": "1:00 PM",
+        "attribute_code": "checkin_time"
+      },
+      {
+        "attribute_id": 9,
+        "attribute_name": "Campfire Allowed",
+        "attribute_value": "Y",
+        "attribute_code": "campfire_allowed"
+      },
+      {
+        "attribute_id": 97,
+        "attribute_name": "Water Hookup",
+        "attribute_value": "Y",
+        "attribute_code": "water_hookup"
+      },
+      {
+        "attribute_id": 12,
+        "attribute_name": "Checkout Time",
+        "attribute_value": "12:00 PM",
+        "attribute_code": "checkout_time"
+      },
+      {
+        "attribute_id": 29,
+        "attribute_name": "Electricity Hookup",
+        "attribute_value": "50",
+        "attribute_code": "electric_hookup"
+      },
+      {
+        "attribute_id": 52,
+        "attribute_name": "Max Num of People",
+        "attribute_value": "6",
+        "attribute_code": "max_num_people"
+      },
+      {
+        "attribute_id": 54,
+        "attribute_name": "Max Vehicle Length",
+        "attribute_value": "47",
+        "attribute_code": "max_vehicle_length"
+      },
+      {
+        "attribute_id": 10,
+        "attribute_name": "Capacity/Size Rating",
+        "attribute_value": "Single",
+        "attribute_code": "capacity_rating"
+      },
+      {
+        "attribute_id": 29,
+        "attribute_name": "Electricity Hookup",
+        "attribute_value": "50",
+        "attribute_code": "electric_hookup"
+      },
+      {
+        "attribute_id": 97,
+        "attribute_name": "Water Hookup",
+        "attribute_value": "Y",
+        "attribute_code": "water_hookup"
+      },
+      {
+        "attribute_name": "Campfire Rings",
+        "attribute_value": "Campfire Rings"
+      },
+      {
+        "attribute_name": "Drinking Water",
+        "attribute_value": "Drinking Water"
+      },
+      {
+        "attribute_name": "Dump Station",
+        "attribute_value": "Dump Station"
+      },
+      {
+        "attribute_name": "Flush Toilets",
+        "attribute_value": "Flush Toilets"
+      },
+      {
+        "attribute_name": "Paved Parking",
+        "attribute_value": "Paved Parking"
+      },
+      {
+        "attribute_name": "Pets Allowed",
+        "attribute_value": "Pets Allowed"
+      },
+      {
+        "attribute_name": "Picnic Tables",
+        "attribute_value": "Picnic Tables"
+      },
+      {
+        "attribute_name": "Showers",
+        "attribute_value": "Showers"
+      }
+    ],
+    "notices": [
+      {
+        "notice_type": "info",
+        "notice_text": "<p>Sites B30 - B35 are not suitable for tents.</p>\n",
+        "hide_on_permit": false,
+        "active": true
+      },
+      {
+        "notice_type": "warning",
+        "notice_text": "<p>Full refunds are not provided due to weather or river conditions. For more information about our cancellation and refund policies, please visit this link. <a href=\"https://www.recreation.gov/camping/campgrounds/234043?tab=fees\" rel=\"nofollow\">Buffalo Point, Buffalo National River - </a><a href=\"http://Recreation.gov\" rel=\"nofollow\">Recreation.gov</a></p>",
+        "hide_on_permit": false,
+        "active": true
+      },
+      {
+        "notice_type": "warning",
+        "notice_text": "<p>All park trails are closed to pets with the exception of the Mill Creek (trailhead is at the Pruitt river access area in the Upper District), the Tyler Bend Campground trails (Spring Hollow, Buck Ridge, and Rock Wall in the Middle District), and all three Buffalo Point Campground trails (Forest Trail, Overlook Trail, and Campground Trail in the Lower District). More information can be found at <a href=\"https://www.nps.gov/buff/planyourvisit/pets.htm\" rel=\"nofollow\">https://www.nps.gov/buff/planyourvisit/pets.htm</a>\u00a0</p>",
+        "hide_on_permit": false,
+        "active": true
+      },
+      {
+        "notice_type": "warning",
+        "notice_text": "<p>Please be aware that some special events held at the pavilions or anywhere in the park (such as weddings, press receptions, concerts, et al) require a Special Use Permit in addition to the pavilion reservation. To obtain a Special Use Permit or additional information, please contact the Commercial Services office at (870) 365-2724. Information about Special Use Permits is also available on the park website at <a href=\"https://www.nps.gov/buff/planyourvisit/special-park-uses.htm\" rel=\"nofollow\">http://www.nps.gov/buff/planyourvisit/special-park-uses.htm</a>\u00a0</p>",
+        "hide_on_permit": false,
+        "active": true
+      }
+    ]
+  }
+}

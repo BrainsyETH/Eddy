@@ -129,7 +129,10 @@ test('Read distinguishes current water and weekend forecast and omits missing we
   assert.ok(buffalo.photo!.author);
 });
 
-test('manual and scheduled context produces one pinned multi-river Read, respecting exclusions', async () => {
+test('manual and scheduled context produces one pinned multi-river Read, respecting exclusions', async t => {
+  // buildPostContext reads the clock itself, and equal candidates rotate by
+  // week, so on the real clock the expected order below flips every other week.
+  t.mock.timers.enable({ apis: ['Date'], now });
   const timestamp = new Date().toISOString();
   const rows = ['current', 'meramec', 'eleven-point'].map(slug => river(slug, { generated_at: timestamp, reading_timestamp: timestamp }));
   const seen: string[] = [];

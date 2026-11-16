@@ -1,30 +1,17 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
-import AppLink from '@/components/AppLink';
+import AppLink, { useAppCampaign } from '@/components/AppLink';
 import { useAppDevice } from '@/components/useAppDevice';
 import { damWidgetHeadline, getDamAppPromotion } from '@/lib/dam-app-promotion';
-import { trackEvent } from '@/lib/analytics';
+import { useAppPromotionView } from '../useAppPromotionView';
 
 export default function DamAppCTA({ damId, damName }: { damId: string; damName: string }) {
   const dam = getDamAppPromotion(damId);
   const device = useAppDevice();
-  const ref = useRef<HTMLElement>(null);
-  const viewedDam = useRef<string | null>(null);
-  const id = dam?.id;
-  useEffect(() => {
-    if (!id || viewedDam.current === id || device === 'android' || !ref.current || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(entries => {
-      if (!entries.some(entry => entry.isIntersecting && entry.intersectionRatio >= 0.5)) return;
-      viewedDam.current = id;
-      trackEvent('app_promotion_view', { label: 'dam_schedule', dam_id: id, page_path: window.location.pathname });
-      observer.disconnect();
-    }, { threshold: 0.5 });
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [id, device]);
+  const campaign = useAppCampaign(dam?.campaign);
+  const ref = useAppPromotionView<HTMLElement>('dam_schedule', damId, !!dam && device !== 'android', dam?.id);
   if (!dam || device === 'android') return null;
 
   return (
@@ -33,16 +20,23 @@ export default function DamAppCTA({ damId, damName }: { damId: string; damName: 
         <Image src="/icons/eddy-wave.png" alt="" width={40} height={46} className="h-11 w-auto shrink-0" />
         <p className="py-1 text-sm font-medium text-neutral-800">{damWidgetHeadline(damName)}</p>
       </div>
-      <AppLink
-        campaign={dam.campaign}
-        damId={dam.id}
-        data-ga-event="app_landing_click"
-        data-ga-label="dam_schedule"
-        data-ga-dam-id={dam.id}
-        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-700 underline underline-offset-4 hover:text-primary-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700"
-      >
-        Get Eddy for iPhone <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
-      </AppLink>
+      <div className="flex flex-col items-start sm:items-end">
+        <AppLink
+          trackView={false}
+          campaign={campaign}
+          damId={dam.id}
+          data-ga-label="dam_schedule"
+          data-ga-dam-id={dam.id}
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-700 underline underline-offset-4 hover:text-primary-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700"
+        >
+          Get Eddy for iPhone <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+        </AppLink>
+        {device === 'ios' && <a href={`eddy://${dam.nativePath}`} data-ga-event="app_open_click"
+          data-ga-label="dam_schedule" data-ga-dam-id={dam.id} data-ga-campaign={campaign ?? undefined}
+          className="inline-flex min-h-11 items-center text-xs text-neutral-600 underline underline-offset-4 hover:text-primary-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700">
+          Already have Eddy? Open it
+        </a>}
+      </div>
     </aside>
   );
 }

@@ -98,9 +98,12 @@ panel does for you:
   threaded to the original (`In-Reply-To` / `References` headers), with the
   original quoted underneath.
 - **Branding:** the body is sanitized (`sanitizeRichText`) and wrapped in the
-  Eddy email shell (`src/lib/email/render.ts` — deep-teal header, otter logo,
-  river-blue links) matching the marketing emails, and sent with a plain-text
-  fallback.
+  Eddy email shell (`src/lib/email/render.ts` — warm cream header, existing
+  otter, coral wordmark and teal links) matching the current site header. The
+  card fits mobile screens, has one website footer, and places the quoted
+  message below the card. Quick replies use a short sign-off without repeating
+  the website; a plain-text version includes the website and quoted message too.
+  This shell is shared by inbound-email and feedback replies.
 - **From address:** defaults to the eddy.guide address the message was delivered
   to (e.g. a message to `hello@eddy.guide` is replied to *from* `hello@eddy.guide`).
   If the message wasn't addressed to an eddy.guide address, set `RESEND_REPLY_FROM`.

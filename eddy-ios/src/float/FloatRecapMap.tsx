@@ -61,6 +61,11 @@ function RouteMap({ geometry }: { geometry: RecapRouteGeometry }) {
   const drawing = useMemo(() => recapRouteDrawing(geometry, width, 180), [geometry, width]);
   const shape = { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: geometry.section } };
   const covered = { type: 'Feature' as const, properties: {}, geometry: { type: 'MultiLineString' as const, coordinates: geometry.covered } };
+  // Quiet the existing offline-capable basemap beneath this recap's overlays.
+  // This is a visual wash, not a second map style or a change to route geometry.
+  const backdrop = { type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const,
+    coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]],
+  } };
   const markers = {
     type: 'FeatureCollection' as const,
     features: [
@@ -85,27 +90,31 @@ function RouteMap({ geometry }: { geometry: RecapRouteGeometry }) {
       >
         <Mapbox.Camera animationDuration={0} defaultSettings={{ bounds: {
           sw: [frame[0], frame[1]], ne: [frame[2], frame[3]],
-          paddingTop: 34, paddingBottom: 34, paddingLeft: 36, paddingRight: 36,
+          paddingTop: 36, paddingBottom: 42, paddingLeft: 40, paddingRight: 40,
         } }} />
+        <Mapbox.ShapeSource id="recap-backdrop" shape={backdrop}>
+          <Mapbox.FillLayer id="recap-basemap-wash" style={{ fillColor: ink.card, fillOpacity: 0.28 }} />
+        </Mapbox.ShapeSource>
         <Mapbox.ShapeSource id="recap-route" shape={shape}>
           <Mapbox.LineLayer id="recap-route-line" style={{ lineColor: ink.borderStrong, lineWidth: 3, lineDasharray: [2, 2], lineCap: 'round', lineJoin: 'round' }} />
         </Mapbox.ShapeSource>
         {geometry.covered.length ? <Mapbox.ShapeSource id="recap-covered" shape={covered}>
-          <Mapbox.LineLayer id="recap-covered-outline" style={{ lineColor: ink.card, lineWidth: 7, lineCap: 'round', lineJoin: 'round' }} />
-          <Mapbox.LineLayer id="recap-covered-line" style={{ lineColor: ink.accent, lineWidth: 4, lineCap: 'round', lineJoin: 'round' }} />
+          <Mapbox.LineLayer id="recap-covered-outline" style={{ lineColor: ink.card, lineWidth: 9, lineCap: 'round', lineJoin: 'round' }} />
+          <Mapbox.LineLayer id="recap-covered-line" style={{ lineColor: ink.accent, lineWidth: 5, lineCap: 'round', lineJoin: 'round' }} />
         </Mapbox.ShapeSource> : null}
         <Mapbox.ShapeSource id="recap-markers" shape={markers}>
-          <Mapbox.CircleLayer id="recap-marker-dots" style={{ circleColor: ['get', 'color'], circleRadius: 6, circleStrokeColor: ink.card, circleStrokeWidth: 2 }} />
+          <Mapbox.CircleLayer id="recap-marker-dots" style={{ circleColor: ['get', 'color'], circleRadius: 7, circleStrokeColor: ink.card, circleStrokeWidth: 2.5 }} />
           <Mapbox.SymbolLayer id="recap-marker-labels" style={{
             textField: ['get', 'label'], textSize: 12, textColor: ink.text,
-            textHaloColor: ink.card, textHaloWidth: 2, textAnchor: 'top', textOffset: [0, 1], textMaxWidth: 9,
+            textHaloColor: ink.card, textHaloWidth: 2, textMaxWidth: 9, textPadding: 4,
+            textVariableAnchor: ['top', 'bottom', 'left', 'right'], textRadialOffset: 1, textJustify: 'auto',
           }} />
         </Mapbox.ShapeSource>
       </Mapbox.MapView>
     </> : <View accessible accessibilityRole="image" accessibilityLabel={description}>
       <Svg width={width} height={180}>
         <Path d={drawing.path(geometry.section)} stroke={colors.borderStrong} strokeWidth={3} strokeDasharray="5 5" fill="none" />
-        {geometry.covered.map((line, i) => <Path key={i} d={drawing.path(line)} stroke={colors.accent} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" fill="none" />)}
+        {geometry.covered.map((line, i) => <Path key={i} d={drawing.path(line)} stroke={colors.accent} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" />)}
         <Circle {...drawing.point(geometry.start)} r={7} fill={colors.interactive} stroke={colors.card} strokeWidth={2} />
         <Circle {...drawing.point(geometry.takeOut)} r={7} fill={colors.accent} stroke={colors.card} strokeWidth={2} />
         {geometry.last ? <>

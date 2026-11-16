@@ -1,0 +1,58 @@
+{
+ "2019": {
+  "detected": 109,
+  "issued_and_scored": 4,
+  "other_issued": 2,
+  "withheld": 103,
+  "share_issued_and_scored": 0.03669724770642202
+ },
+ "2020": {
+  "detected": 155,
+  "issued_and_scored": 14,
+  "other_issued": 9,
+  "withheld": 132,
+  "share_issued_and_scored": 0.09032258064516129
+ },
+ "2021": {
+  "detected": 121,
+  "issued_and_scored": 21,
+  "other_issued": 4,
+  "withheld": 96,
+  "share_issued_and_scored": 0.17355371900826447
+ },
+ "2022": {
+  "detected": 132,
+  "issued_and_scored": 24,
+  "other_issued": 7,
+  "withheld": 101,
+  "share_issued_and_scored": 0.18181818181818182
+ },
+ "2023": {
+  "detected": 169,
+  "issued_and_scored": 64,
+  "other_issued": 15,
+  "withheld": 90,
+  "share_issued_and_scored": 0.378698224852071
+ },
+ "2024": {
+  "detected": 190,
+  "issued_and_scored": 95,
+  "other_issued": 18,
+  "withheld": 77,
+  "share_issued_and_scored": 0.5
+ },
+ "2025": {
+  "detected": 112,
+  "issued_and_scored": 18,
+  "other_issued": 14,
+  "withheld": 80,
+  "share_issued_and_scored": 0.16071428571428573
+ },
+ "2026": {
+  "detected": 208,
+  "issued_and_scored": 109,
+  "other_issued": 24,
+  "withheld": 75,
+  "share_issued_and_scored": 0.5240384615384616
+ }
+}

@@ -56,6 +56,8 @@ function LoadedSites({
         {checkedLabel(sites.fetchedAt)}
       </Text>
       <CampsiteList
+        now={now}
+        campgroundName={sites.facility.displayName}
         entries={sitesOnNight(sites.sites, sites.window.nights, date, now, !stale)}
         filters={[]}
         date={date}

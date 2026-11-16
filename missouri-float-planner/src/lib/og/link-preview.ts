@@ -1,18 +1,32 @@
 /** Link artwork is deliberately timeless: recipients can cache it indefinitely.
- * Keep names, route details and instructions in accessible page metadata.
+ * A river's or guide's own name is timeless and may be printed. Readings,
+ * conditions, route details and instructions stay in accessible page metadata.
  */
 export const LINK_PREVIEW_SIZE = { width: 1200, height: 630 };
 export type LinkPreviewKind = 'river' | 'gauge' | 'dam' | 'access' | 'plan';
+
+/** Shared by the artwork renderer (which places the wordmark) and the name
+ * drawn above it at request time. Pixels on the 1200 × 630 canvas. */
+export const RIVER_NAME_LAYOUT = {
+  inset: 64,
+  wordmark: 50,
+  /** Space between the name's last line and the wordmark. */
+  gap: 44,
+  /** The illustration starts at x = 756; a photo has the full width. */
+  width: { illustration: 660, photo: 1000 },
+} as const;
 
 interface LinkPreviewAsset {
   file: string;
   alt: string;
   contentType: 'image/png' | 'image/jpeg';
   sourcePhoto?: string;
+  /** The same artwork laid out with room for a name (src/lib/og/river-card.tsx). */
+  nameFile?: string;
 }
 
 const illustrations: Record<LinkPreviewKind, LinkPreviewAsset> = {
-  river: { file: 'river-v1.png', contentType: 'image/png', alt: 'Eddy illustration of a river.' },
+  river: { file: 'river-v1.png', nameFile: 'river-name-v1.png', contentType: 'image/png', alt: 'Eddy illustration of a river.' },
   gauge: { file: 'gauge-v1.png', contentType: 'image/png', alt: 'Eddy illustration of checking a river gauge.' },
   dam: { file: 'dam-v1.png', contentType: 'image/png', alt: 'Eddy illustration of a dam.' },
   access: { file: 'access-v1.png', contentType: 'image/png', alt: 'Eddy illustration of a boat ramp.' },
@@ -22,7 +36,7 @@ const illustrations: Record<LinkPreviewKind, LinkPreviewAsset> = {
 /** Curated archival photos only. File, caption and source always travel together. */
 export const LINK_PREVIEW_PHOTOS: Partial<Record<LinkPreviewKind, Record<string, LinkPreviewAsset>>> = {
   river: {
-    current: { file: 'river-current-v2.jpg', contentType: 'image/jpeg', sourcePhoto: 'current.jpg',
+    current: { file: 'river-current-v2.jpg', nameFile: 'river-current-name-v1.jpg', contentType: 'image/jpeg', sourcePhoto: 'current.jpg',
       alt: 'Archival photograph of a red kayak beside the Current River, not current conditions.' },
   },
   dam: {

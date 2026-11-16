@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import ReadAppLink from '@/components/ReadAppLink';
+import type { AppDestination } from '@/lib/app-destination';
 import { STAGE_VERDICTS, THEME, type StageVerdict } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
@@ -103,7 +104,7 @@ export function useGaugeRailReport(
   return report;
 }
 
-export function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
+export function EddyReportCard({ report, destination }: { report: EddyReport | null | undefined; destination: AppDestination }) {
   if (report === undefined) {
     return (
       <div
@@ -154,8 +155,8 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
       >
         “{report.summaryText}”
       </p>
-      <Link
-        href="/app"
+      <ReadAppLink
+        destination={destination} label={`map_${destination.kind}_eddy_read`}
         className="mt-2 inline-block uppercase font-bold transition-opacity hover:opacity-70"
         style={{
           fontFamily: MONO,
@@ -169,7 +170,7 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
         }}
       >
         Unlock the full read in the iOS app
-      </Link>
+      </ReadAppLink>
     </div>
   );
 }

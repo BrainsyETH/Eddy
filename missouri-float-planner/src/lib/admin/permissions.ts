@@ -19,6 +19,7 @@ const editorPermissions: Permission[] = [
   ['/api/admin/lake-launches', 'GET'],
   ['/api/admin/lake-launches/:id', 'PATCH'],
   ['/api/admin/hazards', 'GET POST'],
+  ['/api/admin/hazards/mile-hint', 'GET'],
   ['/api/admin/hazards/:id', 'GET PUT DELETE'],
   ['/api/admin/gauges', 'GET'],
   ['/api/admin/gauges/:id', 'GET PUT POST'],
@@ -60,12 +61,14 @@ const moderatorPermissions: Permission[] = [
   ['/api/feedback', 'GET'],
   ['/api/feedback/:id', 'PATCH'],
   ['/api/admin/feedback/:id', 'PATCH'],
-  ['/api/admin/inbound-emails', 'GET'],
+  ['/api/admin/feedback/:id/reply', 'POST'],
+  ['/api/admin/inbound-emails', 'GET PATCH'],
   ['/api/admin/inbound-emails/:id', 'PATCH'],
   ['/api/admin/inbound-emails/:id/reply', 'POST'],
   ['/api/admin/reports', 'GET PATCH'],
   ['/api/admin/reports/:id', 'GET PUT DELETE'],
   ['/api/admin/float-contributions', 'GET'],
+  ['/api/admin/float-contributions/review', 'PUT'],
 ];
 const compile = (rules: Permission[]) =>
   rules.map(([path, methods]) => ({

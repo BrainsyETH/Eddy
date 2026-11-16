@@ -3,12 +3,16 @@
 // the querying and sending, this module owns every policy decision, so the
 // rules can be tested exhaustively without a database or a network.
 
-import { isPushableKind, type EventKind } from './event-kind';
+import { elevatedRank, isPushableKind, worsensWhatWasTold, type EventKind } from './event-kind';
 import { suppressedByQuietHours } from './quiet-hours';
 import type { ExpoMessage } from '@/lib/push/expo';
 import type { NotificationPreferences } from '@/types/api';
 
-/** Default: don't re-notify the same user about the same river+kind within 4h. */
+/**
+ * Default: don't re-notify the same user about the same river+kind within 4h —
+ * unless it is a warning worse than the last thing they heard. See
+ * worsensWhatWasTold in event-kind.ts.
+ */
 export const PUSH_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
 export interface FanoutEvent {
@@ -72,6 +76,33 @@ export interface RecentDelivery {
    * this is the second guard, so the policy cannot be undone by a select.
    */
   status?: string;
+  /**
+   * Which pass wrote the row. Only `river_condition` rows are this pass's sends.
+   *
+   * The ledger is shared with gauge alerts (migration 00203), which record the
+   * river and the same kinds. Read as river sends, a "high water" push about one
+   * station up the Meramec cooled down the river's own warning for four hours —
+   * two different stretches silencing each other. Gauge rules keep their own
+   * cooldown on the rule; they have no part in this one. Filtered in the query
+   * too, and absent means a river row, as it did before the column existed.
+   */
+  event_source?: string;
+  /**
+   * The condition that send announced, when the caller could resolve it.
+   *
+   * Needed for a `warning` only: it is the one kind that lands on two different
+   * conditions, and the cooldown has to know whether the user heard "high" or
+   * "dangerous". Absent, an earlier warning is taken to have said "high", so an
+   * unresolved row can repeat a flood warning but never withhold one.
+   */
+  condition_code?: string | null;
+}
+
+/** What a prior send told its recipient, as elevatedRank. */
+function toldRank(delivery: RecentDelivery): number {
+  if (delivery.condition_code) return elevatedRank(delivery.condition_code);
+  // `floatable` never lands in elevated water; `easing` always lands on high.
+  return delivery.kind === 'floatable' ? 0 : 1;
 }
 
 export interface PlannedMessage {
@@ -266,13 +297,21 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
     else subsByRiver.set(sub.river_id, [sub]);
   }
 
-  // Most recent send per (user, river, kind).
+  // Most recent send per (user, river, kind), and — across kinds — the last
+  // thing each user was TOLD about each river, which is what lets a worse
+  // warning through the cooldown.
   const lastSent = new Map<string, number>();
+  const lastTold = new Map<string, { at: number; rank: number }>();
   for (const d of input.recentDeliveries ?? []) {
     if (d.status !== undefined && d.status !== 'sent') continue;
+    if (d.event_source !== undefined && d.event_source !== 'river_condition') continue;
     const key = `${d.user_id}|${d.river_id}|${d.kind}`;
     const at = new Date(d.sent_at).getTime();
     if (!lastSent.has(key) || at > (lastSent.get(key) ?? 0)) lastSent.set(key, at);
+
+    const toldKey = `${d.user_id}|${d.river_id}`;
+    const told = lastTold.get(toldKey);
+    if (!told || at > told.at) lastTold.set(toldKey, { at, rank: toldRank(d) });
   }
 
   const planned: PlannedMessage[] = [];
@@ -333,11 +372,19 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
       // No entitlement check. Alerting is free in its entirety — see the header
       // of /api/me/alert-subscriptions for why the tier was collapsed rather
       // than arbitrated. Holding a subscription IS the permission to be pushed.
+      //
+      // The cooldown stops REPEATS, and a warning worse than the last thing
+      // this person heard about this river is not one: "high water" at 1pm must
+      // not be the reason "dangerous water" at 3pm never arrives.
       const cooldownKey = `${sub.user_id}|${event.river_id}|${event.kind}`;
+      const toldKey = `${sub.user_id}|${event.river_id}`;
       const previous = lastSent.get(cooldownKey);
       if (previous !== undefined && now.getTime() - previous < cooldownMs) {
-        bump('cooldown');
-        continue;
+        const told = lastTold.get(toldKey);
+        if (!told || !worsensWhatWasTold(event.kind, event.new_condition_code, told.rank)) {
+          bump('cooldown');
+          continue;
+        }
       }
 
       const userTokens = tokensByUser.get(sub.user_id) ?? [];
@@ -382,6 +429,7 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
 
       // Suppress duplicates for this user within the same pass.
       lastSent.set(cooldownKey, now.getTime());
+      lastTold.set(toldKey, { at: now.getTime(), rank: elevatedRank(event.new_condition_code) });
       if (sub.one_shot) oneShotSubscriptionIds.add(sub.id);
     }
   }

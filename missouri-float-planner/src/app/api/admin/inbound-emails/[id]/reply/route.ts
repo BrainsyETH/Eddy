@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { getResendClient, hasResendApiKey, pickReplyFromAddress } from '@/lib/email/resend';
-import { mapInboundEmailRow } from '@/lib/email/inbound';
+import { countUnreadInboundEmails, mapInboundEmailRow } from '@/lib/email/inbound';
 import { sanitizeRichText } from '@/lib/sanitize';
 import { renderReplyEmail, buildReplyText, htmlToText, escapeHtml, type OriginalMessage } from '@/lib/email/render';
 
@@ -156,6 +156,7 @@ async function handlePOST(
     return NextResponse.json({
       email: mapInboundEmailRow(updated ?? row),
       sendId: sent?.id ?? null,
+      unread: await countUnreadInboundEmails(supabase),
     });
   } catch (error) {
     console.error('[InboundReply] Error:', error);

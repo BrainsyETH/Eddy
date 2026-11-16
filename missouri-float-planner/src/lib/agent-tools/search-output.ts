@@ -41,6 +41,7 @@ export function summarizePlan(
     ) ||
     p.outlooks.length > 6 ||
     p.damsBelowTakeOut.length > 6 ||
+    p.hazardsAbovePutIn.length > 6 ||
     warnings.length > 6 ||
     warnings.some((w) => w.length > 240);
   return {
@@ -58,6 +59,7 @@ export function summarizePlan(
       conditionAvailability: p.conditionAvailability,
       conditionNote: p.conditionNote,
       damsBelowTakeOut: p.damsBelowTakeOut.slice(0, 6),
+      hazardsAbovePutIn: p.hazardsAbovePutIn.slice(0, 6),
       floatTimeWithheldReason: p.floatTimeWithheldReason,
       anchorGauge: p.anchorGauge,
       routeAssessment: {

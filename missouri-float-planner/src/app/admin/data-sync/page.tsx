@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { adminFetch } from '@/hooks/useAdminAuth';
+import { fetchAllAdminRows } from '@/lib/admin/fetch-all';
 import {
   RefreshCw, Eye, Download, CheckCircle, XCircle, AlertTriangle,
   ExternalLink, MapPin, ArrowUpRight, Activity, ChevronDown, ChevronUp,
@@ -171,9 +172,10 @@ export default function DataSyncPage() {
   async function promotePOI(facilityId: string, facilityName: string) {
     setPromoting(facilityId);
     try {
-      const listResp = await adminFetch('/api/admin/pois');
-      if (!listResp.ok) throw new Error('Failed to fetch POIs');
-      const { pois } = await listResp.json();
+      // Every page: the list defaults to 50 rows, and a POI on a later page
+      // used to be reported as "not found".
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pois = await fetchAllAdminRows<any>(adminFetch, '/api/admin/pois', 'pois');
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const poi = pois.find((p: any) =>

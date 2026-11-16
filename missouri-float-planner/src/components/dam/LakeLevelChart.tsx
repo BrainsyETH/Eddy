@@ -49,6 +49,7 @@ export default function LakeLevelChart({
   const model = useMemo(() => lakeChartModel(history, { conservationFt, now }), [history, conservationFt, now]);
   const [hoverAt, setHoverAt] = useState<number | null>(null);
   const titleId = useId();
+  const fillId = useId();
   const [frame, W] = useMeasuredWidth<HTMLElement>();
   if (!model) return null;
 
@@ -90,6 +91,8 @@ export default function LakeLevelChart({
           if (e.key === 'ArrowRight' && index < model.points.length - 1) { setHoverAt(model.points[index + 1].t); e.preventDefault(); }
         }}
       >
+        <defs><linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity=".24" /><stop offset="100%" stopColor="var(--color-primary-400)" stopOpacity=".02" /></linearGradient></defs>
+        <path d={`${path} L${x(model.points[model.points.length - 1].t)} ${H - PAD.bottom} L${x(model.points[0].t)} ${H - PAD.bottom} Z`} fill={`url(#${fillId})`} aria-hidden="true" />
         {model.valueTicks.map((tick) => (
           <g key={tick.value}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(tick.value)} y2={y(tick.value)} className="stroke-neutral-200" strokeWidth={1} />

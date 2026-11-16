@@ -21,6 +21,9 @@ import { openExternalLink } from '@/lib/openExternalLink';
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
+import { RiverPageHeader } from '@/components/RiverPageHeader';
+import { useRiverHeaderTitle } from '@/hooks/useRiverHeaderTitle';
+import { riverHeaderPhoto } from '@/lib/riverHeader';
 import { RiverGuideLink } from '@/components/RiverGuideCard';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useAppConfig } from '@/hooks/useAppConfig';
@@ -381,6 +384,7 @@ export default function RiverDetailScreen() {
   const headerHeight = useHeaderHeight();
   // Programmatic anchors must clear the translucent bar as well as its safe area.
   const readTopInset = Platform.OS === 'ios' ? headerHeight : 0;
+  const riverHeader = useRiverHeaderTitle(slug, readTopInset);
   const readScroll = useRef<ScrollView>(null);
   const readAnchor = useRef<{ key: string; y: number | null; done: boolean; scrolledTo?: number }>({ key: '', y: null, done: false });
   const readTargetKey = JSON.stringify([slug, focus]);
@@ -426,6 +430,9 @@ export default function RiverDetailScreen() {
   const canRequestPremium = accountLoaded && !accountError && Boolean(entitlement?.isActive);
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
+  const [failedHeaderPhoto, setFailedHeaderPhoto] = useState<string | null>(null);
+  const selectedPhoto = riverHeaderPhoto(river);
+  const headerPhoto = selectedPhoto?.url === failedHeaderPhoto ? null : selectedPhoto;
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
   const now = useObservationClock();
   const [conditionReceipt, setConditionReceipt] = useState<{
@@ -1359,7 +1366,7 @@ export default function RiverDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-      <Stack.Screen options={{ title: river.name }} />
+      <Stack.Screen options={{ title: river.name, headerTitle: riverHeader.collapsed ? river.name : '' }} />
       <NativeHeaderHome />
 
       <Stack.Toolbar placement="right">
@@ -1386,18 +1393,14 @@ export default function RiverDetailScreen() {
 
       <ScrollView ref={readScroll} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
         onContentSizeChange={() => { if (displayedOutlook || !outlookPending) scrollToRead(); }}
+        onScroll={riverHeader.onScroll} scrollEventThrottle={32}
         onScrollBeginDrag={() => { readAnchor.current.done = true; hazardsAnchor.current.done = true; }}>
-        {/* The way back to the rule that fired the push this screen answered.
-            Renders nothing on ordinary navigation — only a notification tap
-            carries the params. First in the scroll: the person it serves just
-            arrived from the notification, before any reading. */}
-        <AlertOriginRow alertId={alertId} alertSource={alertSource} />
+        <RiverPageHeader key={`${river.slug}:${headerPhoto?.url ?? 'plain'}`} name={river.name}
+          meta={[river.region ?? river.state, river.lengthMiles ? `${Math.round(river.lengthMiles)} river miles` : null].filter(Boolean).join(' · ')}
+          photo={headerPhoto} topInset={readTopInset} onPhotoError={setFailedHeaderPhoto} onTitleBottom={riverHeader.onTitleBottom} />
 
-        <Text style={[styles.riverName, { color: colors.text }]}>{river.name}</Text>
-        <Text style={[styles.riverMeta, { color: colors.textMuted }]}>
-          {river.region ?? river.state}
-          {river.lengthMiles ? ` · ${Math.round(river.lengthMiles)} river miles` : ''}
-        </Text>
+        {/* Notification context stays before the readings it explains. */}
+        <AlertOriginRow alertId={alertId} alertSource={alertSource} />
 
         {/* ── Which gauge everything below is about ─────────────
             ABOVE THE CARD, not buried inside it. It used to sit under the
@@ -2033,8 +2036,6 @@ const styles = StyleSheet.create({
   sectionReport: { borderRadius: 16, marginBottom: 14 },
   sectionDam: { paddingHorizontal: 16 },
   sectionRetry: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 4 },
-  riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
-  riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   caveat: {
     flexDirection: 'row',

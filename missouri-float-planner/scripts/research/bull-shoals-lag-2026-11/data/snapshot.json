@@ -1,0 +1,33 @@
+{
+  "fetched_at_utc": "2026-11-12T19:23:54Z",
+  "start_utc": "2025-01-01T00:00:00Z",
+  "end_exclusive_utc": "2026-11-12T18:00:00Z",
+  "hours": 16338,
+  "files": {
+    "release_hourly.csv.gz": {
+      "bull_shoals_cfs": 16338,
+      "norfork_cfs": 16338
+    },
+    "stage_norfork_07057370.csv.gz": {
+      "samples": 64806,
+      "first": "2025-01-01 00:00:00+00:00",
+      "last": "2026-11-12 17:45:00+00:00"
+    },
+    "stage_calico_07060500.csv.gz": {
+      "samples": 65293,
+      "first": "2025-01-01 00:00:00+00:00",
+      "last": "2026-11-12 17:45:00+00:00"
+    },
+    "tributary_hourly.csv.gz": {
+      "buffalo_cfs": 16330,
+      "crooked_cfs": 16205
+    }
+  },
+  "sha256": {
+    "release_hourly.csv.gz": "167044b95c85a34d1237637a9bbdfa1feb7839249158d106f936ffd87d9f47b8",
+    "stage_calico_07060500.csv.gz": "1b76785695694c564d9a94f0d5f668fdb5ce20343090b96b0f91b327dbef7f32",
+    "stage_norfork_07057370.csv.gz": "361ad350b3a8d1a1f5d8b616cc66884bb04c5337ffd4d0b01b59bdf2d7326779",
+    "tributary_hourly.csv.gz": "5692fc7867165c02ea8a853f1f61f3653b1a3c0ebbb958764b20174a1c8e54e3"
+  },
+  "note": "USGS values newer than a few months are provisional and can be revised."
+}

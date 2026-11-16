@@ -56,6 +56,9 @@
     },
     "src/app/api/cron/collect-rainfall-forecasts/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/log-release-arrivals/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -222,6 +225,10 @@
     {
       "path": "/api/cron/collect-rainfall-forecasts",
       "schedule": "43 */3 * * *"
+    },
+    {
+      "path": "/api/cron/log-release-arrivals",
+      "schedule": "32 * * * *"
     }
   ]
 }

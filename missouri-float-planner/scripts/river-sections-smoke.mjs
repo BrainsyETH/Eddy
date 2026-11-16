@@ -317,8 +317,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
         assert.equal(await forecast.getByText('0.00 ft', { exact: true }).count(), 1);
         assert.equal(await forecast.getByText('No river forecast', { exact: true }).count(), 1);
       }
-      const rowY = await forecast.evaluate(node => node.getBoundingClientRect().top);
-      const weatherEnd = await weather.locator(':scope > .grid').evaluate(node => node.getBoundingClientRect().bottom);
+      // Read both positions in one frame: a loading Read above this panel can
+      // settle between separate Playwright calls and move both rows together.
+      const [rowY, weatherEnd] = await weather.evaluate(node => [
+        node.querySelector('[aria-label="NWS river forecast, daily high"]').getBoundingClientRect().top,
+        node.querySelector(':scope > .grid').getBoundingClientRect().bottom,
+      ]);
       assert(rowY >= weatherEnd - 1, 'Official heights follow the entire weather row');
     }
     assert.equal(await weather.getByText(/^(Good|Flowing|Low|Too Low|High|Flood)$/).count(), 0, 'Weather days must not imply an overall condition rating');

@@ -1,0 +1,190 @@
+{
+ "period": [
+  "2019-01-01",
+  "2022-01-01"
+ ],
+ "datum_check": {
+  "reference_ft": 5.025,
+  "test_ft": 4.9175
+ },
+ "release_hours_present": 0.8741,
+ "primary": {
+  "availability": {
+   "detected_increases": 385,
+   "withheld": 331,
+   "issued and evaluated": 39,
+   "issued, outcome not determined": 11,
+   "issued, then withdrawn before the rise": 4,
+   "withheld_by_reason": {
+    "release already raised": 177,
+    "increase under 2,000 cfs": 103,
+    "river high": 45,
+    "tributaries moving": 4,
+    "smaller increase went first": 2
+   },
+   "not_determined_because": {
+    "gauge gap": 0,
+    "ambiguous match": 11,
+    "no rise found": 0
+   },
+   "withdrawn_because": {
+    "tributaries started moving": 4
+   }
+  },
+  "scores": {
+   "n": 39,
+   "share_within_2h": 0.8974,
+   "share_more_than_2h_early": 0.0769,
+   "share_more_than_2h_late": 0.0256,
+   "median_abs_error_h": 0.6923,
+   "largest_early_h": 8.1904,
+   "largest_late_h": 5.9516,
+   "early_edge_95_h": 2.4235,
+   "share_inside_range": 0.8718,
+   "share_before_early_edge": 0.0769,
+   "share_after_late_edge": 0.0513
+  },
+  "verdict": "INCONCLUSIVE",
+  "by_year": {
+   "2019": {
+    "n": 4,
+    "share_within_2h": 1.0,
+    "share_more_than_2h_early": 0.0,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 1.1099,
+    "largest_early_h": 1.395,
+    "largest_late_h": -0.7495,
+    "early_edge_95_h": 1.3933,
+    "share_inside_range": 1.0,
+    "share_before_early_edge": 0.0,
+    "share_after_late_edge": 0.0
+   },
+   "2020": {
+    "n": 14,
+    "share_within_2h": 0.8571,
+    "share_more_than_2h_early": 0.0714,
+    "share_more_than_2h_late": 0.0714,
+    "median_abs_error_h": 0.8875,
+    "largest_early_h": 8.1904,
+    "largest_late_h": 5.9516,
+    "early_edge_95_h": 3.7801,
+    "share_inside_range": 0.8571,
+    "share_before_early_edge": 0.0714,
+    "share_after_late_edge": 0.0714
+   },
+   "2021": {
+    "n": 21,
+    "share_within_2h": 0.9048,
+    "share_more_than_2h_early": 0.0952,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3619,
+    "largest_early_h": 2.6049,
+    "largest_late_h": 1.9788,
+    "early_edge_95_h": 2.4034,
+    "share_inside_range": 0.8571,
+    "share_before_early_edge": 0.0952,
+    "share_after_late_edge": 0.0476
+   }
+  },
+  "by_rain_hindsight": {
+   "0.5 inch or more": {
+    "n": 6,
+    "share_within_2h": 0.8333,
+    "share_more_than_2h_early": 0.1667,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 1.1905,
+    "largest_early_h": 2.4034,
+    "largest_late_h": -0.6923,
+    "early_edge_95_h": 2.1513,
+    "share_inside_range": 0.8333,
+    "share_before_early_edge": 0.1667,
+    "share_after_late_edge": 0.0
+   },
+   "under 0.5 inch": {
+    "n": 33,
+    "share_within_2h": 0.9091,
+    "share_more_than_2h_early": 0.0606,
+    "share_more_than_2h_late": 0.0303,
+    "median_abs_error_h": 0.5034,
+    "largest_early_h": 8.1904,
+    "largest_late_h": 5.9516,
+    "early_edge_95_h": 1.8948,
+    "share_inside_range": 0.8788,
+    "share_before_early_edge": 0.0606,
+    "share_after_late_edge": 0.0606
+   }
+  },
+  "lead_time": {
+   "data 0 h late": {
+    "median_lead_h": 10.0,
+    "p10_lead_h": 8.5,
+    "share_with_3h_or_more": 0.9744
+   },
+   "data 2 h late": {
+    "median_lead_h": 8.0,
+    "p10_lead_h": 6.5,
+    "share_with_3h_or_more": 0.9744
+   },
+   "data 5 h late": {
+    "median_lead_h": 5.0,
+    "p10_lead_h": 3.5,
+    "share_with_3h_or_more": 0.9744
+   }
+  },
+  "withdrawn_what_happened": {
+   "n": 4,
+   "with_known_outcome": 3,
+   "would_have_been_more_than_2h_early": 0,
+   "would_have_been_within_2h": 3
+  },
+  "without_the_watch": {
+   "n": 42,
+   "share_within_2h": 0.9048,
+   "share_more_than_2h_early": 0.0714,
+   "share_more_than_2h_late": 0.0238,
+   "median_abs_error_h": 0.7209,
+   "largest_early_h": 8.1904,
+   "largest_late_h": 5.9516,
+   "early_edge_95_h": 2.3595,
+   "share_inside_range": 0.8571,
+   "share_before_early_edge": 0.0952,
+   "share_after_late_edge": 0.0476
+  }
+ },
+ "pessimistic_first_rise_of_any_cause": {
+  "availability": {
+   "detected_increases": 385,
+   "withheld": 331,
+   "issued and evaluated": 51,
+   "issued, then withdrawn before the rise": 3,
+   "withheld_by_reason": {
+    "release already raised": 177,
+    "increase under 2,000 cfs": 103,
+    "river high": 45,
+    "tributaries moving": 4,
+    "smaller increase went first": 2
+   },
+   "not_determined_because": {
+    "gauge gap": 0,
+    "ambiguous match": 0,
+    "no rise found": 0
+   },
+   "withdrawn_because": {
+    "tributaries started moving": 3
+   }
+  },
+  "scores": {
+   "n": 51,
+   "share_within_2h": 0.902,
+   "share_more_than_2h_early": 0.0784,
+   "share_more_than_2h_late": 0.0196,
+   "median_abs_error_h": 0.7779,
+   "largest_early_h": 8.1904,
+   "largest_late_h": 5.9516,
+   "early_edge_95_h": 2.5041,
+   "share_inside_range": 0.8431,
+   "share_before_early_edge": 0.1176,
+   "share_after_late_edge": 0.0392
+  }
+ }
+}

@@ -13,8 +13,52 @@ import {
   notificationControlKind,
   notificationDetail,
 } from '../../../eddy-ios/src/lib/notificationCopy';
+import { alertNotificationNotice, type NotificationSnapshot } from '../../../eddy-ios/src/lib/alertNotificationSetup';
 
 const base = { permission: 'granted' as const, registered: true };
+const readyPhone: NotificationSnapshot = { ...base, optedOut: false, held: null };
+
+test('saved alerts offer the right recovery for every device permission state', () => {
+  assert.equal(alertNotificationNotice(readyPhone, true), null);
+  assert.equal(alertNotificationNotice({ ...readyPhone, permission: 'undetermined', registered: false }, true)?.action, 'ask');
+  assert.equal(alertNotificationNotice({ ...readyPhone, permission: 'denied' }, true)?.action, 'settings');
+  assert.equal(alertNotificationNotice({ ...readyPhone, optedOut: true }, true)?.action, 'enable');
+  assert.equal(alertNotificationNotice({ ...readyPhone, registered: false }, true)?.action, 'retry');
+});
+
+test('Premium restore does not prove this phone can receive a saved alert', () => {
+  // Permission can remain granted while sign-out removed the registration.
+  const afterRestore = { ...readyPhone, registered: false };
+  assert.equal(alertNotificationNotice(afterRestore, true)?.action, 'retry');
+  assert.equal(alertNotificationNotice({ ...afterRestore, registered: true }, true), null);
+  // An explicit device opt-out must survive sign-in; enabling needs a tap.
+  assert.equal(alertNotificationNotice({ ...afterRestore, optedOut: true }, true)?.action, 'enable');
+});
+
+test('saved-alert recovery never offers a permission prompt for iOS denial', () => {
+  for (const optedOut of [false, true]) {
+    for (const registered of [false, true]) {
+      const notice = alertNotificationNotice({ ...readyPhone, permission: 'denied', optedOut, registered }, true);
+      assert.equal(notice?.action, 'settings');
+      assert.match(notice.message, /iOS Settings/);
+    }
+  }
+});
+
+test('unavailable push and unsupported devices cannot spend the iOS permission prompt', () => {
+  for (const permission of ['undetermined', 'denied', 'granted', 'unsupported'] as const) {
+    assert.equal(alertNotificationNotice({ ...readyPhone, permission }, false)?.action, null);
+  }
+  assert.equal(alertNotificationNotice({ ...readyPhone, permission: 'unsupported' }, true)?.action, null);
+});
+
+test('saved-alert setup preserves the account-claim explanation', () => {
+  for (const held of ['sent', 'unknown', 'limited', 'unavailable'] as const) {
+    const notice = alertNotificationNotice({ ...readyPhone, registered: false, held }, true);
+    assert.equal(notice?.action, 'retry');
+    assert.match(notice.message, /account it used before/);
+  }
+});
 
 test('the working state says what will happen', () => {
   assert.match(notificationDetail(base), /will get a push/i);

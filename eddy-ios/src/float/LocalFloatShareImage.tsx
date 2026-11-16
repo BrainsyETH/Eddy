@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Image, Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Image, Path, Rect, Text as SvgText } from 'react-native-svg';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
-import { localFloatShare, shareTextLines } from '@/lib/localFloatShare';
-import { lightPalette as ink } from '@/theme/palette';
+import { compactShareDuration, floatShareLayout } from '@eddy/conditions/float-share-layout';
+import { localFloatShare } from '@/lib/localFloatShare';
 import { fonts } from '@/theme/typography';
+
+const faces = { display: fonts.display, heading: fonts.heading, body: fonts.body, mono: fonts.monoMedium };
 
 /** Mounted only during an offline export. Existing SVG native code produces the PNG. */
 function LocalFloatShareImage({ trip, ready, failed }: {
@@ -32,28 +34,18 @@ function LocalFloatShareImage({ trip, ready, failed }: {
     });
     return () => cancelAnimationFrame(frame);
   }, [laidOut, art, ready, failed]);
-  const lines = (value: string, y: number, size: number, family: string, color: string, limit = 28) =>
-    shareTextLines(value, limit).map((line, i) => <SvgText key={`${y}-${i}`} x={90} y={y + i * (size + 12)}
-      fill={color} fontFamily={family} fontSize={size}>{line}</SvgText>);
+  const layout = floatShareLayout({ ...model, duration: compactShareDuration(model.duration), distanceLabel: 'Distance' });
   return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.export}>
     <Svg ref={svg} width={360} height={640} viewBox="0 0 1080 1920" onLayout={() => setLaidOut(true)}>
-      <Rect width={1080} height={1920} fill={ink.bg} />
-      <SvgText x={90} y={190} fill={ink.interactive} fontFamily={fonts.display} fontSize={72}>Eddy</SvgText>
-      <SvgText x={90} y={248} fill={ink.textMuted} fontFamily={fonts.body} fontSize={32}>A day on the river</SvgText>
-      {art !== 'omit' ? <Image href={require('../../assets/otter/standard.png')} x={690} y={115} width={260} height={260}
+      {layout.elements.map((item, i) => item.kind === 'box'
+        ? <Rect key={i} x={item.x} y={item.y} width={item.width} height={item.height} rx={item.radius}
+          fill={item.fill} stroke={item.border} strokeWidth={item.border ? 2 : 0} />
+        : item.kind === 'path' ? <Path key={i} d={item.d} fill={item.fill} stroke={item.stroke} strokeWidth={item.strokeWidth} />
+        : <SvgText key={i} x={item.center ? item.x + item.width / 2 : item.x} y={item.y + item.size * 0.96}
+          fill={item.color} fontFamily={faces[item.face]} fontSize={item.size}
+          textAnchor={item.center ? 'middle' : 'start'}>{item.text}</SvgText>)}
+      {art !== 'omit' ? <Image href={require('../../assets/otter/standard.png')} {...layout.art}
         onLoad={() => setArt(current => current === 'loading' ? 'ready' : current)} /> : null}
-      {lines(model.river, 470, 64, fonts.display, ink.text, 23)}
-      <SvgText x={90} y={730} fill={ink.textMuted} fontFamily={fonts.body} fontSize={30}>{model.date}</SvgText>
-      <Line x1={90} x2={990} y1={790} y2={790} stroke={ink.borderStrong} strokeWidth={2} />
-      <SvgText x={90} y={870} fill={ink.interactive} fontFamily={fonts.semibold} fontSize={25}>FROM</SvgText>
-      {lines(model.from, 930, 38, fonts.heading, ink.text, 36)}
-      <SvgText x={90} y={1130} fill={ink.interactive} fontFamily={fonts.semibold} fontSize={25}>TO</SvgText>
-      {lines(model.to, 1190, 38, fonts.heading, ink.text, 36)}
-      <Line x1={90} x2={990} y1={1360} y2={1360} stroke={ink.borderStrong} strokeWidth={2} />
-      <SvgText x={90} y={1460} fill={ink.text} fontFamily={fonts.monoMedium} fontSize={48}>{model.distance ?? model.duration}</SvgText>
-      <SvgText x={90} y={1520} fill={ink.textMuted} fontFamily={fonts.body} fontSize={30}>{model.distance ? `${model.duration} on the river` : 'Total time'}</SvgText>
-      <SvgText x={90} y={1610} fill={ink.textMuted} fontFamily={fonts.body} fontSize={28}>{model.tracking ?? model.arrival}</SvgText>
-      <SvgText x={90} y={1770} fill={ink.interactive} fontFamily={fonts.display} fontSize={42}>eddy.guide</SvgText>
     </Svg>
   </View>;
 }

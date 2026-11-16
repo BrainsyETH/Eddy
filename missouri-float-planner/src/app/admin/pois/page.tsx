@@ -34,8 +34,8 @@ interface POI {
   source: string;
   npsId: string | null;
   npsUrl: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   riverMile: number | null;
   images: string[];
   amenities: string[];
@@ -184,7 +184,7 @@ export default function AdminPOIsPage() {
           <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             {error}
-            <button onClick={() => setError(null)} className="ml-auto"><X className="w-4 h-4" /></button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="ml-auto"><X className="w-4 h-4" /></button>
           </div>
         )}
         {successMessage && (
@@ -320,7 +320,7 @@ export default function AdminPOIsPage() {
         ) : (
           <>
             <p className="text-sm text-neutral-400">
-              {filteredPOIs.length} of {pois.length} points of interest
+              {totalPois} matching points of interest · {filteredPOIs.length} on this page
             </p>
             <div className="space-y-2">
               {filteredPOIs.map(poi => (
@@ -349,7 +349,7 @@ export default function AdminPOIsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${poi.active ? 'bg-green-500/20 text-green-400' : 'bg-neutral-600 text-neutral-400'}`}>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${poi.active ? 'bg-green-500/20 text-green-400' : 'bg-neutral-700 text-neutral-300'}`}>
                         {poi.active ? 'Active' : 'Inactive'}
                       </span>
                       {poi.npsUrl && (
@@ -372,11 +372,11 @@ export default function AdminPOIsPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
                           <span className="text-neutral-400 text-xs">Latitude</span>
-                          <p className="text-white font-mono">{poi.latitude.toFixed(6)}</p>
+                          <p className="text-white font-mono">{poi.latitude == null ? 'Not set' : poi.latitude.toFixed(6)}</p>
                         </div>
                         <div>
                           <span className="text-neutral-400 text-xs">Longitude</span>
-                          <p className="text-white font-mono">{poi.longitude.toFixed(6)}</p>
+                          <p className="text-white font-mono">{poi.longitude == null ? 'Not set' : poi.longitude.toFixed(6)}</p>
                         </div>
                         <div>
                           <span className="text-neutral-400 text-xs">River Mile</span>

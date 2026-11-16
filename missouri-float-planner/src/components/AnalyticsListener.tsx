@@ -9,9 +9,10 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAppCampaign } from '@/components/AppLink';
-import { APP_STORE } from '@/lib/app-discovery';
+import { APP_STORE, campaignToken } from '@/lib/app-discovery';
 import { initializeAnalytics, trackEvent, trackPageView, trackNavigationClick } from '@/lib/analytics';
 import { getDamAppPromotion } from '@/lib/dam-app-promotion';
+import { appDestination } from '@/lib/app-destination';
 
 export default function AnalyticsListener({ trackingId }: { trackingId?: string }) {
   const campaign = useAppCampaign();
@@ -34,13 +35,17 @@ export default function AnalyticsListener({ trackingId }: { trackingId?: string 
       const action = el.dataset.gaEvent;
       if (!action) return;
       const label = el.dataset.gaLabel;
-      const dam = getDamAppPromotion(el.dataset.gaDamId);
+      const dam = appDestination({ dam: el.dataset.gaDamId });
+      const destination = el.dataset.gaAppDestination;
+      const read = el.dataset.gaAppFeature === 'read';
       trackEvent(action, {
         ...(label ? { label } : {}),
         ...(dam ? { dam_id: dam.id } : {}),
-        ...(action === 'app_store_click' ? {
+        ...(['app_store_click', 'app_landing_click', 'app_open_click'].includes(action) ? {
           page_path: window.location.pathname,
-          app_campaign: campaign ?? dam?.campaign ?? APP_STORE.campaign ?? 'website_download',
+          ...(destination && /^\/(river|gauge|dam|float)\/[a-zA-Z0-9_-]{1,128}(\/access\/[a-zA-Z0-9_-]{1,128})?$/.test(destination) ? { app_destination: destination } : {}),
+          ...(read ? { app_feature: 'read' } : {}),
+          app_campaign: campaignToken(el.dataset.gaCampaign) ?? campaign ?? getDamAppPromotion(dam?.id)?.campaign ?? APP_STORE.campaign ?? 'website_download',
           transport_type: 'beacon',
         } : {}),
       });

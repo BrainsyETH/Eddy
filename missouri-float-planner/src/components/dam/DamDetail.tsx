@@ -27,19 +27,16 @@ export default function DamDetail({ dam, renderedAt, availability, lake, lakeHre
   const { now, refreshing } = useDamPageClock(renderedAt);
   const { poolElevation, tailwaterElevation, tailwaterTempF, inflow } = dam.metrics;
   const hasMeasurements = Boolean(poolElevation || tailwaterElevation || tailwaterTempF || inflow || dam.tailwaterFishery);
-  // Optional lake data never decides which operation leads. The existing
-  // non-pilot layout remains intact. No database reader enters this client.
+  // Optional lake data only controls the lake preview. Every dam keeps the
+  // same schedule, observed readings and interpretation order.
   const pilot = lakeExperienceEnabled && Boolean(lake);
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
       <GenerationCard dam={dam} now={now} availability={availability} />
-      {pilot && hasMeasurements && <DamStateCard dam={dam} secondary now={now} />}
+      {hasMeasurements && <DamStateCard dam={dam} secondary now={now} lakePool={pilot ? lake?.pool : undefined} />}
       {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}
-      <div className="dam-support-layout">
-        {!pilot && hasMeasurements && <DamStateCard dam={dam} secondary now={now} />}
-        {dam.pattern && dam.pattern.length > 0 && <DamPatternStrip pattern={dam.pattern} schedule={dam.schedule} reference={dam.generationReference} generationFloorCfs={dam.generationFloorCfs} now={now} />}
-      </div>
+      {dam.pattern && dam.pattern.length > 0 && <DamPatternStrip pattern={dam.pattern} schedule={dam.schedule} reference={dam.generationReference} generationFloorCfs={dam.generationFloorCfs} now={now} />}
       {pilot && lake && <LakePreview lake={lake} now={now} href={lakeHref} />}
       <p className="min-h-4 text-right text-xs text-neutral-500" aria-live="polite">{refreshing ? 'Checking for updates…' : null}</p>
     </div>
