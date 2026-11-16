@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { deflateSync, gunzipSync, gzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { CORRECTED_HOURS, CORRECTED_PRODUCTS, correctedTile, correctedUrl, tileTiff } from './corrected-source';
+import { CORRECTED_HOURS, CORRECTED_PRODUCTS, correctedListed, correctedListUrl, correctedTile, correctedUrl, tileTiff } from './corrected-source';
 import { collectCorrected } from './corrected-sync';
 import { nativePixels } from './native-grid';
 import { hash, type Tile } from './research-contract';
@@ -113,15 +113,36 @@ function archiveOf(rows: { source_key: string; valid_end: string; metadata?: unk
     range: async () => ({ data: rows, error: null }), maybeSingle: async () => ({ data: rows.find(row => row.metadata) ?? null, error: null }) };
   return { from: () => query } as unknown as SupabaseClient;
 }
+// NOAA's archive as the collector sees it: a listing per product and day, and the listed files.
+const listing = (keys: string[], truncated = false) => `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>noaa-mrms-pds</Name><IsTruncated>${truncated}</IsTruncated>${keys.map(key => `<Contents><Key>${key}</Key><Size>1</Size></Contents>`).join('')}</ListBucketResult>`;
 const published = (available: (hours: number, end: number) => boolean, requests: string[] = []) => async (url: string) => {
   requests.push(url);
+  const list = /\?list-type=2&prefix=CONUS\/MultiSensor_QPE_(\d\d)H_Pass2_00\.00\/(\d{4})(\d\d)(\d\d)\/$/.exec(url);
+  if (list) {
+    const hours = Number(list[1]) as 1 | 24 | 72, day = Date.UTC(Number(list[2]), Number(list[3]) - 1, Number(list[4]));
+    return Buffer.from(listing(Array.from({ length: 24 }, (_, hour) => day + hour * HOUR).filter(end => available(hours, end))
+      .map(end => new URL(correctedUrl(hours, new Date(end).toISOString())).pathname.slice(1))));
+  }
   const match = /MultiSensor_QPE_(\d\d)H_Pass2_00\.00_(\d{4})(\d\d)(\d\d)-(\d\d)0000/.exec(url)!, hours = Number(match[1]) as 1 | 24 | 72;
   const end = Date.UTC(Number(match[2]), Number(match[3]) - 1, Number(match[4]), Number(match[5]));
-  if (!available(hours, end)) throw new Error('Research source HTTP 404');
+  assert.ok(available(hours, end), `asked for a file NOAA has not listed: ${url}`);
   return grib(new Date(end).toISOString(), CORRECTED_PRODUCTS[hours].parameter);
 };
 
-test('a run archives every recent hour it is missing, newest first, and waits for unpublished ones', async () => {
+test('the archive listing names the hours NOAA has published, and a partial listing is refused', () => {
+  assert.equal(correctedListUrl(1, '20261116'), 'https://noaa-mrms-pds.s3.amazonaws.com/?list-type=2&prefix=CONUS/MultiSensor_QPE_01H_Pass2_00.00/20261116/');
+  const key = new URL(correctedUrl(1, '2026-11-16T19:00:00Z')).pathname.slice(1);
+  const other = new URL(correctedUrl(24, '2026-11-16T18:00:00Z')).pathname.slice(1);
+  // Another product, a mismatched day and a half-hour file are not hours of this product.
+  const xml = listing([key, other, key.replace('-190000', '-193000'), key.replace('20261116-190000', '20261115-170000')]);
+  assert.deepEqual([...correctedListed(xml, 1)], ['2026-11-16T19:00:00.000Z']);
+  assert.deepEqual([...correctedListed(listing([]), 1)], []);
+  assert.throws(() => correctedListed(listing([key], true), 1), /Incomplete/);
+  assert.throws(() => correctedListed('<Error><Code>SlowDown</Code></Error>', 1), /Incomplete/);
+  assert.throws(() => correctedListUrl(1, '2026-11-16'), /YYYYMMDD/);
+});
+
+test('a run archives every recent hour it is missing, newest first, and never requests an unpublished one', async () => {
   const now = Date.parse('2026-11-16T20:18:00Z'), top = Date.parse('2026-11-16T20:00:00Z'), saved: Omit<Capture, 'basinSetHash'>[] = [], requests: string[] = [];
   const input = { basinIds: ['basin'], basinSetHash: 'set', now, tile };
   // 19:00 is the newest NOAA has published; 18:00 is already archived; 15:00 never arrived.
@@ -146,7 +167,8 @@ test('a run archives every recent hour it is missing, newest first, and waits fo
   const full = archiveOf(saved.map(capture => ({ source_key: capture.sourceKey, valid_end: capture.end! })).concat([{ source_key: 'MultiSensor_QPE_01H_Pass2', valid_end: new Date(top - 2 * HOUR).toISOString() }]));
   assert.deepEqual(await collectCorrected(full, { ...input, lookbackHours: 8 }, new AbortController().signal, published(available, again), async () => { assert.fail('nothing new'); }),
     { completed: 0, failed: 0, pending: 1, stale: 0 });
-  assert.equal(again.length, 4, 'the current hour, the gap, and the current hour of each total');
+  assert.deepEqual(again.map(url => new URL(url).searchParams.get('prefix')), ['CONUS/MultiSensor_QPE_01H_Pass2_00.00/20261116/',
+    'CONUS/MultiSensor_QPE_24H_Pass2_00.00/20261116/', 'CONUS/MultiSensor_QPE_72H_Pass2_00.00/20261116/'], 'three listings and no file request');
 });
 
 test('a source outage is stale, a corrupt file is a failure, and the last archived tile stands in for a hosted outage', async () => {
@@ -155,8 +177,14 @@ test('a source outage is stale, a corrupt file is a failure, and the last archiv
   try {
     const nothing = await collectCorrected(archiveOf([]), { basinIds: ['basin'], basinSetHash: 'set', now, tile }, new AbortController().signal, published(() => false), async () => {});
     assert.deepEqual(nothing, { completed: 0, failed: 0, pending: 10, stale: 1 });
-    const corrupt = await collectCorrected(archiveOf([]), { basinIds: ['basin'], basinSetHash: 'set', now, tile, maxHourly: 2 }, new AbortController().signal, async () => new Uint8Array([1, 2, 3]), async () => {});
+    const listed = published(() => true);
+    const corrupt = await collectCorrected(archiveOf([]), { basinIds: ['basin'], basinSetHash: 'set', now, tile, maxHourly: 2 }, new AbortController().signal,
+      async url => url.includes('list-type') ? listed(url) : new Uint8Array([1, 2, 3]), async () => {});
     assert.deepEqual(corrupt, { completed: 0, failed: 4, pending: 0, stale: 1 });
+    // An unreadable listing is one failure per product, and no file is requested on a guess.
+    const unlisted = await collectCorrected(archiveOf([]), { basinIds: ['basin'], basinSetHash: 'set', now, tile }, new AbortController().signal,
+      async url => { assert.ok(url.includes('list-type'), 'no file request without a listing'); throw new Error('Research source HTTP 503'); }, async () => {});
+    assert.deepEqual(unlisted, { completed: 0, failed: 3, pending: 10, stale: 1 });
     await assert.rejects(collectCorrected(archiveOf([]), { basinIds: ['basin'], basinSetHash: 'set', now, tile: null }, new AbortController().signal, published(() => true), async () => {}), /No archived tile/);
     const fallback = archiveOf([{ source_key: 'conus_QPE_01H', valid_end: '2026-11-16T10:00:00Z', metadata: { tile } }]);
     const result = await collectCorrected(fallback, { basinIds: ['basin'], basinSetHash: 'set', now, tile: null, maxHourly: 1 }, new AbortController().signal, published(() => true), async capture => { saved.push(capture); });

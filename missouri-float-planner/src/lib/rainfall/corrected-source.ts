@@ -37,6 +37,26 @@ export function correctedUrl(hours: CorrectedHours, end: string): string {
   return `${CORRECTED_ORIGIN}/CONUS/${name}/${day}/MRMS_${name}_${day}-${stamp.slice(11, 19).replaceAll(':', '')}.grib2.gz`;
 }
 
+/**
+ * NOAA's own list of one product's files for one UTC day. Asking the archive
+ * what it has, instead of requesting an hour that may not exist yet, keeps the
+ * normal hour-long publication delay from being recorded as a failed request.
+ */
+export function correctedListUrl(hours: CorrectedHours, day: string): string {
+  if (!/^\d{8}$/.test(day)) throw new Error('Expected a UTC day as YYYYMMDD');
+  return `${CORRECTED_ORIGIN}/?list-type=2&prefix=CONUS/${CORRECTED_PRODUCTS[hours].key}_00.00/${day}/`;
+}
+/** The window ends (ISO) that listing names. A partial listing is an error, not a short day. */
+export function correctedListed(xml: string, hours: CorrectedHours): Set<string> {
+  if (!xml.includes('<ListBucketResult') || !xml.includes('<IsTruncated>false</IsTruncated>')) throw new Error('Incomplete rainfall archive listing');
+  const name = `${CORRECTED_PRODUCTS[hours].key}_00\\.00`, ends = new Set<string>();
+  for (const match of xml.matchAll(/<Key>([^<]+)<\/Key>/g)) {
+    const file = new RegExp(`^CONUS/${name}/(\\d{4})(\\d\\d)(\\d\\d)/MRMS_${name}_\\1\\2\\3-(\\d\\d)0000\\.grib2\\.gz$`).exec(match[1]);
+    if (file) ends.add(new Date(Date.UTC(Number(file[1]), Number(file[2]) - 1, Number(file[3]), Number(file[4]))).toISOString());
+  }
+  return ends;
+}
+
 /** GRIB2 stores negative integers as sign and magnitude, not two's complement. */
 const signed = (value: number, bits: number) => value & 2 ** (bits - 1) ? -(value & (2 ** (bits - 1) - 1)) : value;
 
