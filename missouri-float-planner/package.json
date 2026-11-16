@@ -121,7 +121,7 @@
     "geo-tz": "8.1.10"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.13",
+    "@electric-sql/pglite": "^0.5.16",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26",
     "@types/pngjs": "^6.0.5",
