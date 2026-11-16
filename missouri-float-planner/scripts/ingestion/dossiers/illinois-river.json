@@ -1,5 +1,5 @@
 {
-  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — lower section on Tahlequah 07196500 in ft (Flowing 4.0–5.5, High >5.5, Dangerous 7.5); upper section on Chewey 07196090 in cfs (150 / 190–500 / 500 / 2,000). Danger lines are owner decisions. Not signed off; readiness pending.",
+  "_status": "SIGNED-OFF 2026-11-16 — owner sign-off of the rated ladders: lower section on Tahlequah 07196500 in ft (optimal 4.0–5.5, high 6.0, dangerous 7.5 by owner decision; primary) and upper section on Chewey 07196090 in cfs (too_low 150, optimal 190–500, high 500, dangerous 2,000 by owner decision), over the corridor Watts → Murrell Home Rd. Readiness reviews other than conditions remain pending until the production checks.",
   "name": "Illinois River",
   "slug": "illinois-river",
   "primaryGaugeSiteId": "07196500",
@@ -828,10 +828,14 @@
     },
     "conditions": {
       "ratingMode": "rated",
-      "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
+      "status": "verified",
+      "evidence": [
+        "dossiers/illinois-river-research-notes.md",
+        "dossiers/verified-identifiers-illinois-river.md",
+        "https://www.riverbendfloats.com/water-level-safety-"
+      ],
+      "reviewedBy": "Owner (Evan), sign-off in Claude session 2026-11-16",
+      "reviewedAt": "2026-11-16T23:30:00Z",
       "notes": "Rated proposal (2026-11-16). Lower section, Tahlequah in ft: Flowing 4.0–5.5 (Riverbend), High above 5.5 (6.0 caution anchor), Dangerous 7.5 (owner decision). Upper section, Chewey in cfs (owner-approved pairing against the Tahlequah bands): Too Low <150, Low 150–190, Flowing 190–500, High >500, Dangerous 2,000 (owner decision). Open: whether Tahlequah ever reads too low (three-year minimum 4.42 ft). Official flood-stage overrides still apply."
     },
     "hazards": {
