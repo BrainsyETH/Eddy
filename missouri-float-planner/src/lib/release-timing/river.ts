@@ -43,7 +43,7 @@ export const PLACES: Place[] = [
   { name: 'The Narrows', mile: 9.1, minor: true },
   { name: 'Wildcat Shoals', mile: 10.8, label: { dx: 11, dy: 4, anchor: 'start' } },
   { name: 'Cotter', mile: 16.9, label: { dx: -11, dy: 4, anchor: 'end' } },
-  { name: 'Roundhouse Shoals', mile: 17.6, minor: true },
+  { name: 'Roundhouse Shoals', mile: 18.1, minor: true },
   { name: 'Rim Shoals', mile: 21.3, label: { dx: 10, dy: -8, anchor: 'start' } },
   { name: 'Ranchette', mile: 26.4, minor: true },
   { name: 'Buffalo City', mile: 30.2, label: { dx: -11, dy: 14, anchor: 'end' } },
