@@ -84,9 +84,9 @@ It is a labeled example, not live readings. Starring a dam does not configure
 this widget: users add Dam generation and select a dam in Edit Widget.
 
 `src/lib/dam-app-promotion.ts` is the shared allowlist for placement, landing
-context and analytics; it stores IDs and campaigns, not another copy of dam
+context; it stores IDs and campaigns, not another copy of dam
 names. The footer receives the snapshot's name and the server-rendered app page
-reads the registry. The link carries `dam=swl-bull-shoals-dam` (or the other
+reads the registry. On desktop, the link carries `dam=swl-bull-shoals-dam` (or the other
 allowed ID) to `/app`, plus the default campaign `dam_bull_shoals`,
 `dam_table_rock` or `dam_beaver`. An existing session campaign, including a
 partner's `ct`, keeps priority. The separate `dam_id` event parameter preserves
@@ -109,7 +109,11 @@ half of the invitation enters the viewport, with `label=dam_schedule`, `dam_id`
 and `page_path`. It uses the same GA host, automation, frame and opt-out guards;
 unsupported IntersectionObserver browsers omit the view event without hiding
 the link. This is visibility measurement, not proof the visitor read the text.
-The link emits `app_landing_click` with `label=dam_schedule`, `dam_id`, page path and campaign.
+On iPhone, the primary action opens the App Store in a new tab and emits
+`app_store_click`; the quieter “Already have Eddy? Open it” action uses the dam's
+existing native route and emits `app_open_click`. Desktop emits `app_landing_click`
+and keeps the contextual landing and QR. All three include `label=dam_schedule`,
+`dam_id`, page path and campaign. A store click is not an install.
 The two download buttons emit `app_store_click` with `dam_id` plus their
 existing placement, page path and campaign. Register `dam_id` as an
 event-scoped GA4 custom dimension if it is needed in standard reports or
@@ -156,10 +160,17 @@ background refresh. Dam-release tabs use the same public availability check as
 their teaser, rather than promising a Read that has not been published.
 Read actions go directly to the App Store on iPhone, retaining campaign attribution
 and keeping the source page open. Desktop Read actions add `feature=read` to the
-river/gauge handoff: the landing page and QR retain that topic, show the daily
+river/gauge/dam handoff: the landing page and QR retain that topic, show the daily
 report illustration and explain that the full Read requires Eddy Premium.
+`ReadAppLink` also covers the dam Read card, planner river quote and statewide
+map rail. Its labels are `dam_eddy_read`, `map_river_eddy_read` and
+`map_gauge_eddy_read`; clicks include `app_destination` (the existing native
+path) and `app_feature=read`, so different map selections remain distinguishable.
+Dam Read handoffs accept any registered dam, independently of the three-dam
+widget promotion. `dam_id` is included for those Read views and clicks too.
+Android retains the public summary and replaces the link with availability copy.
 This query parameter changes landing copy only; the banner still opens the same
-river/gauge detail. Widget invitations keep their widget-focused landing.
+river/gauge/dam detail. Widget invitations keep their widget-focused landing.
 
 On iOS, **Get Eddy for iPhone** is the primary contextual action. A quieter
 **Already have Eddy? Open…** custom-scheme link is explicitly for installed-app
@@ -418,3 +429,13 @@ References:
 - [Apple: Smart App Banners](https://developer.apple.com/documentation/webkit/promoting-apps-with-smart-app-banners)
 - [Apple: campaign links](https://developer.apple.com/help/app-store-connect-analytics/acquisition/campaign-links)
 - [Next.js: public environment variables are inlined at build time](https://nextjs.org/docs/app/guides/environment-variables)
+
+## Table Rock search-description trial (November 2026)
+
+Only Table Rock's description changes: posted generation schedule, next scheduled
+change in Central Time, current release into Taneycomo and lake level. Its title,
+canonical, schema and other dams' metadata stay unchanged. The description does
+not promise “today” when a source may be unavailable. After deployment and
+recrawl, compare mobile clicks/impressions for “table rock dam release schedule”
+with the preceding equivalent window; also check position and device mix. Google
+may choose a different snippet. Low counts cannot establish a conversion lift.

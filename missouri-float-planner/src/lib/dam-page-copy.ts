@@ -49,7 +49,7 @@ export const DAM_PAGE_COPY: Record<string, DamPageCopy> = {
   'swl-table-rock-dam': {
     operator: 'the U.S. Army Corps of Engineers, Little Rock District',
     title: 'Table Rock Dam Generation Schedule & Lake Level',
-    description: 'Hourly SWPA generation schedule for Table Rock Dam, the current release into Lake Taneycomo, and Table Rock Lake level near Branson, Missouri.',
+    description: 'Check Table Rock Dam’s posted generation schedule, next scheduled change in Central Time, current release into Lake Taneycomo, and Table Rock Lake level.',
     belowDam: 'Lake Taneycomo',
   },
   'swl-bull-shoals-dam': {

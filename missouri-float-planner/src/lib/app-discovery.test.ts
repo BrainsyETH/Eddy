@@ -13,6 +13,7 @@ import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import { readAppCampaign } from '../components/AppLink';
 import ReportAppCta from '../components/gauge/ReportAppCta';
 import ContextAppLanding from '../components/ContextAppLanding';
+import ReadAppLink from '../components/ReadAppLink';
 
 test('reports offer one Read or widget invitation, and wait for the initial Read check', () => {
   for (const kind of ['river', 'gauge'] as const) {
@@ -52,6 +53,25 @@ test('missing and invalid configuration always lead to the published app', () =>
     const config = resolveAppStoreConfig(env);
     assert.equal(appStoreUrl(null, config), DEFAULT_APP_STORE_URL);
     assert.match(smartBannerContent('/reports', null, config), /app-id=6794933267/);
+  }
+});
+
+test('Read links retain every dam, river and gauge identity, including dams outside the widget promotion', () => {
+  for (const destination of [
+    { kind: 'dam', id: 'swl-norfork-dam' }, { kind: 'river', id: 'current' }, { kind: 'gauge', id: '07067000' },
+  ] as const) {
+    const html = renderToStaticMarkup(createElement(ReadAppLink, { destination, label: `${destination.kind}_eddy_read` }, 'Read with Eddy Premium'));
+    assert.match(html, /data-ga-event="app_landing_click"/);
+    assert.match(html, /feature=read/);
+    assert.ok(html.includes(`${destination.kind}=${destination.id}`));
+    assert.ok(html.includes(`data-ga-app-destination="/${destination.kind}/${destination.id}"`));
+    assert.match(html, /data-ga-app-feature="read"/);
+    if (destination.kind === 'dam') {
+      assert.match(html, /data-ga-dam-id="swl-norfork-dam"/);
+      const landing = renderToStaticMarkup(createElement(ContextAppLanding, { destination: { ...destination, feature: 'read' }, campaign: null }));
+      assert.match(landing, /daily dam report with Eddy Premium/);
+      assert.doesNotMatch(landing, /Home Screen widget/);
+    }
   }
 });
 
@@ -201,6 +221,8 @@ test('plan, river, gauge and access handoffs retain context through landing, ban
     [{ gauge: '07067000' }, '/gauge/07067000'],
     [{ river: 'current', feature: 'read' }, '/river/current'],
     [{ gauge: '07067000', feature: 'read' }, '/gauge/07067000'],
+    [{ dam: 'swl-norfork-dam', feature: 'read' }, '/dam/swl-norfork-dam'],
+    [{ dam: 'swl-table-rock-dam', feature: 'read' }, '/dam/swl-table-rock-dam'],
     [{ river: 'current', access: 'akers-ferry' }, '/river/current/access/akers-ferry'],
   ] as const) {
     const destination = appDestination(params)!;
@@ -230,6 +252,9 @@ test('handoffs reject repeated, conflicting and arbitrary destinations', async (
     { river: 'https://evil.example' }, { river: 'current', gauge: '07067000' },
     { access: 'akers' }, { river: 'current', access: '/app' },
     { dam: 'swl-bull-shoals-dam', plan: 'abc123' },
+    { dam: 'swl-bull-shoals-dam', plan: 'abc123', feature: 'read' },
+    { dam: ['swl-norfork-dam', 'swl-table-rock-dam'], feature: 'read' },
+    { dam: '__proto__', feature: 'read' }, { dam: 'unknown', feature: 'read' },
     { river: 'current', feature: ['read', 'read'] }, { river: 'current', feature: 'unknown' },
     { plan: 'abc123', feature: 'read' }, { river: 'current', access: 'akers', feature: 'read' },
   ]) {

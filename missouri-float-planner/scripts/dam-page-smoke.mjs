@@ -138,6 +138,9 @@ import AppPromotion from '@/components/AppPromotion';
 import PlanAppCta from '@/components/plan/PlanAppCta';
 import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
 import ReportAppCta from '@/components/gauge/ReportAppCta';
+import DamEddyRead from '@/components/dam/DamEddyRead';
+import EddyQuote from '@/components/river/EddyQuote';
+import { EddyReportCard } from '@/components/mo-surface-water/chrome/eddy-report';
 import type { FloatPlan } from '@/types/api';
 const plan = { river: { id: 'river', name: 'Current River' }, putIn: { id: 'put' }, takeOut: { id: 'take' }, vessel: { id: 'kayak' }, distance: { miles: 8 }, floatTime: { minutes: 180 }, condition: { code: 'good' } } as FloatPlan;
 export default function Fixture() {
@@ -145,6 +148,11 @@ export default function Fixture() {
   const [read, setRead] = useState<'loading' | 'ready' | 'missing'>('missing');
   return <main className="mx-auto max-w-4xl space-y-6 px-3 py-6">
     <h1>App invitations</h1>
+    <section data-read-surfaces>
+      <DamEddyRead damId="swl-norfork-dam" damName="Norfork Dam" now={${now}} />
+      <EddyQuote riverSlug="current" conditionCode="good" gaugeHeightFt={2.4} />
+      <EddyReportCard report={{ summaryText: 'A useful gauge summary', conditionCode: 'good', generatedAt: '${at}' }} destination={{ kind: 'gauge', id: '07067000' }} />
+    </section>
     <AppPromotion><p>Generic invitation <AppLink data-ga-label="fixture_generic">Get Eddy for iPhone</AppLink></p></AppPromotion>
     <section><h2>Planner result</h2><button className="btn-outline mb-2" onClick={() => setChanged(v => !v)}>Change route</button><PlanAppCta plan={{ ...plan, takeOut: { ...plan.takeOut, id: changed ? 'new-take' : 'take' } }} /></section>
     <AppCta destination={{ kind: 'plan', id: 'fixture123' }} title="Follow this float in River Mode" detail="Open the route in Eddy, then start your float when you’re ready." label="shared_plan" />
@@ -445,6 +453,8 @@ export default function Page() {
     const response = await route.fetch({ url: `${origin}${requestUrl.pathname}${requestUrl.search}`, headers: { ...route.request().headers(), origin } });
     await route.fulfill({ response });
   });
+  await context.route('**/api/dam-update/**', route => route.fulfill({ json: { available: true, generatedAt: at } }));
+  await context.route('**/api/eddy-update/**', route => route.fulfill({ json: { available: true, update: { summaryText: 'A useful river summary', conditionCode: 'good', generatedAt: at } } }));
   try {
     const page = await context.newPage();
     page.on('pageerror', e => errors.push(e.message));
@@ -456,18 +466,31 @@ export default function Page() {
     ]) {
       events.length = 0;
       await page.goto(`https://eddy.guide/dam-layout-check?variant=${variant}${campaign === 'partner_guide' ? '&ct=partner_guide' : ''}`, { waitUntil: 'networkidle' });
-      const cta = page.locator('[data-dam-app-cta] a');
+      const cta = page.locator('[data-dam-app-cta] [data-ga-event="app_store_click"]');
+      await cta.waitFor();
+      assert.equal(new URL(await cta.getAttribute('href')).hostname, 'apps.apple.com');
+      assert.equal(await cta.getAttribute('target'), '_blank');
+      const open = page.locator('[data-dam-app-cta] [data-ga-event="app_open_click"]');
+      assert.equal(await open.getAttribute('href'), `eddy:///dam/${id}`);
+      assert.equal(await open.innerText(), 'Already have Eddy? Open it');
+      await page.evaluate(() => document.addEventListener('click', event => {
+        if (event.target.closest('[data-ga-event="app_store_click"], [data-ga-event="app_open_click"]')) event.preventDefault();
+      }));
       const expectedUrl = `https://eddy.guide/app?ct=${campaign}&dam=${id}`;
-      await page.waitForFunction(expected => document.querySelector('[data-dam-app-cta] a')?.href === expected, expectedUrl);
+      await page.waitForFunction(expected => document.querySelector('[data-dam-app-cta] a')?.dataset.gaCampaign === expected, campaign);
       await cta.scrollIntoViewIfNeeded();
       await page.waitForFunction(() => window.damPromotionViews === 1);
       await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
       await cta.scrollIntoViewIfNeeded();
-      const oldDocument = await page.evaluate(() => window.damDocument);
       await cta.click();
-      await page.waitForURL(expectedUrl);
-      await page.waitForLoadState('networkidle');
-      assert.notEqual(await page.evaluate(() => window.damDocument), oldDocument, 'document navigation refreshes Safari banner');
+      await open.click();
+      await page.evaluate(() => window.recordAnalytics('flush'));
+      assert.equal(events.filter(event => event[1] === 'app_open_click' && event[2]?.label === 'dam_schedule').length, 1);
+      assert.equal(events.find(event => event[1] === 'app_open_click' && event[2]?.label === 'dam_schedule')[2].app_campaign, campaign);
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.locator('[data-dam-app-cta]').screenshot({ path: `${out}/dam-cta-${campaign}.png` });
+      // A phone scanning the desktop QR still receives the contextual landing.
+      await page.goto(expectedUrl, { waitUntil: 'networkidle' });
       assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} generation on your Home Screen.`);
       // networkidle can precede hydration; wait for the device-specific result.
       await page.locator('[data-app-qr]').waitFor({ state: 'detached' });
@@ -488,13 +511,13 @@ export default function Page() {
         ['event', 'app_promotion_view', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check' }],
       ], 'view is counted once after the CTA enters the viewport');
       assert.deepEqual(events.filter(event => ['app_landing_click', 'app_store_click'].includes(event[1])), [
-        ['event', 'app_landing_click', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check', app_campaign: campaign, transport_type: 'beacon' }],
+        ['event', 'app_store_click', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check', app_campaign: campaign, transport_type: 'beacon' }],
         ['event', 'app_store_click', { label: 'app_landing_hero', dam_id: id, page_path: '/app', app_campaign: campaign, transport_type: 'beacon' }],
       ]);
       await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
       await page.screenshot({ path: `${out}/app-${campaign}.png`, fullPage: false });
       await page.evaluate(() => sessionStorage.clear());
-      console.log(`PASS ${name}: CTA → contextual app page → store event (${campaign})`);
+      console.log(`PASS ${name}: direct store + Open; contextual QR landing (${campaign})`);
     }
     await page.goto('https://eddy.guide/dam-layout-check?variant=norfork', { waitUntil: 'networkidle' });
     assert.equal(await page.locator('[data-dam-app-cta]').count(), 0, 'other dams keep their existing layout');
@@ -517,6 +540,20 @@ export default function Page() {
       if (event.target.closest('[data-ga-event="app_open_click"], [data-ga-event="app_store_click"]')) event.preventDefault();
     }));
     await shared.locator('[data-ga-event="app_open_click"]').click();
+    for (const [label, destination] of [['dam_eddy_read', '/dam/swl-norfork-dam'], ['map_river_eddy_read', '/river/current'], ['map_gauge_eddy_read', '/gauge/07067000']]) {
+      const action = page.locator(`[data-read-surfaces] [data-ga-label="${label}"]`);
+      await action.waitFor();
+      assert.equal(new URL(await action.getAttribute('href')).hostname, 'apps.apple.com');
+      await action.click();
+      await page.evaluate(() => window.recordAnalytics('flush'));
+      const clicks = events.filter(event => event[1] === 'app_store_click' && event[2]?.label === label);
+      assert.equal(clicks.length, 1, `${label} emits exactly one click`);
+      assert.equal(clicks[0][2].app_destination, destination);
+      assert.equal(clicks[0][2].app_feature, 'read');
+      assert.equal(clicks[0][2].app_campaign, 'partner_guide');
+      if (label === 'dam_eddy_read') assert.equal(clicks[0][2].dam_id, 'swl-norfork-dam');
+    }
+
     await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
     await shared.scrollIntoViewIfNeeded();
     await page.evaluate(() => window.recordAnalytics('flush'));
@@ -606,7 +643,13 @@ export default function Page() {
   const desktop = await browser.newPage({ viewport: { width: 700, height: 900 } });
   desktop.on('pageerror', e => errors.push(e.message));
   await desktop.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
-  await desktop.goto(`${origin}/app?ct=partner_guide&dam=swl-table-rock-dam`, { waitUntil: 'networkidle' });
+  await desktop.goto(`${origin}/dam-layout-check?variant=tableRock&ct=partner_guide`, { waitUntil: 'networkidle' });
+  const desktopDam = desktop.locator('[data-dam-app-cta] a');
+  assert.equal(await desktopDam.count(), 1);
+  assert.equal(await desktopDam.getAttribute('href'), '/app?ct=partner_guide&dam=swl-table-rock-dam');
+  await desktopDam.click();
+  await desktop.waitForURL(`${origin}/app?ct=partner_guide&dam=swl-table-rock-dam`);
+  await desktop.waitForLoadState('networkidle');
   const qr = desktop.locator('[data-app-qr]');
   assert(await qr.isVisible(), 'narrow desktop windows retain the QR');
   assert.equal(await qr.locator('a').getAttribute('href'), 'https://eddy.guide/app?ct=partner_guide&dam=swl-table-rock-dam');
@@ -649,6 +692,10 @@ export default function Page() {
   assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/gauge\/07067000/);
   await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
   await desktop.screenshot({ path: `${out}/read-landing-desktop.png`, fullPage: true });
+  await desktop.goto(`${origin}/app?ct=partner_guide&dam=swl-norfork-dam&feature=read`, { waitUntil: 'networkidle' });
+  assert(await desktop.getByText('Read the full daily dam report with Eddy Premium in the iPhone app.', { exact: true }).isVisible());
+  assert.equal(await desktop.locator('.app-cta__qr img').getAttribute('src'), '/api/app/qr?ct=partner_guide&dam=swl-norfork-dam&feature=read');
+  assert.match(await desktop.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/dam\/swl-norfork-dam/);
   await desktop.goto(`${origin}/app?ct=partner_guide&plan=fixture123`, { waitUntil: 'networkidle' });
   assert.equal(await desktop.locator('.app-cta__qr').getAttribute('open'), '', 'landing QR starts open');
   assert.equal(await desktop.getByRole('link', { name: 'View your saved plan on the web' }).getAttribute('href'), '/plan/fixture123');
