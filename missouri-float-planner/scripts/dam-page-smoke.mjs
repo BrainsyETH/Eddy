@@ -551,6 +551,10 @@ export default function Page() {
       assert.equal(clicks[0][2].app_destination, destination);
       assert.equal(clicks[0][2].app_feature, 'read');
       assert.equal(clicks[0][2].app_campaign, 'partner_guide');
+      const views = events.filter(event => event[1] === 'app_promotion_view' && event[2]?.label === label);
+      assert.equal(views.length, 1, `${label} emits exactly one visible impression`);
+      assert.equal(views[0][2].app_destination, destination);
+      assert.equal(views[0][2].app_feature, 'read');
       if (label === 'dam_eddy_read') assert.equal(clicks[0][2].dam_id, 'swl-norfork-dam');
     }
 

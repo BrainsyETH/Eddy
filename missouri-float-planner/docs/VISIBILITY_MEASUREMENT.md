@@ -164,7 +164,7 @@ river/gauge/dam handoff: the landing page and QR retain that topic, show the dai
 report illustration and explain that the full Read requires Eddy Premium.
 `ReadAppLink` also covers the dam Read card, planner river quote and statewide
 map rail. Its labels are `dam_eddy_read`, `map_river_eddy_read` and
-`map_gauge_eddy_read`; clicks include `app_destination` (the existing native
+`map_gauge_eddy_read`; views and clicks include `app_destination` (the existing native
 path) and `app_feature=read`, so different map selections remain distinguishable.
 Dam Read handoffs accept any registered dam, independently of the three-dam
 widget promotion. `dam_id` is included for those Read views and clicks too.
