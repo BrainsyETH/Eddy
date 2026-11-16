@@ -1,0 +1,478 @@
+{
+  "window": {
+    "rasterId": 159473238,
+    "subset": "conus_QPE_24H",
+    "start": "2026-11-15T18:00:00.000Z",
+    "end": "2026-11-16T18:00:00.000Z"
+  },
+  "unitDocumentedByNoaa": "mm",
+  "files": {
+    "RadarOnly_QPE_24H": {
+      "url": "https://noaa-mrms-pds.s3.amazonaws.com/CONUS/RadarOnly_QPE_24H_00.00/20261116/MRMS_RadarOnly_QPE_24H_00.00_20261116-180000.grib2.gz",
+      "sha256Uncompressed": "3fe7e6597aa25df104013ed35fc9b80f8e150f0c07a8190763225aece5513bef",
+      "validTime": "2026-11-16T18:00:00Z"
+    },
+    "MultiSensor_QPE_24H_Pass1": {
+      "url": "https://noaa-mrms-pds.s3.amazonaws.com/CONUS/MultiSensor_QPE_24H_Pass1_00.00/20261116/MRMS_MultiSensor_QPE_24H_Pass1_00.00_20261116-180000.grib2.gz",
+      "sha256Uncompressed": "4629b32d9fabf62cd83a8161d1de88e6cdb918c2e26e40001d6da08452db8ede",
+      "validTime": "2026-11-16T18:00:00Z"
+    },
+    "MultiSensor_QPE_24H_Pass2": {
+      "url": "https://noaa-mrms-pds.s3.amazonaws.com/CONUS/MultiSensor_QPE_24H_Pass2_00.00/20261116/MRMS_MultiSensor_QPE_24H_Pass2_00.00_20261116-180000.grib2.gz",
+      "sha256Uncompressed": "b667a3077c2d330749250bc47f72115a60a044971d8d524196172953fc8e1097",
+      "validTime": "2026-11-16T18:00:00Z"
+    }
+  },
+  "sites": [
+    {
+      "site": "310831092003400",
+      "RadarOnly_QPE_24H": 11.2,
+      "MultiSensor_QPE_24H_Pass1": 10.9,
+      "MultiSensor_QPE_24H_Pass2": 6.2
+    },
+    {
+      "site": "08028500",
+      "RadarOnly_QPE_24H": 25.7,
+      "MultiSensor_QPE_24H_Pass1": 25.5,
+      "MultiSensor_QPE_24H_Pass2": 21.0
+    },
+    {
+      "site": "08031010",
+      "RadarOnly_QPE_24H": 28.2,
+      "MultiSensor_QPE_24H_Pass1": 26.6,
+      "MultiSensor_QPE_24H_Pass2": 29.1
+    },
+    {
+      "site": "08030500",
+      "RadarOnly_QPE_24H": 24.5,
+      "MultiSensor_QPE_24H_Pass1": 22.6,
+      "MultiSensor_QPE_24H_Pass2": 20.0
+    },
+    {
+      "site": "08030520",
+      "RadarOnly_QPE_24H": 30.6,
+      "MultiSensor_QPE_24H_Pass1": 27.8,
+      "MultiSensor_QPE_24H_Pass2": 25.7
+    },
+    {
+      "site": "08025350",
+      "RadarOnly_QPE_24H": 16.5,
+      "MultiSensor_QPE_24H_Pass1": 17.1,
+      "MultiSensor_QPE_24H_Pass2": 11.8
+    },
+    {
+      "site": "08030540",
+      "RadarOnly_QPE_24H": 19.8,
+      "MultiSensor_QPE_24H_Pass1": 17.8,
+      "MultiSensor_QPE_24H_Pass2": 16.4
+    },
+    {
+      "site": "303005093164700",
+      "RadarOnly_QPE_24H": 27.3,
+      "MultiSensor_QPE_24H_Pass1": 24.3,
+      "MultiSensor_QPE_24H_Pass2": 23.7
+    },
+    {
+      "site": "300735091163500",
+      "RadarOnly_QPE_24H": 28.3,
+      "MultiSensor_QPE_24H_Pass1": 26.4,
+      "MultiSensor_QPE_24H_Pass2": 15.7
+    },
+    {
+      "site": "301436091530500",
+      "RadarOnly_QPE_24H": 24.3,
+      "MultiSensor_QPE_24H_Pass1": 21.8,
+      "MultiSensor_QPE_24H_Pass2": 19.4
+    },
+    {
+      "site": "08029500",
+      "RadarOnly_QPE_24H": 29.4,
+      "MultiSensor_QPE_24H_Pass1": 28.1,
+      "MultiSensor_QPE_24H_Pass2": 23.6
+    },
+    {
+      "site": "08013500",
+      "RadarOnly_QPE_24H": 28.2,
+      "MultiSensor_QPE_24H_Pass1": 27.4,
+      "MultiSensor_QPE_24H_Pass2": 21.8
+    },
+    {
+      "site": "08012000",
+      "RadarOnly_QPE_24H": 33.9,
+      "MultiSensor_QPE_24H_Pass1": 33.1,
+      "MultiSensor_QPE_24H_Pass2": 26.8
+    },
+    {
+      "site": "301748093145600",
+      "RadarOnly_QPE_24H": 32.2,
+      "MultiSensor_QPE_24H_Pass1": 30.6,
+      "MultiSensor_QPE_24H_Pass2": 26.9
+    },
+    {
+      "site": "304920092410500",
+      "RadarOnly_QPE_24H": 18.8,
+      "MultiSensor_QPE_24H_Pass1": 19.8,
+      "MultiSensor_QPE_24H_Pass2": 13.0
+    },
+    {
+      "site": "302340092295200",
+      "RadarOnly_QPE_24H": 28.5,
+      "MultiSensor_QPE_24H_Pass1": 26.9,
+      "MultiSensor_QPE_24H_Pass2": 20.3
+    },
+    {
+      "site": "301619091590300",
+      "RadarOnly_QPE_24H": 25.7,
+      "MultiSensor_QPE_24H_Pass1": 23.2,
+      "MultiSensor_QPE_24H_Pass2": 18.4
+    },
+    {
+      "site": "08031050",
+      "RadarOnly_QPE_24H": 20.0,
+      "MultiSensor_QPE_24H_Pass1": 17.5,
+      "MultiSensor_QPE_24H_Pass2": 15.8
+    },
+    {
+      "site": "302351091555000",
+      "RadarOnly_QPE_24H": 38.3,
+      "MultiSensor_QPE_24H_Pass1": 36.5,
+      "MultiSensor_QPE_24H_Pass2": 31.0
+    },
+    {
+      "site": "310541093231900",
+      "RadarOnly_QPE_24H": 16.9,
+      "MultiSensor_QPE_24H_Pass1": 17.2,
+      "MultiSensor_QPE_24H_Pass2": 10.8
+    },
+    {
+      "site": "301959092323401",
+      "RadarOnly_QPE_24H": 28.2,
+      "MultiSensor_QPE_24H_Pass1": 25.6,
+      "MultiSensor_QPE_24H_Pass2": 18.8
+    },
+    {
+      "site": "07386600",
+      "RadarOnly_QPE_24H": 41.8,
+      "MultiSensor_QPE_24H_Pass1": 38.3,
+      "MultiSensor_QPE_24H_Pass2": 33.9
+    },
+    {
+      "site": "08014800",
+      "RadarOnly_QPE_24H": 25.5,
+      "MultiSensor_QPE_24H_Pass1": 25.5,
+      "MultiSensor_QPE_24H_Pass2": 19.6
+    },
+    {
+      "site": "301153092274800",
+      "RadarOnly_QPE_24H": 25.4,
+      "MultiSensor_QPE_24H_Pass1": 23.4,
+      "MultiSensor_QPE_24H_Pass2": 17.1
+    },
+    {
+      "site": "08025240",
+      "RadarOnly_QPE_24H": 22.8,
+      "MultiSensor_QPE_24H_Pass1": 22.0,
+      "MultiSensor_QPE_24H_Pass2": 17.9
+    },
+    {
+      "site": "305323092494800",
+      "RadarOnly_QPE_24H": 18.7,
+      "MultiSensor_QPE_24H_Pass1": 18.4,
+      "MultiSensor_QPE_24H_Pass2": 11.9
+    },
+    {
+      "site": "322236093491600",
+      "RadarOnly_QPE_24H": 13.5,
+      "MultiSensor_QPE_24H_Pass1": 14.1,
+      "MultiSensor_QPE_24H_Pass2": 7.6
+    },
+    {
+      "site": "311428092492400",
+      "RadarOnly_QPE_24H": 15.6,
+      "MultiSensor_QPE_24H_Pass1": 17.2,
+      "MultiSensor_QPE_24H_Pass2": 11.1
+    },
+    {
+      "site": "302453091255600",
+      "RadarOnly_QPE_24H": 31.5,
+      "MultiSensor_QPE_24H_Pass1": 30.6,
+      "MultiSensor_QPE_24H_Pass2": 20.2
+    },
+    {
+      "site": "073802282",
+      "RadarOnly_QPE_24H": 25.1,
+      "MultiSensor_QPE_24H_Pass1": 22.5,
+      "MultiSensor_QPE_24H_Pass2": 11.7
+    },
+    {
+      "site": "300421092393000",
+      "RadarOnly_QPE_24H": 22.6,
+      "MultiSensor_QPE_24H_Pass1": 19.5,
+      "MultiSensor_QPE_24H_Pass2": 15.0
+    },
+    {
+      "site": "305342093041700",
+      "RadarOnly_QPE_24H": 22.2,
+      "MultiSensor_QPE_24H_Pass1": 22.6,
+      "MultiSensor_QPE_24H_Pass2": 15.8
+    },
+    {
+      "site": "073802220",
+      "RadarOnly_QPE_24H": 25.2,
+      "MultiSensor_QPE_24H_Pass1": 22.6,
+      "MultiSensor_QPE_24H_Pass2": 11.9
+    },
+    {
+      "site": "300413092525600",
+      "RadarOnly_QPE_24H": 30.2,
+      "MultiSensor_QPE_24H_Pass1": 24.4,
+      "MultiSensor_QPE_24H_Pass2": 19.5
+    },
+    {
+      "site": "302637091205000",
+      "RadarOnly_QPE_24H": 30.1,
+      "MultiSensor_QPE_24H_Pass1": 29.0,
+      "MultiSensor_QPE_24H_Pass2": 17.2
+    },
+    {
+      "site": "07379050",
+      "RadarOnly_QPE_24H": 30.0,
+      "MultiSensor_QPE_24H_Pass1": 28.3,
+      "MultiSensor_QPE_24H_Pass2": 15.6
+    },
+    {
+      "site": "314210093193800",
+      "RadarOnly_QPE_24H": 11.3,
+      "MultiSensor_QPE_24H_Pass1": 11.6,
+      "MultiSensor_QPE_24H_Pass2": 6.9
+    },
+    {
+      "site": "07378650",
+      "RadarOnly_QPE_24H": 28.1,
+      "MultiSensor_QPE_24H_Pass1": 28.2,
+      "MultiSensor_QPE_24H_Pass2": 14.6
+    },
+    {
+      "site": "07380401",
+      "RadarOnly_QPE_24H": 19.8,
+      "MultiSensor_QPE_24H_Pass1": 20.7,
+      "MultiSensor_QPE_24H_Pass2": 10.9
+    },
+    {
+      "site": "073802273",
+      "RadarOnly_QPE_24H": 34.4,
+      "MultiSensor_QPE_24H_Pass1": 34.8,
+      "MultiSensor_QPE_24H_Pass2": 22.6
+    },
+    {
+      "site": "07379100",
+      "RadarOnly_QPE_24H": 29.3,
+      "MultiSensor_QPE_24H_Pass1": 29.1,
+      "MultiSensor_QPE_24H_Pass2": 16.2
+    },
+    {
+      "site": "07377300",
+      "RadarOnly_QPE_24H": 23.9,
+      "MultiSensor_QPE_24H_Pass1": 24.0,
+      "MultiSensor_QPE_24H_Pass2": 11.4
+    },
+    {
+      "site": "301337090411700",
+      "RadarOnly_QPE_24H": 25.7,
+      "MultiSensor_QPE_24H_Pass1": 24.7,
+      "MultiSensor_QPE_24H_Pass2": 14.6
+    },
+    {
+      "site": "073802225",
+      "RadarOnly_QPE_24H": 22.0,
+      "MultiSensor_QPE_24H_Pass1": 21.5,
+      "MultiSensor_QPE_24H_Pass2": 11.1
+    },
+    {
+      "site": "07380102",
+      "RadarOnly_QPE_24H": 28.6,
+      "MultiSensor_QPE_24H_Pass1": 25.5,
+      "MultiSensor_QPE_24H_Pass2": 11.8
+    },
+    {
+      "site": "07378810",
+      "RadarOnly_QPE_24H": 28.3,
+      "MultiSensor_QPE_24H_Pass1": 26.6,
+      "MultiSensor_QPE_24H_Pass2": 13.1
+    },
+    {
+      "site": "0738022395",
+      "RadarOnly_QPE_24H": 29.8,
+      "MultiSensor_QPE_24H_Pass1": 29.0,
+      "MultiSensor_QPE_24H_Pass2": 15.7
+    },
+    {
+      "site": "07379075",
+      "RadarOnly_QPE_24H": 24.9,
+      "MultiSensor_QPE_24H_Pass1": 23.6,
+      "MultiSensor_QPE_24H_Pass2": 11.2
+    },
+    {
+      "site": "07378000",
+      "RadarOnly_QPE_24H": 26.4,
+      "MultiSensor_QPE_24H_Pass1": 24.9,
+      "MultiSensor_QPE_24H_Pass2": 11.7
+    },
+    {
+      "site": "07378008",
+      "RadarOnly_QPE_24H": 31.9,
+      "MultiSensor_QPE_24H_Pass1": 29.4,
+      "MultiSensor_QPE_24H_Pass2": 16.9
+    },
+    {
+      "site": "07380106",
+      "RadarOnly_QPE_24H": 27.0,
+      "MultiSensor_QPE_24H_Pass1": 25.7,
+      "MultiSensor_QPE_24H_Pass2": 12.7
+    },
+    {
+      "site": "07378500",
+      "RadarOnly_QPE_24H": 28.6,
+      "MultiSensor_QPE_24H_Pass1": 27.1,
+      "MultiSensor_QPE_24H_Pass2": 15.4
+    },
+    {
+      "site": "07379960",
+      "RadarOnly_QPE_24H": 30.1,
+      "MultiSensor_QPE_24H_Pass1": 27.6,
+      "MultiSensor_QPE_24H_Pass2": 13.2
+    },
+    {
+      "site": "07381460",
+      "RadarOnly_QPE_24H": 16.8,
+      "MultiSensor_QPE_24H_Pass1": 16.1,
+      "MultiSensor_QPE_24H_Pass2": 10.7
+    },
+    {
+      "site": "0738022295",
+      "RadarOnly_QPE_24H": 32.0,
+      "MultiSensor_QPE_24H_Pass1": 30.8,
+      "MultiSensor_QPE_24H_Pass2": 18.4
+    },
+    {
+      "site": "295433091125700",
+      "RadarOnly_QPE_24H": 18.2,
+      "MultiSensor_QPE_24H_Pass1": 17.5,
+      "MultiSensor_QPE_24H_Pass2": 10.3
+    },
+    {
+      "site": "07380126",
+      "RadarOnly_QPE_24H": 31.6,
+      "MultiSensor_QPE_24H_Pass1": 31.2,
+      "MultiSensor_QPE_24H_Pass2": 13.9
+    },
+    {
+      "site": "07378100",
+      "RadarOnly_QPE_24H": 24.1,
+      "MultiSensor_QPE_24H_Pass1": 25.1,
+      "MultiSensor_QPE_24H_Pass2": 10.7
+    },
+    {
+      "site": "02492000",
+      "RadarOnly_QPE_24H": 17.6,
+      "MultiSensor_QPE_24H_Pass1": 15.4,
+      "MultiSensor_QPE_24H_Pass2": 7.8
+    },
+    {
+      "site": "07378722",
+      "RadarOnly_QPE_24H": 25.4,
+      "MultiSensor_QPE_24H_Pass1": 24.1,
+      "MultiSensor_QPE_24H_Pass2": 10.8
+    },
+    {
+      "site": "07377760",
+      "RadarOnly_QPE_24H": 22.7,
+      "MultiSensor_QPE_24H_Pass1": 20.5,
+      "MultiSensor_QPE_24H_Pass2": 8.2
+    },
+    {
+      "site": "07380200",
+      "RadarOnly_QPE_24H": 31.6,
+      "MultiSensor_QPE_24H_Pass1": 30.9,
+      "MultiSensor_QPE_24H_Pass2": 13.4
+    },
+    {
+      "site": "07378746",
+      "RadarOnly_QPE_24H": 27.7,
+      "MultiSensor_QPE_24H_Pass1": 25.7,
+      "MultiSensor_QPE_24H_Pass2": 12.0
+    },
+    {
+      "site": "02490200",
+      "RadarOnly_QPE_24H": 18.5,
+      "MultiSensor_QPE_24H_Pass1": 15.5,
+      "MultiSensor_QPE_24H_Pass2": 7.3
+    },
+    {
+      "site": "073802245",
+      "RadarOnly_QPE_24H": 48.0,
+      "MultiSensor_QPE_24H_Pass1": 37.9,
+      "MultiSensor_QPE_24H_Pass2": 25.6
+    },
+    {
+      "site": "303242091450600",
+      "RadarOnly_QPE_24H": 26.8,
+      "MultiSensor_QPE_24H_Pass1": 24.5,
+      "MultiSensor_QPE_24H_Pass2": 17.4
+    },
+    {
+      "site": "07378075",
+      "RadarOnly_QPE_24H": 20.5,
+      "MultiSensor_QPE_24H_Pass1": 19.2,
+      "MultiSensor_QPE_24H_Pass2": 7.4
+    },
+    {
+      "site": "301828090363100",
+      "RadarOnly_QPE_24H": 24.1,
+      "MultiSensor_QPE_24H_Pass1": 21.6,
+      "MultiSensor_QPE_24H_Pass2": 12.8
+    },
+    {
+      "site": "322225093403300",
+      "RadarOnly_QPE_24H": 20.6,
+      "MultiSensor_QPE_24H_Pass1": 17.3,
+      "MultiSensor_QPE_24H_Pass2": 10.5
+    },
+    {
+      "site": "07380120",
+      "RadarOnly_QPE_24H": 28.4,
+      "MultiSensor_QPE_24H_Pass1": 26.4,
+      "MultiSensor_QPE_24H_Pass2": 13.3
+    },
+    {
+      "site": "322415093355900",
+      "RadarOnly_QPE_24H": 20.1,
+      "MultiSensor_QPE_24H_Pass1": 17.5,
+      "MultiSensor_QPE_24H_Pass2": 9.9
+    },
+    {
+      "site": "07375430",
+      "RadarOnly_QPE_24H": 24.9,
+      "MultiSensor_QPE_24H_Pass1": 20.9,
+      "MultiSensor_QPE_24H_Pass2": 11.9
+    },
+    {
+      "site": "07375105",
+      "RadarOnly_QPE_24H": 23.1,
+      "MultiSensor_QPE_24H_Pass1": 19.3,
+      "MultiSensor_QPE_24H_Pass2": 8.2
+    },
+    {
+      "site": "07375222",
+      "RadarOnly_QPE_24H": 34.1,
+      "MultiSensor_QPE_24H_Pass1": 33.3,
+      "MultiSensor_QPE_24H_Pass2": 22.2
+    },
+    {
+      "site": "302939090101300",
+      "RadarOnly_QPE_24H": 41.1,
+      "MultiSensor_QPE_24H_Pass1": 36.3,
+      "MultiSensor_QPE_24H_Pass2": 28.0
+    }
+  ]
+}

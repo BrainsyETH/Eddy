@@ -31,7 +31,7 @@ export function RainDetail({ siteId, timeZone }: { siteId: string; timeZone: str
   return <>
     <Text style={[styles.body, { color: colors.textBody }]}>Rain across the land that drains to this gauge.</Text>
     <View><Text style={[styles.heading, { color: colors.text }]}>{data.basin.name}</Text>
-      <Text style={[styles.caption, { color: colors.textMuted }]}>{Math.round(data.basin.areaSqMi).toLocaleString()} sq mi · Radar estimate</Text></View>
+      <Text style={[styles.caption, { color: colors.textMuted }]}>{Math.round(data.basin.areaSqMi).toLocaleString()} sq mi · Radar and rain gauges</Text></View>
     <View style={[styles.map, { backgroundColor: colors.card, borderColor: colors.border }]} accessible accessibilityLabel={`Watershed upstream of ${data.basin.name}${data.shading ? ', shaded by estimated rain in the past 24 hours' : ', rainfall shading unavailable'}${map.riverName ? `. River: ${map.riverName}. Places: ${map.places.map(place => place.name).join(', ')}.` : ''}`}>
       <Svg viewBox="0 0 320 270" width="100%" height={270} accessible={false}>
         <Defs><Pattern id={`${id}-missing`} width={6} height={6} patternUnits="userSpaceOnUse"><Rect width={6} height={6} fill={colors.cardRaised} /><Path d="M-1,1L1,-1M0,6L6,0M5,7L7,5" stroke={colors.textSubtle} strokeWidth={1} /></Pattern><ClipPath id={id}><Path d={map.path} fillRule="evenodd" clipRule="evenodd" /></ClipPath></Defs>
@@ -62,7 +62,7 @@ export function RainDetail({ siteId, timeZone }: { siteId: string; timeZone: str
         accessibilityLabel={`Through ${chartStamp(total.end, timeZone)}${total.coverage < 1 ? `, ${Math.round(total.coverage * 100)}% coverage` : ''}`}>
         {chartShortStamp(total.end, timeZone)}{total.coverage < 1 ? ` · ${Math.round(total.coverage * 100)}% coverage` : ''}</Text> : null}
     </View>; })}</View>
-    <Text style={[styles.caption, { color: colors.textMuted }]}>Radar estimates can differ from rain measured on the ground. Gaps mean missing data.</Text>
+    <Text style={[styles.caption, { color: colors.textMuted }]}>NOAA estimate from radar and rain gauges. A single gauge can read differently. Gaps mean missing data.</Text>
     <Pressable accessibilityRole="button" accessibilityState={{ expanded: hoursOpen }} onPress={() => setHoursOpen(value => !value)} style={styles.action}>
       <Text style={[styles.link, { color: colors.interactive }]}>{hoursOpen ? 'Hide hourly rain' : 'Hourly rain'}</Text>
     </Pressable>

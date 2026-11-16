@@ -100,11 +100,22 @@ test('the published map uses the same boundary and clips native cells, with boun
   assert.equal(normalizeRainDetail({ ...current, boundary: { geometry: { type: 'LineString', coordinates: [] } } }, summary.siteId), null);
   assert.equal(normalizeRainDetail({ ...current, boundary: { geometry: { type: 'MultiPolygon', coordinates: [] } } }, summary.siteId), null);
 });
-test('an environment flag alone never approves research data for public display', () => {
-  const original = process.env.RAINFALL_PUBLIC_ENABLED;
-  process.env.RAINFALL_PUBLIC_ENABLED = 'true';
-  try { assert.equal(publicRainSite(summary.siteId), null); assert.equal(RAIN_RELEASE.unitsEvidence, null); }
-  finally { if (original === undefined) delete process.env.RAINFALL_PUBLIC_ENABLED; else process.env.RAINFALL_PUBLIC_ENABLED = original; }
+test('public rain needs the flag, both evidence folders and a listed station; no one of them is enough', () => {
+  const original = process.env.RAINFALL_PUBLIC_ENABLED, policy = { ...RAIN_RELEASE };
+  try {
+    delete process.env.RAINFALL_PUBLIC_ENABLED;
+    assert.equal(publicRainSite(summary.siteId), null, 'a listed station stays off without the flag');
+    process.env.RAINFALL_PUBLIC_ENABLED = 'true';
+    assert.equal(publicRainSite(summary.siteId)?.riverSlug, 'jacks-fork');
+    assert.equal(publicRainSite('07063000'), null, 'the flag alone never releases an unlisted station');
+    Object.assign(RAIN_RELEASE, { unitsEvidence: null });
+    assert.equal(publicRainSite(summary.siteId), null);
+    Object.assign(RAIN_RELEASE, { ...policy, coverageEvidence: null });
+    assert.equal(publicRainSite(summary.siteId), null);
+  } finally {
+    Object.assign(RAIN_RELEASE, policy);
+    if (original === undefined) delete process.env.RAINFALL_PUBLIC_ENABLED; else process.env.RAINFALL_PUBLIC_ENABLED = original;
+  }
 });
 test('a compact Read preserves decimals and leaves longer context reachable', () => {
   const read = 'The gauge is at 3.82 ft. It is easing down. Rain upstream is still worth watching.';
@@ -192,10 +203,12 @@ test('publisher replays missed hours and chooses the latest revision without los
   const compressed = gzipSync(gunzipSync(readFileSync(`${directory}1h.tiff.gz`)));
   const boundary = toWgs84(multiPolygon([[[[tile.xmin, tile.ymax], [tile.xmin + tile.dx, tile.ymax], [tile.xmin + tile.dx, tile.ymax - tile.dy], [tile.xmin, tile.ymax - tile.dy], [tile.xmin, tile.ymax]]]]));
   const now = Math.floor(Date.now() / RAIN_HOUR) * RAIN_HOUR;
-  const capture = (hours: number, age: number, id: string) => ({ id, source_key: `conus_QPE_${String(hours).padStart(2, '0')}H`,
+  const capture = (hours: number, age: number, id: string) => ({ id, source_key: `MultiSensor_QPE_${String(hours).padStart(2, '0')}H_Pass2`,
     valid_start: new Date(now - (age + hours) * RAIN_HOUR).toISOString(), valid_end: new Date(now - age * RAIN_HOUR).toISOString(),
     metadata: { tile, basinIds: ['test-basin'] }, object_path: 'test', sha256: hash(compressed) });
-  const captures = [capture(1, 0, 'new'), { ...capture(1, 0, 'old'), sha256: 'obsolete' }, capture(24, 0, '24'), capture(72, 0, '72'), capture(1, 1, 'missed'), capture(1, 6, 'outage')];
+  // A radar-only capture for the same hour sits in the same archive and must never be published.
+  const radarOnly = { ...capture(1, 0, 'radar-only'), source_key: 'conus_QPE_01H', sha256: 'never read' };
+  const captures = [radarOnly, capture(1, 0, 'new'), { ...capture(1, 0, 'old'), sha256: 'obsolete' }, capture(24, 0, '24'), capture(72, 0, '72'), capture(1, 1, 'missed'), capture(1, 6, 'outage')];
   const uploads: Uint8Array[] = [], downloads: string[] = [], pages: number[] = [];
   const objects = new Map<string, Uint8Array>([['test', compressed]]);
   let failUpload = '';
