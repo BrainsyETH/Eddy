@@ -272,6 +272,28 @@
       "state": "MO",
       "timezone": "America/Chicago",
       "riverType": "rain_flashy"
+    },
+    {
+      "name": "Big Sugar Creek",
+      "slug": "big-sugar-creek",
+      "nhdFeatureId": "86152947",
+      "description": "A small, very clear Ozark creek in McDonald County that flows west down Sugar Creek Valley through Powell and Cyclone and joins Little Sugar Creek at Pineville to form the Elk River. About 24 guide miles are floatable, from the Hwy 90/KK bridge in high water down to the confluence, but the only agency-verified public access on the creek is MDC's Deep Ford Access, about 4 miles above Pineville. Rain-driven and flashy: it runs a few cubic feet per second in early autumn and has crested above 30,000 cfs.",
+      "difficultyRating": "Class I–II",
+      "region": "Ozarks",
+      "state": "MO",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
+    },
+    {
+      "name": "Illinois River",
+      "slug": "illinois-river",
+      "nhdFeatureId": "64287778",
+      "description": "Oklahoma's best-known float river. It runs about 60 miles from the Arkansas line near Watts through Adair, Delaware and Cherokee counties, past the outfitter strip on OK-10 north of Tahlequah, to Lake Tenkiller. Gravel-bottomed, with bluffs, riffles and pools. Rain-driven rises travel down from Arkansas, and summer weekends are very busy. From the state line to the Barren Fork confluence it is a designated Oklahoma Scenic River managed by the Grand River Dam Authority (GRDA), with float permits, alcohol and container rules, and licensed commercial outfitters.",
+      "difficultyRating": "Class I–II",
+      "region": "Ozarks / Northeast Oklahoma (Tahlequah)",
+      "state": "OK",
+      "timezone": "America/Chicago",
+      "riverType": "rain_flashy"
     }
   ]
 }

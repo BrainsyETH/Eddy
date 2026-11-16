@@ -1,0 +1,407 @@
+[
+  {
+    "name": "WOKA Whitewater Park",
+    "kind": "park",
+    "roles": [
+      "park"
+    ],
+    "is_float_endpoint": false,
+    "expected_mile": 49.8,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "Grand River Dam Authority (built with the City of Siloam Springs; Walton Family Foundation funding)",
+    "managing_agency": null,
+    "official_site_url": "https://visitwoka.com/",
+    "facilities": "Whitewater course with a large parking area (per AW). Commercial use prohibited and no alcohol (2025 GRDA guide).",
+    "description": "HELD. Excluded as a planner endpoint: a whitewater course at the old Lake Frances spillway, just above the dam remnant. Its sources disagree. The AGFC Public Use Facilities layer (objectid 25308) gives 36.130578, -94.562524. The AGFC water-trail page link gives 36.133889, -94.566111, 489 m away. American Whitewater's WOKA put-in gives 36.13201, -94.56405, 210 m from the first and 279 m from the second. The official site gives only a street address (474986 Twin Falls Rd, Watts, OK). Expected mile converted from GRDA mile 2.6 (+47.2).",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.agfc.com/things-to-do/water-trails/upper-illinois-river-water-trail/",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://visitwoka.com/"
+    ]
+  },
+  {
+    "name": "Watts Public Access Area (US-59 bridge)",
+    "slug": "watts-public-access-area",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 50.3,
+    "lat": 36.12926,
+    "lon": -94.57218,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area ('US 59 Illinois River Bridge Crossing Access Area', OAC 300:40-2-3(h)); land ownership unverified",
+    "managing_agency": null,
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Not verified. No alcohol (OAC 300:40-2-3(h); 2025 GRDA guide).",
+    "description": "Recommended upstream endpoint, below the Lake Frances dam remnant. The pin is the US-59 river crossing: the midpoint of the twin NBI structures 281960 (NB) and 282160 (SB). GRDA's rule names the access area by this crossing. American Whitewater places the launch 'at the bridge on river right' at 36.130173, -94.571497, 114 m north of the pin. Confirm the parking/launch on imagery and move the pin onto it before approval. Expected mile converted from GRDA mile 3.1 (+47.2).",
+    "confidence": "medium",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_National_Bridge_Inventory/FeatureServer/0",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/way/233808327",
+      "https://www.openstreetmap.org/way/233808329"
+    ],
+    "road_access": "US-59 crosses the river here, about 1 mile north of Watts."
+  },
+  {
+    "name": "Carnes Ford Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 57.77,
+    "lat": 36.14117,
+    "lon": -94.666928,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area ('Carnes Ford Area', OAC 300:40-2-3(h)); land ownership unverified",
+    "managing_agency": null,
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Low-water slab crossing, marked 'Dangerous during high water' by GRDA. No alcohol.",
+    "description": "GRDA public access area at the Carnes Ford low-water crossing. The owner confirmed on 2026-11-09 that it is an access and that it needs a 4x4. Pin from American Whitewater 'Carnes Ford River Access' (river right), within 30 m of OSM ford node 8968644307; 18 m from the line at Eddy mile 57.77. No GRDA or ODWC coordinate exists. The crossing itself is a low-water slab, dangerous in high water.",
+    "confidence": "medium (owner confirmed it is an access 2026-11-09; American Whitewater and an OSM ford node agree within 30 m; no agency coordinate)",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/node/8968644307",
+      "https://www.highwatercamp.com/maps"
+    ],
+    "road_access": "4WD required (owner, 2026-11-09). The Carnes Ford low-water crossing is reported washed out (Highwater Camp maps page, undated), so approach from the access side only. Set road_surface = 4wd_required in admin when approving."
+  },
+  {
+    "name": "Highwater Camp River Access",
+    "kind": "gravel_bar",
+    "roles": [
+      "gravel_bar",
+      "campground"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 59.08,
+    "lat": 36.1528125,
+    "lon": -94.6834375,
+    "is_public": false,
+    "ownership": "Highwater Camp (HWC), private campground",
+    "managing_agency": "Private",
+    "official_site_url": "https://www.highwatercamp.com/river/access/pass",
+    "facilities": "Private campground on a gravel bar. River Access Pass holders may drive onto the gravel bar to drop off or pick up people, gear and boats, and leave one vehicle in the parking area. No boat rentals or shuttles.",
+    "description": "Private gravel-bar launch at Highwater Camp, sold to non-campers through the camp's River Access Pass (reservation only); campers launch free. The owner supplied this pin on 2026-11-09 (plus code 5838+4J Watts = 8687 5838+4J); it is 39 m from the river line at Eddy mile 59.08, about 200 m from the operator's business pin, consistent with GRDA mile 11.8. Every private boat still needs a GRDA float permit; no rentals or shuttles.",
+    "confidence": "medium (operator River Access Pass terms; owner-supplied pin 2026-11-09, plus code 5838+4J Watts)",
+    "source_urls": [
+      "https://www.highwatercamp.com/river/access/pass",
+      "https://www.highwatercamp.com/maps",
+      "https://www.highwatercamp.com",
+      "https://maps.app.goo.gl/nMr8QVQ444T8SsMD6",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf"
+    ],
+    "fee_required": true,
+    "fee_notes": "Non-campers need a River Access Pass (RAP), reserved in advance: $10 per vehicle per day, up to 8 people, limited to 5 passes a day, valid 7 a.m.-8:30 p.m., May 1-Nov 15. It covers launch, takeout and one parked vehicle; not for commercial use. Overnight parking for multi-day trips is $5/night (max 3 nights) with an emailed itinerary. Campers do not need a RAP. Every private watercraft also needs a GRDA day or annual float permit; HWC does not sell them.",
+    "road_access": "468501 E. 599th Road, Watts, OK 74964. Approach from the north side of the river via the 4700 road, then 599th Road. The operator warns against routes using the 4693, 4685 or 0592 roads, and the Carnes Ford low-water crossing is washed out.",
+    "directions_override": "468501 E. 599th Road, Watts, OK 74964",
+    "parking_info": "One vehicle per River Access Pass in the HWC parking area. Do not walk or drive through camping areas."
+  },
+  {
+    "name": "Chewey Bridge",
+    "kind": "bridge",
+    "roles": [
+      "bridge"
+    ],
+    "is_float_endpoint": false,
+    "expected_mile": 70.8,
+    "lat": 36.104417,
+    "lon": -94.783772,
+    "is_public": true,
+    "ownership": "Adair County road bridge (Chewey Road / E0630; NBI 136820, owner code 02 county highway agency)",
+    "managing_agency": null,
+    "official_site_url": null,
+    "facilities": "None verified. USGS gauge 07196090 (Illinois River at Chewey) is at the bridge.",
+    "description": "Landmark only, NOT a planner endpoint. The 2025 GRDA guide shows Chewey Bridge as a landmark, not a green public access area. American Whitewater lists an access on river left, but public launch rights and parking are unverified. The pin is the bridge itself (NBI fields), corroborated by OSM bridge way 233785862 (3 m away). Expected mile converted from GRDA mile 23.6 (+47.2).",
+    "confidence": "high",
+    "source_urls": [
+      "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_National_Bridge_Inventory/FeatureServer/0",
+      "https://www.openstreetmap.org/way/233785862",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
+    ]
+  },
+  {
+    "name": "Round Hollow Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access",
+      "campground"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 74.9,
+    "lat": 36.094796,
+    "lon": -94.830888,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (ODWC-agreement site per 2021 coverage; land ownership unverified)",
+    "managing_agency": null,
+    "official_site_url": "https://grda.rentmy.co/products/round-hollow-public-access-area",
+    "facilities": "28 reservable primitive campsites (R-1 to R-28, $14/night) in GRDA's reservation system. American Whitewater notes a long gravel bar used as the launch. Restrooms not verified. Alcohol allowed (beer and wine, 21+, non-glass).",
+    "description": "GRDA public access area on river right and the end of Commercial Float Area One. Outfitters use it as a long-trip launch. The pin is GRDA's own site coordinate from its Scenic Rivers reservation system. American Whitewater's access point is 29 m away. The legacy GNIS park point (OSM node 357403692) sits 277 m south and is treated as a centroid. Expected mile converted from GRDA mile 27.7 (+47.2); measured 75.41.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://grda.rentmy.co/products/round-hollow-public-access-area",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/node/357403692"
+    ],
+    "road_access": "OK-10 (Illinois River Scenic Drive) at North Round Hollow Road.",
+    "parking_info": "Not verified; GRDA campground area beside OK-10."
+  },
+  {
+    "name": "Stunkard Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 75.97,
+    "lat": 36.0888125,
+    "lon": -94.8374375,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (ODWC-agreement site per 2021 coverage; land ownership unverified)",
+    "managing_agency": null,
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Not verified. OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it.",
+    "description": "GRDA public access area on river right, about 0.56 river mile below Round Hollow. The owner supplied this pin on 2026-11-09 (plus code 35Q7+G2 Tahlequah = 8677 35Q7+G2). It agrees with American Whitewater's point within ~15 m and is 123 m from the river line at Eddy mile 75.97. That resolves the earlier conflict with GRDA's mileage (0.3 mi below Round Hollow) in favour of the mapped position. Move the pin onto the launch in review if it sits on the parking area.",
+    "confidence": "medium (owner-supplied pin 2026-11-09, plus code 35Q7+G2 Tahlequah; agrees with American Whitewater within ~15 m)",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
+    ]
+  },
+  {
+    "name": "Peavine Hollow Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access",
+      "campground"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 79.6,
+    "lat": 36.064504,
+    "lon": -94.884363,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (ODWC-agreement site per 2021 coverage; land ownership unverified)",
+    "managing_agency": null,
+    "official_site_url": "https://grda.rentmy.co/products/peavine-hollow-public-access-area",
+    "facilities": "6 reservable primitive campsites (P-1 to P-6, $14/night) in GRDA's reservation system. Restrooms not verified. Alcohol allowed (beer and wine, 21+, non-glass).",
+    "description": "GRDA public access area on river right, used by outfitters as a long-trip launch. The pin is GRDA's own site coordinate from its Scenic Rivers reservation system. American Whitewater's access point is 28 m away, and the GNIS park point (OSM node 357401613) is 28 m away. Expected mile converted from GRDA mile 32.4 (+47.2); measured 79.67.",
+    "confidence": "high",
+    "source_urls": [
+      "https://grda.rentmy.co/products/peavine-hollow-public-access-area",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/node/357401613"
+    ],
+    "road_access": "Directly off OK-10 (Illinois River Scenic Drive)."
+  },
+  {
+    "name": "Edmondson Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 83.44,
+    "lat": 36.031363,
+    "lon": -94.912292,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (signed 'Edmondson Day Use Only Public Access Area'); land ownership unverified",
+    "managing_agency": null,
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Gravel parking lot, portable toilets and picnic tables (owner's street-level photo). Day use only.",
+    "description": "GRDA public access area on river left beside the road near Combs Bridge, signed 'Edmondson Day Use Only Public Access Area' (owner's photo, 2026-11-09). The pin is American Whitewater's 'Edmondson Public Access Area' point, which sits on a roadside gravel lot visible in USGS imagery, 105 m from the river line at Eddy mile 83.44, about 0.05 mi below the 2015 Combs Bridge (83.39). GRDA's 2025 guide lists Edmondson at RM 36.2, 0.3 mi above New Combs Bridge (RM 36.5); the mapped lot does not agree with that order, so confirm the pin in review. Day use only: no overnight parking or camping.",
+    "confidence": "medium (owner confirmed the public access and its signage 2026-11-09; American Whitewater point matches a gravel lot in USGS imagery; no agency coordinate)",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
+    ],
+    "parking_info": "Gravel day-use lot beside the road. Day use only."
+  },
+  {
+    "name": "New Combs Bridge Access",
+    "slug": "new-combs-bridge-access",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": null,
+    "lat": null,
+    "lon": null,
+    "is_public": false,
+    "ownership": "Private (owner, 2026-11-09)",
+    "managing_agency": "Private",
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Not verified. Alcohol allowed.",
+    "description": "HELD for a pin: a private access at New Combs Bridge, separate from GRDA's public Edmondson access (owner, 2026-11-09). The 2015 Combs Bridge (NBI 308360) is at Eddy mile 83.39. Which bank and side of the bridge the private launch uses is unknown, so it has no coordinate or mile yet.",
+    "confidence": "unverified location; owner confirmed private access 2026-11-09",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://diamondheadresorts.com/float_the_illinois_river_with_diamondhead_resort_in_tahlequah/",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_National_Bridge_Inventory/FeatureServer/0"
+    ],
+    "fee_notes": "Private access; arrange with the landowner or operator. Terms unpublished."
+  },
+  {
+    "name": "No Head Hollow Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access",
+      "campground"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 88.7,
+    "lat": 35.965641,
+    "lon": -94.910722,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (ODWC-agreement site per 2021 coverage; land ownership unverified)",
+    "managing_agency": null,
+    "official_site_url": "https://grda.rentmy.co/products/todd-public-access-area",
+    "facilities": "3 reservable primitive campsites (N-1 to N-3, $14/night) in GRDA's reservation system. Restrooms not verified. Alcohol allowed.",
+    "description": "GRDA public access area on river right. It is the boundary between the upper and lower sections and the end of Commercial Float Area Two. The pin is GRDA's own site coordinate from its Scenic Rivers reservation system. American Whitewater's access point is 26 m away, and the GNIS point (OSM node 357399759) is 56 m away. GRDA's store lists it as 'No Head Public Access Area' under the URL slug 'todd-public-access-area'; the separate Todd product is '-1'. Expected mile converted from GRDA mile 41.5 (+47.2); measured 88.94.",
+    "confidence": "high",
+    "source_urls": [
+      "https://grda.rentmy.co/products/todd-public-access-area",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/node/357399759"
+    ],
+    "road_access": "Directly off OK-10 (Illinois River Scenic Drive)."
+  },
+  {
+    "name": "Todd Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access",
+      "campground"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 94.2,
+    "lat": 35.958788,
+    "lon": -94.869116,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (land ownership unverified)",
+    "managing_agency": null,
+    "official_site_url": "https://grda.rentmy.co/products/todd-public-access-area-1",
+    "facilities": "3 reservable primitive campsites (T-1 to T-3, $14/night) in GRDA's reservation system. Restrooms not verified. No alcohol; commercial use prohibited (2025 GRDA guide; OAC 300:40-2-3(h)).",
+    "description": "GRDA public access area on river left. Commercial use is prohibited, so outfitters do not launch here. The pin is GRDA's own site coordinate from its Scenic Rivers reservation system. American Whitewater's access point is 39 m away. No GNIS feature exists. Expected mile converted from GRDA mile 47.0 (+47.2); measured 94.31.",
+    "confidence": "high",
+    "source_urls": [
+      "https://grda.rentmy.co/products/todd-public-access-area-1",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/way/14707415"
+    ],
+    "road_access": "End of North Oakdale Drive (OSM way 14707415), east of Tahlequah."
+  },
+  {
+    "name": "Echota Public Access Area",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 100.11,
+    "lat": 35.9429375,
+    "lon": -94.9114375,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area (ODWC-agreement site per 2021 coverage; land ownership unverified)",
+    "managing_agency": null,
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Not verified. OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it.",
+    "description": "GRDA public access area on river left at the 90-degree Echota Bend. The owner supplied this pin on 2026-11-09 (plus code W3VQ+5C Tahlequah = 8677 W3VQ+5C). It agrees with American Whitewater's 'Echota Bend' access within ~26 m (the legacy GNIS park point is ~250 m away) and is 79 m from the river line at Eddy mile 100.11. Heavy summer traffic at the bend.",
+    "confidence": "medium (owner-supplied pin 2026-11-09, plus code W3VQ+5C Tahlequah; agrees with American Whitewater \"Echota Bend\" within ~26 m)",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/node/357391240"
+    ]
+  },
+  {
+    "name": "US Highway 62 Bridge Access",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "expected_mile": 102.3,
+    "lat": 35.92645,
+    "lon": -94.92502,
+    "is_public": true,
+    "ownership": "GRDA Scenic Rivers public access area ('US 62 Bridge Access on the Illinois River', OAC 300:40-2-3(h)); land ownership unverified",
+    "managing_agency": null,
+    "official_site_url": "https://grda.com/illinois-river/",
+    "facilities": "Not verified. No alcohol (OAC 300:40-2-3(h)).",
+    "description": "Common take-out near the Tahlequah outfitter cluster. The pin is the US-62 river crossing: the midpoint of the twin NBI structures 250090 and 250110 (record lat/long fields). GRDA's rule names the access by this bridge. OSM bridge way 164654141 is 27 m away. American Whitewater's access point (35.926302, -94.924289) is 70 m east. Confirm the parking/launch and bank on imagery, and move the pin onto it before approval. Expected mile converted from GRDA mile 55.1 (+47.2); measured 101.85. The local GRDA offset here is about 46.75.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_National_Bridge_Inventory/FeatureServer/0",
+      "https://www.openstreetmap.org/way/164654141",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
+    ],
+    "road_access": "US-62 / OK-51 crossing of the Illinois River, about 2 miles northeast of Tahlequah."
+  },
+  {
+    "name": "Murrell Home Rd Public Access",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": false,
+    "expected_mile": 108.2,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "US Army Corps of Engineers (per the 2025 GRDA guide: 'US Army Corps of Engineers own/manage Murrell Home, Boy Scout Hole and Welling Bridge Access areas', 918-487-5252)",
+    "managing_agency": "COE",
+    "official_site_url": null,
+    "facilities": "Not verified. GRDA marks it 'Dangerous during high water'.",
+    "description": "HELD for a pin. USACE owns and manages it (GRDA 2025 guide; USACE Tenkiller office 918-487-5252). GRDA's map places it on the east bank (river left), east of Park Hill, at GRDA mile 62.0, about 0.5 mi above the Baron Fork confluence where the river becomes Lake Tenkiller, roughly Eddy mile 108.2 on the stored line (the +47.2 conversion gives 109.2, past the line's end, so the converted mile is not used). No coordinate exists in USACE layers, recreation.gov, American Whitewater or OSM, and USGS imagery of that bank shows no identifiable lot or ramp. It is the proposed lower-corridor take-out; without it the lower section ends at US-62.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://services8.arcgis.com/GvI5dZtQIoT0Fznq/arcgis/rest/services/District_Recreation_Features_SWT/FeatureServer"
+    ]
+  },
+  {
+    "name": "Horseshoe Bend Public Use Area",
+    "kind": "boat_ramp",
+    "roles": [
+      "boat_ramp"
+    ],
+    "is_float_endpoint": false,
+    "expected_mile": 112.8,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "US Army Corps of Engineers, Tenkiller Ferry Lake (recreation area 202698 'HORESHOE BEND', Tulsa District)",
+    "managing_agency": "COE",
+    "official_site_url": null,
+    "facilities": "USACE boat ramp, concrete, 1 launch lane (one lane closed), no user fee, no courtesy dock; crushed-stone ramp parking (USACE SWT data, 2021).",
+    "description": "HELD only because it lies off the stored river: the coordinate is verified. The USACE Tulsa District boat-ramp feature is at 35.821418, -94.903206. American Whitewater's 'Horseshoe Bend Take-Out' is 58 m away, and the GNIS point (OSM node 357395037) is 40 m away. Measured Eddy mile is 111.79, inside Tenkiller Ferry Lake and below the Baron Fork confluence (108.70), where the stored line now ends. It is excluded from the corridor. Restore lat/lon only if the river is extended into the lake. Expected mile converted from GRDA mile 65.6 (+47.2); the local offset below Baron Fork is about 46.2.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://services8.arcgis.com/GvI5dZtQIoT0Fznq/arcgis/rest/services/District_Recreation_Features_SWT/FeatureServer/11",
+      "https://services7.arcgis.com/n1YM8pTrFmm7L4hs/arcgis/rest/services/usace_recreation_areas/FeatureServer/0",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.openstreetmap.org/node/357395037",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf"
+    ]
+  }
+]
