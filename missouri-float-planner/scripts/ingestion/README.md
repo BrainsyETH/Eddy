@@ -184,6 +184,11 @@ human-grade verification. The current path (`import-dossier-access-points.ts`):
    inversion. `managing_agency` is mapped to the allowed enum
    (MDC/NPS/USFS/COE/State Park/County/Municipal/Private); AGFC/USGS/MoDOT fall to
    null with `ownership` keeping the true operator (00158 precedent).
+   `--write` also refreshes the descriptive columns of every row the file lists
+   that already exists, from the file. When adding rows to an older file, pass
+   `--only=<new-slug>,<new-slug>` to both `--write` and `--approve` so the
+   existing records are left alone; the dry run prints which existing rows a
+   write would refresh.
 4. **Review** the flags, fix coordinates, re-run until clean.
 5. **Approve** the pins that pass: append `--approve` (approves only ✅ rows).
 6. **Imagery** (#843): `npx tsx scripts/ingestion/backfill-imagery-cli.ts <slug>`

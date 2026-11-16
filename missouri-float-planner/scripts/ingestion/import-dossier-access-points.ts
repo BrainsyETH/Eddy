@@ -16,7 +16,15 @@
  *   kind/roles ∈ access | bridge | boat_ramp | park | campground | gravel_bar
  *
  * Usage:
- *   npx tsx scripts/ingestion/import-dossier-access-points.ts <slug> [--write] [--approve]
+ *   npx tsx scripts/ingestion/import-dossier-access-points.ts <slug> [--write] [--approve] [--only=slug,slug]
+ *     --only     limit --write and --approve to the named dossier rows. Use it
+ *                whenever a dossier file also lists rows that already exist:
+ *                --write refreshes the descriptive columns of EVERY listed row
+ *                from the JSON, so adding one new row to an old file would
+ *                otherwise write that file's older text back over reviewed
+ *                records, and --approve would nominate rows a reviewer left
+ *                unapproved on purpose. The dry run prints which existing rows
+ *                a --write would refresh.
  *     (no flag)  dry-run: show what WOULD import + current DB state
  *     --write    insert NEW slugs (approved=false, is_float_endpoint and types
  *                from explicit roles/eligibility, falling back to kind) and
@@ -157,6 +165,33 @@ export function dossierColumns(r: APRow, existing = false): Record<string, unkno
     if (owns(r, key)) columns[key] = r[key];
   }
   return columns;
+}
+
+/**
+ * The dossier rows a run may write or approve. Without `only`, all of them.
+ * With it, exactly the named slugs, and a name the dossier does not carry is
+ * an error rather than a silent no-op: a typo must not look like success.
+ */
+export function selectDossierRows(rows: APRow[], only: readonly string[] | null): APRow[] {
+  if (only === null) return rows;
+  if (only.length === 0) throw new Error('--only needs at least one slug');
+  const wanted = new Set(only);
+  const picked = rows.filter((r) => wanted.has(dossierSlugOf(r)));
+  const found = new Set(picked.map(dossierSlugOf));
+  const missing = only.filter((s) => !found.has(s));
+  if (missing.length) throw new Error(`--only names rows this dossier does not have: ${missing.join(', ')}`);
+  return picked;
+}
+
+/** `--only=a,b` from the flags; null when absent. Unknown flags are an error. */
+export function parseImportFlags(flags: readonly string[]): { write: boolean; approve: boolean; only: string[] | null } {
+  let only: string[] | null = null;
+  for (const f of flags) {
+    if (f === '--write' || f === '--approve') continue;
+    if (f.startsWith('--only=')) { only = f.slice(7).split(',').map((s) => s.trim()).filter(Boolean); continue; }
+    throw new Error(`Unknown argument ${f}`);
+  }
+  return { write: flags.includes('--write'), approve: flags.includes('--approve'), only };
 }
 
 const VALID_KINDS: ReadonlySet<string> = new Set<Kind>([
@@ -306,11 +341,10 @@ export function classifyPoints(
 async function main() {
   const [slug, ...flags] = process.argv.slice(2);
   if (!slug) {
-    console.error('Usage: import-dossier-access-points.ts <slug> [--write] [--approve]');
+    console.error('Usage: import-dossier-access-points.ts <slug> [--write] [--approve] [--only=slug,slug]');
     process.exit(1);
   }
-  const write = flags.includes('--write');
-  const approve = flags.includes('--approve');
+  const { write, approve, only } = parseImportFlags(flags);
 
   const dataPath = path.join(__dirname, 'access-points', `${slug}.json`);
   if (!fs.existsSync(dataPath)) {
@@ -319,8 +353,9 @@ async function main() {
   }
   const all: APRow[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
   // Only rows with real coordinates are importable; the rest are held.
-  const placeable = all.filter((r) => r.lat != null && r.lon != null);
-  const held = all.filter((r) => r.lat == null || r.lon == null);
+  // --only narrows both the write plan and the approval nominations.
+  const placeable = selectDossierRows(all.filter((r) => r.lat != null && r.lon != null), only);
+  const held = only ? [] : all.filter((r) => r.lat == null || r.lon == null);
   const expBySlug = dossierExpectationsOf(placeable);
 
   // `write: write` here meant `--approve` on its own built a READ client and
@@ -331,8 +366,21 @@ async function main() {
   const { data: river, error: rErr } = await db.from('rivers').select('id, name').eq('slug', slug).single();
   if (rErr || !river) throw new Error(`river ${slug} not found: ${rErr?.message}`);
 
-  console.log(`\n${river.name} (${slug}) — ${placeable.length} placeable, ${held.length} held (no coord)`);
+  console.log(`\n${river.name} (${slug}) — ${placeable.length} placeable, ${held.length} held (no coord)${only ? ` [--only: ${only.join(', ')}]` : ''}`);
   if (held.length) console.log('  held:', held.map((h) => h.name).join(', '));
+
+  // Say which existing rows a --write refreshes, before it happens: their
+  // descriptive columns are rewritten from this file whether or not it is newer.
+  {
+    const { data: present, error: presentErr } = await db.from('access_points').select('slug').eq('river_id', river.id);
+    if (presentErr) throw presentErr;
+    const inDb = new Set((present ?? []).map((e) => e.slug as string));
+    const refresh = placeable.map(dossierSlugOf).filter((s) => inDb.has(s));
+    if (refresh.length) {
+      console.log(`  ${write ? 'refreshing' : '--write would refresh'} ${refresh.length} existing row(s) from this file: ${refresh.join(', ')}`);
+      if (!only) console.log('  (pass --only=<new slugs> to leave existing rows untouched)');
+    }
+  }
 
   if (write) {
     // ── WHY THIS IS NOT ONE upsert() ─────────────────────────────────────
