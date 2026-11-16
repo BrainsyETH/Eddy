@@ -201,3 +201,5 @@ NWS's only impact statement is at 10 ft ("Low lying areas near the gage
 flood", ~3,500 cfs), where the flood-stage override already applies. The
 anchor stays low-confidence, and ingest refuses it, until the owner confirms
 it as the second source.
+
+**Decision 2026-11-16:** the owner set Big Sugar's do-not-float level at **1,250 cfs** on the Powell gauge, below the NWS 2,190 cfs action stage, which stays as a cross-check.

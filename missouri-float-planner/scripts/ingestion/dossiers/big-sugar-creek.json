@@ -1,5 +1,5 @@
 {
-  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — Powell 07188653 ladder in cfs (50 / 80 / 180–400 / 400 / 2,190 proposed) over the single-river corridor Creekside Campground → Ables Sugar Island Camp. Not signed off; danger anchor awaits owner confirmation.",
+  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — Powell 07188653 ladder in cfs (50 / 80 / 180–400 / 400 / 1,250 owner-decided) over the single-river corridor Creekside Campground → Ables Sugar Island Camp. Not signed off; readiness pending.",
   "name": "Big Sugar Creek",
   "slug": "big-sugar-creek",
   "primaryGaugeSiteId": "07188653",
@@ -140,13 +140,15 @@
         },
         {
           "level": "dangerous",
-          "value": 2190,
+          "value": 1250,
           "unit": "cfs",
           "referenceGauge": "07188653",
           "referenceGaugeIsPolled": true,
-          "source": "https://api.water.noaa.gov/nwps/v1/gauges/BSGM7 (NWS action stage 8 ft = 2,190 cfs; minor flood 10 ft = 3,500 cfs, \"low lying areas near the gage flood\") — PROPOSED: NWS action stage on a small reach where the gauge sits at the top of the corridor (README danger-anchor exception). Awaiting owner confirmation as the corroborating source",
-          "corroboratingSources": [],
-          "confidence": "low"
+          "source": "Owner decision 2026-11-16: do-not-float at 1,250 cfs on the Powell gauge (local knowledge; chosen below the NWS action stage)",
+          "corroboratingSources": [
+            "https://api.water.noaa.gov/nwps/v1/gauges/BSGM7 (cross-check: NWS action stage 8 ft = 2,190 cfs; minor flood 10 ft = 3,500 cfs, where the flood override applies)"
+          ],
+          "confidence": "high"
         }
       ],
       "publishedFloatTimes": [
@@ -506,7 +508,7 @@
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Rated proposal (2026-11-16), cfs at Powell: Too Low <50, Low 50–80, Good 80–180, Flowing 180–400, High >400 (moherp observed trips + the 2008 trip report; ideal range and High line by delegated judgment). Dangerous 2,190 cfs (NWS action stage) is proposed and needs the owner's confirmation as its second source; the NWS flood-stage override still applies at 10 ft.",
+      "notes": "Rated proposal (2026-11-16), cfs at Powell: Too Low <50, Low 50–80, Good 80–180, Flowing 180–400, High >400 (moherp observed trips + the 2008 trip report; ideal range and High line by delegated judgment). Dangerous 1,250 cfs by owner decision 2026-11-16 (below the NWS 2,190 cfs action stage); the NWS flood-stage override still applies at 10 ft.",
       "ratingMode": "rated"
     },
     "hazards": {
