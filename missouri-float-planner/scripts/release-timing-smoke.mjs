@@ -101,6 +101,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     assert.match(await map.getByRole('status').innerText(), /Before the typical window/);
     const mapGraphic = map.getByRole('group', { name: 'White River map, select a place for river miles' });
     assert((await mapGraphic.boundingBox()).y < 800, width + ': the map is reached without a long preamble');
+    const clippedLabels = await mapGraphic.evaluate((svg) => {
+      const bounds = svg.getBoundingClientRect();
+      return [...svg.querySelectorAll('[role=button] text')].filter((label) => {
+        const rect = label.getBoundingClientRect();
+        return rect.left < bounds.left || rect.right > bounds.right;
+      }).map((label) => label.textContent);
+    });
+    assert.deepEqual(clippedLabels, [], width + ': place labels stay within the map');
     await page.screenshot({ path: out + '/page-' + width + '.png', fullPage: true, style: screenshotStyle });
     await capture(intro, 'intro-' + width);
     await capture(map, 'map-' + width);

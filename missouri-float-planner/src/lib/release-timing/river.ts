@@ -41,7 +41,7 @@ export const PLACES: Place[] = [
   { name: 'Gaston’s', mile: 4.2, minor: true },
   { name: 'White Hole', mile: 7.1, label: { dx: 11, dy: 4, anchor: 'start' } },
   { name: 'The Narrows', mile: 9.1, minor: true },
-  { name: 'Wildcat Shoals', mile: 10.8, label: { dx: -11, dy: 4, anchor: 'end' } },
+  { name: 'Wildcat Shoals', mile: 10.8, label: { dx: 11, dy: 4, anchor: 'start' } },
   { name: 'Cotter', mile: 16.9, label: { dx: -11, dy: 4, anchor: 'end' } },
   { name: 'Roundhouse Shoals', mile: 17.6, minor: true },
   { name: 'Rim Shoals', mile: 21.3, label: { dx: 10, dy: -8, anchor: 'start' } },
@@ -54,7 +54,7 @@ export const PLACES: Place[] = [
   { name: 'Red’s Landing', mile: 50, minor: true },
   { name: 'Sneed Creek', mile: 51.6, minor: true },
   { name: 'Chesmond Ferry', mile: 56.6, minor: true },
-  { name: 'Calico Rock', mile: 60, label: { dx: 12, dy: 4, anchor: 'start' }, narrowLabel: { dx: 6, dy: 20, anchor: 'end' } },
+  { name: 'Calico Rock', mile: 60, label: { dx: 6, dy: 20, anchor: 'end' } },
 ];
 export const GAUGE_INDEX = PLACES.findIndex((place) => place.kind === 'gauge');
 
