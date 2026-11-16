@@ -8,7 +8,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import ReadAppLink from '@/components/ReadAppLink';
 import { Share2, Check } from 'lucide-react';
 import { canonicalShareUrl } from '@/lib/share-link';
 import { SHARE_LABEL, ShareAnnouncement, useShareLink } from '@/components/ui/share-link';
@@ -171,13 +171,13 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
           {/* Premium app CTA + Share row */}
           <div className="flex items-center gap-3 mt-1.5">
             {hasSummary && (
-              <Link
-                href="/app"
+              <ReadAppLink
+                destination={{ kind: 'river', id: riverSlug }} label="map_river_eddy_read"
                 className="text-xs font-semibold underline decoration-1 underline-offset-2 opacity-70 transition-opacity hover:opacity-100"
                 style={{ color: surface.color }}
               >
                 Unlock the full read in the iOS app
-              </Link>
+              </ReadAppLink>
             )}
 
             {(optimalRange || notes) && !hasSummary && (

@@ -73,8 +73,9 @@ export function appLandingUrl(campaign?: string | null, damId?: string, destinat
 /** The query carries dam context through a document navigation to Safari's banner. */
 export function appLandingContext(params: { ct?: unknown; dam?: unknown } & AppDestinationQuery) {
   const hasDestination = ['plan', 'river', 'gauge', 'access'].some(key => params[key as keyof AppDestinationQuery] !== undefined);
-  const dam = hasDestination ? null : getDamAppPromotion(params.dam);
-  const destination = params.dam !== undefined ? null : appDestination(params);
+  const dam = hasDestination || params.feature !== undefined ? null : getDamAppPromotion(params.dam);
+  // Keep the existing dam-widget landing; a Read explicitly carries its own topic.
+  const destination = params.dam !== undefined && params.feature !== 'read' ? null : appDestination(params);
   return { dam, destination, campaign: campaignToken(params.ct) ?? dam?.campaign ?? destinationCampaign(destination) };
 }
 

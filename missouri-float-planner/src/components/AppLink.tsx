@@ -3,7 +3,7 @@
 import { useEffect, useState, type AnchorHTMLAttributes } from 'react';
 import { usePathname } from 'next/navigation';
 import { appLandingUrl, appStoreUrl, campaignToken } from '@/lib/app-discovery';
-import type { AppDestination } from '@/lib/app-destination';
+import { destinationParams, nativeDestination, type AppDestination } from '@/lib/app-destination';
 import { useAppDevice } from './useAppDevice';
 import { useAppPromotionView } from './useAppPromotionView';
 
@@ -43,12 +43,19 @@ type Props = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
 export default function AppLink({ store = false, campaign: initialCampaign, damId, destination, trackView = false, ...props }: Props) {
   const campaign = useAppCampaign(initialCampaign);
   const device = useAppDevice();
-  const directStore = store || (device === 'ios' && !damId && !destination);
+  const directStore = store || device === 'ios';
   const href = directStore ? appStoreUrl(campaign) : appLandingUrl(campaign, damId, destination);
-  const ref = useAppPromotionView<HTMLAnchorElement>(props['data-ga-label'], damId ?? JSON.stringify(destination ?? null), trackView && device !== 'android', damId);
+  const context = destination && destinationParams(destination).size ? destination : null;
+  const nativePath = context ? nativeDestination(context) : undefined;
+  const feature = context && 'feature' in context ? context.feature : undefined;
+  const promotionDamId = damId ?? (destination?.kind === 'dam' ? destination.id : undefined);
+  const ref = useAppPromotionView<HTMLAnchorElement>(props['data-ga-label'], damId ?? JSON.stringify(destination ?? null), trackView && device !== 'android', promotionDamId, nativePath, feature);
   if (device === 'android') return null;
   // A document navigation to /app gives Safari the campaign-specific banner
   // in the initial HTML. Native banners aren't guaranteed to re-read SPA meta.
-  return <a {...props} ref={ref} href={href} data-ga-campaign={campaign ?? undefined}
+  return <a target={directStore ? '_blank' : undefined} rel={directStore ? 'noopener noreferrer' : undefined}
+    {...props} ref={ref} href={href} data-ga-campaign={campaign ?? undefined}
+    data-ga-app-destination={nativePath}
+    data-ga-app-feature={feature}
     data-ga-event={directStore ? 'app_store_click' : 'app_landing_click'} />;
 }

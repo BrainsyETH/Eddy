@@ -18,7 +18,7 @@
 // assessment is available.
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import ReadAppLink from '@/components/ReadAppLink';
 import Image from 'next/image';
 import { Lock } from 'lucide-react';
 import Card from '@/components/ui/Card';
@@ -70,10 +70,10 @@ export default function DamEddyRead({ damId, damName, now }: { damId: string; da
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <span className="text-xs text-neutral-600">{age ? `Updated ${age}` : null}</span>
-        <Link href="/app" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary-800 underline decoration-1 underline-offset-2 hover:text-primary-600">
+        <ReadAppLink destination={{ kind: 'dam', id: damId }} label="dam_eddy_read" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary-800 underline decoration-1 underline-offset-2 hover:text-primary-600">
           <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Read with Eddy Premium
-        </Link>
+        </ReadAppLink>
       </div>
     </Card>
   );

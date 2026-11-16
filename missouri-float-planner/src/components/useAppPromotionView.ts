@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 
 /** One visible invitation per placement/context/page, including responsive duplicates. */
-export function useAppPromotionView<T extends HTMLElement>(label: string | undefined, context: string, enabled: boolean, damId?: string) {
+export function useAppPromotionView<T extends HTMLElement>(label: string | undefined, context: string, enabled: boolean, damId?: string, destination?: string, feature?: 'read') {
   const ref = useRef<T>(null);
   const pathname = usePathname();
   useEffect(() => {
@@ -19,12 +19,15 @@ export function useAppPromotionView<T extends HTMLElement>(label: string | undef
       if (!entries.some(entry => entry.isIntersecting && entry.intersectionRatio >= 0.5)) return;
       if (!views.has(key)) {
         views.add(key);
-        trackEvent('app_promotion_view', { label, page_path: window.location.pathname, ...(damId ? { dam_id: damId } : {}) });
+        trackEvent('app_promotion_view', {
+          label, page_path: window.location.pathname, ...(damId ? { dam_id: damId } : {}),
+          ...(destination ? { app_destination: destination } : {}), ...(feature ? { app_feature: feature } : {}),
+        });
       }
       observer.disconnect();
     }, { threshold: 0.5 });
     observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [label, context, enabled, damId, pathname]);
+  }, [label, context, enabled, damId, destination, feature, pathname]);
   return ref;
 }

@@ -488,7 +488,7 @@ function RiverCard({
         </div>
       )}
 
-      <EddyReportCard report={eddy} />
+      <EddyReportCard report={eddy} destination={{ kind: 'river', id: river.slug }} />
 
       {primaryThresholds && (
         <ThresholdProvenance
@@ -738,7 +738,7 @@ function GaugeDetail({
       </div>
       <div className="mt-1.5"><DataAgeChip iso={gauge.readingTimestamp} /></div>
 
-      <EddyReportCard report={eddy} />
+      <EddyReportCard report={eddy} destination={gauge.is_primary ? { kind: 'river', id: gauge.river_slug } : { kind: 'gauge', id: gauge.site_no }} />
 
       <ThresholdProvenance
         thresholds={{
