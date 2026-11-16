@@ -1,5 +1,5 @@
 {
-  "_status": "RESEARCH DRAFT 2026-11-02: recommend an UNRATED (readings-only, cfs at Powell 07188653) release with a proposed single-river corridor Creekside Campground → Ables Sugar Island Camp (owner-confirmed private put-ins plus MDC Deep Ford); road-crossing put-ins held. Not signed off; readiness pending.",
+  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — Powell 07188653 ladder in cfs (50 / 80 / 180–400 / 400 / 2,190 proposed) over the single-river corridor Creekside Campground → Ables Sugar Island Camp. Not signed off; danger anchor awaits owner confirmation.",
   "name": "Big Sugar Creek",
   "slug": "big-sugar-creek",
   "primaryGaugeSiteId": "07188653",
@@ -73,10 +73,82 @@
       "riverMileEnd": 42.56,
       "representativeGauge": {
         "siteId": "07188653",
-        "rationale": "Only USGS streamgage on Big Sugar Creek with live discharge (00060, since 2000) and stage (00065). moherp rates trips on this reach against it. Measured discharge in cfs is published without a recreational rating; no thresholds are recommended for the initial release.",
+        "rationale": "Powell sits at Eddy mile 25.26, at the top of the Creekside → Sugar Island corridor, and moherp's observed trips are rated on it. Rated in cfs: the stage–discharge relation has shifted (4.4 ft was ~300 cfs in 2008 and ~11 cfs in 2026).",
         "knownBias": "About 15 guide miles upstream of Deep Ford; reads the upper creek. Little Sugar Creek (07188838) enters at the very end of the trip and is not represented."
       },
-      "thresholds": [],
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 50,
+          "unit": "cfs",
+          "referenceGauge": "07188653",
+          "referenceGaugeIsPolled": true,
+          "source": "https://rivers.moherp.org/gauge/?gauge=07188653&hours=168 — OBSERVED tier: Low begins at 50 cfs (below is Poor)",
+          "corroboratingSources": [
+            "https://rivers.moherp.org/gauge/?gauge=07188653&hours=168 — trip 2013-06-27 Big Rock → Sugar Island rated Low at 39 cfs"
+          ],
+          "confidence": "high"
+        },
+        {
+          "level": "low",
+          "value": 80,
+          "unit": "cfs",
+          "referenceGauge": "07188653",
+          "referenceGaugeIsPolled": true,
+          "source": "https://rivers.moherp.org/gauge/?gauge=07188653&hours=168 — OBSERVED tier: Good begins at 80 cfs",
+          "corroboratingSources": [
+            "https://rivers.moherp.org/gauge/?gauge=07188653&hours=168 — trips 2016-10-15/16 at 81 and 66 cfs described as \"right between low and good\""
+          ],
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_min",
+          "value": 180,
+          "unit": "cfs",
+          "referenceGauge": "07188653",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner delegated the ideal range and High line to Claude's judgment from the observed trips, 2026-11-16; owner sign-off pending. Lower edge set at the observed 182 cfs trip (2020-06-06 Cyclone → Sugar Island: \"Still floatable but slower. Dragging was avoidable.\")",
+          "corroboratingSources": [
+            "https://rivers.moherp.org/gauge/?gauge=07188653&hours=168"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_max",
+          "value": 400,
+          "unit": "cfs",
+          "referenceGauge": "07188653",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner delegated the ideal range and High line to Claude's judgment from the observed trips, 2026-11-16; owner sign-off pending. Set just above the highest observed good trip (341 cfs, 2020-05-30 Creekside → Pineville: \"Very good float… ran quickly but the way was open\") and the 2008 \"about perfect\" ~300 cfs",
+          "corroboratingSources": [
+            "https://rivers.moherp.org/gauge/?gauge=07188653&hours=168",
+            "https://forums.ozarkanglers.com/topic/11158-big-sugar-trip-report-and-pictures (2008-04-18: \"about perfect, I only scraped once or twice\" at 297–303 cfs, verified on USGS IV)"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "high",
+          "value": 400,
+          "unit": "cfs",
+          "referenceGauge": "07188653",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner delegated the ideal range and High line to Claude's judgment from the observed trips, 2026-11-16; owner sign-off pending. Above the ideal range the creek runs fast with strainers; no observed trips above 341 cfs",
+          "corroboratingSources": [
+            "https://rivers.moherp.org/gauge/?gauge=07188653&hours=168"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "dangerous",
+          "value": 2190,
+          "unit": "cfs",
+          "referenceGauge": "07188653",
+          "referenceGaugeIsPolled": true,
+          "source": "https://api.water.noaa.gov/nwps/v1/gauges/BSGM7 (NWS action stage 8 ft = 2,190 cfs; minor flood 10 ft = 3,500 cfs, \"low lying areas near the gage flood\") — PROPOSED: NWS action stage on a small reach where the gauge sits at the top of the corridor (README danger-anchor exception). Awaiting owner confirmation as the corroborating source",
+          "corroboratingSources": [],
+          "confidence": "low"
+        }
+      ],
       "publishedFloatTimes": [
         {
           "reachLabel": "Deep Ford → Sugar Island — trip report, 'prob less than 3 miles', no duration",
@@ -434,8 +506,8 @@
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Recommendation: UNRATED (readings-only). moherp OBSERVED at Powell gives only floors (Low ≥50, Good ≥80 cfs) from 7 trips; no High, Flood or do-not-float level exists from moherp, outfitters or American Whitewater. A floor-only ladder would grade every reading from 80 cfs to the 10 ft flood-stage override (~3,500 cfs) 'Good' on a creek that has crested at 30,900 cfs. Candidate floors are kept in research notes for a future rated release. moherp ESTIMATED values (930/410/171/70/19) and USGS percentiles are rejected. Requires owner sign-off of the unrated mode.",
-      "ratingMode": "unrated"
+      "notes": "Rated proposal (2026-11-16), cfs at Powell: Too Low <50, Low 50–80, Good 80–180, Flowing 180–400, High >400 (moherp observed trips + the 2008 trip report; ideal range and High line by delegated judgment). Dangerous 2,190 cfs (NWS action stage) is proposed and needs the owner's confirmation as its second source; the NWS flood-stage override still applies at 10 ft.",
+      "ratingMode": "rated"
     },
     "hazards": {
       "status": "pending",
@@ -451,6 +523,5 @@
       "reviewedAt": null,
       "notes": "Geometry staged, not applied: TNM HU8 11070208 whole-stem dissolve, 44.1 mi, ends 0 m from the Elk's stored start (import-nhd-rivers-from-tnm.ts, mode insert). Measured Eddy miles: Powell gauge 25.26, Creekside ~25.9 (address point), Big Rock 38.97, Deep Ford 40.45, Sugar Island ~42.5 (address point), confluence 44.06. All proposed pairs are single-river. Remaining: apply geometry, import pins, and validate get_float_segment for each pair; decide the 23.9 channel split only if Pineville is ever offered."
     }
-  },
-  "conditionRatingMode": "unrated"
+  }
 }

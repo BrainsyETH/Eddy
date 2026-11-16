@@ -171,3 +171,33 @@ launch pins still need imagery placement and review.
 Still missing for a rated ladder: the ideal range's edges, a High line and a
 do-not-float level (two sources). moherp's observed 50 / 80 cfs floor remains
 the low end.
+
+## Addendum 2026-11-16 (later): rated proposal
+
+The owner delegated the ideal range and High line to judgment from the data.
+Evidence, all cfs at Powell 07188653 (moherp observed trips, plus the 2008
+Ozark Anglers report):
+
+| cfs | Trip | Observation |
+|---|---|---|
+| 39 | Big Rock → Sugar Island, 2013 | Low |
+| 48 | Deep Ford → Elk, 2014 | Good (lower creek, below the tributaries) |
+| 66, 81 | Powell → Cyclone → Pineville, 2016 | "right between low and good" |
+| 130 | Cyclone → Big Elk, 2005 | Good |
+| 182 | Cyclone → Sugar Island, 2020 | Good; "slower… dragging was avoidable" |
+| ~300 | Mikes Creek → Elk, 2008 | "about perfect, only scraped once or twice" |
+| 341 | Creekside → Pineville, 2020 | Good; "very good float… ran quickly but the way was open" |
+
+Proposed ladder: too_low 50, low 80 (moherp observed tier); optimal 180–400
+and high 400 (judgment: the ideal band runs from the slowest "dragging was
+avoidable" trip to just above the fastest good trip; nothing is observed above
+341 cfs). moherp's ESTIMATED High of 410 cfs happens to agree but is not a
+source.
+
+Dangerous: no floater do-not-float source exists. Proposed 2,190 cfs, the NWS
+action stage (8 ft) at BSGM7, under the README exception for a small reach
+whose gauge sits on the float water (Powell is at the top of the corridor).
+NWS's only impact statement is at 10 ft ("Low lying areas near the gage
+flood", ~3,500 cfs), where the flood-stage override already applies. The
+anchor stays low-confidence, and ingest refuses it, until the owner confirms
+it as the second source.
