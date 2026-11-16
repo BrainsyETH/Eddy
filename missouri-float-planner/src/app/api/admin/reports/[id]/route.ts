@@ -1,9 +1,10 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/reports/[id]/route.ts
 // GET/PUT/DELETE /api/admin/reports/[id] - Single community report admin operations
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
+import { getAdminIdentity, requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
 import { applyMediaTransitions } from '@/lib/uploads/apply-media-transitions';
 
@@ -14,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -74,12 +75,12 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -105,6 +106,7 @@ export async function PUT(
       // verified_at tracks the CURRENT verification: set on verify, cleared on
       // any other status (the bulk route already did this; verified → rejected
       // used to keep its verified_at here).
+      updates.verified_by = body.status === 'verified' ? getAdminIdentity(request)?.id ?? null : null;
       updates.verified_at = body.status === 'verified' ? new Date().toISOString() : null;
     }
 
@@ -218,12 +220,12 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -252,3 +254,6 @@ export async function DELETE(
     );
   }
 }
+
+export const PUT = withAdminMutation(handlePUT);
+export const DELETE = withAdminMutation(handleDELETE);

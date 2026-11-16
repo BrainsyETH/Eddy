@@ -1,0 +1,90 @@
+# USACE recreation-area status ledger — does the Corps change what it publishes?
+#
+# Phase 0 of the lakes plan (missouri-float-planner/docs/LAKES_AND_LAUNCHES_PLAN_2026-11-09.md)
+# records the Corps' recreation-area status layer daily so each project can be
+# classed as maintained, static or stale from the agency's own dates and from
+# the changes Eddy observes. Nothing in the product reads this ledger; it is
+# evidence for a decision, kept where it can be re-read.
+#
+# It also appends one line per Savannah project to a JSONL record of what the
+# district's scheduled-energy series contained at the read, so the Southeast
+# step can see when the schedule posts and how far it reaches.
+#
+# It writes ONLY to the data branch below: the ledger JSON and the schedule
+# record, one commit a day. An unchanged area is byte-identical after a run,
+# so a quiet day's ledger diff is the run counter and the check time. It
+# touches no production system and no secret. To stop it, disable the
+# workflow or delete the branch.
+
+name: USACE recreation ledger
+
+on:
+  schedule:
+    - cron: '41 11 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: usace-recreation-ledger
+  cancel-in-progress: false
+
+env:
+  DATA_BRANCH: data/usace-recreation-ledger
+  LEDGER: missouri-float-planner/scripts/ingestion/lakes/usace-recreation-ledger.json
+  SCHEDULE: missouri-float-planner/scripts/ingestion/lakes/savannah-energy-schedule.jsonl
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - name: Use Node 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: missouri-float-planner
+        run: npm ci
+
+      - name: Start from the data branch's records when it exists
+        run: |
+          if git ls-remote --exit-code --heads origin "$DATA_BRANCH" >/dev/null; then
+            git fetch origin "$DATA_BRANCH"
+            git checkout "origin/$DATA_BRANCH" -- "$LEDGER" "$SCHEDULE" || echo "::notice::data branch is missing a record; seeding from main"
+          fi
+
+      - name: Record today's recreation statuses
+        working-directory: missouri-float-planner
+        run: npx tsx scripts/lakes/record-usace-recreation.ts --record scripts/ingestion/lakes/usace-recreation-ledger.json
+
+      - name: Record the Savannah scheduled-energy horizon
+        working-directory: missouri-float-planner
+        run: npx tsx scripts/lakes/record-savannah-schedule.ts --append scripts/ingestion/lakes/savannah-energy-schedule.jsonl
+
+      - name: Commit the records to the data branch
+        run: |
+          git config user.name "eddy-data-bot"
+          git config user.email "noreply@eddy.guide"
+          git stash push -- "$LEDGER" "$SCHEDULE"
+          if git ls-remote --exit-code --heads origin "$DATA_BRANCH" >/dev/null; then
+            git checkout -B "$DATA_BRANCH" "origin/$DATA_BRANCH"
+          else
+            git checkout -B "$DATA_BRANCH"
+          fi
+          git stash pop
+          git add "$LEDGER" "$SCHEDULE"
+          if git diff --cached --quiet; then
+            echo "Records unchanged; nothing to commit."
+            exit 0
+          fi
+          git commit -m "Record USACE recreation statuses and Savannah schedule $(date -u +%Y-%m-%d)"
+          git push origin "$DATA_BRANCH"

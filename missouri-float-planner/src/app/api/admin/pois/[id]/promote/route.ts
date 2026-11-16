@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/pois/[id]/promote/route.ts
 // POST /api/admin/pois/[id]/promote — Promote a POI to an access point
 // Creates a new access_point from the POI data, then deactivates the POI.
@@ -8,12 +9,12 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -124,3 +125,5 @@ export async function POST(
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

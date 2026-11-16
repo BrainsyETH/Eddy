@@ -1130,6 +1130,12 @@ export async function fetchGaugeDetail(
  * place that can tell the difference, because it is the only one holding the
  * status code, so it is where the difference has to be drawn.
  */
+/** Rain is a free station fact. The server exposes reviewed published views only. */
+export async function fetchRainfall(siteId: string, detail = false, signal?: AbortSignal): Promise<unknown | null> {
+  try { return await get<unknown>(`/api/gauges/${encodeURIComponent(siteId)}/rainfall${detail ? '?detail=1' : ''}`, signal); }
+  catch (error) { if (error instanceof ApiError && error.status === 404) return null; throw error; }
+}
+
 export async function fetchGaugeHistory(
   siteId: string,
   days: number,
@@ -1293,6 +1299,7 @@ export async function fetchFloatStartEstimate(params: {
   startRiverMile?: number | null;
   distanceMiles: number;
   floatTime: { movingSpeedMph?: number | null } | null;
+  floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
   estimateBasis: 'today' | 'typical';
   estimatedAt: string;
   /** The condition a float started now keeps in its recap; absent from older servers. */
@@ -1309,6 +1316,7 @@ export async function fetchFloatStartEstimate(params: {
   const result = await get<{
     startRiverMile?: number | null; distanceMiles: number;
     floatTime: { movingSpeedMph?: number | null } | null;
+    floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
     estimateBasis: 'today' | 'typical'; estimatedAt: string;
     condition?: import('@eddy/conditions/float-archive').StartCondition | null;
   }>(`/api/route-estimate?${query}`, signal);
@@ -2627,6 +2635,13 @@ export async function submitHazardReport(input: HazardReportSubmission, signal?:
 export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, siteId?: string) {
   return get<import('@eddy/types').CampsitePhotosResponse>(
     `/api/campsites/photos?media=2&facility=${encodeURIComponent(facilityId)}${siteId ? `&site=${encodeURIComponent(siteId)}` : ''}`, signal,
+  );
+}
+
+/** Optional descriptive facts load only after a site is expanded. */
+export function fetchCampsiteDetails(facilityId: string, siteId: string, signal?: AbortSignal) {
+  return get<import('@eddy/conditions/campsite-details').CampsiteDetailsResponse>(
+    `/api/campsites/details?facility=${encodeURIComponent(facilityId)}&site=${encodeURIComponent(siteId)}`, signal,
   );
 }
 

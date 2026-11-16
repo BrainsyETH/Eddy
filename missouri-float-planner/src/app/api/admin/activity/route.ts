@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { searchParams } = new URL(request.url);
@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
       entityId: entry.entity_id,
       entityName: entry.entity_name,
       details: entry.details,
+      actor: entry.details?.actor ?? null,
+      outcome: entry.details?.outcome ?? null,
       createdAt: entry.created_at,
     }));
 

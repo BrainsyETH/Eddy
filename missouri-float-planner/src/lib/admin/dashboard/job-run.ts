@@ -30,6 +30,24 @@ export function withJobRun(
         console.warn('[job-monitor] Run record unavailable');
       }
     }
+    async function incident(status: string) {
+      if (status === 'skipped') return;
+      try {
+        const { error } = await createAdminClient()
+          .rpc('record_admin_incident', {
+            p_job: name,
+            p_ok: status === 'ok',
+            p_summary:
+              status === 'partial'
+                ? 'Some work did not complete.'
+                : 'The job failed.',
+          })
+          .abortSignal(AbortSignal.timeout(1000));
+        if (error) console.warn('[job-monitor] Incident history unavailable');
+      } catch {
+        console.warn('[job-monitor] Incident history unavailable');
+      }
+    }
     await write({ id, job: name, status: 'started' }, true);
     try {
       const response = await withTelemetryBuffer(() => handler(request));
@@ -39,11 +57,13 @@ export function withJobRun(
       } catch {
         /* non-JSON response */
       }
+      const outcome = jobOutcome(body, response.status);
       await write({
-        ...jobOutcome(body, response.status),
+        ...outcome,
         finished_at: new Date().toISOString(),
         duration_ms: Math.min(2147483647, Date.now() - started),
       });
+      await incident(outcome.status);
       return response;
     } catch (error) {
       await write({
@@ -51,6 +71,7 @@ export function withJobRun(
         finished_at: new Date().toISOString(),
         duration_ms: Math.min(2147483647, Date.now() - started),
       });
+      await incident('error');
       throw error;
     }
   };

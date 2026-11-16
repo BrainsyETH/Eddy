@@ -28,9 +28,9 @@ export function FloatHistoryCard({
 }) {
   const { colors, isDark } = useTheme();
   const card = historyCardModel(trip);
-  const { busy, share } = useFloatShare(trip);
+  const { busy, share, image } = useFloatShare(trip);
   return (
-    <Pressable
+    <><Pressable
       accessibilityRole="button"
       accessibilityLabel={card.accessibilityLabel}
       accessibilityHint="Opens the recap"
@@ -47,11 +47,8 @@ export function FloatHistoryCard({
         <View style={styles.grow}>
           <Text style={[textStyles.cardTitle, { color: colors.text }]}>{card.river}</Text>
           <Text style={[t.base, { color: colors.text }]}>{card.route}</Text>
-          {card.startedOnWater ? (
-            <Text style={[t.sm, { color: colors.textMuted }]}>Started on the water</Text>
-          ) : null}
-          {trip.startNote ? (
-            <Text numberOfLines={2} style={[t.sm, { color: colors.textMuted }]}>{trip.startNote}</Text>
+          {card.startLine ? (
+            <Text numberOfLines={2} style={[t.sm, { color: colors.textMuted }]}>{card.startLine}</Text>
           ) : null}
         </View>
         <FloatMoodOtter mood={card.mood} size={44} />
@@ -62,7 +59,7 @@ export function FloatHistoryCard({
       <View style={styles.bottom}>
         <View style={styles.grow}>
           <Text style={[t.sm, { color: colors.textMuted }]}>{card.date}</Text>
-          <Text style={[t.sm, { fontFamily: fonts.mono, color: colors.text }]}>{card.stats}</Text>
+          <Text style={[t.sm, { color: colors.text }]}>{card.stats}</Text>
           {card.trackingNote ? (
             <Text style={[t.xs, { color: colors.textMuted }]}>{card.trackingNote}</Text>
           ) : null}
@@ -96,7 +93,7 @@ export function FloatHistoryCard({
             : <ControlIcon name="share-outline" size={18} color={colors.interactive} />}
         </Pressable>
       </View>
-    </Pressable>
+    </Pressable>{image}</>
   );
 }
 

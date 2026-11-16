@@ -1,0 +1,53 @@
+{
+  "study": "Bull Shoals release vs the Norfork gauge, study 3: river height, weather and stepped releases",
+  "locked_on": "2026-11-12",
+  "question": "Do river height and wet weather change the delay to first rise near Norfork, does accounting for them hold up on years no analysis has touched, and what happens when a small release bump goes first?",
+  "status_of_each_period": {
+    "development": {"start": "2025-01-01T00:00:00Z", "end_exclusive": "2026-11-12T18:00:00Z",
+                    "note": "All of it has been analysed, including study 2's locked test. Models are chosen and fitted here."},
+    "untouched_test": {"start": "2022-01-01T00:00:00Z", "end_exclusive": "2025-01-01T00:00:00Z",
+                       "note": "Only row counts were checked before this file was committed. Scored once with frozen coefficients."}
+  },
+  "scope": "Norfork gauge (USGS 07057370) only. Calico Rock stays out: Norfork Dam confounds it.",
+  "sources_added_to_study_2": {
+    "gauge_discharge": "USGS 07057370 parameter 00060, hourly mean",
+    "rainfall": "NOAA ACIS daily station totals, mean of all reporting stations in the box -93.2,35.8,-92.0,36.5 (at least 5 stations)"
+  },
+  "events": {
+    "release_onset_gauge_rise_and_matching": "Unchanged from protocol.json (rise events, window 5 to 24 hours).",
+    "dropped": "Only events with a gauge gap, no match or an ambiguous match.",
+    "kept_and_labelled": {
+      "weather": "'tributaries moving' when Buffalo + Crooked Creek discharge range over [onset - 12 h, onset + 24 h] exceeds 500 cfs (study 2 dropped these); otherwise 'tributaries steady'.",
+      "rain": "Area rainfall summed over the local release day, the two days before and the day after; 'rain' when 0.5 inch or more.",
+      "stepped": "Release baseline at the onset is 500 cfs or more above the lowest release in the previous 20 hours, meaning a smaller increase went first.",
+      "crowded": "Another qualifying onset within 19 hours either side."
+    },
+    "river_height": "stage0 = median gauge stage from 1.5 to 0.5 hours before the onset time.",
+    "surge": "Midpoint of the steepest one-hour stage rise in the 5 to 24 hour window."
+  },
+  "models": {
+    "fitted_on": "development events that are scored and not stepped; coefficients frozen in results_conditions/frozen_models.json before the untouched data is downloaded",
+    "conditions (primary)": "ln(hours) = a + b ln(qpeak) + c stage0 + d ln(tributary_cfs), tributary_cfs = mean Buffalo + Crooked Creek discharge over the previous 24 hours",
+    "comparisons": {
+      "study 2": "ln(hours) = a + b ln(q24) + c ln(qpeak)",
+      "height only added": "ln(hours) = a + b ln(qpeak) + c stage0",
+      "gauge flow instead of stage": "ln(hours) = a + b ln(qpeak) + c ln(gauge_cfs0), robust to a change in the gauge's datum"
+    },
+    "how_chosen": "Leave-one-month-out comparison of eight forms on development data. Reported in STUDY3.md; the choice was made before the untouched data existed locally."
+  },
+  "pass_marks": {
+    "scored_on": "untouched-test events that are scored and not stepped, all weather",
+    "accuracy": "at least 80% of events within 2 hours of the conditions model",
+    "early_arrivals": "no more than 5% of events arriving more than 2 hours before the prediction",
+    "minimum_events": 60,
+    "verdict": "HOLDS when both are met, DOES_NOT_HOLD when either is missed, INCONCLUSIVE below the minimum"
+  },
+  "always_reported": [
+    "every model on the same events",
+    "results by river-height band (under 5, 5-6, 6-7, 7-8.5, over 8.5 ft), by weather label, by rain label and by year",
+    "the study 2 model on study 2's own event rules (tributaries steady, stepped included)",
+    "stepped events: gap between the bump and the main increase at the dam, gap between first rise and surge at the gauge, and the surge's timing against the prediction plus the development offset between first rise and surge"
+  ],
+  "datum_check": "Before scoring, compare median stage for gauge flows of 2,000 to 3,000 cfs between the two periods. A difference over 0.3 ft means the stage reading is not comparable across years; the stage-based results are then flagged and the gauge-flow model is the one to read. This looks at stage and flow only, not at delays.",
+  "deviations": "Listed in STUDY3.md."
+}

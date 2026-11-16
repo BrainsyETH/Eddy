@@ -6,11 +6,10 @@
 // Read exists and when it was written; a bearer token that verifies as
 // entitled gets the whole Read. See DamReadResponse.
 //
-// A stored Read is served only while it is still about today and was written
-// against the schedule posted now (dam-update-policy.ts, servable). The whole
-// Read is RE-RENDERED here from the stored facts, with the posted schedule and
-// the day type re-read at serve time, so a window that has ended since the Read
-// was written is not still announced as upcoming.
+// Complete-day history is cached; the Read is rendered against the current
+// schedule and clock on every request. A schedule revision does not hide it.
+// Without a snapshot, advance the saved windows and mark them unverified;
+// this fallback expires after three hours. Neither path crosses Central midnight.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { optionalAuthCacheHeaders } from '@/lib/api-utils';
@@ -18,7 +17,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { optionalEntitlement } from '@/lib/entitlement';
 import { readStoredSnapshot } from '@/lib/data/dam-snapshot-store';
 import { damHasRead, renderDamRead, withCurrentSchedule, type DamReadFacts } from '@/lib/eddy/dam-read-facts';
-import { scheduleHashOf } from '@/lib/eddy/generate-dam-update';
 import { servable, tierDamRead } from '@/lib/eddy/dam-update-policy';
 import type { DamReadResponse } from '@shared/dam-types';
 
@@ -46,7 +44,7 @@ export async function GET(
     const [{ data, error }, snapshot] = await Promise.all([
       supabase
         .from('dam_updates')
-        .select('facts, sources_used, schedule_hash, generated_at, expires_at')
+        .select('facts, sources_used, generated_at, expires_at')
         .eq('dam_id', damId)
         .order('generated_at', { ascending: false })
         .limit(1)
@@ -60,13 +58,12 @@ export async function GET(
     }
     if (!data) return NextResponse.json<DamReadResponse>(NONE, { headers });
 
-    const currentHash = snapshot ? scheduleHashOf(snapshot) : undefined;
-    if (!servable({ generatedAt: data.generated_at, expiresAt: data.expires_at, scheduleHash: data.schedule_hash }, currentHash, now)) {
+    if (!servable({ generatedAt: data.generated_at, expiresAt: data.expires_at }, snapshot !== null, now)) {
       return NextResponse.json<DamReadResponse>(NONE, { headers });
     }
 
     const stored = data.facts as DamReadFacts;
-    const facts = snapshot ? withCurrentSchedule(stored, snapshot.schedule, now) : stored;
+    const facts = withCurrentSchedule(stored, snapshot?.schedule ?? null, now);
     const read = tierDamRead(entitled, {
       ...renderDamRead(facts),
       sourcesUsed: Array.isArray(data.sources_used) ? data.sources_used : [],

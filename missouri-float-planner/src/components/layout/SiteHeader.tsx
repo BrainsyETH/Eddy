@@ -8,12 +8,12 @@ import AppLink from '@/components/AppLink';
 import { Menu, X } from 'lucide-react';
 import { siteNavigation } from '@/lib/navigation/site-navigation';
 
-type HeaderProps = { floatSearchEnabled?: boolean };
+type HeaderProps = { floatSearchEnabled?: boolean; campingEnabled?: boolean };
 
-export default function SiteHeader({ floatSearchEnabled = false }: HeaderProps) {
+export default function SiteHeader({ floatSearchEnabled = false, campingEnabled = false }: HeaderProps) {
   return (
-    <Suspense fallback={<HeaderContent floatSearchEnabled={floatSearchEnabled} />}>
-      <ContextualHeader floatSearchEnabled={floatSearchEnabled} />
+    <Suspense fallback={<HeaderContent floatSearchEnabled={floatSearchEnabled} campingEnabled={campingEnabled} />}>
+      <ContextualHeader floatSearchEnabled={floatSearchEnabled} campingEnabled={campingEnabled} />
     </Suspense>
   );
 }
@@ -23,11 +23,11 @@ function ContextualHeader(props: HeaderProps) {
   return <HeaderContent {...props} search={searchParams.toString()} />;
 }
 
-function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps & { search?: string }) {
+function HeaderContent({ floatSearchEnabled = false, campingEnabled = false, search = '' }: HeaderProps & { search?: string }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
-  const navItems = siteNavigation(pathname, search, floatSearchEnabled);
+  const navItems = siteNavigation(pathname, search, floatSearchEnabled, campingEnabled);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -49,12 +49,15 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
 
   // Hide header on the embed workbench and all embeddable widget pages —
   // the workbench renders its own top bar and the widgets are chromeless.
-  if (pathname === '/embed' || pathname.startsWith('/embed/')) {
+  if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/embed' || pathname.startsWith('/embed/')) {
     return null;
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b-2 border-neutral-900" style={{ backgroundColor: '#163F4A' }}>
+    // Light, warm chrome like the iOS app's navigation bar: Sandbar Tan paper
+    // under a blur, a hairline instead of a heavy rule, coral for Eddy's name
+    // and the current page, and teal for the one filled action.
+    <header className="sticky top-0 z-50 border-b border-secondary-200 bg-secondary-50/90 backdrop-blur-md backdrop-saturate-150">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center h-14">
           {/* Logo */}
@@ -66,7 +69,7 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
               height={32}
               className="w-8 h-8 rounded-md"
             />
-            <span className="text-xl font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}>
+            <span className="font-display text-[1.375rem] font-bold text-accent-600">
               Eddy
             </span>
           </Link>
@@ -81,10 +84,10 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   aria-current={active ? 'page' : undefined}
-                  className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                  className={`relative px-3 py-2 rounded-lg text-sm no-underline transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 ${
                     active
-                      ? 'text-white bg-white/10'
-                      : 'text-primary-100 hover:text-white hover:bg-white/10'
+                      ? 'font-semibold text-primary-800 after:absolute after:inset-x-3 after:bottom-0.5 after:h-[3px] after:rounded-full after:bg-accent-500'
+                      : 'font-medium text-neutral-900 hover:bg-accent-100'
                   }`}
                 >
                   {item.label}
@@ -96,12 +99,11 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
           {/* Spacer */}
           <div className="flex-1" />
 
-          <AppLink
-            data-ga-event="app_landing_click"
+          <AppLink trackView
             data-ga-label="header"
-            className="hidden lg:inline-flex items-center rounded-md border border-white/30 px-3 py-2 text-sm font-semibold text-white no-underline hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="hidden lg:inline-flex shrink-0 min-h-11 whitespace-nowrap items-center rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white no-underline transition-colors duration-fast hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
           >
-            Get the App
+            Get Eddy for iPhone
           </AppLink>
 
           {/* Mobile hamburger */}
@@ -109,7 +111,7 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
             ref={menuButton}
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-md text-primary-100 hover:text-white hover:bg-white/10 transition-colors"
+            className="lg:hidden p-2 rounded-lg text-neutral-900 hover:bg-accent-100 transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
@@ -121,7 +123,7 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div id="mobile-menu" className="lg:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
+        <div id="mobile-menu" className="lg:hidden border-t border-secondary-200 bg-secondary-50">
           <nav aria-label="Mobile navigation" data-ga-navigation="header_mobile" className="px-4 py-3 space-y-1">
             {navItems.map((item) => {
               const active = item.active;
@@ -131,23 +133,22 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   aria-current={active ? 'page' : undefined}
-                  className={`block px-3 py-3 rounded-md no-underline transition-colors font-medium ${
+                  className={`block px-3 py-3 rounded-lg no-underline transition-colors duration-fast ${
                     active
-                      ? 'bg-white/10 text-white'
-                      : 'text-primary-100 hover:bg-white/5 hover:text-white'
+                      ? 'bg-accent-100 font-semibold text-primary-800'
+                      : 'font-medium text-neutral-900 hover:bg-accent-100'
                   }`}
                 >
                   {item.label}
                 </Link>
               );
             })}
-            <AppLink
-              data-ga-event="app_landing_click"
+            <AppLink trackView
               data-ga-label="header"
               onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-md px-3 py-3 font-medium text-primary-100 hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+              className="block rounded-lg px-3 py-3 font-semibold text-primary-700 no-underline hover:bg-accent-100 focus-visible:outline-2 focus-visible:outline-primary-600"
             >
-              Get the App
+              Get Eddy for iPhone
             </AppLink>
           </nav>
         </div>

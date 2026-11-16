@@ -23,11 +23,13 @@ test('map and planner URL selections propagate, while search discovery respects 
   assert.deepEqual(siteNavigation('/', '', true).map(link => link.label), ['Map', 'Conditions', 'Floats', 'Guides']);
   assert.deepEqual(siteNavigation('/', '', false).map(link => link.label), ['Map', 'Conditions', 'Guides']);
   assert.deepEqual(floatNavigation('/plan').map(link => link.label), ['Plan a float', 'Find a float']);
-  for (const path of ['/river-map', '/find-float', '/plan']) {
+  for (const path of ['/river-map/ozarks', '/find-float', '/plan']) {
     assert.equal(navigationRiver(path, 'river=buffalo'), 'buffalo');
     assert.equal(navigationRiver(path, 'river=meramec'), 'meramec');
     assert.equal(navigationRiver(path), null);
   }
+  // The national map has no river selection; ?river= belongs to the Ozarks map.
+  assert.equal(navigationRiver('/river-map', 'river=buffalo'), null);
   const disabled = siteNavigation('/rivers/missouri/current', '', false);
   assert.equal(disabled.find(link => link.label === 'Map')?.href, '/plan?river=current');
   assert.equal(disabled.some(link => link.label === 'Floats'), false);
@@ -79,4 +81,10 @@ test('shared condition filters discard unknown values and serialize in stable or
   const query = writeRiverMapSearch('river=current', { conditions: ['good', 'flowing', 'good'] });
   assert.deepEqual(readRiverMapSearch(query).conditions, readRiverMapSearch('conditions=flowing,good').conditions);
   assert.equal(writeRiverMapSearch(query, { conditions: [] }), 'river=current');
+});
+
+test('camping discovery is independently gated and keeps the current river', () => {
+  assert.equal(siteNavigation('/rivers/missouri/current', '', true, false).some(l => l.label === 'Camping'), false);
+  assert.equal(siteNavigation('/rivers/missouri/current', '', true, true).find(l => l.label === 'Camping')?.href, '/camping?river=current');
+  assert.equal(siteNavigation('/camping', 'river=current', true, true).find(l => l.label === 'Camping')?.active, true);
 });

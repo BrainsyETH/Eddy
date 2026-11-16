@@ -1,0 +1,744 @@
+'use client';
+
+// The canvas stage: camera, gestures, keyboard, hit testing, and the bridge
+// to the renderer. It owns no product state — the parent decides what is
+// selected, which view is on, and what a tap means in fullscreen.
+//
+// Camera rules from the plan:
+//   * the camera never moves on its own — refreshes, new floods and view
+//     changes leave it exactly where it is; only an explicit action (search,
+//     reset, entering fullscreen from the overview) frames something;
+//   * a resize keeps the national fit if the user was on it, otherwise keeps
+//     the same center and zoom.
+
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
+import {
+  clampToBounds,
+  fitBounds,
+  frameBox,
+  pan,
+  toLayout,
+  zoomAt,
+  zoomFactor,
+  type Camera,
+  type Insets,
+  type Viewport,
+} from '@/lib/national-map/camera';
+import type { DecodedGeometry, DecodedPolygon } from '@/lib/national-map/geometry';
+import type { PlaceExtent } from '@/lib/national-map/places';
+import type { RatedSection } from '@/lib/national-map/rated';
+import type { Journey } from '@/lib/national-map/journeys';
+import type { ClassifiedSite, MarkStyle, Site } from '@/lib/national-map/marks';
+import {
+  applyAffine,
+  buildLayout,
+  invertComponent,
+  layoutKindFor,
+  locate,
+  regionOf,
+  type Region,
+  projectComponent,
+  componentOf,
+  type Bounds,
+  type Layout,
+  type MapComponent,
+} from '@/lib/national-map/projection';
+import { GridIndex } from '@/lib/national-map/spatial-index';
+import type { MapPalette } from '@/lib/national-map/theme';
+import { NationalRenderer, type RenderMark } from './renderer';
+import styles from './national-map.module.css';
+
+export interface StageHandle {
+  fitNational: () => void;
+  /** Frame a box in landscape-frame coordinates, per component. */
+  frameSites: (indices: number[]) => void;
+  frameState: (code: string) => void;
+  /** Center a site; `coverBottom` px of the viewport are hidden (a mobile sheet). */
+  focusSite: (index: number, coverBottom?: number) => void;
+  zoomBy: (factor: number) => void;
+  /** Center (lng/lat) and zoom × national fit, for share links. */
+  center: () => { lng: number; lat: number; zoom: number } | null;
+  /** The current view (centre in layout space, zoom × fit) — to restore later. */
+  view: () => StageView | null;
+  /** Restore a view captured by view(); survives a resize that is still to come. */
+  restoreView: (v: StageView) => void;
+  isNational: () => boolean;
+  /** Screen position of a site (for anchoring a chooser). */
+  screenOf: (index: number) => { x: number; y: number } | null;
+  /** Pan the least distance that keeps a site clear of covered edges (a sheet, a panel). */
+  ensureVisible: (index: number, cover: { top: number; bottom: number }) => void;
+  /** Zoom about a screen point (the chooser's "zoom in here"). */
+  zoomAtPoint: (x: number, y: number, factor: number) => void;
+  focus: () => void;
+}
+
+/**
+ * A view as a PLACE: the component and its projected (landscape-frame)
+ * coordinates at the centre, plus zoom × national fit. Never a layout point —
+ * layouts move the insets (see projection.ts locate).
+ */
+export interface StageView {
+  component: MapComponent;
+  x: number;
+  y: number;
+  zoom: number;
+  national: boolean;
+}
+
+export interface StageEvent {
+  indices: number[];
+  x: number;
+  y: number;
+  /** From Enter/Space at the reticle rather than a pointer. */
+  keyboard?: boolean;
+}
+
+interface Props {
+  ref?: Ref<StageHandle>;
+  geometry: DecodedGeometry | null;
+  detail: DecodedGeometry | null;
+  sites: Site[];
+  classified: ClassifiedSite[];
+  /** Bumps when a new frame arrives, so marks cross-fade instead of jumping. */
+  frameVersion: number;
+  palette: MapPalette;
+  motion: boolean;
+  dataLive: boolean;
+  labels: boolean;
+  insets: Insets;
+  selectedIndex: number | null;
+  featuredIndex: number | null;
+  initialCenter: { lng: number; lat: number; zoom: number } | null;
+  /** In map-only, a tap belongs to the parent (it reveals the tray). */
+  interactive: boolean;
+  /** Wall display (fullscreen): enlarged insets, bolder rivers, the river journey. */
+  wall: boolean;
+  /** The "Follow the river" journey to run now, or null. */
+  journey: Journey | null;
+  /** Wall only: the marks whose event rings animate (null: every eligible mark). */
+  pulses: Set<number> | null;
+  /**
+   * Wall only: what the display can see, or null at the national view. The
+   * parent picks spotlights and journeys from it, so a regional display never
+   * spends its sequence on something off screen.
+   */
+  onRegion?: (region: Region | null) => void;
+  ariaLabel: string;
+  onTap: (event: StageEvent | null) => void;
+  onHover: (event: StageEvent | null) => void;
+  onCameraChange: () => void;
+  onNeedDetail: () => void;
+  /**
+   * A scoped place's extent: the camera's HOME (reset, first fit, fullscreen)
+   * frames it instead of the country. Zoom stays relative to the national
+   * fit, so detail rivers, small streams and mark sizes behave as zoomed in.
+   */
+  home?: PlaceExtent[] | null;
+  /** Sites outside the place (1 = outside): drawn quieter, never pulsing or glowing. */
+  outside?: { mask: Uint8Array; alpha: number } | null;
+  /** A scoped state's outline: everything outside it is veiled. */
+  placePolys?: DecodedPolygon[] | null;
+  /** Trails only on these lines (a water-resources region's rivers). */
+  trailKeep?: { base: Uint8Array | null; detail: Uint8Array | null } | null;
+  /** River names at regional scale on the wall. */
+  riverLabels?: boolean;
+  /** Eddy's rated rivers in condition-coloured sections (state view). */
+  rated?: RatedSection[] | null;
+  /** A portrait wall: keep the wall's compact composition (insets in the Pacific corner). */
+  wallComposition?: boolean;
+}
+
+const DRAG_SLOP_PX = 5;
+
+export default function MapStage(props: Props) {
+  const {
+    ref,
+    geometry,
+    detail,
+    sites,
+    classified,
+    frameVersion,
+    palette,
+    motion,
+    dataLive,
+    labels,
+    insets,
+    selectedIndex,
+    featuredIndex,
+    initialCenter,
+    interactive,
+    wall,
+    journey,
+    pulses,
+    onRegion,
+    ariaLabel,
+    onTap,
+    onHover,
+    onCameraChange,
+    onNeedDetail,
+    home = null,
+    outside = null,
+    placePolys = null,
+    trailKeep = null,
+    riverLabels = false,
+    rated = null,
+    wallComposition = false,
+  } = props;
+  const hostRef = useRef<HTMLDivElement>(null);
+  const renderer = useRef<NationalRenderer | null>(null);
+  const [vp, setVp] = useState<Viewport | null>(null);
+  const camRef = useRef<Camera | null>(null);
+  const userMoved = useRef(false);
+  const initialApplied = useRef(false);
+  const sharedApplied = useRef(false);
+  const lastFrameVersion = useRef(frameVersion);
+
+  // ── Renderer lifecycle ──────────────────────────────────────────────────
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const r = new NationalRenderer(host, palette);
+    renderer.current = r;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setVp({ width, height });
+    });
+    ro.observe(host);
+    const onVis = () => r.syncFxLoop();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      ro.disconnect();
+      document.removeEventListener('visibilitychange', onVis);
+      r.destroy();
+      renderer.current = null;
+    };
+    // The palette is pushed by its own effect; recreating canvases on a theme
+    // change would drop the camera.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Size first: every later effect draws into canvases of this size.
+  useEffect(() => {
+    if (vp) renderer.current?.resize(vp);
+  }, [vp]);
+  useEffect(() => renderer.current?.setPalette(palette), [palette]);
+  useEffect(() => renderer.current?.setGeometry(geometry, detail), [geometry, detail]);
+  useEffect(() => renderer.current?.setLabels(labels), [labels]);
+  useEffect(() => renderer.current?.setWall(wall), [wall]);
+  useEffect(() => renderer.current?.setJourney(journey), [journey]);
+  useEffect(() => renderer.current?.setMotion(motion, dataLive), [motion, dataLive]);
+  useEffect(() => renderer.current?.setPlaceMask(placePolys), [placePolys]);
+  useEffect(() => renderer.current?.setTrailFilter(trailKeep), [trailKeep]);
+  useEffect(() => renderer.current?.setRiverLabels(riverLabels), [riverLabels]);
+  useEffect(() => renderer.current?.setRatedSections(rated), [rated]);
+
+  // ── Layout (landscape / portrait) ───────────────────────────────────────
+  const layout: Layout | null = useMemo(() => {
+    if (!geometry || !vp) return null;
+    const kind = layoutKindFor(vp.width, vp.height);
+    return buildLayout(wall && (kind === 'landscape' || wallComposition) ? 'wall' : kind, geometry.components);
+  }, [geometry, vp, wall, wallComposition]);
+
+  useEffect(() => {
+    if (layout) renderer.current?.setLayout(layout);
+  }, [layout]);
+
+  // Laid-out positions and the hit index.
+  const positions = useMemo(() => {
+    const xs = new Float32Array(sites.length);
+    const ys = new Float32Array(sites.length);
+    if (layout) {
+      sites.forEach((s, i) => {
+        const [x, y] = applyAffine(layout.affine[s.component], s.x, s.y);
+        xs[i] = x;
+        ys[i] = y;
+      });
+    }
+    return { xs, ys, index: new GridIndex(xs, ys, 6) };
+  }, [sites, layout]);
+
+  const drawable = useMemo(() => {
+    const minZoom = new Float32Array(sites.length).fill(Infinity);
+    for (const c of classified) minZoom[c.index] = c.style.minZoom;
+    return minZoom;
+  }, [classified, sites.length]);
+
+  // ── Camera ──────────────────────────────────────────────────────────────
+  const fit = useCallback((): Camera | null => {
+    if (!layout || !vp) return null;
+    // The wall fills the screen: a slimmer margin than Explore's.
+    const pad = wall ? Math.max(8, Math.min(vp.width, vp.height) * 0.025) : Math.min(32, Math.max(12, vp.width * 0.02));
+    return fitBounds(layout.bounds, vp, insets, pad);
+  }, [layout, vp, insets, wall]);
+
+  /** The home camera: the scoped place framed, or the national fit. */
+  const homeBox = useMemo((): Bounds | null => {
+    if (!home?.length || !layout) return null;
+    const b: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    for (const e of home) {
+      const a = layout.affine[e.component];
+      for (const [x, y] of [
+        [e.bounds.minX, e.bounds.minY],
+        [e.bounds.maxX, e.bounds.maxY],
+      ]) {
+        const [lx, ly] = applyAffine(a, x, y);
+        b.minX = Math.min(b.minX, lx);
+        b.maxX = Math.max(b.maxX, lx);
+        b.minY = Math.min(b.minY, ly);
+        b.maxY = Math.max(b.maxY, ly);
+      }
+    }
+    return Number.isFinite(b.minX) ? b : null;
+  }, [home, layout]);
+  const homeCam = useCallback((): Camera | null => {
+    const f = fit();
+    if (!f || !vp) return null;
+    return homeBox ? frameBox(homeBox, vp, f, insets, 40) : f;
+  }, [fit, homeBox, vp, insets]);
+  // Choosing a place is an explicit action: the camera goes to it (and back to
+  // the country when the place is cleared). Not on first load — the first
+  // fit below frames it, and a shared ?at= view still wins.
+  const homeKey = home ? JSON.stringify(home.map((e) => [e.component, e.bounds.minX, e.bounds.minY])) : '';
+  const lastHomeKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastHomeKey.current !== null && lastHomeKey.current !== homeKey) userMoved.current = false;
+    lastHomeKey.current = homeKey;
+  }, [homeKey]);
+
+  /**
+   * The view as the reader sees it: the layout point at the centre of the
+   * unobstructed area, and the zoom relative to the national fit. Resizes and
+   * presentation changes re-apply THIS — keeping the old screen offset instead
+   * is what pushed the country off-centre after fullscreen.
+   */
+  const lastView = useRef<StageView | null>(null);
+  const lastRegion = useRef<string>('');
+  const centreOf = useCallback(
+    (v: Viewport, ins: Insets) => ({
+      x: ins.left + (v.width - ins.left - ins.right) / 2,
+      y: ins.top + (v.height - ins.top - ins.bottom) / 2,
+    }),
+    [],
+  );
+
+  /** The camera that puts a view's place at the centre of the unobstructed area. */
+  const cameraFor = useCallback(
+    (v: StageView, f: Camera): Camera => {
+      const scale = f.scale * v.zoom;
+      const [px, py] = layout ? applyAffine(layout.affine[v.component], v.x, v.y) : [v.x, v.y];
+      const c = vp ? centreOf(vp, insets) : { x: 0, y: 0 };
+      return { scale, tx: c.x - px * scale, ty: c.y - py * scale };
+    },
+    [layout, vp, insets, centreOf],
+  );
+
+  /** `live`: one step of a pointer / wheel / key gesture (see renderer). */
+  const commit = useCallback(
+    (cam: Camera, moved: boolean, live = false) => {
+      const f = fit();
+      if (!f || !layout || !vp) return;
+      const next = clampToBounds(cam, layout.bounds, vp);
+      camRef.current = next;
+      if (moved) userMoved.current = true;
+      const c = centreOf(vp, insets);
+      const [lx, ly] = toLayout(next, c.x, c.y);
+      const at = locate(layout, lx, ly);
+      lastView.current = { component: at.component, x: at.x, y: at.y, zoom: zoomFactor(next, f), national: !userMoved.current };
+      if (wall && onRegion) {
+        const [x0, y0] = toLayout(next, insets.left, insets.top);
+        const [x1, y1] = toLayout(next, vp.width - insets.right, vp.height - insets.bottom);
+        const region = userMoved.current ? regionOf(layout, { minX: x0, minY: y0, maxX: x1, maxY: y1 }) : null;
+        const key = JSON.stringify(region);
+        if (key !== lastRegion.current) {
+          lastRegion.current = key;
+          onRegion(region);
+        }
+      }
+      renderer.current?.setCamera(next, f.scale, live);
+      if (zoomFactor(next, f) >= 2.2) onNeedDetail();
+      onCameraChange();
+    },
+    [fit, layout, vp, insets, centreOf, onCameraChange, onNeedDetail, wall, onRegion],
+  );
+
+  const laidOutPoint = useCallback(
+    (lng: number, lat: number): [number, number] | null => {
+      if (!layout) return null;
+      const comp = componentOf(lng, lat);
+      const [x, y] = projectComponent(comp, lng, lat);
+      return applyAffine(layout.affine[comp], x, y);
+    },
+    [layout],
+  );
+
+  // Fit / refit on layout or viewport change.
+  useEffect(() => {
+    const f = fit();
+    const h = homeCam();
+    if (!f || !h || !vp) return;
+    // A shared view (?at=) applies whenever it arrives, as long as the reader
+    // has not moved the map yet: it is read from the URL in an effect, and
+    // the first fit can land a render earlier (geometry and size ready first),
+    // which once dropped share links back to the national view.
+    if (initialCenter && !sharedApplied.current && !userMoved.current) {
+      sharedApplied.current = true;
+      initialApplied.current = true;
+      const pt = laidOutPoint(initialCenter.lng, initialCenter.lat);
+      if (pt) {
+        const scale = f.scale * initialCenter.zoom;
+        const c = centreOf(vp, insets);
+        userMoved.current = true;
+        commit({ scale, tx: c.x - pt[0] * scale, ty: c.y - pt[1] * scale }, false);
+        return;
+      }
+    }
+    if (!initialApplied.current) {
+      initialApplied.current = true;
+      commit(h, false);
+      return;
+    }
+    const v = lastView.current;
+    if (!userMoved.current || !v || v.national) {
+      commit(h, false);
+      return;
+    }
+    // Keep the same PLACE at the centre (through this layout's affine for its
+    // component), at the same relative zoom.
+    commit(cameraFor(v, f), false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit, homeCam, initialCenter]);
+
+  // ── Marks ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const still = new Map<MarkStyle, MarkStyle>();
+    const quiet = (st: MarkStyle) => still.get(st) ?? still.set(st, { ...st, ring: false }).get(st)!;
+    const away = new Map<MarkStyle, MarkStyle>();
+    const dim = (st: MarkStyle) =>
+      away.get(st) ?? away.set(st, { ...st, ring: false, glow: 0, alpha: (st.alpha ?? 1) * (outside?.alpha ?? 1) }).get(st)!;
+    const marks: RenderMark[] = classified.map((c) => ({
+      x: positions.xs[c.index],
+      y: positions.ys[c.index],
+      style: outside?.mask[c.index] ? dim(c.style) : pulses && c.style.ring && !pulses.has(c.index) ? quiet(c.style) : c.style,
+      phase: ((c.index * 2654435761) >>> 0) / 4294967296,
+    }));
+    const fade = frameVersion !== lastFrameVersion.current;
+    lastFrameVersion.current = frameVersion;
+    renderer.current?.setMarks(marks, fade);
+  }, [classified, positions, frameVersion, pulses, outside]);
+
+  useEffect(() => {
+    const pt = (i: number | null) => (i === null || i >= positions.xs.length ? null : { x: positions.xs[i], y: positions.ys[i] });
+    renderer.current?.setHighlights(pt(selectedIndex), pt(featuredIndex));
+  }, [selectedIndex, featuredIndex, positions]);
+
+  // ── Imperative handle ───────────────────────────────────────────────────
+  const frameLaidBox = useCallback(
+    (b: Bounds, maxZoom = 12) => {
+      const f = fit();
+      if (!f || !vp) return;
+      userMoved.current = true;
+      commit(frameBox(b, vp, f, insets, maxZoom), true);
+    },
+    [fit, vp, insets, commit],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      fitNational: () => {
+        const h = homeCam();
+        if (!h) return;
+        userMoved.current = false;
+        commit(h, false);
+      },
+      frameSites: (indices) => {
+        if (!indices.length) return;
+        const b: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        for (const i of indices) {
+          b.minX = Math.min(b.minX, positions.xs[i]);
+          b.maxX = Math.max(b.maxX, positions.xs[i]);
+          b.minY = Math.min(b.minY, positions.ys[i]);
+          b.maxY = Math.max(b.maxY, positions.ys[i]);
+        }
+        const pad = 4;
+        frameLaidBox({ minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad });
+      },
+      frameState: (code) => {
+        if (!geometry || !layout) return;
+        const st = geometry.states.find((s) => s.code === code);
+        if (!st) return;
+        const a = layout.affine[st.component];
+        const b: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        for (const ring of st.rings) {
+          for (let i = 0; i + 1 < ring.length; i += 2) {
+            const [x, y] = applyAffine(a, ring[i], ring[i + 1]);
+            b.minX = Math.min(b.minX, x);
+            b.maxX = Math.max(b.maxX, x);
+            b.minY = Math.min(b.minY, y);
+            b.maxY = Math.max(b.maxY, y);
+          }
+        }
+        frameLaidBox(b, 30);
+      },
+      focusSite: (i, coverBottom = 0) => {
+        const f = fit();
+        const cam = camRef.current;
+        if (!f || !vp || !cam || i >= positions.xs.length) return;
+        const scale = Math.max(cam.scale, f.scale * 6);
+        const bottom = Math.max(insets.bottom, coverBottom);
+        const cx = insets.left + (vp.width - insets.left - insets.right) / 2;
+        const cy = insets.top + Math.max(40, vp.height - insets.top - bottom) / 2;
+        userMoved.current = true;
+        commit({ scale, tx: cx - positions.xs[i] * scale, ty: cy - positions.ys[i] * scale }, true);
+      },
+      zoomBy: (factor) => {
+        const f = fit();
+        const cam = camRef.current;
+        if (!f || !cam || !vp) return;
+        commit(zoomAt(cam, f, factor, vp.width / 2, vp.height / 2), true);
+      },
+      center: () => {
+        const f = fit();
+        const cam = camRef.current;
+        if (!f || !cam || !vp || !layout) return null;
+        const [lx, ly] = toLayout(cam, vp.width / 2, vp.height / 2);
+        const at = locate(layout, lx, ly);
+        const [lng, lat] = invertComponent(at.component, at.x, at.y);
+        return { lng, lat, zoom: zoomFactor(cam, f) };
+      },
+      isNational: () => !userMoved.current,
+      view: () => lastView.current,
+      restoreView: (v) => {
+        lastView.current = v;
+        userMoved.current = !v.national;
+        const f = fit();
+        const h = homeCam();
+        if (!f || !h || !vp) return;
+        if (v.national) {
+          commit(h, false);
+          return;
+        }
+        commit(cameraFor(v, f), false);
+      },
+      ensureVisible: (i, cover) => {
+        const cam = camRef.current;
+        if (!cam || !vp || i >= positions.xs.length) return;
+        const sy = positions.ys[i] * cam.scale + cam.ty;
+        const top = cover.top + 32;
+        const bottom = vp.height - cover.bottom - 32;
+        if (bottom <= top) return;
+        let dy = 0;
+        if (sy > bottom) dy = bottom - sy;
+        else if (sy < top) dy = top - sy;
+        if (dy) commit(pan(cam, 0, dy), true);
+      },
+      zoomAtPoint: (x, y, factor) => {
+        const f = fit();
+        const cam = camRef.current;
+        if (!f || !cam) return;
+        commit(zoomAt(cam, f, factor, x, y), true);
+      },
+      focus: () => hostRef.current?.focus({ preventScroll: true }),
+      screenOf: (i) => {
+        const cam = camRef.current;
+        if (!cam || i >= positions.xs.length) return null;
+        return { x: positions.xs[i] * cam.scale + cam.tx, y: positions.ys[i] * cam.scale + cam.ty };
+      },
+    }),
+    [fit, homeCam, commit, frameLaidBox, positions, geometry, layout, vp, insets, cameraFor],
+  );
+
+  // The keyboard reticle: the centre of the unobstructed map area.
+  const reticle = vp
+    ? {
+        x: insets.left + (vp.width - insets.left - insets.right) / 2,
+        y: insets.top + (vp.height - insets.top - insets.bottom) / 2,
+      }
+    : null;
+
+  // ── Hit testing ─────────────────────────────────────────────────────────
+  const hit = useCallback(
+    (sx: number, sy: number, radiusPx: number): number[] => {
+      const cam = camRef.current;
+      const f = fit();
+      if (!cam || !f) return [];
+      const z = zoomFactor(cam, f);
+      const [lx, ly] = toLayout(cam, sx, sy);
+      return positions.index.near(lx, ly, radiusPx / cam.scale, (i) => z >= drawable[i]);
+    },
+    [fit, positions, drawable],
+  );
+
+  // ── Gestures ────────────────────────────────────────────────────────────
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<{ startX: number; startY: number; moved: boolean; pinchDist: number | null } | null>(null);
+
+  const local = (e: { clientX: number; clientY: number }) => {
+    const r = hostRef.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    hostRef.current?.setPointerCapture(e.pointerId);
+    const p = local(e);
+    pointers.current.set(e.pointerId, p);
+    if (pointers.current.size === 1) {
+      gesture.current = { startX: p.x, startY: p.y, moved: false, pinchDist: null };
+    } else if (pointers.current.size === 2 && gesture.current) {
+      const [a, b] = [...pointers.current.values()];
+      gesture.current.pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+      gesture.current.moved = true;
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const p = local(e);
+    const prev = pointers.current.get(e.pointerId);
+    if (!prev) {
+      if (e.pointerType === 'mouse' && interactive) {
+        const found = hit(p.x, p.y, 8);
+        onHover(found.length ? { indices: found, x: p.x, y: p.y } : null);
+      }
+      return;
+    }
+    pointers.current.set(e.pointerId, p);
+    const g = gesture.current;
+    const cam = camRef.current;
+    const f = fit();
+    if (!g || !cam || !f || !interactive) return;
+    if (pointers.current.size >= 2 && g.pinchDist) {
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const pm = { x: mid.x - (p.x - prev.x) / 2, y: mid.y - (p.y - prev.y) / 2 };
+      let next = zoomAt(cam, f, dist / g.pinchDist, mid.x, mid.y);
+      next = pan(next, mid.x - pm.x, mid.y - pm.y);
+      g.pinchDist = dist;
+      commit(next, true, true);
+      return;
+    }
+    if (!g.moved && Math.hypot(p.x - g.startX, p.y - g.startY) < DRAG_SLOP_PX) return;
+    g.moved = true;
+    onHover(null);
+    commit(pan(cam, p.x - prev.x, p.y - prev.y), true, true);
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const g = gesture.current;
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size > 0) return;
+    gesture.current = null;
+    if (!g || g.moved) return;
+    const p = local(e);
+    if (!interactive) {
+      onTap(null);
+      return;
+    }
+    const found = hit(p.x, p.y, e.pointerType === 'touch' ? 18 : 10);
+    onTap(found.length ? { indices: found, x: p.x, y: p.y } : null);
+  };
+
+  const onPointerCancel = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (!pointers.current.size) gesture.current = null;
+  };
+
+  // Wheel needs a non-passive listener to prevent page zoom/scroll.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (!interactive) return;
+      const cam = camRef.current;
+      const f = fit();
+      if (!cam || !f) return;
+      const r = host.getBoundingClientRect();
+      const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      commit(zoomAt(cam, f, Math.exp(-delta * 0.0018), e.clientX - r.left, e.clientY - r.top), true, true);
+    };
+    host.addEventListener('wheel', onWheel, { passive: false });
+    return () => host.removeEventListener('wheel', onWheel);
+  }, [fit, commit, interactive]);
+
+  const onDoubleClick = (e: React.MouseEvent) => {
+    if (!interactive) return;
+    const cam = camRef.current;
+    const f = fit();
+    if (!cam || !f) return;
+    const p = local(e);
+    commit(zoomAt(cam, f, e.shiftKey ? 0.5 : 2, p.x, p.y), true);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!interactive) return;
+    const cam = camRef.current;
+    const f = fit();
+    if (!cam || !f || !vp) return;
+    const step = 60;
+    let next: Camera | null = null;
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        // Keyboard exploration: list the gauges under the reticle.
+        if (reticle) onTap({ indices: hit(reticle.x, reticle.y, 22), x: reticle.x, y: reticle.y, keyboard: true });
+        e.preventDefault();
+        return;
+      case '+':
+      case '=':
+        next = zoomAt(cam, f, 1.5, vp.width / 2, vp.height / 2);
+        break;
+      case '-':
+      case '_':
+        next = zoomAt(cam, f, 1 / 1.5, vp.width / 2, vp.height / 2);
+        break;
+      case 'ArrowLeft':
+        next = pan(cam, step, 0);
+        break;
+      case 'ArrowRight':
+        next = pan(cam, -step, 0);
+        break;
+      case 'ArrowUp':
+        next = pan(cam, 0, step);
+        break;
+      case 'ArrowDown':
+        next = pan(cam, 0, -step);
+        break;
+      case '0':
+        userMoved.current = false;
+        commit(homeCam() ?? f, false);
+        e.preventDefault();
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    commit(next, true, true);
+  };
+
+  return (
+    <div
+      ref={hostRef}
+      className={styles.stage}
+      role="application"
+      aria-roledescription="map"
+      aria-label={ariaLabel}
+      tabIndex={0}
+      style={
+        reticle
+          ? ({ '--nm-reticle-x': `${reticle.x}px`, '--nm-reticle-y': `${reticle.y}px` } as React.CSSProperties)
+          : undefined
+      }
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse' && !pointers.current.size) onHover(null);
+      }}
+      onDoubleClick={onDoubleClick}
+      onKeyDown={onKeyDown}
+    />
+  );
+}

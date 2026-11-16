@@ -11,7 +11,8 @@ import { fonts, type as t } from '@/theme/typography';
 // person reading them has not floated with Eddy yet. Nothing else: the
 // heading says these are reminders, the switches say they are on.
 
-export function ReminderChoices({ value, onChange, disabled, hazards }: {
+export function ReminderChoices({ value, onChange, disabled, hazards, showPermission = true }: {
+  showPermission?: boolean;
   value: FloatReminderChoices;
   onChange: (value: FloatReminderChoices) => void;
   disabled: boolean;
@@ -31,7 +32,7 @@ export function ReminderChoices({ value, onChange, disabled, hazards }: {
       note={hazards === 0 ? 'None on this stretch' : `Dams, portages and serious hazards · ${HAZARD_LEAD_MILES} mi ahead`}
       on={hazards === 0 ? null : hazardsOn} disabled={disabled}
       accessibilityLabel="Mapped hazard reminders" onChange={on => onChange({ ...value, hazards: on })} />
-    <ReminderPermission enabled={value.takeOut || (hazardsOn && hazards !== 0)} disabled={disabled} />
+    {showPermission ? <ReminderPermission enabled={value.takeOut || (hazardsOn && hazards !== 0)} disabled={disabled} /> : null}
   </View>;
 }
 

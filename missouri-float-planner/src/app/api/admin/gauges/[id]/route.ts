@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/gauges/[id]/route.ts
 // GET /api/admin/gauges/[id] - Get single gauge details
 // PUT /api/admin/gauges/[id] - Update gauge descriptions and notes
@@ -6,6 +7,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
+
+import {
+  applyThresholdPatch,
+  type ThresholdKey,
+  type ThresholdPatch,
+  type ThresholdState,
+} from '@/lib/gauges/threshold-validation';
+
+const THRESHOLD_COLUMNS: ReadonlyArray<readonly [ThresholdKey, string]> = [
+  ['levelTooLow', 'level_too_low'],
+  ['levelLow', 'level_low'],
+  ['levelOptimalMin', 'level_optimal_min'],
+  ['levelOptimalMax', 'level_optimal_max'],
+  ['levelHigh', 'level_high'],
+  ['levelDangerous', 'level_dangerous'],
+  ['altLevelTooLow', 'alt_level_too_low'],
+  ['altLevelLow', 'alt_level_low'],
+  ['altLevelOptimalMin', 'alt_level_optimal_min'],
+  ['altLevelOptimalMax', 'alt_level_optimal_max'],
+  ['altLevelHigh', 'alt_level_high'],
+  ['altLevelDangerous', 'alt_level_dangerous'],
+];
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -21,7 +44,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -146,14 +169,14 @@ export async function GET(
 }
 
 // Accept both PUT and POST to avoid edge/CDN caching of writes
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   return handleUpdate(request, params);
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -165,7 +188,7 @@ async function handleUpdate(
   params: Promise<{ id: string }>
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -175,8 +198,11 @@ async function handleUpdate(
 
     const supabase = createAdminClient();
 
-    // Update gauge station (descriptions and notes)
-    if (thresholdDescriptions !== undefined || notes !== undefined) {
+    // Descriptions and notes. Run only after every threshold has validated
+    // (below): writing these first used to leave a gauge half-saved when the
+    // ladder was then rejected, while the page reported the whole save failed.
+    const writeStation = async (): Promise<NextResponse | null> => {
+      if (thresholdDescriptions === undefined && notes === undefined) return null;
       const gaugeUpdate: Record<string, unknown> = {};
 
       if (thresholdDescriptions !== undefined) {
@@ -208,80 +234,93 @@ async function handleUpdate(
           { status: 404 }
         );
       }
-    }
+      return null;
+    };
 
     // Update river_gauges (thresholds) if provided
     const updatedAssociations: Array<{ id: string; riverName: string; fieldsUpdated: number }> = [];
 
     if (riverAssociations && Array.isArray(riverAssociations)) {
+      // Validate every association against its stored ladder before writing
+      // any of them, so a rejected edit cannot leave the gauge half-saved.
+      const planned: Array<{ id: string; riverName: string; update: Record<string, unknown> }> = [];
+
       for (const assoc of riverAssociations) {
-        if (!assoc.id) continue;
+        if (!assoc || typeof assoc.id !== 'string') continue;
+        if (!isValidUUID(assoc.id)) return invalidIdResponse();
+        const riverName = typeof assoc.riverName === 'string' ? assoc.riverName : 'this river';
 
-        const thresholdUpdate: Record<string, unknown> = {};
+        // Scoped to this gauge: an association ID from another gauge is a 404.
+        const { data: row, error: rowError } = await supabase
+          .from('river_gauges')
+          .select(`id, threshold_unit, ${THRESHOLD_COLUMNS.map(([, column]) => column).join(', ')}`)
+          .eq('id', assoc.id)
+          .eq('gauge_station_id', id)
+          .maybeSingle();
 
-        if (assoc.thresholdUnit !== undefined) {
-          thresholdUpdate.threshold_unit = assoc.thresholdUnit;
+        if (rowError) {
+          console.error('Error loading river gauge thresholds:', rowError, { assocId: assoc.id });
+          return NextResponse.json({ error: `Could not load thresholds for ${riverName}` }, { status: 500 });
+        }
+        if (!row) {
+          return NextResponse.json({ error: `No river gauge found for ${riverName} on this gauge` }, { status: 404 });
         }
 
-        // Parse numeric values — handle both string and number inputs
-        const numericFields = [
-          ['levelTooLow', 'level_too_low'],
-          ['levelLow', 'level_low'],
-          ['levelOptimalMin', 'level_optimal_min'],
-          ['levelOptimalMax', 'level_optimal_max'],
-          ['levelHigh', 'level_high'],
-          ['levelDangerous', 'level_dangerous'],
-          ['altLevelTooLow', 'alt_level_too_low'],
-          ['altLevelLow', 'alt_level_low'],
-          ['altLevelOptimalMin', 'alt_level_optimal_min'],
-          ['altLevelOptimalMax', 'alt_level_optimal_max'],
-          ['altLevelHigh', 'alt_level_high'],
-          ['altLevelDangerous', 'alt_level_dangerous'],
-        ] as const;
+        const stored = row as unknown as Record<string, number | string | null>;
+        const current = {
+          thresholdUnit: stored.threshold_unit === 'cfs' ? 'cfs' : 'ft',
+          ...Object.fromEntries(
+            THRESHOLD_COLUMNS.map(([key, column]) => [key, stored[column] === null ? null : Number(stored[column])]),
+          ),
+        } as ThresholdState;
 
-        for (const [frontendKey, dbKey] of numericFields) {
-          if (assoc[frontendKey] !== undefined) {
-            const val = assoc[frontendKey];
-            if (val === '' || val === null) {
-              thresholdUpdate[dbKey] = null;
-            } else {
-              const parsed = typeof val === 'number' ? val : parseFloat(val);
-              thresholdUpdate[dbKey] = isNaN(parsed) ? null : parsed;
-            }
-          }
+        const result = applyThresholdPatch(current, assoc as ThresholdPatch);
+        if (!result.ok) {
+          return NextResponse.json({ error: `${riverName}: ${result.error}` }, { status: 400 });
         }
+        if (!result.changed) continue;
 
-        if (Object.keys(thresholdUpdate).length > 0) {
-          const { data: updated, error: thresholdError } = await supabase
-            .from('river_gauges')
-            .update(thresholdUpdate)
-            .eq('id', assoc.id)
-            .select('id')
-            .maybeSingle();
-
-          if (thresholdError) {
-            console.error('Error updating river gauge thresholds:', thresholdError, { assocId: assoc.id, thresholdUpdate });
-            return NextResponse.json(
-              { error: `Could not update thresholds for ${assoc.riverName}: ${thresholdError.message}` },
-              { status: 500 }
-            );
-          }
-
-          if (!updated) {
-            console.warn('Gauge threshold update matched 0 rows:', { assocId: assoc.id, thresholdUpdate });
-            return NextResponse.json(
-              { error: `No river gauge found with id ${assoc.id} for ${assoc.riverName}` },
-              { status: 404 }
-            );
-          }
-
-          updatedAssociations.push({
-            id: assoc.id,
-            riverName: assoc.riverName || 'Unknown',
-            fieldsUpdated: Object.keys(thresholdUpdate).length,
-          });
+        const update: Record<string, unknown> = {};
+        if (result.next.thresholdUnit !== current.thresholdUnit) update.threshold_unit = result.next.thresholdUnit;
+        for (const [key, column] of THRESHOLD_COLUMNS) {
+          if (result.next[key] !== current[key]) update[column] = result.next[key];
         }
+        if (Object.keys(update).length > 0) planned.push({ id: assoc.id, riverName, update });
       }
+
+      const stationFailure = await writeStation();
+      if (stationFailure) return stationFailure;
+
+      for (const { id: assocId, riverName, update } of planned) {
+        const { data: updated, error: thresholdError } = await supabase
+          .from('river_gauges')
+          .update(update)
+          .eq('id', assocId)
+          .eq('gauge_station_id', id)
+          .select('id')
+          .maybeSingle();
+
+        if (thresholdError) {
+          console.error('Error updating river gauge thresholds:', thresholdError, { assocId, update });
+          return NextResponse.json(
+            { error: `Could not update thresholds for ${riverName}: ${thresholdError.message}` },
+            { status: 500 }
+          );
+        }
+
+        if (!updated) {
+          console.warn('Gauge threshold update matched 0 rows:', { assocId, update });
+          return NextResponse.json(
+            { error: `No river gauge found with id ${assocId} for ${riverName}` },
+            { status: 404 }
+          );
+        }
+
+        updatedAssociations.push({ id: assocId, riverName, fieldsUpdated: Object.keys(update).length });
+      }
+    } else {
+      const stationFailure = await writeStation();
+      if (stationFailure) return stationFailure;
     }
 
     return NextResponse.json({ success: true, updatedAssociations }, { headers: CACHE_HEADERS });
@@ -293,3 +332,6 @@ async function handleUpdate(
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const PUT = withAdminMutation(handlePUT);

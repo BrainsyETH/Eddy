@@ -270,10 +270,20 @@ function foldContinuousFeatures(
   }
 }
 
+/**
+ * Deadline for one USGS request that has no caller budget of its own.
+ *
+ * Without it a stalled connection is held until the function's own limit,
+ * which on a public route is a lambda per waiting visitor. Fifteen seconds
+ * matches fetchLatestModern, the one USGS call that always had a deadline.
+ */
+export const USGS_TIMEOUT_MS = 15_000;
+
 async function fetchOgcItems(url: URL): Promise<OgcFeature[]> {
   const response = await trackedFetch('usgs', 'usgs', url.toString(), {
     next: { revalidate: 3600 },
     headers: modernHeaders(),
+    signal: AbortSignal.timeout(USGS_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`USGS modern history error: ${response.status} ${response.statusText}`);
@@ -282,12 +292,44 @@ async function fetchOgcItems(url: URL): Promise<OgcFeature[]> {
   return data.features ?? [];
 }
 
+/**
+ * How coarsely the start of a ROLLING history window is floored before it goes
+ * into a URL.
+ *
+ * "The last N days" used to be serialised from a bare Date.now(), to the
+ * millisecond, so no two requests ever shared a URL and `next: { revalidate }`
+ * in fetchOgcItems had nothing to match: every chart, every sparkline and every
+ * site in the history bundle went to USGS. src/lib/usace/cda.ts records the
+ * same mistake for the Corps ("The cache that never hit").
+ *
+ * Only the START is floored. The window's end is already open (`start/..`), so
+ * nothing recent is cut off; the request merely reaches back up to one bucket
+ * further than asked, and fetchHistoryModern drops those extra readings again.
+ * The URL changes once per bucket, which makes the bucket (not the 3600s
+ * revalidate) the bound on how long a repeat request can be served the same
+ * answer: five minutes, inside the 15-minute cadence these gauges report at.
+ *
+ * An explicit `from`/`to` window is NOT floored. It is stable already, and
+ * rounding it would move the data the caller asked for.
+ */
+export const HISTORY_BUCKET_MS = 5 * 60 * 1000;
+
+/** Start of a rolling `days` window ending now, floored to the bucket. */
+export function rollingHistoryStart(days: number, now = Date.now()): Date {
+  const start = now - days * 24 * 60 * 60 * 1000;
+  return new Date(Math.floor(start / HISTORY_BUCKET_MS) * HISTORY_BUCKET_MS);
+}
+
 async function fetchHistoryModern(
   siteId: string,
   days: number,
   window?: { from: Date; to: Date | null }
 ): Promise<HistoricalData | null> {
-  const start = (window?.from ?? new Date(Date.now() - days * 24 * 60 * 60 * 1000)).toISOString();
+  // A rolling window asks from a floored start (see rollingHistoryStart) and
+  // is cut back to the instant the caller meant once the features are folded.
+  const now = Date.now();
+  const rollingFrom = window ? null : now - days * 24 * 60 * 60 * 1000;
+  const start = (window?.from ?? rollingHistoryStart(days, now)).toISOString();
   const datetime = window?.to ? `${start}/${window.to.toISOString()}` : `${start}/..`;
 
   const buildUrl = (parameterCodes: string, limit: number) => {
@@ -320,6 +362,11 @@ async function fetchHistoryModern(
     ]);
     foldContinuousFeatures(heights, readingsMap);
     foldContinuousFeatures(discharges, readingsMap);
+  }
+  if (rollingFrom !== null) {
+    for (const time of Array.from(readingsMap.keys())) {
+      if (Date.parse(time) < rollingFrom) readingsMap.delete(time);
+    }
   }
   if (readingsMap.size === 0) return null;
 
@@ -422,7 +469,11 @@ async function fetchLatestLegacy(
     ? { cache: 'no-store' }
     : { next: { revalidate: 3600 } };
 
-  const response = await trackedFetch('usgs', 'usgs', url.toString(), { ...fetchOptions, signal: options?.signal });
+  const deadline = AbortSignal.timeout(USGS_TIMEOUT_MS);
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), {
+    ...fetchOptions,
+    signal: options?.signal ? AbortSignal.any([options.signal, deadline]) : deadline,
+  });
   if (!response.ok) {
     throw new Error(`USGS legacy API error: ${response.status} ${response.statusText}`);
   }
@@ -481,7 +532,10 @@ async function fetchHistoryLegacy(siteId: string, days: number): Promise<Histori
   url.searchParams.set('period', `P${days}D`);
   url.searchParams.set('siteStatus', 'all');
 
-  const response = await trackedFetch('usgs', 'usgs', url.toString(), { next: { revalidate: 3600 } });
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), {
+    next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(USGS_TIMEOUT_MS),
+  });
   if (!response.ok) {
     throw new Error(`USGS legacy history error: ${response.status} ${response.statusText}`);
   }
@@ -636,7 +690,10 @@ export async function fetchAllDailyStatistics(siteId: string): Promise<DailyStat
   url.searchParams.set('statTypeCd', STAT_TYPES);
   url.searchParams.set('parameterCd', PARAM_DISCHARGE);
 
-  const response = await trackedFetch('usgs', 'usgs', url.toString(), { next: { revalidate: 86400 } });
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), {
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(USGS_TIMEOUT_MS),
+  });
   if (!response.ok) {
     throw new Error(
       `USGS statistics API error for ${siteId}: ${response.status} ${response.statusText}`

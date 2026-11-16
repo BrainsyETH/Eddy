@@ -18,17 +18,40 @@ import {
 } from '@/lib/display/river-window';
 import RiverWindowScene from './RiverWindowScene';
 import MillWindowScene from './MillWindowScene';
-import { MILL_PASS_FRAMES, MILL_RIVERS, millDuration, selectMillScenes } from '@/lib/display/mill-scenes';
+import {
+  MILL_PASS_FRAMES,
+  MILL_RIVERS,
+  MILL_STAGE,
+  VERTICAL_MEDIA,
+  millBreakBetween,
+  verticalHeight,
+  verticalLayout,
+  millDuration,
+  millStartFrame,
+  nextMillFrame,
+  parseMillFormat,
+  selectMillScenes,
+  type MillFormat,
+} from '@/lib/display/mill-scenes';
+import { displayReadings } from '@/lib/embed/display-events';
+import { useDisplayContract, useHostActive } from './useDisplayContract';
 import styles from './river-window.module.css';
 
 export default function RiverWindow() {
+  const hostActive = useHostActive();
   const params = useSearchParams();
   const rawRivers = params.get('rivers');
   const millMode = params.get('theme') !== 'river';
   const requested = useMemo(() => parseRiverSelection(rawRivers), [rawRivers]);
   const mills = useMemo(() => selectMillScenes(requested), [requested]);
   const duration = millMode ? millDuration(mills.length) : WINDOW_FRAMES;
-  const stride = millMode ? MILL_PASS_FRAMES : SCENE_STRIDE;
+  const forcedFormat = parseMillFormat(params.get('format'));
+  const [portrait, setPortrait] = useState(() => window.matchMedia(VERTICAL_MEDIA).matches);
+  // Portrait walls get the vertical mills format; the classic River Window is landscape only.
+  const format: MillFormat = millMode ? (forcedFormat ?? (portrait ? 'vertical' : 'landscape')) : 'landscape';
+  // Taller-than-9:16 portrait screens stretch the composition rather than letterbox.
+  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
+  const compositionHeight = format === 'vertical' ? verticalHeight(viewport.width, viewport.height) : MILL_STAGE[format].height;
   const player = useRef<PlayerRef>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(true);
@@ -38,6 +61,8 @@ export default function RiverWindow() {
   const [fullscreenError, setFullscreenError] = useState(false);
   const [assetError, setAssetError] = useState(false);
   const onAssetError = useCallback(() => setAssetError(true), []);
+  // ?start=<mill id> opens on that mill; read once, so the tour is not reset by later renders.
+  const [startFrame] = useState(() => (millMode ? millStartFrame(params.get('start'), mills) : 0));
 
   const query = useQuery({
     queryKey: ['river-window-snapshot'],
@@ -64,8 +89,48 @@ export default function RiverWindow() {
         : [],
     [query.data, requested, now, millMode]
   );
+  const postBreak = useDisplayContract(
+    millMode ? 'mills' : 'river-window',
+    format,
+    displayReadings({ isPending: query.isPending, isError: query.isError, hasData: !!query.data }),
+    assetError ? 'unavailable' : 'ok'
+  );
+
+  // Display contract: a framing host may cut away as each painting ends.
+  useEffect(() => {
+    const p = player.current;
+    if (!millMode || !p) return;
+    let last: number | null = null;
+    const onFrame = ({ detail }: { detail: { frame: number } }) => {
+      if (last != null) {
+        const pass = millBreakBetween(last, detail.frame, mills.length);
+        if (pass != null) postBreak(mills.length, mills[(pass + 1) % mills.length]?.id);
+      }
+      last = detail.frame;
+    };
+    p.addEventListener('frameupdate', onFrame);
+    return () => p.removeEventListener('frameupdate', onFrame);
+  }, [millMode, mills, format, postBreak]);
+
   const sceneProps = useMemo(() => ({ signs, loading: query.isPending }), [signs, query.isPending]);
-  const millProps = useMemo(() => ({ ...sceneProps, mills, onAssetError }), [sceneProps, mills, onAssetError]);
+  const millProps = useMemo(
+    () => ({ ...sceneProps, mills, format, height: compositionHeight, onAssetError }),
+    [sceneProps, mills, format, compositionHeight, onAssetError]
+  );
+
+  useEffect(() => {
+    const resize = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia(VERTICAL_MEDIA);
+    const change = () => setPortrait(media.matches);
+    change();
+    media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -91,13 +156,13 @@ export default function RiverWindow() {
 
   useEffect(() => {
     const sync = () => {
-      if (paused || showReadings || showMills || document.hidden) player.current?.pause();
+      if (!hostActive || paused || showReadings || showMills || document.hidden) player.current?.pause();
       else player.current?.play();
     };
     sync();
     document.addEventListener('visibilitychange', sync);
     return () => document.removeEventListener('visibilitychange', sync);
-  }, [paused, showReadings, showMills]);
+  }, [hostActive, paused, showReadings, showMills, format]);
 
   const warning = signs.filter((s) => s.code === 'dangerous' || s.code === 'high');
   const connection = query.isError
@@ -123,16 +188,25 @@ export default function RiverWindow() {
   }
 
   return (
-    <div className={styles.viewport}>
-      <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} aria-label="Eddy River Window">
+    <div className={styles.viewport} data-theme={millMode ? 'mills' : 'river'}>
+      <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} data-format={format}
+        style={format === 'vertical' ? ({
+          width: `min(100vw, ${(MILL_STAGE.vertical.width / compositionHeight) * 100}dvh)`,
+          aspectRatio: `${MILL_STAGE.vertical.width} / ${compositionHeight}`,
+          '--dock-top': `${(verticalLayout(compositionHeight).dockTop / compositionHeight) * 100}%`,
+        } as React.CSSProperties) : undefined}
+        aria-label="Eddy River Window">
         {millMode ? (
         <Player
+          // A rotated wall remounts at the new composition size.
+          key={format}
           ref={player}
           component={MillWindowScene}
           inputProps={millProps}
-          compositionWidth={WINDOW_WIDTH}
-          compositionHeight={WINDOW_HEIGHT}
+          compositionWidth={MILL_STAGE[format].width}
+          compositionHeight={compositionHeight}
           durationInFrames={duration}
+          initialFrame={startFrame}
           fps={WINDOW_FPS}
           loop
           style={{ width: '100%', height: '100%' }}
@@ -172,7 +246,7 @@ export default function RiverWindow() {
         )}
         <header className={styles.brand}>
           <b>eddy</b>
-          <span>{(params.get('name') || (millMode ? 'MISSOURI MILLS' : 'RIVER WINDOW')).slice(0, 50)}</span>
+          <span>{(params.get('name') || (millMode ? 'Missouri mills' : 'RIVER WINDOW')).slice(0, 50)}</span>
         </header>
         <div className={styles.status} role="status">
           <time dateTime={new Date(now).toISOString()}>
@@ -184,8 +258,8 @@ export default function RiverWindow() {
         </div>
         {warning.length ? (
           <div className={styles.warning} role="status">
-            {warning.map((s) => `${s.name}: ${s.condition}`).join(' · ')} · Check the river report
-            before launching.
+            {warning.map((s) => `${s.name} is ${s.code === 'dangerous' ? 'at flood level' : 'running high'}.`).join(' ')} Check
+            the river report before you go.
           </div>
         ) : null}
         {showMills ? (
@@ -242,7 +316,9 @@ export default function RiverWindow() {
             onClick={() => {
               const frame = player.current?.getCurrentFrame() ?? 0;
               player.current?.seekTo(
-                (Math.floor(frame / stride) * stride + stride) % duration
+                millMode
+                  ? nextMillFrame(frame, mills.length)
+                  : (Math.floor(frame / SCENE_STRIDE) * SCENE_STRIDE + SCENE_STRIDE) % WINDOW_FRAMES
               );
             }}
           >
@@ -256,7 +332,7 @@ export default function RiverWindow() {
         </nav>
         {!millMode ? <AssetHealth onError={onAssetError} /> : null}
       </div>
-      <p className={styles.portraitNote}>Turn your screen sideways for the river window.</p>
+      {format === 'landscape' ? <p className={styles.portraitNote}>Turn your screen sideways for the river window.</p> : null}
     </div>
   );
 }
@@ -278,3 +354,4 @@ function AssetHealth({ onError }: { onError: () => void }) {
   }, []);
   return null;
 }
+

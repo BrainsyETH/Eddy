@@ -1,0 +1,37 @@
+{
+  "parameters": {
+    "f": "json",
+    "geometry": "{\"xmin\": -10532957.128554547, \"ymin\": 4078529.700448977, \"xmax\": -10039445.860456608, \"ymax\": 4660040.56815956, \"spatialReference\": {\"wkid\": 3857}}",
+    "geometryType": "esriGeometryEnvelope",
+    "renderingRule": "{\"rasterFunction\": \"None\"}",
+    "mosaicRule": "{\"mosaicMethod\": \"esriMosaicLockRaster\", \"lockRasterIds\": [158156838]}",
+    "pixelSize": "{\"x\": 1189.1837785492494, \"y\": 1189.1837785492494, \"spatialReference\": {\"wkid\": 3857}}"
+  },
+  "response": {
+    "statistics": [
+      {
+        "min": 0,
+        "max": 0,
+        "mean": 0,
+        "standardDeviation": 0,
+        "sum": 0,
+        "median": 0,
+        "mode": 0,
+        "skipX": 1,
+        "skipY": 1,
+        "count": 202935,
+        "covariances": "0.000000"
+      }
+    ],
+    "histograms": [
+      {
+        "size": 1,
+        "min": -0.5,
+        "max": 0.5,
+        "counts": [
+          202935
+        ]
+      }
+    ]
+  }
+}

@@ -41,6 +41,7 @@ import {
   type PermissionState,
 } from '@/lib/push';
 import { deviceClaimCode, type DeviceClaimState } from '@/lib/deviceClaim';
+import type { NotificationSnapshot } from '@/lib/alertNotificationSetup';
 
 interface PushValue {
   permission: PermissionState;
@@ -72,7 +73,8 @@ interface PushValue {
    * was granted, and nothing ever registered a token again.
    */
   unregister: () => Promise<void>;
-  refresh: () => Promise<void>;
+  /** Returns the fresh result so alert actions never decide from stale React state. */
+  refresh: () => Promise<NotificationSnapshot>;
 }
 
 const PushContext = createContext<PushValue>({
@@ -83,7 +85,7 @@ const PushContext = createContext<PushValue>({
   enable: async () => 'undetermined',
   disable: async () => false,
   unregister: async () => {},
-  refresh: async () => {},
+  refresh: async () => ({ permission: 'undetermined', optedOut: false, registered: false, held: null }),
 });
 
 // The handler is process-wide, so it is installed at module scope rather than
@@ -262,7 +264,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, [openFromNotification]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<NotificationSnapshot> => {
     const state = await getPermissionState();
     setPermission(state);
 
@@ -275,24 +277,30 @@ export function PushProvider({ children }: { children: ReactNode }) {
     // it then described alerts as on.
     const deviceOptedOut = await isDeviceOptedOut();
     setOptedOut(deviceOptedOut);
+    const snapshot: NotificationSnapshot = { permission: state, optedOut: deviceOptedOut, registered: false, held: null };
 
     if (state !== 'granted' || !signedIn) {
       applyRegistration({ ok: false, held: null });
       // A release owed from an earlier sign-out needs no account, only signal.
       void settleOwedRelease();
-      return;
+      return snapshot;
     }
 
     if (deviceOptedOut) {
       applyRegistration({ ok: false, held: null });
-      return;
+      return snapshot;
     }
 
     const token = await getAccessToken();
-    if (!token || !userId) return;
+    if (!token || !userId) {
+      applyRegistration({ ok: false, held: null });
+      return snapshot;
+    }
 
     const result = await syncRegistration(token, userId);
+    setPermission(result.state);
     applyRegistration(result);
+    return { ...snapshot, permission: result.state, registered: result.ok, held: result.held };
   }, [signedIn, userId, getAccessToken, applyRegistration]);
 
   /**

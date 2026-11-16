@@ -9,7 +9,7 @@
 
 import { prepareTerrainMap } from './terrain-map';
 import type { LngLat } from '../../../shared/social-route-journey';
-import { POST_TYPES, type RenderData } from './post-types';
+import { POST_TYPES, type RenderData, type VideoPostKind } from './post-types';
 import type { SocialPlatform } from './types';
 
 const LOG_PREFIX = '[VideoRenderer]';
@@ -190,6 +190,7 @@ export async function triggerClipPipeline(params: ClipPipelineParams): Promise<{
 }
 
 interface CompileHighlightsParams {
+  jobId?: string;
   clipIds: string;
   title: string;
   postIds: string;
@@ -215,6 +216,7 @@ export async function triggerCompileHighlights(params: CompileHighlightsParams):
 
   const response = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(15000),
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github.v3+json',
@@ -227,6 +229,7 @@ export async function triggerCompileHighlights(params: CompileHighlightsParams):
         title: params.title,
         post_ids: params.postIds,
         output_filename: params.outputFilename,
+        ...(params.jobId ? { admin_job_id: params.jobId } : {}),
       },
     }),
   });
@@ -238,6 +241,7 @@ export async function triggerCompileHighlights(params: CompileHighlightsParams):
 
   const errorBody = await response.text();
   console.error(`${LOG_PREFIX} Highlights dispatch failed (${response.status}): ${errorBody}`);
+  if (response.status >= 500) throw new Error('GitHub dispatch outcome is unknown.');
   return false;
 }
 
@@ -294,12 +298,7 @@ export async function triggerBrandCheck(params: BrandCheckParams): Promise<boole
  * Thin lookup over POST_TYPES (the single source of truth in post-types.ts).
  */
 export function getCompositionForPost(
-  postType:
-    | 'daily_digest'
-    | 'river_highlight'
-    | 'weekly_forecast'
-    | 'section_guide'
-    | 'weekly_trend',
+  postType: VideoPostKind,
   data: RenderData,
   platform?: SocialPlatform,
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {

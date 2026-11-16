@@ -3,7 +3,7 @@
 The admin landing page combines operational health, subscriptions, sign-ins,
 trip plans, inbox, push, content gaps, and reach. It authenticates every request
 before reading a three-minute server-side cache. Responses are private/no-store.
-The sidebar does not fetch the old stats endpoint on this page.
+The shared sidebar refreshes navigation counts on entry, focus and successful admin writes.
 
 ## Stage 1
 
@@ -142,6 +142,13 @@ until UTC midnight. New instances can still incur rejected budget probes.
   daily p95 values are never averaged. Sampling rates are retained per dimension.
 - Cache-inclusive fetch counters cannot drive provider quota alarms. In
   particular, no OpenWeather 80% billed-quota warning is generated from them.
+- USGS is the one provider whose allowance is read directly. Every USGS
+  response that really reached USGS logs `[usgs-quota]` with the
+  `X-RateLimit-Limit` and `X-RateLimit-Remaining` it reported
+  (`src/lib/telemetry/usgs-quota.ts`): at most once a minute per instance, and
+  at once as a warning below 20% remaining or on a 429. Fetch-cache replays are
+  skipped by their `Date` header. This is a log line, not a counter or an
+  alarm; search the function logs for it.
 
 ## Validation and activation
 
@@ -220,3 +227,9 @@ requests against a local fixture database verified authentication before reads,
 complete history, 13 service entries, cache reuse, and removal of account IDs
 and credential values. Desktop/mobile browser checks passed without page
 errors or document overflow.
+
+## Admin workspace
+
+See [admin-workspace.md](admin-workspace.md) for named roles, request audit
+outcomes, incident recovery, tracked compilation jobs and external monitoring
+setup. These are separate from the historical dashboard rollout above.

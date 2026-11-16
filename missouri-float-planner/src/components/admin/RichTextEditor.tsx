@@ -293,7 +293,7 @@ function MenuBar({ editor, onImageUpload }: { editor: Editor | null; onImageUplo
               setShowLinkInput(false);
               setLinkUrl('');
             }}
-            className="px-2 py-1 bg-neutral-700 text-white text-sm rounded hover:bg-neutral-600"
+            className="px-2 py-1 text-sm rounded admin-secondary"
           >
             Cancel
           </button>

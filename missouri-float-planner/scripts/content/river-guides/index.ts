@@ -17,6 +17,9 @@ import springRiverMo from './spring-river-mo';
 import springRiver from './spring-river';
 import stFrancis from './st-francis';
 import warEagleCreek from './war-eagle-creek';
+import white from './white';
+import taneycomo from './taneycomo';
+import norforkTailwater from './norfork-tailwater';
 
 export const riverGuideSeeds: RiverGuideSeed[] = [
   bigPiney,
@@ -38,3 +41,10 @@ export const riverGuideSeeds: RiverGuideSeed[] = [
   stFrancis,
   warEagleCreek,
 ];
+
+/** Guides for rivers below a dam. Kept apart from the October batch above,
+ * whose tests pin its eighteen rivers and review date. */
+export const tailwaterGuideSeeds: RiverGuideSeed[] = [white, taneycomo, norforkTailwater];
+
+/** Everything the insert-only seed script may add. */
+export const insertableGuideSeeds: RiverGuideSeed[] = [...riverGuideSeeds, ...tailwaterGuideSeeds];

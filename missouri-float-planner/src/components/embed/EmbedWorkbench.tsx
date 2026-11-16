@@ -86,13 +86,38 @@ const SERVICE_CATEGORIES = [
 ] as const;
 
 const INSTALL_GUIDES = [
-  { name: 'WordPress', steps: 'Edit a page → add a Custom HTML block → paste the code → Update. If your role can’t paste scripts, use the plain iframe or an image.' },
-  { name: 'Squarespace', steps: 'Add a block → under "More" choose Code → paste → Save.' },
-  { name: 'Wix', steps: 'Add → Embed Code → Embed HTML → paste → Apply.' },
-  { name: 'Substack / Medium / Ghost', steps: 'These strip iframes. Switch the format to Image and insert the PNG like any picture; link it to your river page.' },
-  { name: 'Email newsletters', steps: 'Insert the PNG as an image. It renders the live condition each time the email is opened. Mailchimp and ConvertKit cache images for a few minutes.' },
-  { name: 'Anything else', steps: 'Look for a "Custom HTML" / "Embed Code" option. The iframe works anywhere; the script tag also handles resizing for you.' },
-];
+  {
+    name: 'WordPress',
+    steps: ['Add a Custom HTML block to your page.', 'Copy the code below and paste it into the block.', 'Update or publish, then check your live page.'],
+    note: 'WordPress.com needs a paid plan with hosting features activated. Your account must also allow embed code.',
+    href: 'https://wordpress.com/support/wordpress-editor/blocks/custom-html-block/',
+  },
+  {
+    name: 'Squarespace',
+    steps: ['Edit your page and add a Code block.', 'Choose HTML and paste the code below. Leave Display Source off.', 'Save, then check your live page.'],
+    note: 'Requires Core or higher, or a supported legacy plan.',
+    href: 'https://support.squarespace.com/hc/en-us/articles/206543167-Add-custom-code-to-a-page-with-code-blocks',
+  },
+  {
+    name: 'Wix',
+    steps: ['Choose Add Elements → Embed Code → Embed HTML.', 'Select Enter Code and paste the code below.', 'Apply, resize the box to fit, then publish.'],
+    note: 'Check the box height on both desktop and mobile.',
+    href: 'https://support.wix.com/en/article/wix-editor-embedding-a-site-or-a-widget',
+  },
+  {
+    name: 'Ghost',
+    steps: ['Add an HTML card to your post.', 'Copy the code below and paste it into the card.', 'Publish, then check the post on your website.'],
+    note: 'Sending it by email? Choose Email for an image instead.',
+    href: 'https://ghost.org/help/cards/#html',
+  },
+  { name: 'Substack / Medium', image: true },
+  { name: 'Email', image: true },
+  {
+    name: 'Other website',
+    steps: ['Look for a Custom HTML or Embed Code block.', 'Copy the code below and paste it into the block.', 'Save or publish, then check your live page.'],
+    note: 'Your website builder needs to allow embedded content and scripts for automatic resizing.',
+  },
+] as const;
 
 const HOST_BG: Record<HostBg, { label: string; bg: string; border: string; ink: string }> = {
   white: { label: 'White', bg: '#FFFFFF', border: '#DBD5CA', ink: '#2D2A24' },
@@ -319,29 +344,38 @@ function imageSnippet(c: WidgetCtx, widget: WidgetKey, title: string) {
 
 function CopyButton({ text, large = false }: { text: string; large?: boolean }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const [copyError, setCopyError] = useState(false);
+  const handleCopy = async () => {
+    setCopyError(false);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      setCopyError(true);
+    }
   };
   if (large) {
     return (
       <button
         onClick={handleCopy}
+        aria-live="polite"
         className={`flex items-center justify-center gap-2 w-full px-4 py-3 font-semibold rounded-lg text-sm text-white transition-colors ${copied ? 'bg-support-600' : 'bg-accent-500 hover:bg-accent-600'}`}
       >
         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-        {copied ? 'Copied to clipboard!' : 'Copy code'}
+        {copyError ? 'Couldn’t copy. Try again.' : copied ? 'Copied to clipboard!' : 'Copy code'}
       </button>
     );
   }
   return (
     <button
       onClick={handleCopy}
+      aria-live="polite"
       className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md text-white transition-colors ${copied ? 'bg-support-600' : 'bg-accent-500 hover:bg-accent-600'}`}
     >
       {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-      {copied ? 'Copied' : 'Copy code'}
+      {copyError ? 'Couldn’t copy. Try again.' : copied ? 'Copied' : 'Copy code'}
     </button>
   );
 }
@@ -499,6 +533,7 @@ export default function EmbedWorkbench() {
   const [transparent, setTransparent] = useState(false);
   const [accent, setAccent] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WidgetTab>('preview');
+  const [installPlatform, setInstallPlatform] = useState<string>('WordPress');
   const [showReference, setShowReference] = useState(false);
   const [refAnchor, setRefAnchor] = useState<'params' | 'api' | null>(null);
   const [gaugeDays, setGaugeDays] = useState(14);
@@ -783,6 +818,14 @@ export default function EmbedWorkbench() {
   const previewSrc = hydrated && previewPath ? `${baseUrl}${previewPath}` : '';
   const snippetSrc = previewPath ? `${EMBED_BASE}${previewPath}` : '';
   const snippetTitle = active.title_(ctx);
+  const installGuide = INSTALL_GUIDES.find(g => g.name === installPlatform) ?? INSTALL_GUIDES[0];
+  const installImageSize = imageAvailable ? size : 'strip';
+  const installImageUrl = isFamily && previewPath
+    ? `${EMBED_BASE}${imagePath({ ...ctx, size: installImageSize }, active.key, 'png')}`
+    : '';
+  const installReportUrl = active.key === 'dam'
+    ? `${EMBED_BASE}/dams/${selectedDam}`
+    : `${EMBED_BASE}/rivers/${selectedRiver}`;
 
   const code = useMemo(() => {
     if (!previewPath) {
@@ -1432,25 +1475,89 @@ export default function EmbedWorkbench() {
 
                 {/* ============ HELP TAB ============ */}
                 {activeTab === 'install' && (
-                  <div className="max-w-4xl">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>Where do I paste it?</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {INSTALL_GUIDES.map(g => (
-                        <div key={g.name} className="bg-white border-2 border-neutral-200 rounded-lg p-4 md:p-5" style={{ boxShadow: '2px 2px 0 #C2BAAC' }}>
-                          <div className="text-[15px] font-bold text-neutral-900 mb-2">{g.name}</div>
-                          <div className="text-[13px] text-neutral-600 leading-relaxed">{g.steps}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-7 rounded-xl border-2 border-neutral-900 p-6 md:p-7 flex flex-col sm:flex-row items-center gap-5" style={{ background: 'linear-gradient(135deg,#163F4A,#0F2D35)', boxShadow: '6px 6px 0 #C2BAAC' }}>
-                      <Image src={EDDY_IMAGES.canoe} alt="Eddy the Otter" width={120} height={120} className="h-20 w-auto flex-none" />
-                      <div className="flex-1 text-center sm:text-left">
-                        <h3 className="text-xl md:text-[22px] font-bold text-white mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>Run an outfitter, fly shop, campground or marina?</h3>
-                        <p className="text-sm text-white/80 max-w-md leading-relaxed">Get a co-branded widget, a directory listing, and priority support — free for local businesses.</p>
+                  <div className="max-w-2xl">
+                    <h2 className="text-2xl font-semibold text-primary-800 mb-4" style={{ fontFamily: 'var(--font-display)' }}>Let’s get it on your site.</h2>
+                    <fieldset className="mb-5">
+                      <legend className="text-sm font-semibold text-neutral-700 mb-2">Choose your platform</legend>
+                      <div className="flex flex-wrap gap-2">
+                        {INSTALL_GUIDES.map(g => (
+                          <label key={g.name} className="cursor-pointer">
+                            <input type="radio" name="install-platform" value={g.name} checked={installPlatform === g.name}
+                              onChange={() => setInstallPlatform(g.name)} className="peer sr-only" aria-controls="install-guide" />
+                            <span className="inline-flex min-h-11 items-center rounded-md border-2 border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 transition-colors hover:border-primary-400 peer-checked:border-primary-800 peer-checked:bg-primary-800 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-600">
+                              {g.name}
+                            </span>
+                          </label>
+                        ))}
                       </div>
-                      <button onClick={() => setPartnerOpen(true)} className="flex-none inline-flex items-center gap-2 text-white text-[15px] font-semibold px-5 py-3 rounded-lg" style={{ background: '#F07052', boxShadow: '3px 3px 0 #A33122' }}>
-                        Partner with Eddy &rarr;
-                      </button>
+                    </fieldset>
+
+                    <section id="install-guide" aria-labelledby="install-guide-title" className="bg-white border-2 border-primary-700 rounded-lg p-4 sm:p-5" style={{ boxShadow: '3px 3px 0 #C2BAAC' }}>
+                      <h3 id="install-guide-title" className="text-lg font-bold text-primary-800 mb-4">{installGuide.name}</h3>
+                      {'image' in installGuide ? (
+                        installImageUrl ? (
+                          <>
+                            <ol className="list-decimal pl-5 space-y-2 text-sm text-neutral-700 leading-relaxed marker:text-primary-600 marker:font-bold">
+                              <li>Open the PNG below and save the image.</li>
+                              <li>Add it to your post or email like any picture.</li>
+                              <li>Link the image to the full report on Eddy.</li>
+                            </ol>
+                            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
+                              <a href={installImageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-lg bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-600">Open PNG &rarr;</a>
+                              <a href={installReportUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline underline-offset-4">Full report &rarr;</a>
+                            </div>
+                            <p className="mt-3 text-xs text-neutral-600 leading-relaxed">{SIZE_INFO[installImageSize].label} image · A saved image is a snapshot. Link to Eddy for current conditions.</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm text-neutral-700 leading-relaxed">Images are available for River conditions and Dam generation. Choose one to get a PNG for your post or email.</p>
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              {(['river', 'dam'] as const).map(key => (
+                                <button key={key} onClick={() => { selectWidget(key); tabRefs.current.preview?.focus(); }} className="min-h-11 rounded-md border-2 border-primary-700 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50">
+                                  {key === 'river' ? 'Choose a river' : 'Choose a dam'}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <ol className="list-decimal pl-5 space-y-2 text-sm text-neutral-700 leading-relaxed marker:text-primary-600 marker:font-bold">
+                            {installGuide.steps.map(step => <li key={step}>{step}</li>)}
+                          </ol>
+                          <div className="mt-5 max-w-xs">
+                            {hydrated && previewPath ? (
+                              <CopyButton key={`${installPlatform}-${snippetSrc}`} text={iframeSnippet(snippetSrc, snippetTitle, isFamily ? size : null, resizeScript)} large />
+                            ) : (
+                              <button onClick={() => { setActiveTab('preview'); tabRefs.current.preview?.focus(); }} className="min-h-11 rounded-lg bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-600">Set up your widget &rarr;</button>
+                            )}
+                          </div>
+                          <p className="mt-3 text-xs text-neutral-600 leading-relaxed">
+                            {installGuide.note}{' '}
+                            {'href' in installGuide && <a href={installGuide.href} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary-700 underline underline-offset-2">Platform guide &rarr;</a>}
+                          </p>
+                        </>
+                      )}
+                    </section>
+
+                    <details className="group mt-4 border-b border-neutral-200 pb-3">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-primary-800 [&::-webkit-details-marker]:hidden">
+                        Not showing up?
+                        <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                      </summary>
+                      <ul className="list-disc pl-5 space-y-2 text-sm text-neutral-600 leading-relaxed">
+                        <li>Check the published page. Some editors hide widgets while you’re editing.</li>
+                        <li>Code disappearing? Check your platform’s plan and HTML permissions.</li>
+                        <li>Widget cut off? Make the embed box taller, including in your mobile layout.</li>
+                      </ul>
+                    </details>
+
+                    <div className="mt-4 flex items-center gap-3 rounded-lg bg-primary-50 p-4">
+                      <Image src={EDDY_IMAGES.canoe} alt="" width={64} height={64} className="h-12 w-12 object-contain flex-none" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-primary-800">Make it yours. Free for local businesses.</p>
+                        <button onClick={() => setPartnerOpen(true)} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline underline-offset-4 hover:text-primary-900">Partner with Eddy &rarr;</button>
+                      </div>
                     </div>
                   </div>
                 )}

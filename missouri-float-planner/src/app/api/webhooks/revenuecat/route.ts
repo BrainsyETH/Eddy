@@ -24,7 +24,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { DEFAULT_ENTITLEMENT_ID } from '@/lib/entitlement';
 import { reconcileEntitlement } from '@/lib/revenuecat/api';
-import { applyToEntitlement, revokeTransferredSource, type ApplyResult } from '@/lib/revenuecat/apply-event';
+import {
+  applyToEntitlement,
+  needsReconcile,
+  revokeTransferredSource,
+  type ApplyResult,
+} from '@/lib/revenuecat/apply-event';
 import {
   computeEntitlementPatch,
   entitlementIdsFor,
@@ -248,12 +253,37 @@ export async function POST(request: NextRequest) {
   }
 
   const statuses: string[] = [];
+  const results: ApplyResult[] = [];
   for (const entitlementId of entitlementIdsFor(event, DEFAULT_ENTITLEMENT_ID)) {
     const result = await applyToEntitlement(supabase, { userId, entitlementId, patch, event, eventAt });
     if (result.status === 'error') {
       return NextResponse.json({ error: 'Could not apply event' }, { status: 500 });
     }
+    results.push(result);
     statuses.push(`${entitlementId}:${result.status}`);
+  }
+
+  // A dropped stale event or an event without an expiry can leave the row
+  // short of what RevenueCat knows; ask it. See needsReconcile.
+  if (needsReconcile(results, patch)) {
+    const reconciled = await reconcileEntitlement(supabase, {
+      userId,
+      entitlementId: DEFAULT_ENTITLEMENT_ID,
+      stamp: { id: event.id ?? null, type: event.type ?? null, at: eventAt },
+    });
+    if (reconciled.status === 'error') {
+      // Retry: a redelivery runs this reconcile again, and until one succeeds
+      // the user may be locked out of a subscription RevenueCat says is live.
+      console.error(`${LOG_PREFIX} ${type} ${event.id} reconcile failed (${reconciled.detail}) — asking for a retry`);
+      return NextResponse.json({ error: 'Could not reconcile entitlement' }, { status: 500 });
+    }
+    if (reconciled.status === 'not_configured') {
+      console.error(
+        `${LOG_PREFIX} ${type} ${event.id} needed a RevenueCat reconcile but REVENUECAT_SECRET_API_KEY is unset — ` +
+          `${userId} may be missing an expiry. See src/lib/revenuecat/api.ts.`
+      );
+    }
+    statuses.push(`reconcile:${reconciled.status}`);
   }
 
   console.log(`${LOG_PREFIX} ${type} ${event.id} → ${statuses.join(', ')}`);

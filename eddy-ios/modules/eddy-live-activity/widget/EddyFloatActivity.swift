@@ -152,17 +152,21 @@ private struct FloatCard: View {
         Text(display.estimate).font(.footnote.weight(.semibold))
           .lineLimit(2).minimumScaleFactor(0.6)
       }
-      statusRow.lineLimit(1).minimumScaleFactor(0.6)
+      statusRow(showAge: true).lineLimit(1).minimumScaleFactor(0.6)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private var statusRow: some View {
+  /// `showAge` adds a running "3 min ago". The standard card leaves it out
+  /// when its "As of 1:38 PM" already dates the position: the system's
+  /// relative text grows to "1 min, 26 sec" and wrapped "ago" onto a line
+  /// of its own.
+  private func statusRow(showAge: Bool) -> some View {
     HStack(spacing: 4) {
       Image(systemName: display.reliable ? "location.fill" : display.statusSymbol)
         .accessibilityHidden(true)
       Text(display.shortStatus).lineLimit(1)
-      if !display.reliable, let fix = state.lastFixAt {
+      if showAge, !display.reliable, let fix = state.lastFixAt {
         Text("·").accessibilityHidden(true)
         // The system redraws this age even while Eddy is suspended.
         Text(fix, style: .relative).monospacedDigit()
@@ -218,7 +222,7 @@ private struct FloatCard: View {
       } else if !state.estimateNote.isEmpty && !state.arrived && !state.pastEnd {
         Text(state.estimateNote).font(.caption2).foregroundStyle(.white.opacity(0.7)).lineLimit(1).minimumScaleFactor(0.8)
       }
-      statusRow
+      statusRow(showAge: state.estimateAsOf == nil).lineLimit(1).minimumScaleFactor(0.8)
     }
   }
 }

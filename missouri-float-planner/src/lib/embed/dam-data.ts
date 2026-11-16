@@ -6,12 +6,17 @@
 // HTML, so a schedule bar can never disagree between the two.
 
 import 'server-only';
+import { getRiverContext } from '@/lib/rivers/context';
+import { riverPath } from '@/lib/navigation/river-path';
 import { unstable_cache } from 'next/cache';
 import { getUsaceDam, hasPowerhouse } from '@/lib/flow-providers/usace-registry';
 import { refreshStaleness } from '@/lib/data/dams';
 import { pageDam } from '@/lib/data/public-pages';
 import { readStoredSnapshot } from '@/lib/data/dam-snapshot-store';
 import type { DamSnapshot } from '@shared/dam-types';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
+import { withNewestRelease } from './options';
 
 const readDam = unstable_cache(
   async (damId: string): Promise<DamSnapshot | null> => {
@@ -23,8 +28,35 @@ const readDam = unstable_cache(
   { revalidate: 60 },
 );
 
+/**
+ * The dam's release as the gauge pipeline last stored it. A release gauge's
+ * site id is the dam id (usace-registry.ts). Null on any failure: the widget
+ * then shows the snapshot's own figure, as it always did.
+ */
+const readGaugeRelease = unstable_cache(
+  async (damId: string): Promise<{ value: number | null; at: string | null } | null> => {
+    try {
+      const supabase = createAdminClient();
+      const { data } = await supabase.from('gauge_stations')
+        .select('id, provider, curated').eq('provider', 'usace').eq('site_id_external', damId).maybeSingle();
+      const station = data as { id: string; provider: string | null; curated: boolean | null } | null;
+      if (!station) return null;
+      const reading = (await loadCurrentReadings(supabase, [station.id], {
+        stations: [{ id: station.id, provider: station.provider, curated: station.curated === true }],
+      })).get(station.id);
+      return reading ? { value: reading.discharge_cfs, at: reading.reading_at } : null;
+    } catch {
+      return null;
+    }
+  },
+  ['embed-dam-gauge-release-v1'],
+  { revalidate: 60 },
+);
+
 export interface DamEmbedData {
   dam: DamSnapshot;
+  /** Canonical downstream report, including the section when available. */
+  riverPath?: string | null;
   /** Registry truth, not the row: a flood-control project has no widget. */
   powerhouse: boolean;
   tailwaterFishery: 'trout' | 'warmwater' | null;
@@ -35,11 +67,19 @@ export async function loadDamEmbed(damId: string): Promise<DamEmbedData | null> 
   if (!/^[a-z0-9-]{1,60}$/.test(damId)) return null;
   const registry = getUsaceDam(damId);
   if (!registry) return null;
-  const snapshot = await readDam(damId);
-  if (!snapshot) return null;
+  const stored = await readDam(damId);
+  if (!stored) return null;
+  // refreshStaleness below re-bands the merged reading against the clock.
+  const snapshot = withNewestRelease(stored, hasPowerhouse(registry) ? await readGaugeRelease(damId) : null);
+  const context = snapshot.tailwater?.riverSlug
+    ? await getRiverContext(snapshot.tailwater.riverSlug).catch(() => null)
+    : null;
+  const downstreamPath = context ? riverPath(context.state, context.slug) : null;
+  const section = snapshot.tailwater?.sectionSlug;
   const now = Date.now();
   return {
     dam: refreshStaleness(snapshot, now),
+    riverPath: downstreamPath ? `${downstreamPath}${section ? `?section=${encodeURIComponent(section)}` : ''}` : null,
     powerhouse: hasPowerhouse(registry),
     tailwaterFishery: registry.tailwaterFishery ?? null,
     assembledAt: now,

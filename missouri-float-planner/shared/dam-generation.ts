@@ -201,10 +201,16 @@ export type GenerationNow =
       kind: 'unavailable';
       /**
        * `no-powerhouse` — a flood-control project. Render no hero at all.
-       * `not-published` — a powerhouse whose turbine flow Eddy cannot read.
+       * `no-source` — a powerhouse Eddy has no turbine-flow source for
+       *   (Bagnell, Stockton, Truman, Mark Twain). A standing fact about
+       *   EDDY, not an outage and not a claim about the operator: the registry
+       *   records which feeds Eddy reads, never what an agency publishes
+       *   elsewhere. The wording says exactly that much.
+       * `not-published` — a powerhouse whose turbine flow Eddy expected and
+       *   could not read this time.
        * `unreadable` — a reading arrived with a timestamp that will not parse.
        */
-      reason: 'no-powerhouse' | 'not-published' | 'unreadable';
+      reason: 'no-powerhouse' | 'no-source' | 'not-published' | 'unreadable';
     };
 
 /**
@@ -228,7 +234,15 @@ export function generationNow(dam: GenerationInputs, now = Date.now()): Generati
 
   const reading = dam.metrics?.generationFlow;
   if (!reading || typeof reading.value !== 'number' || !Number.isFinite(reading.value)) {
-    return { kind: 'unavailable', reason: 'not-published' };
+    // The registry sets a generation floor for exactly the dams whose turbine
+    // flow it reads, and the floor rides the wire on every snapshot. No floor
+    // and no reading is therefore a dam Eddy has no turbine-flow source for,
+    // which used to head its page "Release status unavailable" directly above
+    // a current release figure, on every visit, as though a feed were down.
+    return {
+      kind: 'unavailable',
+      reason: typeof dam.generationFloorCfs === 'number' ? 'not-published' : 'no-source',
+    };
   }
 
   const age = readingStaleness(reading.at, now);
@@ -273,6 +287,45 @@ export function speaksForNow(age: ReadingStaleness): boolean {
 }
 
 /**
+ * How far ahead of the reader's clock a reading's timestamp may sit and still be
+ * read as current: CDN and device clocks disagree by seconds, not hours. The
+ * same allowance the dam widget packet uses.
+ */
+export const FUTURE_READING_SKEW_MS = 5 * 60_000;
+
+/**
+ * `DamSnapshot.generating`: whether the units are turning NOW, or null when no
+ * turbine reading can say so.
+ *
+ * ── Why null, not the last reading's answer ────────────────────────────────
+ * It was derived from the latest turbine flow with no age test, and drawn as a
+ * bold present-tense chip ("Generating" / "Not generating") and a map-pin label
+ * ("Generating" / "Units idle"). With CWMS five hours behind and the units shut
+ * off at 2 PM per the schedule, both still said "Generating". The hero beside
+ * them already said "at last reading", from the same rule as here: only a fresh
+ * reading speaks for now (speaksForNow). A chip and a pin have no room for "at
+ * last reading", so past that line they say nothing, which is what null already
+ * means to every client: no chip, no pin label.
+ *
+ * Null as well when the dam publishes no turbine flow, when the registry has
+ * not set its floor (leakage would read as generation), when the timestamp
+ * cannot be read, and when it sits further ahead of `now` than clock skew
+ * explains — readingStaleness calls any future stamp fresh.
+ *
+ * Shared because the server stamps it into every snapshot and clients holding
+ * a payload recompute it on their own clock.
+ */
+export function generatingForNow(dam: GenerationInputs, now = Date.now()): boolean | null {
+  if (typeof dam.generationFloorCfs !== 'number') return null;
+  const reading = dam.metrics?.generationFlow;
+  if (!reading) return null;
+  if (Date.parse(reading.at) > now + FUTURE_READING_SKEW_MS) return null;
+  const state = generationNow(dam, now);
+  if (state.kind === 'unavailable' || !speaksForNow(state.age)) return null;
+  return state.kind === 'generating';
+}
+
+/**
  * The hero's status line, or null when there is nothing to head.
  *
  * An observation that is not fresh does NOT get to say "now". It keeps its
@@ -293,7 +346,8 @@ export function generationStatusLabel(state: GenerationNow): string | null {
     case 'unavailable':
       // A flood-control project has no powerhouse to report on, and a hero that
       // said anything at all here would invent one.
-      return state.reason === 'no-powerhouse' ? null : 'Release status unavailable';
+      if (state.reason === 'no-powerhouse') return null;
+      return state.reason === 'no-source' ? 'Turbine flow not available in Eddy' : 'Release status unavailable';
   }
 }
 
@@ -423,6 +477,13 @@ export interface ScheduleOutlook {
   generating: boolean;
   /** The next move, or null when the posted schedule holds steady to its end. */
   move: ScheduledMove | null;
+  /**
+   * True when nothing is generating, nothing moves, and every posted hour from
+   * now on is the project's minimum-flow release. Bull Shoals posts its ~800 cfs
+   * minimum flow as a few megawatts every idle hour, so "no more generation"
+   * there still means water in the river, and the copy has to say which.
+   */
+  minimumFlowOnly: boolean;
   /**
    * When generation is scheduled to RESUME after a stop, when the posted
    * schedule reaches that far.
@@ -564,7 +625,18 @@ export function scheduleOutlook(
     }
   }
 
-  return { generating, move, resumesAt, stale };
+  let minimumFlowOnly = false;
+  if (!generating && !move) {
+    minimumFlowOnly = true;
+    for (const { hour } of forward(startIndex, startHour)) {
+      if (hour.minimumFlow !== true) {
+        minimumFlowOnly = false;
+        break;
+      }
+    }
+  }
+
+  return { generating, move, minimumFlowOnly, resumesAt, stale };
 }
 
 /**
@@ -645,8 +717,9 @@ function observedClause(
   now: number
 ): string {
   if (state.kind === 'unavailable') {
-    return state.reason === 'no-powerhouse'
-      ? 'This project has no powerhouse.'
+    if (state.reason === 'no-powerhouse') return 'This project has no powerhouse.';
+    return state.reason === 'no-source'
+      ? 'Eddy has no turbine flow reading for this dam.'
       : 'Current turbine flow unavailable.';
   }
 
@@ -677,18 +750,19 @@ function observedClause(
 }
 
 /**
- * Short copy for a panel already headed "Next scheduled change".
+ * Shared schedule copy for cards, embeds and widgets.
  *
- * Still names its subject. "Starts at 6 AM tomorrow." under that heading left
- * the reader to guess what starts, and the same string reaches widgets and
- * embeds where no heading sits above it.
+ * Standalone wording explicitly names the plan; an optional shorter variant
+ * remains available for a panel already headed "Next scheduled change".
  */
 export function scheduledChangeSummary(
   schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
-  now = Date.now()
+  now = Date.now(),
+  // Standalone callouts must name the schedule in the sentence itself.
+  underScheduleHeading = false
 ): string | null {
-  return scheduledClause(schedule, ref, now, true);
+  return scheduledClause(schedule, ref, now, underScheduleHeading);
 }
 
 function scheduledClause(
@@ -703,10 +777,13 @@ function scheduledClause(
   if (!outlook.move) {
     // The posted schedule runs out without changing. Said as a fact about the
     // POSTED schedule, not about the rest of time — tomorrow's file may simply
-    // not exist yet.
-    return outlook.generating
-      ? 'Releasing through the end of the posted schedule.'
-      : 'No more releases in the posted schedule.';
+    // not exist yet. And about GENERATION, never water: these said "releases",
+    // and at Bull Shoals "No more releases" sat over ~800 cfs of minimum flow
+    // running all night. Where the plan is that minimum flow, it says so.
+    if (outlook.generating) return 'Generation continues through the end of the posted schedule.';
+    return outlook.minimumFlowOnly
+      ? 'Only minimum flow for the rest of the posted schedule.'
+      : 'No more generation in the posted schedule.';
   }
 
   const when = moveClock(outlook.move);
@@ -721,13 +798,9 @@ function scheduledClause(
       // be able to tell them apart. When the posted schedule does not reach the
       // restart, it says so rather than implying there is not one.
       if (outlook.resumesAt) {
-        return underScheduleHeading
-          ? `Generation stops at ${when}. Resumes at ${moveClock(outlook.resumesAt)}.`
-          : `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt)}.`;
+        return `Generation scheduled until ${when}. Resumes at ${moveClock(outlook.resumesAt)}.`;
       }
-      return underScheduleHeading
-        ? `Generation stops at ${when}. Later hours have not been posted.`
-        : `Generation scheduled to stop at ${when}. Later hours have not been posted.`;
+      return `Generation scheduled until ${when}. Later hours have not been posted.`;
     case 'increase':
       return underScheduleHeading ? `Generation increases at ${when}.` : `Generation scheduled to increase at ${when}.`;
     case 'decrease':
@@ -815,17 +888,23 @@ export interface ScheduleCheckLine {
  */
 export function scheduleCheckLine(
   retrievedAts: Array<string | null>,
-  now = Date.now()
+  now = Date.now(),
+  /**
+   * What was checked. A card that states a change from an operator's FORECAST
+   * says "Forecast checked", so the time is not read as the age of the
+   * measurements above it or as an SWPA schedule's.
+   */
+  subject: 'Schedule' | 'Forecast' = 'Schedule'
 ): ScheduleCheckLine | null {
   if (retrievedAts.length === 0) return null;
   if (retrievedAts.some((iso) => !iso || !Number.isFinite(Date.parse(iso)))) {
-    return { text: 'Schedule check time unavailable', stale: false };
+    return { text: `${subject} check time unavailable`, stale: false };
   }
   const oldest = oldestRetrievedAt(retrievedAts.map((retrievedAt) => ({ retrievedAt })));
   const phrase = scheduleCheckedPhrase(oldest, now);
-  if (!oldest || !phrase) return { text: 'Schedule check time unavailable', stale: false };
+  if (!oldest || !phrase) return { text: `${subject} check time unavailable`, stale: false };
   return {
-    text: `Schedule checked ${phrase.replace(/^at /, '')}`,
+    text: `${subject} checked ${phrase.replace(/^at /, '')}`,
     stale: scheduleIsStale(oldest, now),
   };
 }
@@ -853,6 +932,29 @@ export const OTHER_RELEASE_FLOOR_CFS = 50;
 
 /** And the relative one: 2% of the project's own full-generation discharge. */
 export const OTHER_RELEASE_FRACTION_OF_FULL = 0.02;
+
+/**
+ * Whether total release would only repeat the turbine figure: both are spot
+ * readings, taken within OBSERVATION_ALIGNMENT_MINUTES of each other, and
+ * equal to the cfs. Bull Shoals routinely reports the same value for both
+ * (683 and 683), and a hero that prints the number twice, three lines apart,
+ * makes the reader look for a difference that is not there.
+ *
+ * Says nothing about WHY they match — all through the turbines, or two names
+ * for one series (see ReleaseComparison). The UI says only that total release
+ * reads the same, with no interpretation.
+ */
+export function releaseRepeatsTurbineFlow(
+  generationFlow: DamMetricValue | null | undefined,
+  release: DamMetricValue | null | undefined,
+): boolean {
+  if (!generationFlow || !release || generationFlow.dailyMean || release.dailyMean) return false;
+  const genAt = Date.parse(generationFlow.at);
+  const relAt = Date.parse(release.at);
+  if (!Number.isFinite(genAt) || !Number.isFinite(relAt)) return false;
+  if (Math.abs(genAt - relAt) > OBSERVATION_ALIGNMENT_MINUTES * 60_000) return false;
+  return Math.round(generationFlow.value) === Math.round(release.value);
+}
 
 /**
  * Whether the difference between total release and turbine flow can be stated.
@@ -1154,6 +1256,22 @@ export function schedulePeakWindowLabel(peak: SchedulePeak): string | null {
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
+/** A flat-output day has generation windows, not a distinct peak window. */
+export function scheduleWindowSummary(
+  day: Pick<DamScheduleDay, 'hours'>,
+  ref: GenerationReference | null | undefined,
+  dayLabel?: 'Today' | 'Tomorrow',
+): { heading: string; window: string; text: string; peak: SchedulePeak; varied: boolean } | null {
+  const peak = schedulePeak(day, ref);
+  if (!peak) return null;
+  const window = schedulePeakWindowLabel(peak);
+  if (!window) return null;
+  const varied = day.hours.some(hour => scheduledGeneration(hour) && hour.megawatts !== peak.megawatts);
+  const heading = varied ? 'Highest scheduled generation'
+    : dayLabel ? `${dayLabel}’s scheduled generation` : 'Scheduled generation';
+  return { heading, window, text: `${heading}: ${window}`, peak, varied };
+}
+
 /**
  * `4–8 PM`, from the same bounds `windowLabel` renders as `4 PM – 8 PM`.
  *
@@ -1192,7 +1310,7 @@ export const PEAK_RELEASE_HEADING = 'Peak scheduled release';
  * ── And why the heading says "scheduled" ──────────────────────────────────
  *
  * "Peak release" alone reads as a measurement taken downstream. This is SWPA's
- * plan for the powerhouse, published the afternoon before, and the whole screen
+ * plan for the powerhouse, posted ahead of the day, and the whole screen
  * turns on keeping a plan and an observation apart — the hero above reports
  * what the turbines are actually doing, and the two may legitimately disagree.
  */
@@ -1240,7 +1358,10 @@ export function generationVoiceOver(
   ref: GenerationReference | null | undefined
 ): string | null {
   if (state.kind === 'unavailable') {
-    return state.reason === 'no-powerhouse' ? null : 'Current turbine flow is unavailable.';
+    if (state.reason === 'no-powerhouse') return null;
+    return state.reason === 'no-source'
+      ? 'Eddy has no turbine flow reading for this dam.'
+      : 'Current turbine flow is unavailable.';
   }
   if (state.kind === 'not-generating') {
     const cfs = Math.round(state.turbineCfs).toLocaleString();

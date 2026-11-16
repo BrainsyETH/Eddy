@@ -8,7 +8,6 @@ import * as maplibregl from 'maplibre-gl';
 import { useMap } from '@/components/map/MapContainer';
 import { MapPin } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
-import { adminFetch } from '@/hooks/useAdminAuth';
 import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 import React from 'react';
 
@@ -38,7 +37,15 @@ interface AccessPoint {
 
 interface AccessPointEditorProps {
   accessPoints: AccessPoint[];
-  onUpdate: (id: string) => void;
+  /**
+   * Marker drags are STAGED, not saved: the parent holds them until the
+   * operator presses Save, and Cancel discards them. This component never
+   * writes a location itself.
+   */
+  stagedMoves?: ReadonlyMap<string, { to: { lng: number; lat: number } }>;
+  onStageMove: (point: AccessPoint, to: { lng: number; lat: number }) => void;
+  savingMoveIds?: ReadonlySet<string>;
+  failedMoveIds?: ReadonlySet<string>;
   onRefresh?: () => void;
   addMode?: boolean;
   onMapClick?: (coords: { lng: number; lat: number }) => void;
@@ -49,7 +56,10 @@ interface AccessPointEditorProps {
 
 export default function AccessPointEditor({
   accessPoints,
-  onUpdate,
+  stagedMoves,
+  onStageMove,
+  savingMoveIds,
+  failedMoveIds,
   onRefresh,
   addMode = false,
   onMapClick,
@@ -63,9 +73,6 @@ export default function AccessPointEditor({
   const rootsRef = useRef<Root[]>([]);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const popupCloseHandlerRef = useRef<(() => void) | null>(null);
-  const [pendingUpdates, setPendingUpdates] = useState<Map<string, { lng: number; lat: number }>>(new Map());
-  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-  const [errorIds, setErrorIds] = useState<Set<string>>(new Set());
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
   const lineSourceIdsRef = useRef<string[]>([]);
 
@@ -130,7 +137,7 @@ export default function AccessPointEditor({
 
     // Create markers for each access point
     accessPoints.forEach((point) => {
-      const newCoords = pendingUpdates.get(point.id);
+      const newCoords = stagedMoves?.get(point.id)?.to;
       const hasMoved = newCoords !== undefined;
       const currentCoords = newCoords || point.coordinates.orig;
       const [lng, lat] = [currentCoords.lng, currentCoords.lat];
@@ -211,8 +218,8 @@ export default function AccessPointEditor({
       // Create draggable marker for current/new position
       const el = document.createElement('div');
       el.className = 'access-point-editor-marker';
-      const isSaving = savingIds.has(point.id);
-      const hasError = errorIds.has(point.id);
+      const isSaving = savingMoveIds?.has(point.id) ?? false;
+      const hasError = failedMoveIds?.has(point.id) ?? false;
       const isApproving = approvingIds.has(point.id);
       const isApproved = point.approved;
       const isSelected = selectedAccessPointId === point.id;
@@ -296,109 +303,13 @@ export default function AccessPointEditor({
         }
       });
 
-      marker.on('dragend', async () => {
+      marker.on('dragend', () => {
         const newLngLat = marker.getLngLat();
-        el.style.boxShadow = hasMoved 
-          ? '0 6px 20px rgba(57, 160, 202, 0.6)' 
-          : '0 4px 12px rgba(0,0,0,0.3)';
         el.style.transform = 'scale(1)';
-
-        // Check if position actually changed
-        const distance = Math.sqrt(
-          Math.pow(newLngLat.lng - origLng, 2) + Math.pow(newLngLat.lat - origLat, 2)
-        );
-        const threshold = 0.0001; // ~11 meters
-
-        if (distance < threshold) {
-          // Position hasn't changed meaningfully, revert
-          marker.setLngLat([origLng, origLat]);
-          setPendingUpdates((prev) => {
-            const newMap = new Map(prev);
-            newMap.delete(point.id);
-            return newMap;
-          });
-          return;
-        }
-
-        // Store pending update
-        setPendingUpdates((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(point.id, { lng: newLngLat.lng, lat: newLngLat.lat });
-          return newMap;
-        });
-
-        // Save to server
-        setSavingIds((prev) => new Set(prev).add(point.id));
-        setErrorIds((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(point.id);
-          return newSet;
-        });
-
-        try {
-          const response = await adminFetch(`/api/admin/access-points/${point.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              latitude: newLngLat.lat,
-              longitude: newLngLat.lng,
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            // Update with server response (includes snapped position)
-            if (data.accessPoint) {
-              setPendingUpdates((prev) => {
-                const newMap = new Map(prev);
-                newMap.delete(point.id);
-                return newMap;
-              });
-            }
-            onUpdate(point.id);
-            onRefresh?.();
-          } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Failed to update access point:', errorData);
-            setErrorIds((prev) => new Set(prev).add(point.id));
-            // Revert marker position after a delay
-            setTimeout(() => {
-              marker.setLngLat([origLng, origLat]);
-              setPendingUpdates((prev) => {
-                const newMap = new Map(prev);
-                newMap.delete(point.id);
-                return newMap;
-              });
-              setErrorIds((prev) => {
-                const newSet = new Set(prev);
-                newSet.delete(point.id);
-                return newSet;
-              });
-            }, 2000);
-          }
-        } catch (error) {
-          console.error('Error updating access point:', error);
-          setErrorIds((prev) => new Set(prev).add(point.id));
-          setTimeout(() => {
-            marker.setLngLat([origLng, origLat]);
-            setPendingUpdates((prev) => {
-              const newMap = new Map(prev);
-              newMap.delete(point.id);
-              return newMap;
-            });
-            setErrorIds((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(point.id);
-              return newSet;
-            });
-          }, 2000);
-        } finally {
-          setSavingIds((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(point.id);
-            return newSet;
-          });
-        }
+        // Nothing is written here. The parent stages the move (or un-stages it
+        // when the marker is dropped back on its saved position) and redraws
+        // this marker from the staged set.
+        onStageMove(point, { lng: newLngLat.lng, lat: newLngLat.lat });
       });
 
       // Click handler - call selection callback to open detail panel
@@ -561,7 +472,7 @@ export default function AccessPointEditor({
       rootsRef.current = [];
       lineSourceIdsRef.current = [];
     };
-  }, [map, accessPoints, pendingUpdates, savingIds, errorIds, onUpdate, onRefresh, onSelectAccessPoint, selectedAccessPointId]);
+  }, [map, accessPoints, stagedMoves, savingMoveIds, failedMoveIds, onStageMove, onRefresh, onSelectAccessPoint, selectedAccessPointId]);
 
   return null;
 }

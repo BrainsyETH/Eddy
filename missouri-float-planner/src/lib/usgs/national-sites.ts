@@ -112,6 +112,14 @@ interface OgcCollection {
 }
 
 /**
+ * Deadline for one national request. Longer than the 15s the per-site calls
+ * get: a regional page here is megabytes of JSON read by a cron with a
+ * 300-second budget, and the deadline covers the body as well as the headers.
+ * It exists so one stalled page costs a region, not the whole pass.
+ */
+const NATIONAL_TIMEOUT_MS = 60_000;
+
+/**
  * Every feature at `url`, following cursor pagination to the end.
  *
  * Never throws. Every caller is a bulk pass over a dozen regions, and one
@@ -127,7 +135,7 @@ async function fetchAllFeatures(url: URL, revalidate: number, strict = false): P
   for (let page = 0; page < MAX_PAGES && next; page++) {
     let data: OgcCollection;
     try {
-      const res = await trackedFetch('usgs', 'national-sites', next, { next: { revalidate }, headers: modernHeaders() });
+      const res = await trackedFetch('usgs', 'national-sites', next, { next: { revalidate }, headers: modernHeaders(), signal: AbortSignal.timeout(NATIONAL_TIMEOUT_MS) });
       if (!res.ok) {
         if (strict) throw new Error(`USGS page failed: ${res.status}`);
         console.warn(`[national-sites] ${url.pathname} page ${page} → ${res.status} ${res.statusText}`);
@@ -556,7 +564,7 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
     try {
       // Station metadata changes on the order of years. The same 24 hours
       // fetchRegionSites uses, for the same reason.
-      const res = await trackedFetch('usgs', 'national-sites', url, { next: { revalidate: 86400 }, headers: modernHeaders() });
+      const res = await trackedFetch('usgs', 'national-sites', url, { next: { revalidate: 86400 }, headers: modernHeaders(), signal: AbortSignal.timeout(NATIONAL_TIMEOUT_MS) });
       if (!res.ok) {
         unreached.push(...batch);
         continue;
@@ -634,7 +642,7 @@ export async function fetchSiteRecordEnds(siteIds: string[]): Promise<SiteRecord
       // One hour. Unlike station metadata this moves continuously on a live
       // station, and the check reading it runs daily — a day-old answer would
       // put the freshness question a day behind the thing it is asking about.
-      const res = await trackedFetch('usgs', 'national-sites', url, { next: { revalidate: 3600 }, headers: modernHeaders() });
+      const res = await trackedFetch('usgs', 'national-sites', url, { next: { revalidate: 3600 }, headers: modernHeaders(), signal: AbortSignal.timeout(NATIONAL_TIMEOUT_MS) });
       if (!res.ok) {
         unreached.push(...batch);
         continue;

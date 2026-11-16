@@ -1,22 +1,24 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/access-points/[id]/approve/route.ts
 // POST /api/admin/access-points/[id]/approve - Approve an access point for public visibility
 // DELETE /api/admin/access-points/[id]/approve - Unapprove an access point
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
     // ── Approval must answer the second question too ──────────────────────
@@ -53,7 +55,7 @@ export async function POST(
       })
       .eq('id', id)
       .select('id, name, approved, is_float_endpoint')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error approving access point:', error);
@@ -63,6 +65,7 @@ export async function POST(
       );
     }
 
+    if (!data) return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
     console.log(`Access point approved: ${data.name} (${data.id})`);
 
     return NextResponse.json({
@@ -79,15 +82,16 @@ export async function POST(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
+    if (!isValidUUID(id)) return invalidIdResponse();
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -98,7 +102,7 @@ export async function DELETE(
       })
       .eq('id', id)
       .select('id, name, approved')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error unapproving access point:', error);
@@ -108,6 +112,7 @@ export async function DELETE(
       );
     }
 
+    if (!data) return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
     console.log(`Access point unapproved: ${data.name} (${data.id})`);
 
     return NextResponse.json({
@@ -123,3 +128,6 @@ export async function DELETE(
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const DELETE = withAdminMutation(handleDELETE);

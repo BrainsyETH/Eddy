@@ -133,10 +133,16 @@ try {
     const panel = page.locator(`[data-mill="${ids[i]}"]`).first();
     await panel.waitFor();
     await page.waitForFunction(() => [...document.querySelectorAll('img')].every(i => i.complete && i.naturalWidth > 0));
-    const sign = panel.locator('[data-river]');
-    assert.equal(await sign.getAttribute('data-river'), slugs[i]);
-    assert.ok((await sign.innerText()).includes(names[i]));
-    assert.equal(await sign.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, `${ids[i]} sign must fit`);
+    // Nothing is written on the painting's own board; the card carries it all.
+    assert.equal(await panel.innerText(), '', `${ids[i]} painting carries no text`);
+    const card = page.locator(`[data-card="${ids[i]}"]`);
+    assert.equal(await card.getAttribute('data-river'), slugs[i]);
+    const cardText = await card.innerText();
+    assert.ok(cardText.includes(names[i]), `${ids[i]} card names the mill`);
+    assert.match(cardText, /\b(ON|NEARBY)\b/i, `${ids[i]} card says On or Nearby`);
+    assert.doesNotMatch(cardText, /related/i);
+    const box = await card.boundingBox();
+    assert.ok(box && box.y >= 0 && box.y + box.height <= 1080 && box.x >= 0, `${ids[i]} card stays on screen`);
     await page.mouse.move(960, 540);
     await page.screenshot({ path: resolve(output, `mill-${ids[i]}.png`) });
   }
@@ -153,6 +159,49 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: resolve(output, 'mill-mobile.png') });
+  // Vertical format: a portrait wall picks it automatically; ?format= overrides.
+  await page.setViewportSize({ width: 1080, height: 1920 });
+  await page.goto(`${base}/embed/display?motion=off`, { waitUntil: 'networkidle' });
+  await page.locator('[data-format="vertical"][aria-label="Eddy River Window"]').waitFor();
+  for (let i = 0; i < ids.length; i++) {
+    await page.getByRole('button', { name: 'Mills', exact: true }).click();
+    await page.getByRole('region', { name: 'Choose a mill' }).getByRole('button', { name: names[i], exact: false }).click();
+    const dock = page.locator(`[data-dock="${ids[i]}"]`);
+    await dock.waitFor();
+    await page.waitForFunction(() => [...document.querySelectorAll('img')].every(i => i.complete && i.naturalWidth > 0));
+    const text = await dock.innerText();
+    assert.ok(text.includes(names[i]) && /\d/.test(text), `${ids[i]} dock names the mill and its reading`);
+    assert.equal(await dock.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, `${ids[i]} dock must fit`);
+    assert.equal(await page.locator(`[data-mill="${ids[i]}"]`).innerText(), '', `${ids[i]} painting carries no text`);
+    assert.doesNotMatch(text, /related/i);
+    await page.mouse.move(540, 1500);
+    await page.screenshot({ path: resolve(output, `mill-vertical-${ids[i]}.png`) });
+  }
+  // Taller than 9:16 (an ultrawide on end): the stage fills the screen and the
+  // tour band takes the extra height instead of letterbox bands.
+  await page.setViewportSize({ width: 1080, height: 2560 });
+  await page.goto(`${base}/embed/display?motion=off`, { waitUntil: 'networkidle' });
+  const tour = page.locator('[data-tour="dillard"]');
+  await tour.waitFor();
+  const stageBox = await page.locator('[aria-label="Eddy River Window"]').boundingBox();
+  assert.ok(Math.abs(stageBox.height - 2560) <= 1 && Math.abs(stageBox.width - 1080) <= 1, 'Tall stage fills the screen');
+  assert.equal(await tour.locator('li').count(), 10);
+  assert.match(await tour.locator('[aria-current="step"]').innerText(), /Dillard Mill/);
+  assert.equal(await tour.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'Tour band must fit');
+  await page.waitForFunction(() => [...document.querySelectorAll('img')].every(i => i.complete && i.naturalWidth > 0));
+  await page.mouse.move(540, 2000);
+  await page.screenshot({ path: resolve(output, 'mill-vertical-tall.png') });
+  await page.setViewportSize({ width: 1080, height: 2160 });
+  // Too little extra height for a band: the painting takes it.
+  await page.locator('[data-tour]').waitFor({ state: 'detached' });
+  await page.locator('[data-dock="dillard"]').waitFor();
+  await page.setViewportSize({ width: 1080, height: 1920 });
+  await page.goto(`${base}/embed/display?format=landscape&motion=off`);
+  await page.locator('[data-format="landscape"][aria-label="Eddy River Window"]').waitFor();
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(`${base}/embed/display?format=vertical&motion=off`);
+  await page.locator('[data-dock="dillard"]').waitFor();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.goto(`${base}/embed/display?rivers=huzzah&motion=off`);
   assert.equal(await page.locator('[data-mill="alley"]').count(), 0);
   await page.locator('[data-mill="dillard"]').first().waitFor();
@@ -160,7 +209,7 @@ try {
   await page.getByText('No mill scenes match these rivers.').waitFor();
   await failure.goto(`${base}/embed/display?motion=off`);
   await failure.getByText('Readings unavailable · retrying automatically').waitFor({ timeout: 20_000 });
-  assert.match(await failure.locator('[data-mill="dillard"] [data-river]').first().innerText(), /Reading unavailable/);
+  assert.match(await failure.locator('[data-card="dillard"]').innerText(), /Reading unavailable/);
   assert.deepEqual(errors, [], 'No browser runtime errors');
   console.log(
     `PASS: route rendering, real asset loading, reduced motion, play/pause, next river, readable table, narrow viewport, invalid selection and unavailable API. Screenshots: ${output}`

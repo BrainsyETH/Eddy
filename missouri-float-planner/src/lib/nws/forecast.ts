@@ -3,14 +3,15 @@
 // Official NWS forecast hydrographs via the National Water Prediction Service
 // (NWPS), keyed by NWS Location ID (LID, stored in gauge_stations.nws_lid).
 //
-// ── Why not src/lib/usgs/ahps-forecast.ts ──────────────────────────────────
-// That module reads water.weather.gov/ahps2/hydrograph_to_xml.php, the LEGACY
-// AHPS endpoint. AHPS was retired in 2024 (src/lib/nws/flood-stages.ts already
-// says so in its header) and the host no longer completes a TLS connection —
-// curl exits 56, not 404. fetchAhpsForecast() catches that and returns [], so
-// every caller quietly believes the river simply has no forecast. Building a
-// new forecast surface on it would have shipped a feature that renders nothing,
-// forever, with no error anywhere.
+// ── Why not AHPS ──────────────────────────────────────────────────────────
+// The legacy AHPS hydrograph XML was retired in 2024 (src/lib/nws/flood-stages.ts
+// already says so in its header) and its host no longer completes a TLS
+// connection — curl exits 56, not 404. The module that read it caught that and
+// returned [], so every caller quietly believed the river simply had no
+// forecast: the river outlook and /api/usgs/mo-forecast rendered "no official
+// forecast" for every river, with no error anywhere, while the gauge chart
+// (already on this module) drew one for the same station. That module is gone;
+// forecast.test.ts keeps the retired host from being named under src/ again.
 //
 // NWPS serves the same product at /gauges/{lid}/stageflow, alongside the
 // observed series this app already reads in flow-providers/nws.ts.
@@ -134,4 +135,49 @@ export async function fetchNwsForecast(lid: string, options: { strict?: boolean;
     console.error(`[NWPS] ${lid} stageflow: fetch failed`, e);
     return EMPTY;
   }
+}
+
+/** A forecast point as a stage in feet — the shape the outlook and the statewide map read. */
+export interface NwsForecastStage {
+  dateTime: string;
+  valueFt: number;
+}
+
+/**
+ * The stage-only view of a forecast. Points NWPS published as flow alone are
+ * dropped: these callers grade against a foot ladder and compare to flood
+ * stages, and a cfs value has no place on either.
+ */
+export function forecastStages(points: NwsForecastPoint[]): NwsForecastStage[] {
+  return points.flatMap((point) =>
+    point.gaugeHeightFt === null ? [] : [{ dateTime: point.timestamp, valueFt: point.gaugeHeightFt }],
+  );
+}
+
+/** One gauge's official forecast as stages. [] when there is none, like fetchNwsForecast. */
+export async function fetchNwsForecastStages(lid: string, signal?: AbortSignal): Promise<NwsForecastStage[]> {
+  return forecastStages((await fetchNwsForecast(lid, { signal })).points);
+}
+
+/**
+ * The highest stage still ahead, within `hours` of `nowMs`.
+ *
+ * NWPS keeps serving a forecast from its issuance time, so a day-old forecast
+ * leads with points that have already happened, and a mainstem forecast runs
+ * two weeks out. A "72h peak" taken over the whole series would name a crest
+ * that already passed, or one eleven days away.
+ */
+export function upcomingPeak(
+  stages: NwsForecastStage[],
+  nowMs: number,
+  hours = 72,
+): { peakFt: number; peakAt: string } | null {
+  const until = nowMs + hours * 3_600_000;
+  let peak: { peakFt: number; peakAt: string } | null = null;
+  for (const stage of stages) {
+    const at = Date.parse(stage.dateTime);
+    if (!Number.isFinite(at) || at < nowMs || at > until) continue;
+    if (peak === null || stage.valueFt > peak.peakFt) peak = { peakFt: stage.valueFt, peakAt: stage.dateTime };
+  }
+  return peak;
 }

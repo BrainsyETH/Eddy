@@ -92,6 +92,11 @@ export interface BuildEddyTakeSectionsInput {
   outlook: RiverOutlookState;
   currentCondition: ConditionCode;
   generatedEddyRead?: string | null;
+  /**
+   * The selected water runs at what a dam releases. This can be a whole
+   * tailwater or just Lower Black; Upper Black still follows the rain.
+   */
+  damControlled?: boolean;
 }
 
 export interface BuildRiverOutlookInput {
@@ -254,7 +259,11 @@ interface DatedDay {
  * has settled and has something ahead of it to describe — 'checking' and
  * `futureUnavailable` are answered before it, because neither is weather.
  */
-function buildWeatherWatch(outlook: RiverOutlookState, currentCondition: ConditionCode): string {
+function buildWeatherWatch(
+  outlook: RiverOutlookState,
+  currentCondition: ConditionCode,
+  damControlled: boolean,
+): string {
   const dated: DatedDay[] = outlook.days.map((day, index) => ({
     name: spokenDay(index, day.weather?.dayOfWeek),
     weather: day.weather,
@@ -313,7 +322,15 @@ function buildWeatherWatch(outlook: RiverOutlookState, currentCondition: Conditi
   }
 
   // ── What any of it means for the water ────────────────────────────────────
-  if (changed) {
+  if (damControlled && !changed && outlook.trend?.direction !== 'rising') {
+    // A tailwater follows the dam, not the sky. "Rain upstream is what would
+    // change this river" was printed under Bull Shoals while the posted
+    // schedule had a 6,800 cfs peak that afternoon. Rain still matters to the
+    // trip; it is not what moves this water, the release is.
+    sentences.push(
+      'The level here follows what the dam releases more than the rain, so check the posted schedule again the morning you go.',
+    );
+  } else if (changed) {
     sentences.push(
       `The NWS has this gauge reaching ${getConditionShortLabel(changed.conditionCode!)} by ${changed.name}, which is the thing to watch — read it again the morning you go.`,
     );
@@ -342,6 +359,7 @@ export function buildEddyTakeSections({
   outlook,
   currentCondition,
   generatedEddyRead,
+  damControlled = false,
 }: BuildEddyTakeSectionsInput): EddyTakeSections {
   const conditionLabel = currentCondition === 'unknown' ? null : getConditionShortLabel(currentCondition);
 
@@ -363,11 +381,11 @@ export function buildEddyTakeSections({
   // that genuinely has a sky to describe goes through buildWeatherWatch.
   let watchFor: string;
   if (outlook.sourceKind === 'checking') {
-    watchFor = 'The 72-hour outlook is still coming in. Read the gauge again before you load the boats either way.';
+    watchFor = 'The three-day outlook is still coming in. Read the gauge again before you load the boats either way.';
   } else if (outlook.futureUnavailable) {
     watchFor = 'No weather or river forecast came back, so there is nothing to look ahead at here. Read the gauge again right before you launch and treat the rest as unknown.';
   } else {
-    watchFor = buildWeatherWatch(outlook, currentCondition);
+    watchFor = buildWeatherWatch(outlook, currentCondition, damControlled);
   }
 
   return {
@@ -410,7 +428,7 @@ export function buildRiverOutlookState({
     sourceLabel: sourceKind === 'checking'
       ? 'Checking river forecast'
       : sourceKind === 'official'
-        ? 'NWS 72-hour river forecast'
+        ? 'NWS river forecast'
         : 'Current river trend + weather outlook',
     hasOfficialForecast,
     isWeatherLoading: weatherPending,

@@ -27,7 +27,7 @@
 // alert gate's no-cross-unit-fallback do the right thing.
 
 import { PROVIDER_HISTORY_CAPABILITIES } from '@shared/history-capabilities';
-import { fetchTimeseries, fetchLatestValue } from '@/lib/usace/cda';
+import { bucketedNow, fetchTimeseries, fetchLatestValue } from '@/lib/usace/cda';
 import { getUsaceDam, USACE_RELEASE_SITE_IDS } from './usace-registry';
 import type {
   DailyStatistics,
@@ -164,7 +164,9 @@ export class UsaceProvider implements FlowProvider {
     const series = dam?.series.release;
     if (!dam || !series) return null;
 
-    const end = new Date();
+    // Floored, not `new Date()`: a millisecond window is a URL nobody asks for
+    // twice, so the timeseries cache never matched (cda.ts, bucketedNow).
+    const end = bucketedNow();
     const begin = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
     const result = await fetchTimeseries(dam.office!, series.tsId, series.unit, begin, end);
     if (!result || result.points.length === 0) return null;

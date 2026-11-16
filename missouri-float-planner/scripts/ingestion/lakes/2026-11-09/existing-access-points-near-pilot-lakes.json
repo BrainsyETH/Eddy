@@ -1,0 +1,17 @@
+{
+  "source": "production access_points joined to rivers, read-only, 2026-11-09T18:55Z",
+  "query": "select ap.id, ap.slug, ap.name, r.slug as river_slug, ap.type, ap.types, ap.managing_agency, ap.ownership, ap.approved, ap.is_float_endpoint, st_y(ap.location_orig::geometry) as lat, st_x(ap.location_orig::geometry) as lon from access_points ap join rivers r on r.id = ap.river_id where (lat between 36.30 and 36.80 and lon between -93.95 and -93.15) or (lat between 37.90 and 38.45 and lon between -93.95 and -93.25)",
+  "rows": [
+    {"id":"17f21843-64f3-4c9d-9f59-5a60c0c8ba1a","slug":"j-d-fletcher-access-hwy-62","name":"J.D. Fletcher Access (Hwy 62)","river_slug":"kings-river","type":"boat_ramp","managing_agency":"AGFC","approved":true,"is_float_endpoint":true,"lat":36.39472,"lon":-93.63711},
+    {"id":"a1c1db1c-6d11-4e41-9bdf-3da295681b34","slug":"mo-hwy-86-bridge","name":"MO Hwy 86 Bridge","river_slug":"kings-river","type":"bridge","managing_agency":null,"approved":true,"is_float_endpoint":true,"lat":36.50278,"lon":-93.6005},
+    {"id":"9a1a7b6c-2476-4fc8-a512-740227fff6d7","slug":"romp-hole-access","name":"Romp Hole Access","river_slug":"kings-river","type":"boat_ramp","managing_agency":null,"approved":true,"is_float_endpoint":true,"lat":36.4841,"lon":-93.58092},
+    {"id":"a1a3a90b-add4-4d05-b374-a1c4b032c827","slug":"stoney-point-summers-ford","name":"Stoney Point / Summers Ford","river_slug":"kings-river","type":"boat_ramp","managing_agency":"AGFC","approved":true,"is_float_endpoint":true,"lat":36.46254,"lon":-93.59604},
+    {"id":"83704d2a-9bc4-49a5-b2b9-7e7644f3cf2f","slug":"trigger-gap-landing","name":"Trigger Gap Landing","river_slug":"kings-river","type":"access","managing_agency":"Private","approved":true,"is_float_endpoint":true,"lat":36.31483,"lon":-93.6635},
+    {"id":"d240a07b-3aa3-424e-a5fa-f0841d38b306","slug":"branson-city-ramp-branson-lakeside-rv-park","name":"Branson City Ramp (Branson Lakeside RV Park)","river_slug":"taneycomo","type":"boat_ramp","managing_agency":"Municipal","approved":true,"is_float_endpoint":true,"lat":36.634522,"lon":-93.219053},
+    {"id":"d318b329-0715-498b-9f38-4218656ecc77","slug":"cooper-creek-access","name":"Cooper Creek Access","river_slug":"taneycomo","type":"boat_ramp","managing_agency":"MDC","approved":true,"is_float_endpoint":true,"lat":36.620448,"lon":-93.244694},
+    {"id":"2c030369-c607-4f71-a9c3-546b23d747d0","slug":"north-beach-park","name":"North Beach Park","river_slug":"taneycomo","type":"park","managing_agency":"Municipal","approved":true,"is_float_endpoint":false,"lat":36.64999,"lon":-93.21502},
+    {"id":"ae9f03b6-e2af-42fd-bcaf-08cd410a6a16","slug":"rockaway-beach-access","name":"Rockaway Beach Access","river_slug":"taneycomo","type":"boat_ramp","managing_agency":"MDC","approved":true,"is_float_endpoint":true,"lat":36.698835,"lon":-93.159385},
+    {"id":"8d46b4d6-a718-4555-99ea-ff2db9f013a8","slug":"shepherd-of-the-hills-hatchery-bank-access","name":"Shepherd of the Hills Hatchery Bank Access","river_slug":"taneycomo","type":"access","managing_agency":"MDC","approved":true,"is_float_endpoint":false,"lat":36.595827,"lon":-93.304095},
+    {"id":"6fa46369-646b-4cc0-bc66-719a0851cf34","slug":"shepherd-of-the-hills-hatchery-boat-ramp","name":"Shepherd of the Hills Hatchery Boat Ramp","river_slug":"taneycomo","type":"boat_ramp","managing_agency":"MDC","approved":true,"is_float_endpoint":true,"lat":36.597302,"lon":-93.293845}
+  ]
+}

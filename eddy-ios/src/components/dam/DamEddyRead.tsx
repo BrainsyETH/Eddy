@@ -1,211 +1,250 @@
-// src/components/dam/DamEddyRead.tsx
-// Eddy's Read on the dam screen. Premium in its entirety (ADR 0017).
-//
-// Two requests, kept apart the way the gauge screen keeps them: the public one
-// says whether a Read exists today and when it was written, which is all a
-// non-subscriber's locked card needs; the Premium one, sent only for an
-// entitlement verified for THIS session's user, carries the Read itself:
-// headline, story, the facts behind it, and the recent pattern details.
-//
-// ── Refreshed with the screen ──────────────────────────────────────────────
-// Both requests run on every focus, not only on mount: the dam screen
-// re-reads its schedule each time it is focused, and a Read fetched once would
-// sit beside a newer schedule, or carry yesterday's "today" into the morning.
-// The server re-renders the rows against the schedule posted now, so a fresh
-// request is all it takes to keep the two in step.
-//
-// ── Every state is drawn ───────────────────────────────────────────────────
-// Unknown account: a neutral blurred preview, never a sales offer (the rules
-// in readPremiumAccess.ts). Member, Read withheld since the public check (the
-// schedule changed and the next hourly run has not rewritten it): a plain
-// "being updated" line, never an indefinite placeholder. Failed request: retry.
-//
-// The measured pattern strip and the posted schedule on this screen stay free;
-// they are the whole of the data the Read interprets.
+// A concise interpretation, refreshed alongside the dam on focus, resume and
+// five-minute boundaries. Prose expires at the hour and Central midnight.
+// Members request their representation directly; no public-cache gate can
+// hide an entitled answer. Account, content and timestamp are held together.
 
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import type { DamReadResponse, DamReadRow } from '@eddy/types';
+import { useDamRefresh } from '@/hooks/useDamRefresh';
+import { useObservationClock } from '@/hooks/useObservationClock';
+import { damReadFailure, damReadStillCurrent } from '@/lib/damReadFreshness';
+import type { DamReadResponse } from '@eddy/types';
+import { centralDayKey, relativeAgeShort } from '@eddy/conditions/dam-schedule-copy';
 import { ApiError, fetchDamRead } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
-import { writtenAge } from '@/lib/eddySays';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, textStyles } from '@/theme/typography';
-import { ControlIcon } from '@/components/ControlIcon';
-import { BlurredReadPreview } from '@/components/EddyReadCard';
+import { fonts, type as t } from '@/theme/typography';
+import { ReadHeading } from '@/components/ReadHeading';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
+import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
 
 type Read = NonNullable<DamReadResponse['read']>;
 type Premium =
   | { key: string; state: 'ready'; read: Read }
   | { key: string; state: 'unavailable' }
+  | { key: string; state: 'sign-in' | 'premium' }
   | { key: string; state: 'failed' };
 
-/** The one-line pitch on the locked card. */
-export const DAM_READ_LOCKED_COPY = 'Today’s generation schedule, recent patterns, and how closely the schedule has held.';
+interface AccessActions {
+  onUnlock: () => void;
+  onRefreshAccount: () => Promise<void>;
+}
 
-export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock, revision = 0 }: {
+/** The one-line pitch on the locked card. */
+export const DAM_READ_LOCKED_COPY = 'What stands out in today’s generation schedule.';
+
+/**
+ * What the frost covers on a locked card. LENGTH, not content: the public
+ * response carries no Read text, and nobody can read this — it gives the blur
+ * a paragraph's shape instead of collapsing to a gap. EddyTake frosts the same
+ * shape on a river's dam-release tab.
+ */
+export const LOCKED_DAM_READ_SHAPE =
+  'Today’s posted schedule starts at noon, about two hours earlier than recent weekdays.';
+
+function useDamRead(damId: string, premiumUserId: string | null, revision: number) {
+  const { getAccessToken } = useSession();
+  const clock = useObservationClock();
+  const [held, setHeld] = useState<{
+    key: string; generatedAt: string | null; renderedAt: number;
+    current: Premium | null; failed: boolean;
+  } | null>(null);
+  // A response can arrive between minute ticks; its receipt is already current.
+  const now = Math.max(clock, held?.renderedAt ?? 0);
+  const key = `${premiumUserId}:${damId}:${centralDayKey(now)}`;
+  const [retry, setRetry] = useState(0);
+  useDamRefresh(useCallback((signal: AbortSignal) => {
+    void (async () => {
+      try {
+        const token = premiumUserId ? await getAccessToken(premiumUserId) : null;
+        if (signal.aborted) return;
+        // A failed token refresh can mean no reception, not a revoked session.
+        if (premiumUserId && !token) throw new ApiError('Could not reach your account');
+        const data = await fetchDamRead(damId, signal, token);
+        if (signal.aborted) return;
+        const renderedAt = Date.now();
+        const available = data.available && data.generatedAt && damReadStillCurrent(data.generatedAt, renderedAt, renderedAt);
+        setHeld({ key, generatedAt: available ? data.generatedAt : null, renderedAt, failed: false,
+          current: premiumUserId ? available && data.read
+            ? { key, state: 'ready', read: data.read } : { key, state: 'unavailable' } : null });
+      } catch (error) {
+        if (signal.aborted) return;
+        const failure = damReadFailure(error instanceof ApiError ? error.status : undefined);
+        if (failure !== 'retry') {
+          setHeld({ key, generatedAt: null, renderedAt: Date.now(), failed: false, current: { key, state: failure } });
+          return;
+        }
+        setHeld(previous => previous?.key === key && previous.generatedAt &&
+          damReadStillCurrent(previous.generatedAt, previous.renderedAt, Date.now())
+          ? { ...previous, failed: true }
+          : { key, generatedAt: null, renderedAt: Date.now(), failed: true, current: { key, state: 'failed' } });
+      }
+    })();
+    // Revision and Retry explicitly ask for a new representation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [damId, getAccessToken, key, premiumUserId, revision, retry]));
+  const state = held?.key === key ? held : null;
+  const fresh = state?.generatedAt && damReadStillCurrent(state.generatedAt, state.renderedAt, now);
+  return {
+    checked: Boolean(state),
+    generatedAt: fresh ? state.generatedAt : null,
+    current: state?.current?.state === 'ready' && !fresh ? null : state?.current ?? null,
+    failed: state?.failed ?? false,
+    retry: () => setRetry(n => n + 1),
+  };
+}
+
+/** A member's Read, or the state of fetching it. */
+function MemberRead({ current, onRetry, loadingLabel, onUnlock, onRefreshAccount }: {
+  current: Premium | null;
+  onRetry: () => void;
+  loadingLabel: string;
+} & AccessActions) {
+  const { colors } = useTheme();
+
+  if (current?.state === 'premium') {
+    return <ReadOffer onUnlock={() => {
+      // Reconcile the page's held account state as the Premium sheet opens.
+      void onRefreshAccount().catch(() => {});
+      onUnlock();
+    }} />;
+  }
+  if (current?.state === 'sign-in') {
+    return <View style={styles.read}>
+      <Text style={[styles.body, { color: colors.textMuted }]}>Sign in again to read Eddy’s take.</Text>
+      <AppleSignInButton onSignedIn={() => { void onRefreshAccount().then(onRetry, onRetry); }} />
+    </View>;
+  }
+
+  if (current?.state === 'ready') {
+    // An older API still supplies its schedule sentence. Keep it as body copy
+    // while the server rolls out; never restore the oversized bold paragraph.
+    const takeaway = current.read.takeaway ?? {
+      headline: 'Today’s generation',
+      summary: current.read.headline,
+    };
+    return (
+      <View style={styles.read}>
+        <Text accessibilityRole="header" style={[styles.headline, { color: colors.text }]}>{takeaway.headline}</Text>
+        <Text style={[styles.body, { color: colors.textBody }]}>{takeaway.summary}</Text>
+        {current.read.mayBeOutdated ? (
+          <Text style={[styles.age, { color: colors.textSubtle }]}>Schedule couldn’t be verified</Text>
+        ) : null}
+      </View>
+    );
+  }
+  if (current?.state === 'unavailable') {
+    return (
+      <Text style={[styles.body, { color: colors.textMuted }]}>
+        Eddy’s Read isn’t available right now. Check back shortly.
+      </Text>
+    );
+  }
+  if (current?.state === 'failed') {
+    return (
+      <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry Eddy's Read" style={styles.retry}>
+        <Text style={[styles.body, { color: colors.textMuted }]}>Couldn’t load this Read.</Text>
+        <Text style={[styles.action, { color: colors.interactive }]}>Retry</Text>
+      </Pressable>
+    );
+  }
+  return <ReadSkeleton widths={[0.7, 1, 0.8]} label={loadingLabel} />;
+}
+
+function ReadOffer({ onUnlock }: Pick<AccessActions, 'onUnlock'>) {
+  const { colors } = useTheme();
+  return <View>
+    <Text style={[styles.body, { color: colors.text }]}>{DAM_READ_LOCKED_COPY}</Text>
+    <View style={styles.lockedProse}>
+      <BlurredProse text={LOCKED_DAM_READ_SHAPE} color={colors.textMuted} style={styles.body} lines={2} />
+    </View>
+    <PremiumLockRow onPress={onUnlock} />
+  </View>;
+}
+
+export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock, onRefreshAccount, revision = 0 }: {
   damId: string;
   damName: string;
   /** premiumReadUserId(...): set only for a verified, current-session member. */
   premiumUserId: string | null;
   /** canOfferReadPremium(...): true only for a settled, non-member account. */
   canUnlock: boolean;
-  onUnlock: () => void;
   /** Bumped by the screen's "Try again". */
   revision?: number;
-}) {
+} & AccessActions) {
   const { colors, elevation } = useTheme();
-  const { getAccessToken } = useSession();
+  const { checked, generatedAt, current, failed, retry } = useDamRead(damId, premiumUserId, revision);
+  const accessActions = { onUnlock, onRefreshAccount };
 
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [premium, setPremium] = useState<Premium | null>(null);
-  const [retry, setRetry] = useState(0);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  // The user is part of the key: Premium prose never crosses accounts.
-  const key = `${premiumUserId}:${damId}`;
-
-  useFocusEffect(
-    useCallback(() => {
-      const controller = new AbortController();
-      void (async () => {
-        let available: string | null = null;
-        try {
-          const data = await fetchDamRead(damId, controller.signal);
-          available = data.available ? data.generatedAt : null;
-        } catch {
-          available = null;
-        }
-        if (controller.signal.aborted) return;
-        setGeneratedAt(available);
-        if (!available || !premiumUserId) return;
-
-        try {
-          const token = await getAccessToken();
-          if (!token) throw new ApiError('No active session', 401);
-          const data = await fetchDamRead(damId, controller.signal, token);
-          if (controller.signal.aborted) return;
-          setPremium(data.available && data.read
-            ? { key, state: 'ready', read: data.read }
-            : { key, state: 'unavailable' });
-        } catch {
-          if (!controller.signal.aborted) setPremium({ key, state: 'failed' });
-        }
-      })();
-      return () => controller.abort();
-    // `revision` and `retry` are re-run triggers: "Try again" and Retry refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [damId, getAccessToken, key, premiumUserId, revision, retry]),
-  );
-
-  if (!generatedAt) return null;
-  // Held across a refresh so a focus never blanks a Read already on screen.
-  const current = premiumUserId && premium?.key === key ? premium : null;
-  const age = writtenAge(generatedAt);
+  if (checked && !generatedAt && !failed && current?.state === 'unavailable') return null;
+  if (!premiumUserId && !generatedAt && !failed) return null;
+  const age = generatedAt ? relativeAgeShort(generatedAt) : null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <View style={styles.header}>
-        <Text style={[styles.kicker, { color: colors.textMuted }]}>EDDY&apos;S READ</Text>
-        {!premiumUserId ? <ControlIcon name="lock-closed" size={14} color={colors.textMuted} /> : null}
-      </View>
+      <ReadHeading />
 
-      {current?.state === 'ready' ? (
-        <View style={styles.read}>
-          {/* Reading order (ADR 0017): today, then what it means, then the
-              evidence, then the full breakdown for anyone who wants it. */}
-          <Text style={[styles.headline, { color: colors.text }]}>{current.read.headline}</Text>
-          {current.read.mayBeOutdated ? (
-            <Text style={[styles.caveat, { color: colors.textMuted }]}>Eddy&apos;s copy of today&apos;s schedule may be out of date.</Text>
-          ) : null}
-          <Text style={[styles.body, { color: colors.text }]}>{current.read.story.join(' ')}</Text>
-          {current.read.keyRows.length ? <FactRows rows={current.read.keyRows} /> : null}
-          {current.read.detailRows.length ? (
-            <View style={styles.details}>
-              <Pressable
-                onPress={() => setDetailsOpen((open) => !open)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: detailsOpen }}
-                hitSlop={8}
-                style={styles.detailsToggle}
-              >
-                <Text style={[styles.action, { color: colors.interactive }]}>Recent pattern details</Text>
-                <ControlIcon name={detailsOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
-              </Pressable>
-              {detailsOpen ? <FactRows rows={current.read.detailRows} /> : null}
-            </View>
-          ) : null}
-          <Text style={[styles.caveat, { color: colors.textMuted }]}>{current.read.caveat}</Text>
-        </View>
-      ) : current?.state === 'unavailable' ? (
-        <Text style={[styles.body, { color: colors.textMuted }]}>
-          This Read is being updated for the latest schedule. Check back shortly.
-        </Text>
-      ) : current?.state === 'failed' ? (
-        <Pressable onPress={() => setRetry((n) => n + 1)} accessibilityRole="button" accessibilityLabel="Retry Eddy's Read" style={styles.retry}>
-          <Text style={[styles.body, { color: colors.textMuted }]}>Couldn’t load this Read.</Text>
-          <Text style={[styles.action, { color: colors.interactive }]}>Retry</Text>
-        </Pressable>
+      {failed && !generatedAt ? (
+        <MemberRead {...accessActions} current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />
+      ) : premiumUserId ? (
+        <MemberRead {...accessActions} current={current} onRetry={retry} loadingLabel={`Loading Eddy's Read for ${damName}`} />
       ) : canUnlock ? (
-        <Pressable
-          onPress={onUnlock}
-          accessibilityRole="button"
-          accessibilityLabel={`Unlock Eddy's Read for ${damName} with Premium`}
-          accessibilityHint="Opens Premium subscription options"
-          style={({ pressed }) => [styles.locked, { opacity: pressed ? 0.75 : 1 }]}
-        >
-          <Text style={[styles.body, { color: colors.text }]}>{DAM_READ_LOCKED_COPY}</Text>
-          <BlurredReadPreview lines={4} />
-          <Text style={[styles.action, { color: colors.interactive }]}>Unlock with Premium</Text>
-        </Pressable>
+        <ReadOffer onUnlock={onUnlock} />
       ) : (
-        // A member's Read in flight, or an account not yet settled: reserve the
-        // space without either the Read or an offer.
-        <BlurredReadPreview lines={4} />
+        // An account not yet settled: reserve the space without either the
+        // Read or an offer.
+        <ReadSkeleton widths={[0.7, 1, 0.8]} label={`Loading Eddy's Read for ${damName}`} />
       )}
 
-      {age ? <Text style={[styles.age, { color: colors.textMuted }]}>{age}</Text> : null}
+      {failed && generatedAt ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.action, { color: colors.interactive }]}>Couldn’t refresh · Retry</Text></Pressable> : null}
+      {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {age}</Text> : null}
     </View>
   );
 }
 
-/** Label on the left, value on the right, qualifier underneath. */
-function FactRows({ rows }: { rows: DamReadRow[] }) {
+/**
+ * The dam's Read as the body of EddyTake's "Eddy's Read" section, on a river's
+ * dam-release tab (shared/dam-release-tab.ts). For a verified member only:
+ * EddyTake draws the locked and unsettled states itself, under its one lock.
+ */
+export function DamReadInTake({ damId, premiumUserId, onUnlock, onRefreshAccount, revision = 0 }: {
+  damId: string;
+  premiumUserId: string;
+  revision?: number;
+} & AccessActions) {
   const { colors } = useTheme();
+  const { checked, generatedAt, current, failed, retry } = useDamRead(damId, premiumUserId, revision);
+  const accessActions = { onUnlock, onRefreshAccount };
+
+  if (!checked) return <ReadSkeleton label="Loading Eddy's Read for this dam" />;
+  if (failed && !generatedAt) return <MemberRead {...accessActions} current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />;
+  if (!generatedAt && current?.state === 'unavailable') {
+    // The dam may have no valid historical analysis for today yet.
+    return (
+      <Text style={[styles.body, { color: colors.textMuted }]}>
+        Eddy&apos;s Read of this dam&apos;s schedule isn&apos;t ready right now. Check back shortly.
+      </Text>
+    );
+  }
+  const age = generatedAt ? relativeAgeShort(generatedAt) : null;
   return (
-    <View style={styles.rows}>
-      {rows.map((row) => (
-        <View key={row.key} style={styles.row} accessible accessibilityLabel={`${row.label}: ${row.value}${row.detail ? `. ${row.detail}` : ''}`}>
-          <View style={styles.rowLine}>
-            <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{row.label}</Text>
-            <Text style={[styles.rowValue, { color: colors.text }]}>{row.value}</Text>
-          </View>
-          {row.detail ? <Text style={[styles.rowDetail, { color: colors.textSubtle }]}>{row.detail}</Text> : null}
-        </View>
-      ))}
+    <View style={styles.inTake}>
+      <MemberRead {...accessActions} current={current} onRetry={retry} loadingLabel="Loading Eddy's Read for this dam" />
+      {failed && generatedAt ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.action, { color: colors.interactive }]}>Couldn’t refresh · Retry</Text></Pressable> : null}
+      {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {age}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radii.card, padding: 16, gap: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  kicker: { fontFamily: fonts.heading, fontSize: 12, letterSpacing: 0.7 },
-  read: { gap: 12 },
-  headline: { ...textStyles.cardTitle },
-  rows: { gap: 8 },
-  details: { gap: 8 },
-  detailsToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
-  row: { gap: 1 },
-  rowLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
-  rowLabel: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, flexShrink: 1 },
-  rowValue: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, textAlign: 'right', flexShrink: 1 },
-  rowDetail: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, textAlign: 'right' },
-  body: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
-  caveat: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
-  locked: { gap: 10, minHeight: 44 },
+  card: { borderRadius: radii.card, padding: 16, gap: 12 },
+  read: { gap: 6 },
+  headline: { ...t.lg, fontFamily: fonts.heading, lineHeight: 24 },
+  body: { ...t.base },
+  lockedProse: { marginTop: 10 },
+  inTake: { gap: 10, marginTop: 8 },
   retry: { gap: 4, minHeight: 44, justifyContent: 'center' },
   action: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },
-  age: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16 },
+  age: { ...t.xs },
 });

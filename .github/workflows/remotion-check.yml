@@ -72,7 +72,7 @@ jobs:
       - name: Route layout collision checks
         run: npm run test:route-browser
 
-      - name: Full Read scroll and layout checks
+      - name: Read captions, river transitions and layout checks
         run: npm run test:read-browser
 
       - name: Narration preparation and timing

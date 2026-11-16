@@ -1,3 +1,4 @@
+import { riverPath } from '@/lib/navigation/river-path';
 import { LABELS } from '@shared/social-brand';
 import { trendMeaning } from '@shared/social-editorial';
 // src/lib/social/content-formatter.ts
@@ -11,56 +12,26 @@ import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weath
 import { toNum } from '@/lib/utils/num';
 // Long display names ("Current River", "Huzzah Creek") — shared with the OG
 // covers + reels via river-display so a rename can't drift across surfaces.
-import { riverDisplayLong, riverDisplayShort } from './river-display';
+import { riverDisplayCasual, riverDisplayLong } from './river-display';
 
 // ---------------------------------------------------------------------------
-// Canonical link builder — river pages live at /rivers/<slug>. Building bare
-// `eddy.guide/<slug>` links 404s, so every per-river CTA routes through here.
+// Public report URLs include the river's state. The legacy URL remains a
+// working fallback for older callers or an unavailable river catalog.
 // ---------------------------------------------------------------------------
 const BASE_URL = 'https://eddy.guide';
-function riverUrl(slug: string): string {
-  return `${BASE_URL}/rivers/${slug}`;
+function riverUrl(slug: string, state?: string | null): string {
+  return `${BASE_URL}${state ? riverPath(state, slug) : `/rivers/${slug}`}`;
+}
+function plannerUrl(slug: string, putIn?: string | null, takeOut?: string | null): string {
+  const params = new URLSearchParams({ river: slug });
+  if (putIn && takeOut) { params.set('putIn', putIn); params.set('takeOut', takeOut); }
+  return `${BASE_URL}/plan?${params}`;
 }
 
-// ---------------------------------------------------------------------------
 // River display names — long forms ("Current River") come from the shared
-// river-display map (via riverDisplayLong above). Short casual forms
-// ("the Current") stay local; they're prose-specific to captions.
-// ---------------------------------------------------------------------------
-const RIVER_SHORT_NAMES: Record<string, string> = {
-  meramec: 'the Meramec',
-  current: 'the Current',
-  'eleven-point': 'Eleven Point',
-  'jacks-fork': 'Jacks Fork',
-  niangua: 'the Niangua',
-  'big-piney': 'Big Piney',
-  huzzah: 'Huzzah',
-  courtois: 'Courtois',
-  gasconade: 'the Gasconade',
-  black: 'the Black',
-  bourbeuse: 'the Bourbeuse',
-  'big-river': 'Big River',
-  'st-francis': 'the St. Francis',
-  buffalo: 'the Buffalo',
-  elk: 'the Elk',
-  james: 'the James',
-  'north-fork-white': 'the North Fork',
-  'bryant-creek': 'Bryant Creek',
-  'crooked-creek': 'Crooked Creek',
-  'kings-river': 'the Kings',
-  mulberry: 'the Mulberry',
-  'caddo-river': 'the Caddo',
-  'spring-river': 'the Spring River',
-  'spring-river-mo': 'the Spring River',
-  'war-eagle-creek': 'War Eagle Creek',
-};
-
-/** Casual prose name with a NEVER-raw-slug fallback: an unmapped slug degrades
- *  to the title-cased short display name ("big-river" → "Big River"), not the
- *  slug itself (a published caption once read "HIGH WATER — big-river"). */
-function riverCasualName(slug: string): string {
-  return RIVER_SHORT_NAMES[slug] || riverDisplayShort(slug);
-}
+// river-display map (via riverDisplayLong above); the casual prose form
+// ("the Current") is shared with the covers' headlines (riverDisplayCasual).
+const riverCasualName = riverDisplayCasual;
 
 // Short condition labels for scannable digest lines — derived from the canonical
 // condition system (shared/condition-system.ts) so captions, cards, and video agree.
@@ -121,13 +92,6 @@ const HIGHLIGHT_HOOKS: Record<string, string[]> = {
   ],
 };
 
-const DIGEST_HOOKS: string[] = [
-  'Here\u2019s your Ozarks river rundown for {day}.',
-  '{count} rivers checked \u2014 here\u2019s where to float {timeframe}.',
-  'Which Ozarks rivers are floating good right now? Let\u2019s find out.',
-  'Your {day} river report is in. Here\u2019s the rundown.',
-];
-
 // Weekend engagement questions (appended to flowing/good posts Thu-Sun)
 const ENGAGEMENT_QUESTIONS: string[] = [
   'Where are you putting in this weekend?',
@@ -157,15 +121,9 @@ const RECOVERY_SHARE_PROMPTS: string[] = [
 // ---------------------------------------------------------------------------
 
 const RIVER_CTAS: string[] = [
-  'Check live conditions \u2192 https://eddy.guide/rivers/{slug}',
-  'Plan your float \u2192 https://eddy.guide/rivers/{slug}',
-  'See the full report \u2192 https://eddy.guide/rivers/{slug}',
-];
-
-const DIGEST_CTAS: string[] = [
-  'Check all rivers \u2192 https://eddy.guide',
-  'See live conditions for every river \u2192 https://eddy.guide',
-  'Plan your next float \u2192 https://eddy.guide',
+  'Check live conditions \u2192 {reportUrl}',
+  'Plan your float \u2192 {plannerUrl}',
+  'See the full report \u2192 {reportUrl}',
 ];
 
 // ---------------------------------------------------------------------------
@@ -221,6 +179,7 @@ function isWeekendWindow(): boolean {
 
 interface EddyUpdate {
   river_slug: string;
+  river_state?: string | null;
   condition_code: string;
   gauge_height_ft: number | null;
   quote_text: string;
@@ -285,7 +244,8 @@ export function formatRiverHighlightCaption(
 
   // 5. CTA with deep link
   const cta = interpolate(pickTemplate(RIVER_CTAS, seed + '-cta'), {
-    slug: update.river_slug,
+    reportUrl: riverUrl(update.river_slug, update.river_state),
+    plannerUrl: plannerUrl(update.river_slug),
   });
   lines.push(cta);
 
@@ -430,7 +390,7 @@ export function formatSectionGuideCaption(
   }
 
   lines.push('');
-  lines.push(`Plan this float → ${riverUrl(section.riverSlug)}${section.putInId && section.takeOutId ? `?putIn=${encodeURIComponent(section.putInId)}&takeOut=${encodeURIComponent(section.takeOutId)}` : ''}`);
+  lines.push(`Plan this float → ${plannerUrl(section.riverSlug, section.putInId, section.takeOutId)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -509,7 +469,7 @@ export function formatFavoriteFloatCaption(
   }
 
   lines.push('');
-  lines.push(`Plan this float → ${riverUrl(fav.riverSlug)}${fav.putInId && fav.takeOutId ? `?putIn=${encodeURIComponent(fav.putInId)}&takeOut=${encodeURIComponent(fav.takeOutId)}` : ''}`);
+  lines.push(`Plan this float → ${plannerUrl(fav.riverSlug, fav.putInId, fav.takeOutId)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -527,6 +487,7 @@ export function formatFavoriteFloatCaption(
 export function formatWeeklyTrendCaption(
   trend: {
     riverSlug: string;
+    riverState?: string | null;
     riverName: string;
     currentHeightFt: number | null;
     sevenDayFirstFt: number | null;
@@ -560,7 +521,7 @@ export function formatWeeklyTrendCaption(
   lines.push('');
   lines.push(trendMeaning(trend.direction, trend.conditionCode));
   lines.push('');
-  lines.push(`Full 7-day chart → ${riverUrl(trend.riverSlug)}`);
+  lines.push(`Full 7-day chart → ${riverUrl(trend.riverSlug, trend.riverState)}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -572,74 +533,12 @@ export function formatWeeklyTrendCaption(
 }
 
 // ---------------------------------------------------------------------------
-// Daily Digest Caption
-// ---------------------------------------------------------------------------
-
-export function formatDailyDigestCaption(
-  updates: EddyUpdate[],
-  globalSummary: string | null,
-  customContent: SocialCustomContent[],
-  platform: SocialPlatform
-): { caption: string; hashtags: string[] } {
-  const lines: string[] = [];
-  const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  const seed = `digest-${new Date().toISOString().split('T')[0]}`;
-  const isWeekend = isWeekendWindow();
-  const timeframe = isWeekend ? 'this weekend' : 'today';
-
-  // 1. Hook line
-  const hook = interpolate(pickTemplate(DIGEST_HOOKS, seed), {
-    day: dayName,
-    count: String(updates.length),
-    timeframe,
-  });
-  lines.push(hook);
-  lines.push('');
-
-  // 2. Global summary from Eddy — shown on both platforms
-  if (globalSummary) {
-    const trimmed = globalSummary.length > 200
-      ? globalSummary.slice(0, 197) + '...'
-      : globalSummary;
-    lines.push(`\u201C${trimmed}\u201D`);
-    lines.push('');
-  }
-
-  // 3. Per-river conditions — clean, scannable format with emoji
-  for (const update of updates) {
-    const riverName = riverDisplayLong(update.river_slug);
-    const shortLabel = SHORT_CONDITION_LABELS[update.condition_code] || '?';
-    const emoji = CONDITION_EMOJI[update.condition_code] || '';
-    const gaugeNum = toNum(update.gauge_height_ft);
-    const gauge = gaugeNum !== null
-      ? ` (${gaugeNum.toFixed(1)} ft)`
-      : '';
-    lines.push(`${emoji} ${riverName} \u2014 ${shortLabel}${gauge}`);
-  }
-
-  lines.push('');
-
-  // 4. CTA
-  lines.push(pickTemplate(DIGEST_CTAS, seed + '-cta'));
-
-  // 5. Custom content
-  const snippets = getActiveSnippets(customContent, platform);
-  if (snippets.length > 0) {
-    lines.push('');
-    lines.push(snippets.join('\n'));
-  }
-
-  const caption = lines.join('\n');
-
-  return { caption, hashtags: [] };
-}
-
-// ---------------------------------------------------------------------------
 // Condition Change Caption
 // ---------------------------------------------------------------------------
 
 export function formatConditionChangeCaption(params: {
   riverSlug: string;
+  riverState?: string | null;
   oldCondition: string;
   newCondition: string;
   gaugeHeightFt: number | null;
@@ -709,7 +608,7 @@ export function formatConditionChangeCaption(params: {
   lines.push('');
 
   // CTA — live conditions (core value) + the growth follow CTA.
-  lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug)}`);
+  lines.push(`Live gauge + conditions → ${riverUrl(params.riverSlug, params.riverState)}`);
   lines.push(`${FOLLOW_CTA} 🦦`);
 
   return { caption: lines.join('\n'), hashtags: [] };

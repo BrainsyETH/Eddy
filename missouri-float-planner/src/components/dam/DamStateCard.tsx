@@ -19,6 +19,8 @@ import { Zap, Clock } from 'lucide-react';
 import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 import type { DamSnapshot } from '@/lib/data/dams';
 import Card from '@/components/ui/Card';
+import type { LakePoolReading } from '@shared/lake-types';
+import { lakeReadingIsStale, lakeReadingLabel } from '@/lib/lakes/presentation';
 // One freshness voice across the dam surfaces, and across web and iOS. See
 // shared/dam-schedule-copy.ts for why the hour arithmetic lives there.
 import {
@@ -28,6 +30,7 @@ import {
   SCHEDULE_CHANGE_NOTE,
 } from '@shared/dam-schedule-copy';
 import {
+  generatingForNow,
   generationNow,
   generationStatusLabel,
   nowNextClauses,
@@ -73,14 +76,14 @@ function Stat({
   dim?: boolean;
 }) {
   return (
-    <div className={dim ? 'opacity-60' : undefined}>
+    <div className={`min-w-0 ${dim ? 'opacity-60' : ''}`}>
       {/* min-h-8 holds the row at the 28px mark's height, so a stat whose
           art is shorter does not sit higher than its neighbours. */}
-      <div className="flex min-h-8 items-center gap-1.5 text-xs font-medium text-neutral-500">
+      <div className="flex min-h-10 items-center gap-1.5 text-xs font-medium text-neutral-600">
         <EddyIcon name={icon} size={28} />
         {label}
       </div>
-      <div className="mt-1 font-mono text-xl text-primary-800">
+      <div className="mt-1 font-mono text-lg text-primary-800 sm:text-xl">
         {value}
         {suffix && <span className="ml-1 font-sans text-xs text-neutral-600">{suffix}</span>}
       </div>
@@ -104,10 +107,17 @@ export default function DamStateCard({
    * component is for once generation has moved out of it.
    */
   secondary,
+  /**
+   * The lake section's own pool reading, when the page also draws the lake
+   * preview. A daily report (Truman) is current for 36 hours, not six; without
+   * this the card dimmed a reading the preview directly below called current.
+   */
+  lakePool,
   now = Date.now(),
 }: {
   dam: DamSnapshot;
   secondary?: boolean;
+  lakePool?: LakePoolReading;
   now?: number;
 }) {
   const { metrics } = dam;
@@ -119,9 +129,10 @@ export default function DamStateCard({
   const tailwaterStage = metrics.tailwaterElevation;
   const inflow = metrics.inflow;
 
-  // Only a dam that actually reports turbine flow can claim a generating
-  // state. `null` means "we don't know", which is different from "idle".
-  const generating = dam.generating;
+  // Only a fresh turbine reading can claim a generating state, on this page's
+  // own clock (generatingForNow). `null` means "we don't know", which is
+  // different from "idle".
+  const generating = generatingForNow(dam, now);
 
   // The one-line version of the console: what Eddy MEASURED, then what SWPA has
   // SCHEDULED. Two strings rather than one because they can honestly disagree —
@@ -145,13 +156,13 @@ export default function DamStateCard({
       : nowNextClauses(state, dam.schedule, dam.generationReference, now);
 
   return (
-    <Card variant={secondary ? 'panel' : 'framed'} className="min-w-0 p-5 sm:p-6">
+    <Card variant={secondary ? 'panel' : 'framed'} className="min-w-0 p-4 sm:p-6" data-dam-measurements>
       {secondary ? (
         <h2
           className="text-xl font-semibold text-primary-800"
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          Dam &amp; lake
+          Water conditions
         </h2>
       ) : (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -266,8 +277,8 @@ export default function DamStateCard({
             icon="damGauge"
             label="Lake level"
             value={`${pool.value.toFixed(2)} ft`}
-            sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at, now)}
-            dim={isStale(pool, now)}
+            sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : lakePool ? lakeReadingLabel(lakePool, now) : relativeAge(pool.at, now)}
+            dim={lakePool ? lakeReadingIsStale(lakePool, now) : isStale(pool, now)}
           />
         )}
         {/* Inflow against release is what says whether the lake is filling, and

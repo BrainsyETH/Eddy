@@ -34,14 +34,14 @@ Measured on that history (backtest in
 1. **The dam Read may describe the recent pattern, labelled as one.** It
    reports the usual first start over the last 14 complete Central days,
    weekdays and weekends apart, and says "no consistent pattern" when the
-   middle half of starts is wider than 3 hours. The **earliest recent start is
-   always its own row** when one is known, pattern or no pattern, because an
-   early start is the miss that catches someone in rising water. A day whose
+   middle half of starts is wider than 3 hours. The earliest recent start
+   remains in the legacy report data when known; the compact card does not
+   repeat historical fact rows beside the generation-pattern section. A day whose
    first start could be hidden by missing observations has an unknown start
    and is left out of the pattern and the scoring; it never counts as a later
    start.
-2. **A posted schedule always outranks the pattern.** The headline and the
-   first row are today's posted schedule, re-read from the current snapshot
+2. **A posted schedule always outranks the pattern.** The takeaway interprets
+   today's posted schedule, re-read from the current snapshot
    each time the Read is served. All times are at the dam, in Central time;
    nothing estimates when water reaches a downstream access.
 3. **Code writes the whole Read, in Eddy's voice.** No model. Two earlier
@@ -55,23 +55,63 @@ Measured on that history (backtest in
    surprises first and plainly ("Heads up"), counts kept beside what they count.
    A test fails the build on "units", "first start", "came on", "accuracy",
    the company "we", promises and absolutes in any rendered Read.
-4. **Reading order:** a headline with today's posted generation and how it
-   compares with recent days of the same kind; two or three sentences, recent
-   surprises (early starts, generation with nothing posted) before the
-   pattern; the two or three facts behind them (tomorrow's posted generation,
-   the earliest start lately, the schedule track record); and "Recent pattern
-   details" collapsed underneath. Water temperature and the schedule itself
-   stay on the free dam page and are not repeated in the Read.
+4. **Compact reading order (2026-11-04):** the existing otter mark and a teal
+   Fredoka “Eddy's Read” label, a short Geist headline, one interpretation
+   sentence, and a quiet “Updated” timestamp. An unverified/old schedule adds
+   “Schedule couldn’t be verified” beneath the summary in both native Read
+   placements, using the existing `mayBeOutdated` flag. No fact rows, pattern disclosure,
+   full list of generation windows, or repeated freshness/downstream paragraphs.
+   The free schedule and generation-pattern section carry that context. Copy is
+   selected from the computed facts, never clipped or ellipsized; native text
+   can grow with Dynamic Type. The API adds `read.takeaway` and retains its
+   legacy report fields for released clients. New clients talking to an older
+   API use its headline as body copy under a short neutral heading. The web
+   teaser uses the same otter and concise pitch while remaining Premium-gated.
+   The compact copy handles unposted schedules, minimum flow, ended windows,
+   sparse/irregular history, and weekdays/weekends independently. A posted quiet
+   day with recent unposted generation keeps that exception in the one sentence.
+   When generation is posted, an earlier/later start keeps the headline.
+   Early or unposted generation can qualify that summary or replace generic
+   familiar/variable timing only when the same kind occurred on at least two
+   distinct tracked days, or on one of the previous three complete Central
+   calendar days. A single older exception stays in the legacy detail data;
+   it does not automatically lengthen the compact Read. Isolated recent events
+   name their date; repeated events retain counts, with both kinds combined
+   when relevant. The card still uses one sentence of at most 40 words, with
+   no pattern disclosure. These thresholds select eligible warnings, not a
+   reason to hide today's earlier/later posted start.
 5. **Definitions:** a typical generating day is total hours and number of
    runs, not the first run; runs carrying past midnight are counted, never
    dropped from the end time; the track record scores only days where
    something was posted or ran, with quiet days posted quiet counted apart;
-   a usual start is always stated with how many days generated at all.
-6. **Rewritten when due, served only while true.** `/api/cron/generate-dam-updates`
+   a usual start is always stated with how many days generated at all. Morning
+   coverage walks actual elapsed hours before local noon: both fall-back
+   1 AMs count, and spring's nonexistent 2 AM is not a missing observation.
+   Any observed morning generation settles the morning as not quiet; otherwise
+   a missing real morning hour makes it unknown.
+6. **Cache history; render the schedule when serving.** `/api/cron/generate-dam-updates`
    runs hourly at :47 and rewrites a dam's Read when none exists for today,
    when the posted schedule changes, or when the last one is 6 hours old. A
-   stored Read is served only on its own Central day and only if the posted
-   schedule still matches the one it was written against.
+   stored Read is served only on its own Central day before expiry. A current
+   snapshot replaces its schedule-dependent facts even when the schedule hash
+   changed; an empty current schedule also replaces the saved one. A revised
+   schedule no longer hides a valid Read between the :35 snapshot and :47 job.
+   Without a snapshot, a Read no older than three hours advances its saved
+   windows against the serving clock and marks the schedule unverified. It
+   preserves the whole-day first start and tomorrow's windows, never promotes
+   yesterday's saved schedule into today, and does not mutate the cached facts.
+   Regeneration remains independent of serving eligibility: the six-hour
+   refresh picks up late historical observations without blocking a Read.
+   Native refreshes on
+   focus, foreground and five-minute boundaries, aborting work on blur. It
+   hides an earlier hour’s rendered prose and rejects a previous Central day
+   while refreshing. Members request the entitled representation directly;
+   a public CDN availability response cannot suppress it. A failed refresh
+   retains only a still-current Read and offers Retry. A 402 response shows
+   the Premium action; 401/403 shows Apple sign-in, never an upgrade offer.
+   These actions refresh the held account state, and purchase/sign-in completion
+   retries the Read. A missing token during a failed network refresh remains a
+   connection failure, distinct from an explicit authentication rejection.
 7. **The whole Read is Premium.** A public caller of `/api/dam-update/[damId]`
    learns only that a Read exists and when it was written. The measured pattern
    strip, the posted schedule and the water readings on the dam page stay free;
@@ -82,6 +122,31 @@ Measured on that history (backtest in
 8. **Pilot dams:** Table Rock, Bull Shoals, Norfork, Beaver and Greers Ferry
    (`src/lib/eddy/dam-read-dams.ts`). Adding a dam is a list edit, but its
    history should be checked against the backtest first.
+
+9. **On a tailwater river, the dam Read replaces the river Read on the dam's
+   own unrated release tab** (2026-11-02). The river Read there can only say
+   that no assessment is available (no ladder, no condition), and its bottom
+   line only that there is not enough data, while the dam has a Read of the
+   schedule that actually moves the water. The rule is per tab
+   (`shared/dam-release-tab.ts`): a USACE release gauge with no ladder takes
+   the Read of the dam whose id is its site id. A downstream USGS tab keeps its
+   own reading and river Read, because every time in the dam Read is at the
+   dam; a rated release (Clearwater on the Black) keeps its verdict and river
+   Read. Weather stays and is written for a dam-controlled river; Bottom line
+   is dropped. On the web this puts the locked teaser in the river page's
+   "Eddy's read" slot, so a tailwater's dam tab shows no free Eddy prose, the
+   exception in decision 7 applied to the river page. On iOS the dam Read sits
+   inside Eddy's take under its one lock row, with decision 7's access rules.
+   The same change moved the dam into the live report card on both platforms,
+   drawn as the dam cards draw it (the directory card's readings and hourly
+   bars on web, the Favorites card's body on iOS): it is the whole card on
+   that tab, with Tomorrow's bars and nothing of the gauge card after it, and
+   closes the reading card on downstream USGS tabs with Today's. Native
+   holds the dam catalog and selects the snapshot by the displayed USACE site
+   id, so the White's Norfork release tab pairs Norfork's schedule and Read.
+   It never substitutes the controlling dam's footer on another dam's tab.
+   The standalone Read fallback waits for the river outlook request to settle,
+   avoiding an initial card replacement and duplicate member request.
 
 ## Not decided here
 

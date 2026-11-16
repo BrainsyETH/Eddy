@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/access-points/backfill-imagery/route.ts
 // POST /api/admin/access-points/backfill-imagery
 // Auto-fetch access-point imagery from authoritative agency sources
@@ -43,8 +44,8 @@ function coordsOf(row: {
   return { lat: lat ?? null, lng: lng ?? null };
 }
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   let body: {
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!dryRun && resolved > 0) {
-    await logAdminAction({
+    await logAdminAction({ request,
       action: 'backfill_imagery',
       entityType: 'river',
       entityId: river.id,
@@ -180,3 +181,5 @@ export async function POST(request: NextRequest) {
     })),
   });
 }
+
+export const POST = withAdminMutation(handlePOST);

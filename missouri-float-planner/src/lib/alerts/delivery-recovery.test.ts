@@ -10,6 +10,7 @@ import { drainRiverEvents } from './river-delivery';
 import { deliverGaugeAlerts } from './gauge-delivery';
 import { DeliveryReadError } from './delivery-io';
 import { persistGaugeAlertPlan } from './gauge-alert-persist';
+import { loadLastTold } from './gauge-last-told';
 import { planGaugeAlerts, type GaugeAlertSubscription, type StationReading } from './gauge-threshold';
 import type { ExpoMessage, ExpoTicket } from '@/lib/push/expo';
 
@@ -91,6 +92,67 @@ for (const table of ['alert_subscriptions', 'device_tokens', 'notification_prefe
     assert.ok(event(db).push_delivered_at);
   });
 }
+
+// ── 1b. The cooldown reads what an earlier warning SAID ──────────────────────
+
+/** User `a` was pushed `kind` about this river two hours ago, for event `eventId`. */
+function priorSend(db: FakeOutboxDb, eventId: string, overrides: Record<string, unknown> = {}) {
+  return db.seed('alert_push_deliveries', [
+    {
+      event_id: eventId,
+      device_token_id: 'tok-a',
+      user_id: 'a',
+      river_id: RIVER,
+      kind: 'warning',
+      status: 'sent',
+      event_source: 'river_condition',
+      sent_at: '2026-07-25T10:00:00.000Z',
+      ...overrides,
+    },
+  ]);
+}
+
+test('a river that went high, then dangerous, warns the same person twice', async () => {
+  // End to end through the ledger: the earlier send is a `warning` row with no
+  // condition on it, and the pass has to look the event up to learn it said
+  // "high" — otherwise the flood warning is read as a repeat and dropped.
+  const db = riverWorld().seed('river_condition_events', [
+    riverEvent({ id: 'evt-high', new_condition_code: 'high', push_delivered_at: '2026-07-25T10:00:00.000Z' }),
+  ]);
+  priorSend(db, 'evt-high');
+  const t = transport();
+
+  await run(db, t);
+
+  assert.ok(t.sent.includes('ExponentPushToken[a]'), 'The flood warning reaches the person already told "high"');
+});
+
+test('a river already announced as dangerous does not warn the same person again', async () => {
+  const db = riverWorld().seed('river_condition_events', [
+    riverEvent({ id: 'evt-earlier', new_condition_code: 'dangerous', push_delivered_at: '2026-07-25T10:00:00.000Z' }),
+  ]);
+  priorSend(db, 'evt-earlier');
+  const t = transport();
+
+  await run(db, t);
+
+  assert.deepEqual(t.sent.sort(), ['ExponentPushToken[b]', 'ExponentPushToken[c]']);
+});
+
+test('a gauge alert sent about the same river does not cool down the river alert', async () => {
+  // Same ledger, same river id, same kind — a different stretch of water.
+  const db = riverWorld();
+  priorSend(db, 'gauge-evt-1', { event_source: 'gauge_alert' });
+  // Seeded as `dangerous` so that only the source can let this through.
+  db.seed('river_condition_events', [
+    riverEvent({ id: 'gauge-evt-1', new_condition_code: 'dangerous', push_delivered_at: '2026-07-25T10:00:00.000Z' }),
+  ]);
+  const t = transport();
+
+  await run(db, t);
+
+  assert.ok(t.sent.includes('ExponentPushToken[a]'));
+});
 
 // ── 2. One successful recipient does not strand the rest ─────────────────────
 
@@ -249,6 +311,65 @@ test('a gauge alert delivered but never stamped drained is not sent again', asyn
   assert.deepEqual(t.sent, ['ExponentPushToken[a]'], 'No second push');
   assert.ok(gaugeEvent(db).push_delivered_at);
   assert.equal(gaugeEvent(db).push_outcome, 'sent');
+});
+
+// ── 5b. A warning nobody received does not cool down the next one ────────────
+
+/** gaugeWorld, with its one event a condition rule's flood warning. */
+function floodWorld() {
+  const db = gaugeWorld();
+  Object.assign(gaugeEvent(db), {
+    kind: 'warning',
+    condition_code: 'dangerous',
+    river_id: RIVER,
+    rivers: { name: 'Current River', slug: 'current' },
+    gauge_alert_subscriptions: {
+      ...(gaugeEvent(db).gauge_alert_subscriptions as object),
+      mode: 'condition',
+      condition_kind: 'safety',
+      metric: null,
+      comparator: null,
+      threshold_value: null,
+    },
+  });
+  return db;
+}
+
+/** The rule behind that event, as the evaluator loads it: fired ten minutes ago. */
+const FLOOD_RULE = {
+  id: 'gsub-1',
+  mode: 'condition',
+  last_triggered_at: '2026-07-25T11:50:00.000Z',
+} as GaugeAlertSubscription;
+
+test('a flood warning that exhausts its retries is not counted as told', async () => {
+  // Every send fails until the event is given up. Until then it is on its way
+  // and must hold the rule; afterwards the user has heard nothing, and the
+  // cooldown must not treat the next flood warning as a repeat of this one.
+  const db = floodWorld();
+  const t = transport(new Set(['ExponentPushToken[a]']));
+
+  await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  assert.equal(gaugeEvent(db).push_delivered_at, null, 'Still retrying');
+  assert.equal((await loadLastTold(db, [FLOOD_RULE], NOW)).get('gsub-1'), 'dangerous', 'On its way counts');
+
+  for (let pass = 0; pass < 6 && gaugeEvent(db).push_delivered_at == null; pass++) {
+    await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  }
+  assert.equal(gaugeEvent(db).push_outcome, 'given_up');
+  assert.deepEqual(t.sent, []);
+
+  const lastTold = await loadLastTold(db, [FLOOD_RULE], NOW);
+  assert.equal(lastTold.has('gsub-1'), true);
+  assert.equal(lastTold.get('gsub-1'), null, 'Nothing reached this person');
+});
+
+test('a flood warning that was delivered is what the user was told', async () => {
+  const db = floodWorld();
+  const t = transport();
+  await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  assert.deepEqual(t.sent, ['ExponentPushToken[a]']);
+  assert.equal((await loadLastTold(db, [FLOOD_RULE], NOW)).get('gsub-1'), 'dangerous');
 });
 
 // ── 6. A failed insert preserves the crossing ────────────────────────────────

@@ -1,17 +1,20 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/social/config/route.ts
 // GET + POST (save) for social posting configuration (single-row table)
 // Uses POST instead of PUT to prevent any edge/CDN caching of write operations.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
+import { dailyReportAutoPublishEnabled } from '@/lib/social/daily-report';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 const LOG_PREFIX = '[SocialConfig]';
+const withRollout = <T extends object>(config: T) => ({ ...config, daily_report_auto_publish_enabled: dailyReportAutoPublishEnabled() });
 
 const CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -22,7 +25,7 @@ const CACHE_HEADERS = {
 };
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const supabase = createAdminClient();
@@ -34,20 +37,63 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(`${LOG_PREFIX} GET returning config id=${data.id}, cooldown=${data.highlight_cooldown_hours}, conditions=[${data.highlight_conditions?.join(',')}]`);
-  return NextResponse.json(data, { headers: CACHE_HEADERS });
+  return NextResponse.json(withRollout(data), { headers: CACHE_HEADERS });
 }
 
 // Accept both PUT and POST for saves — POST avoids any edge caching issues
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return handleSave(request);
 }
 
-export async function PUT(request: NextRequest) {
+async function handlePUT(request: NextRequest) {
   return handleSave(request);
+}
+
+// PATCH saves the posting switch on its own. It is the control an operator
+// reaches for to stop automatic posts, so it must take effect the moment it is
+// flipped — not after a Save button further down the page — and it must not
+// carry the rest of the form's unsaved edits along with it.
+async function handlePATCH(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
+  if (authError) return authError;
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.posting_enabled !== 'boolean') {
+    return NextResponse.json({ error: 'posting_enabled must be true or false' }, { status: 400, headers: CACHE_HEADERS });
+  }
+
+  const supabase = createAdminClient();
+  const { data: existing, error: selectError } = await getOrCreateConfig(supabase);
+  if (selectError || !existing) {
+    console.error(`${LOG_PREFIX} PATCH config load error: ${selectError}`);
+    return NextResponse.json({ error: 'Failed to load config' }, { status: 500, headers: CACHE_HEADERS });
+  }
+
+  const { data, error } = await supabase
+    .from('social_config')
+    .update({ posting_enabled: body.posting_enabled, updated_at: new Date().toISOString() })
+    .eq('id', existing.id)
+    .select('posting_enabled, updated_at')
+    .single();
+
+  if (error || !data) {
+    console.error(`${LOG_PREFIX} PATCH update error: ${error?.message}`);
+    return NextResponse.json({ error: 'Could not save the posting switch' }, { status: 500, headers: CACHE_HEADERS });
+  }
+
+  await logAdminAction({ request,
+    action: data.posting_enabled ? 'social_posting_resumed' : 'social_posting_paused',
+    entityType: 'social_config',
+    entityId: existing.id,
+    details: { old: { posting_enabled: existing.posting_enabled }, new: { posting_enabled: data.posting_enabled } },
+  });
+
+  // The stored value, read back from the row that was written.
+  return NextResponse.json({ posting_enabled: data.posting_enabled, updated_at: data.updated_at }, { headers: CACHE_HEADERS });
 }
 
 async function handleSave(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const body = await request.json();
@@ -120,7 +166,7 @@ async function handleSave(request: NextRequest) {
     console.error(`${LOG_PREFIX} SAVE verify read failed: ${verifyError.message}`);
     // Still return the update result even if verify fails
     console.log(`${LOG_PREFIX} SAVE returning update result: cooldown=${data.highlight_cooldown_hours}, conditions=[${data.highlight_conditions?.join(',')}]`);
-    return NextResponse.json(data, { headers: CACHE_HEADERS });
+    return NextResponse.json(withRollout(data), { headers: CACHE_HEADERS });
   }
 
   const cooldownMatch = verify.highlight_cooldown_hours === data.highlight_cooldown_hours;
@@ -137,5 +183,9 @@ async function handleSave(request: NextRequest) {
   }
 
   // Always return the VERIFIED data from the fresh read, not the update response
-  return NextResponse.json(verify, { headers: CACHE_HEADERS });
+  return NextResponse.json(withRollout(verify), { headers: CACHE_HEADERS });
 }
+
+export const POST = withAdminMutation(handlePOST);
+export const PUT = withAdminMutation(handlePUT);
+export const PATCH = withAdminMutation(handlePATCH);

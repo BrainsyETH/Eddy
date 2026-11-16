@@ -253,6 +253,25 @@ transitive dependencies (`expo-asset` under `node_modules/expo/`). Disabling
 hierarchical lookup makes Metro refuse to look inside them and the bundle fails
 with `Unable to resolve module expo-asset`.
 
+## Dam schedule consistency
+
+Dam detail, Favorites, tailwater cards and the Home Screen widget use the
+project's fixed scheduling capacity, matching the website and embeds. The
+widget packet adds optional `capacityMw`, daily `summary` and hourly `fraction`
+fields to v1; older clients still decode it. New clients draw an unscaled
+presence marker for old cached hours without fractions, never scale to the
+highest output of the day. Known low values have a two-point visibility floor.
+Missing hours remain outlined gaps and minimum flow remains a baseline.
+
+Flat-output days show scheduled generation windows; only varying-output days
+have a highest-generation window. Next-change text names the scheduled run,
+its stop and its posted restart. Favorites and the Home Screen widget display
+that text, including its stale-schedule replacement. Elapsed schedule bars
+retain 90% opacity. The half-capacity reference line is removed.
+
+The Swift widget changes require a new binary. Metro export validates the JS
+bundle; WidgetKit layout and Dynamic Type need Xcode/device verification.
+
 ## Theming
 
 Light and dark follow the system setting (`useColorScheme`). Light keeps the
@@ -458,6 +477,28 @@ actual search time, including after a touch drag. Recheck the native footer
 insets on Expo upgrades: its `react-native-screens/experimental` safe-area
 component follows the native-tabs integration documented by Expo.
 
+## River page photography
+
+River detail uses the existing editorial river-photo catalog, preferring the
+API's selected photo and credit. Current River uses the Montauk waterfall
+photo already in that catalog. Images are consistent across visits; opening a
+page does not fetch or randomly choose an access photo. A missing or failed
+image falls back to the plain title without reserving photo space.
+
+The full-width header is about 236 points tall including the native navigation
+area at standard text sizes. Long names and Dynamic Type expand it. White text
+has a dark backing; Increase Contrast and Reduce Transparency make that backing
+opaque. Supplied credits link to the source/license and disclose cropping.
+The native compact title appears after the large title scrolls behind the bar;
+native back, share, favorite and scroll-edge treatment remain system-managed.
+Gauge selection and river conditions stay on the solid surface immediately below.
+No API deployment is required for this header: the app bundles the shared catalog
+as a fallback for existing cached river responses.
+
+Device verification remains required for native navigation/status-bar contrast
+at each scroll position, restored scroll, Dynamic Type, VoiceOver, Reduce
+Transparency, Increase Contrast, and light/dark appearances.
+
 ## Condition colours and labels
 
 Import them from `@eddy/conditions` via `src/theme/conditions.ts`. Never
@@ -608,6 +649,102 @@ properly and needs nothing.
 
 The Map tab is three features sharing one screen, and each of them has a
 constraint worth writing down.
+
+### Access Overview sections
+
+The full access page uses a full-width, swipeable photo header in both cached and
+loaded states. Names remain below the image and wrap at larger text sizes; type
+facts use Eddy's category art, while generic Access is omitted. Missing or failed
+photos leave no empty hero. Multiple photos show their page count.
+
+Access sheets separate facilities/fees, Good to know, camping and services with
+quiet dividers. Getting in, Parking, and Facilities & fees retain Eddy's category
+icons in their headings. Service names wrap; descriptions
+can expand; each available contact action remains independently reachable.
+Facilities omits the Parking and Boat ramp chips already shown elsewhere on the
+map, while keeping facility prose, parking details and fees. It also omits Camping
+when the access has a Campground label or Camping tab; nearby campgrounds alone
+never suppress that amenity. Overview's place-type labels are text-only and omit
+generic Access. Map callouts retain their category artwork. Thumbnails, useful
+amenity indicators and action icons remain in the sheet.
+Good to know precedes nearby businesses and retains every word of the supplied
+notes, including restrictions. Sentence/list breaks are presentation only.
+
+`nearbyServices.relationship` carries the server's verified link when present.
+Only `same_place` entries appear under Camping here. `located_at` describes the
+same facility with a potentially different arrival point; it and legacy entries
+remain separate. Names and short distances are never evidence of identity.
+The Camping shortcut selects the existing tab by key and appears only when that
+tab exists and no campground is listed. Listed campgrounds replace that standalone
+shortcut; the Camping tab remains available. Compact service rows place the name,
+distance and 44-point contact controls together. Tapping expands descriptions and
+any extra contact links; on-site camping remains reachable from those details.
+Lodging entries without a valid phone, website or booking destination are omitted
+on both the sheet and full page, so generic town/supply notes do not become dead
+lodging cards. Verified booking links are carried through the detail API.
+Mixed access/camping fee notes
+stay intact and expandable in Overview until the source provides separately
+structured charges.
+
+Camping cards reuse the 44-point campground thumbnail beside their content. The
+service's own photo takes priority; only a verified `same_place` link can reuse
+the access photo. Missing or failed photos show Eddy's campground art. The detail
+API carries service photos from the existing directory media and reviewed photo
+catalog, with the same map/numbered-site exclusions as camping search.
+
+### Campground site browsing
+
+The campground detail sheet and map Camping tab share compact site cards. Photos
+open their gallery independently of booking; tapping a site's summary expands
+photos, nightly availability and available policy links. An exact repeated
+campground prefix and identical loop name are omitted from the compact label.
+Whole-stay results retain their nightly breakdown in details, with no standalone
+green square for a one-night stay. First-come, stale and unavailable results keep
+their distinct wording and booking behavior.
+Site names and amenities align beside square thumbnails; availability and the
+reservation action share a wrapping footer. The photo viewer fits the image's
+aspect ratio in a compact sheet instead of centering it in unused full-screen
+space. Full captions expand on request, credits stay visible, and photos retain
+pinch zoom and previous/next controls. General reservation instructions remain in
+campground details rather than appearing above every site list.
+
+The map tab selects one night using calendar cells. Its heading names that night
+and updates to the matching-site count when filters are active. All-matching site
+kinds become quiet facts instead of filters; selected filters remain reachable at
+zero. The booking button stays above the sites, while official links and original
+reservation text live under About this campground. The map peek retains its
+availability chart. Choose a longer stay opens the campground detail route with
+the selected night as arrival; the stay picker adds departure and a night count.
+Long campground names and accessibility-sized titles scroll with the site list.
+
+Full access pages, including those opened from Favorites, offer Choose a site
+below the campsite availability chart. Opening it replaces the chart with the
+same `CampgroundSiteBrowser` used by the map Camping tab: measured nights,
+filters, compact expandable site cards, photos, booking and longer stays.
+Individual sites load only after opening the picker; closing it cancels pending
+work. Facility identity remains usable when saved counts expire, without
+presenting those old counts as current. Tracked campgrounds use this picker
+instead of the second external Reserve a site button under Facilities; untracked
+places retain their existing provider links. Inventory failures offer Retry.
+
+Expanding a site also requests `/api/campsites/details` for that exact Eddy
+facility/site pair. Recreation.gov details appear below the photo as branded,
+aligned facts: setting, access, permitted equipment and lengths, on-site
+amenities, specific hookups, arrival times, pets and provider-listed
+accessibility. Capacity and generic hookup labels remain in the summary.
+Provider notes fold under Good to know, followed by the nightly Your stay list.
+Missing fields produce no empty rows. Shared showers, toilets and dump stations
+are not represented as amenities at an individual site, and a fire ring never
+implies that fires are currently permitted.
+
+Details load only while expanded, cancel on collapse and cache separately for
+one hour in the app. A failure offers Retry without affecting availability or
+booking. The API checks the enabled facility, site ownership and returned
+provider IDs; unsupported sources return no additional facts. State Parks keeps
+its existing site summary and photos until its extra fields are verified.
+Deploy this additive API before releasing the updated app; no migration or new
+native dependency is required. Device verification remains separate from the
+local layout and interaction checks.
 
 ### Search is half local, half server
 
@@ -1222,6 +1359,38 @@ and before the safety disclaimer.
 Gauge detail omits the routine provisional-data footnote. Source-flagged suspect
 readings still show their specific qualifier note.
 
+Where a river has distinct hydrology above and below a dam, a section
+**segmented control** (Upper Black | Lower Black) replaces the gauge picker and
+the separate Reaches panel. It is one compact row with 44pt minimum touch
+targets on the `cardRaised` track; the selected segment adds a `card` fill,
+teal outline and teal semibold label, so
+selection never rests on fill alone. One muted line beneath it gives the
+selected section's endpoints, using the website's short labels. Past three
+sections the row scrolls instead of shrinking. Each selection
+owns the readings, chart, weather and Eddy’s Read; the level and flow share one
+card with the chart, and Clearwater context closes only the Lower Black report.
+Section readings use the same condition-aware Eddy otter as regular gauge cards,
+with water level and flow labeled side by side. River/spring and dam-release
+symbols do not decorate these measurements. Dam links use Eddy's dam artwork.
+Clearwater's button appears only with Lower Black selected. Upper Black has no
+dam button or shortcut to the lower section.
+Ordinary rivers retain their gauge picker and the existing Premium flow stays.
+
+The reaches API carries the configured `gaugeStationId`. Missing mappings,
+including old cached responses, never borrow another section’s station. The
+one exception is the river's own primary stretch (`differsFromRiver: false`,
+with no station or the river's primary one): if its station cannot be joined to
+`/api/gauges` (that request failed, or the reach was cached before it carried
+the id), it reads the river's primary report rather than "Report unavailable".
+An explicit `section` link wins over `gauge`; a matching gauge-only arrival
+selects its section. An unresolved gauge-only arrival stays loading while its
+data loads, then unavailable if the mapping is still missing; it never selects
+or reads the primary section by default. The reader can retry or pick a section.
+Share carries the selected section back to the website.
+Segment labels wrap and the row grows with uncapped Dynamic Type, keeping both
+choices side by side. Segments expose radio selection with endpoints to VoiceOver
+and use the existing light/dark palette. Device verification is separate from CI.
+
 ## Favorites
 
 Access points, boat ramps and campgrounds offer **Save/Saved** from the map
@@ -1359,6 +1528,10 @@ hide its marker. Seasonal copy is omitted for missing statistics, untrusted
 readings or a comparison from another calendar day. Search rows stay compact.
 
 ## Dam details
+
+The generation card and its spacing appear only for a powerhouse or a posted
+generation schedule. Flood-control dams such as Clearwater keep their release
+and water-level readings without an empty generation card above them.
 
 Dam detail readings use Eddy's illustrated metric symbols: Release and Water
 temperature share the web masters; lake and tailwater levels reuse the gauge
@@ -1658,6 +1831,18 @@ The bottom-right info button lists each vessel's normal-water moving speed
 from the shared vessel API lookup, with a note that river flow adjusts the
 estimate and stops are excluded. It remains available before a route is chosen.
 
+Ready to float keeps reminders and pickup contact in collapsed **Trip options**.
+Notification permission remains visible when selected reminders need it. Take-out
+and hazard choices persist on the device; selected stops never carry to another
+river. Account deletion clears these defaults. Missing arrival times explain
+flood/regulated water, missing current data or a failed request, with Retry for
+failures. Existing downloads keep their partial/incomplete/outdated/check-failed
+status and can be managed or resumed in setup; new downloads use the planner.
+A stretch with zero mapped hazards omits hazard reminders from the summary
+without changing the saved preference. Account cleanup attempts every step
+in order, then reports failures through Retry cleanup; a failed preferences
+or image-cache delete cannot skip history, reports or offline maps.
+
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
 directly, without another confirmation screen. Setup is removed on success.
@@ -1732,10 +1917,20 @@ also keep their recap context (`startCondition`, `riverSpan`, `coveredMiles`,
 `startWeather`) under its own `recapContext` capability, by the same rule
 (ADR 0012); `missouri-float-planner/shared/float-recap.ts` reads it for the
 history card and recap.
-The recap leads with a compact condition-tinted mood header, then **Your route**:
-the full start-to-take-out river stretch, progress, credited distance and total
-time. It replaces the recap's whole-river exploration/lifetime panel. Existing
-history and share-image measurement rules remain unchanged. New summaries save
+The recap leads with a compact condition-tinted mood header, then one trip card:
+**Your route**, the full start-to-take-out river stretch, progress, credited
+distance and total time, followed by the moving/breaks breakdown behind a thin
+divider. Share follows the trip card, ahead of the compact starting conditions;
+history, backup and the separate delete action sit below. Large text stacks the
+stat columns and endpoint names. It replaces the recap's whole-river
+exploration/lifetime panel. Existing
+history and share-image measurement rules remain unchanged. Share images use one photo-free river postcard
+composition online and offline: a large river title, compact route/date group,
+Eddy overlapping a curved teal shape and large unboxed stats. The verified
+server condition is a compact badge row; the offline image retains
+its existing condition-free content. The whole-river percentage is omitted
+from the image. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md#float-share-presentation--november-12-2026).
+New summaries save
 `routeSnapshot` (start/take-out miles, start name, calibration, original map-anchor
 IDs/miles and optional download key), without coordinates. A confirmed launch
 uses its access name; an on-water start uses its position relative to the planned
@@ -1761,7 +1956,8 @@ Only confirmed arrival earns **100% complete**. Limited tracking suppresses an
 unconfirmed percentage, but never undoes a confirmed arrival. **Last recorded**
 is not necessarily where the float ended. Maps do not request location and do
 not capture scroll gestures. Both appearances use the downloaded **STYLE_URL**
-(outdoors-v12), with legible light-map overlay ink. Mapbox attribution stays
+(outdoors-v12), with a light visual wash beneath the route overlays, stronger
+route casing, and collision-aware marker labels. Mapbox attribution stays
 visible and separately accessible; both renderers have a VoiceOver description
 that mentions coverage only when present. A river-only
 SVG fallback uses the same geometry when native maps/styles are unavailable.
@@ -1989,6 +2185,16 @@ than showing a switch that cannot move. The sentence explaining why alerts will
 or will not arrive remains a tested precedence order
 (`src/lib/notificationCopy.ts`): several reasons can be true at once, and naming
 the wrong one sends someone to fix something that was never the problem.
+
+Enabling or rearming a saved alert also checks notification readiness, including
+after signing back in through Premium restore. Mine and the alert editor keep a
+compact notice visible while active alerts cannot reach this phone. Undetermined
+permission opens the existing primer after the rule saves; iOS denial offers
+Open iOS Settings, an Eddy device opt-out offers Turn on notifications, and a
+missing registration offers Try again. The check uses a fresh permission and
+registration result, not state captured before the save. Notification setup
+failure never rolls back a saved rule or reports that the save failed. Pausing
+an alert does not ask for permission. Restore itself does not override opt-out.
 
 ### Map sheet tab changes and campsite reservations
 
@@ -2339,3 +2545,48 @@ camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and
 10.5, pan responsiveness and fast fling with Other USGS gauges on (fling beyond
 the padded area and check for briefly empty edges before the camera settles),
 failed-first-load/retry, VoiceOver list selection, and largest text sizes.
+
+Dam Reads and their schedules refresh on focus, foreground and five-minute
+boundaries. An earlier hour's Read or a previous Central day's response is not
+shown while refreshing. A dam release tab selects its own snapshot: Norfork's
+Read and schedule stay together on the White. Favorites announces remaining
+generation windows, with individual hours in the full schedule. `ReadHeading`
+provides the shared otter/Fredoka label for river, gauge and dam interpretations.
+
+Float image sharing reuses successful server images and can produce a basic
+branded local PNG when reception fails. An otter image that has not loaded
+after 1.5 seconds is omitted so sharing can continue with the Eddy wordmark.
+The local export uses saved trip facts
+without a condition stamp or private metadata. See ADR 0015 for cache bounds,
+privacy rules and the outstanding physical-device share gates.
+
+### Rain within the river report
+
+River reports explicitly open at 7d. The shared gauge chart retains its 30d
+default for other callers; shared links retain their requested range. Reviewed
+rain can appear on 24h/7d, adding its own height above the existing river plot, with an independent
+inches scale and a shared cursor. Compare contains the remembered Rain switch;
+tapping Rain upstream opens the existing chart sheet (full screen when expanded).
+The native SVG map, totals and hourly list share data/formatting rules with web.
+Map labels have theme-aware halos. Compact visible timestamps retain full
+VoiceOver labels; a short archive is labelled “Rain record starts…”.
+No new native dependency or permission is required.
+
+Eddy's Read follows the chart and precedes the free Will it hold? forecast.
+Subscribers see up to five sentences (640 characters), with distinct Weather
+and Bottom line visible immediately. Read more expands only longer prose.
+Locked previews have no expand button; one accessible Premium offer explains access. Existing Premium authorization and
+the single shared lock remain in force. Switching gauge resets expanded prose.
+
+Read sections keep their thin dividers. The free outlook says **Next 3 days**
+(today and the next two Central calendar days), with official heights separated
+below the weather under **NWS forecast · daily high**. Values retain feet and
+day-specific VoiceOver labels; missing days say “No forecast”. This row has no
+condition ratings, which would imply a verdict on the whole day.
+
+Before distribution, verify the rain switch persists, toggling preserves the
+river plot height while adding/removing the rain track, rain/gauge values scrub together, and opening/closing the
+watershed preserves chart state. Repeat in dark/light, large text, VoiceOver and
+expanded-chart landscape. Verify section changes, missing/stale rain and offline
+failures do not substitute another basin or turn missing amounts into zero.
+Public rollout gates are recorded in `docs/rainfall-history.md` at the repo root.

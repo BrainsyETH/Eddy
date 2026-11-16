@@ -5,7 +5,7 @@ import {
   escapeLike,
   type SearchResult,
   type SearchResultKind,
-} from '@/app/api/search/route';
+} from '@/lib/search-results';
 
 // ── /api/search must not let one kind starve another ───────────────────
 //
@@ -150,7 +150,7 @@ test('escapeLike leaves an ordinary place name alone', () => {
 // Two separate defects lived here, both silent. Together they meant a person
 // scrolling the Today tab was shown a list with holes in it and no way to tell.
 
-import { pageOf, parseOffsets } from '@/app/api/search/route';
+import { pageOf, parseOffsets } from '@/lib/search-results';
 
 test('the probe row dropped is the last one fetched, not the worst one shown', () => {
   // The source hands back limit+1 rows in ITS order (here: a, b, c, d). The

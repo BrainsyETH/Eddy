@@ -1,4 +1,5 @@
 'use client';
+import { useAdminInteractions } from '@/components/admin/AdminInteractionProvider';
 
 // src/app/admin/access-points/page.tsx
 // Admin page for managing access point images (supports multiple images)
@@ -6,11 +7,13 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAdminListState } from '@/hooks/useAdminListState';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import Link from 'next/link';
+import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 import {
   MapPin,
   Plus,
@@ -34,10 +37,19 @@ interface River {
 interface AccessPointAdmin {
   id: string;
   name: string;
-  riverMile: number;
+  riverMile: number | null;
   type: string;
   imageUrls: string[];
+  description?:string|null;
+  drivingLat?:number|null;
+  drivingLng?:number|null;
   riverId: string;
+  riverName?: string | null;
+  types?: string[];
+  approved?: boolean;
+  createdAt?: string | null;
+  /** Version marker, echoed back so a stale list cannot overwrite newer photos. */
+  updatedAt?: string | null;
 }
 
 interface ImageItem {
@@ -71,6 +83,8 @@ interface BackfillSummary {
 const EDDY_PLACEHOLDER = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20with%20a%20flag.png';
 
 export default function AdminAccessPointsPage() {
+  const { confirm } = useAdminInteractions();
+  const [missing,setMissing]=useAdminListState('missing');
   const queryClient = useQueryClient();
   const [selectedRiver, setSelectedRiver] = useState<string | null>(null);
   const [imagePickerOpen, setImagePickerOpen] = useState<{ pointId: string; currentImages: string[] } | null>(null);
@@ -92,21 +106,14 @@ export default function AdminAccessPointsPage() {
   const { data: accessPoints, isLoading: accessPointsLoading } = useQuery<AccessPointAdmin[]>({
     queryKey: ['admin-access-points', selectedRiver],
     queryFn: async () => {
-      if (!selectedRiver) return [];
-      const river = rivers?.find(r => r.id === selectedRiver);
-      if (!river) return [];
-
-      // Cache-bust so the admin sees fresh image_urls right after an
-      // Auto-fetch backfill — the shared endpoint is CDN-cached (s-maxage=300).
-      const response = await fetch(
-        `/api/rivers/${river.slug}/access-points?t=${Date.now()}`,
-        { cache: 'no-store' },
-      );
+      const query=new URLSearchParams({limit:'1000'});
+      if(selectedRiver)query.set('river',selectedRiver);
+      const response=await adminFetch(`/api/admin/access-points?${query}`);
       if (!response.ok) throw new Error('Failed to fetch access points');
       const data = await response.json();
       return data.accessPoints || [];
     },
-    enabled: !!selectedRiver && !!rivers,
+    enabled: !!selectedRiver || missing !== 'all',
   });
 
   // Fetch images for picker
@@ -122,10 +129,13 @@ export default function AdminAccessPointsPage() {
   // Update access point images
   const updateImagesMutation = useMutation({
     mutationFn: async ({ id, imageUrls }: { id: string; imageUrls: string[] }) => {
+      // Send the version this list loaded: the whole photo array is replaced,
+      // so a stale list must not drop a photo someone added since.
+      const expectedUpdatedAt = accessPoints?.find((a) => a.id === id)?.updatedAt ?? undefined;
       const response = await adminFetch(`/api/admin/access-points/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrls }),
+        body: JSON.stringify({ imageUrls, expectedUpdatedAt }),
       });
       if (!response.ok) {
         const error = await response.json();
@@ -135,6 +145,31 @@ export default function AdminAccessPointsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-access-points', selectedRiver] });
+    },
+    // A refused save usually means the list was stale: reload it.
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-access-points', selectedRiver] });
+    },
+  });
+
+  // Approve from the list. Approval also records whether the point can be a
+  // put-in or take-out; each card's box is pre-filled from the point's types.
+  const [endpointChoice, setEndpointChoice] = useState<Record<string, boolean>>({});
+  const approveMutation = useMutation<unknown, Error, { id: string; isFloatEndpoint: boolean }>({
+    mutationFn: async ({ id, isFloatEndpoint }) => {
+      const response = await adminFetch(`/api/admin/access-points/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFloatEndpoint }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Could not approve');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-access-points'] });
     },
   });
 
@@ -158,15 +193,15 @@ export default function AdminAccessPointsPage() {
     },
   });
 
-  const runBackfill = () => {
+  const runBackfill = async () => {
     if (!selectedRiver) return;
     const missing = accessPoints?.filter((a) => a.imageUrls.length === 0).length ?? 0;
     if (missing === 0) {
-      if (!confirm('Every access point on this river already has an image. Nothing to auto-fetch.')) return;
+      if (!await confirm('Every access point on this river already has an image. Nothing to auto-fetch.')) return;
       return;
     }
     if (
-      !confirm(
+      !await confirm(
         `Auto-fetch imagery for ${missing} access point(s) without images?\n\n` +
           'Photos are pulled from official agency sources (MDC, NPS, Recreation.gov, ' +
           'USFS, State Parks) and outfitter sites, and stored as external links ' +
@@ -191,7 +226,8 @@ export default function AdminAccessPointsPage() {
   };
 
   // Remove image from an access point
-  const removeImage = (pointId: string, currentImages: string[], imageToRemove: string) => {
+  const removeImage = async (pointId: string, currentImages: string[], imageToRemove: string) => {
+    if (!(await confirm('Remove this photo from the access point?', { confirmLabel: 'Remove photo', danger: true }))) return;
     updateImagesMutation.mutate({
       id: pointId,
       imageUrls: currentImages.filter(url => url !== imageToRemove),
@@ -199,7 +235,7 @@ export default function AdminAccessPointsPage() {
   };
 
   const filteredAccessPoints = accessPoints?.filter(ap =>
-    ap.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ap.name.toLowerCase().includes(searchTerm.toLowerCase()) && (missing === 'pending' ? ap.approved === false : missing === 'images' ? ap.imageUrls.length===0 : missing === 'descriptions' ? !ap.description?.trim() : missing === 'driving' ? ap.drivingLat == null || ap.drivingLng == null : true)
   ) || [];
 
   const images = imagesData?.images || [];
@@ -207,9 +243,10 @@ export default function AdminAccessPointsPage() {
   return (
     <AdminLayout
       title="Access Points"
-      description="Manage images for access points"
+      description="Approve suggested points, fix their details, and manage photos"
     >
       <div className="p-6">
+        <label className="block mb-4 text-sm">Show<select className="ml-3 border rounded p-2" value={missing} onChange={e=>setMissing(e.target.value)}><option value="all">All access points</option><option value="pending">Waiting for approval</option><option value="images">Missing photos</option><option value="descriptions">Missing descriptions</option><option value="driving">Missing directions</option></select></label>
         {/* River Selector */}
         <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4 mb-6">
           <label className="block text-sm font-medium text-neutral-300 mb-2">
@@ -238,7 +275,7 @@ export default function AdminAccessPointsPage() {
         </div>
 
         {/* Access Points List */}
-        {selectedRiver && (
+        {(selectedRiver || missing !== 'all') && (
           <>
             {/* Search + Auto-fetch */}
             <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -254,8 +291,8 @@ export default function AdminAccessPointsPage() {
               </div>
               <button
                 onClick={runBackfill}
-                disabled={backfillMutation.isPending}
-                title="Pull photos from official agency sources for access points without images"
+                disabled={backfillMutation.isPending || !selectedRiver}
+                title={selectedRiver ? 'Pull photos from official agency sources for access points without images' : 'Choose a river first'}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white rounded-lg font-medium transition-colors"
               >
                 {backfillMutation.isPending ? (
@@ -266,6 +303,24 @@ export default function AdminAccessPointsPage() {
                 {backfillMutation.isPending ? 'Fetching imagery…' : 'Auto-fetch imagery'}
               </button>
             </div>
+
+            {updateImagesMutation.isError && (
+              <div role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-red-700 bg-red-900/20 p-3 text-sm text-red-200">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                Photos were not changed: {updateImagesMutation.error.message}
+              </div>
+            )}
+            {approveMutation.isError && (
+              <div role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-red-700 bg-red-900/20 p-3 text-sm text-red-200">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                {approveMutation.error.message}
+              </div>
+            )}
+            {!accessPointsLoading && (
+              <p className="mb-3 text-sm text-neutral-400">
+                {filteredAccessPoints.length} access point{filteredAccessPoints.length === 1 ? '' : 's'}
+              </p>
+            )}
 
             {/* Backfill error */}
             {backfillMutation.isError && (
@@ -325,7 +380,13 @@ export default function AdminAccessPointsPage() {
               <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-12 text-center">
                 <MapPin className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
                 <p className="text-neutral-400">
-                  {searchTerm ? 'No access points match your search.' : 'No access points found for this river.'}
+                  {searchTerm
+                    ? 'No access points match your search.'
+                    : missing === 'pending'
+                      ? 'Nothing is waiting for approval.'
+                      : missing !== 'all'
+                        ? 'No access points match this filter.'
+                        : 'No access points found for this river.'}
                 </p>
               </div>
             ) : (
@@ -338,9 +399,24 @@ export default function AdminAccessPointsPage() {
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="font-semibold text-white">{point.name}</h3>
+                        <h3 className="font-semibold text-white flex flex-wrap items-center gap-2">
+                          {point.name}
+                          {point.approved === false && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                              Waiting for approval
+                            </span>
+                          )}
+                        </h3>
                         <p className="text-sm text-neutral-400">
-                          Mile {point.riverMile.toFixed(1)} • {point.type.replace('_', ' ')}
+                          {[
+                            // Cross-river views need the river; same-named points exist on different rivers.
+                            !selectedRiver && point.riverName,
+                            `Mile ${point.riverMile?.toFixed(1) ?? 'unknown'}`,
+                            point.type.replace(/_/g, ' '),
+                            point.approved === false && point.createdAt && `added ${new Date(point.createdAt).toLocaleDateString()}`,
+                          ]
+                            .filter(Boolean)
+                            .join(' • ')}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -349,13 +425,40 @@ export default function AdminAccessPointsPage() {
                         </span>
                         <Link
                           href={`/admin/access-points/${point.id}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white text-sm rounded-lg transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors admin-secondary"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                           Edit
                         </Link>
                       </div>
                     </div>
+
+                    {point.approved === false && (
+                      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-neutral-900 p-3 text-sm">
+                        <label className="flex items-center gap-2 text-neutral-300">
+                          <input
+                            type="checkbox"
+                            checked={endpointChoice[point.id] ?? defaultFloatEndpoint(point.types, point.type)}
+                            onChange={(e) => setEndpointChoice((c) => ({ ...c, [point.id]: e.target.checked }))}
+                          />
+                          Can be chosen as a put-in or take-out
+                        </label>
+                        <button
+                          onClick={() =>
+                            approveMutation.mutate({
+                              id: point.id,
+                              isFloatEndpoint: endpointChoice[point.id] ?? defaultFloatEndpoint(point.types, point.type),
+                            })
+                          }
+                          disabled={approveMutation.isPending}
+                          aria-label={`Approve ${point.name}`}
+                          className="px-3 py-1.5 rounded-lg admin-primary disabled:opacity-50"
+                        >
+                          Approve and publish
+                        </button>
+                        <span className="text-xs text-neutral-400">Hidden from the app until approved.</span>
+                      </div>
+                    )}
 
                     {/* Images Gallery */}
                     <div className="flex gap-2 flex-wrap">
@@ -372,9 +475,10 @@ export default function AdminAccessPointsPage() {
                           />
                           {/* Remove button */}
                           <button
-                            onClick={() => removeImage(point.id, point.imageUrls, url)}
+                            onClick={() => void removeImage(point.id, point.imageUrls, url)}
                             disabled={updateImagesMutation.isPending}
-                            className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                            aria-label={`Remove image ${index + 1} from ${point.name}`}
+                            className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity disabled:opacity-50"
                             title="Remove image"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -411,7 +515,7 @@ export default function AdminAccessPointsPage() {
           </>
         )}
 
-        {!selectedRiver && (
+        {!selectedRiver && missing === 'all' && (
           <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-12 text-center">
             <MapPin className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
             <p className="text-neutral-400">Select a river to manage access point images.</p>

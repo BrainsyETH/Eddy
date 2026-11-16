@@ -41,8 +41,8 @@ const clock = (iso: string) =>
   });
 
 const INBOX = [
-  { key: 'reports', label: 'River reports', href: '/admin/reports' },
-  { key: 'email', label: 'Unread email', href: '/admin/feedback' },
+  { key: 'reports', label: 'River reports', href: '/admin/reports?status=pending' },
+  { key: 'email', label: 'Unread email', href: '/admin/feedback?view=email' },
   { key: 'feedback', label: 'Feedback', href: '/admin/feedback' },
 ] as const;
 
@@ -53,9 +53,9 @@ const FRESHNESS = [
 ] as const;
 
 const CONTENT = [
-  { key: 'images', label: 'Access points without photos', href: '/admin/access-points' },
-  { key: 'descriptions', label: 'Access points without descriptions', href: '/admin/access-points' },
-  { key: 'driving', label: 'Access points without directions', href: '/admin/access-points' },
+  { key: 'images', label: 'Access points without photos', href: '/admin/access-points?missing=images' },
+  { key: 'descriptions', label: 'Access points without descriptions', href: '/admin/access-points?missing=descriptions' },
+  { key: 'driving', label: 'Access points without directions', href: '/admin/access-points?missing=driving' },
   { key: 'hazards', label: 'Hazards to re-check', href: '/admin/hazards' },
   { key: 'blogs', label: 'Blog posts past their date', href: '/admin/blog' },
 ] as const;
@@ -259,60 +259,6 @@ export default function OverviewDashboard({
             </div>
           </section>
 
-          <div className={styles.kpis}>
-            {kpis.map((k) => (
-              <button
-                key={k.key}
-                className={styles.kpi}
-                onClick={() => setTarget({ key: k.key })}
-              >
-                <span className={styles.kpiLabel}>{k.label}</span>
-                <strong>{summary ? fmt(k.value) : '—'}</strong>
-                <span className={styles.kpiUnit}>{k.unit}</span>
-                {k.change ? (
-                  <Change total={k.change.total} prior={k.change.prior} days={days} />
-                ) : k.note ? (
-                  <span className={styles.kpiNote}>{k.note}</span>
-                ) : (
-                  <span className={styles.kpiNote}>
-                    {summary ? 'History not available' : ' '}
-                  </span>
-                )}
-                {k.series && (
-                  <Sparkline
-                    values={k.series}
-                    label={`${k.label}, daily trend.`}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.moreStats}>
-            {MORE.map((s) => (
-              <button key={s.key} onClick={() => setTarget({ key: s.key })}>
-                <strong>{summary ? fmt(num(s.key)) : '—'}</strong>
-                <span>{s.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.split}>
-            {overview ? (
-              <GrowthChart
-                series={overview[measure]}
-                days={days}
-                measure={measure}
-                onMeasure={setMeasure}
-              />
-            ) : (
-              <Panel title="Growth" hint="Is Eddy growing?">
-                <p className={styles.empty}>
-                  {summary ? 'Growth history did not load.' : 'Loading…'}
-                </p>
-              </Panel>
-            )}
-
             <Panel id="focus" title="Needs attention" hint="What needs me today?">
               {attention.length ? (
                 <ol className={styles.actions}>
@@ -328,7 +274,7 @@ export default function OverviewDashboard({
                                 : '!'}
                             </span>
                             <span>
-                              <b>{copy.title}</b>
+                              <b>{copy.title}</b><small>{priority(m) === 0 ? 'Service issue' : m.section === 'Inbox' ? 'Review queue' : 'Needs follow-up'} · Checked {summary ? clock(summary.generatedAt) + ' CT' : 'time unavailable'}</small>
                               <small>{copy.todo ?? copy.means}</small>
                             </span>
                             <span aria-hidden="true">›</span>
@@ -386,6 +332,62 @@ export default function OverviewDashboard({
                 ))}
               </div>
             </Panel>
+
+          <div className={styles.kpis}>
+            {kpis.map((k) => (
+              <button
+                key={k.key}
+                className={styles.kpi}
+                onClick={() => setTarget({ key: k.key })}
+              >
+                <span className={styles.kpiLabel}>{k.label}</span>
+                <strong>{summary ? fmt(k.value) : '—'}</strong>
+                <span className={styles.kpiUnit}>{k.unit}</span>
+                {k.change ? (
+                  <Change total={k.change.total} prior={k.change.prior} days={days} />
+                ) : k.note ? (
+                  <span className={styles.kpiNote}>{k.note}</span>
+                ) : (
+                  <span className={styles.kpiNote}>
+                    {summary ? 'History not available' : ' '}
+                  </span>
+                )}
+                {k.series && (
+                  <Sparkline
+                    values={k.series}
+                    label={`${k.label}, daily trend.`}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.moreStats}>
+            {MORE.map((s) => (
+              <button key={s.key} onClick={() => setTarget({ key: s.key })}>
+                <strong>{summary ? fmt(num(s.key)) : '—'}</strong>
+                <span>{s.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div>
+            {overview ? (
+              <GrowthChart
+                series={overview[measure]}
+                days={days}
+                measure={measure}
+                onMeasure={setMeasure}
+              />
+            ) : (
+              <Panel title="Growth" hint="Is Eddy growing?">
+                <p className={styles.empty}>
+                  {summary ? 'Growth history did not load.' : 'Loading…'}
+                </p>
+              </Panel>
+            )}
+
+
           </div>
 
           <div className={styles.trio}>
@@ -449,7 +451,7 @@ export default function OverviewDashboard({
                     <ul className={styles.rows}>
                       {sites.sites.slice(0, 5).map((s) => (
                         <li key={s.host}>
-                          <button onClick={() => setTarget({ key: 'widgets' })}>
+                          <button onClick={() => setTarget({ key: 'widgets', name:s.host })}>
                             <span className={styles.host}>
                               {s.host}
                               {s.isNew && <em data-tone="good">New</em>}

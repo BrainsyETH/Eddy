@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/social/content/[id]/route.ts
 // PUT/DELETE for individual social custom content snippets
 
@@ -7,11 +8,11 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const { id } = await params;
@@ -44,11 +45,11 @@ export async function PUT(
   return NextResponse.json(data);
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const { id } = await params;
@@ -65,3 +66,6 @@ export async function DELETE(
 
   return NextResponse.json({ success: true });
 }
+
+export const PUT = withAdminMutation(handlePUT);
+export const DELETE = withAdminMutation(handleDELETE);

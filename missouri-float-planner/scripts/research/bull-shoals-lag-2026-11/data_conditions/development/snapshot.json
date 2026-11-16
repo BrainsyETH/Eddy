@@ -1,0 +1,16 @@
+{
+  "start_utc": "2025-01-01T00:00:00Z",
+  "end_exclusive_utc": "2026-11-12T18:00:00Z",
+  "fetched_at_utc": "2026-11-12T19:47:04Z",
+  "release_hours": {
+    "bull_shoals_cfs": 16338,
+    "norfork_cfs": 16338
+  },
+  "stage_samples": 64806,
+  "hourly_flow_hours": {
+    "gauge_cfs": 16318,
+    "buffalo_cfs": 16330,
+    "crooked_cfs": 16205
+  },
+  "rain_days": 681
+}

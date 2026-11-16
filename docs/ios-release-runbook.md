@@ -122,6 +122,115 @@ review are in the 1.5 report; these are the gates it adds.
       and Today; reviewer notes say River Mode is on (`floatMode: true` read
       2026-10-29) and that backup and contributions need Apple sign-in.
 
+### Tailwater dam card and dam Read gates — November 2, 2026
+
+JavaScript only (no native dependency, plugin or `app.json` change), so it can
+ship in the 1.6 binary or as an update to one on the same runtime. ADR 0017,
+decision 9, and `shared/dam-release-tab.ts` describe the rule. Check each on
+the White (Bull Shoals release, Norfork release, Norfork and Calico Rock USGS
+tabs) and on the Black.
+
+- [ ] **Bull Shoals release tab:** the card is the Favorites dam card's body
+      alone (turbine flow, Today's and Tomorrow's bars on one scale, the now
+      marker, "At the dam"), with no "Not rated" line and no age row or ⓘ
+      under it; the Eddy's take
+      card shows the dam's Read (member), or its frosted shape under one lock
+      row (non-member), with Weather and no Bottom line.
+- [ ] **Norfork release tab on the White:** Eddy's take carries Norfork Dam's
+      Read and Norfork's live release, Today and Tomorrow schedules. Switching
+      back to Bull Shoals changes both. No Bull Shoals footer on the Norfork tab.
+- [ ] **Calico Rock and Norfork USGS tabs:** the river Read and Bottom line,
+      as before, with the Bull Shoals panel closing the card.
+- [ ] **The Black:** Clearwater's rated card, river Read and the "controls
+      this reach" row are unchanged.
+- [ ] **Unsettled account** (cold open on one bar): the dam tab shows a
+      skeleton in Eddy's Read, never an offer and never the Read.
+- [ ] **Large Dynamic Type and VoiceOver:** the dam body stacks as it does on
+      Favorites, and VoiceOver reads the flow, status and both days' schedules.
+- [ ] **Favorites dam card** is unchanged (Today only) after DamGlance moved
+      out of it.
+
+### iOS flow consistency gates — November 4, 2026
+
+Implemented in JavaScript; the following physical-device checks are still open.
+
+- [ ] Leave a dam page foregrounded across a generation-window end and
+      Central midnight, then repeat after backgrounding. Schedule and Read
+      refresh; yesterday's or an earlier hour's prose does not persist. Test
+      a failed refresh, Retry and account switch. A 402 shows the Premium
+      action; 401/403 shows sign-in. Verify purchase/sign-in refreshes the Read
+      without navigating away. A token refresh failing offline stays retryable.
+- [ ] Ready to float distinguishes flood conditions, dam-controlled flow,
+      missing water data and a failed estimate. Retry recovers the request.
+- [ ] Existing offline maps retain partial, outdated, incomplete and failed
+      verification states. Check again recovers; Manage/Resume uses the
+      existing package. A new download still starts in the planner.
+- [ ] Trip options starts collapsed. Reminder defaults survive relaunch;
+      another river never inherits selected stops. Notification permission
+      remains visible when needed. Pickup contact, large text and VoiceOver
+      remain usable. On a stretch with zero mapped hazards, the collapsed summary
+      omits hazard reminders while preserving the preference for other trips.
+      Account deletion clears the defaults; inject preferences/cache deletion
+      failures and confirm history, reports and maps are still attempted, with
+      Retry cleanup offered for failures.
+- [ ] Dam Favorites announces flow/status and remaining generation windows
+      concisely, including minimum flow and unavailable hours. The full
+      schedule still exposes individual hours with VoiceOver.
+- [ ] Cold-launch in airplane mode and share an uncached float from both
+      Recap and History to exercise local rendering; then test a cached server
+      image separately. Suppress the otter load callback: after 1.5 seconds
+      export the wordmark and trip facts without the otter. Check a slow connection, cancellation,
+      retry, long names, untracked/partial floats, Messages, Files and iPad.
+      Local export uses the standard otter and no condition stamp; no exact
+      time, account, GPS positions or start note appears in image or filename.
+- [ ] River, gauge and dam interpretations use the same otter/Fredoka Read
+      heading in light/dark mode and at the largest Dynamic Type size.
+
+### Saved alert notification setup gates — November 12, 2026
+
+JavaScript only; physical-device verification remains open.
+
+- [ ] Sign out, sign in through Premium restore, then resume a saved alert
+      from Mine and from its editor. With permission undetermined, the existing
+      Eddy primer appears after the save. Declining leaves the alert saved and
+      a Turn on notifications action visible.
+- [ ] With notifications denied in iOS, resuming shows Open iOS Settings.
+      Enable there and return: registration refreshes and the notice clears
+      only when the phone is registered. Repeat with Eddy's device opt-out:
+      sign-in preserves it, and Turn on notifications explicitly clears it.
+- [ ] A failed registration offers Try again without claiming the alert failed
+      to save. Rearm a spent one-shot through Save and through the switch;
+      setup remains reachable. Pausing never opens a prompt. Check light/dark,
+      large text and VoiceOver, including the setup notice and its action.
+
+### Share payload gates — November 12, 2026
+
+Implemented in JavaScript (`eddy-ios/src/lib/sharePayload.ts`,
+`planActions.ts`); no native module changed. None of this has been run on a
+device, so each check is open. The contract is in
+`missouri-float-planner/docs/SHARING_PREVIEWS.md`, "Share text".
+
+- [ ] **Link shares send the link once.** From a river, a gauge, a dam, an
+      access point and a chart's Share Link, share to Messages, Mail, Notes and
+      WhatsApp, and use Copy. Each receives the link one time; Messages shows
+      the preview card; Mail has the title as its subject; Copy pastes the link
+      alone. If a target receives nothing usable from a URL-only share, record
+      which, and reconsider the payload before release.
+- [ ] **Plan shares.** From the plan sheet and from a saved float, the text is
+      the same trip line ending with one link. Sharing a saved float twice
+      sends the same link, as does sharing an unsaved plan twice. Share, then
+      Save, then Share again: one link, and it is the one kept in Favorites. A
+      plan whose time is withheld for the water shares no time and no "no
+      estimate" line.
+- [ ] **A link matches the boat in the text.** Save a route as a kayak,
+      rebuild the same route as a raft, and Share. The link opens a raft plan
+      with the estimate the message states, not the saved kayak plan.
+- [ ] **No link available.** In airplane mode, Share from the plan sheet for a
+      float that is not saved: the sheet opens with trip details only, and the
+      plan sheet shows that the link is missing. Reconnect and share again: the
+      link is included and the notice clears. A saved float still shares its
+      stored link offline.
+
 ### October 13 freshness update candidate
 
 The observation-age, Today gauge refresh, and dam-row fixes change JavaScript
@@ -472,8 +581,9 @@ are pending checks, not evidence of a device pass.
 - [ ] **Float share image rollout:** deploy `GET /api/share/float/image` before
       the app change reaches devices. Share a float from its recap and from a
       History card: Messages receives the image and the river page link;
-      cancelling the sheet is silent; offline, an older API, or a float whose
-      access point was removed reports "Image unavailable". VoiceOver reaches
+      cancelling the sheet is silent; offline uses the cached server image or a
+      basic local export. An older API or a float whose access point was
+      removed retains "Image unavailable". VoiceOver reaches
       a card's share as an action. Check an untracked float (standard otter,
       "GPS tracking unavailable") and a Flood float (Big water, "Flood stage",
       with the stamp drawn only when the gauge's readings that day bear it

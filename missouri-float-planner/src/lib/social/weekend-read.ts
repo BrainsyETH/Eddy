@@ -5,6 +5,8 @@ import { formatWeatherChip, weatherChip, type WeatherSummary } from '@/lib/weath
 import { riverDisplayLong } from './river-display';
 import { weekendWeather } from './weekend-weather';
 import { getLocalDateKey, getLocalDay, getLocalMinutes } from './local-time';
+import type { ReadScene } from '@shared/eddy-read-reel';
+import { coverPhotosFor } from './cover-plan';
 
 export const WEEKEND_READ_TIME = '17:00';
 
@@ -88,6 +90,33 @@ export function weekendReadText(rows: WeekendReadSource[], now = new Date(), zon
       `Latest Read: ${weekendReadSummary(row)}\n` +
       (wx ? `Weekend weather: ${wx}.` : 'Weekend weather unavailable.');
   }).join('\n\n');
+}
+
+/** Spoken copy keeps the complete saved summary, while display labels and
+ * temperature shorthand stay out of the voice track. No model rewrites facts. */
+export function weekendReadScenes(rows: WeekendReadSource[], now = new Date(), zone = 'America/Chicago'): ReadScene[] {
+  return rows.map(row => {
+    const riverName = riverDisplayLong(row.river_slug);
+    const wx = weatherChip(weekendWeather(row.weather, now, zone));
+    const temperatures = wx ? [
+      Number.isFinite(wx.highF) && wx.highF !== null ? `highs up to ${wx.highF} degrees` : '',
+      Number.isFinite(wx.lowF) && wx.lowF !== null ? `lows down to ${wx.lowF} degrees` : '',
+    ].filter(Boolean).join(' and ') : '';
+    const forecast = wx ? [wx.condition?.toLowerCase(), temperatures,
+      Number.isFinite(wx.precipChance) ? `rain chances up to ${wx.precipChance} percent` : '',
+    ].filter(Boolean).join(', ') : '';
+    const summary = weekendReadSummary(row) ?? '';
+    const photo = coverPhotosFor(row.river_slug)[0];
+    return {
+      riverName,
+      conditionCode: row.condition_code,
+      text: `${riverName}: ${conditionChip(row.condition_code).label.toLowerCase()} conditions right now. ` +
+        `${summary}${/[.!?]$/.test(summary) ? '' : '.'} ` +
+        (forecast ? `For the weekend, the forecast calls for ${forecast}.` : 'The weekend forecast is unavailable.'),
+      dateLabel: `Read ${reportStamp(new Date(row.generated_at))} · Gauge ${reportStamp(new Date(row.reading_timestamp!))}`,
+      ...(photo ? { photo: { url: photo.url, title: photo.title, author: photo.author } } : {}),
+    };
+  });
 }
 
 export function weekendReadCaption(rows: WeekendReadSource[], now = new Date(), zone = 'America/Chicago') {

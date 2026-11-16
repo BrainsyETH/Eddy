@@ -1,3 +1,4 @@
+import SectionTitle from './SectionTitle';
 // src/components/blog/DirectoryCards.tsx
 // Inline directory of every active outfitter / campground / cabin that
 // operates on a river, rendered directly on the guide page — no off-page
@@ -355,7 +356,13 @@ export default async function DirectoryCards({ riverSlug }: Props) {
       });
   }
 
-  return <DirectoryView items={[...serviceItems, ...npsItems]} />;
+  const items = [...serviceItems, ...npsItems];
+  if (!items.length) return null;
+  return <>
+    <SectionTitle id="outfitters" eyebrow="Directory">Outfitters, campgrounds &amp; lodging</SectionTitle>
+    <p className="mb-4 text-sm leading-relaxed text-neutral-600">Places listed for this river. Confirm availability, fees and shuttle arrangements with the operator.</p>
+    <DirectoryView items={items} />
+  </>;
 }
 
 /** The directory's markup, given its listings: grouped by category, sorted by

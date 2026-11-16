@@ -8,7 +8,7 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const { searchParams } = new URL(request.url);

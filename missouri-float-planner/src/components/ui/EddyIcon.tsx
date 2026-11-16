@@ -32,6 +32,7 @@ const ICONS = {
   today: { file: 'eddy-today', size: 18, alt: 'Today' },
   gauge: { file: 'eddy-water-droplet', size: 18, alt: 'Gauge' },
   release: { file: 'eddy-release', size: 32, alt: 'Release' },
+  dam: { file: 'eddy-dam', size: 28, alt: 'Dam' },
   waterTemperature: { file: 'eddy-water-temperature', size: 32, alt: 'Water temperature' },
   // The dam card's stats, matching eddy-ios DamStateCard. `damGauge` is the
   // staff-gauge mark the app uses for river and lake levels; it is not `gauge`
@@ -57,6 +58,14 @@ const ICONS = {
   // EddySymbol: the day Eddy gets a spring drawing, this line changes alone.
   spring: { file: 'eddy-water-droplet', size: 18, alt: 'Springs' },
   ai: { file: 'eddy-ai-assistant', size: 18, alt: 'Eddy' },
+
+  // Find a float's filter rows (find-float/FloatFilters.tsx). Mascot-free
+  // marks drawn by GENERATED_SYMBOLS in eddy-ios/scripts/build-eddy-icons.py;
+  // web-only until the app's Filters sheet draws marks. The two "no" marks
+  // share one slash so they read as a pair.
+  noFees: { file: 'eddy-no-fees', size: 20, alt: 'No fees' },
+  beginner: { file: 'eddy-beginner', size: 20, alt: 'Beginner friendly' },
+  noPortages: { file: 'eddy-no-portages', size: 20, alt: 'No portages' },
 
   // The access-point section marks. These three were already on that page, as
   // hardcoded Vercel blob URLs in DETAIL_ICONS — art with no copy in this

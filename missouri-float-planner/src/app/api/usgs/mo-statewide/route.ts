@@ -9,6 +9,7 @@ import {
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
 import { NwsProvider } from '@/lib/flow-providers/nws';
 import type { GaugeReading } from '@/lib/flow-providers/types';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,8 +48,13 @@ export interface MoStatewideResponse {
   readingsAvailable: boolean;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Reaches USGS on a CDN miss, and any query string is a miss. Per-IP, and
+    // fail-open like the other public read routes (see lib/rate-limit.ts).
+    const limited = await rateLimit(`usgs-statewide:${getClientIp(request)}`, 30, 60_000);
+    if (limited) return limited;
+
     const dataset = await fetchMODataset();
 
     // Build a per-site → river+threshold map.

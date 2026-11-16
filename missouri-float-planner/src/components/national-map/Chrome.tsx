@@ -1,0 +1,823 @@
+'use client';
+
+// The national map's interface pieces. All of them are absent in Map only;
+// the fullscreen tray is the only thing that can appear there, and only after
+// a deliberate tap, click or key.
+
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { ChevronDown, ChevronUp, Map as MapIcon, Maximize, Minus, Pause, Play, Plus, Search, Settings, Type, X } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import Segmented from '@/components/ui/Segmented';
+import InfoTip, { type InfoTipColors } from '@/components/ui/InfoTip';
+import { EddyIcon } from '@/components/ui/EddyIcon';
+import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, type FlowSummary, type MapView, type MarkStyle, type Site } from '@/lib/national-map/marks';
+import type { Appearance, FlowColors, WallText } from '@/lib/national-map/prefs';
+import { search, type SearchIndex, type SearchResult } from '@/lib/national-map/search';
+import type { MapPalette } from '@/lib/national-map/theme';
+import { placeOptions, type Place } from '@/lib/national-map/places';
+import { ChangeLegend, FloodLegend, FlowLegend, formatAge, formatTime, MarkSymbol } from './Legend';
+import { thresholdNote, WINDOW_MIN_SHARE, WINDOW_MS, type ChangeSummary, type ChangeWindow } from '@/lib/national-map/change';
+import styles from './national-map.module.css';
+
+const nf = new Intl.NumberFormat('en-US');
+
+const WALL_TEXT_OPTIONS = [
+  { value: 'legend' as const, label: 'Legend' },
+  { value: 'story' as const, label: 'Story' },
+  { value: 'none' as const, label: 'Map only' },
+];
+
+export const VIEW_OPTIONS = [
+  { value: 'flow' as const, label: 'Flow' },
+  { value: 'flooding' as const, label: 'Flooding' },
+  { value: 'change' as const, label: 'Change' },
+];
+
+export const VIEW_QUESTION: Record<MapView, string> = {
+  flow: 'Where are rivers running higher or lower than usual for this time of year?',
+  flooding: 'Where have observations reached official NWS flood stages?',
+  change: 'Where have rivers risen or fallen recently, and where has flooding begun or ended?',
+};
+
+// ── Change panel (Explore) ──────────────────────────────────────────────────
+
+const WINDOW_LABEL: Record<ChangeWindow, string> = { '6h': 'Last 6 h', '24h': 'Last 24 h' };
+
+/**
+ * The Change view's legend block: which window is compared (only windows the
+ * recorded history supports are offered), the marks with counts, and the
+ * method — flow thresholds are provisional until calibrated. Before history
+ * reaches any window it says when comparisons begin instead of drawing.
+ */
+export function ChangePanel({
+  windows,
+  window,
+  onWindow,
+  summary,
+  palette,
+  oldest,
+  infoColors,
+}: {
+  windows: ChangeWindow[];
+  window: ChangeWindow | null;
+  onWindow: (w: ChangeWindow) => void;
+  summary: ChangeSummary | null;
+  palette: MapPalette;
+  /** Oldest recorded frame (epoch ms), when known. */
+  oldest: number | null;
+  infoColors: InfoTipColors;
+}) {
+  if (!window) {
+    const opens = oldest !== null ? oldest + WINDOW_MS['6h'] * WINDOW_MIN_SHARE : null;
+    return (
+      <p className="text-sm leading-snug">
+        Change compares each gauge with a recorded snapshot from the start of the window.{' '}
+        {opens !== null
+          ? `Recording began ${formatTime(oldest)}; 6-hour comparisons start about ${formatTime(opens)}, 24-hour comparisons a day after recording began.`
+          : 'Snapshot history is not available yet.'}
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {windows.length > 1 && (
+        <Segmented
+          options={windows.map((w) => ({ value: w, label: WINDOW_LABEL[w] }))}
+          value={window}
+          onChange={onWindow}
+          size="sm"
+          stretch
+          aria-label="Compare over"
+        />
+      )}
+      <ChangeLegend palette={palette} summary={summary} windowLabel={WINDOW_LABEL[window]} />
+      {summary && (
+        <p className={`flex items-start gap-1 text-xs ${styles.muted}`}>
+          <span>
+            {nf.format(summary.compared)} gauges compared over the {WINDOW_LABEL[window].toLowerCase()}. Not whether a river is safe or good to float.
+          </span>
+          <InfoTip
+            title="How change is measured"
+            body={`Each gauge now against the recorded snapshot ${window === '24h' ? '24' : '6'} hours ago. Flood crossings are NWS's own categories in both, coloured by the highest category involved. ${thresholdNote(window)} A reading flagged by USGS, an earlier reading that was not current, or a jump too large to trust is never shown as a change.`}
+            ariaLabel="How change is measured"
+            colors={infoColors}
+            quiet
+          />
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Freshness line ──────────────────────────────────────────────────────────
+
+export function FreshnessLine({
+  capturedAt,
+  lastSuccessAt,
+  lastError,
+  catalogError,
+  now,
+}: {
+  capturedAt: number | null;
+  lastSuccessAt: number | null;
+  lastError: string | null;
+  catalogError: string | null;
+  now: number;
+}) {
+  const old = capturedAt !== null && now - capturedAt > 2 * 3_600_000;
+  // One always-present status region, so assistive tech hears problems as
+  // they appear — but not the age ticking every minute.
+  const alert = catalogError
+    ? 'The station list could not load; retrying. Only NWS forecast points are shown.'
+    : capturedAt === null && lastError
+      ? 'Live readings could not load yet. Retrying.'
+      : old
+        ? 'The snapshot is older than expected.'
+        : lastError && lastSuccessAt !== null
+          ? 'Refresh failed; retrying.'
+          : '';
+  return (
+    <>
+      <p className="sr-only" role="status">
+        {alert}
+      </p>
+      {capturedAt === null ? (
+        <p className={`text-xs ${styles.muted}`}>{lastError ? 'Live readings could not load yet. Retrying…' : 'Loading live readings…'}</p>
+      ) : (
+        <p className={`text-xs ${styles.muted}`}>
+          Snapshot {formatTime(capturedAt)} ({formatAge(capturedAt, now)})
+          {old && ' — older than expected; marks age as their readings do.'}
+          {lastError && lastSuccessAt !== null && ' Refresh failed; retrying.'}
+        </p>
+      )}
+      {catalogError && (
+        <p className="text-xs font-semibold">Station list unavailable — retrying. Showing NWS forecast points only.</p>
+      )}
+    </>
+  );
+}
+
+// ── Explore panel ───────────────────────────────────────────────────────────
+
+export function ExplorePanel({
+  view,
+  onView,
+  palette,
+  flow,
+  flood,
+  noaaOk,
+  freshness,
+  searchBox,
+  compact,
+  short,
+  measureRef,
+  panelRef,
+  notable,
+  clock,
+  onPickSite,
+  infoColors,
+  changePanel,
+  floodTrend,
+  regionSelect,
+  ratedLegend,
+}: {
+  view: MapView;
+  onView: (v: MapView) => void;
+  palette: MapPalette;
+  flow: FlowSummary | null;
+  flood: FloodSummary | null;
+  noaaOk: boolean;
+  freshness: ReactNode;
+  searchBox: ReactNode;
+  compact: boolean;
+  /** A short viewport (landscape phone): start with the legend closed. */
+  short: boolean;
+  /** Wraps the always-visible rows, so the map can fit below them on phones. */
+  measureRef?: React.Ref<HTMLDivElement>;
+  panelRef?: React.Ref<HTMLDivElement>;
+  /** The list under the legend; `style` overrides the view's own mark (Change). */
+  notable: Array<{ index: number; site: Site; style?: MarkStyle | null; detail?: string }>;
+  clock: number;
+  onPickSite: (index: number) => void;
+  infoColors: InfoTipColors;
+  /** The Change view's legend block (window choice, marks, method), built by the parent. */
+  changePanel?: ReactNode;
+  /** The Flooding view's 24 h national trend, built by the parent. */
+  floodTrend?: ReactNode;
+  /** The place picker (whole country, a state, a water-resources region). */
+  regionSelect?: ReactNode;
+  /** Eddy's rated-river conditions (state view, Flow), built by the parent. */
+  ratedLegend?: ReactNode;
+}) {
+  const [legendOpen, setLegendOpen] = useState(!compact && !short);
+  useEffect(() => setLegendOpen(!compact && !short), [compact, short]);
+  const legendId = useId();
+  return (
+    <div
+      ref={panelRef}
+      className={`${styles.panel} pointer-events-auto relative w-full overflow-y-auto p-3 md:w-[20rem] md:p-4 ${
+        compact ? 'max-h-[calc(100dvh-7rem)]' : 'max-h-full'
+      }`}
+    >
+      <div ref={measureRef} className="space-y-3">
+        {compact ? (
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="font-display text-lg font-semibold leading-tight">Live River Map</h1>
+            <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} aria-label="Map view" />
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <EddyIcon name="river" size={26} className="shrink-0" />
+              <h1 className="font-display text-xl font-semibold leading-tight">Live River Map</h1>
+            </div>
+            <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} size="md" stretch aria-label="Map view" />
+            <p className="text-sm leading-snug">{VIEW_QUESTION[view]}</p>
+          </>
+        )}
+        {regionSelect}
+        {searchBox}
+        {compact && freshness}
+      </div>
+      <div className={compact ? '' : 'mt-3'}>
+        <button
+          type="button"
+          className="flex min-h-11 w-full items-center justify-between text-left text-sm font-semibold"
+          aria-expanded={legendOpen}
+          aria-controls={legendId}
+          onClick={() => setLegendOpen((v) => !v)}
+        >
+          What the marks mean
+          {legendOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+        </button>
+        <div id={legendId} hidden={!legendOpen} className="space-y-2">
+          {compact && <p className="text-sm leading-snug">{VIEW_QUESTION[view]}</p>}
+          {view === 'change' ? (
+            changePanel
+          ) : view === 'flow' ? (
+            <>
+              <FlowLegend palette={palette} summary={flow} />
+              {ratedLegend}
+              {flow && (
+                <p className={`flex items-start gap-1 text-xs ${styles.muted}`}>
+                  <span>
+                    {flow.live === 0
+                      ? 'No gauges are reporting current readings.'
+                      : `${nf.format(flow.compared)} of ${nf.format(flow.live)} current gauges have a seasonal comparison.`}{' '}
+                    Streamflow only — not whether a river is safe or good to float.
+                  </span>
+                  <InfoTip
+                    title="About these comparisons"
+                    body={`Each gauge is compared with its own record for this time of year. Gauges without enough history have no comparison. ${nf.format(flow.dormant)} stations silent for 30+ days are kept in search and appear when you zoom in.`}
+                    ariaLabel="About flow comparisons"
+                    colors={infoColors}
+                    quiet
+                  />
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <FloodLegend palette={palette} summary={flood} noaaOk={noaaOk} />
+              {flood && noaaOk && (
+                <p className={`flex items-start gap-1 text-xs ${styles.muted}`}>
+                  <span>
+                    {nf.format(flood.major + flood.moderate + flood.minor)} of {nf.format(flood.assessed)} NWS forecast points with a current
+                    reading and a defined flood stage are flooding.
+                  </span>
+                  <InfoTip
+                    title="About flood marks"
+                    body="Categories are the National Weather Service's own. Action stage is not flooding, and a gauge with no defined threshold is not reported as dry. Marks locate gauges; they do not show the area flooded."
+                    ariaLabel="About flood marks"
+                    colors={infoColors}
+                    quiet
+                  />
+                </p>
+              )}
+              {floodTrend}
+            </>
+          )}
+          {notable.length > 0 && (
+            <div className="pt-1">
+              <p className="text-xs font-semibold">{view === 'flooding' ? 'Flooding now' : view === 'change' ? 'Biggest changes' : 'Most unusual now'}</p>
+              <ul className="mt-1 space-y-0.5">
+                {notable.map(({ index, site, style: given, detail }) => {
+                  const style =
+                    given !== undefined
+                      ? given
+                      : view === 'flooding'
+                        ? floodStyle(classifyFlood(site, clock, noaaOk))
+                        : flowStyle(classifyFlow(site, clock));
+                  return (
+                    <li key={site.key}>
+                      <button
+                        type="button"
+                        className={`flex min-h-11 w-full items-center gap-2 text-left text-sm underline-offset-2 hover:underline ${styles.breakAnywhere}`}
+                        onClick={() => onPickSite(index)}
+                      >
+                        {style && <MarkSymbol style={style} palette={palette} />}
+                        <span className="min-w-0 flex-1">
+                          {site.name}
+                          {detail && <span className={`block text-xs ${styles.muted}`}>{detail}</span>}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className={`${styles.hairline} mt-2 space-y-1 pt-2`} hidden={compact && !legendOpen}>
+        {!compact && freshness}
+        <p className={`text-xs ${styles.muted}`}>
+          Data: USGS Water Data · NOAA/NWS. <Link href="/river-map/ozarks" className="font-semibold underline">Ozarks float conditions →</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Search ──────────────────────────────────────────────────────────────────
+
+export function SearchBox({
+  index,
+  unavailable,
+  onPick,
+}: {
+  index: SearchIndex | null;
+  unavailable: boolean;
+  onPick: (r: SearchResult) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [active, setActive] = useState(0);
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const results = useMemo(() => (index && q.trim() ? search(index, q) : []), [index, q]);
+  const showList = open && results.length > 0;
+  const pick = (r: SearchResult) => {
+    onPick(r);
+    setOpen(false);
+    setQ(r.label);
+  };
+  const status = !q.trim() || !index ? '' : results.length ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'No matches';
+  return (
+    <div className="relative">
+      <label className="sr-only" htmlFor={`${listId}-input`}>
+        Search rivers, places, states or USGS station IDs
+      </label>
+      <div className={`${styles.searchField} flex items-center gap-2 rounded-md px-2`}>
+        <Search size={16} aria-hidden className={styles.muted} />
+        <input
+          id={`${listId}-input`}
+          type="search"
+          role="combobox"
+          enterKeyHint="search"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={showList && results[active] ? `${listId}-${active}` : undefined}
+          placeholder={index ? 'River, place, state or station ID' : unavailable ? 'Station search unavailable — retrying' : 'Loading stations…'}
+          disabled={!index}
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setActive(0);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setActive((a) => Math.min(results.length - 1, a + 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setActive((a) => Math.max(0, a - 1));
+            } else if (e.key === 'Enter' && results[active]) {
+              e.preventDefault();
+              pick(results[active]);
+            } else if (e.key === 'Escape' && showList) {
+              // Only an open list consumes Escape; otherwise it closes details.
+              e.stopPropagation();
+              setOpen(false);
+            }
+          }}
+          className={`${styles.searchInput} min-h-11 w-full bg-transparent`}
+        />
+      </div>
+      <p className="sr-only" role="status">
+        {status}
+      </p>
+      {showList && (
+        <ul id={listId} role="listbox" aria-label="Search results" className={`${styles.panel} absolute inset-x-0 top-full z-30 mt-1 max-h-72 overflow-y-auto py-1`}>
+          {results.map((r, i) => (
+            <li
+              key={`${r.kind}-${r.label}-${i}`}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === active}
+              className={`cursor-pointer px-3 py-2 text-sm ${styles.breakAnywhere}`}
+              style={{ background: i === active ? 'var(--color-surface-hover)' : undefined }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(r);
+              }}
+              onMouseEnter={() => setActive(i)}
+            >
+              <span className="font-semibold">{r.label}</span>
+              <span className={`block text-xs ${styles.muted}`}>{r.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ── Map controls (Explore) ──────────────────────────────────────────────────
+
+export function MapControls({
+  onZoomIn,
+  onZoomOut,
+  onReset,
+  onFullscreen,
+  appearance,
+  onAppearance,
+  motion,
+  onMotion,
+  reducedMotion,
+  wallText,
+  onWallText,
+  flowColors,
+  onFlowColors,
+  riverNames = true,
+  onRiverNames,
+  horizontal = false,
+  resetLabel = 'Show the whole country',
+  fullscreenRef,
+}: {
+  horizontal?: boolean;
+  /** The reset button's name: the whole country, or all of the place on show. */
+  resetLabel?: string;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+  onFullscreen: () => void;
+  appearance: Appearance;
+  onAppearance: (a: Appearance) => void;
+  motion: boolean;
+  onMotion: (m: boolean) => void;
+  reducedMotion: boolean;
+  wallText: WallText;
+  onWallText: (t: WallText) => void;
+  flowColors: FlowColors;
+  /** Subtle river names at regional scale (rated rivers first). */
+  riverNames?: boolean;
+  onRiverNames?: (on: boolean) => void;
+  onFlowColors: (c: FlowColors) => void;
+  fullscreenRef?: React.Ref<HTMLButtonElement>;
+}) {
+  const [settings, setSettings] = useState(false);
+  const panelId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const close = () => {
+    setSettings(false);
+    trigger.current?.focus();
+  };
+  // The settings trigger is the LAST button and its panel follows it in the
+  // DOM, so Tab moves straight from the trigger into the panel;
+  // flex-col-reverse keeps the panel drawn above the buttons.
+  return (
+    <div className="pointer-events-auto flex flex-col-reverse items-end gap-2">
+      <div className={horizontal ? 'flex gap-1.5' : 'flex flex-col gap-1.5'}>
+        <Button variant="icon" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn}>
+          <Plus size={18} aria-hidden />
+        </Button>
+        <Button variant="icon" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
+          <Minus size={18} aria-hidden />
+        </Button>
+        <Button variant="icon" aria-label={resetLabel} title={resetLabel} onClick={onReset}>
+          <MapIcon size={18} aria-hidden />
+        </Button>
+        <Button ref={fullscreenRef} variant="icon" aria-label="Fullscreen map" title="Fullscreen map" onClick={onFullscreen}>
+          <Maximize size={18} aria-hidden />
+        </Button>
+        <Button
+          ref={trigger}
+          variant="icon"
+          aria-label="Map settings"
+          title="Map settings"
+          aria-expanded={settings}
+          aria-controls={panelId}
+          onClick={() => setSettings((v) => !v)}
+        >
+          <Settings size={18} aria-hidden />
+        </Button>
+      </div>
+      {settings && (
+        <div
+          id={panelId}
+          className={`${styles.panel} w-64 space-y-3 p-3`}
+          role="group"
+          aria-label="Map settings"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              close();
+            }
+          }}
+        >
+          <div className="space-y-1">
+            <p className="text-xs font-semibold">Appearance</p>
+            <Segmented
+              options={[
+                { value: 'system' as const, label: 'System' },
+                { value: 'light' as const, label: 'Light' },
+                { value: 'dark' as const, label: 'Dark' },
+              ]}
+              value={appearance}
+              onChange={onAppearance}
+              stretch
+              aria-label="Appearance"
+            />
+          </div>
+          <label className="flex min-h-11 items-center justify-between gap-2 text-sm">
+            <span>
+              Motion
+              {reducedMotion && <span className={`block text-xs ${styles.muted}`}>Reduced by your system setting</span>}
+            </span>
+            <input type="checkbox" checked={motion && !reducedMotion} disabled={reducedMotion} onChange={(e) => onMotion(e.target.checked)} className="h-5 w-5" />
+          </label>
+          {onRiverNames && (
+            <label className="flex min-h-11 items-center justify-between gap-2 text-sm">
+              <span>
+                River names
+                <span className={`block text-xs ${styles.muted}`}>When zoomed to a region or a state</span>
+              </span>
+              <input type="checkbox" checked={riverNames} onChange={(e) => onRiverNames(e.target.checked)} className="h-5 w-5" />
+            </label>
+          )}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold">Fullscreen shows</p>
+            <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} stretch aria-label="Fullscreen shows" />
+            <p className={`text-xs ${styles.muted}`}>
+              Legend: a key to the marks. Story: the key and one featured event. Map only: no text at all.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold">Flow colours</p>
+            <Segmented
+              options={[
+                { value: 'eddy' as const, label: 'Eddy' },
+                { value: 'vivid' as const, label: 'Vivid' },
+              ]}
+              value={flowColors}
+              onChange={onFlowColors}
+              stretch
+              aria-label="Flow colours"
+            />
+            <p className={`text-xs ${styles.muted}`}>Vivid is a prototype for wall displays: copper for low, teal for normal, saturated cyan for high.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Fullscreen tray ─────────────────────────────────────────────────────────
+
+export function FullscreenTray({
+  open,
+  view,
+  onView,
+  wallText,
+  onWallText,
+  motion,
+  onMotion,
+  reducedMotion,
+  onExit,
+  onActivity,
+  trayRef,
+  narrow,
+  status,
+  regionSelect,
+  riverNames,
+  onRiverNames,
+}: {
+  open: boolean;
+  view: MapView;
+  onView: (v: MapView) => void;
+  wallText: WallText;
+  onWallText: (t: WallText) => void;
+  motion: boolean;
+  onMotion: (m: boolean) => void;
+  reducedMotion: boolean;
+  onExit: () => void;
+  /** Any use of the tray keeps it open. Pointer drift over the map does not. */
+  onActivity: () => void;
+  trayRef: React.RefObject<HTMLDivElement | null>;
+  /** Phone width: icon-only Details so the row never wraps. */
+  narrow: boolean;
+  /** Why the selected view is not live, or null. Shown only once the tray is open. */
+  status: string | null;
+  /** The place picker, on its own row. */
+  regionSelect?: ReactNode;
+  /** River names on a scoped wall: shown only when there are names to toggle. */
+  riverNames?: boolean;
+  onRiverNames?: (on: boolean) => void;
+}) {
+  const reducedId = useId();
+  const paused = !motion || reducedMotion;
+  return (
+    <div
+      ref={trayRef}
+      className={`${styles.panel} ${styles.tray} ${open ? '' : styles.trayHidden} pointer-events-auto flex max-w-full flex-col gap-1.5 p-2`}
+      role="group"
+      aria-label="Fullscreen controls"
+      aria-hidden={!open}
+      inert={!open}
+      onPointerMove={onActivity}
+      onPointerDown={onActivity}
+      onKeyDown={onActivity}
+      onFocus={onActivity}
+    >
+      {status && (
+        <p className="px-1 text-sm font-semibold" role="status">
+          {status}
+        </p>
+      )}
+      {regionSelect}
+      <div className="flex flex-nowrap items-center gap-2">
+      <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} size={narrow ? 'sm' : 'md'} aria-label="Map view" />
+      <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} size={narrow ? 'sm' : 'md'} aria-label="Fullscreen shows" />
+      <Button
+        variant="icon"
+        aria-label="Pause motion"
+        title={reducedMotion ? 'Motion is reduced by your system setting' : 'Pause motion'}
+        aria-pressed={paused}
+        aria-disabled={reducedMotion || undefined}
+        aria-describedby={reducedMotion ? reducedId : undefined}
+        onClick={() => {
+          if (!reducedMotion) onMotion(!motion);
+        }}
+      >
+        {paused ? <Play size={18} aria-hidden /> : <Pause size={18} aria-hidden />}
+      </Button>
+      {reducedMotion && (
+        <span id={reducedId} className="sr-only">
+          Motion is reduced by your system setting.
+        </span>
+      )}
+      {onRiverNames && (
+        <Button
+          variant="icon"
+          aria-label="River names"
+          title={riverNames ? 'Hide river names' : 'Show river names'}
+          aria-pressed={!!riverNames}
+          onClick={() => onRiverNames(!riverNames)}
+        >
+          <Type size={18} aria-hidden />
+        </Button>
+      )}
+      <Button variant="icon" aria-label="Exit fullscreen" title="Exit fullscreen" onClick={onExit}>
+        <X size={18} aria-hidden />
+      </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Display with details ────────────────────────────────────────────────────
+
+// ── Overlap chooser and hover tip ───────────────────────────────────────────
+
+const CHOOSER_W = 256;
+const CHOOSER_H = 320;
+
+export function Chooser({
+  sites,
+  x,
+  y,
+  bounds,
+  onPick,
+  onClose,
+  onZoomIn,
+}: {
+  sites: Array<{ index: number; site: Site }>;
+  x: number;
+  y: number;
+  /** The map root's size, so the chooser stays inside it. */
+  bounds: { width: number; height: number };
+  onPick: (index: number) => void;
+  onClose: () => void;
+  onZoomIn: () => void;
+}) {
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => first.current?.focus({ preventScroll: true }), []);
+  const left = Math.max(8, Math.min(bounds.width - CHOOSER_W - 8, x - CHOOSER_W / 2));
+  // Below the point when it fits, otherwise above it.
+  const below = y + 14 + CHOOSER_H <= bounds.height - 8;
+  const top = below ? y + 14 : Math.max(8, y - 14 - CHOOSER_H);
+  return (
+    <div
+      className={`${styles.panel} pointer-events-auto absolute z-30 flex flex-col p-1`}
+      style={{ left, top, width: CHOOSER_W, maxHeight: CHOOSER_H }}
+      role="dialog"
+      aria-label={`Choose a gauge — ${sites.length} here`}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+    >
+      <div className="flex items-center justify-between gap-2 px-2 py-1">
+        <p className={`text-xs ${styles.muted}`}>{nf.format(sites.length)} gauges here</p>
+        {sites.length > 8 && (
+          <button type="button" className="min-h-11 text-xs font-semibold underline" onClick={onZoomIn}>
+            Zoom in here
+          </button>
+        )}
+      </div>
+      <ul className="min-h-0 flex-1 overflow-y-auto">
+        {sites.map(({ index, site }, i) => (
+          <li key={site.key}>
+            <button
+              ref={i === 0 ? first : undefined}
+              type="button"
+              className={`min-h-11 w-full rounded px-2 py-1.5 text-left text-sm hover:underline ${styles.breakAnywhere}`}
+              onClick={() => onPick(index)}
+            >
+              <span className="font-semibold">{site.name}</span>
+              <span className={`block text-xs ${styles.muted}`}>{site.kind === 'usgs' ? `USGS ${site.siteId}` : `NWS ${site.lid}`}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const TIP_W = 260;
+
+export function HoverTip({ site, x, y, text, boundsWidth }: { site: Site; x: number; y: number; text: string; boundsWidth: number }) {
+  // Flip to the left of the pointer near the right edge instead of squashing.
+  const flip = x + 14 + TIP_W > boundsWidth - 8;
+  return (
+    <div
+      className={`${styles.panel} pointer-events-none absolute z-20 px-2 py-1.5`}
+      style={{ left: flip ? undefined : x + 14, right: flip ? boundsWidth - x + 14 : undefined, top: y + 14, maxWidth: TIP_W }}
+    >
+      <p className={`text-xs font-bold leading-snug ${styles.breakAnywhere}`}>{site.name}</p>
+      <p className="text-xs">{text}</p>
+    </div>
+  );
+}
+
+// ── Place picker ────────────────────────────────────────────────────────────
+
+const PLACES = placeOptions();
+
+/**
+ * Whole country, a state, or a USGS water-resources region. A native select:
+ * one keyboard stop, the platform's own list on phones, and screen readers
+ * announce the groups.
+ */
+export function RegionSelect({ place, onPlace, compact = false }: { place: Place | null; onPlace: (key: string | null) => void; compact?: boolean }) {
+  const id = useId();
+  return (
+    <div className={compact ? 'flex items-center gap-2 px-1' : 'flex flex-col gap-1'}>
+      <label htmlFor={id} className={compact ? 'text-sm font-semibold' : 'text-xs font-semibold'}>
+        {compact ? 'Showing' : 'Area'}
+      </label>
+      <select
+        id={id}
+        value={place?.key ?? ''}
+        onChange={(e) => onPlace(e.target.value || null)}
+        className={`${styles.regionSelect} min-h-11 w-full`}
+      >
+        <option value="">Whole country</option>
+        <optgroup label="States">
+          {PLACES.states.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.name}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Water-resources regions (USGS)">
+          {PLACES.basins.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.name}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+    </div>
+  );
+}

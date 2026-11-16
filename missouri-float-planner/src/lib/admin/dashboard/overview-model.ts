@@ -23,6 +23,11 @@ export interface TimelineJob {
   lastAt: string | null;
   lastStatus: string | null;
   runs: TimelineRun[];
+  /**
+   * What a study or collection is doing, when the job's last result cannot say
+   * (a job reports "skipped" whether it is switched off, paused or just idle).
+   */
+  collection?: import('@/lib/arrival-trial/status').TrialCollection;
 }
 export interface ServiceInfo {
   id: string;
@@ -91,8 +96,14 @@ export function friendlyJob(id: string): string {
   const labels: Record<string, string> = {
     'update-gauges': 'Refresh river gauges',
     'sync-gauge-latest': 'Refresh gauge observations',
+    'record-river-map-frame': 'Record national map frames',
     'sync-dam-history': 'Record dam history',
     'sync-dam-snapshots': 'Refresh dam conditions',
+    'publish-scheduled-blogs': 'Publish scheduled blog posts',
+    'sync-lake-levels': 'Record lake levels',
+    'collect-rainfall': 'Save rainfall history',
+    'collect-rainfall-forecasts': 'Save rain forecasts',
+    'log-release-arrivals': 'Bull Shoals timing study',
     'snapshot-percentiles': 'Update flow comparisons',
     'evaluate-gauge-alerts': 'Check river alerts',
     'deliver-push': 'Send push alerts',

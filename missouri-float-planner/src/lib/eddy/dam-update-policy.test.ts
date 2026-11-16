@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 import { PGlite } from '@electric-sql/pglite';
 import { centralDayStart } from '@/lib/data/dam-history';
+import * as factsModule from './dam-read-facts';
 import {
   REWRITE_AFTER_HOURS,
   UNVERIFIED_MAX_AGE_HOURS,
@@ -39,27 +42,88 @@ test('a Read expires at the next Central midnight', () => {
   assert.equal(damReadExpiresAt(centralDayStart('2026-11-01') + 20 * HOUR), at(centralDayStart('2026-11-02')));
 });
 
-test('a Read is served only for today, before expiry, against the schedule posted now', () => {
-  const row = { generatedAt: at(NOW - HOUR), expiresAt: damReadExpiresAt(NOW - HOUR), scheduleHash: 'abc12345' };
-  assert.equal(servable(row, 'abc12345', NOW), true);
-  assert.equal(servable(row, 'def67890', NOW), false, 'schedule changed since it was written');
-  assert.equal(servable(row, null, NOW), false, 'the schedule it described is gone');
-  assert.equal(servable({ ...row, expiresAt: at(NOW - 1) }, 'abc12345', NOW), false);
+test('same-day history remains servable with a current snapshot even when regeneration is due', () => {
+  const row = { generatedAt: at(NOW - 7 * HOUR), expiresAt: damReadExpiresAt(NOW), scheduleHash: 'old' };
+  assert.equal(needsRewrite(row, 'new', NOW), true);
+  assert.equal(servable(row, true, NOW), true, 'a changed schedule or due refresh cannot hide history');
+  assert.equal(servable({ ...row, expiresAt: at(NOW) }, true, NOW), false);
   const yesterday = { ...row, generatedAt: at(centralDayStart('2026-10-31') - HOUR), expiresAt: at(NOW + HOUR) };
-  assert.equal(servable(yesterday, 'abc12345', NOW), false);
+  assert.equal(servable(yesterday, true, NOW), false);
+  assert.equal(servable({ ...row, generatedAt: at(NOW + 1) }, true, NOW), false);
+  assert.equal(servable({ ...row, generatedAt: 'invalid' }, true, NOW), false);
+  assert.equal(servable({ ...row, expiresAt: 'invalid' }, true, NOW), false);
 });
 
-test('without a current snapshot to compare, only a young Read is served', () => {
-  const young = { generatedAt: at(NOW - HOUR), expiresAt: at(NOW + 10 * HOUR), scheduleHash: 'abc12345' };
-  const old = { ...young, generatedAt: at(NOW - (UNVERIFIED_MAX_AGE_HOURS + 1) * HOUR) };
-  assert.equal(servable(young, undefined, NOW), true);
-  assert.equal(servable(old, undefined, NOW), false);
+test('without a snapshot, fallback expires after three hours and never crosses Central midnight', () => {
+  const row = { generatedAt: at(NOW - UNVERIFIED_MAX_AGE_HOURS * HOUR), expiresAt: at(NOW + 10 * HOUR) };
+  assert.equal(servable(row, false, NOW), true);
+  assert.equal(servable(row, false, NOW + 1), false);
+  const midnight = centralDayStart('2026-11-01');
+  assert.equal(servable({ generatedAt: at(midnight - HOUR), expiresAt: at(midnight + HOUR) }, false, midnight), false);
 });
 
 test('all of a dam Read is Premium', () => {
   const prose = { summaryText: 's', eddyRead: 'e', quoteText: 'q' };
   assert.equal(tierDamRead(false, prose), null);
   assert.deepEqual(tierDamRead(true, prose), prose);
+});
+
+test('the API serves revised schedules immediately and advances missing-snapshot fallbacks', async () => {
+  const written = centralDayStart('2026-10-31') + (11 + 47 / 60) * HOUR;
+  let now = centralDayStart('2026-10-31') + (12 + 20 / 60) * HOUR;
+  const schedule = (start: number) => [{ scheduleDate: '2026-10-31', retrievedAt: at(now),
+    hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i === start ? 50 : 0,
+      cfs: null, isRamp: false })),
+  }];
+  const facts = factsModule.buildDamReadFacts({ damId: 'swl-bull-shoals-dam', damName: 'Bull Shoals Dam',
+    floorCfs: 100, reference: null, schedule: schedule(11), observed: [], scheduleVersions: [], now: written });
+  let snapshot: { schedule: ReturnType<typeof schedule> } | null = { schedule: schedule(16) };
+  let entitled = true;
+  const data = { facts, generated_at: at(written), expires_at: damReadExpiresAt(written),
+    schedule_hash: 'the-old-schedule', sources_used: ['SWPA schedule'] };
+  const query = { select: () => query, eq: () => query, order: () => query, limit: () => query,
+    maybeSingle: async () => ({ data, error: null }) };
+  class Response {
+    constructor(readonly body: unknown) {}
+    static json(body: unknown) { return new Response(body); }
+  }
+  const dependencies: Record<string, unknown> = {
+    'next/server': { NextResponse: Response },
+    '@/lib/api-utils': { optionalAuthCacheHeaders: () => ({}) },
+    '@/lib/supabase/admin': { createAdminClient: () => ({ from: () => query }) },
+    '@/lib/entitlement': { optionalEntitlement: async () => entitled ? {} : null },
+    '@/lib/data/dam-snapshot-store': { readStoredSnapshot: async () => snapshot },
+    '@/lib/eddy/dam-read-facts': factsModule,
+    '@/lib/eddy/dam-update-policy': { servable, tierDamRead },
+  };
+  const exports: { GET?: (request: unknown, context: unknown) => Promise<Response> } = {};
+  const code = ts.transpileModule(readFileSync('src/app/api/dam-update/[damId]/route.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  runInNewContext(code, { exports, console, Date: class extends Date { static now() { return now; } },
+    require: (name: string) => { assert.ok(name in dependencies, name); return dependencies[name]; } });
+  const get = async () => JSON.parse(JSON.stringify((await exports.GET!({ headers: { get: () => 'Bearer test' } },
+    { params: Promise.resolve({ damId: 'swl-bull-shoals-dam' }) })).body));
+  const changed = await get();
+  assert.equal(changed.available, true);
+  assert.match(changed.read.takeaway.summary, /4 PM/);
+  assert.equal(changed.read.mayBeOutdated, false);
+  snapshot = { schedule: [] };
+  assert.equal((await get()).read.takeaway.headline, 'Today’s schedule isn’t posted');
+  snapshot = null;
+  const fallback = await get();
+  assert.equal(fallback.read.takeaway.headline, 'No more generation scheduled today');
+  assert.equal(fallback.read.mayBeOutdated, true);
+  assert.equal(facts.posted!.days[0].windows.length, 1, 'the stored row was not mutated');
+  entitled = false;
+  assert.equal((await get()).read, null, 'fallback does not change the Premium boundary');
+  entitled = true;
+  now = written + UNVERIFIED_MAX_AGE_HOURS * HOUR + 1;
+  assert.equal((await get()).available, false);
+  snapshot = { schedule: schedule(16) };
+  assert.equal((await get()).available, true);
+  now = centralDayStart('2026-11-01');
+  assert.equal((await get()).available, false);
 });
 
 test('dam_updates is server-only and rejects malformed rows', async () => {

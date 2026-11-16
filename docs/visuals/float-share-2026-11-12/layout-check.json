@@ -1,0 +1,14 @@
+[
+  {
+    "variant": "offline",
+    "overflow": []
+  },
+  {
+    "variant": "offline-long",
+    "overflow": []
+  },
+  {
+    "variant": "offline-untracked",
+    "overflow": []
+  }
+]

@@ -1,100 +1,65 @@
 'use client';
 
-import Link from 'next/link';
-import { Eye, Sparkles } from 'lucide-react';
-import { EddyIcon } from '@/components/ui/EddyIcon';
+import Image from 'next/image';
+import type { AppDestination } from '@/lib/app-destination';
+import ReportAppCta from './ReportAppCta';
+import { distinctReadContext, readPreview } from '@shared/read-presentation';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
+import { DamReadTeaser, useDamReadWrittenAt } from '@/components/dam/DamEddyRead';
 import { formatAgeFromTimestamp } from '@/lib/utils/reading-age';
 
 interface EddyOutlookFooterProps {
+  destination?: AppDestination;
+  /** Section reports use one public summary with the existing Premium app link. */
+  compact?: boolean;
   sections: EddyTakeSections;
   readLoading: boolean;
   /** Only a model-written read earns the attribution line; see below. */
   readIsGenerated: boolean;
   generatedAt?: string | null;
   gaugeName?: string | null;
+  /**
+   * Set on a dam's own unrated release (shared/dam-release-tab.ts): the Read
+   * slot is the dam's Read, and Bottom line is dropped. On that tab the river
+   * Read can only say no assessment is available and the bottom line only that
+   * there is not enough data, while the dam has a Read of its schedule.
+   * Weather stays: storms, wind and cold still decide a float day.
+   */
+  damRead?: { damId: string; scheduleAbove: boolean } | null;
 }
 
 export default function EddyOutlookFooter({
-  sections,
-  readLoading,
-  readIsGenerated,
-  generatedAt,
-  gaugeName,
+  destination, compact = false, sections, readLoading, readIsGenerated, generatedAt, gaugeName, damRead = null,
 }: EddyOutlookFooterProps) {
+  const damReadState = useDamReadWrittenAt(damRead?.damId ?? null);
+  const hasRead = damRead ? Boolean(damReadState.generatedAt) : readIsGenerated;
   const updatedLabel = generatedAt ? formatAgeFromTimestamp(generatedAt) : null;
-
+  const weather = distinctReadContext(sections.eddyRead, sections.watchFor);
+  const bottomLine = distinctReadContext(`${sections.eddyRead} ${weather ?? ''}`, sections.bottomLine);
   return (
-    <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
-      <div className="flex items-center justify-between gap-3 border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
-        <h3 id="eddy-outlook-heading" className="font-sans text-xs font-bold uppercase tracking-wide text-primary-800">
-          Eddy&apos;s take
-        </h3>
-      </div>
-
-      {/* The order is the app's: the read leads, Weather follows, Bottom line
-          closes as the conclusion of the two above it (eddy-ios EddyTake.tsx).
-          Eddy's read carries the full model report now, which runs to several
-          sentences — it gets the full width rather than the middle cell of a
-          three-column strip sized for one line. */}
-      <div id="eddy-take-content">
-        <article className="min-w-0 border-b-2 border-primary-100 px-4 py-4 sm:px-5">
-          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-primary-800">
-            <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddy&apos;s read</h4>
-          </div>
-          {readLoading ? (
-            <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s read…</p>
-          ) : (
-            <>
-              <p className="text-sm font-medium leading-relaxed text-neutral-700 lg:text-base">{sections.eddyRead}</p>
-              {/* Attribution belongs to model-written prose only. When the read
-                  falls back to the deterministic line there is no author and no
-                  write time to name, and stamping one on it would date a
-                  sentence that is computed fresh on every render. */}
-              {readIsGenerated && (
-                <p className="mt-2 text-[11px] text-neutral-500">
-                  {updatedLabel ? `Written ${updatedLabel}` : 'Generated report'}
-                  {gaugeName ? ` · via ${gaugeName}` : null}
-                </p>
-              )}
-            </>
+    <section id="eddy-says" className="scroll-mt-24 border-b border-secondary-200 bg-secondary-50 px-4 py-4 sm:px-5" aria-labelledby="eddy-outlook-heading" aria-describedby={hasRead ? 'eddy-read-access' : undefined}>
+      <div className="flex items-start gap-3">
+        <Image src="/icons/eddy-wave.png" alt="" width={40} height={46} className="h-11 w-auto shrink-0" />
+        <div className="min-w-0 flex-1">
+          <h3 id="eddy-outlook-heading" className="font-display text-xl font-semibold text-primary-800">Eddy&apos;s Read</h3>
+          {hasRead && <p id="eddy-read-access" className="sr-only">The full Read and weather interpretation are available in the iPhone app with Eddy Premium.</p>}
+          {damRead ? <DamReadTeaser {...damReadState} scheduleAbove={damRead.scheduleAbove} />
+            : readLoading ? <p className="mt-1 text-sm text-neutral-600">Loading Eddy’s Read…</p>
+            : compact ? <p className="mt-1 text-sm leading-relaxed text-neutral-700">{readPreview(sections.eddyRead)}</p>
+            : <p aria-hidden="true" data-nosnippet className="pointer-events-none mt-1 select-none text-sm leading-relaxed text-neutral-700 opacity-60 blur-[5px]">{readPreview(sections.eddyRead)}</p>}
+          {readIsGenerated && <p className="mt-1 text-xs text-neutral-500">{updatedLabel ? `Written ${updatedLabel}` : 'Generated report'}{gaugeName ? ` · via ${gaugeName}` : ''}</p>}
+          {!compact && (weather || (!damRead && bottomLine)) && (
+            <div className="mt-3 space-y-3" aria-hidden="true">
+              {/* Presentation only; paid prose remains server-gated. */}
+              {weather && <div className="border-t border-secondary-200 pt-3"><h4 className="text-xs font-semibold text-neutral-600">Weather</h4>
+                <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm text-neutral-700 opacity-60 blur-[5px]">{weather}</p></div>}
+              {!damRead && bottomLine && <div className="border-t border-secondary-200 pt-3"><h4 className="text-xs font-semibold text-neutral-600">Bottom line</h4>
+                <p aria-hidden="true" data-nosnippet className="pointer-events-none select-none text-sm text-neutral-700 opacity-60 blur-[5px]">{bottomLine}</p></div>}
+            </div>
           )}
-        </article>
-
-        {/* Weather and Bottom line are one or two sentences each, so they
-            still pair on a wide viewport. */}
-        <div className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-2 lg:divide-x-2 lg:divide-y-0">
-          <article className="min-w-0 px-4 py-4 sm:px-5">
-            <div className="mb-2 flex items-center gap-2 text-primary-800">
-              <Eye className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-              <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Weather</h4>
-            </div>
-            <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
-          </article>
-
-          <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
-            <div className="mb-2 flex items-center gap-2 text-accent-800">
-              {/* The AI mark, not the mascot's head. Every word in this section
-                  is model-written — the heading above says "Eddy's take" — and
-                  the catalog draws that as its own symbol. The condition otters
-                  stay where a condition is being reported. */}
-              <EddyIcon name="ai" size={20} />
-              <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Bottom line</h4>
-            </div>
-            <p className="font-display text-base font-semibold leading-relaxed text-neutral-900" aria-live="polite">{sections.bottomLine}</p>
-          </article>
         </div>
       </div>
-
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t-2 border-primary-100 bg-white px-4 py-3 sm:px-5">
-          <Link
-            href="/app"
-            className="inline-flex items-center rounded-md px-3.5 py-1.5 text-xs font-semibold text-primary-800 underline decoration-1 underline-offset-2 transition-colors hover:text-primary-600"
-          >
-            Get Eddy&apos;s full read in the app
-          </Link>
-      </div>
+      <ReportAppCta destination={destination} hasRead={hasRead} loading={damRead ? damReadState.loading : readLoading} />
     </section>
   );
 }

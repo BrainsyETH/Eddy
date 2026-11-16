@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchMoContextSites, type MoContextSite } from '@/lib/usgs/mo-sites';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,13 @@ export interface MoSitesResponse {
   capped: boolean;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Reaches USGS on a CDN miss, and any query string is a miss. Per-IP, and
+    // fail-open like the other public read routes (see lib/rate-limit.ts).
+    const limited = await rateLimit(`usgs-sites:${getClientIp(request)}`, 30, 60_000);
+    if (limited) return limited;
+
     const { sites, capped } = await fetchMoContextSites();
     const body: MoSitesResponse = {
       generatedAt: new Date().toISOString(),

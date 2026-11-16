@@ -18,6 +18,7 @@
 //      not a crash and not "trend data unavailable".
 //   5. Screenshots (desktop + mobile) for contrast/layout review.
 
+import { createAuditBrowser } from './lib/audit-browser';
 import { chromium, type Page, type Route } from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -270,9 +271,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     (existsSync(fallbackChromium) ? fallbackChromium : undefined);
   const browser = await chromium.launch({ executablePath, args: ['--disable-dev-shm-usage'] });
   try {
+    const audit = await createAuditBrowser(browser, { name: 'gauge-smoke', baseURL: baseUrl,
+      outputDir: process.env.EDDY_AUDIT_OUTPUT || path.join(OUT_DIR, 'audits') });
     if (urlArg === -1) {
       console.log('\nDesktop hydration layout:');
-      const hydratedPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+      const hydratedPage = await audit.newPage({ viewport: { width: 1440, height: 1000 } });
       await intercept(hydratedPage, { list: { gauges: [listStation()] }, detail: detail(), history: history() });
       // Permit Next's inline streaming scripts, but hold the client bundles so
       // the first measurement uses the hook's null server snapshot.
@@ -298,7 +301,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       console.log('\nShared chart restoration:');
       const state = { ...fixtureState, layers: [] as typeof fixtureState.layers, riverSlug: 'fixture' };
       for (const width of [1440, 390]) {
-        const page = await browser.newPage({ viewport: { width, height: 1000 } });
+        const page = await audit.newPage({ viewport: { width, height: 1000 } });
         await intercept(page, {
           list: { gauges: [listStation()] },
           detail: detail({ thresholds: [{ ...fixtureThresholds, riverId: '22222222-2222-2222-2222-222222222222' }], timeZone: 'America/Los_Angeles' }),
@@ -345,7 +348,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     // ── 1. Rated + trusted + NWS stages ──
     console.log('\nRated station (trusted reading, NWS stages):');
     {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1400 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 1400 } });
       await intercept(page, { list: { gauges: [listStation()] }, detail: detail(), history: history() });
       await page.goto(target, { waitUntil: 'domcontentloaded' });
       await page.getByRole('slider').first().waitFor({ timeout: 30_000 });
@@ -441,7 +444,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     }
 
     if (urlArg === -1) {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 1200 } });
       await intercept(page, { list: { gauges: [listStation()] }, detail: detail(), history: history() });
       await page.goto(`${baseUrl}/chart-layout-check?river=1`, { waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: '1Y', exact: true }).waitFor();
@@ -453,7 +456,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     // ── 2. Reference (unrated) station ──
     console.log('\nReference station (unrated — comparison, never a verdict):');
     {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 1200 } });
       await intercept(page, {
         list: { gauges: [listStation({ thresholds: null })] },
         detail: detail({
@@ -498,7 +501,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     }
 
     {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 1000 } });
       await intercept(page, { list: { gauges: [listStation()] }, detail: detail({ provider: 'nws', historyCapabilities: { maxInstantDays: 30, supportsDaily: false, supportsCustomRange: false } }), history: history() });
       await page.goto(target, { waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: '1Y', exact: true }).waitFor();
@@ -510,7 +513,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     // ── 3. Stale reading ──
     console.log('\nStale reading (value and age stay; interpretation goes):');
     {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 1200 } });
       await intercept(page, {
         list: { gauges: [listStation({ readingAgeHours: 14, readingTimestamp: iso(14 * HOUR) })] },
         detail: detail({ readingAgeHours: 14, readingTimestamp: iso(14 * HOUR) }),
@@ -534,7 +537,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         gaugeHeightFt: 8 + index * 0.5,
         dischargeCfs: null,
       }));
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
+      const page = await audit.newPage({ viewport: { width: 1440, height: 1200 } });
       await intercept(page, {
         list: { gauges: [listStation({ gaugeHeightFt: null, dischargeCfs: null, readingAgeHours: null, readingTimestamp: null })] },
         detail: detail({ gaugeHeightFt: null, dischargeCfs: null, readingAgeHours: null, readingTimestamp: null }),
@@ -564,7 +567,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     // ── 5. Mobile screenshot for layout review ──
     console.log('\nMobile layout:');
     {
-      const page = await browser.newPage({
+      const page = await audit.newPage({
         viewport: { width: 390, height: 844 },
         isMobile: true,
         hasTouch: true,

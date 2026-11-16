@@ -12,9 +12,11 @@ import { useShareImage } from '@/hooks/useShareImage';
 import { floatShareLink, floatShareTitle } from '@/lib/floatHistoryDisplay';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { useLocalFloatShare } from './LocalFloatShareImage';
 
 export function useFloatShare(trip: CompletedFloat) {
   const { busy, shareImage } = useShareImage();
+  const local = useLocalFloatShare(trip);
   const share = () => {
     const state = floatShareState(trip);
     void shareImage({
@@ -23,6 +25,9 @@ export function useFloatShare(trip: CompletedFloat) {
       // time to the millisecond, and AirDrop, Mail and Files keep file names.
       fileName: `eddy-float-${state.date}`,
       title: floatShareTitle(trip),
+      cache: true,
+      prepareTimeoutMs: 5_000,
+      fallbackImage: local.prepare,
       linkPath: (response) => floatShareLink(response.headers.get('X-Eddy-Share-Path')),
       // 422 is the one failure that is the float's places: an access point
       // removed or merged since. A 400 is a share this app built and the server
@@ -32,15 +37,15 @@ export function useFloatShare(trip: CompletedFloat) {
         status === 422 ? 'This float can’t be shared as an image. Its river or access points have changed since.' : null,
     });
   };
-  return { busy, share };
+  return { busy, share, image: local.image };
 }
 
 /** The recap's primary action: the teal CTA (ADR 0007). */
 export function FloatShareButton({ trip }: { trip: CompletedFloat }) {
   const { colors } = useTheme();
-  const { busy, share } = useFloatShare(trip);
+  const { busy, share, image } = useFloatShare(trip);
   return (
-    <Pressable
+    <><Pressable
       accessibilityRole="button"
       accessibilityLabel={busy ? 'Preparing float image' : 'Share float'}
       accessibilityState={{ disabled: busy, busy }}
@@ -52,7 +57,7 @@ export function FloatShareButton({ trip }: { trip: CompletedFloat }) {
         ? <ActivityIndicator size="small" color={colors.onAccent} />
         : <ControlIcon name="share-outline" size={20} color={colors.onAccent} />}
       <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.onAccent }]}>{busy ? 'Preparing…' : 'Share float'}</Text>
-    </Pressable>
+    </Pressable>{image}</>
   );
 }
 

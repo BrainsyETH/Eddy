@@ -42,6 +42,7 @@ import { useConditionNetwork } from '@/hooks/useStatewideConditions';
 import type { AccessPoint, ConditionCode, FeedbackContext, Hazard, RiverListItem } from '@/types/api';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import { trackEvent } from '@/lib/analytics';
+import { shareOrCopy } from '@/lib/share-link';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
 import { useRiverVisualPins, useRegionalRiverVisualPins } from '@/hooks/useRiverVisualPins';
 import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
@@ -425,7 +426,9 @@ export default function PlanPageClient({
     setSelectedPoi(null); resetOtherInspection();
     setExpandedEndpointId(null);
     setFocusPlace(null);
-    setFocusMode(source === 'map' ? 'none' : 'bounds');
+    // "All rivers" only drops the river filter. It keeps the camera: refitting
+    // to the whole service area threw away the spot the user was looking at.
+    setFocusMode(source === 'map' || !slug ? 'none' : 'bounds');
     setFocusRequest(value => value + 1);
     if (!slug) {
       setShowAllRivers(true);
@@ -599,6 +602,38 @@ export default function PlanPageClient({
       riverId: river.id, riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates, type: point.type, types: point.types }, 'map');
   }, [river, riverSlug, accessPlaceholder, handlePlaceSelect]);
 
+  // An access-page or Ozarks-map link opens the place for inspection. Do not
+  // route it through handlePlaceSelect: with a put-in chosen, that handler
+  // automatically makes the next launch a take-out.
+  const pendingUrlAccess = useRef({ river: urlRiver, id: searchParams.get('access') });
+  useEffect(() => {
+    const pending = pendingUrlAccess.current;
+    if (!pending.id) return;
+    if (pending.river !== riverSlug) { pending.id = null; return; }
+    if (!river || river.slug !== pending.river || !visibleAccessPoints) return;
+    const point = visibleAccessPoints.find(item => item.id === pending.id);
+    pending.id = null;
+    if (!point) return;
+    const place: PlannerMapPlace = { id: point.id, name: point.name, slug: point.slug,
+      riverId: river.id, riverSlug: river.slug, riverName: river.name,
+      coordinates: point.coordinates, type: point.type, types: point.types };
+    const isEndpoint = point.id === selectedPutIn || point.id === selectedTakeOut;
+    setSelectedPlace(isEndpoint ? null : place);
+    setExpandedEndpointId(isEndpoint ? point.id : null);
+    setFocusPlace(place);
+    setFocusMode('reveal');
+    setFocusRequest(value => value + 1);
+  }, [riverSlug, river, visibleAccessPoints, selectedPutIn, selectedTakeOut]);
+  const inspectedAccessId = selectedPlace?.id ?? expandedEndpointId;
+  useEffect(() => {
+    if (pendingUrlAccess.current.id) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('access') === inspectedAccessId) return;
+    if (inspectedAccessId) url.searchParams.set('access', inspectedAccessId);
+    else url.searchParams.delete('access');
+    window.history.replaceState(null, '', url);
+  }, [inspectedAccessId, riverSlug, visibleAccessPoints]);
+
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({
       type: 'access_point',
@@ -666,30 +701,19 @@ export default function PlanPageClient({
       // keep fallbackUrl
     }
 
-    const isMobile = window.matchMedia('(pointer: coarse)').matches;
-    if (isMobile && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Float Plan - ${river.name}`,
-          url: shareUrl,
-        });
-        trackEvent('plan_shared', { river: riverSlug ?? '', method: 'link' });
-        setShareStatus('idle');
-        return;
-      } catch {
-        // fall through to clipboard
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
+    const outcome = await shareOrCopy({ title: `Float Plan - ${river.name}`, url: shareUrl });
+    // Count a share only when the link left the page: not a dismissed sheet.
+    if (outcome === 'shared' || outcome === 'copied') {
       trackEvent('plan_shared', { river: riverSlug ?? '', method: 'link' });
+    }
+    if (outcome === 'copied') {
       setShareStatus('copied');
       setTimeout(() => setShareStatus('idle'), 2000);
-    } catch {
-      setShareStatus('idle');
-      window.prompt('Copy this link:', shareUrl);
+      return;
     }
+    setShareStatus('idle');
+    // Last resort when the clipboard is unavailable: show the link to copy by hand.
+    if (outcome === 'failed') window.prompt('Copy this link:', shareUrl);
   }, [riverSlug, selectedPutIn, selectedTakeOut, selectedVesselTypeId, river, plan]);
 
   const handleDownloadImage = useCallback(async () => {
@@ -1180,6 +1204,8 @@ export default function PlanPageClient({
     <div className="min-h-screen bg-neutral-50">
       {/* OfflineBanner is rendered once globally in the root layout (above the
           header); no second copy here. */}
+      {/* The Share buttons (sidebar, sheet) only swap their label; say it aloud once here. */}
+      <span className="sr-only" role="status">{shareStatus === 'copied' ? 'Link copied' : ''}</span>
       {desktopMap}
 
       {/* ─── MOBILE: Full-screen map + bottom sheet ─── */}
@@ -1407,10 +1433,10 @@ export default function PlanPageClient({
 
         {/* Cross-link back to river guide page */}
         <Link
-          href={`/rivers/${riverSlug}`}
+          href={rivers?.find(item => item.slug === riverSlug)?.path ?? "/rivers"}
           className="block text-center text-sm text-neutral-500 hover:text-primary-600 transition-colors py-2"
         >
-          ← Back to {river.name} guide
+          ← {river.name} report
         </Link>
       </div>
 

@@ -1,60 +1,47 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/feedback/[id]/route.ts
-// PATCH /api/admin/feedback/[id] - Update feedback status (admin token auth)
+// PATCH /api/admin/feedback/[id] - Update feedback status and/or admin notes
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
+import {
+  getAdminIdentity,
+  requireAdminAuth,
+  isValidUUID,
+  invalidIdResponse,
+} from '@/lib/admin-auth';
+import { feedbackUpdate, mapFeedbackRow } from '@/lib/feedback/admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
     if (!isValidUUID(id)) return invalidIdResponse();
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
 
-    // Validate status if provided
-    const validStatuses = ['pending', 'reviewed', 'resolved', 'dismissed'];
-    if (body.status && !validStatuses.includes(body.status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      );
-    }
-
-    // Build update object
-    const updates: Record<string, unknown> = {};
-    if (body.status) {
-      updates.status = body.status;
-      updates.reviewed_at = new Date().toISOString();
-      updates.updated_at = new Date().toISOString();
-      updates.reviewed_by = 'admin';
-    }
-    if (body.adminNotes !== undefined) {
-      updates.admin_notes = body.adminNotes;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: 'No updates provided' },
-        { status: 400 }
-      );
+    const parsed = feedbackUpdate(
+      body,
+      getAdminIdentity(request)?.name ?? 'Owner recovery',
+    );
+    if ('error' in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
     const supabase = createAdminClient();
 
     const { data, error: updateError } = await supabase
       .from('feedback')
-      .update(updates)
+      .update(parsed.update)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error('Error updating feedback:', updateError);
@@ -71,27 +58,7 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      feedback: {
-        id: data.id,
-        feedbackType: data.feedback_type,
-        userName: data.user_name,
-        userEmail: data.user_email,
-        message: data.message,
-        imageUrl: data.image_url,
-        contextType: data.context_type,
-        contextId: data.context_id,
-        contextName: data.context_name,
-        contextData: data.context_data,
-        status: data.status,
-        adminNotes: data.admin_notes,
-        reviewedBy: data.reviewed_by,
-        reviewedAt: data.reviewed_at,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      },
-    });
+    return NextResponse.json({ success: true, feedback: mapFeedbackRow(data) });
   } catch (error) {
     console.error('Error updating feedback:', error);
     return NextResponse.json(
@@ -100,3 +67,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

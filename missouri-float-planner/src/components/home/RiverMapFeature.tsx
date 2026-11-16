@@ -1,5 +1,6 @@
 // src/components/home/RiverMapFeature.tsx
-// Homepage link to /river-map, alongside Find a float and Plan a float.
+// Homepage link to /river-map (the national Live River Map), alongside Find a
+// float and Plan a float.
 //
 // Drawn in the site's own card language: the standard card's 2px teal border,
 // hard offset shadow and hover lift, over the Missouri hillshade the real map
@@ -13,14 +14,15 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { FLOW_BAND_SYSTEM } from '@shared/flow-band';
 
-// The real map paints each river by its live verdict, so the teaser uses the
-// same canonical colours rather than decorative ones.
-const FLOWING = CONDITION_SYSTEM.flowing.solid;
-const GOOD = CONDITION_SYSTEM.good.solid;
-const HIGH = CONDITION_SYSTEM.high.solid;
-const LOW = CONDITION_SYSTEM.low.solid;
+// The national map colours gauges by how flow compares with usual for the time
+// of year — never by float verdict — so the teaser draws the same flow-band
+// ramp rather than the condition ladder's colours.
+const FLOWING = FLOW_BAND_SYSTEM.normal.solid;
+const GOOD = FLOW_BAND_SYSTEM.higher.solid;
+const HIGH = FLOW_BAND_SYSTEM.much_higher.solid;
+const LOW = FLOW_BAND_SYSTEM.lower.solid;
 const INK = '#2D2A24'; // neutral-900, the casing and dot ring
 
 const RIVERS = [

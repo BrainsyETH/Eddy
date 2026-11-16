@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import damPhotoCredits from '../../../eddy-ios/assets/onboarding/credits.json';
 import heldDamPhotos from '../../../eddy-ios/assets/onboarding/held.json';
 import { USACE_DAMS } from './flow-providers/usace-registry';
-import { DAM_CATALOG, damPins, damSubtitle } from '../../../eddy-ios/src/lib/damCatalog';
+import { DAM_CATALOG, damLiveState, damPins, damSubtitle } from '../../../eddy-ios/src/lib/damCatalog';
 
 const registry = Object.values(USACE_DAMS)
   .map((d) => ({ id: d.id, name: d.name, lakeName: d.lakeName, state: d.state, lat: d.lat, lon: d.lon }))
@@ -152,4 +152,41 @@ test('the subtitle drops what it does not have rather than printing a separator'
   assert.equal(damSubtitle({ lakeName: 'Norfork Lake', state: 'AR' }), 'Norfork Lake · AR');
   assert.equal(damSubtitle({ lakeName: null, state: 'AR' }), 'AR');
   assert.equal(damSubtitle({ lakeName: null, state: null }), null);
+});
+
+// ── A map pin ages while the map stays open ──────────────────────────────
+//
+// damPins used to be memoized on the /api/dams response alone, so a reading
+// that crossed the two-hour fresh line while the map was open kept its
+// "Generating" pin (and its "12 min ago" stood still) until the next response.
+
+test('a dam pin stops saying "Generating" when its reading ages past the fresh line', () => {
+  const observedAt = Date.parse('2026-11-09T18:00:00Z');
+  const tableRock = {
+    id: 'swl-table-rock-dam', name: 'Table Rock Dam', lakeName: 'Table Rock Lake', state: 'MO',
+    hasTurbines: true, generationFloorCfs: 100,
+    metrics: {
+      generationFlow: { value: 9_000, unit: 'cfs', at: new Date(observedAt).toISOString(), staleness: 'fresh' as const },
+      release: { value: 9_100, unit: 'cfs', at: new Date(observedAt).toISOString(), staleness: 'fresh' as const },
+    },
+  };
+  const pinAt = (minutesLater: number) =>
+    damPins([damLiveState(tableRock, observedAt + minutesLater * 60_000)])
+      .find((pin) => pin.id === 'dam:swl-table-rock-dam')!;
+
+  assert.equal(pinAt(10).codeLabel, 'Generating');
+  assert.equal(pinAt(120).codeLabel, 'Generating', 'two hours is still fresh');
+  assert.equal('codeLabel' in pinAt(121), false, 'past it the label is omitted, never "Units idle"');
+  assert.equal(pinAt(121).value, '9,100 cfs', 'the reading itself stays, with its age');
+  assert.notEqual(pinAt(10).updatedAt, pinAt(121).updatedAt, 'the age line moves with the clock');
+});
+
+test('the map rebuilds dam pins on the minute clock, and an open dam sheet follows', () => {
+  const map = readFileSync(join('..', 'eddy-ios', 'app', '(tabs)', '(map)', 'index.tsx'), 'utf8');
+  assert.match(map, /const observationNow = useObservationClock\(\);/);
+  assert.match(map, /damLiveState\(dam, observationNow\)/);
+  assert.match(map, /\}, \[dams, observationNow\]\);/, 'the pins memo depends on the clock');
+  // The open sheet is the selected pin; it is swapped for the newest pin of the
+  // same dam whenever the pins change, which now includes every clock tick.
+  assert.match(map, /return damPins\.find\(\(pin\) => pin\.damId === current\.damId\) \?\? current;\n\s*\}\);\n\s*\}, \[damPins\]\);/);
 });

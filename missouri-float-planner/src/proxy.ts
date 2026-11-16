@@ -6,12 +6,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { hasAdminCredential } from '@/lib/admin-session';
 import { gaugeShareRedirect } from '@/lib/gauges/share-redirect';
+import { legacyRiverRedirect } from '@/lib/navigation/legacy-river-redirect';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const gaugeResponse = await gaugeShareRedirect(request);
   if (gaugeResponse) return gaugeResponse;
+
+  const riverResponse = await legacyRiverRedirect(request);
+  if (riverResponse) return riverResponse;
 
   // Public river guide pages are identical for every visitor and served via
   // ISR. Avoid session cookie work that would make these responses private.

@@ -166,9 +166,8 @@ export interface DamTailwater {
    * river alone would point a reader at a reach the dam has no bearing on.
    * Optional: a tailwater that is its own river needs no reach.
    *
-   * CONSUMED, in two places, and neither is obvious from here: the iOS dam
-   * screen passes it as `section` when pushing the river screen, and the web
-   * river hub feeds it to RiverReaches as `highlightSlug`. It was dropped from
+   * Both river screens use this as the selected section and scope the dam
+   * context to it. The iOS dam screen passes it as `section`. It was dropped from
    * this type once already and silently lost on the wire, which is why
    * dams-route-contract.test.ts asserts it survives assembly.
    */
@@ -391,7 +390,14 @@ export interface DamSnapshot {
   infoPhone?: string;
   /** Present metrics only. An absent key means the dam does not publish it. */
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>;
-  /** Generating right now, or NULL when the dam publishes no turbine flow. */
+  /**
+   * Generating right now, or NULL when no turbine reading can say: the dam
+   * publishes no turbine flow, has no generation floor, or its latest reading
+   * is more than two hours old (or implausibly ahead of the clock). Stamped on
+   * the server's clock when served; a client holding a payload should recompute
+   * it with generatingForNow from shared/dam-generation.ts. Null renders no
+   * chip and no pin label, never "Not generating". See generatingForNow.
+   */
   generating: boolean | null;
   /** Hourly forward schedule, today first. Empty when the dam has no SWPA code. */
   schedule: DamScheduleDay[];
@@ -460,6 +466,9 @@ export interface DamReadResponse {
   available: boolean;
   generatedAt: string | null;
   read: {
+    /** Compact interpretation for current clients; optional during API rollout. */
+    takeaway?: { headline: string; summary: string };
+    /** Legacy report fields remain available to already-released app versions. */
     /** Today's posted generation and how it compares with recent days. */
     headline: string;
     /** Two or three sentences: recent surprises first, then the pattern. */
@@ -470,7 +479,7 @@ export interface DamReadResponse {
     detailRows: DamReadRow[];
     /** The at-the-dam caveat, rendered under the Read. */
     caveat: string;
-    /** Eddy's copy of today's schedule is old enough that it may have been revised. */
+    /** Today's schedule copy is old or could not be checked against a current snapshot. */
     mayBeOutdated: boolean;
     sourcesUsed: string[];
   } | null;

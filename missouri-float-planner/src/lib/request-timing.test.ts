@@ -190,7 +190,8 @@ test('the dam screen has exactly one loader', () => {
   // duplicate cost there.
   const source = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/dam/[damId].tsx', 'utf8');
 
-  const loads = source.match(/load\(controller\.signal,/g) ?? [];
+  const loads = source.match(/load\(signal,/g) ?? [];
+  assert.equal((source.match(/useDamRefresh\(useCallback/g) ?? []).length, 1, 'one lifecycle subscription owns focus, resume and timed refresh');
   assert.equal(loads.length, 1, `the dam screen must have one loader, found ${loads.length}`);
 
   // The detail goes through the shared request, and the summary seed never

@@ -18,16 +18,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * Queried in code but absent from database.ts, as of 2026-11-01 (checked
+ * Queried in code but absent from database.ts, as of 2026-11-11 (checked
  * against production read-only):
  */
 const KNOWN_MISSING = new Map<string, string>([
-  ['agency_gis_features', 'exists in production; types not regenerated'],
-  ['banned_submitters', 'exists in production; types not regenerated'],
-  ['campsite_walk_up_counts', 'a view in production; types not regenerated'],
-  ['float_archive', 'exists in production; types not regenerated'],
-  ['float_archive_preferences', 'exists in production; types not regenerated'],
   ['chat_logs', 'does NOT exist in production (00078 never applied); chat is disabled — see api/chat/route.ts'],
+  // In production since 2026-11-13 (20261113033326_release_arrival_trial.sql), but database.ts has not
+  // been regenerated since. Run `npm run db:gen-types` and remove these entries; this test fails once it has.
+  ['release_arrival_passes', 'exists in production; database.ts not regenerated since 20261113033326'],
+  ['release_arrival_predictions', 'exists in production; database.ts not regenerated since 20261113033326'],
+  ['release_arrival_outcomes', 'exists in production; database.ts not regenerated since 20261113033326'],
 ]);
 
 function sourceFiles(dir: string): string[] {

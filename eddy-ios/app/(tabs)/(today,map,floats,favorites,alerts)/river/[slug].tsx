@@ -21,6 +21,9 @@ import { openExternalLink } from '@/lib/openExternalLink';
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
+import { RiverPageHeader } from '@/components/RiverPageHeader';
+import { useRiverHeaderTitle } from '@/hooks/useRiverHeaderTitle';
+import { riverHeaderPhoto } from '@/lib/riverHeader';
 import { RiverGuideLink } from '@/components/RiverGuideCard';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useAppConfig } from '@/hooks/useAppConfig';
@@ -37,7 +40,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { ControlIcon } from '@/components/ControlIcon';
 import type {
@@ -103,12 +106,18 @@ import {
 import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
-import { damForRiver } from '@/components/dam/RiverDamPanel';
+import { damForRiver, damHasPanel, RiverDamPanel } from '@/components/dam/RiverDamPanel';
+import { DamEddyRead, DamReadInTake } from '@/components/dam/DamEddyRead';
+import { useDamRefresh } from '@/hooks/useDamRefresh';
+import { damReleaseTab } from '@eddy/conditions/dam-release-tab';
+import { canOfferReadPremium, premiumReadUserId } from '@/lib/readPremiumAccess';
 import { getSharedDams } from '@/hooks/useDams';
 import { useObservationClock } from '@/hooks/useObservationClock';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
-import { RiverReaches } from '@/components/river/RiverReaches';
+import { RiverSectionSelector } from '@/components/river/RiverSectionSelector';
+import { resolveRiverSection, sectionShowsDam, sectionOutlook } from '@/lib/riverSections';
+import { riverSectionLabel } from '@eddy/conditions/river-section-label';
 import { GaugeChart } from '@/components/GaugeChart';
 import { offeringLabel } from '@/map/serviceLayers';
 import { Otter } from '@/components/Otter';
@@ -359,10 +368,8 @@ function ServiceRow({ service }: { service: RiverService }) {
 
 export default function RiverDetailScreen() {
   const { features } = useAppConfig();
-  // Set only when the reader arrived from somewhere that knows which water they
-  // came for — today the dam screen. `section` names the reach to mark in the
-  // reaches panel; `gauge` is the provider-native site id that reads it. Both
-  // are optional, and an unknown value for either does nothing.
+  // A section owns the whole report. Dam links can name it directly or supply
+  // the provider-native gauge id; an explicit section wins if both are present.
   const { slug, section, focus, gauge: gaugeParam, alertId, alertSource } = useLocalSearchParams<{
     slug: string;
     section?: string;
@@ -377,6 +384,7 @@ export default function RiverDetailScreen() {
   const headerHeight = useHeaderHeight();
   // Programmatic anchors must clear the translucent bar as well as its safe area.
   const readTopInset = Platform.OS === 'ios' ? headerHeight : 0;
+  const riverHeader = useRiverHeaderTitle(slug, readTopInset);
   const readScroll = useRef<ScrollView>(null);
   const readAnchor = useRef<{ key: string; y: number | null; done: boolean; scrolledTo?: number }>({ key: '', y: null, done: false });
   const readTargetKey = JSON.stringify([slug, focus]);
@@ -405,7 +413,7 @@ export default function RiverDetailScreen() {
     });
   };
   const scrollToRead = () => scrollToAnchor('read', readAnchor);
-  const { getAccessToken } = useSession();
+  const { getAccessToken, session, ready: sessionReady } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
 
 
@@ -414,6 +422,7 @@ export default function RiverDetailScreen() {
   // measured fact about the water stays free.
   const {
     entitlement,
+    profile: accountProfile,
     loaded: accountLoaded,
     error: accountError,
     refresh: refreshAccount,
@@ -421,6 +430,9 @@ export default function RiverDetailScreen() {
   const canRequestPremium = accountLoaded && !accountError && Boolean(entitlement?.isActive);
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
+  const [failedHeaderPhoto, setFailedHeaderPhoto] = useState<string | null>(null);
+  const selectedPhoto = riverHeaderPhoto(river);
+  const headerPhoto = selectedPhoto?.url === failedHeaderPhoto ? null : selectedPhoto;
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
   const now = useObservationClock();
   const [conditionReceipt, setConditionReceipt] = useState<{
@@ -451,11 +463,11 @@ export default function RiverDetailScreen() {
    * either as an empty section is the failure-as-absence bug this screen was
    * fixed for once already.
    */
-  const { hazards, accessPoints, services, reaches, source } = useRiverData(
+  const { hazards, accessPoints, services, reaches, source, loading: riverDataLoading } = useRiverData(
     slug,
     reloadNonce,
   );
-  const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
+  const [outlookFor, setOutlookFor] = useState<{ key: string; data: RiverOutlookResponse | null } | null>(null);
   const [premiumRead, setPremiumRead] = useState<{
     key: string;
     data: PremiumEddyRead | null;
@@ -464,15 +476,17 @@ export default function RiverDetailScreen() {
   const [premiumRetry, setPremiumRetry] = useState(0);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
+  const [gaugesLoadedFor, setGaugesLoadedFor] = useState<string | null>(null);
   // Keyed by the slug it was fetched for, so a change of river cannot show the
   // previous river's dam for even one frame. Derived during render rather than
   // cleared in an effect: an effect runs one render too late, and this is the
   // case React's own guidance says to adjust state during render for.
-  const [damFor, setDamFor] = useState<{ slug: string; dam: DamSnapshot | null }>({
+  const [damFor, setDamFor] = useState<{ slug: string; dams: DamSnapshot[] }>({
     slug,
-    dam: null,
+    dams: [],
   });
-  const dam = damFor.slug === slug ? damFor.dam : null;
+  const riverDams = damFor.slug === slug ? damFor.dams : [];
+  const dam = damForRiver(riverDams, slug);
 
   /**
    * The controlling dam. This effect is its ONLY loader.
@@ -514,7 +528,7 @@ export default function RiverDetailScreen() {
         // and no signal is passed because the request is shared; the aborted
         // check below still keeps a late answer off an unfocused screen.
         const dams = await getSharedDams();
-        if (!signal.aborted) setDamFor({ slug, dam: damForRiver(dams, slug) });
+        if (!signal.aborted) setDamFor({ slug, dams });
       } catch {
         // Deliberately empty. See above: keep what is on screen and let the
         // row's own age carry the truth.
@@ -523,38 +537,12 @@ export default function RiverDetailScreen() {
     [slug],
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      const controller = new AbortController();
-      void loadDam(controller.signal);
-      return () => controller.abort();
-    }, [loadDam]),
-  );
+  useDamRefresh(useCallback((signal: AbortSignal) => {
+    void loadDam(signal);
+  }, [loadDam]));
 
-  /**
-   * A minute's tick, so the row ages while the screen is open.
-   *
-   * buildTailwaterStatus() reads the staleness band off the READER's clock at
-   * render time, which is what lets "is generating" decay to "last observed
-   * generating" — but only when a render happens. Focus covers coming back to
-   * the screen; this covers sitting on it. Without both, a screen left open
-   * holds the present tense over a reading that left it two hours ago.
-   *
-   * State that nothing reads: the tick exists for its re-render.
-   */
-  const [, setDamClock] = useState(0);
-  const damId = dam?.id ?? null;
-  // Focus-gated, same as the dam screen's own clock: a river screen buried
-  // under the dam it links to has nobody reading its row, and the pair used
-  // to bury copies that all kept ticking. The focus reload above re-fetches
-  // on return, so the row is fresh again without waiting for a tick.
-  useFocusEffect(
-    useCallback(() => {
-      if (!damId) return;
-      const id = setInterval(() => setDamClock((n) => n + 1), 60_000);
-      return () => clearInterval(id);
-    }, [damId]),
-  );
+  // useObservationClock above already refreshes reading and dam ages once a
+  // minute while focused, so the dam needs no second timer.
 
   /**
    * Which gauge the reading card is showing. Null means the river's own
@@ -595,7 +583,30 @@ export default function RiverDetailScreen() {
    * arrival is a starting position the reader can see and change, never a
    * hidden override.
    */
-  const shownGaugeId = pickedGaugeId ?? arrivalGaugeId;
+  const selectionRouteKey = JSON.stringify([slug, section, gaugeParam]);
+  const [pickedSection, setPickedSection] = useState<{ key: string; slug: string } | null>(null);
+  const sectionSelection = resolveRiverSection({
+    reaches, source: source.reaches, refreshing: riverDataLoading,
+    gauges: gaugesLoadedFor === slug ? gauges : [], gaugesReady: gaugesLoadedFor === slug,
+    sectionSlug: pickedSection?.key === selectionRouteKey ? pickedSection.slug : section,
+    gaugeSiteId: gaugeParam,
+    primaryGaugeId: river?.primaryGaugeId ?? null,
+  });
+  const hasSections = sectionSelection.sections.length > 1;
+  const selectedSection = sectionSelection.selected;
+  const reportBlocked = sectionSelection.state === 'loading' || sectionSelection.state === 'unavailable';
+  const shownGaugeId = hasSections ? sectionSelection.gauge?.id ?? null : pickedGaugeId ?? arrivalGaugeId;
+  const primaryGaugeId = gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? river?.primaryGaugeId ?? null;
+  // Sections always ask explicitly, even for the upper/primary station.
+  const reportGaugeId = hasSections ? shownGaugeId : shownGaugeId && shownGaugeId !== primaryGaugeId ? shownGaugeId : null;
+  const activeOutlookKey = `${slug}|${reportGaugeId ?? ''}`;
+  const outlook = !reportBlocked && outlookFor?.key === activeOutlookKey
+    ? sectionOutlook(outlookFor.data, hasSections ? shownGaugeId : null) : null;
+  const selectSection = (next: string) => {
+    setPickedSection({ key: selectionRouteKey, slug: next });
+    setPickedGaugeId(null);
+    router.setParams({ section: next, gauge: undefined });
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -762,10 +773,16 @@ export default function RiverDetailScreen() {
         // Failing just means no picker; the primary reading is unaffected.
         void fetchGauges(controller.signal).then(
           (allGauges) => {
-            if (!controller.signal.aborted) setGauges(gaugesForRiver(allGauges, slug));
+            if (!controller.signal.aborted) {
+              setGauges(gaugesForRiver(allGauges, slug));
+              setGaugesLoadedFor(slug);
+            }
           },
           () => {
-            if (!controller.signal.aborted) setGauges([]);
+            if (!controller.signal.aborted) {
+              setGauges([]);
+              setGaugesLoadedFor(slug);
+            }
           },
         );
         setError(null);
@@ -810,7 +827,6 @@ export default function RiverDetailScreen() {
   // selected before anyone has touched it, so tapping that chip is a no-op the
   // user expects to be instant — without this it would be a cache miss and a
   // cleared panel for a card we were already looking at.
-  const primaryGaugeId = gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? river?.primaryGaugeId ?? null;
 
   /**
    * The outlook requests currently running, by the same key the cache uses.
@@ -855,8 +871,8 @@ export default function RiverDetailScreen() {
   }, [slug]);
 
   useEffect(() => {
-    if (!slug) return;
-    const askedFor = shownGaugeId && shownGaugeId !== primaryGaugeId ? shownGaugeId : null;
+    if (!slug || reportBlocked) return;
+    const askedFor = reportGaugeId;
     // The slug is part of the key. It used to be the gauge alone, which made
     // every river's primary-gauge request share the key '' — so a screen
     // re-pointed at another river mid-request joined the first river's
@@ -865,7 +881,7 @@ export default function RiverDetailScreen() {
 
     const cached = outlookCache.current.get(key);
     if (cached !== undefined) {
-      setOutlook(cached);
+      setOutlookFor({ key, data: cached });
       setOutlookLoading(false);
       return;
     }
@@ -874,7 +890,7 @@ export default function RiverDetailScreen() {
     // another run started, so what has to be checked is whether THIS run is
     // still the one on screen, not whether some request was cancelled.
     let current = true;
-    setOutlook(null);
+    setOutlookFor(null);
     setOutlookLoading(true);
 
     // Any failure is "no outlook", never an error on the screen: the reading,
@@ -899,6 +915,7 @@ export default function RiverDetailScreen() {
         askedFor,
       )
         .then((data) => {
+          if (askedFor && data?.gaugeStationId !== askedFor) return null;
           outlookCache.current.set(key, data);
           return data;
         })
@@ -907,14 +924,14 @@ export default function RiverDetailScreen() {
 
     void request.then((data) => {
       if (!current) return;
-      setOutlook(data);
+      setOutlookFor({ key, data });
       setOutlookLoading(false);
     });
 
     return () => {
       current = false;
     };
-  }, [slug, shownGaugeId, primaryGaugeId]);
+  }, [slug, reportGaugeId, reportBlocked, reloadNonce]);
 
   const premiumGaugeId = shownGaugeId && shownGaugeId !== primaryGaugeId
     ? shownGaugeId
@@ -928,8 +945,8 @@ export default function RiverDetailScreen() {
   // generated prose from the lightweight singular route instead of repeating
   // the whole outlook request.
   useEffect(() => {
-    if (!canRequestPremium || !slug) return;
-    const askedFor = premiumGaugeId;
+    if (!canRequestPremium || !slug || reportBlocked) return;
+    const askedFor = reportGaugeId;
     const key = `${slug}|${askedFor ?? ''}`;
     const controller = new AbortController();
 
@@ -940,7 +957,7 @@ export default function RiverDetailScreen() {
       // primary report just because its provider id has not arrived (or the
       // station has none). In that case the deterministic selected-gauge read
       // remains the honest fallback.
-      if (askedFor && !premiumSiteId) return null;
+      if (premiumGaugeId && !premiumSiteId) return null;
       return fetchPremiumEddyRead(slug, token, controller.signal, premiumSiteId);
     })()
       .then((data) => {
@@ -959,7 +976,7 @@ export default function RiverDetailScreen() {
       });
 
     return () => controller.abort();
-  }, [canRequestPremium, getAccessToken, premiumGaugeId, premiumRetry, premiumSiteId, reloadNonce, slug]);
+  }, [canRequestPremium, getAccessToken, premiumGaugeId, premiumRetry, premiumSiteId, reloadNonce, slug, reportBlocked, reportGaugeId]);
 
   /**
    * Does this person already have alerts on for this river?
@@ -1104,7 +1121,7 @@ export default function RiverDetailScreen() {
   // The picker already knows the provider. Use it for history capabilities
   // immediately; a slow/failed detail fetch must not shrink a USGS range menu.
   const pickedGauge = shownGaugeId ? gauges.find((g) => g.id === shownGaugeId) ?? null : null;
-  const shownSiteId = shownGaugeId
+  const shownSiteId = reportBlocked ? null : shownGaugeId
     ? pickedGauge?.usgsSiteId ?? null
     : condition?.gaugeUsgsId ?? river?.primaryGaugeSiteId ?? null;
   const chartGauge = pickedGauge ?? gauges.find(gauge => gauge.usgsSiteId === shownSiteId);
@@ -1156,7 +1173,7 @@ export default function RiverDetailScreen() {
   // gauge shared between two rivers grades differently for each.
   const pickedLink = pickedGauge ? gaugeLink(pickedGauge, slug) : null;
 
-  const code = pickedGauge
+  const code = reportBlocked ? 'unknown' : pickedGauge
     ? gaugeConditionCode(pickedGauge, slug)
     : condition?.code ?? river.currentCondition?.code ?? 'unknown';
 
@@ -1166,7 +1183,7 @@ export default function RiverDetailScreen() {
   // App Store review lag guarantees will exist. Reused for the picked gauge
   // rather than re-derived, so a secondary station cannot start printing feet
   // for a cfs ladder the way the river card once did.
-  const reading =
+  const reading = reportBlocked ? null :
     pickedGauge && pickedLink
       ? primaryReading({
           gaugeHeightFt: pickedGauge.gaugeHeightFt,
@@ -1177,8 +1194,8 @@ export default function RiverDetailScreen() {
         ? primaryReading(condition)
         : null;
 
-  const scaleThresholds = pickedLink ?? condition?.thresholds ?? null;
-  const shownReadingTimestamp = pickedGauge ? pickedGauge.readingTimestamp : condition?.readingTimestamp;
+  const scaleThresholds = reportBlocked ? null : pickedLink ?? condition?.thresholds ?? null;
+  const shownReadingTimestamp = reportBlocked ? null : pickedGauge ? pickedGauge.readingTimestamp : condition?.readingTimestamp;
   const rawReadingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
 
   /**
@@ -1283,12 +1300,13 @@ export default function RiverDetailScreen() {
       ? null
       : (outlook?.trend ?? (pickedGauge ? null : (river.currentCondition?.trend ?? null)));
 
-  const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
+  const caveat = pickedGauge?.readingSuspect ? pickedGauge.qualifierNote ?? 'This reading is flagged by the source.'
+    : condition && !pickedGauge ? accuracyNote(condition) : null;
 
   const summaryPercentile = !pickedGauge && !cachedReading && !summaryLastKnown && reading ? condition?.percentile : null;
   const percentileText = readingSummarySeason(summaryPercentile, reading?.unit ?? null);
   const pickerSelectedId = shownGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? '';
-  const pickerIdentifiesStation = gauges.length >= 2 && gauges.some((g) => g.id === pickerSelectedId);
+  const pickerIdentifiesStation = !hasSections && gauges.length >= 2 && gauges.some((g) => g.id === pickerSelectedId);
   const starred = isStarred('river', river.id);
   const sortedHazards = sortHazards(hazards);
   const criticalCount = criticalHazards(hazards).length;
@@ -1312,7 +1330,6 @@ export default function RiverDetailScreen() {
     : accountError
       ? null
       : Boolean(entitlement?.isActive);
-  const activeOutlookKey = `${slug}|${shownGaugeId && shownGaugeId !== primaryGaugeId ? shownGaugeId : ''}`;
   const premiumResolved = premiumRead?.key === activeOutlookKey;
   const premiumFailure = premiumResolved ? premiumRead?.failure ?? null : null;
   const activePremiumRead = premiumResolved && !premiumFailure ? premiumRead?.data : null;
@@ -1321,9 +1338,35 @@ export default function RiverDetailScreen() {
     : outlook;
   const takeEntitlement = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
 
+  // ── A dam's own unrated release ─────────────────────────────────────────
+  // The card leads with the dam and Eddy's Read is the dam's (shared/
+  // dam-release-tab.ts): the river Read on such a tab can only say that no
+  // assessment is available. Per TAB — a downstream gauge keeps its own
+  // reading and Read, and the dam Read's times are at the dam (ADR 0017).
+  const selectedDam = chartProvider === 'usace'
+    ? riverDams.find(item => item.id === shownSiteId) ?? null : null;
+  const damTab = damReleaseTab({
+    siteId: shownSiteId,
+    provider: chartProvider,
+    rated: Boolean(scaleThresholds && hasLadder(scaleThresholds)),
+    heldDamId: selectedDam?.id ?? null,
+  });
+  const damLeads = Boolean(damTab?.leadsCard && damHasPanel(selectedDam));
+  const showDamContext = sectionShowsDam(dam?.tailwater?.sectionSlug, selectedSection?.sectionSlug);
+  const outlookPending = !reportBlocked && (outlookLoading || outlookFor?.key !== activeOutlookKey);
+  // The dam Read's access rules, the dam screen's and the Today rail's
+  // (readPremiumAccess.ts): Premium prose only for a verified member of THIS
+  // session, an offer only to a settled non-member, a skeleton otherwise —
+  // never the river card's fail-open, which would have nothing to show.
+  const readAccess = { sessionReady, userId: session?.user.id ?? null,
+    loaded: accountLoaded, error: accountError, profileId: accountProfile?.id ?? null,
+    isActive: entitlement?.isActive ?? false };
+  const damReadUserId = premiumReadUserId(readAccess);
+  const damTakeEntitlement = damReadUserId ? true : canOfferReadPremium(readAccess) ? false : 'pending' as const;
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-      <Stack.Screen options={{ title: river.name }} />
+      <Stack.Screen options={{ title: river.name, headerTitle: riverHeader.collapsed ? river.name : '' }} />
       <NativeHeaderHome />
 
       <Stack.Toolbar placement="right">
@@ -1332,7 +1375,8 @@ export default function RiverDetailScreen() {
         <Stack.Toolbar.Button
           icon="square.and.arrow.up"
           accessibilityLabel={`Share ${river.name}`}
-          onPress={() => void shareLink(river.name, river.path)}
+          onPress={() => void shareLink(river.name, selectedSection
+            ? `${river.path}?section=${encodeURIComponent(selectedSection.sectionSlug)}` : river.path)}
         >
           Share
         </Stack.Toolbar.Button>
@@ -1348,19 +1392,15 @@ export default function RiverDetailScreen() {
       </Stack.Toolbar>
 
       <ScrollView ref={readScroll} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
-        onContentSizeChange={() => { if (displayedOutlook || !outlookLoading) scrollToRead(); }}
+        onContentSizeChange={() => { if (displayedOutlook || !outlookPending) scrollToRead(); }}
+        onScroll={riverHeader.onScroll} scrollEventThrottle={32}
         onScrollBeginDrag={() => { readAnchor.current.done = true; hazardsAnchor.current.done = true; }}>
-        {/* The way back to the rule that fired the push this screen answered.
-            Renders nothing on ordinary navigation — only a notification tap
-            carries the params. First in the scroll: the person it serves just
-            arrived from the notification, before any reading. */}
-        <AlertOriginRow alertId={alertId} alertSource={alertSource} />
+        <RiverPageHeader key={`${river.slug}:${headerPhoto?.url ?? 'plain'}`} name={river.name}
+          meta={[river.region ?? river.state, river.lengthMiles ? `${Math.round(river.lengthMiles)} river miles` : null].filter(Boolean).join(' · ')}
+          photo={headerPhoto} topInset={readTopInset} onPhotoError={setFailedHeaderPhoto} onTitleBottom={riverHeader.onTitleBottom} />
 
-        <Text style={[styles.riverName, { color: colors.text }]}>{river.name}</Text>
-        <Text style={[styles.riverMeta, { color: colors.textMuted }]}>
-          {river.region ?? river.state}
-          {river.lengthMiles ? ` · ${Math.round(river.lengthMiles)} river miles` : ''}
-        </Text>
+        {/* Notification context stays before the readings it explains. */}
+        <AlertOriginRow alertId={alertId} alertSource={alertSource} />
 
         {/* ── Which gauge everything below is about ─────────────
             ABOVE THE CARD, not buried inside it. It used to sit under the
@@ -1372,74 +1412,85 @@ export default function RiverDetailScreen() {
             discovered halfway down the thing it controls. Read in order, the
             screen now says which stretch, then what it is doing, then what to
             do about it. */}
-        <GaugePicker
+        {hasSections ? <RiverSectionSelector
+          sections={sectionSelection.sections}
+          selectedSlug={selectedSection?.sectionSlug ?? null}
+          onSelect={selectSection}
+        /> : !reportBlocked ? <GaugePicker
           gauges={gauges}
           riverSlug={slug}
           selectedId={pickerSelectedId}
           onSelect={setPickedGaugeId}
-        />
+        /> : null}
+
+        {reportBlocked ? (
+          <View style={[styles.card, { backgroundColor: colors.card }]} accessibilityLiveRegion="polite">
+            {sectionSelection.state === 'loading' ? (
+              <View style={styles.outlookLoading}>
+                <ActivityIndicator color={colors.interactive} />
+                <Text style={[styles.outlookLoadingText, { color: colors.textMuted }]}>Loading this section’s report…</Text>
+              </View>
+            ) : <>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Report unavailable</Text>
+              <Text style={{ color: colors.textMuted }}>Live gauge data isn’t available for {selectedSection ? riverSectionLabel(selectedSection).title : 'this section'} right now.</Text>
+              <Pressable accessibilityRole="button" onPress={retry} style={styles.sectionRetry}>
+                <Text style={{ color: colors.interactive }}>Try again</Text>
+              </Pressable>
+            </>}
+          </View>
+        ) : null}
+
+        <View style={hasSections ? [styles.sectionReport, { backgroundColor: colors.card }, elevation(2)] : undefined}>
 
         {/* Verdict first, seasonal context second; full provenance is in ⓘ. */}
-        <ReadingSummaryCard
-          key={shownSiteId ?? slug}
-          reading={reading}
-          readingTimestamp={shownReadingTimestamp}
-          verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
-            ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
-          trend={summaryLastKnown ? null : shownTrend}
-          thresholds={scaleThresholds}
-          context={percentileText}
-          stationName={shownGaugeName}
-          stationLabel={!pickerIdentifiesStation && shownGaugeName ? gaugePlaceLabel(shownGaugeName) : null}
-          age={readingAgeHours === null ? 'Observation time unavailable' : band === 'expired' ? 'Reading is out of date' : readingAge(readingAgeHours)}
-          ageWarning={summaryLastKnown}
-          offline={cachedReading}
-          details={[
-            { label: 'Observed', value: observedStamp(shownReadingTimestamp) },
-            { label: 'Seasonal comparison', value: summaryPercentile == null ? null : `${percentileLabel(summaryPercentile)} for flow` },
-          ]}
-        >
-          {caveat ? (
-            <View style={[styles.caveat, { backgroundColor: conditionBg('unknown', isDark) }]}>
-              <ControlIcon name="alert-circle-outline" size={15} color={colors.textMuted} />
-              <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
-            </View>
-          ) : null}
-        </ReadingSummaryCard>
+        {/* On the dam's own unrated release the dam IS the card — its body and
+            nothing after it. The reading card's age row restated the glance's
+            "Observed …" line, and "Not rated" beside a bare number said less
+            than the schedule does. */}
+        {!reportBlocked && <>{damLeads ? (
+          <RiverDamPanel dam={selectedDam} position="lead" now={now} />
+        ) : (
+          <ReadingSummaryCard
+            key={shownSiteId ?? slug}
+            embedded={hasSections}
+            sectionReadings={hasSections && pickedGauge ? { gaugeHeightFt: pickedGauge.gaugeHeightFt, dischargeCfs: pickedGauge.dischargeCfs } : undefined}
+            reading={reading}
+            readingTimestamp={shownReadingTimestamp}
+            verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
+              ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
+            trend={summaryLastKnown ? null : shownTrend}
+            thresholds={scaleThresholds}
+            context={percentileText}
+            stationName={shownGaugeName}
+            stationLabel={!pickerIdentifiesStation && shownGaugeName ? gaugePlaceLabel(shownGaugeName) : null}
+            age={readingAgeHours === null ? 'Observation time unavailable' : band === 'expired' ? 'Reading is out of date' : readingAge(readingAgeHours)}
+            ageWarning={summaryLastKnown}
+            offline={cachedReading}
+            details={[
+              { label: 'Observed', value: observedStamp(shownReadingTimestamp) },
+              { label: 'Seasonal comparison', value: summaryPercentile == null ? null : `${percentileLabel(summaryPercentile)} for flow` },
+            ]}
+          >
+            {caveat ? (
+              <View style={[styles.caveat, { backgroundColor: conditionBg('unknown', isDark) }]}>
+                <ControlIcon name="alert-circle-outline" size={15} color={colors.textMuted} />
+                <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
+              </View>
+            ) : null}
+            {/* The controlling dam closes the card only off a dam-release tab. */}
+            {!hasSections && showDamContext && !damTab ? <RiverDamPanel dam={dam} position="footer" now={now} /> : null}
+          </ReadingSummaryCard>
+        )}</>}
 
-        {/* The river's own stretches, each with the gauge that actually reads
-            it. Directly under the status card because a reach IS the river —
-            everything below this point interprets it. */}
-        {/* Dam operations, directly under the reading they explain. This used
-            to be one muted line at the very BOTTOM of the screen, below the
-            outfitters — the controlling fact about a regulated river, filed
-            under trivia. Renders nothing for a flood-control project with no
-            turbines, which is every dam but three. */}
-        <TailwaterStatusRow dam={dam} />
+        {/* Ordinary tailwaters keep their existing dam handoff. Section reports
+            place it after their chart, scoped to the selected water. */}
+        {!hasSections && showDamContext && !damHasPanel(dam) ? <TailwaterStatusRow dam={dam} /> : null}
 
-        <RiverReaches reaches={reaches} highlightSlug={section} damName={dam?.name ?? null} />
-
-        {/* ── How it got to that number ──────────────────────────
-            THIRD, directly under the status card and the reaches — above the
-            take and the photos. This order is the redesign's deliberate
-            reversal of the one this comment used to defend ("the card says
-            what the river IS … and this says how it got there", with the
-            chart closing the column): the hydrograph now carries the NWS
-            flood stages and the official forecast, which are safety context,
-            and safety context reads before interpretation, not after the
-            photo gallery.
-
-            Follows the PICKER, like everything else on this screen since the
-            outlook started to — a chart of Van Buren under a Montauk reading is
-            the exact mismatch that effect was written to end. The unit and the
-            bands come from the SAME link the reading and the scale use, so the
-            three cannot disagree; GaugeChart drops the shading itself if that
-            ladder is in a unit it is not drawing.
-
-            Absent when the river has no gauge at all. There is nothing to plot
-            and nothing to apologise for. */}
+        {/* History, thresholds and forecast all belong to the selected station. */}
         {shownSiteId ? (
           <GaugeChart
+            initialDays={7}
+            embedded={hasSections}
             riverId={scaleThresholds ? river.id : undefined}
             riverSlug={river.slug}
             siteId={shownSiteId}
@@ -1460,6 +1511,13 @@ export default function RiverDetailScreen() {
           />
         ) : null}
 
+        {hasSections && showDamContext && dam ? (
+          <View style={styles.sectionDam}>
+            {damHasPanel(dam) ? <RiverDamPanel dam={dam} position="footer" now={now} /> : <TailwaterStatusRow dam={dam} />}
+          </View>
+        ) : null}
+        </View>
+
         {/* ── What it means. Under the hydrograph: the card says what the
                river IS, the chart says how it got there and what the NWS
                expects, and this says what to do about it. Hidden entirely when
@@ -1468,17 +1526,27 @@ export default function RiverDetailScreen() {
         <View onLayout={(event) => {
           if (readAnchor.current.key !== readTargetKey) readAnchor.current = { key: readTargetKey, y: null, done: false };
           readAnchor.current.y = event.nativeEvent.layout.y;
-          if (displayedOutlook || !outlookLoading) scrollToRead();
+          if (displayedOutlook || !outlookPending) scrollToRead();
         }}>
         {displayedOutlook ? (
           <EddyTake
             outlook={displayedOutlook}
             ratedUnit={reading?.unit ?? null}
-            entitled={takeEntitlement}
+            entitled={damTab ? damTakeEntitlement : takeEntitlement}
             onUpgrade={() => setPaywallOpen(true)}
             onRetry={() => setPremiumRetry((value) => value + 1)}
+            damRead={damTab ? {
+              content: damReadUserId
+                ? <DamReadInTake key={damTab.damId} damId={damTab.damId} premiumUserId={damReadUserId} revision={premiumRetry}
+                    onUnlock={() => setPaywallOpen(true)} onRefreshAccount={refreshAccount} />
+                : null,
+            } : null}
           />
-        ) : outlookLoading ? (
+        ) : damTab && !outlookPending ? (
+          <DamEddyRead key={damTab.damId} damId={damTab.damId} damName={selectedDam?.name ?? 'this dam'}
+            premiumUserId={damReadUserId} canUnlock={canOfferReadPremium(readAccess)}
+            onUnlock={() => setPaywallOpen(true)} onRefreshAccount={refreshAccount} revision={premiumRetry} />
+        ) : outlookPending ? (
           // A placeholder the height of a sentence, not a full-card skeleton.
           // This panel is absent on plenty of rivers, so the loading state has
           // to be quiet enough that its disappearance is not a loss.
@@ -1490,7 +1558,7 @@ export default function RiverDetailScreen() {
               </Text>
             </View>
           </View>
-        ) : focus === 'read' ? (
+        ) : !reportBlocked && focus === 'read' ? (
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Eddy’s Read</Text>
             <Text style={{ color: colors.textMuted }}>This river’s Read is currently unavailable. Try reopening the river in a moment.</Text>
@@ -1910,7 +1978,7 @@ export default function RiverDetailScreen() {
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         riverName={river.name}
-        onPurchased={() => void refreshAccount()}
+        onPurchased={() => { void refreshAccount(); setPremiumRetry(value => value + 1); }}
       />
 
       <AlertSignInSheet
@@ -1965,8 +2033,9 @@ const styles = StyleSheet.create({
   errorTitle: { ...t.lg, fontFamily: fonts.semibold },
   backLink: { ...t.sm, fontFamily: fonts.semibold },
   body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 },
-  riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
-  riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
+  sectionReport: { borderRadius: 16, marginBottom: 14 },
+  sectionDam: { paddingHorizontal: 16 },
+  sectionRetry: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 4 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   caveat: {
     flexDirection: 'row',

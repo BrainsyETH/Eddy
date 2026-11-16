@@ -132,7 +132,7 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     assert.deepEqual(errors, []);
 
     // The SVG map must show every station in the view, without the old phone cap.
-    await page.goto(`${origin}/river-map`, { timeout: 120_000 });
+    await page.goto(`${origin}/river-map/ozarks`, { timeout: 120_000 });
     await page.locator('[data-national-gauges] [data-gauge-visible="true"]').first().waitFor();
     assert.equal(await page.locator('[data-usgs-site-id="10000003"]').count(), 0);
     if (width < 768) await page.getByRole('button', { name: /rivers floatable/ }).click();

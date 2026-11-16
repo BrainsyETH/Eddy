@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/clips/post/route.ts
 // POST — Publish an approved clip_library clip directly to the connected
 // platforms (Facebook/Instagram, plus TikTok as an inbox draft).
@@ -13,8 +14,8 @@ import type { SocialPlatform } from '@/lib/social/types';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const body = await request.json().catch(() => null);
@@ -61,3 +62,5 @@ export async function POST(request: NextRequest) {
   const result = await publishClip(supabase, clip as ClipRow, validPlatforms);
   return NextResponse.json(result);
 }
+
+export const POST = withAdminMutation(handlePOST);

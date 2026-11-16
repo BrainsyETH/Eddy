@@ -47,7 +47,7 @@ masters are not generated yet. See `docs/float-history-card-plan.md`, phase 4.
 
 ## Generated utility icons
 
-Bridge, gravel-bar, dam and Float tools marks are reproducible geometry in
+Bridge, gravel-bar, dam, Float tools and the filter marks below are reproducible geometry in
 `eddy-ios/scripts/build-eddy-icons.py`. Float tools is a coral wrench crossed
 over an Eddy paddle; a toolbox was tried first and read as a briefcase at
 button size. The script applies the same utility-symbol
@@ -55,6 +55,15 @@ palette, thick outline, transparency, crop, and 300px export template as the
 concept-derived icons and writes them directly to `eddy-ios/assets/eddy/`.
 Generic Access intentionally reuses `eddy-poi.png`: it is the broad fallback
 place category, not a visually distinct facility.
+
+No fees, Beginner friendly and No portages are generated the same way for the
+website's Find a float filter rows, the three filters the concept set had no
+mark for. No fees is a sand coin with a dollar sign; No portages is a canoe on
+a sand path (out of the water). Both carry one shared coral "no" slash, rising
+left to right so it crosses the dollar sign's spine instead of hiding it.
+Beginner friendly is a coral-banded life ring on calm water. They are
+website-only (`WEB_ONLY_GENERATED` in the script) until the app's Filters sheet
+draws marks.
 
 ## Dam reading icons
 

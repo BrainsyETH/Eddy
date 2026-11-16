@@ -128,3 +128,25 @@ test('a downstream gauge gets the river overview, not the upper river as its own
   assert.doesNotMatch(eureka, /General Ozarks Knowledge/);
   assert.equal(getRiverKnowledgeForGauge('no-such-river', 'Somewhere near Nowhere, MO'), '');
 });
+
+// The three trout tailwaters are dam-controlled, and their notes feed prose a
+// reader may wade by. Same rule as the tailwater guides
+// (src/lib/guides/tailwater-guide.test.ts): describe what the dam does, never
+// clear the water, and never state a superseded rule or an undated reading.
+test('tailwater knowledge does not clear the water or state a stale rule', () => {
+  for (const slug of ['white', 'norfork-tailwater', 'taneycomo']) {
+    const block = riverBlock(slug);
+    assert.ok(block.length > 200, `${slug} has no knowledge section`);
+    assert.doesNotMatch(
+      block,
+      /wadeable|wading is finished|safe to wade|only warning|good to go|every unit is idle/i,
+      slug,
+    );
+    // Norfork's blanket catch-and-release order ended 2026-02-01.
+    assert.doesNotMatch(block, /catch-and-release from end to end/i, slug);
+    // A temperature is background only when it carries the year it was read.
+    for (const line of block.split('\n').filter((l) => /°F/.test(l))) {
+      assert.match(line, /\b20\d\d\b/, `${slug}: undated temperature: ${line.slice(0, 80)}`);
+    }
+  }
+});

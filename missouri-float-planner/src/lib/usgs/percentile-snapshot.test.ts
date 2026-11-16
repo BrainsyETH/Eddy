@@ -282,3 +282,42 @@ test('duplicate and empty site lists cost no extra requests', async () => {
   await readSnapshotStatisticsForSites(client, ['07067000', '07067000']);
   assert.deepEqual(calls.map((call) => call.siteIds), [['07067000']]);
 });
+
+// ── The tails claim no more than the published thresholds support ──────────
+// Reported case: p90 = 100, p95 = 1,000, a reading of 170 cfs scored 97 by
+// extrapolating against p90 alone — contradicting the published p95.
+
+test('a reading between p90 and a published p95 stays between 90 and 95', () => {
+  const r = calculateDischargePercentile(170, stats({ p90: 100, p95: 1000, p75: 80, p50: 50, p25: 30, p10: 20 }));
+  assert.ok(r! >= 90 && r! < 95, `got ${r}`);
+});
+
+test('95 or more only when the reading reaches the published p95', () => {
+  const s = stats({ p90: 500, p95: 900 });
+  assert.ok(calculateDischargePercentile(899, s)! < 95);
+  assert.equal(calculateDischargePercentile(900, s), 95);
+  assert.ok(calculateDischargePercentile(5000, s)! > 95, 'beyond p95 still sorts higher');
+  // Without p95 nothing above p90 may claim the 95th tier — but stays "much higher".
+  const noP95 = calculateDischargePercentile(50_000, stats({ p90: 500 }));
+  assert.ok(noP95! >= 90 && noP95! <= 94, `got ${noP95}`);
+  const p80Only = calculateDischargePercentile(50_000, stats({ p90: null, p80: 400 }));
+  assert.ok(p80Only! <= 94, `got ${p80Only}`);
+});
+
+test('the low tail mirrors it: 5 or less only at or below a published p05', () => {
+  const s = stats({ p90: 500, p05: 60 });
+  assert.ok(calculateDischargePercentile(61, s)! > 5 && calculateDischargePercentile(61, s)! < 10);
+  assert.equal(calculateDischargePercentile(60, s), 5);
+  assert.ok(calculateDischargePercentile(10, s)! < 5);
+  const noP05 = calculateDischargePercentile(1, stats({ p90: 500 }));
+  assert.ok(noP05! > 5 && noP05! < 10, `below p10 without p05 says only "below 10" (got ${noP05})`);
+});
+
+test('no tail change ever moves a reading across a band cut', () => {
+  const s = stats({ p90: 500, p95: 900, p05: 60 });
+  for (const q of [1, 30, 59, 60, 61, 99, 100, 101, 499, 500, 501, 899, 900, 901, 10_000]) {
+    const r = calculateDischargePercentile(q, s)!;
+    if (q < 100) assert.ok(r <= 10, `${q} → ${r}`);
+    if (q > 500) assert.ok(r >= 90, `${q} → ${r}`);
+  }
+});

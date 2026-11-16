@@ -92,6 +92,27 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
           set -e
+
+          # Dispatch inputs are untrusted. PEAK_NUMBER reaches bash arithmetic
+          # (which evaluates command substitutions inside its operand), so the
+          # numeric ones must be plain integers and the slug a plain slug before
+          # anything else runs. Everything below hands values to Python through
+          # env, never by pasting them into `python3 -c` source.
+          for NUMERIC in PEAK_NUMBER MAX_CLIPS VIDEOS_PER_CHANNEL; do
+            if ! [[ "${!NUMERIC}" =~ ^[0-9]{1,3}$ ]]; then
+              echo "::error::$NUMERIC must be a small non-negative integer"
+              exit 1
+            fi
+          done
+          if ! [[ "$PEAK_NUMBER" =~ ^[1-9][0-9]?$ ]]; then
+            echo "::error::PEAK_NUMBER must be between 1 and 99"
+            exit 1
+          fi
+          if ! [[ "$RIVER_SLUG" =~ ^[a-z0-9-]{0,80}$ ]]; then
+            echo "::error::RIVER_SLUG must be a lowercase slug"
+            exit 1
+          fi
+
           WORK_DIR=$(mktemp -d)
           RESULTS_JSON="$WORK_DIR/results.json"
           echo "[]" > "$RESULTS_JSON"
@@ -159,10 +180,23 @@ jobs:
             if [ -z "$RIVER" ]; then RIVER="$DETECTED_RIVER"; fi
             echo "River (resolved): ${RIVER:-(none — generic Ozark paddling)}"
 
+            # PEAK is validated above; the heatmap fields are read with the
+            # index passed as an argument, not interpolated into the program.
             local PEAK_IDX=$((PEAK - 1))
-            local PEAK_START=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX]['start_secs'] if len(peaks)>$PEAK_IDX else '')")
-            local PEAK_DURATION=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX].get('duration_secs',13) if len(peaks)>$PEAK_IDX else '')")
-            local PEAK_SCORE=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); peaks=d.get('peaks',[]); print(peaks[$PEAK_IDX].get('score',0) if len(peaks)>$PEAK_IDX else '')")
+            peak_field() {
+              python3 - "$VIDEO_DIR/heatmap-data.json" "$PEAK_IDX" "$1" "${2:-}" <<'PY'
+          import json, sys
+          path, idx, field, default = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
+          peaks = json.load(open(path)).get('peaks', [])
+          if len(peaks) > idx:
+              print(peaks[idx][field] if default == '' else peaks[idx].get(field, default))
+          else:
+              print('')
+          PY
+            }
+            local PEAK_START=$(peak_field start_secs)
+            local PEAK_DURATION=$(peak_field duration_secs 13)
+            local PEAK_SCORE=$(peak_field score 0)
 
             if [ -z "$PEAK_START" ]; then
               echo "⚠️ No peak at position $PEAK, skipping"
@@ -305,18 +339,19 @@ jobs:
             fi
 
             # Count this as a produced clip (drives MAX_CLIPS + the run summary).
-            python3 -c "
-          import json
-          r = json.load(open('$RESULTS_JSON'))
+            RESULTS_JSON="$RESULTS_JSON" VIDEO_ID="$VIDEO_ID" RIVER="${RIVER:-}" PEAK="$PEAK" RAW_URL="$RAW_URL" python3 - <<'PY'
+          import json, os
+          path = os.environ['RESULTS_JSON']
+          r = json.load(open(path))
           r.append({
-              'youtube_video_id': '$VIDEO_ID',
-              'river_slug': '${RIVER:-}',
-              'peak': $PEAK,
-              'raw_url': '$RAW_URL',
+              'youtube_video_id': os.environ['VIDEO_ID'],
+              'river_slug': os.environ['RIVER'],
+              'peak': int(os.environ['PEAK']),
+              'raw_url': os.environ['RAW_URL'],
               'dispatched': True,
           })
-          json.dump(r, open('$RESULTS_JSON', 'w'), indent=2)
-          "
+          json.dump(r, open(path, 'w'), indent=2)
+          PY
 
             rm -rf "$VIDEO_DIR"
           }

@@ -3,7 +3,7 @@
 // due, and only then. "Due" is dam-update-policy.ts's needsRewrite: no Read
 // for today yet, a new posted SWPA schedule, or six hours since the last one.
 // Most runs write nothing; the run after midnight Central and the run after
-// SWPA's afternoon posting are the ones that do.
+// SWPA's overnight posting (usually by about 04:35 Central) are the ones that do.
 //
 // SCHEDULED AT :47 (vercel.json), after sync-dam-snapshots at :35, so a new
 // schedule version is in the snapshot this reads.

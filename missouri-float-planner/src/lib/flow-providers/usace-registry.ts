@@ -119,6 +119,16 @@ export interface UsaceDam {
    * when a catalog or fetch fails. Confirm real hourly data before adding one.
    */
   resolvedHistoryMetrics?: readonly DamHistoryMetric[];
+  /**
+   * Live (snapshot) metrics that this project serves only through the
+   * resolver, with no explicit series. Like `resolvedHistoryMetrics`, it is a
+   * declaration and not a discovery: copy that promises a reading (a page
+   * title saying "Lake Level") checks it, so the promise follows a verified
+   * capability rather than the bare fact that the dam has an `office`. Each
+   * entry was confirmed against /api/dams/<id> on 2026-11-09. Confirm real
+   * data before adding one, and remove an entry when the series disappears.
+   */
+  resolvedSnapshotMetrics?: readonly UsaceMetric[];
   /** SWPA column code, when the dam has turbines on the federal grid. */
   swpaCode?: string;
   /**
@@ -367,8 +377,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     minimumFlowThroughTurbine: true,
     // No sectionSlug: the White below this dam is its own river, not a reach of
     // one. gaugeSiteId is this dam's own release, because USGS publishes no
-    // discharge or stage anywhere in the tailwater — the three sites below the
-    // dam are water-quality monitors.
+    // discharge or stage between the dam and Norfork — the sites near the dam
+    // are water-quality monitors. The first flow gauge is 07057370 near
+    // Norfork, 43 miles down (then 07060500 at Calico Rock); both are linked to
+    // the river in river_gauges.
     // 07054501 is the water-quality monitor AT the dam (temp + dissolved
     // oxygen, no flow). 5.2 mg/L on 2026-08-24, against 7.3 at Fairview a few
     // miles down — the release re-aerates as it runs.
@@ -394,7 +406,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'trout' as const,
     infoPhone: '866-494-1993',
     generationOnCfs: 100,
-    series: swlSeries('Beaver_Dam', { turbines: true, tailwaterTemp: true }),
+    // Spillway verified 2026-11-12 against the May 2025 spill: Res Out equalled
+    // Plant plus Flow-Tainter Total hour for hour (11,499 = 3,845 + 7,654 cfs on
+    // 2025-05-27 08:00Z).
+    series: swlSeries('Beaver_Dam', { turbines: true, tailwaterTemp: true, spillway: true }),
   },
   'swl-norfork-dam': {
     id: 'swl-norfork-dam',
@@ -599,6 +614,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 100,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-fort-gibson-dam': {
@@ -615,6 +631,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 200,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-broken-bow-dam': {
@@ -634,6 +651,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 150,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-eufaula-dam': {
@@ -650,6 +668,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 300,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-keystone-dam': {
@@ -666,6 +685,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 250,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-denison-dam': {
@@ -685,6 +705,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 200,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
 
@@ -707,6 +728,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     suppressMetrics: ['pctFloodPool'],
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swt-webbers-falls-dam': {
@@ -724,6 +746,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     suppressMetrics: ['pctFloodPool'],
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   // Ozark and Dardanelle are LITTLE ROCK projects, not Tulsa ones, and Little
@@ -750,6 +773,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 1_500,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
   'swl-dardanelle-dam': {
@@ -766,6 +790,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     generationOnCfs: 1_000,
     // Hourly generation + release verified from CWMS on 2026-10-15.
     resolvedHistoryMetrics: ['generationFlow', 'release'],
+    resolvedSnapshotMetrics: ['poolElevation'],
     series: {},
   },
 
@@ -1052,6 +1077,52 @@ export function getUsaceSeries(id: string, metric: UsaceMetric): UsaceSeries | n
  */
 export function hasPowerhouse(dam: UsaceDam): boolean {
   return Boolean(dam.swpaCode || dam.nameplate);
+}
+
+/** The readings a dam card shows, each of which a project may or may not publish. */
+export type DamCardMetric = 'release' | 'poolElevation' | 'tailwaterTempF';
+
+/**
+ * Whether the registry DECLARES a source for one of the card readings.
+ *
+ * For telling "Eddy has no source for it" from "it should be here and is not".
+ * Eddy reads nothing for Stockton from the Corps' national data API, so its
+ * three readings are absent on every visit; calling that "Unavailable" reads
+ * as an outage that never ends.
+ *
+ * ── What this does NOT say ─────────────────────────────────────────────────
+ * That the agency publishes nothing. It answers for Eddy's configuration only.
+ * Kansas City publishes Stockton's pool and outflow on its own water-management
+ * site, and NWS publishes its lake level; neither is a feed Eddy reads. So the
+ * words chosen from this are "Not available in Eddy", never "Not published".
+ * A source limitation somebody has verified belongs in its own declaration.
+ *
+ * A declared explicit series, a verified resolver capability, or an Ameren
+ * feed counts. Water temperature is never resolved, so only an explicit series
+ * declares it. A reading that arrives anyway is always shown: this only
+ * chooses the words for an absent one.
+ */
+export function declaresCardMetric(dam: UsaceDam, metric: DamCardMetric): boolean {
+  if (dam.series[metric]) return true;
+  if (metric === 'tailwaterTempF') return false;
+  if (dam.amerenMetrics) return true;
+  return metric === 'release'
+    ? Boolean(dam.resolvedHistoryMetrics?.includes('release'))
+    : Boolean(dam.resolvedSnapshotMetrics?.includes('poolElevation'));
+}
+
+/** The three readings a dam card's band can show. */
+const DAM_CARD_METRICS: DamCardMetric[] = ['release', 'tailwaterTempF', 'poolElevation'];
+
+/**
+ * The card readings Eddy has no source configured for at this dam, which a
+ * card words "Not available in Eddy" and not "Unavailable". Empty for an id
+ * the registry does not carry: nothing is known about it, so nothing is
+ * claimed.
+ */
+export function unsupportedDamReadings(damId: string): DamCardMetric[] {
+  const dam = USACE_DAMS[damId];
+  return dam ? DAM_CARD_METRICS.filter(metric => !declaresCardMetric(dam, metric)) : [];
 }
 
 /**

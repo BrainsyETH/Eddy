@@ -10,7 +10,7 @@ const RiverWindow = dynamic(() => import('@/components/display/RiverWindow'), {
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#0b172b',
+        background: '#161615',
         color: '#f4ead5',
         display: 'grid',
         placeItems: 'center',

@@ -14,6 +14,14 @@ export interface ShareImage {
  */
 export const ROUTE_SHARE_IMAGE = 'route-files' as const;
 
+/** The root layout's title template. Exported so tests can measure rendered titles. */
+export const TITLE_TEMPLATE = '%s | Eddy';
+
+/** A page title as the browser and search results receive it. */
+export function renderedTitle(title: string): string {
+  return TITLE_TEMPLATE.replace('%s', title);
+}
+
 const SITE_IMAGE: ShareImage = {
   url: '/opengraph-image',
   alt: 'Eddy — live river conditions, water levels, and float trip plans',

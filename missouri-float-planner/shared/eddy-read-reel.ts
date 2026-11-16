@@ -4,9 +4,68 @@ export const READ_CTA_FRAMES = 90;
 export const READ_VOICE_LEAD = 18;
 export const READ_VOICE_GAP = 9;
 export type ReadVoiceover = {
-  clips: Array<{ src: string; durationFrames: number }>;
+  clips: Array<{ src: string; durationFrames: number; text?: string; sceneIndex?: number }>;
   closing: { src: string; durationFrames: number };
 };
+
+/** Each river keeps its own identity, source timestamps and optional scenery. */
+export type ReadScene = {
+  riverName: string;
+  text: string;
+  conditionCode?: string;
+  dateLabel?: string;
+  photo?: { url: string; title: string; author: string };
+};
+
+export type ReadCue = { text: string; from: number; to: number; sceneIndex: number; topic: ReadingTopic | null };
+
+/** Short phrases retain every word. They are not claimed to be word timestamps. */
+export function readingPhrases(text: string): string[] {
+  const result: string[] = [];
+  let phrase = '';
+  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+    if (phrase && (phrase.length + word.length > 88 || phrase.split(' ').length >= 14)) {
+      result.push(phrase); phrase = '';
+    }
+    phrase += `${phrase ? ' ' : ''}${word}`;
+    if (phrase.length >= 38 && /[,;:!?]$/.test(word)) { result.push(phrase); phrase = ''; }
+  }
+  if (phrase) result.push(phrase);
+  return result;
+}
+
+/** Measured sentence boundaries drive scenes; phrases share their sentence's
+ * time proportionally. Old cached audio remains playable with estimated cues. */
+export function readingCues(text: string, voiceover?: ReadVoiceover, scenes?: ReadScene[]): ReadCue[] {
+  const normalize = (value: string) => value.trim().replace(/\s+/g, ' ');
+  const measured = voiceover?.clips.every(clip => typeof clip.text === 'string') &&
+    normalize(voiceover.clips.map(clip => clip.text).join(' ')) === normalize(text);
+  const bodyEnd = readingTiming(text, voiceover).endingStart - 12;
+  const source = (scenes?.length ? scenes : [{ text }]).flatMap((scene, sceneIndex) =>
+    readingBlocks(scene.text).map(block => ({ text: block.text, sceneIndex })));
+  const totalWords = Math.max(1, source.reduce((sum, block) => sum + block.text.split(/\s+/).length, 0));
+  let cursor = READ_VOICE_LEAD;
+  let usedWords = 0;
+  const clips = measured ? voiceover!.clips : source.map(block => {
+    const from = Math.round(usedWords / totalWords * (bodyEnd - READ_VOICE_LEAD));
+    usedWords += block.text.split(/\s+/).length;
+    return { ...block, durationFrames: Math.round(usedWords / totalWords * (bodyEnd - READ_VOICE_LEAD)) - from };
+  });
+  return clips.flatMap(clip => {
+    const sentence = clip.text ?? '';
+    const phrases = readingPhrases(sentence);
+    const words = Math.max(1, sentence.trim().split(/\s+/).length);
+    let used = 0;
+    const cues = phrases.map(phrase => {
+      const from = cursor + Math.round(used / words * clip.durationFrames);
+      used += phrase.split(/\s+/).length;
+      return { text: phrase, from, to: cursor + Math.round(used / words * clip.durationFrames),
+        sceneIndex: clip.sceneIndex ?? 0, topic: readingTopic(sentence) };
+    });
+    cursor += clip.durationFrames + (measured ? READ_VOICE_GAP : 0);
+    return cues;
+  });
+}
 
 export function readingTiming(text: string, voiceover?: ReadVoiceover) {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
@@ -37,14 +96,6 @@ export function readingBlocks(text: string) {
   return text.trim().split(/\n\s*\n|(?<=[.!?])\s+(?=[A-Z“"‘])/u)
     .map(text => text.trim()).filter(Boolean)
     .map(text => ({ text, topic: readingTopic(text) }));
-}
-
-/** Start with prose in view; the inline ending follows without an empty beat. */
-export function readingScrollY(frame: number, duration: number, endingTop: number, endingFrames = READ_CTA_FRAMES) {
-  const start = 24;
-  const end = start - endingTop;
-  const progress = Math.max(0, Math.min(1, frame / Math.max(1, duration - endingFrames - 1)));
-  return start + (end - start) * progress;
 }
 
 export type ReadWeather = { date: string; highF: number | null; lowF: number | null; condition: string; precipChance: number | null };

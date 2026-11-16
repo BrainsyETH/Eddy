@@ -1,17 +1,21 @@
+import { revalidatePath } from 'next/cache';
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/blog/route.ts
 // GET /api/admin/blog - List all blog posts for admin
 // POST /api/admin/blog - Create a new blog post
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { sanitizeRichText } from '@/lib/sanitize';
+
+import { BLOG_CATEGORIES, publicationState, formatAdminPost } from '@/lib/admin/blog-publication';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const supabase = createAdminClient();
@@ -56,9 +60,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const body = await request.json();
@@ -91,7 +95,7 @@ export async function POST(request: NextRequest) {
       .replace(/^-|-$/g, '');
 
     // Validate category
-    const validCategories = ['Guides', 'Tips', 'News', 'Safety', 'River Profiles', 'Gear Reviews', 'Trip Reports'];
+    const validCategories = BLOG_CATEGORIES;
     if (!validCategories.includes(category)) {
       return NextResponse.json(
         { error: `Invalid category. Must be one of: ${validCategories.join(', ')}` },
@@ -124,11 +128,11 @@ export async function POST(request: NextRequest) {
       status,
     };
 
-    // Handle published_at for scheduled/published posts
-    if (status === 'published' && !publishedAt) {
-      insertData.published_at = new Date().toISOString();
-    } else if (publishedAt) {
-      insertData.published_at = publishedAt;
+    try {
+      Object.assign(insertData, publicationState(status, publishedAt));
+      if (status !== 'draft' && !insertData.content) throw new Error('Add body content before publishing.');
+    } catch (error) {
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -151,22 +155,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formatted = {
-      id: data.id,
-      slug: data.slug,
-      title: data.title,
-      description: data.description,
-      content: data.content,
-      category: data.category,
-      featuredImageUrl: data.featured_image_url,
-      ogImageUrl: data.og_image_url,
-      metaKeywords: data.meta_keywords,
-      readTimeMinutes: data.read_time_minutes,
-      status: data.status,
-      publishedAt: data.published_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    revalidatePath(`/blog/${data.slug}`); revalidatePath('/blog'); revalidatePath('/sitemap.xml');
+    await logAdminAction({ request, action: 'create', entityType: 'blog_post', entityId: data.id, entityName: data.title, details: { after: insertData } });
+    const formatted = formatAdminPost(data);
 
     return NextResponse.json({ post: formatted }, { status: 201 });
   } catch (error) {
@@ -177,3 +168,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

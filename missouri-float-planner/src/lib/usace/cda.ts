@@ -31,6 +31,43 @@ const CDA_HEADERS = { Accept: 'application/json;version=2' } as const;
  */
 const REQUEST_TIMEOUT_MS = 8_000;
 
+/**
+ * The ceiling on ONE fetchTimeseries call, retry included.
+ *
+ * ── Why a retry at all ─────────────────────────────────────────────────────
+ * Every caller treats null as "this series has nothing", and on a dam page
+ * that is load-bearing: a missing generationFlow renders "Release status
+ * unavailable" over Table Rock while CWMS is publishing the reading the whole
+ * time (seen 2026-11-08 — one failed request during a render, gone a minute
+ * later). A single dropped connection or 503 from the Corps should not be able
+ * to blank the headline fact on a page.
+ *
+ * ── Why a total budget and not "8 seconds, twice" ─────────────────────────
+ * update-gauges and the page renders size themselves against REQUEST_TIMEOUT_MS
+ * per call. Two full attempts would double the worst case. Capping the pair at
+ * this figure means a fast failure (reset, 502/503) gets a full second attempt,
+ * while a first attempt that burned the whole 8s timeout gets only what is
+ * left — the worst case grows by four seconds, not eight.
+ */
+const TOTAL_BUDGET_MS = 12_000;
+
+/** Pause before the second attempt, so a momentary blip has time to pass. */
+const RETRY_DELAY_MS = 250;
+
+/** A second attempt shorter than this is not worth making. */
+const MIN_RETRY_TIMEOUT_MS = 1_500;
+
+/**
+ * Whether an HTTP status is worth asking again about.
+ *
+ * 5xx and 429 are the Corps' servers being busy or briefly broken. Every other
+ * 4xx is a question asked wrongly — above all a 404, which is how a renamed
+ * series surfaces, and asking twice would only double the noise.
+ */
+export function isRetryableStatus(status: number): boolean {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
 /** Observations publish hourly; no point revalidating faster than that. */
 const REVALIDATE_SECONDS = 900;
 
@@ -87,6 +124,9 @@ interface CdaTimeseriesResponse {
  * Fetch one timeseries window. Returns null on any failure — a missing metric
  * is normal (Clearwater has no turbines, MVS publishes no % flood pool), so
  * absence must be cheap and quiet rather than exceptional.
+ *
+ * A network error, timeout, 429 or 5xx is tried once more inside
+ * TOTAL_BUDGET_MS — see there for why. A 404 or other 4xx is not.
  */
 export async function fetchTimeseries(
   office: string,
@@ -97,18 +137,44 @@ export async function fetchTimeseries(
   options?: { skipCache?: boolean }
 ): Promise<TimeseriesResult | null> {
   const url = timeseriesUrl(office, tsId, unit, begin, end);
+  const started = Date.now();
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  const attempt = (timeoutMs: number) =>
+    fetch(url, {
       headers: CDA_HEADERS,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       ...(options?.skipCache
         ? { cache: 'no-store' as const }
         : { next: { revalidate: REVALIDATE_SECONDS } }),
     });
+
+  let res: Response | null = null;
+  let failure: unknown = null;
+  try {
+    res = await attempt(REQUEST_TIMEOUT_MS);
   } catch (e) {
-    console.error(`[CDA] ${office}/${tsId}: fetch failed`, e);
+    failure = e;
+  }
+
+  if (!res || isRetryableStatus(res.status)) {
+    const remaining = TOTAL_BUDGET_MS - (Date.now() - started) - RETRY_DELAY_MS;
+    if (remaining >= MIN_RETRY_TIMEOUT_MS) {
+      console.warn(
+        `[CDA] ${office}/${tsId}: ${res ? `HTTP ${res.status}` : 'fetch failed'}, retrying once`
+      );
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      try {
+        res = await attempt(Math.min(REQUEST_TIMEOUT_MS, remaining));
+        failure = null;
+      } catch (e) {
+        res = null;
+        failure = e;
+      }
+    }
+  }
+
+  if (!res) {
+    console.error(`[CDA] ${office}/${tsId}: fetch failed`, failure);
     return null;
   }
 

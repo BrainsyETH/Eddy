@@ -1,0 +1,434 @@
+[
+  {
+    "id": "49698883-885d-4576-867c-7d706b4d8fd9",
+    "usgs_site_id": "06923250",
+    "name": "Niangua River at Windyville, MO",
+    "drainage_area_sqmi": "377.00",
+    "longitude": -92.9246388888889,
+    "latitude": 37.6843055555556
+  },
+  {
+    "id": "a0f72c73-dda1-432d-a329-05d7a54c11b0",
+    "usgs_site_id": "06923950",
+    "name": "Niangua River at Tunnel Dam near Macks Creek, MO",
+    "drainage_area_sqmi": "598.00",
+    "longitude": -92.8513611111111,
+    "latitude": 37.9369444444444
+  },
+  {
+    "id": "e854bae9-64ae-4bf8-ae2d-67b8f2fdf135",
+    "usgs_site_id": "06928000",
+    "name": "Gasconade River near Hazelgreen, MO",
+    "drainage_area_sqmi": "1250.00",
+    "longitude": -92.4520277777778,
+    "latitude": 37.7591388888889
+  },
+  {
+    "id": "094fa6fc-4e34-4146-a325-91e08019fd26",
+    "usgs_site_id": "06928900",
+    "name": "Big Piney River near Houston, MO",
+    "drainage_area_sqmi": "251.00",
+    "longitude": -91.9971,
+    "latitude": 37.3231
+  },
+  {
+    "id": "2c80ce18-79df-4a86-8644-4ed1d402644e",
+    "usgs_site_id": "06930000",
+    "name": "Big Piney River near Big Piney, MO",
+    "drainage_area_sqmi": "560.00",
+    "longitude": -92.0499166666667,
+    "latitude": 37.6656388888889
+  },
+  {
+    "id": "fa3dc63d-f775-4f94-bba7-604c6be7435b",
+    "usgs_site_id": "06933500",
+    "name": "Gasconade River at Jerome, MO",
+    "drainage_area_sqmi": "2840.00",
+    "longitude": -91.9773333333333,
+    "latitude": 37.9299166666667
+  },
+  {
+    "id": "2ae05171-441c-4910-8357-19369824c3ad",
+    "usgs_site_id": "06934000",
+    "name": "Gasconade River near Rich Fountain, MO",
+    "drainage_area_sqmi": "3180.00",
+    "longitude": -91.8198888888889,
+    "latitude": 38.3888055555556
+  },
+  {
+    "id": "16826a92-e7f4-41c3-9a0d-909c6db3a635",
+    "usgs_site_id": "07010350",
+    "name": "Meramec River at Cook Station, MO",
+    "drainage_area_sqmi": "199.00",
+    "longitude": -91.4374833333333,
+    "latitude": 37.8291472222222
+  },
+  {
+    "id": "ab487e62-600c-4bef-95bb-06206559fb4e",
+    "usgs_site_id": "07013000",
+    "name": "Meramec River near Steelville, MO",
+    "drainage_area_sqmi": "781.00",
+    "longitude": -91.3609444444444,
+    "latitude": 37.9984722222222
+  },
+  {
+    "id": "aa406852-16c0-4d52-970a-3ec443e1d02d",
+    "usgs_site_id": "07014000",
+    "name": "Huzzah Creek near Steelville, MO",
+    "drainage_area_sqmi": "259.00",
+    "longitude": -91.2040277777778,
+    "latitude": 37.9747777777778
+  },
+  {
+    "id": "87a5408e-e333-4356-97ea-6c9759f154b3",
+    "usgs_site_id": "07014500",
+    "name": "Meramec River near Sullivan, MO",
+    "drainage_area_sqmi": "1475.00",
+    "longitude": -91.1084722222222,
+    "latitude": 38.1585277777778
+  },
+  {
+    "id": "13e2c2af-b778-4354-9b8d-75dcd0aed719",
+    "usgs_site_id": "07015720",
+    "name": "Bourbeuse River near High Gate, MO",
+    "drainage_area_sqmi": "135.00",
+    "longitude": -91.5808888888889,
+    "latitude": 38.1469166666667
+  },
+  {
+    "id": "3918dbf0-9845-4bd4-96b0-aad44ddbdfd5",
+    "usgs_site_id": "07016500",
+    "name": "Bourbeuse River at Union, MO",
+    "drainage_area_sqmi": "808.00",
+    "longitude": -90.9954722222222,
+    "latitude": 38.4441388888889
+  },
+  {
+    "id": "d18c477e-1c57-42b3-8bd3-377ce5958240",
+    "usgs_site_id": "07018100",
+    "name": "Big River near Richwoods, MO",
+    "drainage_area_sqmi": "735.00",
+    "longitude": -90.7060555555556,
+    "latitude": 38.1596111111111
+  },
+  {
+    "id": "201f1c6e-5b38-4487-897b-666f67453f8a",
+    "usgs_site_id": "07018500",
+    "name": "Big River at Byrnesville, MO",
+    "drainage_area_sqmi": "917.00",
+    "longitude": -90.6378055555556,
+    "latitude": 38.3917222222222
+  },
+  {
+    "id": "31373f9b-cf7a-45bd-a7cc-ee7eb7fef1b7",
+    "usgs_site_id": "07019000",
+    "name": "Meramec River near Eureka, MO",
+    "drainage_area_sqmi": "3788.00",
+    "longitude": -90.5901666666667,
+    "latitude": 38.5051388888889
+  },
+  {
+    "id": "a8c7b8c2-274f-4b27-862b-ca8c84ab8e82",
+    "usgs_site_id": "07034000",
+    "name": "St. Francis River near Roselle, MO",
+    "drainage_area_sqmi": "234.00",
+    "longitude": -90.4986472,
+    "latitude": 37.5961222
+  },
+  {
+    "id": "ceb6d3e1-73dc-4fd8-b884-712c1cdefa61",
+    "usgs_site_id": "07037500",
+    "name": "St. Francis River near Patterson, MO",
+    "drainage_area_sqmi": "956.00",
+    "longitude": -90.5033055555556,
+    "latitude": 37.1945277777778
+  },
+  {
+    "id": "6d91119f-d3bf-4660-93ff-003b5b2ae621",
+    "usgs_site_id": "07049000",
+    "name": "War Eagle Creek near Hindsville, AR",
+    "drainage_area_sqmi": "263.00",
+    "longitude": -93.855,
+    "latitude": 36.2
+  },
+  {
+    "id": "07460894-89a7-4597-82e2-4c14148ee906",
+    "usgs_site_id": "07050500",
+    "name": "Kings River near Berryville, AR",
+    "drainage_area_sqmi": "527.00",
+    "longitude": -93.6208333333333,
+    "latitude": 36.4272222222222
+  },
+  {
+    "id": "b977a875-a6d7-45c3-9cb6-f6207506138d",
+    "usgs_site_id": "07052250",
+    "name": "James River near Boaz, MO",
+    "drainage_area_sqmi": "462.00",
+    "longitude": -93.3646666666667,
+    "latitude": 37.0065833333333
+  },
+  {
+    "id": "24f16683-922b-4297-991b-d86456d9509d",
+    "usgs_site_id": "07052500",
+    "name": "James River at Galena, MO",
+    "drainage_area_sqmi": "987.00",
+    "longitude": -93.4615833333333,
+    "latitude": 36.8053888888889
+  },
+  {
+    "id": "c5ff1714-4e15-4a82-9d27-71c9db5461bb",
+    "usgs_site_id": "07055607",
+    "name": "Crooked Creek at Kelly Crossing at Yellville, AR",
+    "drainage_area_sqmi": "398.00",
+    "longitude": -92.7094444444444,
+    "latitude": 36.2302777777778
+  },
+  {
+    "id": "d989e4ba-1580-43bf-bcbb-01bd6e00838f",
+    "usgs_site_id": "07055646",
+    "name": "Buffalo River near Boxley, AR",
+    "drainage_area_sqmi": "57.40",
+    "longitude": -93.405,
+    "latitude": 35.9388888888889
+  },
+  {
+    "id": "595b645b-0d1b-4c8b-b984-afbc0b1c0c86",
+    "usgs_site_id": "07055660",
+    "name": "Buffalo River at Ponca, AR",
+    "drainage_area_sqmi": "116.00",
+    "longitude": -93.3547222222222,
+    "latitude": 36.0225
+  },
+  {
+    "id": "7f352afb-e8c2-47d0-aef9-8dce1caa322e",
+    "usgs_site_id": "07055680",
+    "name": "Buffalo River at Pruitt, AR",
+    "drainage_area_sqmi": "190.00",
+    "longitude": -93.1377777777778,
+    "latitude": 36.0591666666667
+  },
+  {
+    "id": "2deb176b-8faf-4494-b1c6-13dbeb0f2a5c",
+    "usgs_site_id": "07056000",
+    "name": "Buffalo River near St. Joe, AR",
+    "drainage_area_sqmi": "829.00",
+    "longitude": -92.7472222222222,
+    "latitude": 35.9830555555556
+  },
+  {
+    "id": "7c506922-5242-49c3-aaf4-f9b33cec488a",
+    "usgs_site_id": "07056700",
+    "name": "Buffalo River near Harriet, AR",
+    "drainage_area_sqmi": "1070.00",
+    "longitude": -92.5775,
+    "latitude": 36.0677777777778
+  },
+  {
+    "id": "1be6d453-8489-4acb-a0a8-5d30d1ced41a",
+    "usgs_site_id": "07057370",
+    "name": "White River near Norfork, AR",
+    "drainage_area_sqmi": "8040.00",
+    "longitude": -92.3,
+    "latitude": 36.2236111111111
+  },
+  {
+    "id": "7868980b-8558-43f0-ad6d-e71d7c289c0a",
+    "usgs_site_id": "07057500",
+    "name": "North Fork River near Tecumseh, MO",
+    "drainage_area_sqmi": "561.00",
+    "longitude": -92.2481388888889,
+    "latitude": 36.6230277777778
+  },
+  {
+    "id": "6af95657-1fbe-4cf3-9f24-532f4a2de8b2",
+    "usgs_site_id": "07058000",
+    "name": "Bryant Creek near Tecumseh, MO",
+    "drainage_area_sqmi": "570.00",
+    "longitude": -92.3060555555556,
+    "latitude": 36.6272222222222
+  },
+  {
+    "id": "47a36343-063b-43d2-8688-feddb75e3abb",
+    "usgs_site_id": "07060500",
+    "name": "White River at Calico Rock, AR",
+    "drainage_area_sqmi": "9980.00",
+    "longitude": -92.1430555555556,
+    "latitude": 36.1166666666667
+  },
+  {
+    "id": "352330c8-cd89-437e-a363-65093d0ff720",
+    "usgs_site_id": "07061500",
+    "name": "Black River near Annapolis, MO",
+    "drainage_area_sqmi": "484.00",
+    "longitude": -90.78875,
+    "latitude": 37.3381388888889
+  },
+  {
+    "id": "ba4dfb41-14fc-4636-8751-1902b20e684a",
+    "usgs_site_id": "07063000",
+    "name": "Black River at Poplar Bluff, MO",
+    "drainage_area_sqmi": "1245.00",
+    "longitude": -90.3878333333333,
+    "latitude": 36.75975
+  },
+  {
+    "id": "c20d1b75-0ca7-430e-8271-5ede0bd1da3b",
+    "usgs_site_id": "07064440",
+    "name": "Current River at Montauk State Park, MO",
+    "drainage_area_sqmi": "58.80",
+    "longitude": -91.6713611111111,
+    "latitude": 37.4479166666667
+  },
+  {
+    "id": "3dfd4150-8d83-4dfc-814d-612f7a899a20",
+    "usgs_site_id": "07064533",
+    "name": "Current River above Akers, MO",
+    "drainage_area_sqmi": "295.00",
+    "longitude": -91.5528055555556,
+    "latitude": 37.3756944444444
+  },
+  {
+    "id": "60091e10-0fe6-45b0-ba00-911e016ae49a",
+    "usgs_site_id": "07065200",
+    "name": "Jacks Fork near Mountain View, MO",
+    "drainage_area_sqmi": "185.00",
+    "longitude": -91.6680277777778,
+    "latitude": 37.0565277777778
+  },
+  {
+    "id": "d112717d-bfab-4b34-954b-4c33a04a3b03",
+    "usgs_site_id": "07065495",
+    "name": "Jacks Fork at Alley Spring, MO",
+    "drainage_area_sqmi": "298.00",
+    "longitude": -91.4430833333333,
+    "latitude": 37.1481666666667
+  },
+  {
+    "id": "4afc7ee2-2022-4a21-a77f-866c3e74779f",
+    "usgs_site_id": "07066000",
+    "name": "Jacks Fork at Eminence, MO",
+    "drainage_area_sqmi": "398.00",
+    "longitude": -91.3581666666667,
+    "latitude": 37.1540833333333
+  },
+  {
+    "id": "a2ff69db-641e-401c-b815-a5f917d86471",
+    "usgs_site_id": "07066510",
+    "name": "Current River above Powder Mill, MO",
+    "drainage_area_sqmi": "1340.00",
+    "longitude": -91.1776638888889,
+    "latitude": 37.1856138888889
+  },
+  {
+    "id": "18ab3918-bc3c-4f58-89b0-9df17a173f00",
+    "usgs_site_id": "07067000",
+    "name": "Current River at Van Buren, MO",
+    "drainage_area_sqmi": "1667.00",
+    "longitude": -91.0135,
+    "latitude": 36.9913888888889
+  },
+  {
+    "id": "b3b24db5-4261-4cf3-8452-23447a5b432f",
+    "usgs_site_id": "07068000",
+    "name": "Current River at Doniphan, MO",
+    "drainage_area_sqmi": "2038.00",
+    "longitude": -90.8463888888889,
+    "latitude": 36.6215
+  },
+  {
+    "id": "398a9c2f-fc80-42a2-a6cc-4ed69796fec4",
+    "usgs_site_id": "07069305",
+    "name": "Spring River at Spring Street Bridge at Hardy, AR",
+    "drainage_area_sqmi": "845.00",
+    "longitude": -91.4827777777778,
+    "latitude": 36.3136111111111
+  },
+  {
+    "id": "d6bd6900-9068-4195-83be-01b8361861d3",
+    "usgs_site_id": "07069500",
+    "name": "Spring River at Imboden, AR",
+    "drainage_area_sqmi": "1180.00",
+    "longitude": -91.1716666666667,
+    "latitude": 36.2055555555556
+  },
+  {
+    "id": "94c0cbcf-4bef-4d02-bd7a-5a73198bf4da",
+    "usgs_site_id": "07071500",
+    "name": "Eleven Point River near Bardley, MO",
+    "drainage_area_sqmi": "793.00",
+    "longitude": -91.2008333333333,
+    "latitude": 36.6486944444444
+  },
+  {
+    "id": "affe88d9-064f-4c68-be39-f05fd6ee9afd",
+    "usgs_site_id": "07185765",
+    "name": "Spring River at Carthage, MO",
+    "drainage_area_sqmi": "425.00",
+    "longitude": -94.3259166666667,
+    "latitude": 37.1886388888889
+  },
+  {
+    "id": "8a4cf364-037e-496f-9f95-32526c4575a6",
+    "usgs_site_id": "07186000",
+    "name": "Spring River near Waco, MO",
+    "drainage_area_sqmi": "1164.00",
+    "longitude": -94.5664166666667,
+    "latitude": 37.2456111111111
+  },
+  {
+    "id": "fc3bf5db-31eb-45fa-b761-18f7b8eb1af8",
+    "usgs_site_id": "07188925",
+    "name": "Elk Rv at MO-59, Noel, MO",
+    "drainage_area_sqmi": null,
+    "longitude": -94.493144,
+    "latitude": 36.549703
+  },
+  {
+    "id": "140e52bd-4096-42ba-b068-9059ec970f85",
+    "usgs_site_id": "07252000",
+    "name": "Mulberry River near Mulberry, AR",
+    "drainage_area_sqmi": "373.00",
+    "longitude": -94.0152777777778,
+    "latitude": 35.5769444444445
+  },
+  {
+    "id": "1ecdd01b-aa3a-44df-964c-b31018512e90",
+    "usgs_site_id": "07359610",
+    "name": "Caddo River near Caddo Gap, AR",
+    "drainage_area_sqmi": "136.00",
+    "longitude": -93.6061111111111,
+    "latitude": 34.3827777777778
+  },
+  {
+    "id": "1090df7c-cef8-446a-a498-fc03a406c1a0",
+    "usgs_site_id": null,
+    "name": "North Fork River below Norfork Dam",
+    "drainage_area_sqmi": null,
+    "longitude": -92.241057193146,
+    "latitude": 36.24679567738
+  },
+  {
+    "id": "ee8a7e5c-f23f-40dd-bcd4-60f86bce409d",
+    "usgs_site_id": null,
+    "name": "Lake Taneycomo below Table Rock Dam",
+    "drainage_area_sqmi": null,
+    "longitude": -93.3069401,
+    "latitude": 36.5950454
+  },
+  {
+    "id": "a02843ec-9eb8-4f62-a1dc-73d351df5010",
+    "usgs_site_id": null,
+    "name": "Black River below Clearwater Dam",
+    "drainage_area_sqmi": null,
+    "longitude": -90.7708833,
+    "latitude": 37.1349222
+  },
+  {
+    "id": "ca785235-2f8c-472d-b241-416ac0dad1ed",
+    "usgs_site_id": null,
+    "name": "White River below Bull Shoals Dam",
+    "drainage_area_sqmi": null,
+    "longitude": -92.578535671997,
+    "latitude": 36.36482056353
+  }
+]

@@ -11,7 +11,8 @@ const origin = `http://127.0.0.1:${port}`;
 const root = '/conditions-layout-check';
 const route = resolve(`src/app${root}`);
 const out = process.env.CONDITIONS_SMOKE_OUTPUT || '/tmp/eddy-conditions';
-const now = Date.now();
+// Keep the scheduled noon change ahead of the fixture clock, even in evening runs.
+const now = new Date().setUTCHours(15, 0, 0, 0);
 const at = new Date(now - 600000).toISOString();
 const remoteImageFixture = await readFile('public/icons/eddy-wave.png');
 const originalImages = new Map();
@@ -89,13 +90,13 @@ try {
     assert(metadata, `${entry} metadata shape changed; update the browser fixture`);
     return `import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { publicPageMetadata } from '@/lib/seo';
+import { publicPageMetadata, ROUTE_SHARE_IMAGE, SHARE_IMAGES } from '@/lib/seo';
 import ConditionsLayout from '@/components/conditions/ConditionsLayout';
 import { conditionsDamCatalogue } from '@/lib/conditions/dam-catalogue';
 ${metadata[0]}
 export default function Page() {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_CONDITIONS_SMOKE !== '1') notFound();
-  return <ConditionsLayout rivers={${JSON.stringify(rivers)}} dams={${JSON.stringify(dams)}} renderedAt={Date.now()} defaultKind="${kind}" />;
+  return <ConditionsLayout rivers={${JSON.stringify(rivers)}} dams={${JSON.stringify(dams)}} renderedAt={${now}} defaultKind="${kind}" />;
 }`;
   };
   await writeFile(`${route}/page.tsx`, await source('all', 'rivers'));
@@ -132,6 +133,7 @@ export default function Page() {
   for (const [label,width,height] of [['desktop',1440,1000],['tablet',820,1180],['mobile',390,844],['small',320,720]]) {
     const context=await browser.newContext({ viewport:{width,height}, hasTouch:width<900, geolocation:{latitude:36,longitude:-93}, permissions:['geolocation'] });
     const page=await context.newPage();
+    await page.clock.setFixedTime(now);
     page.setDefaultNavigationTimeout(90000);
     const errors=[];
     page.on('pageerror', error=>errors.push(error.message));
@@ -161,6 +163,25 @@ export default function Page() {
     });
     await page.goto(`${origin}${root}`, {waitUntil:'networkidle'});
     await readyConditions(page);
+    if (process.env.CONDITIONS_LINKS_ONLY === '1') {
+      const stateLinks = page.getByRole('navigation', { name: 'Rivers by state', exact: true });
+      for (const [label, href] of [['Missouri rivers →', '/rivers/missouri'], ['Arkansas rivers →', '/rivers/arkansas']]) {
+        assert.equal(await stateLinks.getByRole('link', { name: label, exact: true }).getAttribute('href'), href);
+      }
+      const footer = page.locator('footer');
+      for (const [label, href] of [['Conditions', '/rivers'], ['U.S. River Map', '/river-map'], ['Ozarks Conditions Map', '/river-map/ozarks'], ['Support', '/support'], ['What Eddy Covers', '/coverage']]) {
+        assert.equal(await footer.getByRole('link', { name: label, exact: true }).getAttribute('href'), href);
+      }
+      assert(await page.locator('[data-destination="river:current"]').getByRole('img', { name: /Flow.*trend chart/ }).isVisible());
+      assert(await page.locator('[data-destination="dam:swl-table-rock-dam"]').getByRole('region', { name: 'Today’s generation schedule', exact: true }).isVisible());
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${label}: no horizontal overflow`);
+      await footer.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${out}/${label}-navigation.png` });
+      assert.deepEqual(errors, [], `${label}: no runtime errors`);
+      console.log(`PASS ${label}: state and footer destinations, river chart, dam timeline, and layout`);
+      await context.close();
+      continue;
+    }
     const search=page.getByRole('searchbox', {name:'Search rivers, lakes, or dams'});
     assert.equal(await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed'),'true');
     assert.equal(await page.getByRole('button',{name:'Floatable now',exact:true}).count(),0);
@@ -170,9 +191,10 @@ export default function Page() {
     assert.equal(await page.locator('[data-destination]:visible').count(), rivers.length + dams.length, 'every full card is visible without Show all');
     await page.locator('[data-destination="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
     await page.waitForFunction(count => document.querySelectorAll('[data-destination^="river:"] svg[role="img"]').length === count, rivers.length);
-    assert.equal(await page.getByText('Eddy says',{exact:true}).count(), rivers.length);
+    assert.equal(await page.getByText('Eddy says:',{exact:true}).locator('..').count(), rivers.length);
     assert.equal(await page.getByRole('img',{name:/Flow.*trend chart/}).count(),rivers.length);
-    assert.equal(await page.getByRole('img',{name:'Eddy the Otter',exact:true}).count(),rivers.length+1);
+    assert.equal(await page.locator('[data-destination^="river:"] img').count(), rivers.length, 'river cards retain their decorative Eddy artwork');
+    assert.equal(await page.getByRole('img',{name:'Eddy the Otter',exact:true}).count(), 1, 'the page header retains Eddy');
     const featuredDam=featured.locator('[data-destination="dam:swl-table-rock-dam"]');
     assert(await featuredDam.getByText('10,500 cfs',{exact:true}).isVisible());
     assert(await featuredDam.getByText('Water temp',{exact:true}).isVisible());
@@ -196,6 +218,9 @@ export default function Page() {
     assert.equal(await schedules.count(),dams.length);
     assert.equal(await schedules.getByRole('img').count(),dams.length,'today timeline remains visible for each dam');
     assert.equal(await schedules.locator('details,[role="tab"]').count(),0,'today is visible without a disclosure or day selector');
+    const stateLinks = page.getByRole('navigation', { name: 'Rivers by state', exact: true });
+    assert.equal(await stateLinks.getByRole('link', { name: 'Missouri rivers →', exact: true }).getAttribute('href'), '/rivers/missouri');
+    assert.equal(await stateLinks.getByRole('link', { name: 'Arkansas rivers →', exact: true }).getAttribute('href'), '/rivers/arkansas');
     const tomorrowSchedules=page.getByRole('region',{name:'Tomorrow’s generation schedule',exact:true});
     assert.equal(await tomorrowSchedules.count(),0,'cards show only Today even when Tomorrow is posted');
     const schedule=featuredDam.getByRole('region',{name:'Today’s generation schedule',exact:true});
@@ -261,7 +286,7 @@ export default function Page() {
     assert(await page.locator('[data-result]').getByRole('region',{name:'Today’s generation schedule',exact:true}).getByRole('img').isVisible(),'search retains the hourly dam timeline');
     await search.fill('Current River');
     await page.locator('[data-result="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
-    assert(await page.getByText('Eddy says',{exact:true}).isVisible(), 'search retains Eddy and the river chart');
+    assert(await page.getByText('Eddy says:',{exact:true}).locator('..').isVisible(), 'search retains Eddy and the river chart');
     await search.fill('Taneycomo');
     await page.waitForFunction(()=>document.querySelectorAll('[data-result]').length===2);
     assert.deepEqual(await page.locator('[data-result]').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('data-result'))),['river:taneycomo','dam:swl-table-rock-dam']);

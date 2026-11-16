@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { makeTrackedFetch, measure } from './core';
 import { recordBatch, telemetryConfig } from './redis';
 import type { Observation } from './model';
+import { noteUsgsQuota } from './usgs-quota';
 /** Request-lifetime scheduling. No raw URLs, query strings, arguments, or bodies leave the caller. */
 export function recordObservation(event: Observation): void {
   const config = telemetryConfig();
@@ -26,7 +27,13 @@ export function recordObservation(event: Observation): void {
     /* CLI scripts have no request lifetime; excluded from coverage. */
   }
 }
-export const trackedFetch = makeTrackedFetch(recordObservation);
+const observedFetch = makeTrackedFetch(recordObservation);
+/** Every provider fetch. USGS responses also report their rate allowance. */
+export const trackedFetch: typeof observedFetch = async (provider, operation, input, init) => {
+  const response = await observedFetch(provider, operation, input, init);
+  if (provider === 'usgs') noteUsgsQuota(response);
+  return response;
+};
 export function trackedAnthropic<T>(
   feature: string,
   model: string,

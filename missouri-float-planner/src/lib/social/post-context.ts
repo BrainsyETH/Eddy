@@ -1,6 +1,7 @@
-import { selectWeekendReads, weekendReadExclusion, weekendReadText, weekendReadCaption } from './weekend-read';
+import { reportCaption, type DailyReport } from './daily-report';
+import { selectWeekendReads, weekendReadExclusion, weekendReadScenes, weekendReadCaption } from './weekend-read';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
-import { shortSummary, reportStamp } from '@shared/social-editorial';
+import { reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
 // src/lib/social/post-context.ts
 //
@@ -15,19 +16,29 @@ import { weekendWeather } from './weekend-weather';
 // (quick-post helpers, the cron's buildRenderData, and the scheduler), which is
 // what let them drift (route_draw missing, digest caption source mismatch, etc).
 
+import { getRiverContext } from '@/lib/rivers/context';
 import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
 import { riverDisplayShort } from './river-display';
-import { pickSectionForRivers } from './section-picker';
+import { dayIndex, pickSectionForRivers } from './section-picker';
+import {
+  EMPTY_HISTORY,
+  artParam,
+  chooseCoverArt,
+  illustrationArt,
+  readCoverHistory,
+  withPhotoCredit,
+  type CoverHistory,
+} from './cover-plan';
 import { buildSocialRouteScene } from './route-scene';
 import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { hasRainComing, weatherChip, type WeatherChip } from '@/lib/weather/openweather';
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { upcomingHolidayWeekend } from './holiday-weekends';
+import { signCoverUrl } from './cover-signature';
 import {
-  formatDailyDigestCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
   formatFavoriteFloatCaption,
@@ -51,8 +62,10 @@ export function truncateForVideo(text: string | null): string {
 
 const longDate = () => `Prepared ${reportStamp()}`;
 
+// Signed: the route honours pinned facts only on a URL Eddy wrote
+// (cover-signature.ts). Every cover this file builds goes through here.
 const og = (type: string, platform: SocialPlatform, extra = '') =>
-  `${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`;
+  signCoverUrl(`${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`);
 
 /** The weather chip as a cover URL param (`wx=high|low|precip|condition`), or
  *  '' when there is no chip. Parsed back by the OG route's parseWeatherParam. */
@@ -90,8 +103,42 @@ async function bgUrl(
   return data?.url || null;
 }
 
+/**
+ * The recent Instagram grid, for the cover rules (cover-plan.ts): the previous
+ * Float Pick's river and the art recent covers used. Only posts from BEFORE
+ * the current UTC day count, so re-running today's job sees the same history
+ * and picks the same float (the river rotation is seeded by the same day).
+ * Best effort: any failure is an empty history, never a blocked post.
+ */
+async function loadCoverHistory(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  now: Date,
+): Promise<CoverHistory> {
+  try {
+    const dayStart = new Date(dayIndex(now) * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('social_posts')
+      .select('post_type, river_slug, image_url')
+      .eq('platform', 'instagram')
+      .neq('status', 'failed')
+      .lt('created_at', dayStart)
+      .order('created_at', { ascending: false })
+      .limit(9);
+    if (error) {
+      console.warn('[CoverHistory] unavailable; continuing without it:', error.message);
+      return EMPTY_HISTORY;
+    }
+    return readCoverHistory(data);
+  } catch (err) {
+    console.warn('[CoverHistory] unavailable; continuing without it:', err);
+    return EMPTY_HISTORY;
+  }
+}
+
 export interface PostContext {
   postType: PostKind;
+  carousel?: DailyReport;
   /** Composition input props (consumed by POST_TYPES[kind].renderProps). */
   renderData: RenderData;
   riverSlug: string | null;
@@ -152,35 +199,18 @@ export async function buildPostContext(
   }
 
   if (postType === 'daily_digest') {
-    const deduped = await freshRivers();
-    const { data: globalUpdate } = await supabase
-      .from('eddy_updates')
-      .select('summary_text')
-      .eq('river_slug', 'global')
-      .is('section_slug', null)
-      .gt('expires_at', nowIso)
-      .order('generated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const globalSummary: string | null = globalUpdate?.summary_text || null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rivers = (deduped as any[]).map((u) => ({
-      riverName: riverDisplayShort(u.river_slug),
-      conditionCode: u.condition_code,
-      gaugeHeightFt: u.gauge_height_ft,
-    }));
-    // Pin the exact rivers/conditions into the cover URL so Meta's crawl-time
-    // render matches this post instead of re-picking whatever is live then.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pinned = (deduped as any[])
-      .map((u) => `${u.river_slug}:${u.condition_code}:${u.gauge_height_ft ?? ''}`)
-      .join(',');
-    return {
-      postType,
-      riverSlug: null,
-      renderData: { rivers, dateLabel: longDate(), globalQuote: shortSummary(globalSummary) || undefined },
-      caption: (platform, custom) => formatDailyDigestCaption(deduped, globalSummary, custom, platform),
-      imageUrl: (platform) => og('digest', platform, `&rivers=${encodeURIComponent(pinned)}`),
+    const { buildDailyReport } = await import('./daily-report-data');
+    let config = opts.config;
+    if (!config) {
+      const result = await supabase.from('social_config').select('enabled_rivers, disabled_rivers').limit(1).maybeSingle();
+      if (result.error) throw new Error('Daily Report settings could not be loaded');
+      config = result.data ?? {};
+    }
+    const carousel = await buildDailyReport(config ?? {});
+    if (!carousel) return null;
+    return { postType, riverSlug: null, renderData: {}, carousel,
+      caption: () => reportCaption(carousel), imageUrl: () => '',
+      riverSlugs: carousel.slides.flatMap(s => s.kind === 'river' ? [s.data.river.slug] : []),
     };
   }
 
@@ -201,6 +231,8 @@ export async function buildPostContext(
     // Holiday branding (Memorial Day / July 4th / Labor Day) carries through the
     // reel title + cover label so the video matches the caption's framing.
     const holidayName = upcomingHolidayWeekend();
+    const forecastHistory = await loadCoverHistory(supabase, new Date(nowIso));
+    const forecastArt = chooseCoverArt(topRivers[0]?.river_slug, forecastHistory.recentArt, dayIndex(new Date(nowIso)));
     return {
       postType,
       riverSlug: null,
@@ -216,13 +248,16 @@ export async function buildPostContext(
         title: holidayName ? `${holidayName} Forecast` : 'Weekend Forecast',
         rainNote: usingFallback,
       },
-      caption: (platform, custom) =>
-        formatWeeklyForecastCaption(topRivers, custom, platform, usingFallback, holidayName ? { name: holidayName } : null),
+      caption: (platform, custom) => {
+        const out = formatWeeklyForecastCaption(topRivers, custom, platform, usingFallback, holidayName ? { name: holidayName } : null);
+        return { ...out, caption: withPhotoCredit(out.caption, forecastArt) };
+      },
       // Pin everything the cover displays — the best bet, its condition and
       // reading, the weather chip, the bets count and the rain note — so Meta's
       // crawl-time render is THIS forecast, not a re-pick from whatever is live
       // then, and so the URL is unique per post (Meta caches covers by URL).
-      imageUrl: (platform) => og('forecast', platform, forecastCoverParams(topRivers, usingFallback)),
+      imageUrl: (platform) =>
+        og('forecast', platform, `${forecastCoverParams(topRivers, usingFallback)}&art=${artParam(forecastArt)}`),
     };
   }
 
@@ -238,10 +273,16 @@ export async function buildPostContext(
     const floatable = (deduped as any[]).filter(
       (u) => u.condition_code === 'flowing' || u.condition_code === 'good',
     );
+    // Variety never outranks suitability: the floatable/distance rules decide
+    // the candidates, then each river gets one turn, skipping the previous
+    // Float Pick's river when another candidate river exists.
+    const now = new Date(nowIso);
+    const history = await loadCoverHistory(supabase, now);
     const section = await pickSectionForRivers(
       supabase,
       floatable.map((u) => u.river_slug as string),
-      { minMi: 5, maxMi: 9 },
+      { minMi: 5, maxMi: 9, avoidRiver: history.previousFloatPickRiver },
+      now,
     );
     if (section) {
       const routeScene = await buildSocialRouteScene(supabase, section);
@@ -254,11 +295,13 @@ export async function buildPostContext(
       // float as the reel (instead of re-picking), and so the URL is unique per
       // section — Meta caches OG images by URL, and a shared URL served a stale
       // cover from a previous post.
+      const art = chooseCoverArt(section.riverSlug, history.recentArt, dayIndex(now));
       const coverParams =
         `&river=${section.riverSlug}` +
         `&putInMile=${section.putInMile}` +
         `&takeOutMile=${section.takeOutMile}` +
-        `&condition=${conditionCode}&time=${encodeURIComponent(timeRangeLabel)}&asOf=${encodeURIComponent(estimate.estimatedAt)}`;
+        `&condition=${conditionCode}&time=${encodeURIComponent(timeRangeLabel)}&asOf=${encodeURIComponent(estimate.estimatedAt)}` +
+        `&art=${artParam(art)}`;
       return {
         postType,
         riverSlug: section.riverSlug,
@@ -266,7 +309,10 @@ export async function buildPostContext(
         // condition-colored route + pulsing boat (a live instrument); the
         // evergreen fallback below keeps its editorial photo backdrop.
         renderData: { ...section, ...routeScene, conditionCode, timeRangeLabel, dateLabel: longDate() },
-        caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode, timeRangeLabel }, custom, platform),
+        caption: (platform, custom) => {
+          const out = formatSectionGuideCaption({ ...section, conditionCode, timeRangeLabel }, custom, platform);
+          return { ...out, caption: withPhotoCredit(out.caption, art) };
+        },
         // route is video-only; reuse the section thumbnail as the cover.
         imageUrl: (platform) => og('section', platform, coverParams),
       };
@@ -274,7 +320,7 @@ export async function buildPostContext(
 
     // Evergreen fallback — a curated section from the river-guide blogs. No
     // live-conditions overlay; rotates deterministically by day.
-    const fav = await pickFavoriteFloat(supabase);
+    const fav = await pickFavoriteFloat(supabase, now, history.previousFloatPickRiver);
     if (!fav) return null;
     const routeScene = await buildSocialRouteScene(supabase, fav);
     const estimate = await estimateRoute(supabase, { riverId: fav.riverId, startId: fav.putInId, endId: fav.takeOutId, mode: 'typical' });
@@ -286,6 +332,7 @@ export async function buildPostContext(
       `&river=${fav.riverSlug}` +
       `&fromSlug=${encodeURIComponent(fav.fromSlug)}` +
       `&toSlug=${encodeURIComponent(fav.toSlug)}&time=${encodeURIComponent(timeRangeLabel ?? "unavailable")}&asOf=${encodeURIComponent(estimate.estimatedAt)}`;
+    const favArt = chooseCoverArt(fav.riverSlug, history.recentArt, dayIndex(now));
     // Prefer the river's AI background (same art as the cover); fall back to the
     // guide section's own photo.
     const favBg = await bgUrl(supabase, fav.riverSlug);
@@ -302,8 +349,11 @@ export async function buildPostContext(
         dateLabel: longDate(),
         photoUrl: favBg || fav.photoUrl,
       },
-      caption: (platform, custom) => formatFavoriteFloatCaption({ ...fav, timeRangeLabel }, custom, platform),
-      imageUrl: (platform) => og('favorite', platform, coverParams),
+      caption: (platform, custom) => {
+        const out = formatFavoriteFloatCaption({ ...fav, timeRangeLabel }, custom, platform);
+        return { ...out, caption: withPhotoCredit(out.caption, favArt) };
+      },
+      imageUrl: (platform) => og('favorite', platform, `${coverParams}&art=${artParam(favArt)}`),
     };
   }
 
@@ -313,6 +363,7 @@ export async function buildPostContext(
     const slugs = (deduped as any[]).map((u) => u.river_slug as string);
     const trend = await pickNotableTrend(supabase, { restrictTo: slugs });
     if (!trend) return null;
+    const riverState = (await getRiverContext(trend.riverSlug).catch(() => null))?.state;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const latest = (deduped as any[]).find((u) => u.river_slug === trend.riverSlug);
     const conditionCode = latest?.condition_code || 'unknown';
@@ -322,7 +373,7 @@ export async function buildPostContext(
       riverSlug: trend.riverSlug,
       renderData: { ...trend, conditionCode, weather, dateLabel: `Latest reading ${reportStamp(new Date(trend.readingAt))}` },
       caption: (platform, custom) =>
-        formatWeeklyTrendCaption({ ...trend, conditionCode, weather: latest?.weather ?? null }, custom, platform),
+        formatWeeklyTrendCaption({ ...trend, riverState, conditionCode, weather: latest?.weather ?? null }, custom, platform),
       // Pin the river AND the instant: the cover re-derives the seven days as of
       // this post's own asOf (trend-picker honours it), so its delta, range and
       // sparkline match the reel instead of the gauge's later movement. The
@@ -360,18 +411,21 @@ export async function buildPostContext(
       `excluded: ${excluded.map(([slug, why]) => `${slug}(${why})`).join(', ') || 'none'}`);
     if (rows.length < 2) return null;
     const pinned = rows.map(u => `${u.river_slug}:${u.condition_code}:${u.gauge_height_ft ?? ''}`).join(',');
+    const readArt = illustrationArt(dayIndex(now), (await loadCoverHistory(supabase, now)).recentArt);
+    const readScenes = weekendReadScenes(rows, now, zone);
     return {
       postType,
       riverSlug: null,
       riverSlugs: rows.map(u => u.river_slug),
       renderData: {
         riverName: 'This weekend',
-        readingText: weekendReadText(rows, now, zone),
+        readingText: readScenes.map(scene => scene.text).join('\n\n'),
+        readScenes,
         dateLabel: `Prepared ${reportStamp(now)} · Current water`,
       },
       caption: () => ({ caption: weekendReadCaption(rows, now, zone), hashtags: [] }),
       imageUrl: platform => og('weekend-read', platform,
-        `&rivers=${encodeURIComponent(pinned)}&at=${encodeURIComponent(nowIso)}`),
+        `&rivers=${encodeURIComponent(pinned)}&at=${encodeURIComponent(nowIso)}&art=${artParam(readArt)}`),
     };
   }
 

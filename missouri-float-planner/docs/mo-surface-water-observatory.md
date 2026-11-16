@@ -1,6 +1,6 @@
 # /river-map (né /missouri-surface-water) — Observatory build memo
 
-> **Status: historical** — design/build memo for /river-map, which has since shipped. Context for why it is built the way it is; not a change plan.
+> **Status: historical** — design/build memo for the Ozarks observatory, which shipped at /river-map and moved to /river-map/ozarks when the national map took /river-map (ADR 0018). Context for why it is built the way it is; not a change plan.
 
 Design + engineering memo for the showcase rebuild ("mission-control
 observatory for Missouri water"). Written before feature code per the

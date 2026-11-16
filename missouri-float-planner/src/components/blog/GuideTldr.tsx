@@ -11,7 +11,7 @@ interface Props {
 export default function GuideTldr({ tldr }: Props) {
   const tiles: { label: string; value: string }[] = [
     { label: 'Typical distance',     value: tldr.typical_distance },
-    { label: 'Best for beginners',   value: tldr.best_for_beginners },
+    { label: tldr.route_label ?? 'Best for beginners', value: tldr.best_for_beginners },
     { label: tldr.gauge_label ?? 'Primary gauge',        value: tldr.primary_gauge },
   ];
   if (tldr.recommended_outfitter) {

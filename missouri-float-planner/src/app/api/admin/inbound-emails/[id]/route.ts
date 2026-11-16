@@ -1,21 +1,22 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/inbound-emails/[id]/route.ts
 // PATCH /api/admin/inbound-emails/[id] — update an inbound email's triage status.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
-import { mapInboundEmailRow } from '@/lib/email/inbound';
+import { countUnreadInboundEmails, mapInboundEmailRow } from '@/lib/email/inbound';
 
 export const dynamic = 'force-dynamic';
 
 const VALID_STATUSES = ['unread', 'read', 'archived', 'spam'];
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -40,9 +41,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to update inbound email' }, { status: 500 });
     }
 
-    return NextResponse.json({ email: mapInboundEmailRow(data) });
+    return NextResponse.json({
+      email: mapInboundEmailRow(data),
+      unread: await countUnreadInboundEmails(supabase),
+    });
   } catch (error) {
     console.error('Error updating inbound email:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const PATCH = withAdminMutation(handlePATCH);

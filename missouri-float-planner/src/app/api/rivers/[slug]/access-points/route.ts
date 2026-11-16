@@ -1,4 +1,5 @@
 import { loadCampgroundEnrichment } from '@/lib/access-points/campground-enrichment';
+import { riverAccessPath } from '@/lib/navigation/river-path';
 import { compactAccessPoint } from '@/lib/access-points/compact';
 // src/app/api/rivers/[slug]/access-points/route.ts
 // GET /api/rivers/[slug]/access-points - Get access points for a river
@@ -31,7 +32,7 @@ async function _GET(
     // Get river ID
     const { data: river, error: riverError } = await supabase
       .from('rivers')
-      .select('id')
+      .select('id, state')
       .eq('slug', slug)
       .single();
 
@@ -109,7 +110,7 @@ async function _GET(
         if (!point) {
           console.warn(`Access point ${ap.id} (${ap.name}) has unusable coordinates, skipping`);
         }
-        return point;
+        return point ? { ...point, path: riverAccessPath(river.state, slug, point.slug) } : null;
       })
       .filter((ap): ap is NonNullable<typeof ap> => ap !== null);
 

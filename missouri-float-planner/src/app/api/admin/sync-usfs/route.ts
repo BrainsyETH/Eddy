@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/sync-usfs/route.ts
 // POST /api/admin/sync-usfs — Trigger USFS/RIDB sync from admin UI
 // Supports ?dryRun=true to preview without writing to DB
@@ -9,8 +10,8 @@ import { syncUSFSData } from '@/lib/usfs/sync';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   try {
@@ -56,3 +57,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

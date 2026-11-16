@@ -15,7 +15,7 @@ import { randomBytes } from 'crypto';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   if (!hasTikTokCredentials()) {

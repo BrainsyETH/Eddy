@@ -236,25 +236,20 @@ export interface PrecipitationSummary {
   rain1h: number;
   /** Rain in the last 3 hours (inches), from current weather response */
   rain3h: number;
-  /** Forecast rain total for today (inches), from forecast response */
-  forecastRainToday: number;
 }
 
 /**
- * Extracts precipitation data from already-fetched weather and forecast responses.
- * No additional API calls needed — uses fields already present in the responses.
+ * Extract observed local rainfall from the already-fetched weather response.
+ * Forecast precipitation is a probability, not an amount; it must never enter
+ * this inches-only summary. Missing weather remains unknown, not zero rain.
  */
 export function fetchPrecipitationFromWeather(
   weather: WeatherData | null,
-  forecast: ForecastData | null,
-): PrecipitationSummary {
+): PrecipitationSummary | null {
+  if (!weather) return null;
   return {
-    rain1h: weather?.rain1hInches ?? 0,
-    rain3h: weather?.rain3hInches ?? 0,
-    // Today's forecast rain probability as a rough proxy
-    forecastRainToday: forecast?.days?.[0]?.precipitation
-      ? forecast.days[0].precipitation / 100 // Normalize to 0-1 range for display
-      : 0,
+    rain1h: weather.rain1hInches,
+    rain3h: weather.rain3hInches,
   };
 }
 

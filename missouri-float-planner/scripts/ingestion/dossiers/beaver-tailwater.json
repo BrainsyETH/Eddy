@@ -1,0 +1,143 @@
+{
+  "_status": "LANDED 2026-11-12 — inactive and unrated by migration 20261112162415 (applied). Access points imported unapproved. Not signed off; not activated.",
+  "conditionRatingMode": "unrated",
+  "name": "Beaver Tailwater",
+  "slug": "beaver-tailwater",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": null,
+  "riverType": "dam_tailwater",
+  "difficultyRating": "Class I",
+  "description": "Seven miles of cold trout water on the White River, from Beaver Dam to Houseman Access. Dam releases and Table Rock Lake both shape it: the lake backs up to within about a mile of the dam, so some stretches paddle like a lake. Releases can raise the water fast, and a quiet dam doesn't mean easy water or a safe time to wade. Check posted signs and current Arkansas Game and Fish Commission trout rules before you go.",
+  "managingAuthority": "USACE Little Rock District; Arkansas Game and Fish Commission",
+  "regulations": [
+    {
+      "text": "Beaver Tailwater: White River from 100 yards below Beaver Dam to the boat ramp at Houseman Access. No fishing, boating or wading within 100 yards of Beaver Dam.",
+      "authority": "Arkansas Game and Fish Commission, regulation N1.03",
+      "sourceUrl": "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011",
+      "effectiveDate": "2025-01-01"
+    }
+  ],
+  "permits": [],
+  "accessLaw": {
+    "value": "VERIFY",
+    "source": "",
+    "confidence": "low"
+  },
+  "seasonalClosures": [],
+  "primaryGaugeSiteId": "swl-beaver-dam",
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "weatherPoint": {
+    "city": "Eureka Springs",
+    "lat": 36.4405,
+    "lon": -93.8338
+  },
+  "alertSearchTerms": [
+    "beaver tailwater",
+    "beaver dam",
+    "white river",
+    "busch",
+    "eureka springs",
+    "carroll county"
+  ],
+  "research": {
+    "date": "2026-11-12",
+    "sourcesConsulted": [
+      "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md",
+      "https://www.agfc.com/fishing/where-to-fish/trout-waters/beaver-tailwater/",
+      "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011",
+      "https://www.agfc.com/wp-content/uploads/2023/05/2016_2017_beavercreelsurvey.pdf",
+      "https://www.agfc.com/wp-content/uploads/2023/05/beavertwmanagementplan2012-2017.pdf",
+      "https://cwms-data.usace.army.mil/cwms-data/locations/Beaver_Dam?office=SWL",
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
+    ],
+    "openQuestions": [
+      "Table Rock backwater: at Table Rock's conservation pool (915 ft) backwater reaches to within about a mile of Beaver Dam; the dam's own tailwater gauge read 916.35 ft on 2026-11-12. The reach stays unrated with float time withheld, and should show Table Rock's level as downstream context.",
+      "The three pending Table Rock lake launches (Beaver Lake Dam Site, Bertrand, Houseman) are these accesses: link or retire them once the access points exist.",
+      "Restrooms and parking at Bertrand and Houseman; a second coordinate source for Bertrand.",
+      "Warning-horn location and any USACE restricted-area limit beyond AGFC's 100 yards.",
+      "Registry wiring (usace-registry tailwater block with waterQualitySiteId 07049691, dams page related rivers) belongs with activation.",
+      "Bertrand Walk-in Access appears on the 2016-17 AGFC creel-survey map but not in the AGFC facility layer; Corps gravel parking areas #2 and #3 (AGFC 2162, 1676) sit 150-250 m upstream of the Bertrand ramp. Held without a coordinate until a current source places it.",
+      "Busch USGS 07049698 (gage height) and the dam's water-quality site 07049691 are context, not rating gauges; verify how a secondary stage link renders on an unrated river before wiring 07049698."
+    ],
+    "toVerify": [
+      "Bertrand Boat Ramp pin (AGFC 470) has no second source.",
+      "Endpoint wording: AGFC e-regs title says 'boundary signs at Houseman Access'; sign location unknown."
+    ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Proposed: Dam Site Boat Ramp (0.33) → Bertrand Access (3.30) → Houseman Access (6.99). Parker Bend and the Dam Site walk-in are fishing access, not endpoints."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Agency ramps: USACE Dam Site River Park (AGFC 1608, USACE area 233024) and AGFC 470 / 792. Fees, hours and posted restrictions unconfirmed."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "USACE swl-beaver-dam total release, cfs (CWMS Beaver_Dam). Check freshness in production after the migration lands."
+    },
+    "conditions": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Unrated: no agency release rating for wading or floating. Float time and wading all-clear withheld by shared tailwater code.",
+      "ratingMode": "unrated"
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Migration maps Beaver Dam (0.00, danger; 100-yard closure, warning horn) and US 62 bridge (4.70, info). USACE restricted limits not obtained. Route plans currently drop a dam upstream of the put-in (plan API filters hazards at or below the put-in mile); fixed separately before activation."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Check get_float_segment for each endpoint pair after access points are approved."
+    },
+    "tailwaterPilot": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Owner review of corridor, endpoints and accepted gaps required before activation.",
+      "floatEndpoints": [
+        "dam-site-boat-ramp",
+        "bertrand-access",
+        "houseman-access"
+      ]
+    }
+  }
+}

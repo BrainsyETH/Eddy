@@ -4,7 +4,7 @@ import { blogHighlights } from './blog-highlights';
 import { buildBlogCaption } from './blog-poster';
 import { blogFeatureDue } from './blog-schedule';
 import { GUIDE_CAPTION_CTA, GUIDE_OPENINGS } from './blog-voice';
-import { selectWeekendReads, weekendReadDue, weekendReadExclusion, weekendReadCaption, weekendReadText, type WeekendReadSource } from './weekend-read';
+import { selectWeekendReads, weekendReadDue, weekendReadExclusion, weekendReadCaption, weekendReadText, weekendReadScenes, type WeekendReadSource } from './weekend-read';
 import { buildPostContext } from './post-context';
 import { POST_TYPES } from './post-types';
 
@@ -116,9 +116,23 @@ test('Read distinguishes current water and weekend forecast and omits missing we
   assert.match(text, /Weekend weather: 73°\/52°/);
   assert.match(text, /Weekend weather unavailable/);
   assert.match(weekendReadCaption(rows, now), /Current water conditions; weekend weather is a forecast/);
+  const scenes = weekendReadScenes(rows, now);
+  assert.equal(scenes[0].riverName, 'Current River');
+  assert.ok(scenes[0].text.includes(rows[0].summary_text!));
+  assert.match(scenes[0].text, /highs up to 73 degrees and lows down to 52 degrees/);
+  assert.match(scenes[0].text, /rain chances up to 10 percent/);
+  assert.match(scenes[1].text, /weekend forecast is unavailable/);
+  assert.ok(!scenes.some(scene => /Latest Read:|Weekend weather:|°\//.test(scene.text)));
+  assert.equal(scenes[0].photo, undefined, 'no unrelated scenery for an uncatalogued river');
+  const buffalo = weekendReadScenes([river('buffalo')], now)[0];
+  assert.match(buffalo.photo!.title, /Buffalo/);
+  assert.ok(buffalo.photo!.author);
 });
 
-test('manual and scheduled context produces one pinned multi-river Read, respecting exclusions', async () => {
+test('manual and scheduled context produces one pinned multi-river Read, respecting exclusions', async t => {
+  // buildPostContext reads the clock itself, and equal candidates rotate by
+  // week, so on the real clock the expected order below flips every other week.
+  t.mock.timers.enable({ apis: ['Date'], now });
   const timestamp = new Date().toISOString();
   const rows = ['current', 'meramec', 'eleven-point'].map(slug => river(slug, { generated_at: timestamp, reading_timestamp: timestamp }));
   const seen: string[] = [];
@@ -134,6 +148,8 @@ test('manual and scheduled context produces one pinned multi-river Read, respect
   assert.ok(ctx);
   assert.equal(ctx.riverSlug, null);
   assert.equal(ctx.renderData.riverName, 'This weekend');
+  assert.equal(ctx.renderData.readingText, ctx.renderData.readScenes!.map(scene => scene.text).join('\n\n'));
+  assert.deepEqual(ctx.renderData.readScenes!.map(scene => scene.riverName), ['Current River', 'Eleven Point River']);
   assert.match(ctx.caption('instagram', []).caption, /Current River/);
   assert.ok(!ctx.caption('instagram', []).caption.includes('Meramec'));
   const url = new URL(ctx.imageUrl('instagram'));

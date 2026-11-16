@@ -144,6 +144,10 @@ export const X402_ROUTES = {
   // The whole national index in one body, so it prices with the composed
   // feeds rather than a single lookup: it is every station at once.
   '/api/gauges/points': { price: '$0.005', description: 'Every USGS gauge position with its latest reading' },
+  // The national River Map's two bodies, priced with the index above for the
+  // same reason: each is the whole country at once.
+  '/api/river-map/frame': { price: '$0.005', description: 'National USGS readings and NWS flood status, one recorded frame' },
+  '/api/river-map/stations': { price: '$0.005', description: 'National map station catalog (positions, names, states)' },
   // One station rather than a list, and priced with the lists for the same
   // reason: it is the same station row and the same latest reading, addressed
   // by site id. It composes nothing — the ladder it carries is a join, and the

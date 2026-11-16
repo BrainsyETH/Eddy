@@ -1,5 +1,8 @@
 # Camping UX plan (iOS)
 
+Current booking-policy and seasonal-closure rules are documented in
+[Camping policy and nightly observations](camping-policies.md).
+
 Status: proposed, October 2026. Follows a UX review of the iOS Camping tab
 (`eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/camping.tsx`, the
 campground sheet in `CampingDetailSheet.tsx`, and the map sheet's camping tab in

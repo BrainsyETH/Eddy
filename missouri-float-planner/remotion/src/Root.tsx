@@ -91,6 +91,13 @@ const ROUTE_DEMO_LINE: RouteDrawProps["routeCoordinates"] = [
   [-91.41359, 37.28933], [-91.40558, 37.28392], [-91.4054, 37.28335],
 ];
 
+// Explicitly synthetic copy for layout checks, never a condition report.
+const READ_WEEKEND_SCENES = [
+  { riverName: 'Buffalo River', text: 'This is a layout fixture for the Buffalo River. Every complete sentence stays readable while the next river waits for its own turn.', photo: { url: staticFile('read-buffalo-kyles-landing.jpg'), title: 'Buffalo River at Kyles Landing', author: 'National Park Service' } },
+  { riverName: 'Little Missouri River', text: 'This second scene checks a longer river name. These words test the presentation only and do not describe current water conditions or a forecast.' },
+];
+const READ_WEEKEND_TEXT = READ_WEEKEND_SCENES.map(scene => scene.text).join('\n\n');
+
 const totalFrames = getTotalFrames();
 const reelTotalFrames = getReelTotalFrames();
 // PromoFull and PromoCurrent montage their beats (they overlap), so each runs
@@ -491,6 +498,11 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={readingDuration(currentRead.readingText)}
         defaultProps={currentRead satisfies EddyReadReelProps}
         calculateMetadata={({ props }: { props: EddyReadReelProps }) => ({ durationInFrames: readingDuration(props.readingText, props.voiceover) })} />
+
+      <Composition id="social-eddy-read-weekend" component={EddyReadReel} width={1080} height={1920} fps={FPS}
+        durationInFrames={readingDuration(READ_WEEKEND_TEXT)}
+        defaultProps={{riverName:'This weekend', readingText:READ_WEEKEND_TEXT, scenes:READ_WEEKEND_SCENES, dateLabel:'Layout fixture · Not current conditions'} satisfies EddyReadReelProps}
+        calculateMetadata={({props}: {props:EddyReadReelProps}) => ({durationInFrames:readingDuration(props.readingText,props.voiceover)})} />
 
       {/* Gauge Animation — portrait for Instagram Stories */}
       <Composition

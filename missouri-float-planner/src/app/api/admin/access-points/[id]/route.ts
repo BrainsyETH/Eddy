@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/access-points/[id]/route.ts
 // GET /api/admin/access-points/[id] - Get single access point for editing
 // PUT /api/admin/access-points/[id] - Update access point (location and all fields)
@@ -10,6 +11,9 @@ import { sanitizeRichText } from '@/lib/sanitize';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
 import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
+import { slugForSave } from '@/lib/admin/access-point-slug';
+import { MAX_FEE_NOTES_LENGTH, parseAmenities, parseFeeNotes } from '@/lib/admin/access-point-fields';
+
 export const dynamic = 'force-dynamic';
 
 // GET - Fetch a single access point for editing
@@ -18,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -45,6 +49,9 @@ export async function GET(
         road_access,
         facilities,
         fee_required,
+        fee_notes,
+        amenities,
+        created_at,
         directions_override,
         driving_lat,
         driving_lng,
@@ -57,7 +64,8 @@ export async function GET(
         official_site_url,
         local_tips,
         nearby_services,
-        rivers(id, name, slug)
+        updated_at,
+        rivers(id, name, slug, state)
       `)
       .eq('id', id)
       .single();
@@ -78,6 +86,7 @@ export async function GET(
       riverId: data.river_id,
       riverName: riverData?.name || 'Unknown River',
       riverSlug: riverData?.slug,
+      riverState: riverData?.state ?? null,
       name: data.name,
       slug: data.slug,
       coordinates: {
@@ -95,6 +104,9 @@ export async function GET(
       roadAccess: data.road_access,
       facilities: data.facilities,
       feeRequired: data.fee_required,
+      feeNotes: data.fee_notes ?? null,
+      amenities: data.amenities ?? [],
+      createdAt: data.created_at ?? null,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,
       drivingLng: data.driving_lng ? parseFloat(data.driving_lng) : null,
@@ -108,6 +120,8 @@ export async function GET(
       officialSiteUrl: data.official_site_url,
       localTips: data.local_tips,
       nearbyServices: data.nearby_services || [],
+      // Version marker: send it back as expectedUpdatedAt to detect a stale save.
+      updatedAt: data.updated_at ?? null,
     };
 
     return NextResponse.json({ accessPoint: formatted });
@@ -120,12 +134,12 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -145,6 +159,8 @@ export async function PUT(
       roadAccess,
       facilities,
       feeRequired,
+      feeNotes,
+      amenities,
       riverMile,
       riverId,
       directionsOverride,
@@ -159,7 +175,12 @@ export async function PUT(
       officialSiteUrl,
       localTips,
       nearbyServices,
+      expectedUpdatedAt,
     } = body;
+
+    if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null && typeof expectedUpdatedAt !== 'string') {
+      return NextResponse.json({ error: 'expectedUpdatedAt must be a timestamp' }, { status: 400 });
+    }
 
     const supabase = createAdminClient();
 
@@ -184,14 +205,29 @@ export async function PUT(
       };
     }
 
-    // Handle name update
+    // Handle name update. The slug is a public address and only follows the
+    // name when the point is not live yet (see slugForSave).
+    let keptLiveAddress = false;
     if (typeof name === 'string' && name.trim().length > 0) {
       updateData.name = name.trim();
-      // Generate new slug from name
-      updateData.slug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
+      const { data: current, error: currentError } = await supabase
+        .from('access_points')
+        .select('name, slug, approved')
+        .eq('id', id)
+        .maybeSingle();
+      if (currentError) {
+        console.error('Error loading access point before rename:', currentError);
+        return NextResponse.json({ error: 'Could not update access point' }, { status: 500 });
+      }
+      if (!current) {
+        return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
+      }
+      const decision = slugForSave(
+        { name: current.name, slug: current.slug, approved: !!current.approved },
+        name,
+      );
+      if (decision.slug) updateData.slug = decision.slug;
+      keptLiveAddress = decision.keptLiveAddress;
     }
 
     // Handle type update (single - for backwards compatibility)
@@ -253,6 +289,25 @@ export async function PUT(
     // Handle facilities update
     if (facilities !== undefined) {
       updateData.facilities = facilities === '' ? null : facilities;
+    }
+
+    // Fee notes and amenities are shown on the public page's Facilities section.
+    if (feeNotes !== undefined) {
+      const parsed = parseFeeNotes(feeNotes);
+      if (parsed === undefined) {
+        return NextResponse.json(
+          { error: `Fee notes must be text of at most ${MAX_FEE_NOTES_LENGTH} characters` },
+          { status: 400 },
+        );
+      }
+      updateData.fee_notes = parsed;
+    }
+    if (amenities !== undefined) {
+      const parsed = parseAmenities(amenities);
+      if (parsed === undefined) {
+        return NextResponse.json({ error: 'Amenities must be a list of amenity keys' }, { status: 400 });
+      }
+      updateData.amenities = parsed;
     }
 
     // Handle feeRequired update
@@ -366,11 +421,12 @@ export async function PUT(
       );
     }
 
-    // Update access point
-    const { error: updateError } = await supabase
-      .from('access_points')
-      .update(updateData)
-      .eq('id', id);
+    // Update access point. When the editor says which version it loaded, the
+    // write only lands on that version: a tab left open while someone else (or
+    // the same person in another tab) saved must not overwrite the newer data.
+    let updateQuery = supabase.from('access_points').update(updateData).eq('id', id);
+    if (expectedUpdatedAt) updateQuery = updateQuery.eq('updated_at', expectedUpdatedAt);
+    const { data: updatedRows, error: updateError } = await updateQuery.select('id');
 
     if (updateError) {
       console.error('Error updating access point:', updateError);
@@ -384,6 +440,26 @@ export async function PUT(
       return NextResponse.json(
         { error: 'Could not update access point' },
         { status: 500 }
+      );
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      const { data: current } = await supabase
+        .from('access_points')
+        .select('id, updated_at')
+        .eq('id', id)
+        .maybeSingle();
+      if (!current) {
+        return NextResponse.json({ error: 'Access point not found' }, { status: 404 });
+      }
+      return NextResponse.json(
+        {
+          error:
+            'This access point was changed after you loaded it, so nothing was saved. Reload to see the latest version, then make your change again.',
+          reason: 'stale',
+          updatedAt: current.updated_at ?? null,
+        },
+        { status: 409 }
       );
     }
 
@@ -408,6 +484,9 @@ export async function PUT(
         road_access,
         facilities,
         fee_required,
+        fee_notes,
+        amenities,
+        created_at,
         directions_override,
         driving_lat,
         driving_lng,
@@ -420,7 +499,8 @@ export async function PUT(
         official_site_url,
         local_tips,
         nearby_services,
-        rivers(id, name, slug)
+        updated_at,
+        rivers(id, name, slug, state)
       `)
       .eq('id', id)
       .single();
@@ -454,6 +534,7 @@ export async function PUT(
       riverId: data.river_id,
       riverName: riverData?.name || 'Unknown River',
       riverSlug: riverData?.slug,
+      riverState: riverData?.state ?? null,
       name: data.name,
       slug: data.slug,
       coordinates: {
@@ -471,6 +552,9 @@ export async function PUT(
       roadAccess: data.road_access,
       facilities: data.facilities,
       feeRequired: data.fee_required,
+      feeNotes: data.fee_notes ?? null,
+      amenities: data.amenities ?? [],
+      createdAt: data.created_at ?? null,
       directionsOverride: data.directions_override,
       drivingLat: data.driving_lat ? parseFloat(data.driving_lat) : null,
       drivingLng: data.driving_lng ? parseFloat(data.driving_lng) : null,
@@ -484,12 +568,16 @@ export async function PUT(
       officialSiteUrl: data.official_site_url,
       localTips: data.local_tips,
       nearbyServices: data.nearby_services || [],
+      // Version marker: send it back as expectedUpdatedAt to detect a stale save.
+      updatedAt: data.updated_at ?? null,
     };
 
     return NextResponse.json({
       accessPoint: formatted,
       // Include a warning if the point is not approved (won't show in production)
       warning: !data.approved ? 'This access point is not approved and will not appear in the public app until approved.' : undefined,
+      // Renamed while live: the page keeps its existing address.
+      keptLiveAddress: keptLiveAddress || undefined,
     });
   } catch (error) {
     console.error('Error in update access point endpoint:', error);
@@ -501,12 +589,12 @@ export async function PUT(
 }
 
 // DELETE - Remove an access point
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -544,3 +632,6 @@ export async function DELETE(
     );
   }
 }
+
+export const PUT = withAdminMutation(handlePUT);
+export const DELETE = withAdminMutation(handleDELETE);

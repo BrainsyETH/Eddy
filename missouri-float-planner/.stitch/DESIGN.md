@@ -53,7 +53,9 @@ The attention-grabber. Used for primary CTAs, active states, and the Eddy brand 
 > emphasis — because the iOS condition ladder already owns red, orange, yellow,
 > lime, emerald and stone, so a coral button on a map full of safety colour reads
 > as the loudest warning on screen. Native dark surfaces have a separate
-> charcoal adaptation below. See
+> charcoal adaptation below. One web exception: the home hero's filled action
+> is teal, because the hero carries a condition chip and the condition ladder
+> starts directly beneath it. See
 > [ADR 0007](../../docs/decisions/0007-cta-fill-is-teal-on-native-coral-on-web.md)
 > and the `accentFill` comment in `eddy-ios/src/theme/palette.ts`.
 
@@ -280,8 +282,13 @@ containing group `aria-busy="true"`. Render with `<Skeleton>`.
 
 ### Navigation
 
-- **Header:** Sticky, Primary-800 background, 3px neutral-900 bottom border. Links are uppercase 14px 600 weight in primary-100, hover fills primary-700.
-- **Active link:** Accent-400 text on primary-900 background.
+- **Header:** Sticky, light chrome after the iOS navigation bar: Secondary-50
+  paper at 90% under a backdrop blur, with a 1px Secondary-200 bottom hairline.
+  The "Eddy" wordmark is Fredoka bold in Accent-600. Links are sentence case,
+  14px, 500 weight, in Neutral-900; hover fills Accent-100.
+- **Active link:** Primary-800, 600 weight, with a 3px Accent-500 underline.
+- **Get the App:** the header's one filled control, a Primary-700 pill with
+  white text.
 
 ---
 

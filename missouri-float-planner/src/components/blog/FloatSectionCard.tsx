@@ -1,9 +1,12 @@
+import GuideRouteTime from './GuideRouteTime';
+import PhotoCreditOverlay from './PhotoCreditOverlay';
 // src/components/blog/FloatSectionCard.tsx
 // Photo-left card used in the "Pick your float" section list. Stacks photo
 // above text under 768px via the [data-stack] attribute + CSS variables.
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { MapPin, Navigation } from 'lucide-react';
 import type { FloatSection } from '@/types/blog';
 import { optimizeBlogImage } from '@/lib/blog-image';
 
@@ -14,21 +17,25 @@ interface Props {
    *  with this section's put-in and take-out. Built by RiverGuideLayout from
    *  the section's from_slug / to_slug after resolving access point IDs. */
   plannerUrl?: string;
+  fromHref?: string;
+  toHref?: string;
   /** Photo to use when the section has no explicit `photo` — resolved by
    *  RiverGuideLayout from the section's access-point imagery. */
   photoFallback?: string;
+  estimateEndpoints?: { riverId: string; startId: string; endId: string };
 }
 
 const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
   I:    { bg: 'var(--color-support-100)', fg: 'var(--color-support-700)', bd: 'var(--color-support-500)' },
   'I–II': { bg: 'var(--color-support-100)', fg: 'var(--color-support-700)', bd: 'var(--color-support-500)' },
   II:   { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
+  'II+': { bg: '#FFFBEB', fg: '#92400E', bd: '#FCD34D' },
 };
 
-export default function FloatSectionCard({ section: s, index, plannerUrl, photoFallback }: Props) {
+export default function FloatSectionCard({ section: s, index, plannerUrl, fromHref, toHref, photoFallback, estimateEndpoints }: Props) {
   const dc = DIFF_COLORS[s.diff ?? ''] ?? DIFF_COLORS.I;
-  const stats = [['Distance', `${s.miles} mi`], ['Float time', s.time], ['Class', s.diff], ['Crowd', s.crowd]].filter(([, value]) => value);
-  const photo = s.photo || photoFallback || null;
+  const stats = [['Distance', `${s.miles} mi`], ['Typical paddling time', s.time], ['Class', s.diff], ['Crowd', s.crowd]].filter(([, value]) => value);
+  const photo = s.photo_detail?.url || s.photo || photoFallback || null;
   const titleContent = (
     <>
       {s.from} <span style={{ color: 'var(--color-neutral-400)' }}>→</span> {s.to}
@@ -36,8 +43,10 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
   );
   return (
     <article
+      id={`guide-float-${s.id}`}
       data-guide-section-card
       style={{
+        scrollMarginTop: 100,
         background: '#fff',
         border: '2px solid var(--color-primary-700)',
         borderRadius: 8,
@@ -66,12 +75,13 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
             <Image
               src={photo}
               unoptimized={!optimizeBlogImage(photo)}
-              alt={`${s.from} → ${s.to}`}
+              alt={s.photo_detail?.alt ?? `${s.from} → ${s.to}`}
               fill
               loading="lazy"
               sizes="(max-width: 767px) 100vw, 260px"
               style={{ objectFit: 'cover' }}
             />
+            {s.photo_detail && photo === s.photo_detail.url && <PhotoCreditOverlay author={s.photo_detail.author} sourceUrl={s.photo_detail.source_url} license={s.photo_detail.license} licenseUrl={s.photo_detail.license_url} />}
             <div
               style={{
                 position: 'absolute',
@@ -138,6 +148,8 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
             {plannerUrl ? (
               <Link
                 href={plannerUrl}
+                data-ga-event="guide_planner_click"
+                data-ga-label={`${s.from} → ${s.to}`}
                 style={{
                   color: 'inherit',
                   textDecoration: 'none',
@@ -151,20 +163,6 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
               titleContent
             )}
           </h3>
-          {plannerUrl && (
-            <Link
-              href={plannerUrl}
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--color-accent-600)',
-                textDecoration: 'none',
-                letterSpacing: '.02em',
-              }}
-            >
-              Open this float in the planner →
-            </Link>
-          )}
           <p
             style={{
               fontSize: 13,
@@ -248,6 +246,22 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
           >
             <strong style={{ color: 'var(--color-neutral-900)' }}>Best for:</strong> {s.best}
           </div>
+          {(() => {
+            const planButton = plannerUrl && (
+              <Link href={plannerUrl} data-ga-event="guide_planner_click" data-ga-label={`${s.from} → ${s.to}`} className="guide-action guide-action--plan">
+                <Navigation size={15} strokeWidth={2.5} aria-hidden="true" />
+                Plan this float
+              </Link>
+            );
+            return estimateEndpoints
+              ? <GuideRouteTime {...estimateEndpoints}>{planButton}</GuideRouteTime>
+              : planButton && <div className="mt-4 flex flex-wrap gap-2.5">{planButton}</div>;
+          })()}
+          {(fromHref || toHref) && <nav aria-label={`Access details for ${s.from} to ${s.to}`} className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-[10px] font-bold uppercase tracking-[.12em] text-neutral-500">Access points</span>
+            {fromHref && <Link href={fromHref} data-ga-event="guide_access_click" data-ga-label={s.from} aria-label={`${s.from} access details`} className="guide-pill"><MapPin size={14} strokeWidth={2.5} aria-hidden="true" />{s.from}</Link>}
+            {toHref && <Link href={toHref} data-ga-event="guide_access_click" data-ga-label={s.to} aria-label={`${s.to} access details`} className="guide-pill"><MapPin size={14} strokeWidth={2.5} aria-hidden="true" />{s.to}</Link>}
+          </nav>}
         </div>
       </div>
     </article>

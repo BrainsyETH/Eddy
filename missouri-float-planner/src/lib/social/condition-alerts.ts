@@ -11,6 +11,7 @@
 // window — so a multi-hour storm produces one post, not a barrage. Multiple
 // gauges on the same river collapse to a single most-severe entry.
 
+import { getRiverContext } from '@/lib/rivers/context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter, getEnabledPlatforms } from './adapters';
 import { tiktokCapReached } from './tiktok-cap';
@@ -26,6 +27,7 @@ import { computeCondition } from '@/lib/conditions';
 import { MAY_HAVE_PUBLISHED, outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from './publish-outcome';
 import { triggerVideoRender } from './video-renderer';
 import type { SocialPlatform } from './types';
+import { signCoverUrl } from './cover-signature';
 
 const LOG_PREFIX = '[ConditionAlert]';
 
@@ -386,7 +388,7 @@ function coverUrl(p: PublishParams, platform: SocialPlatform): string {
     ctx.riseText ? `rise=${encodeURIComponent(ctx.riseText)}` : '',
     `platform=${platform}`,
   ].filter(Boolean);
-  return `${baseUrl}/api/og/social?${parts.join('&')}`;
+  return signCoverUrl(`${baseUrl}/api/og/social?${parts.join('&')}`);
 }
 
 // ─── Image path (default) ────────────────────────────────────────
@@ -394,12 +396,13 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
   const { supabase, postType, kind, riverSlug, oldCondition, newCondition, gaugeHeightFt, ctx, metadata } = p;
   let published = 0;
 
+  const riverState = (await getRiverContext(riverSlug).catch(() => null))?.state;
   for (const platform of p.platforms) {
     const adapter = getAdapter(platform);
     if (!adapter) continue;
 
     const { caption, hashtags } = formatConditionChangeCaption({
-      riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
+      riverSlug, riverState, oldCondition, newCondition, gaugeHeightFt, platform,
       kind: 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
@@ -457,12 +460,13 @@ async function publishAsVideo(p: PublishParams): Promise<{ published: number; sk
   const riverName = getRiverName(riverSlug);
   const postIds: string[] = [];
 
+  const riverState = (await getRiverContext(riverSlug).catch(() => null))?.state;
   for (const platform of p.platforms) {
     const adapter = getAdapter(platform);
     if (!adapter) continue;
 
     const { caption, hashtags } = formatConditionChangeCaption({
-      riverSlug, oldCondition, newCondition, gaugeHeightFt, platform,
+      riverSlug, riverState, oldCondition, newCondition, gaugeHeightFt, platform,
       kind: 'warning', riseText: ctx.riseText, trend: p.trend,
     });
     const imageUrl = coverUrl(p, platform);
@@ -692,7 +696,7 @@ export async function publishStormDigest(
     if (!adapter) continue;
 
     const { caption, hashtags } = formatStormDigestCaption(changes);
-    const imageUrl = `${baseUrl}/api/og/social?type=storm&rivers=${riversParam}&platform=${platform}`;
+    const imageUrl = signCoverUrl(`${baseUrl}/api/og/social?type=storm&rivers=${riversParam}&platform=${platform}`);
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')

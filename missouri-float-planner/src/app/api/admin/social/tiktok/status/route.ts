@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/social/tiktok/status/route.ts
 // GET  — TikTok connection status for the admin panel (no secrets returned).
 // DELETE — disconnect (remove the stored token row).
@@ -10,7 +11,7 @@ import { hasTikTokCredentials, isTikTokDirectPost, resolveTikTokRedirectUri } fr
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const supabase = createAdminClient();
@@ -39,8 +40,8 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function DELETE(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handleDELETE(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const supabase = createAdminClient();
@@ -50,3 +51,5 @@ export async function DELETE(request: NextRequest) {
   }
   return NextResponse.json({ success: true });
 }
+
+export const DELETE = withAdminMutation(handleDELETE);

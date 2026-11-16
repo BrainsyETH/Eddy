@@ -60,10 +60,23 @@ against the district's own `Flow-Min_Flow` series (minimum-flow turbine flow
 hours render as "Minimum flow" on the chip, hero, schedule and river row.
 
 Floodgate releases are read from each dam's `Flow-Tainter Total` series
-(Bull Shoals, Norfork, Table Rock), never inferred from total flow: Bull
+(Bull Shoals, Norfork, Table Rock, and Beaver since November 12), never inferred from total flow: Bull
 Shoals spilled in May 2017 at about 18,000 cfs total with three turbines out.
 A rating that uses either state still needs its own evidence and sign-off;
 neither is a recreational threshold.
+
+## November 12 Beaver tailwater
+
+The White River below Beaver Dam is the fourth tailwater, onboarded the same
+way: Beaver Dam to the Houseman Access ramp (AGFC regulation N1.03), 6.99 mi,
+unrated and wired to the dam's release. Migration `20261112162415` landed it
+inactive in production on November 12. The dossier and access-point file
+propose Dam Site Boat Ramp, Bertrand Access and Houseman Access as float
+endpoints, and every readiness review is still pending
+([research](../scripts/ingestion/reviews/BEAVER_TAILWATER_RESEARCH_2026-11-12.md)).
+At Table Rock's normal pool its backwater reaches to within about a mile of
+Beaver Dam, so the river copy says releases and the lake both shape this
+stretch, and float times stay withheld.
 
 ## Where this stands
 
@@ -160,6 +173,21 @@ of uncached fan-out per revalidation.
 ---
 
 ## 1. Travel-time lag — learn it, do not assume it
+
+**Measured 2026-11-12:** [study 2](../scripts/research/bull-shoals-lag-2026-11/README.md)
+ran this for Bull Shoals under a protocol fixed in advance. One fixed lag fails,
+as it did in the first study. A lag that depends on release level passes its
+tolerance at the gauge near Norfork (mile 41.5) and is inconclusive at Calico
+Rock. [Study 3](../scripts/research/bull-shoals-lag-2026-11/STUDY3.md) then
+scored it on 2022-2024: within two hours 94 to 98% of the time when the gauge
+is under 7 ft, but nearly half the rises come more than two hours early above
+8.5 ft or when the dam is already generating. A
+[replay](../scripts/research/bull-shoals-lag-2026-11/REPLAY.md) of an
+at-the-time rule on 2019-2021 was inconclusive (39 estimates, 60 needed), so
+the remaining test is a forward log, now built and switched off
+([runbook](../../docs/release-arrival-trial.md)). Nothing is measured between the
+dam and mile 41.5, and nothing is approved for display; step 2's liability
+decision still comes first.
 
 **The gap:** SWPA says the units run 7–11 AM *at the dam*. Nothing says when
 that water reaches the access someone is standing at. Every wade/float window

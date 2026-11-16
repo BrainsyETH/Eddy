@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/social/content/route.ts
 // GET/POST for social custom content snippets
 
@@ -8,7 +9,7 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const supabase = createAdminClient();
@@ -24,8 +25,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data || []);
 }
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const body = await request.json();
@@ -54,3 +55,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json(data, { status: 201 });
 }
+
+export const POST = withAdminMutation(handlePOST);

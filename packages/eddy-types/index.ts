@@ -1,4 +1,4 @@
-import type { DamBelowTakeOut } from '../../missouri-float-planner/shared/route-hazards';
+import type { DamBelowTakeOut, HazardAbovePutIn } from '../../missouri-float-planner/shared/route-hazards';
 // packages/eddy-types/index.ts
 // Shared API contracts between the Next.js backend and the Expo app.
 //
@@ -378,8 +378,13 @@ export type NearbyServiceType =
 export interface NearbyService {
   name: string;
   type: NearbyServiceType;
+  /** Verified access-point relationship; absent on legacy/curated nearby entries. */
+  relationship?: 'same_place' | 'located_at';
+  /** This service's own photo; absent on older or photo-less listings. */
+  imageUrl?: string | null;
   phone?: string;
   website?: string;
+  reservationUrl?: string;
   /** Pre-composed distance text — "2 mi". Never a number to do maths on. */
   distance?: string;
   notes?: string;
@@ -533,6 +538,18 @@ export function decodeCampsiteNights(nights: string): CampsiteNightState[] {
 
 /** One individual campsite. */
 export interface CampsiteSite {
+  /** Mirrors the shared camping policy contract; absent on older servers. */
+  policy?: {
+    sourceUrl: string;
+    checkedAt: string;
+    reviewBy: string;
+    periods: {
+      startDate: string;
+      endDateExclusive: string;
+      bookingMethod: 'first_come' | 'reservation';
+      operation: 'open' | 'closed';
+    }[];
+  };
   id: string;
   /** What the booking page prints — `RTL3`, `Electric 50 amp #178`. */
   name: string | null;
@@ -1913,6 +1930,8 @@ export interface FloatPlanCondition {
 export interface FloatPlan {
   /** Dams within 0.5 river miles below the landing; excluded from in-route hazards. */
   damsBelowTakeOut?: DamBelowTakeOut[];
+  /** Danger hazards within 0.5 river miles above the put-in, such as the dam over a tailwater ramp. Context, not on the route. */
+  hazardsAbovePutIn?: HazardAbovePutIn[];
   /** Typical times are not adjusted to the current gauge reading. */
   estimateBasis?: 'today' | 'typical';
   /** Hazard lookup failed; the rest of the plan remains usable. Never persist as a complete plan. */

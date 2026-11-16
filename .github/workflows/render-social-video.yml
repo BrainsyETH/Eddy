@@ -53,21 +53,24 @@ jobs:
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          POST_IDS: ${{ inputs.post_ids }}
+          VIDEO_URL: ${{ needs.render.outputs.clip_url }}
+          AUDIO_VERIFIED: ${{ needs.render.outputs.audio_verified }}
+          AUDIO_KIB: ${{ needs.render.outputs.audio_kib }}
+          TOTAL_SILENCE_S: ${{ needs.render.outputs.total_silence_s }}
         run: |
           # Retry the callback up to 3 times with backoff. A Vercel cold start can
           # blow past the default curl deadline; without retries a rendered +
           # uploaded video would sit in 'rendering' until the stale-reaper killed it.
-          PAYLOAD=$(cat <<EOF
-          {
-            "postIds": "${{ inputs.post_ids }}",
-            "videoUrl": "${{ needs.render.outputs.clip_url }}",
-            "status": "rendered",
-            "audioVerified": ${{ needs.render.outputs.audio_verified == 'true' }},
-            "audioKib": "${{ needs.render.outputs.audio_kib }}",
-            "totalSilenceS": "${{ needs.render.outputs.total_silence_s }}"
-          }
-          EOF
-          )
+          # Values arrive through env and jq builds the JSON, so a dispatched
+          # input or render output is data, never script text.
+          PAYLOAD=$(jq -n \
+            --arg postIds "$POST_IDS" --arg videoUrl "$VIDEO_URL" \
+            --arg audioVerified "$AUDIO_VERIFIED" --arg audioKib "$AUDIO_KIB" \
+            --arg totalSilenceS "$TOTAL_SILENCE_S" \
+            '{postIds: $postIds, videoUrl: $videoUrl, status: "rendered",
+              audioVerified: ($audioVerified == "true"),
+              audioKib: $audioKib, totalSilenceS: $totalSilenceS}')
           for attempt in 1 2 3; do
             HTTP_CODE=$(curl -s -o /tmp/callback-resp.txt -w '%{http_code}' \
               --max-time 60 \
@@ -101,15 +104,10 @@ jobs:
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          POST_IDS: ${{ inputs.post_ids }}
         run: |
-          PAYLOAD=$(cat <<EOF
-          {
-            "postIds": "${{ inputs.post_ids }}",
-            "status": "failed",
-            "error": "GitHub Actions render failed — check workflow run logs"
-          }
-          EOF
-          )
+          PAYLOAD=$(jq -n --arg postIds "$POST_IDS" \
+            '{postIds: $postIds, status: "failed", error: "GitHub Actions render failed — check workflow run logs"}')
           for attempt in 1 2 3; do
             HTTP_CODE=$(curl -s -o /tmp/callback-resp.txt -w '%{http_code}' \
               --max-time 60 \

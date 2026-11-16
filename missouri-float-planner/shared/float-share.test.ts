@@ -14,9 +14,10 @@ import { floatImagePath, floatShareState, localDay, MAX_SHARE_MINUTES, parseFloa
 import { FLOAT_MOOD_STICKERS, STANDARD_OTTER, stickerDataUrl } from '../src/lib/float-share/sticker';
 import { loadFloatShareNames } from '../src/lib/float-share/names';
 import { cfsMatches, verifyFloatShareCondition } from '../src/lib/float-share/verify';
-import { FLOAT_SHARE_HEIGHT, FLOAT_SHARE_WIDTH, FloatShareImage, stampInk } from '../src/lib/og/float-share-image';
+import { FLOAT_SHARE_HEIGHT, FLOAT_SHARE_WIDTH, FloatShareImage } from '../src/lib/og/float-share-image';
 import { respondFloatShare } from '../src/lib/float-share/respond';
-import { loadOgFonts } from '../src/lib/og/fonts';
+import { loadFloatShareFonts } from '../src/lib/og/float-share-fonts';
+import { colors } from './social-brand';
 import { GET } from '../src/app/api/share/float/image/route';
 
 const START = Date.parse('2026-10-26T15:00:00Z');
@@ -229,7 +230,7 @@ test('the image renders at 9:16 with the mood sticker', async () => {
   const state = floatShareState(trip({ startCondition: flowing }));
   const image = new ImageResponse(
     createElement(FloatShareImage, { state, names: NAMES, mood: shareMood(state), sticker: await stickerDataUrl(shareMood(state)) }),
-    { width: FLOAT_SHARE_WIDTH, height: FLOAT_SHARE_HEIGHT, fonts: loadOgFonts() },
+    { width: FLOAT_SHARE_WIDTH, height: FLOAT_SHARE_HEIGHT, fonts: loadFloatShareFonts() },
   );
   const bytes = Buffer.from(await image.arrayBuffer());
   assert.equal(bytes.subarray(1, 4).toString(), 'PNG');
@@ -246,7 +247,7 @@ test('a multi-day float can be shared: recordings have no length limit', () => {
   assert.deepEqual(parseFloatShare(params(floatImagePath(month)), NOW), month, 'thirty days is the bound, not 48 hours');
 });
 
-test('the image states the percent the recap states, never one recomputed from rounded miles', () => {
+test('the share retains the recap percent in its payload without drawing it as trip completion', () => {
   const span = (lastMile: number) => ({ firstMile: 0, lastMile, firstName: 'Top', lastName: 'Bottom', calibration: 'deadbeef' });
   for (const [explored, length, recap] of [[6.0, 6.04, '99%'], [6.06, 6.06, '100%'], [0.004, 134, 'Under 1%']] as const) {
     const t = trip({ riverSpan: span(length), coveredMiles: [[0, explored]] });
@@ -255,7 +256,8 @@ test('the image states the percent the recap states, never one recomputed from r
     const fraction = Math.min(1, explored / length);
     assert.equal(exploredPercent(fraction), recap, `recap for ${explored}/${length}`);
     const html = renderToStaticMarkup(createElement(FloatShareImage, { state: parsed, names: NAMES, mood: null, sticker: '' }));
-    assert.ok(html.includes(`${recap} of the Current’s float miles`), `image for ${explored}/${length}: ${recap}`);
+    assert.deepEqual(parsed.explored, state.explored, 'the share payload keeps the original credited miles and percentage');
+    assert.ok(!html.includes('float miles') && !html.includes(recap), 'the graphic omits the whole-river percentage');
   }
   const sliver = floatShareState(trip({ riverSpan: span(134), coveredMiles: [[10, 10.004]] }));
   assert.equal(sliver.explored?.miles, 0.01, 'a sliver encodes as 0.01, which reads "Under 0.1"');
@@ -274,17 +276,17 @@ test('the image shows the stretch the float took, and a partly tracked float say
     return renderToStaticMarkup(createElement(FloatShareImage, { state, names: NAMES, mood: shareMood(state), sticker: '' }));
   };
   const measured = draw(trip());
-  assert.ok(measured.includes('river miles explored') && measured.includes('7% of the Current’s float miles'));
+  assert.ok(measured.includes('River miles explored') && measured.includes('9.8 mi') && measured.includes('Total time'));
   assert.ok(!measured.includes('paddled'), 'never a distance paddled');
   const partial = draw(trip({ movingMs: 0.8 * HOUR, stoppedMs: 0.2 * HOUR, unknownMs: 3.2 * HOUR }));
-  assert.ok(partial.includes('river miles explored') && partial.includes('Limited GPS tracking'));
+  assert.ok(partial.includes('River miles explored') && partial.includes('Limited GPS tracking'));
   assert.ok(!measured.includes('Limited GPS tracking'));
   assert.ok(draw(trip({ firstMile: null, lastMile: null, distanceMiles: 0, coveredMiles: [] })).includes('GPS tracking unavailable'));
   const uncredited = draw(trip({ coveredMiles: [] }));
-  assert.ok(!uncredited.includes('explored') && !uncredited.includes('unavailable') && uncredited.includes('on the water'), 'placed but no river credited: the time alone');
+  assert.ok(uncredited.includes('—') && !uncredited.includes('unavailable') && uncredited.includes('Total time'), 'placed but no river credited: no invented mileage or missing-GPS claim');
 });
 
-test('every condition stamp reads clearly on the teal', () => {
+test('every condition badge reads clearly on its light tint', () => {
   const luminance = (hex: string) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
       .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
@@ -294,10 +296,12 @@ test('every condition stamp reads clearly on the teal', () => {
     const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
     return (hi + 0.05) / (lo + 0.05);
   };
-  const teal = '#163F4A';
-  assert.ok(contrast(CONDITION_SYSTEM.too_low.solid, teal) < 3, 'the raw Too Low colour was the problem');
+
   for (const code of ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous'] as const) {
-    assert.ok(contrast(stampInk(CONDITION_SYSTEM[code].solid), teal) >= 4.5, code);
+    const condition = CONDITION_SYSTEM[code];
+    const [r, g, b, alpha] = condition.bg.match(/[\d.]+/g)!.map(Number);
+    const tint = '#' + [r, g, b].map(channel => Math.round(channel * alpha + 255 * (1 - alpha)).toString(16).padStart(2, '0')).join('');
+    assert.ok(contrast(condition.ink, tint) >= 4.5, code);
   }
 });
 
@@ -343,7 +347,7 @@ test('high water is stated on the image, not celebrated', () => {
   };
   // The colour of the element holding the mood line itself, not the wordmark.
   const labelColor = (html: string, text: string) => new RegExp(`color:([^;"]+)[^>]*>${text}<`).exec(html)?.[1];
-  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'dangerous' } })), 'Flood stage'), 'rgba(250,250,250,0.72)');
-  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'high' } })), 'Big water'), 'rgba(250,250,250,0.72)');
-  assert.equal(labelColor(draw(trip({ startCondition: flowing })), 'Made it!'), '#F07052', 'Made it! keeps its coral');
+  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'dangerous' } })), 'Flood stage'), colors.primary[100]);
+  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'high' } })), 'Big water'), colors.primary[100]);
+  assert.equal(labelColor(draw(trip({ startCondition: flowing })), 'Made it!'), colors.accent[400], 'Made it! uses coral on the water shape');
 });

@@ -1,0 +1,134 @@
+{
+  "capturedAt": "2026-11-16T21:03:20.797Z",
+  "window": {
+    "start": "2026-08-07T12:00:00.000Z",
+    "end": "2026-08-08T12:00:00.000Z"
+  },
+  "tile": {
+    "xmin": -10532957.128554547,
+    "ymin": 4078529.700448977,
+    "xmax": -10039445.860456608,
+    "ymax": 4660040.56815956,
+    "width": 415,
+    "height": 489,
+    "dx": 1189.1837785492494,
+    "dy": 1189.1837785492494
+  },
+  "sources": {
+    "corrected": {
+      "url": "https://noaa-mrms-pds.s3.amazonaws.com/CONUS/MultiSensor_QPE_24H_Pass2_00.00/20260808/MRMS_MultiSensor_QPE_24H_Pass2_00.00_20260808-120000.grib2.gz",
+      "sha256": "33eaa04ec0910b980a279d0b47a333430c12e1ccec95d7d7c8f326b33bb42b43",
+      "bytes": 4445933,
+      "parameter": 41,
+      "referenceTime": "2026-08-08T12:00:00.000Z",
+      "columns": 7000,
+      "rows": 3500,
+      "firstLatitude": 54.995,
+      "firstLongitude": 230.005,
+      "dLatitude": 0.01,
+      "dLongitude": 0.01
+    },
+    "radarOnly": {
+      "url": "https://noaa-mrms-pds.s3.amazonaws.com/CONUS/RadarOnly_QPE_24H_00.00/20260808/MRMS_RadarOnly_QPE_24H_00.00_20260808-120000.grib2.gz",
+      "sha256": "890446a1e31d029c1d2a6886fd825df334cdde439a787a69b694fb8df5261493",
+      "bytes": 4544620,
+      "parameter": 6,
+      "referenceTime": "2026-08-08T12:00:00.000Z",
+      "columns": 7000,
+      "rows": 3500,
+      "firstLatitude": 54.995,
+      "firstLongitude": 230.005,
+      "dLatitude": 0.01,
+      "dLongitude": 0.01
+    },
+    "usgs": {
+      "url": "https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items?f=json&bbox=-94.6192%2C34.3695%2C-90.1859%2C38.5684&parameter_code=00045&datetime=2026-08-07T12%3A00%3A00.000Z%2F2026-08-08T12%3A00%3A00.000Z&limit=10000",
+      "pages": 1
+    }
+  },
+  "sha256": {
+    "correctedTiff": "c3356cec9b86de64fdd3234b9080d1facf290f8c19fc44e0bac1e89021ed3816",
+    "radarOnlyTiff": "213b1b547de7f2b8c457e889bd29eade61ee4528b95288ba1636704fb6415d52",
+    "usgs": "a7e073c87e99ce9d9fd39682d6e6eeb1b606188049b2187a2b5cc55eca3924de",
+    "weights": "701d446322735274028dce34f94b1bfa6b22a735c4f9ed15cd8a97c603967695"
+  },
+  "basins": [
+    {
+      "site": "07065200",
+      "basinId": "b4924fd9c8f7d4ff5772e0cfc70c2de8223b90756c78305cdcadfed2c02f1cdb",
+      "reviewStatus": "reviewed",
+      "cells": 604,
+      "weightedAreaFraction": 1.0000000978787977,
+      "corrected": {
+        "coverage": 1,
+        "inches": 1.7442299887811854
+      },
+      "radarOnly": {
+        "coverage": 1,
+        "inches": 1.5830494708302063
+      },
+      "hourlySumInches": 1.7442299894869362,
+      "hourlyMinimumCoverage": 1,
+      "denseSampleInches": 1.7512895591739293,
+      "denseSamples": 13366
+    },
+    {
+      "site": "07065495",
+      "basinId": "dd1fd275be39db869913104ca5cb761f87c80ad48325bbdcea200f6c4b0b5a91",
+      "reviewStatus": "reviewed",
+      "cells": 982,
+      "weightedAreaFraction": 0.9999998085751326,
+      "corrected": {
+        "coverage": 0.9999998085751326,
+        "inches": 1.9973612883449536
+      },
+      "radarOnly": {
+        "coverage": 0.9999998085751326,
+        "inches": 1.8491954042809895
+      },
+      "hourlySumInches": 1.997361290850793,
+      "hourlyMinimumCoverage": 0.9999998085751326,
+      "denseSampleInches": 2.0085973698696296,
+      "denseSamples": 21896
+    },
+    {
+      "site": "07066000",
+      "basinId": "4ed9badc745e6316a2ba21f92f6c7d61223ac2efc083cc44c5c39752b78c3cd6",
+      "reviewStatus": "reviewed",
+      "cells": 1288,
+      "weightedAreaFraction": 0.9999999838214583,
+      "corrected": {
+        "coverage": 0.9999999838214583,
+        "inches": 1.997529315166805
+      },
+      "radarOnly": {
+        "coverage": 0.9999999838214583,
+        "inches": 2.021546970331664
+      },
+      "hourlySumInches": 1.9975293159785068,
+      "hourlyMinimumCoverage": 0.9999999838214583,
+      "denseSampleInches": 2.0067333719471354,
+      "denseSamples": 29114
+    }
+  ],
+  "gauges": {
+    "corrected": {
+      "gaugesInWindow": 107,
+      "gaugesCompared": 32,
+      "medianRatio": 29.885057471264364,
+      "middleHalf": [
+        25.473685013620475,
+        50.93023167100063
+      ]
+    },
+    "radarOnly": {
+      "gaugesInWindow": 107,
+      "gaugesCompared": 32,
+      "medianRatio": 35.59999847412109,
+      "middleHalf": [
+        25.930231671000637,
+        51.07692425067607
+      ]
+    }
+  }
+}

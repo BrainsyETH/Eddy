@@ -31,17 +31,73 @@ call to action.
 | `card` | River name + condition → gauge location → reading + plain trend → the ladder (`RangeMeter`) → Eddy's take → one weather line → "Full report" and credit. | ~300px |
 | `full` | Card + high/low weather, the trend chart, and other gauges as flat rows. | ~550px |
 
+**A river whose primary reading is an unrated dam release** (the White,
+Lake Taneycomo, the Norfork tailwater; `shared/dam-release-tab.ts`) is not
+presented as a river gauge. The gauge line reads "Total release from <dam>",
+the chip reads "Not rated" in place of "Unknown" (as it does for any gauge with
+no ladder), there is no trend word, and Eddy's take is one fixed sentence that
+points to the dam's schedule. Total release is stored in two places, `gauge_readings` (written at :00)
+and the dam snapshot's `release` (written at :35), and either can be the newer
+one. Both widgets choose through `newestTotalRelease` in
+`src/lib/embed/options.ts` (the dam widget via `withNewestRelease`), so they
+show the same hour of the series in both update orders. Their caches are
+separate (river 120 s, dam 60 s), so they can still differ for up to two
+minutes after a new reading lands. Total release and the dam
+widget's turbine flow are different quantities and can differ when a dam spills
+or passes minimum flow outside the turbines; the labels say which is which.
+
 Dam sizes mirror the iOS "Dam generation" Home Screen widget, read off
-`shared/dam-widget.ts` — the same packet the phone draws, so a bar cannot
-disagree between the two. The card reads: dam and lake → turbine flow with
-the generation status (stated once) → the next scheduled change → today's 24
-hour-ending bars → footer. A schedule Eddy checked more than 90 minutes ago
-replaces the next-change line with a visible coral note. Megawatts, sources,
-the check time and the Central-time note sit in one "About this data"
-disclosure (a popover would clip at the iframe edge; a disclosure expands and
-the iframe resizes). `full` adds aligned rows for the tailwater status, total
-release and lake level, and tomorrow's bars. "Turbine flow" stays the label —
-"release" would blur it with total release.
+`shared/dam-widget.ts` — the same posted MW packet the phone draws, so an
+hour cannot disagree between the two. The card reads: dam and lake → **observed**
+turbine flow with one dated generation status → the **Central-time date**
+and posted next-change sentence → taller 24-hour MW chart with an Eddy-coral
+Now line → footer. Every day uses the dam's fixed scheduling capacity,
+matching the website and iOS. The packet carries capacity fractions; missing
+references use a small unscaled presence mark. Flat-output days say
+"Scheduled generation"; only varying-output days say "Highest scheduled
+generation". The next-change sentence starts with the current scheduled run
+and names its stop and posted restart. Low bars have only a two-pixel floor;
+elapsed scheduled hours retain 90% opacity. The marker
+is the current Central hour, not a claim that a scheduled bar was observed.
+Missing hours have short outlined marks, not zero-generation bars; minimum
+flow is separate from scheduled generation. Observations and posted plans may
+disagree and must never be presented as a single live feed.
+
+A schedule Eddy checked more than 90 minutes ago replaces the next-change
+sentence with a visible coral notice. Sources, peak MW, the check time and
+the Central-time explanation sit in "About this data"; the iframe resizes
+when the disclosure expands. `full` adds the dam's own dated downstream
+water elevation and only fresh, canonically rounded movement (no safety verdict; outdated elevation values are suppressed),
+spillway discharge when separately observed, and total release only when
+it isn't an effectively identical, near-simultaneous turbine observation.
+Daily-average release stays distinct. The full embed shows **below the dam**,
+**lake level**, and **water temperature below the dam** in a shared measurement
+row when data exists. Use the existing web/iOS Eddy glyphs for river gauge,
+lake gauge and water temperature, rather than generic iconography. Rising
+stage (only when a fresh, measured change exists) uses a coral arrow + text;
+falling stage uses teal arrow + text; lake level is rendered in Eddy water teal.
+These are measurements, **not safety classifications**. All three metrics
+stay on one row at every embed width, with icons, labels, values and supporting
+text centered within each column; narrow frames use compact figures and
+stack the existing branded icons above their labels instead of forcing
+temperature onto a second row. Only available metrics are shown.
+
+Today's chart does not repeat a "Posted generation schedule" or "Today's posted
+generation · CT" heading. Its date appears once, where the schedule title
+used to sit, above the next-change sentence; the chart retains an accessible
+day/date label, its MW context, and the coral Now marker. Tomorrow retains
+its own distinct date heading when the full embed includes it, directly after
+today's chart and before the water measurements at every embed width.
+
+The full card has one visible `Observed … ago` line at the header's top-right,
+referring **only to turbine flow**. It is not a single timestamp for all
+measurements: exact ages for downstream stage, lake elevation, temperature,
+spillway and other release readings stay in the expanded `About this data`
+and on the metric's native hover title. Stale levels/temperatures have no
+numeric reading presented as current. Tomorrow's posted bars remain.
+Everything is flat within the Eddy frame, not nested metric tiles.
+"Turbine flow" stays explicit: "release" could include spillway or other
+outlets.
 Flood-control projects (no powerhouse) render an explanatory unavailable state;
 the workbench picker excludes them, as the iOS picker does.
 
@@ -74,10 +130,13 @@ full (with `days`), `/embed/badge/` → badge. `embed-options.test.ts` pins this
 /embed/img/<river|dam>/<key>/<badge|strip>.<png|svg>?theme=light|dark&bg=transparent&accent=…
 ```
 
-For Substack, Medium, Ghost, GitHub READMEs and email. PNG is drawn by Satori
+For Substack, Medium, GitHub READMEs and email; Ghost website posts can use an
+HTML card for the interactive embed. PNG is drawn by Satori
 with Fredoka + Geist Mono embedded (the OG-image font pipeline); SVG is hand
 built with `textLength`-pinned runs so a fallback font cannot overflow. Both
-share `src/lib/embed/image-model.ts`. Cached five minutes at the CDN.
+share `src/lib/embed/image-model.ts`. Cached five minutes at the CDN. Downloaded
+images are snapshots; email clients and publishing platforms may cache remote
+images, so neither should promise a fresh reading on every open.
 
 ### Script loader
 
@@ -135,7 +194,13 @@ single-purpose embeds (`EmbedFooter`, `EmbedHeaderLogo`, `useEmbedBranding`).
 shortcuts (sidebar, in a post, landing page, email, regional page) as an
 optional "Quick start". On phones the preview sits between the size choice and
 the appearance options. Copy code is the main action; URL parameters are under
-"Advanced", installation steps under the Help tab.
+"Advanced", installation steps under the Help tab. Help shows one platform at
+a time with three short steps and a direct copy action. The website guides
+copy the iframe plus its resize script, independently of the Code tab's format.
+Image guides open the selected river or dam's PNG and full report; card/full
+configurations use a strip image without changing the chosen widget size.
+Tools without an image renderer offer a river/dam choice instead. Troubleshooting
+is collapsed and the partner invitation stays secondary to installation.
 
 ## Measurement
 
@@ -155,3 +220,46 @@ A referring site is not a confirmed embed. The beacon sends
 on that site or someone clicked a widget link there. Confirming embeds needs
 the beacon to record whether it loaded inside a frame. The dashboard holds 30
 days of daily rows, so "new" means first seen within that window.
+
+## Display contract
+
+The full-screen displays — the [Missouri mills collection](missouri-mills.md)
+and River Window at `/embed/display`, and the
+[home-base board](home-base-board.md) at `/embed/board/<id>` — are framed by
+wall hosts that rotate several displays on one screen (the Farmhouse
+dashboard's `/display` playlist is the first). Each posts these messages to
+its parent (`postMessage`, target `'*'`, nothing sent when not framed). The
+types and the host-side validator are `src/lib/embed/display-events.ts`;
+`isDisplayEvent` rejects any other version, so a breaking change means a new
+`v`, not a reshaped message.
+
+| Message | When | Payload |
+| --- | --- | --- |
+| `eddy-display:ready` | Once, after the display is drawn and its first readings request has settled, either way | `display` (`mills` / `river-window` / `board`), `format` (`landscape` / `vertical`) |
+| `eddy-display:status` | Right after ready, then whenever it changes | `readings`: `current`, `interrupted` (refresh failed, last good readings still shown and aging) or `unavailable`; `scenery`: `ok` / `unavailable` |
+| `eddy-display:break` | At each natural cut point | `completed` (breaks since load), `total` (breaks in one full loop), and `next` where the display can resume |
+
+Cut points: **Mills** breaks as each painting ends, on the frame the veil
+starts to fall (`MILL_BREAK_FRAME`), so `total` is the number of mills and
+`next` is the mill that would follow. **The board** breaks once per loop, as
+the hold on the present gives way to the first spotlight (`loopCompleted`).
+River Window sends ready and status only. A paused display (`motion=off`,
+reduced motion) sends no breaks; hosts fall back to their own timer.
+
+URL parameters a host may rely on: `format=vertical|landscape` and
+`rivers=` (Mills), `motion=off` (all), and `start=<mill id>` (Mills: opens on
+that mill, so a host can pass back a break's `next` and resume the tour; an
+unknown or filtered-out id opens on the first mill). These, and the message
+types above, are the contract: `display-events.test.ts` fails if this section
+stops naming them.
+
+## Daily Report exports
+
+The social Daily Report captures `RiverEmbed` and `DamEmbed` directly. Their
+optional `report` prop removes interactive footers and the dam disclosure;
+it also limits dam schedules to today. Normal embeds keep their existing
+layout. A scoped export frame adjusts type sizes, adds the capture time in
+Central time and one short factual takeaway, and keeps the chart and dam
+measurement row intact. Report observations show an absolute Central date/time;
+the river header also labels its recent trend window. Normal live embeds retain
+relative ages. See [Daily Report](social-daily-report.md).

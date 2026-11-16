@@ -1,10 +1,9 @@
 // src/lib/navigation/river-path.ts
 // Canonical URL builders for the /rivers/[state]/[slug] hierarchy.
 //
-// Legacy /rivers/[slug] URLs 301 to these via app/rivers/[state]/page.tsx,
-// so components that don't have the river's state handy may still emit
-// legacy links — but anything that renders many links or feeds crawlers
-// (sitemaps, index grids, breadcrumbs) should use these builders.
+// Legacy URLs remain supported with permanent redirects. New links should use
+// the canonical path supplied by the API or these builders with the river's
+// actual state; never infer a state from the viewer's location.
 
 import { stateSlug } from './states';
 

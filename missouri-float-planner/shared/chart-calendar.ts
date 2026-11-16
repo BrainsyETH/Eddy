@@ -62,6 +62,16 @@ export function chartStamp(time: string | number, timeZone: string, dateOnly = f
   return formatter(timeZone, dateOnly ? 'stampDate' : 'stamp').format(value);
 }
 
+/** Compact visible stamp; keep chartStamp as the full accessible equivalent. */
+export function chartShortStamp(time: string | number, timeZone: string, now = Date.now()): string {
+  const value = typeof time === 'number' ? time : Date.parse(time);
+  if (!Number.isFinite(value)) return 'Unavailable';
+  const parts = formatter(timeZone, 'stamp').formatToParts(value);
+  const get = (key: string) => parts.find(p => p.type === key)?.value ?? '';
+  const year = formatter(timeZone, 'parts').formatToParts(now).find(p => p.type === 'year')?.value;
+  return `${get('month')} ${get('day')}${get('year') === year ? '' : `, ${get('year')}`} · ${get('hour')}${get('minute') === '00' ? '' : `:${get('minute')}`} ${get('dayPeriod')} ${get('timeZoneName')}`;
+}
+
 export function stationDayWindow(from: string, to: string, timeZone: string) {
   return {
     from: new Date(stationTime(from, timeZone)).toISOString(),

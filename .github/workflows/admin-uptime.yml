@@ -1,0 +1,37 @@
+# Best-effort readiness backstop. NOT an uptime monitor.
+#
+# GitHub runs scheduled workflows when it has capacity, not on the minute: in
+# this repository they start hours late and most occurrences of a frequent
+# schedule never run. So this asks for a check every 15 minutes and gets a few
+# a day. It can show that readiness or pipeline freshness has been failing; it
+# cannot detect an outage promptly. Prompt detection needs an external uptime
+# service calling the same two endpoints (docs/pipeline-monitoring.md).
+#
+# Off until the repository variable ADMIN_UPTIME_ENABLED is 'true' and the
+# ADMIN_MONITOR_SECRET Actions secret matches the web deployment's.
+name: Eddy readiness backstop
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readiness:
+    if: vars.ADMIN_UPTIME_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check Eddy readiness
+        env:
+          MONITOR_SECRET: ${{ secrets.ADMIN_MONITOR_SECRET }}
+        run: |
+          if [ -z "$MONITOR_SECRET" ]; then
+            echo '::error::External readiness monitoring is enabled but its credential is missing.'
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 2 --max-time 15 \
+            -H "Authorization: Bearer $MONITOR_SECRET" \
+            https://eddy.guide/api/health/readiness
+          curl --fail --silent --show-error --retry 2 --max-time 15 \
+            https://eddy.guide/api/health/pipeline

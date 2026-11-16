@@ -99,3 +99,40 @@ export function riverDisplayLong(slug: string): string {
 export function riverDisplayShort(slug: string): string {
   return RIVER_DISPLAY_SHORT[slug] || titleCaseSlug(slug);
 }
+
+/** Casual prose form ("the Current", "Huzzah") for captions and cover
+ *  headlines ("Float the Current"). Moved here from content-formatter so the
+ *  caption and the cover say a river's name the same way. */
+export const RIVER_DISPLAY_CASUAL: Record<string, string> = {
+  meramec: 'the Meramec',
+  current: 'the Current',
+  'eleven-point': 'Eleven Point',
+  'jacks-fork': 'Jacks Fork',
+  niangua: 'the Niangua',
+  'big-piney': 'Big Piney',
+  huzzah: 'Huzzah',
+  courtois: 'Courtois',
+  gasconade: 'the Gasconade',
+  black: 'the Black',
+  bourbeuse: 'the Bourbeuse',
+  'big-river': 'Big River',
+  'st-francis': 'the St. Francis',
+  buffalo: 'the Buffalo',
+  elk: 'the Elk',
+  james: 'the James',
+  'north-fork-white': 'the North Fork',
+  'bryant-creek': 'Bryant Creek',
+  'crooked-creek': 'Crooked Creek',
+  'kings-river': 'the Kings',
+  mulberry: 'the Mulberry',
+  'caddo-river': 'the Caddo',
+  'spring-river': 'the Spring River',
+  'spring-river-mo': 'the Spring River',
+  'war-eagle-creek': 'War Eagle Creek',
+};
+
+/** Casual name with a never-raw-slug fallback: an unmapped slug degrades to the
+ *  title-cased short display name ("big-river" → "Big River"). */
+export function riverDisplayCasual(slug: string): string {
+  return RIVER_DISPLAY_CASUAL[slug] || riverDisplayShort(slug);
+}

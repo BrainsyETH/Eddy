@@ -1,10 +1,15 @@
+import { campingWebEnabled } from '@/lib/camping/web-launch';
+import { guideEditorialDate } from '@/lib/guides/editorial-date';
 // src/app/sitemap.ts
 // Dynamic sitemap generation for SEO optimization
 
 import { MetadataRoute } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
+import { RELEASE_TIMING_PATH } from '@/lib/release-timing/findings';
 import { listDamIds } from '@/lib/data/dams';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
+import { publishedLakes } from '@/lib/lakes/public-pages';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -16,12 +21,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages remain discoverable even when a local/preview build
   // intentionally has no production database credentials.
   const staticPages: MetadataRoute.Sitemap = [
+    ...(campingWebEnabled() ? [{ url: `${BASE_URL}/camping`, changeFrequency: 'daily' as const, priority: 0.7 }] : []),
     { url: `${BASE_URL}/developers`, changeFrequency: 'monthly', priority: 0.6 },
     { url: BASE_URL, changeFrequency: 'daily', priority: 1 },
     { url: `${BASE_URL}/app`, changeFrequency: 'monthly', priority: 0.8 },
+    ...(floatSearchLaunch().web ? [{ url: `${BASE_URL}/find-float`, changeFrequency: 'weekly' as const, priority: 0.8 }] : []),
     { url: `${BASE_URL}/plan`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${BASE_URL}/rivers`, changeFrequency: 'daily', priority: 0.8 },
     { url: `${BASE_URL}/river-map`, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${BASE_URL}/river-map/ozarks`, changeFrequency: 'daily', priority: 0.6 },
     { url: `${BASE_URL}/dams`, changeFrequency: 'daily', priority: 0.7 },
     // Dam detail pages come from a static registry, so they're listed here
     // rather than in the DB-driven expansion below — the sitemap still builds
@@ -31,6 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily' as const,
       priority: 0.6,
     })),
+    { url: `${BASE_URL}${RELEASE_TIMING_PATH}`, changeFrequency: 'weekly' as const, priority: 0.5 },
+    ...publishedLakes().map(lake => ({ url: `${BASE_URL}/lakes/${lake.slug}`, changeFrequency: 'daily' as const, priority: 0.6 })),
     { url: `${BASE_URL}/blog`, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/about`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/coverage`, changeFrequency: 'monthly', priority: 0.5 },
@@ -56,7 +66,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .order('name', { ascending: true }),
     supabase
       .from('blog_posts')
-      .select('slug, published_at')
+      .select('slug, published_at, editorial_updated_at:guide_data->>editorial_updated_at')
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false }),
@@ -103,10 +113,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // updated_at changes on operational writes (including social shares), so it
-  // is not a content modification date. Omit lastModified until the database
-  // records editorial changes separately; published_at isn't a last edit.
+  // is not a content modification date. Only an explicit editorial date is used;
+  // older posts without one continue to omit lastModified.
   const blogPages: MetadataRoute.Sitemap = (blogResult.data || []).map((post) => ({
     url: `${BASE_URL}/blog/${post.slug}`,
+    lastModified: guideEditorialDate({ editorial_updated_at: post.editorial_updated_at }),
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));

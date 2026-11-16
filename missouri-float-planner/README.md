@@ -48,7 +48,9 @@ guides, and the iPhone app. Its two report columns reuse the Conditions director
 `RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
 Desktop cards match the taller of the two visible reports, with aligned report
 footers and carousel controls; off-screen slides do not set the height. Stacked
-mobile cards keep their natural height. Dam cards show only Today's generation
+mobile cards keep their natural height. Homepage dam cards use the same three-reading
+banner as `/dams`: release, water temperature, and lake level, with Eddy icons
+and one shared age line. Dam cards show only Today's generation
 schedule, and Eddy Says follows the river chart without a spacer.
 Both shared cards use Eddy's framed surface and teal header.
 Each column shows one report, rotating horizontally every eight seconds while
@@ -72,12 +74,38 @@ fixture routes afterward. It does not require production credentials.
 Screenshots go to `/tmp/eddy-navigation`
 (override with `NAV_SMOKE_OUTPUT`).
 
-For map performance, first build `/river-map` with
-`npm run build -- --webpack --debug-build-paths=app/river-map/page.tsx`, then run
+For map performance, first build `/river-map/ozarks` with
+`npm run build -- --webpack --debug-build-paths=app/river-map/ozarks/page.tsx`, then run
 `NAV_SMOKE_PRODUCTION_MAP=1 npm run test:navigation`. This starts the optimized
 build and enforces a 250ms click-to-painted-state budget under the same throttle.
 Development timings are diagnostic only. Production mode uses API fixtures but
 does not create any fixture routes.
+
+## Public page links
+
+Report links use the canonical `/rivers/<state>/<river>` hierarchy. Access APIs
+supply `path` for their detail pages; consumers use it instead of composing the
+retired `/rivers/<river>/access/<access>` form. Legacy links return HTTP 308 in
+`src/proxy.ts`, before page streaming, with query strings preserved. State
+indexes and canonical pages bypass the redirect lookup. Only verified access
+aliases are redirected; an unavailable catalog returns a retryable 503.
+
+`/rivers/<state>/<river>/accesses` returns HTTP 308 to the river page's `#access`
+section, preserving query strings. The access list stays on the river page;
+individual places keep `/rivers/<state>/<river>/access/<place>`.
+
+Conditions links to the state indexes, and river/access breadcrumbs expose the
+same hierarchy. Access pages offer Start here / End here only for float
+endpoints; every access can open on the planner map. Guide section cards link
+to published access details and their route. General guide planning CTAs open
+Find a Float when discovery is enabled, otherwise the planner. The finder has
+one canonical base URL and joins the sitemap when web discovery is enabled.
+Saved/shared plan URLs keep their existing indexing behavior.
+`PLANNER_ACCESS_LINKS_ONLY=1 npm run test:planner-map` checks incoming access
+links on desktop and mobile, including delayed data, non-launch places, and
+inspection alongside an existing put-in.
+`CONDITIONS_LINKS_ONLY=1 npm run test:conditions` checks the state and footer
+links, report charts, dam timelines, and layout at four viewport sizes.
 
 ## Conditions directory
 
@@ -253,9 +281,27 @@ available through its info button.
 continuity, retained endpoints, default filters, camera framing, control/panel
 spacing, attribution, keyboard search, and desktop/mobile layouts.
 
+## National Live River Map
+
+`/river-map` is the national map: every USGS gauge in the 50 states and DC,
+coloured by flow compared with usual (the shared flow bands) or by official NWS
+flood category, with search, gauge detail, and a text-free fullscreen display.
+It reads recorded national frames (`/api/river-map/frame`, written every 15
+minutes by `/api/cron/record-river-map-frame`) and a station catalog
+(`/api/river-map/stations`), and draws pre-projected USGS hydrography from
+`public/river-map/geometry/`. Its preferences are its own and never touch the
+planner's gauge layers. Design, data rules, coverage and open verification
+gates: [`docs/national-river-map.md`](docs/national-river-map.md); decisions:
+[ADR 0018](../docs/decisions/0018-national-river-map.md).
+`node --import tsx scripts/national-map-smoke.ts` runs its fixture-backed
+browser checks (River Map Smoke runs it in CI).
+
+The curated Ozarks observatory that used to live at `/river-map` is now
+`/river-map/ozarks`; Eddy's float verdicts stay there, scoped to rated rivers.
+
 ## Nationwide gauges on both web maps
 
-The planner (`/plan`) and Live River Map (`/river-map`) share one **River
+The planner (`/plan`) and the Ozarks River Map (`/river-map/ozarks`) share one **River
 gauges** layer row (`GaugeMapFilters`). Its switch turns gauges on or off;
 under it, **Eddy-rated** and **Other gauges** chips split the same USGS
 network, both enabled by default, as in the app's layers sheet. Explicit
@@ -286,7 +332,7 @@ The planner uses separate MapLibre sources and cluster trees for reference
 gauges and places; access points and POIs draw above the reference layer, whose
 stations are small plain dots with a 10px river-priority hit area. On
 phones, Eddy-rated gauges now cover all rated rivers, matching desktop, rather
-than only the selected river. The SVG Live River Map keeps
+than only the selected river. The SVG Ozarks River Map keeps
 its Ozarks home view and river overlays while allowing nationwide pan/zoom with
 state outlines. Its world-anchored clusters use discrete zoom steps and one
 screen of overscan, keeping centroids stable and filling the view during pans.
@@ -316,6 +362,31 @@ separately from typechecking because the runner creates and removes temporary
 fixture routes. `node --import tsx scripts/build-us-gauge-outlines.ts` regenerates
 the SVG state outlines from the pinned US Census/us-atlas dataset.
 
+## River sections
+
+Rivers with different hydrology above and below a dam use **Choose your section**
+at the start of the live report. Upper/Lower Black replace the separate Reaches
+panel and gauge picker. The selected section owns the reading, history, outlook,
+and gauge-specific Eddy summary; Clearwater context appears only below the
+Lower Black chart, with dam release kept distinct from the downstream gauge.
+Section readings use the regular gauge card's condition-aware Eddy otter, with
+water level and flow labeled side by side. Clearwater's link uses Eddy's dam
+artwork, matching iOS; river and spring symbols do not label gauge measurements.
+The section's configured station ID is authoritative: an unavailable station
+shows an unavailable report rather than another section's reading.
+
+Section links use `?section=<slug>`; old `#reach-<slug>` links, refresh, and browser
+Back/Forward work. The selector stacks on phones and uses native radio keyboard
+navigation. Ordinary rivers retain their gauge picker. The existing chart ranges,
+comparison, exports, and mobile expansion remain available. Native iOS follows
+the same section selection using the reaches API’s configured gauge ID, with
+its own native controls, chart expansion, and Premium unlock flow.
+
+`npm run test:river-sections` checks the real report with intercepted fixture
+APIs at 1440, 390, and 320px, including section switching, deep links, history,
+missing readings, late responses, keyboard navigation, and dam scoping.
+Screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SMOKE_OUTPUT`).
+
 ## River and gauge history
 
 Desktop reports (1024px and wider) show the full chart tools inline: all supported
@@ -342,8 +413,9 @@ The root HTML declares the site's smooth-scroll behavior to Next so route
 changes can reset immediately instead of retaining the bottom of the old page.
 
 Dam pages keep measured generation and the posted schedule in one card, with
-separate labelled sections. Desktop and landscape phones place the reading
-beside the wider hourly chart; portrait phones stack them. Today keeps an
+separate labelled sections. Screens at least 900px wide place the reading
+beside the wider hourly chart; phones stack the release summary above a full-width chart,
+including in landscape. Today keeps an
 unavailable state when missing; Tomorrow appears only when it has posted hours.
 Later posted days can be opened individually. The generation pattern
 always includes upcoming scheduled hours alongside measured history. Six-hour
@@ -351,18 +423,70 @@ time labels above and below the pattern align with guides in every row; days
 with a clock change also carry their own correctly positioned time labels. Missing observations remain gaps and retain the full day axis.
 
 The detail dashboard uses a static framed generation card with a warm sand
-observed panel, turbine flow as the primary reading, and the next scheduled
-change above the hourly chart. Date headings lead straight into the
-chart; hourly details and the peak window share one line below it. Generation
-uses teal bars, while an orange Now marker matches iOS. Peak windows are named
-without a second band above the bars. Flow
-estimates stay out of ramp hours, and megawatts are spelled out in hourly
-details and explained in the info dialog. Dam and lake measurements sit above
+observed panel, total reported release as the primary reading, and the next scheduled
+change in a coral callout above the hourly chart. Flat-output days show
+scheduled generation windows; only varying-output days name and highlight
+the highest scheduled generation. Schedule headings and change sentences explicitly describe a plan.
+Turbine status, flow and the generator rack are secondary; missing total release
+never falls back to turbine flow. Observation times are shown in Central time,
+with separate ages when turbine and total release readings differ. Daily averages
+remain labeled. Hourly details sit below the chart, showing the current scheduled
+hour at rest and retaining tapped selections. Generation uses compact teal bars
+on the project's fixed capacity scale with a numeric MW axis on full charts
+(no half-capacity reference line), with a two-pixel visibility floor so
+small scheduled changes remain distinct. The same capacity fractions reach web
+embeds, iOS Favorites/tailwaters and the Home Screen widget through additive
+v1 packet fields. Missing capacity uses an unscaled presence mark, never
+a daily-peak scale. Elapsed scheduled bars fade only slightly; they are
+still scheduled values, not observations. Peak bars keep a teal outline even
+after their hours pass; an orange Now marker matches iOS. Flow
+estimates stay out of ramp hours and are labeled estimated turbine flow;
+measured release is never inferred from the schedule. MW is explained in the info
+dialog. Dam and lake measurements sit above
 the full-width generation pattern at every screen size, on quiet panel cards.
 The header keeps only Share, with its icon, native touch sharing, and desktop
 copy feedback. The bottom phone action reads “Release Line: [number]”.
 Framed cards keep the brand's border and offset shadow without moving charts on hover. This layout
 does not infer downstream arrival times or add an AI conditions assessment.
+
+Bull Shoals links to `/dams/swl-bull-shoals-dam/release-timing`, a findings
+page on how long measured release increases took to reach the USGS gauge near
+Norfork. A short introduction gives the study's extent and a visible warning
+that this is not a forecast or a guide to when to wade or launch.
+
+- **How long does it take?** The gauge's typical time leads the map, labelled
+  with the selected release size, normal-river context and “Historical timing ·
+  Not live”. One size control drives the headline, map and size chart. The map
+  uses a first-rise marker and one historical window; its motion assumes steady
+  travel. Tapping or keyboard-selecting a place highlights its name and river
+  mile without claiming an arrival time there. Rounded, unmeasured upstream
+  times live under “Rough guide upstream”. Nothing is timed below the gauge.
+- **How close was Eddy?** The latest completed comparison leads with the
+  difference from Eddy's estimate and a quiet window-status label. The timeline
+  labels the estimate and recorded rise directly. One progress line follows;
+  readings, pending releases, history and methodology live under Details.
+  The header date is the recorded-rise date; other dates are shown when needed
+  to distinguish overnight timings. Waiting releases reveal no estimate.
+  Collection progress toward 60 comparisons follows the results; reaching the
+  target does not imply a passing verdict. Replaying a completed result uses
+  its recorded dam-to-gauge delay and Central clock, with no historical band.
+  “Back to timing” restores the historical view.
+- **What changes it?** Charts compare release size and starting river conditions.
+  The heading and explanation follow the River level / Starting release choice.
+
+Study updates show the latest recorded milestone or comparison and what comes
+next; earlier entries are expandable. Releases are published as hourly
+averages, so the page names a release by the hour it began in (“the 5 AM hour”),
+never an exact start time. The method states the full detection rule and says
+slower starts are not counted yet.
+
+Numbers come from `src/data/release-timing/`, generated by the study's
+`export_findings.py` and checked against the study's result files by
+`src/lib/release-timing/findings.test.ts`. See `docs/release-arrival-trial.md`.
+`npm run test:release-timing` checks compact layout, geographic selection,
+keyboard and playback controls, responsive screenshots and publication states.
+App CI saves the screenshots; `npm run test:release-timing -- --serve` opens the
+same local fixtures for review. No production trial data is used by the suite.
 
 Info buttons hold reference/methodology explanations. Reading age, schedule
 check age, stale indicators, and release differences stay visible; compact
@@ -381,15 +505,28 @@ hydration. `src/lib/dam-app-promotion.ts` owns only the three IDs and campaigns;
 the card uses the snapshot's name and `/app` resolves names from the registry
 on the server. The app page shows a real widget screenshot, labeled as an
 example. Its QR retains the dam and campaign and stays visible in narrow
-desktop windows; iOS uses the download action. QR generation stays on the
+desktop windows; iOS goes directly to the App Store and offers a quieter
+“Already have Eddy? Open it” link to that dam. QR generation stays on the
 server. `AppLink` and the delegated listener retain click attribution, while
 `app_promotion_view` counts the invitation once when half of it enters the
 viewport. See `docs/VISIBILITY_MEASUREMENT.md` for reporting and device checks.
 
+Contextual invitations also appear at the bottom of a valid planner result below
+nearby outfitters, on loaded shared plans, beside river/gauge reports and below
+access directions. `AppCta` reuses
+Eddy artwork, warm surfaces and quiet outlined actions. Desktop QR codes and
+secondary iPhone Open actions retain the selected destination; downloading is
+the primary iPhone action. Reports show one Read or widget invitation, depending
+on Read availability. Android hides install actions and retains report sections
+with iPhone-only availability copy. The existing native routes
+handle these links; this does not widen universal links or restore context
+automatically after a fresh installation. See the contextual-invitation section
+of `docs/VISIBILITY_MEASUREMENT.md` for placement labels and verification.
+
 `npm run test:dam-page` checks fixture-rendered dam pages in Chromium at desktop,
 portrait, and landscape sizes, including list cards, list-to-detail navigation,
 disclosure/dialog controls, freshness, missing-data states, and the three dam
-links through `/app` and the outgoing download event. All browser requests are
+direct iPhone downloads, contextual desktop handoffs and tracked Read links. All browser requests are
 local or intercepted. Install the browser with `npx playwright install chromium`
 (or set `PLAYWRIGHT_CHROMIUM_PATH`). It starts a local server on port 3137 and
 removes its temporary fixture route on exit or SIGINT/SIGTERM. The route is
@@ -397,7 +534,59 @@ ignored by Git and returns not-found unless the smoke script's development-only
 flag is set; an uncatchable kill cannot leave a publicly usable fixture page.
 Screenshots go to
 `/tmp/eddy-dam-page` (override with `DAM_SMOKE_OUTPUT`); no live dam data is needed.
-Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run just the dam-to-app flow.
+Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run the dam-to-app and
+contextual invitation checks, including header fit at 1024px, 320px/390px actions,
+Android visibility, Read/widget exclusivity and planner retry. The
+`app-promotions-web` CI job runs these checks and retains screenshots.
+
+### Lake and dam pilots
+
+Truman and Table Rock keep generation first, followed by a shared measurement
+row, Eddy's Read and operational forecasts/patterns. The lake preview follows
+those operations; launch directories live on the dedicated lake page. The
+reported release and turbine status lead the generation card in one row (stacked
+only below about 360px), because the release reading is what people open a dam
+page for; it stays on a phone's first screen. The posted schedule follows at the
+full card width, or the availability explanation when none is posted. This order
+is consistent across pilot and other dam pages. Dam and lake pages use a shared
+photo header with the primary conditions card overlapping its lower edge. Dam
+headers reuse attributed onboarding photography where available, with an Eddy
+illustration when no photo is approved. Lake pages use their own scenery. Web
+copies and provenance live in `public/lakes/`: the web copies are larger
+derivatives of the same credited sources (1920px wide where the source allows),
+because the app's 640px thumbnails blur across a full-width header. Each dam
+record's `focus` is the crop position that keeps the dam in the shallow header;
+`src/lib/lakes/photography.test.ts` checks size, focus and credit coverage.
+Photo attribution is shown on `/photo-credits`, available through the shared
+footer, rather than beneath each pilot header image.
+
+`/lakes/[slug]` combines the same dam pool observation with recorded history and
+reviewed launch locations. Daily reports use a 36-hour freshness limit; hourly
+observations use six hours. Movement ends at the displayed observation, and
+stale observations cannot produce current movement or elevation cautions.
+Reviewed launch locations are not live opening/closure reports. Each fact is
+stated once: the header names the states and links the controlling dam, the lake
+level card carries the conservation pool, and the launch list carries its count.
+Launch rows use verified ramp photography where
+available and Eddy artwork otherwise, with compact method filters and expandable
+operator/fee/threshold details. Paired recreation and dam cards link to official
+visitor information and the existing generation page. No surface-area or lake
+fishery claims are inferred from the dam registry.
+
+`src/lib/lakes/public-pages.ts` is the shared publication gate for lake routes,
+dam links, Conditions discovery and the sitemap. It starts empty. Add a pilot
+only after the migration, real history and useful reviewed launch coverage
+meet `docs/LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md`. Publication is a release
+decision: a later data outage renders unavailable states, not a disappearing
+route. Existing dam canonical URLs and the embed/iOS contracts are retained.
+
+`npm run test:lakes` checks fixture pages at 1440, 768, 390 and 320 pixels,
+including release/schedule order, the release reading on the first screen,
+time-label spacing, daily cadence,
+launch filters, map keyboard selection, chart controls and missing/stale data.
+It uses port 3141 and the same Chromium setup as `test:dam-page`. Temporary
+fixtures are development-only and removed on exit; screenshots are clearly
+labelled as fixtures and written to `/tmp/eddy-lakes` (`LAKES_SMOKE_OUTPUT`).
 
 ## Supported Rivers
 
@@ -620,3 +809,27 @@ own — so changes there can fail these tests by design.
 Private project - not for distribution.
 
 Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and river reports. The fixed-view link contract, public-image payment policy, and app-link activation gates are recorded in [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md).
+
+## River report interpretation and rainfall
+
+The Live report reads in this order: selected section/current conditions, shared
+river chart, **Eddy's Read**, then **Will it hold?** The Read has one heading and
+one Premium CTA. Locked interpretation and context remain a static blurred
+preview with an accessible explanation and a full-width offer on phones; there
+is no button that reveals only more blur. Duplicate context is omitted. Existing public summaries and premium
+access rules are preserved. A dam section still uses its dam interpretation and
+keeps its controlling-dam context with the chart.
+
+Thin dividers separate the Read, Weather and Bottom line while locked prose
+stays blurred. The free outlook says **Next 3 days** (today and the next two
+Central calendar days). Official river heights appear in a separate
+**NWS forecast · daily high** row, with feet and an explicit missing-day state.
+That row has no condition badges: a height rating does not assess the weather
+or recommend the whole day. Forecast classification still informs the Read.
+
+Rain adds a track above the river plot inside the same chart; it never takes
+height away from the river line. A short archive is labelled “Rain record starts…”.
+Its watershed detail opens on demand, with compact visible timestamps and full
+accessible times. See [rainfall history](../docs/rainfall-history.md)
+for the public data gates and rollout; merging the interface does not approve
+research captures for display.

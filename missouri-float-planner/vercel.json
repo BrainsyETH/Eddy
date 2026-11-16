@@ -21,11 +21,17 @@
     "src/app/api/cron/sync-gauge-latest/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/cron/record-river-map-frame/route.ts": {
+      "maxDuration": 120
+    },
     "src/app/api/cron/sync-dam-history/route.ts": {
       "maxDuration": 300
     },
     "src/app/api/cron/sync-dam-snapshots/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/sync-lake-levels/route.ts": {
+      "maxDuration": 120
     },
     "src/app/api/cron/generate-dam-updates/route.ts": {
       "maxDuration": 300
@@ -44,6 +50,15 @@
     },
     "src/app/api/admin/trust/run/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/collect-rainfall/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/cron/collect-rainfall-forecasts/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/cron/log-release-arrivals/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -96,12 +111,20 @@
       "schedule": "5,20,35,50 * * * *"
     },
     {
+      "path": "/api/cron/record-river-map-frame",
+      "schedule": "12,27,42,57 * * * *"
+    },
+    {
       "path": "/api/cron/sync-dam-history",
       "schedule": "25 * * * *"
     },
     {
       "path": "/api/cron/sync-dam-snapshots",
       "schedule": "35 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-lake-levels",
+      "schedule": "40 * * * *"
     },
     {
       "path": "/api/cron/generate-dam-updates",
@@ -190,6 +213,22 @@
     {
       "path": "/api/cron/revoke-apple-tokens",
       "schedule": "12,27,42,57 * * * *"
+    },
+    {
+      "path": "/api/cron/publish-scheduled-blogs",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/collect-rainfall",
+      "schedule": "18 * * * *"
+    },
+    {
+      "path": "/api/cron/collect-rainfall-forecasts",
+      "schedule": "43 */3 * * *"
+    },
+    {
+      "path": "/api/cron/log-release-arrivals",
+      "schedule": "32 * * * *"
     }
   ]
 }

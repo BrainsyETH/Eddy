@@ -33,6 +33,11 @@ import {
 import { calculateDischargePercentile } from '@/lib/usgs/gauges';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
+import {
+  GAUGE_LATEST_COMPARED_COLUMNS,
+  latestRowCurrent,
+  type StoredLatestRow,
+} from '@/lib/usgs/unchanged-rows';
 
 export const dynamic = 'force-dynamic';
 // A full national pass is ~14 regional round trips against USGS plus the
@@ -41,10 +46,11 @@ export const dynamic = 'force-dynamic';
 // which is what actually applies it on deploy.
 export const maxDuration = 300;
 
-// SCHEDULED AT :20, not :00 (vercel.json). update-gauges runs hourly at :00 and
-// again every 15 minutes, and both take the same cron lock table; putting the
-// heavy national pass on a different minute keeps them from queueing behind
-// each other every hour.
+// SCHEDULED AT :05/:20/:35/:50, never :00 (vercel.json) — every 15 minutes,
+// confirmed in production's fetched_at stamps on 2026-11-02. update-gauges runs
+// at :00/:15/:30/:45 and both take the same cron lock table; offsetting the
+// heavy national pass keeps them from queueing behind each other.
+// /api/cron/record-river-map-frame captures each pass seven minutes later.
 
 const JOB = 'sync_gauge_latest';
 const UPSERT_CHUNK = 1000;
@@ -95,6 +101,47 @@ async function loadStationIds(
   return out;
 }
 
+/**
+ * Every stored gauge_latest row, keyed by station, so the pass can skip gauges
+ * whose reading has not changed since they were last graded.
+ *
+ * Why: on 2026-11-12 production ran out of disk I/O. Only ~4% of the ~14,000
+ * gauges report a new reading in any 15-minute window, but every pass upserted
+ * all of them (81M updates, 19 GB of WAL) and first looked up today's
+ * statistics for all of them, ~70 random-read requests against the 980 MB
+ * usgs_daily_percentiles table (the largest disk reader in the database).
+ * Skipping current rows avoids both. Each gauge is still regraded and
+ * rewritten once a day, when its stored fetched_at falls on an earlier day.
+ *
+ * Returns null when the read fails; the pass then grades and writes every row,
+ * as before, because a skipped write is worse than a redundant one. Paged and
+ * ordered for the same reason as loadStationIds.
+ */
+async function loadStoredLatest(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<Map<string, StoredLatestRow> | null> {
+  const out = new Map<string, StoredLatestRow>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('gauge_latest')
+      .select(GAUGE_LATEST_COMPARED_COLUMNS)
+      .order('gauge_station_id')
+      .range(from, from + PAGE - 1);
+    if (error) {
+      logger.error('[sync-gauge-latest] stored-row read failed; writing every row', {
+        message: error.message,
+      });
+      return null;
+    }
+    for (const row of (data ?? []) as unknown as StoredLatestRow[]) {
+      out.set(row.gauge_station_id, row);
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
 async function runSync(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -109,7 +156,7 @@ async function runSync(request: NextRequest) {
   const supabase = createAdminClient();
 
   // 280s stale window: just under maxDuration, so a lambda killed mid-pass
-  // frees the lock for the next hourly run rather than wedging the job.
+  // frees the lock for the next 15-minute run rather than wedging the job.
   const locked = await tryCronLock(supabase, JOB, 280);
   if (!locked) {
     return NextResponse.json({ skipped: 'another run holds the lock' });
@@ -118,6 +165,7 @@ async function runSync(request: NextRequest) {
   const startedAt = Date.now();
   let stationsSeen = 0;
   let written = 0;
+  let unchanged = 0;
   let unknownSites = 0;
   let graded = 0;
   let statsFailedChunks = 0;
@@ -130,6 +178,7 @@ async function runSync(request: NextRequest) {
 
   try {
     const stationIds = await loadStationIds(supabase);
+    const storedLatest = await loadStoredLatest(supabase);
     // One date for the whole pass, so a run straddling midnight UTC cannot
     // grade half the country against one day's row and half against the next.
     const statsDate = new Date();
@@ -146,6 +195,25 @@ async function runSync(request: NextRequest) {
         continue;
       }
 
+      // Gauges whose stored row is current (same reading, graded today) need
+      // no statistics and no write; see loadStoredLatest.
+      const current = new Set<string>();
+      if (storedLatest) {
+        for (const reading of readings) {
+          const stationId = stationIds.get(reading.siteId);
+          if (!stationId || !reading.readingTimestamp) continue;
+          const next = {
+            reading_timestamp: reading.readingTimestamp,
+            gauge_height_ft: reading.gaugeHeightFt,
+            discharge_cfs: reading.dischargeCfs,
+            qualifiers: reading.qualifiers,
+          };
+          if (latestRowCurrent(storedLatest.get(stationId), next, statsDate)) {
+            current.add(reading.siteId);
+          }
+        }
+      }
+
       // Statistics for this region's gradeable sites only, looked up by site id
       // — see readSnapshotStatisticsForSites for why the old whole-day read
       // silently stopped grading everything west of the Appalachians. A site
@@ -154,7 +222,12 @@ async function runSync(request: NextRequest) {
       const { stats, failedChunks } = await readSnapshotStatisticsForSites(
         supabase,
         readings
-          .filter((reading) => reading.dischargeCfs !== null && stationIds.has(reading.siteId))
+          .filter(
+            (reading) =>
+              reading.dischargeCfs !== null &&
+              stationIds.has(reading.siteId) &&
+              !current.has(reading.siteId),
+          )
           .map((reading) => reading.siteId),
         statsDate,
       );
@@ -180,6 +253,10 @@ async function runSync(request: NextRequest) {
           continue;
         }
         if (!reading.readingTimestamp) continue;
+        if (current.has(reading.siteId)) {
+          unchanged++;
+          continue;
+        }
 
         let percentile: number | null = null;
         if (reading.dischargeCfs !== null) {
@@ -243,6 +320,7 @@ async function runSync(request: NextRequest) {
     durationMs: Date.now() - startedAt,
     stationsSeen,
     written,
+    unchanged,
     graded,
     statsFailedChunks,
     statsMs,

@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/ai-models/route.ts
 // GET + POST for the per-workload Anthropic model overrides in llm_config.
 //
@@ -98,7 +99,7 @@ function buildPayload(row: (LlmConfigRow & { id: string }) | null) {
 }
 
 export async function GET(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const supabase = createAdminClient();
@@ -112,11 +113,11 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(buildPayload(row), { headers: CACHE_HEADERS });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   // Covers 401 for a missing or expired token AND 403 for a cookie-authenticated
   // cross-origin write — requireAdminAuth does the same-origin check itself for
   // unsafe methods, so there is no separate CSRF step here.
-  const authError = requireAdminAuth(request);
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   let body: Record<string, unknown>;
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const audit = await logAdminAction({
+  const audit = await logAdminAction({ request,
     action: 'llm_config_update',
     entityType: 'llm_config',
     entityId: existing?.id,
@@ -258,3 +259,5 @@ export async function POST(request: NextRequest) {
     { headers: CACHE_HEADERS },
   );
 }
+
+export const POST = withAdminMutation(handlePOST);

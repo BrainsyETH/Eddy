@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/reports/[id]/ban-submitter/route.ts
 // POST /api/admin/reports/[id]/ban-submitter — ban the account behind a report
 // from submitting again, and take down everything it has already sent.
@@ -23,12 +24,12 @@ export const dynamic = 'force-dynamic';
 
 const MAX_REASON_LEN = 500;
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -91,7 +92,7 @@ export async function POST(
       return NextResponse.json({ error: result.error, banned: result.banned }, { status: result.status });
     }
 
-    await logAdminAction({
+    await logAdminAction({ request,
       action: 'ban_submitter',
       entityType: 'community_report',
       entityId: report.id,
@@ -119,3 +120,5 @@ export async function POST(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

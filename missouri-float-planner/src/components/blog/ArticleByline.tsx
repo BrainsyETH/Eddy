@@ -1,15 +1,18 @@
 import Link from 'next/link';
 
-// blog_posts.updated_at also changes on social shares. Until a dedicated
-// content-edit timestamp exists, publication is the only date we can claim.
-export default function ArticleByline({ publishedAt }: {
+// Dates come from explicit editorial fields, never operational row updates.
+export default function ArticleByline({ publishedAt, editorialDate }: {
   publishedAt: string | null;
+  editorialDate?: string;
 }) {
   return (
     <>
-      <span>·</span>
-      <span>Published by <Link href="/about" className="underline underline-offset-2">Eddy</Link></span>
-      {publishedAt && <><span>·</span><time dateTime={publishedAt}>Published {new Date(publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</time></>}
+      <span className="inline-flex items-baseline gap-3 whitespace-nowrap">
+        <span data-byline-separator aria-hidden="true">·</span>
+        <span>Published by <Link href="/about" className="underline underline-offset-2">Eddy</Link></span>
+      </span>
+      {editorialDate && <span className="inline-flex items-baseline gap-3 whitespace-nowrap"><span data-byline-separator aria-hidden="true">·</span><time dateTime={editorialDate}>Updated {new Date(`${editorialDate}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</time></span>}
+      {!editorialDate && publishedAt && <span className="inline-flex items-baseline gap-3 whitespace-nowrap"><span data-byline-separator aria-hidden="true">·</span><time dateTime={publishedAt}>Published {new Date(publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</time></span>}
     </>
   );
 }

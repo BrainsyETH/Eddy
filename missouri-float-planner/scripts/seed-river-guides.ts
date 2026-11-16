@@ -6,7 +6,7 @@
  * drafts through /admin/blog. Writes require the shared project-ref guard.
  */
 import { getScriptClient } from './lib/db';
-import { riverGuideSeeds } from './content/river-guides';
+import { insertableGuideSeeds as riverGuideSeeds } from './content/river-guides';
 import { guideInsertRow, planRiverGuideSeeds } from './lib/river-guide-seeds';
 
 async function main() {

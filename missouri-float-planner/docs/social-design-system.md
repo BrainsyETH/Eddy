@@ -40,7 +40,9 @@ Only a severity clip may put the dark chrome over footage and scrims.
 
 ## Primitives
 
-Every panel on a reel or cover is one of these. Reel component → cover twin.
+Every panel on a reel is one of these. Reel component → cover twin (the
+twins now serve only the trend and clip covers; the other covers use the
+editorial layout in *Covers* below).
 
 - **Page** — `ReelPage` → `CoverPage`. The tone's ground, the body font and
   ink. Optional photo: a faint texture on light, full-bleed under a scrim on dark.
@@ -123,6 +125,93 @@ that only settle elements by a few pixels. No fade from black, no empty
 chart, no late-arriving title. The CI still gate renders frame 0 of every
 social composition (`remotion/test/check-stills.sh`).
 
+## Covers
+
+A cover is not a miniature of its reel. People meet a Reel as a small 3:4
+tile in a three-column profile grid, so the cover's only job is to earn the
+tap; distance, conditions, access details and the plan link belong to the
+reel and the caption. Rules live in `src/lib/social/cover-plan.ts` (pure,
+tested in `cover-plan.test.ts`); `EditorialCover` in
+`src/lib/og/social-cover.tsx` draws them.
+
+**Who may pin a cover:** `/api/og/social` is public, and a cover URL can pin
+the facts it draws (condition, gauge height, weather, text) so a published
+cover never drifts from its report. Those pins are honoured only on a URL Eddy
+wrote: one signed by `signCoverUrl` (`src/lib/social/cover-signature.ts`), or
+one that is exactly the stored `image_url` of a post in `social_posts`, which
+is what keeps covers published before signing working. Anything else that
+pins a fact gets a 403. Build every new cover URL through `signCoverUrl`; a
+URL that only chooses what to look up (`type`, `platform`, `river`, `id`,
+`art`, `fromSlug`, `toSlug`, `asOf`) needs no signature. The key derives from
+`SOCIAL_COVER_SIGNING_SECRET`, falling back to `CRON_SECRET`.
+
+**Hierarchy:** one grounded headline, one visual, river + location, a small
+Eddy mark (the otter and wordmark, once, top-left, with the series label). No
+stat tiles, cards, buttons or tiny numbers. The headline is always Fredoka at
+104px (87px on the square), so the grid reads as one publication; it sits
+upper-left or lower-left, wherever the art leaves quiet room. Everything
+essential stays inside the centered 3:4 crop (y 240–1680 on 1080×1920), which
+also keeps it clear of the 9:16 view's edges; Facebook gets the same layout
+on its 1080 square.
+
+**Three treatments**
+
+| Treatment | Used by | Art |
+| --- | --- | --- |
+| Photo | Float Pick (live and Trip Idea), Weekend Forecast | A catalogued public-domain photo of that river, full bleed, with a scrim only behind the text |
+| Illustration | Tips, Eddy's Read, weekend Read, digest — and any photo cover without a usable photo | Eddy's otter art on teal, sand or cream with river strokes; three compositions rotate |
+| Conditions | High-water, easing, recovery and storm alerts | The dark severity surface and one big observation (the pinned gauge reading) |
+
+The trend cover (retired from scheduling) and the clip cover (already the
+clip's own frame) keep their earlier layouts. The AI `og_backgrounds` art is
+no longer used by these covers; only the clip cover still falls back to it.
+
+**Headlines say only what the data supports.** Float Picks use the first of
+four patterns that fits: the real endpoints ("Big Tree to Gooseneck"), a
+spring at least 2 mi inside both ends ("Past Welch Spring" — the guidebook's
+spring miles can be off by about that much), the guide's own section name
+(Trip Ideas), or "Float the Current". Alerts state the observed transition
+("The Caddo is running high", "…is coming down", "…is floatable again").
+Never "perfect", "best", or a time of day inferred from float length. 3–7
+words is a guideline the preview flags, not a rule.
+
+**Photos.** `src/data/social-cover-photos.json` is the whole system: being
+listed is the suitability flag. An entry is public domain (checked on its
+Commons page), shows that river's water or scenery (not a ramp, sign or
+parking lot), holds the headline in its `textZone`, and points at a bounded
+JPEG on upload.wikimedia.org. The test suite checks the license, host, river
+and fields. A photo cover adds "📷 Cover photo: {author} (public domain, via
+Wikimedia Commons)" to the caption. A river with no entry, or a photo that
+fails to load or isn't JPEG/PNG, gets the illustration — never a weaker photo.
+
+**Variety, without a recommendation engine**
+
+- Float Pick selection (`pickByRiver` in `section-picker.ts`): the existing
+  eligibility rules choose the candidates (floatable river, 5–9 mi, car
+  access, a float-time estimate). Each eligible river then gets one turn —
+  previously each *section* did, so the Current's 42 access points made it
+  10 of 13 posts. The previous Float Pick's river is skipped when another
+  eligible river exists. Warnings don't count against a river's next pick.
+- Cover art: a photo not used in the last nine Instagram covers wins; when all
+  of a river's photos were used, the one used longest ago returns.
+- History is read best-effort from the last nine Instagram posts made before
+  the current UTC day (`river_slug`, and `art=` parsed from `image_url`).
+  Old URLs simply contribute less; a failed read is an empty history and
+  never blocks a post. Selection and art are seeded by the UTC day, so
+  re-running a day's job picks the same float and cover.
+- `art=` (`photo.<id>` or `eddy.<n>`) pins the artwork in the cover URL, so
+  Meta's later re-crawls render the same image. Pinned covers are cached at
+  the CDN for a day.
+
+**Review.** The admin post preview shows the actual rendered cover in a phone-
+size profile grid beside the previous eight Instagram covers, with the
+route's notes (headline length, grid-size headline, photo credit, why the
+illustration was used) from the `X-Cover-Notes` header.
+
+**Measuring it.** Compare per-Reel reach, views, and where Insights has them
+watch time and profile visits, normalized by days live, before and after.
+Selection and covers changed together, so the comparison is directional.
+
 ## Motion
 
 Springs from `remotion/src/lib/spring-presets.ts`. The story animates (the
@@ -132,30 +221,49 @@ Portrait reels dip toward the loop seam with `reelLoopOpacity`.
 
 ### Eddy’s Read
 
-The full report (`quote_text`, falling back to the retained public summary)
-starts in view and scrolls continuously upward through a clipped reading window. Do
-not prepend the separate `eddy_read` interpretation or summarize/truncate the
-full report. Soft, friendly, well-paced narration takes priority over a fixed
-runtime. The measured voice audio determines the duration; never speed it up,
-crop it, or shorten the report to hit 30 seconds. Studio/visual fixtures without
-audio estimate 145 words per minute. The complete text also remains in the caption.
+The social Read is a sequence of river scenes, with one spoken phrase visible
+at a time. It no longer scrolls an article inside a card. A compact Eddy mark,
+large river name and current-condition label identify the active river; a wide
+scenic area separates that identity from the larger caption below. Text, the
+otter and attribution remain inside the shared Reel safe area. The scenery
+alone may reach the canvas edges.
 
-Eddy’s existing condition-mood artwork remains visible beside the reported
-condition and gauge height (when available). Water, weather and launch-advice
-illustrations mark relevant passages; measurements are emphasized verbatim. A
-weather tile shows the report-date high/low, actual condition icon, and that day's
-rain chance from its saved weather snapshot. Label its date; omit the tile when
-that day's data is missing. Do not borrow another day's forecast or the window's
-maximum rain chance. Topic markers never substitute for measured weather.
-The masthead, mascot and footer remain fixed while the text moves. Browser
-measurement after font loading determines the complete scroll distance, so
-wrapped names and long reports cannot strand the final lines offscreen. The
-closing card follows the last sentence in the same scrolling flow, then holds
-for at least three seconds, extending for the closing voice and a short tail.
-There is no empty entrance or exit interval. Canoeing Eddy and river strokes
-anchor the closing panel with a bold Geist headline and coral rule. The gapless
-theme bed stays at 3.5% under normalized narration; playback speed is always 1.
-The footer identifies the AI voice. Final audio processing preserves this mix.
+The weekend builder supplies each river's complete retained summary and a
+separate, explicitly forecast weekend-weather sentence. It translates display
+shorthand into spoken words ("highs up to 73 degrees") and removes repeated
+"Latest Read" / "Weekend weather" labels from narration. It does not rewrite,
+shorten or drop the saved summary or its qualifications. The full original
+reporting, source dates and current-water/forecast distinction remain in the
+post caption. Single-river and previously saved props remain supported.
+
+A river may use only its own photo from the existing public-domain cover
+catalog, with an author credit and "Not live" label. Missing or failed photos
+fall back to Eddy's existing condition art and brand river strokes. This is
+scenery, never a visual assertion about today's water. The closing scene uses
+canoeing Eddy and the app CTA. No dashboard cards or simulated buttons.
+
+Narration uses the existing Marin voice with an engaged, conversational brief:
+varied emphasis and sentence rhythm, purposeful pauses and more deliberate
+cautions. It keeps a consistent identity; it is neither an announcer nor a
+whispered meditation. Each complete sentence becomes a measured audio clip.
+Visual captions are anchored to those sentence boundaries, with phrase timing
+estimated within each sentence; they are not word-level karaoke timestamps.
+The exact script and river index travel with each clip. Mismatched scene and
+narration scripts fail before synthesis. New speech instructions invalidate the
+audio cache. Legacy audio without text metadata uses estimated caption timing.
+
+The measured audio determines runtime. Never speed it up, crop it or shorten
+source prose to meet an arbitrary duration. The ending holds for at least three
+seconds and includes the whole closing voice. The theme bed stays at 3.5% under
+normalized speech, with playback speed 1. The footer identifies the AI voice.
+Final audio processing preserves this mix.
+
+`test:read-browser` samples phrases and transitions across single-river, long
+report and multi-river fixtures, checking retained text, river identity, safe
+bounds and footer collisions. `test:read-narration` checks measured clips,
+scene identity, caching and rejection of inconsistent scripts. Listening to an
+actual newly synthesized Read is still a release check: a changed prompt and
+synthetic audio-processing test cannot establish how natural the voice sounds.
 
 ## Copy
 

@@ -4,6 +4,9 @@
 // Only the presentation changes at the desktop breakpoint; data and controls
 // use the same series, comparison, export and keyboard-scrubbing contracts.
 import { useCallback, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
+import { useRainfall, useRainPreference } from '@/hooks/useRainfall';
+import { rainRange, rainIsFresh } from '@shared/rainfall';
 import { createPortal } from 'react-dom';
 import { X, Download, ZoomOut } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -39,8 +42,12 @@ import {
   type HistoryRange,
 } from '@/lib/gauge/history-range';
 
+const RainDetail = dynamic(() => import('./RainDetail'), { ssr: false });
+
 type ZoomWindow = { t0: number; t1: number };
 interface GaugeHistoryChartProps {
+  /** Shares the section report's outer frame with its current reading. */
+  embedded?: boolean;
   initialShareState?: ChartShareState;
   onShowLatest?: () => void;
   riverId?: string;
@@ -69,6 +76,7 @@ function csvEscape(value: string): string {
 }
 
 export default function GaugeHistoryChart({
+  embedded = false,
   initialShareState,
   onShowLatest,
   riverId,
@@ -91,6 +99,9 @@ export default function GaugeHistoryChart({
   onExpand,
   help,
 }: GaugeHistoryChartProps) {
+  const [rainOn, setRainOn] = useRainPreference();
+  const [rainDetailOpen, setRainDetailOpen] = useState(false);
+  const rainTrigger = useRef<HTMLElement | null>(null);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [expandedOpen, setExpandedOpen] = useState(!!initialShareState);
   // Taking over inline ends the mobile dialog session. Rotating back must
@@ -103,7 +114,7 @@ export default function GaugeHistoryChart({
     setExpandedOpen(false);
     requestAnimationFrame(() => expandButton.current?.focus());
   }, []);
-  const dialogRef = useFocusTrap<HTMLDivElement>(dialogOpen, close);
+  const dialogRef = useFocusTrap<HTMLDivElement>(dialogOpen && !rainDetailOpen, close);
   const [sharedView, setSharedView] = useState(initialShareState ?? null);
   const initialRange: HistoryRange = initialShareState
     ? { kind: 'custom', ...initialShareState.calendar }
@@ -128,6 +139,10 @@ export default function GaugeHistoryChart({
     historyRangeDays(selection) > maxDays
       ? { kind: 'days', days: Math.min(7, maxDays) }
       : selection;
+  const rainEligible = rainRange(historyRangeDays(range), range.kind === 'custom') && !sharedView && provider === 'usgs';
+  const rainfall = useRainfall(siteId, rainEligible);
+  const rainData = rainfall.data?.siteId === siteId && rainEligible ? rainfall.data : null;
+  const closeRain = useCallback(() => { setRainDetailOpen(false); requestAnimationFrame(() => rainTrigger.current?.focus()); }, []);
   const { days: requestDays, window: ordinaryWindow } = historyRequest(range);
   const requestWindow = sharedView
     ? {
@@ -324,14 +339,18 @@ export default function GaugeHistoryChart({
           </h2>
           <p className="mt-0.5 text-xs text-neutral-500">
             {rangeLabel}
+            {rainData && rainOn && (rainData.status === 'unavailable' || !rainIsFresh(rainData) || rainfall.isError) && <span role="status" className="ml-2">Rain data unavailable</span>}
             {notice && ` · ${notice}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+          {rainData && <button type="button" aria-pressed={rainOn} aria-label="Show rain upstream" onClick={() => setRainOn(!rainOn)}
+            className={`min-h-11 lg:min-h-9 [@media(pointer:coarse)]:min-h-11 rounded-lg border px-2 text-xs font-semibold ${rainOn ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-neutral-300 text-neutral-600'}`}>Rain</button>}
           {help}
           {canToggleUnit && (
             <Segmented
               aria-label="Display unit"
+              className="min-h-9"
               options={UNIT_OPTIONS}
               value={displayUnit}
               onChange={(unit) => {
@@ -528,6 +547,8 @@ export default function GaugeHistoryChart({
         <FlowTrendChart
           key={`${siteId}-${displayUnit}`}
           gaugeSiteId={siteId}
+          rain={rainOn && rainData && rainData.status !== 'unavailable' && !rainfall.isError && rainIsFresh(rainData) ? rainData : null}
+          onRainDetails={() => { rainTrigger.current = document.activeElement as HTMLElement; setRainDetailOpen(true); }}
           days={requestDays}
           window={requestWindow}
           zoomWindow={zoom}
@@ -605,7 +626,8 @@ export default function GaugeHistoryChart({
     </>
   );
   return (
-    <Card variant="panel" className="min-w-0">
+    <>
+    <Card variant="panel" className={`min-w-0 ${embedded ? '!rounded-none !border-0 !shadow-none' : ''}`}>
       {dialogOpen ? (
         <>
           <div className="flex h-80 items-center justify-center text-sm text-neutral-500">
@@ -633,5 +655,7 @@ export default function GaugeHistoryChart({
         content
       )}
     </Card>
+    {rainDetailOpen && rainData && <RainDetail key={siteId} siteId={siteId} timeZone={chartTimeZone} onClose={closeRain} />}
+    </>
   );
 }

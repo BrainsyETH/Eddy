@@ -10,7 +10,8 @@ export interface ReplyTemplate {
   html: string;
 }
 
-const SIGNOFF = '<p>Happy floating,<br>Eddy · <a href="https://eddy.guide">eddy.guide</a></p>';
+// The shared email shell supplies the website link once, below the reply.
+const SIGNOFF = '<p>Thanks,<br>Eddy</p>';
 
 export const REPLY_TEMPLATES: ReplyTemplate[] = [
   {
@@ -19,7 +20,7 @@ export const REPLY_TEMPLATES: ReplyTemplate[] = [
     description: 'Friendly acknowledgment for any message',
     html:
       '<p>Hi [name],</p>' +
-      '<p>Thanks for reaching out to Eddy — we really appreciate you taking the time to write in.</p>' +
+      '<p>Thanks for reaching out!</p>' +
       '<p>[Your reply here.]</p>' +
       SIGNOFF,
   },
@@ -40,7 +41,7 @@ export const REPLY_TEMPLATES: ReplyTemplate[] = [
     description: 'An outfitter, campground, or shuttle wants to be listed or fix their listing',
     html:
       '<p>Hi [name],</p>' +
-      '<p>Great to hear from [business name]! Eddy lists Missouri outfitters, campgrounds, and shuttle services for free, with click-to-call and a link straight to your booking page.</p>' +
+      '<p>Great to hear from [business name]! Eddy lists outfitters, campgrounds, and shuttle services for free, with click-to-call and a link straight to your booking page.</p>' +
       '<p>To get your listing set up (or corrected), could you confirm:</p>' +
       '<ul>' +
       '<li>Business name &amp; the river(s) you serve</li>' +

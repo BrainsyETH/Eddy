@@ -199,11 +199,14 @@ export function tripReadiness(
  * offline" only for a complete, confirmed trip, and a route package alone is
  * "Route saved" (#1448: Saved, Route available and Ready offline differ).
  */
-export function offlineBadge(readiness: TripReadiness | null, hasPackage: boolean): string | null {
+export function offlineBadge(readiness: TripReadiness | null, hasPackage: boolean,
+  styleRead?: { kind: 'counts' } | { kind: 'unconfirmed'; reason: string }, packsChecked = true): string | null {
+  if (!packsChecked) return 'Couldn’t check offline map';
   switch (readiness?.kind) {
     case 'ready':
       return 'Ready offline';
     case 'tiles-saved':
+      if (styleRead?.kind === 'unconfirmed' && styleRead.reason !== 'native-unconfirmed') return 'Couldn’t check offline map';
       return 'Download incomplete';
     case 'partial':
       return 'Map partly saved';

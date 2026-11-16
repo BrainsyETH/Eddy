@@ -1,0 +1,15 @@
+Final checks after incorporating main at 174aee2.
+Local development fixtures; no production credentials or published lake routes.
+Command: npm run test:lakes (Node 20; installed headless Chromium)
+
+PASS development-only route guards
+PASS 1440px: release gates, observation-first order, hidden unverified thresholds, metrics, filters, map keyboard, chart, missing/stale data and dam regressions
+PASS 768px: release gates, observation-first order, hidden unverified thresholds, metrics, filters, map keyboard, chart, missing/stale data and dam regressions
+PASS 390px: release gates, observation-first order, hidden unverified thresholds, metrics, filters, map keyboard, chart, missing/stale data and dam regressions
+PASS 320px: release gates, observation-first order, hidden unverified thresholds, metrics, filters, map keyboard, chart, missing/stale data and dam regressions
+PASS screenshots: /tmp/eddy-lakes-correction-final
+
+Application and test typechecks: PASS
+ESLint: PASS (18 existing warnings); design-token checks: PASS
+Registered web tests: 5,026 PASS; Today tests: 18 PASS
+Production build (Turbopack, placeholder credentials): PASS

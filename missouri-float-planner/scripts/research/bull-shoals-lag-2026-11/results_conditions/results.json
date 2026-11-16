@@ -1,0 +1,748 @@
+{
+ "period": [
+  "2022-01-01T00:00:00Z",
+  "2025-01-01T00:00:00Z"
+ ],
+ "datum_check": {
+  "development_median_stage_ft": 5.025,
+  "test_median_stage_ft": 5.0925,
+  "difference_ft": 0.0675,
+  "stage_comparable": true
+ },
+ "funnel": {
+  "release_increases": 432,
+  "gauge_gap": 20,
+  "no_match": 7,
+  "ambiguous": 75,
+  "scored": 330,
+  "stepped": 28,
+  "not_stepped": 302
+ },
+ "verdict": "DOES_NOT_HOLD",
+ "all_models_not_stepped": {
+  "conditions": {
+   "n": 302,
+   "share_within_2h": 0.894,
+   "share_more_than_2h_early": 0.0993,
+   "share_more_than_2h_late": 0.0066,
+   "median_abs_error_h": 0.3995,
+   "largest_early_h": 8.9944,
+   "largest_late_h": 10.5563,
+   "early_edge_95_h": 2.8338
+  },
+  "study 2": {
+   "n": 302,
+   "share_within_2h": 0.8907,
+   "share_more_than_2h_early": 0.1026,
+   "share_more_than_2h_late": 0.0066,
+   "median_abs_error_h": 0.5683,
+   "largest_early_h": 9.835,
+   "largest_late_h": 7.348,
+   "early_edge_95_h": 2.9812
+  },
+  "height only added": {
+   "n": 302,
+   "share_within_2h": 0.9073,
+   "share_more_than_2h_early": 0.0861,
+   "share_more_than_2h_late": 0.0066,
+   "median_abs_error_h": 0.4673,
+   "largest_early_h": 9.382,
+   "largest_late_h": 10.6349,
+   "early_edge_95_h": 2.5927
+  },
+  "gauge flow instead of stage": {
+   "n": 302,
+   "share_within_2h": 0.9073,
+   "share_more_than_2h_early": 0.0861,
+   "share_more_than_2h_late": 0.0066,
+   "median_abs_error_h": 0.4876,
+   "largest_early_h": 9.2517,
+   "largest_late_h": 7.9726,
+   "early_edge_95_h": 2.7659
+  }
+ },
+ "by_river_height": {
+  "under 5 ft": {
+   "conditions": {
+    "n": 22,
+    "share_within_2h": 0.9545,
+    "share_more_than_2h_early": 0.0455,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3434,
+    "largest_early_h": 8.9944,
+    "largest_late_h": 0.8642,
+    "early_edge_95_h": 0.9985
+   },
+   "study 2": {
+    "n": 22,
+    "share_within_2h": 0.9545,
+    "share_more_than_2h_early": 0.0455,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.2914,
+    "largest_early_h": 8.9641,
+    "largest_late_h": 1.2725,
+    "early_edge_95_h": 1.1466
+   },
+   "height only added": {
+    "n": 22,
+    "share_within_2h": 0.9545,
+    "share_more_than_2h_early": 0.0455,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3502,
+    "largest_early_h": 8.928,
+    "largest_late_h": 0.988,
+    "early_edge_95_h": 0.9678
+   },
+   "gauge flow instead of stage": {
+    "n": 22,
+    "share_within_2h": 0.9545,
+    "share_more_than_2h_early": 0.0455,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3711,
+    "largest_early_h": 9.0925,
+    "largest_late_h": 0.8675,
+    "early_edge_95_h": 1.055
+   }
+  },
+  "5 to 6 ft": {
+   "conditions": {
+    "n": 83,
+    "share_within_2h": 0.9398,
+    "share_more_than_2h_early": 0.0602,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3506,
+    "largest_early_h": 7.7945,
+    "largest_late_h": 1.0855,
+    "early_edge_95_h": 2.0728
+   },
+   "study 2": {
+    "n": 83,
+    "share_within_2h": 0.9518,
+    "share_more_than_2h_early": 0.0482,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4385,
+    "largest_early_h": 7.1505,
+    "largest_late_h": 1.5539,
+    "early_edge_95_h": 1.8814
+   },
+   "height only added": {
+    "n": 83,
+    "share_within_2h": 0.9518,
+    "share_more_than_2h_early": 0.0482,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4079,
+    "largest_early_h": 7.5507,
+    "largest_late_h": 1.3918,
+    "early_edge_95_h": 1.9737
+   },
+   "gauge flow instead of stage": {
+    "n": 83,
+    "share_within_2h": 0.9518,
+    "share_more_than_2h_early": 0.0482,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4163,
+    "largest_early_h": 7.4628,
+    "largest_late_h": 1.3808,
+    "early_edge_95_h": 1.9147
+   }
+  },
+  "6 to 7 ft": {
+   "conditions": {
+    "n": 98,
+    "share_within_2h": 0.9796,
+    "share_more_than_2h_early": 0.0204,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.2682,
+    "largest_early_h": 6.6906,
+    "largest_late_h": 0.8883,
+    "early_edge_95_h": 1.5465
+   },
+   "study 2": {
+    "n": 98,
+    "share_within_2h": 0.9796,
+    "share_more_than_2h_early": 0.0204,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4722,
+    "largest_early_h": 6.8711,
+    "largest_late_h": 1.1777,
+    "early_edge_95_h": 1.4542
+   },
+   "height only added": {
+    "n": 98,
+    "share_within_2h": 0.9796,
+    "share_more_than_2h_early": 0.0204,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3928,
+    "largest_early_h": 7.0507,
+    "largest_late_h": 1.1373,
+    "early_edge_95_h": 1.4912
+   },
+   "gauge flow instead of stage": {
+    "n": 98,
+    "share_within_2h": 0.9796,
+    "share_more_than_2h_early": 0.0204,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.3934,
+    "largest_early_h": 6.9395,
+    "largest_late_h": 1.1908,
+    "early_edge_95_h": 1.4051
+   }
+  },
+  "7 to 8.5 ft": {
+   "conditions": {
+    "n": 70,
+    "share_within_2h": 0.8714,
+    "share_more_than_2h_early": 0.1286,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4982,
+    "largest_early_h": 8.9802,
+    "largest_late_h": 1.2079,
+    "early_edge_95_h": 2.2614
+   },
+   "study 2": {
+    "n": 70,
+    "share_within_2h": 0.9,
+    "share_more_than_2h_early": 0.1,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.6824,
+    "largest_early_h": 9.835,
+    "largest_late_h": 1.2264,
+    "early_edge_95_h": 2.5451
+   },
+   "height only added": {
+    "n": 70,
+    "share_within_2h": 0.9,
+    "share_more_than_2h_early": 0.1,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.6371,
+    "largest_early_h": 9.382,
+    "largest_late_h": 1.192,
+    "early_edge_95_h": 2.4651
+   },
+   "gauge flow instead of stage": {
+    "n": 70,
+    "share_within_2h": 0.9143,
+    "share_more_than_2h_early": 0.0857,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.6495,
+    "largest_early_h": 9.2517,
+    "largest_late_h": 1.2645,
+    "early_edge_95_h": 2.4173
+   }
+  },
+  "over 8.5 ft": {
+   "conditions": {
+    "n": 29,
+    "share_within_2h": 0.4828,
+    "share_more_than_2h_early": 0.4483,
+    "share_more_than_2h_late": 0.069,
+    "median_abs_error_h": 2.0812,
+    "largest_early_h": 6.8906,
+    "largest_late_h": 10.5563,
+    "early_edge_95_h": 4.4367
+   },
+   "study 2": {
+    "n": 29,
+    "share_within_2h": 0.3448,
+    "share_more_than_2h_early": 0.5862,
+    "share_more_than_2h_late": 0.069,
+    "median_abs_error_h": 2.3915,
+    "largest_early_h": 6.8274,
+    "largest_late_h": 7.348,
+    "early_edge_95_h": 5.6749
+   },
+   "height only added": {
+    "n": 29,
+    "share_within_2h": 0.5172,
+    "share_more_than_2h_early": 0.4138,
+    "share_more_than_2h_late": 0.069,
+    "median_abs_error_h": 1.8077,
+    "largest_early_h": 6.5629,
+    "largest_late_h": 10.6349,
+    "early_edge_95_h": 4.5675
+   },
+   "gauge flow instead of stage": {
+    "n": 29,
+    "share_within_2h": 0.4828,
+    "share_more_than_2h_early": 0.4483,
+    "share_more_than_2h_late": 0.069,
+    "median_abs_error_h": 2.1446,
+    "largest_early_h": 6.6552,
+    "largest_late_h": 7.9726,
+    "early_edge_95_h": 4.8
+   }
+  }
+ },
+ "by_weather": {
+  "tributaries moving": {
+   "conditions": {
+    "n": 43,
+    "share_within_2h": 0.7907,
+    "share_more_than_2h_early": 0.186,
+    "share_more_than_2h_late": 0.0233,
+    "median_abs_error_h": 0.959,
+    "largest_early_h": 8.9944,
+    "largest_late_h": 10.5563,
+    "early_edge_95_h": 6.5191
+   },
+   "study 2": {
+    "n": 43,
+    "share_within_2h": 0.6977,
+    "share_more_than_2h_early": 0.2791,
+    "share_more_than_2h_late": 0.0233,
+    "median_abs_error_h": 1.6515,
+    "largest_early_h": 9.835,
+    "largest_late_h": 5.7918,
+    "early_edge_95_h": 6.7578
+   },
+   "height only added": {
+    "n": 43,
+    "share_within_2h": 0.7907,
+    "share_more_than_2h_early": 0.186,
+    "share_more_than_2h_late": 0.0233,
+    "median_abs_error_h": 1.2949,
+    "largest_early_h": 9.382,
+    "largest_late_h": 10.6349,
+    "early_edge_95_h": 6.8587
+   },
+   "gauge flow instead of stage": {
+    "n": 43,
+    "share_within_2h": 0.7674,
+    "share_more_than_2h_early": 0.2093,
+    "share_more_than_2h_late": 0.0233,
+    "median_abs_error_h": 1.2519,
+    "largest_early_h": 9.2517,
+    "largest_late_h": 7.9726,
+    "early_edge_95_h": 6.7801
+   }
+  },
+  "tributaries steady": {
+   "conditions": {
+    "n": 259,
+    "share_within_2h": 0.9112,
+    "share_more_than_2h_early": 0.0849,
+    "share_more_than_2h_late": 0.0039,
+    "median_abs_error_h": 0.3506,
+    "largest_early_h": 7.7945,
+    "largest_late_h": 7.8644,
+    "early_edge_95_h": 2.2874
+   },
+   "study 2": {
+    "n": 259,
+    "share_within_2h": 0.9228,
+    "share_more_than_2h_early": 0.0734,
+    "share_more_than_2h_late": 0.0039,
+    "median_abs_error_h": 0.4868,
+    "largest_early_h": 7.1505,
+    "largest_late_h": 7.348,
+    "early_edge_95_h": 2.4164
+   },
+   "height only added": {
+    "n": 259,
+    "share_within_2h": 0.9266,
+    "share_more_than_2h_early": 0.0695,
+    "share_more_than_2h_late": 0.0039,
+    "median_abs_error_h": 0.4333,
+    "largest_early_h": 7.5507,
+    "largest_late_h": 7.6569,
+    "early_edge_95_h": 2.334
+   },
+   "gauge flow instead of stage": {
+    "n": 259,
+    "share_within_2h": 0.9305,
+    "share_more_than_2h_early": 0.0656,
+    "share_more_than_2h_late": 0.0039,
+    "median_abs_error_h": 0.4543,
+    "largest_early_h": 7.4628,
+    "largest_late_h": 7.6497,
+    "early_edge_95_h": 2.3457
+   }
+  }
+ },
+ "by_rain": {
+  "0.5 inch or more": {
+   "conditions": {
+    "n": 97,
+    "share_within_2h": 0.8557,
+    "share_more_than_2h_early": 0.134,
+    "share_more_than_2h_late": 0.0103,
+    "median_abs_error_h": 0.5211,
+    "largest_early_h": 8.9944,
+    "largest_late_h": 10.5563,
+    "early_edge_95_h": 4.9968
+   },
+   "study 2": {
+    "n": 97,
+    "share_within_2h": 0.8557,
+    "share_more_than_2h_early": 0.134,
+    "share_more_than_2h_late": 0.0103,
+    "median_abs_error_h": 0.4868,
+    "largest_early_h": 9.835,
+    "largest_late_h": 5.7918,
+    "early_edge_95_h": 5.3736
+   },
+   "height only added": {
+    "n": 97,
+    "share_within_2h": 0.8866,
+    "share_more_than_2h_early": 0.1031,
+    "share_more_than_2h_late": 0.0103,
+    "median_abs_error_h": 0.4652,
+    "largest_early_h": 9.382,
+    "largest_late_h": 10.6349,
+    "early_edge_95_h": 5.0858
+   },
+   "gauge flow instead of stage": {
+    "n": 97,
+    "share_within_2h": 0.8763,
+    "share_more_than_2h_early": 0.1134,
+    "share_more_than_2h_late": 0.0103,
+    "median_abs_error_h": 0.5323,
+    "largest_early_h": 9.2517,
+    "largest_late_h": 7.9726,
+    "early_edge_95_h": 5.0589
+   }
+  },
+  "under 0.5 inch": {
+   "conditions": {
+    "n": 205,
+    "share_within_2h": 0.9122,
+    "share_more_than_2h_early": 0.0829,
+    "share_more_than_2h_late": 0.0049,
+    "median_abs_error_h": 0.3619,
+    "largest_early_h": 6.8906,
+    "largest_late_h": 7.8644,
+    "early_edge_95_h": 2.3596
+   },
+   "study 2": {
+    "n": 205,
+    "share_within_2h": 0.9073,
+    "share_more_than_2h_early": 0.0878,
+    "share_more_than_2h_late": 0.0049,
+    "median_abs_error_h": 0.588,
+    "largest_early_h": 6.8274,
+    "largest_late_h": 7.348,
+    "early_edge_95_h": 2.6044
+   },
+   "height only added": {
+    "n": 205,
+    "share_within_2h": 0.9171,
+    "share_more_than_2h_early": 0.078,
+    "share_more_than_2h_late": 0.0049,
+    "median_abs_error_h": 0.4796,
+    "largest_early_h": 6.5629,
+    "largest_late_h": 7.6569,
+    "early_edge_95_h": 2.411
+   },
+   "gauge flow instead of stage": {
+    "n": 205,
+    "share_within_2h": 0.922,
+    "share_more_than_2h_early": 0.0732,
+    "share_more_than_2h_late": 0.0049,
+    "median_abs_error_h": 0.4852,
+    "largest_early_h": 6.6552,
+    "largest_late_h": 7.6497,
+    "early_edge_95_h": 2.5163
+   }
+  }
+ },
+ "by_year": {
+  "2022": {
+   "conditions": {
+    "n": 69,
+    "share_within_2h": 0.7391,
+    "share_more_than_2h_early": 0.2609,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.859,
+    "largest_early_h": 8.9802,
+    "largest_late_h": 1.2079,
+    "early_edge_95_h": 4.3587
+   },
+   "study 2": {
+    "n": 69,
+    "share_within_2h": 0.7536,
+    "share_more_than_2h_early": 0.2464,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 1.1157,
+    "largest_early_h": 9.835,
+    "largest_late_h": 1.2725,
+    "early_edge_95_h": 4.5452
+   },
+   "height only added": {
+    "n": 69,
+    "share_within_2h": 0.7681,
+    "share_more_than_2h_early": 0.2319,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.9099,
+    "largest_early_h": 9.382,
+    "largest_late_h": 1.192,
+    "early_edge_95_h": 4.3968
+   },
+   "gauge flow instead of stage": {
+    "n": 69,
+    "share_within_2h": 0.7826,
+    "share_more_than_2h_early": 0.2174,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 1.0232,
+    "largest_early_h": 9.2517,
+    "largest_late_h": 1.2645,
+    "early_edge_95_h": 4.303
+   }
+  },
+  "2023": {
+   "conditions": {
+    "n": 103,
+    "share_within_2h": 0.9223,
+    "share_more_than_2h_early": 0.0777,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4082,
+    "largest_early_h": 7.7945,
+    "largest_late_h": 0.8681,
+    "early_edge_95_h": 2.167
+   },
+   "study 2": {
+    "n": 103,
+    "share_within_2h": 0.932,
+    "share_more_than_2h_early": 0.068,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4694,
+    "largest_early_h": 7.1505,
+    "largest_late_h": 1.029,
+    "early_edge_95_h": 2.3548
+   },
+   "height only added": {
+    "n": 103,
+    "share_within_2h": 0.9417,
+    "share_more_than_2h_early": 0.0583,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.4468,
+    "largest_early_h": 7.5507,
+    "largest_late_h": 0.9721,
+    "early_edge_95_h": 2.0441
+   },
+   "gauge flow instead of stage": {
+    "n": 103,
+    "share_within_2h": 0.9417,
+    "share_more_than_2h_early": 0.0583,
+    "share_more_than_2h_late": 0.0,
+    "median_abs_error_h": 0.46,
+    "largest_early_h": 7.4628,
+    "largest_late_h": 1.109,
+    "early_edge_95_h": 2.2017
+   }
+  },
+  "2024": {
+   "conditions": {
+    "n": 130,
+    "share_within_2h": 0.9538,
+    "share_more_than_2h_early": 0.0308,
+    "share_more_than_2h_late": 0.0154,
+    "median_abs_error_h": 0.3205,
+    "largest_early_h": 8.9944,
+    "largest_late_h": 10.5563,
+    "early_edge_95_h": 1.7071
+   },
+   "study 2": {
+    "n": 130,
+    "share_within_2h": 0.9308,
+    "share_more_than_2h_early": 0.0538,
+    "share_more_than_2h_late": 0.0154,
+    "median_abs_error_h": 0.5486,
+    "largest_early_h": 8.9641,
+    "largest_late_h": 7.348,
+    "early_edge_95_h": 2.0173
+   },
+   "height only added": {
+    "n": 130,
+    "share_within_2h": 0.9538,
+    "share_more_than_2h_early": 0.0308,
+    "share_more_than_2h_late": 0.0154,
+    "median_abs_error_h": 0.4258,
+    "largest_early_h": 8.928,
+    "largest_late_h": 10.6349,
+    "early_edge_95_h": 1.6603
+   },
+   "gauge flow instead of stage": {
+    "n": 130,
+    "share_within_2h": 0.9462,
+    "share_more_than_2h_early": 0.0385,
+    "share_more_than_2h_late": 0.0154,
+    "median_abs_error_h": 0.4343,
+    "largest_early_h": 9.0925,
+    "largest_late_h": 7.9726,
+    "early_edge_95_h": 1.8596
+   }
+  }
+ },
+ "study_2_model_on_study_2_rules": {
+  "n": 277,
+  "share_within_2h": 0.8953,
+  "share_more_than_2h_early": 0.0903,
+  "share_more_than_2h_late": 0.0144,
+  "median_abs_error_h": 0.528,
+  "largest_early_h": 7.1505,
+  "largest_late_h": 12.0281,
+  "early_edge_95_h": 2.7149
+ },
+ "observed": {
+  "by_river_height": {
+   "under 5 ft": {
+    "n": 22,
+    "median_delay_h": 14.125,
+    "p10_delay_h": 11.85,
+    "p90_delay_h": 16.45,
+    "median_qpeak_cfs": 6786.5,
+    "median_stage_ft": 4.7875,
+    "median_tributary_cfs": 198.4104
+   },
+   "5 to 6 ft": {
+    "n": 88,
+    "median_delay_h": 13.5,
+    "p10_delay_h": 11.675,
+    "p90_delay_h": 15.825,
+    "median_qpeak_cfs": 8119.5,
+    "median_stage_ft": 5.615,
+    "median_tributary_cfs": 192.4354
+   },
+   "6 to 7 ft": {
+    "n": 103,
+    "median_delay_h": 13.0,
+    "p10_delay_h": 11.5,
+    "p90_delay_h": 14.75,
+    "median_qpeak_cfs": 10369.0,
+    "median_stage_ft": 6.49,
+    "median_tributary_cfs": 222.0208
+   },
+   "7 to 8.5 ft": {
+    "n": 77,
+    "median_delay_h": 13.25,
+    "p10_delay_h": 10.65,
+    "p90_delay_h": 15.75,
+    "median_qpeak_cfs": 5672.0,
+    "median_stage_ft": 7.385,
+    "median_tributary_cfs": 378.9375
+   },
+   "over 8.5 ft": {
+    "n": 40,
+    "median_delay_h": 9.375,
+    "p10_delay_h": 6.5,
+    "p90_delay_h": 15.7,
+    "median_qpeak_cfs": 13541.5,
+    "median_stage_ft": 9.695,
+    "median_tributary_cfs": 870.5104
+   }
+  },
+  "by_weather": {
+   "tributaries moving": {
+    "n": 53,
+    "median_delay_h": 12.0,
+    "p10_delay_h": 7.8,
+    "p90_delay_h": 14.85,
+    "median_qpeak_cfs": 9018.0,
+    "median_stage_ft": 7.5,
+    "median_tributary_cfs": 3987.9
+   },
+   "tributaries steady": {
+    "n": 277,
+    "median_delay_h": 13.25,
+    "p10_delay_h": 10.65,
+    "p90_delay_h": 15.75,
+    "median_qpeak_cfs": 9328.0,
+    "median_stage_ft": 6.38,
+    "median_tributary_cfs": 206.4
+   }
+  },
+  "by_rain": {
+   "0.5 inch or more": {
+    "n": 106,
+    "median_delay_h": 13.0,
+    "p10_delay_h": 10.0,
+    "p90_delay_h": 16.0,
+    "median_qpeak_cfs": 8074.0,
+    "median_stage_ft": 6.64,
+    "median_tributary_cfs": 321.25
+   },
+   "under 0.5 inch": {
+    "n": 224,
+    "median_delay_h": 13.0,
+    "p10_delay_h": 9.825,
+    "p90_delay_h": 15.75,
+    "median_qpeak_cfs": 10178.5,
+    "median_stage_ft": 6.465,
+    "median_tributary_cfs": 234.6083
+   }
+  },
+  "by_stepped": {
+   "False": {
+    "n": 302,
+    "median_delay_h": 13.125,
+    "p10_delay_h": 10.525,
+    "p90_delay_h": 15.75,
+    "median_qpeak_cfs": 9073.5,
+    "median_stage_ft": 6.465,
+    "median_tributary_cfs": 234.6083
+   },
+   "True": {
+    "n": 28,
+    "median_delay_h": 11.5,
+    "p10_delay_h": 7.6,
+    "p90_delay_h": 19.5,
+    "median_qpeak_cfs": 11496.0,
+    "median_stage_ft": 7.475,
+    "median_tributary_cfs": 1303.7479
+   }
+  },
+  "by_year": {
+   "2022": {
+    "n": 79,
+    "median_delay_h": 12.25,
+    "p10_delay_h": 7.75,
+    "p90_delay_h": 15.25,
+    "median_qpeak_cfs": 10113.0,
+    "median_stage_ft": 7.065,
+    "median_tributary_cfs": 494.9083
+   },
+   "2023": {
+    "n": 114,
+    "median_delay_h": 13.75,
+    "p10_delay_h": 11.5,
+    "p90_delay_h": 16.0,
+    "median_qpeak_cfs": 6719.0,
+    "median_stage_ft": 6.5425,
+    "median_tributary_cfs": 256.9152
+   },
+   "2024": {
+    "n": 137,
+    "median_delay_h": 12.75,
+    "p10_delay_h": 11.25,
+    "p90_delay_h": 15.75,
+    "median_qpeak_cfs": 10918.0,
+    "median_stage_ft": 6.395,
+    "median_tributary_cfs": 162.0583
+   }
+  }
+ },
+ "stepped": {
+  "n": 28,
+  "n_not_crowded": 26,
+  "gap_at_dam_h": {
+   "median": 10.0,
+   "p10": 6.0,
+   "p90": 17.0
+  },
+  "gap_at_gauge_h": {
+   "median": 1.125,
+   "p10": -5.125,
+   "p90": 6.25
+  },
+  "first_rise_minus_prediction_h": {
+   "median": -1.5788,
+   "p10": -4.0112,
+   "p90": 8.0244
+  },
+  "surge_minus_expected_h": {
+   "median": -1.428,
+   "p10": -3.5761,
+   "p90": 5.392
+  }
+ }
+}

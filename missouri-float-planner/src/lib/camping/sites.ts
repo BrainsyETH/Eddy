@@ -4,6 +4,8 @@
 // Same rule as read.ts: Supabase only, never an upstream booking system.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { CampingSitePolicy } from '../../../shared/camping-policy';
+import { campsitePolicy } from './policies';
 import { resolveHorizon, resolvePlanningMonth, type CampingWindow } from './window';
 import { MAX_AGE_MS } from './freshness';
 import type { UnitStatus } from './types';
@@ -119,6 +121,7 @@ const PAGE = 900;
 
 /** One individual campsite and its fortnight. */
 export interface CampsiteSiteInfo {
+  policy?: CampingSitePolicy;
   id: string;
   /** What the booking page prints — `RTL3`, `Electric 50 amp #178`. */
   name: string | null;
@@ -191,7 +194,7 @@ export async function loadFacilitySitesForWindow(
 ): Promise<CampsiteSitesResult | null> {
   const { data: facility, error: facilityError } = await supabase
     .from('campsite_facilities')
-    .select('id, display_name, kind, source, enabled')
+    .select('id, display_name, kind, source, source_facility_id, enabled')
     .eq('id', facilityId)
     .eq('enabled', true)
     .maybeSingle();
@@ -299,6 +302,7 @@ export async function loadFacilitySitesForWindow(
         const nights = bySite.get(site.id);
         return {
           id: site.id,
+          policy: campsitePolicy(source, facility.source_facility_id, site),
           name: site.name,
           loop: site.loop,
           siteType: site.site_type,
@@ -306,9 +310,8 @@ export async function loadFacilitySitesForWindow(
           bookingUrl: bookingUrl(source, site.source_site_id),
           nights: encodeSiteNights(window.nights, nights),
         };
-      })
-      // A site with nothing measured at all is noise in a list somebody is
-      // scanning for a place to sleep.
-      .filter((site) => site.nights !== SITE_NIGHT_UNKNOWN.repeat(window.nights.length)),
+      }),
+    // Keep unobserved catalog sites. Detail views hide unknown rows, but need
+    // them to distinguish "no confirmed openings" from "nothing open".
   };
 }

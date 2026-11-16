@@ -54,12 +54,16 @@ async function run(request: NextRequest) {
   let snapshotted = 0;
   let withoutStatistics = 0;
   let failed = 0;
+  let rowsWritten = 0;
+  let rowsUnchanged = 0;
 
   for (const [index, siteId] of siteIds.entries()) {
     try {
-      const written = await snapshotSite(supabase, siteId, parameterCode);
-      if (written) snapshotted++;
+      const { rows, written } = await snapshotSite(supabase, siteId, parameterCode);
+      if (rows) snapshotted++;
       else withoutStatistics++;
+      rowsWritten += written;
+      rowsUnchanged += rows - written;
     } catch (err) {
       failed++;
       console.warn(`[SnapshotPercentiles] ${siteId} failed:`, err);
@@ -76,7 +80,7 @@ async function run(request: NextRequest) {
   const durationMs = Date.now() - startedAt;
   console.log(
     `[SnapshotPercentiles] [${parameterCode}] ${snapshotted} snapshotted, ${withoutStatistics} without statistics, ` +
-    `${failed} failed of ${siteIds.length} site(s) (${durationMs}ms)`
+    `${failed} failed of ${siteIds.length} site(s); ${rowsWritten} row(s) written, ${rowsUnchanged} unchanged (${durationMs}ms)`
   );
 
   return NextResponse.json({
@@ -90,6 +94,8 @@ async function run(request: NextRequest) {
     snapshotted,
     withoutStatistics,
     failed,
+    rowsWritten,
+    rowsUnchanged,
     durationMs,
   });
 }

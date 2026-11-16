@@ -46,14 +46,16 @@ import {
 import { buildPatternDays, patternHasObservations } from '@/lib/data/dam-history';
 import { readPatternHours } from '@/lib/data/dam-history-store';
 import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
-import { centralDayKey, nextDayKey } from '@shared/dam-schedule-copy';
+import { centralDayKey, nextDayKey, READING_STALE_AFTER_HOURS } from '@shared/dam-schedule-copy';
+import { generatingForNow } from '@shared/dam-generation';
 
 /**
  * What a LIST surface needs, and nothing else.
  *
  * The hierarchy a tailwater angler scans a list by: is it generating, what
  * happens next, how much is coming out, and the level and temperature below
- * the dam. Lake level, flood pool and inflow stay on the detail page.
+ * the dam, then the lake level above it. Flood pool and inflow stay on the
+ * detail page.
  *
  * ── generationFlow is load-bearing, not display ────────────────────────────
  * `DamSnapshot.generating` is DERIVED from it (turbine flow above the dam's
@@ -71,6 +73,13 @@ export const SUMMARY_METRICS: UsaceMetric[] = [
   // requests to the index, not one per dam. A floodgate release belongs on the
   // list and the river row, not only on the dam page.
   'spillwayFlow',
+  // The lake level the homepage card, the directory card and the river page's
+  // dam panel all show as their third reading. Those cards asked for it while
+  // this set left it out, so the homepage said "Unavailable" over a reading
+  // the stored snapshot was holding. The stored path pays nothing for it
+  // (summaryOf keeps what the cron already read); the live fallback pays one
+  // read per dam it has to assemble.
+  'poolElevation',
 ];
 
 /**
@@ -83,7 +92,6 @@ export const SUMMARY_METRICS: UsaceMetric[] = [
  */
 export const DETAIL_METRICS: UsaceMetric[] = [
   ...SUMMARY_METRICS,
-  'poolElevation',
   'pctFloodPool',
   'inflow',
 ];
@@ -681,11 +689,22 @@ export function buildSnapshot(
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>,
   schedule: DamScheduleDay[],
   pattern?: DamPatternDay[],
-  forecast?: DamGenerationForecast
+  forecast?: DamGenerationForecast,
+  now = Date.now()
 ): DamSnapshot {
-  const gen = metrics.generationFlow;
-  const generating =
-    gen && dam.generationOnCfs !== undefined ? gen.value > dam.generationOnCfs : null;
+  // Present tense only while the reading speaks for now — see generatingForNow.
+  // refreshStaleness re-derives it on the serving clock, because a stored row
+  // can be served an hour after it was assembled. The reference pair sizes a
+  // reading and does not decide on/off, so it is not needed here.
+  const generating = generatingForNow(
+    {
+      hasTurbines: hasPowerhouse(dam),
+      metrics,
+      generationFloorCfs: dam.generationOnCfs,
+      minimumFlowThroughTurbine: dam.minimumFlowThroughTurbine,
+    },
+    now
+  );
 
   const sources: string[] = [];
   // Attribution follows the path the metrics actually came down: a dam with
@@ -841,7 +860,7 @@ export function summaryOf(snapshot: DamSnapshot, now = Date.now()): DamSnapshot 
     if (day) schedule.push(day);
     date = nextDayKey(date);
   }
-  return buildSnapshot(dam, metrics, schedule);
+  return buildSnapshot(dam, metrics, schedule, undefined, undefined, now);
 }
 
 /**
@@ -875,13 +894,175 @@ export function refreshStaleness(snapshot: DamSnapshot, now = Date.now()): DamSn
         // field we cannot evaluate is how a bad value becomes an asserted one.
         value;
   }
-  return { ...snapshot, metrics };
+  // `generating` is the other field stamped against the assembly clock: an
+  // hour-old row could otherwise still say the units are turning on a reading
+  // that has since stopped speaking for now. Re-derived from the same inputs,
+  // which also corrects rows stored before it carried an age test.
+  return { ...snapshot, metrics, generating: generatingForNow({ ...snapshot, metrics }, now) };
+}
+
+/**
+ * How old an observation may be and still be carried into a newer snapshot.
+ *
+ * The same line readingStaleness draws between 'lagging' and 'stale': past it a
+ * reading "describes a river that has since changed", and past it the honest
+ * answer to a failed read is "unavailable", not a number from this morning.
+ */
+export const CARRY_FORWARD_MAX_HOURS = READING_STALE_AFTER_HOURS;
+
+/**
+ * Fill the metrics a live read dropped with the same metrics from an earlier
+ * snapshot, each still wearing its own observation time.
+ *
+ * ── Why ────────────────────────────────────────────────────────────────────
+ * readMetrics drops a metric when its one request fails, and a dropped metric
+ * is indistinguishable on the wire from one the project never publishes. For
+ * generationFlow that is the hero: on 2026-11-08 a single failed CWMS request
+ * rendered "Release status unavailable" over Table Rock while the Corps was
+ * publishing the reading the whole time. An observation from the last good
+ * read, banded by its own `at`, is a true statement; the absence was not.
+ *
+ * ── Why this cannot overstate freshness ───────────────────────────────────
+ * A carried value keeps its ORIGINAL `at`, and `staleness` is re-banded from it
+ * against `now` — so a reading from ninety minutes ago still speaks for now
+ * (as it would have on the read that fetched it) and one from four hours ago
+ * renders "at last reading" with its age. Past CARRY_FORWARD_MAX_HOURS nothing
+ * is carried, so the chain of hourly snapshots cannot keep a reading alive by
+ * re-storing it.
+ *
+ * ── What is deliberately NOT carried ──────────────────────────────────────
+ *   - A metric the live read HAS. The newer reading always wins, even if it is
+ *     older than the stored one would be — it is what the source says now.
+ *   - A metric outside DETAIL_METRICS or suppressed in the registry: the
+ *     registry may have changed since the old snapshot was built.
+ *   - The `trend`. It measured movement over the hours before the OLD reading,
+ *     and a "rising" arrow beside an aged number reads as a current rise.
+ *   - Schedule, pattern and forecast. They date themselves and have their own
+ *     staleness rules; this is about observations only.
+ *
+ * `generating` and `sources` are re-derived by sending the result back through
+ * buildSnapshot, so they cannot disagree with the metrics they describe.
+ */
+export function carryForwardMetrics(
+  live: DamSnapshot,
+  previous: DamSnapshot | null | undefined,
+  now = Date.now()
+): DamSnapshot {
+  if (!previous || previous.id !== live.id) return live;
+  const dam = getUsaceDam(live.id);
+  if (!dam) return live;
+
+  const maxAgeMs = CARRY_FORWARD_MAX_HOURS * 3_600_000;
+  const merged: Partial<Record<UsaceMetric, DamMetricValue>> = { ...live.metrics };
+  let carried = 0;
+
+  for (const [metric, value] of Object.entries(previous.metrics ?? {}) as [
+    UsaceMetric,
+    DamMetricValue | undefined,
+  ][]) {
+    if (!value || merged[metric]) continue;
+    if (!DETAIL_METRICS.includes(metric) || dam.suppressMetrics?.includes(metric)) continue;
+    if (typeof value.value !== 'number' || !Number.isFinite(value.value)) continue;
+    const at = Date.parse(value.at);
+    // An undatable reading cannot be bounded, so it cannot be carried.
+    if (!Number.isFinite(at) || now - at > maxAgeMs) continue;
+
+    const copy: DamMetricValue = { ...value, staleness: stalenessOf(at, now) };
+    delete copy.trend;
+    merged[metric] = copy;
+    carried += 1;
+  }
+
+  if (carried === 0) return live;
+  return buildSnapshot(dam, merged, live.schedule, live.pattern, live.generationForecast, now);
+}
+
+/**
+ * How long after its own fetch a posted day may still be carried over failed
+ * SWPA reads.
+ *
+ * The same six hours as CARRY_FORWARD_MAX_HOURS, for the same reason: past it a
+ * value "describes a river that has since changed". Kept as its own constant
+ * because it bounds a plan rather than an observation, and the two should be
+ * free to move apart. Six hours covers a SWPA outage through a morning without
+ * letting an evening fetch of tomorrow's sheet stand in for that sheet all day.
+ */
+export const SCHEDULE_CARRY_MAX_HOURS = 6;
+
+/**
+ * Fill the posted schedule days a live read lost with the same days from an
+ * earlier snapshot, each still wearing its own `retrievedAt`, for at most
+ * SCHEDULE_CARRY_MAX_HOURS after that fetch.
+ *
+ * ── Why ────────────────────────────────────────────────────────────────────
+ * readSchedule answers an empty list whenever a SWPA file fails: a 5xx, a
+ * timeout, a page that stopped parsing, or the fail-closed date check. CWMS
+ * usually still answers in the same pass, so the snapshot has metrics and is
+ * written, and before this the stored row with this morning's good schedule was
+ * replaced by one with none. Every reader of the stored row then saw "Today's
+ * generation schedule is unavailable" for an hour while SWPA was posting
+ * generation, and the dam Read was rewritten as "not posted".
+ *
+ * ── Why this cannot invent a schedule ─────────────────────────────────────
+ * Only days a previous read actually fetched are carried, and only days that are
+ * still today or later in Central time, inside the detail window. A posted day
+ * is never unposted by SWPA, only replaced, so a day the live read HAS always
+ * wins. Yesterday falls out of the window at midnight on its own, so the chain
+ * of hourly snapshots cannot keep a past day alive.
+ *
+ * ── Why it cannot overstate freshness ─────────────────────────────────────
+ * A carried day keeps the `retrievedAt` of the read that fetched it, so every
+ * surface's "Schedule checked" line ages from that read and turns to "may be
+ * outdated" on its own (scheduleIsStale). The schedule hash ignores
+ * `retrievedAt`, so a carried day is the same version to dam_forecast_history
+ * and to the dam Read, not a change.
+ *
+ * ── Why it stops after SCHEDULE_CARRY_MAX_HOURS ───────────────────────────
+ * The calendar window alone would let a sheet for tomorrow, fetched yesterday
+ * evening, be carried through a whole day of SWPA failures, and SWPA can revise
+ * a sheet in that time. The bound is measured from the day's own `retrievedAt`,
+ * which a carry never refreshes, so repeated failures cannot extend it. Past
+ * it the day is dropped and every surface says the schedule is unavailable. A
+ * day with no `retrievedAt` cannot be bounded, so it is never carried.
+ *
+ * `sources` and `scheduleTimeZone` are re-derived by buildSnapshot.
+ */
+export function carryForwardSchedule(
+  live: DamSnapshot,
+  previous: DamSnapshot | null | undefined,
+  now = Date.now()
+): DamSnapshot {
+  if (!previous || previous.id !== live.id) return live;
+  const dam = getUsaceDam(live.id);
+  // The registry decides whether this dam has a schedule at all, as readSchedule does.
+  if (!dam?.swpaCode) return live;
+
+  const window: string[] = [];
+  for (let i = 0, day = centralDayKey(now); i < DETAIL_SCHEDULE_DAYS; i += 1, day = nextDayKey(day)) {
+    window.push(day);
+  }
+  const have = new Set(live.schedule.map((day) => day.scheduleDate));
+  const maxAgeMs = SCHEDULE_CARRY_MAX_HOURS * 3_600_000;
+  const carried = new Map<string, DamScheduleDay>();
+  for (const day of previous.schedule ?? []) {
+    if (!window.includes(day.scheduleDate) || have.has(day.scheduleDate) || carried.has(day.scheduleDate)) continue;
+    if (!Array.isArray(day.hours) || day.hours.length === 0) continue;
+    const fetched = day.retrievedAt ? Date.parse(day.retrievedAt) : NaN;
+    if (!Number.isFinite(fetched) || now - fetched > maxAgeMs) continue;
+    carried.set(day.scheduleDate, day);
+  }
+  if (carried.size === 0) return live;
+
+  const schedule = [...live.schedule, ...carried.values()].sort((a, b) =>
+    a.scheduleDate.localeCompare(b.scheduleDate)
+  );
+  return buildSnapshot(dam, live.metrics, schedule, live.pattern, live.generationForecast, now);
 }
 
 /**
  * Every dam, for the index and /api/dams.
  *
- * Reads four metrics rather than seven. Lake level, flood pool and inflow stay
+ * Reads the summary set rather than the detail set. Flood pool and inflow stay
  * detail-only; repeat reads of the same series share a bucketed URL (see cda.ts).
  */
 export async function fetchAllDamSummaries(): Promise<DamSnapshot[]> {
@@ -972,14 +1153,14 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
   // Only a dam WITHOUT a powerhouse reads the daily-average forecast. A hydro
   // dam's forward view is SWPA's hourly schedule, already on the summary; its
   // daily average describes no hour of a peaking day and contradicted that
-  // schedule beside it. See src/lib/river-dam-panel.ts.
+  // schedule beside it. See shared/river-dam-panel.ts.
   const series = hasPowerhouse(entry) ? undefined : entry.series.releaseForecast;
   const forecastWindowNow = bucketedNow().getTime();
 
   const [dam, forecastResult] = await Promise.all([
-    // The river hub's dam panel shows release, the schedule and a link out to
-    // the dam page — never lake state — so a summary is the whole of what it
-    // renders. The iOS panel is already summary-fed: it finds its dam in the
+    // The river hub's dam panel shows release, water temperature, lake level,
+    // the schedule and a link out to the dam page, all of which the summary
+    // carries. The iOS panel is already summary-fed: it finds its dam in the
     // /api/dams list rather than fetching one.
     fetchDamSummary(entry.id),
     series && entry.office

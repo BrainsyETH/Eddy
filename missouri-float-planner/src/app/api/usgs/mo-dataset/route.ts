@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // Reaches USGS on a CDN miss, and any query string is a miss. Per-IP, and
+    // fail-open like the other public read routes (see lib/rate-limit.ts).
+    const limited = await rateLimit(`usgs-dataset:${getClientIp(request)}`, 30, 60_000);
+    if (limited) return limited;
+
     const data = await fetchMODataset();
 
     // ?slim=1 — geometry + gauges only. The interactive map's condition

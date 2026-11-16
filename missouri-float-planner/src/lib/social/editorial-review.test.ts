@@ -52,13 +52,28 @@ test('editorial cover content survives centered square and portrait crops', asyn
  }
 });
 
-test('continuous reading preserves every word and gives the full Read a relaxed pace', async () => {
+test('reading preserves every word and gives the full Read a relaxed pace', async () => {
  const { readingBlocks, readingDuration, READ_FPS } = await import('../../../shared/eddy-read-reel');
  const text='The water is steady. Check shallow crossings before choosing your route. '.repeat(15)+'\n\nFinish at the selected take-out.';
  assert.equal(readingBlocks(text).map(b=>b.text).join(' '),text.trim().replace(/\s+/g,' '));
  assert.ok(readingDuration(text)/READ_FPS>30);
  assert.ok(readingDuration(text)>readingDuration('Short reading.'));
  assert.ok(readingDuration(text.repeat(2))>readingDuration(text));
+});
+test('caption phrases retain qualifications and measured sentences anchor river changes', async () => {
+ const { readingCues, readingPhrases, READ_VOICE_LEAD, READ_VOICE_GAP } = await import('../../../shared/eddy-read-reel');
+ const first = 'The gauge is at 2.6 ft, but that reading does not describe every shallow crossing along the upper river.';
+ const second = 'Check the latest reading before launch.';
+ assert.equal(readingPhrases(first).join(' '), first);
+ const voice = { clips: [{src:'one.mp3',text:first,sceneIndex:0,durationFrames:300},{src:'two.mp3',text:second,sceneIndex:1,durationFrames:150}],closing:{src:'end.mp3',durationFrames:90}};
+ const cues = readingCues(`${first} ${second}`, voice);
+ assert.equal(cues.map(cue=>cue.text).join(' '), `${first} ${second}`);
+ assert.equal(cues[0].from,READ_VOICE_LEAD);
+ assert.equal(cues.find(cue=>cue.sceneIndex===1)!.from,READ_VOICE_LEAD+300+READ_VOICE_GAP);
+ assert.equal(cues.at(-1)!.to,READ_VOICE_LEAD+450+READ_VOICE_GAP);
+ assert.ok(cues.every(cue=>cue.to>cue.from));
+ const legacy = readingCues(`${first} ${second}`, { ...voice, clips:voice.clips.map(({src,durationFrames})=>({src,durationFrames})) });
+ assert.equal(legacy.map(cue=>cue.text).join(' '), `${first} ${second}`, 'old renders retain readable text without sentence metadata');
 });
 test('measured speech controls duration without cropping the closing narration', async () => {
  const { readingTiming, READ_VOICE_LEAD, READ_VOICE_GAP } = await import('../../../shared/eddy-read-reel');
@@ -83,18 +98,6 @@ test('full report is preserved without the separate introduction and stale prose
  assert.equal(publishableReading({eddy_read:'Stale interpretation.',quote_text:'',summary_text:null}),null);
  assert.equal(publishableReading({quote_text:'Legacy full report.'}),'Legacy full report.');
  assert.equal(publishableReading({quote_text:'  ',summary_text:'Available summary.'}),'Available summary.');
-});
-test('scroll starts with prose visible and brings the inline ending into place', async () => {
- const { readingScrollY, READ_CTA_FRAMES } = await import('../../../shared/eddy-read-reel');
- for (const height of [120, 1400, 5000]) {
-   const positions = Array.from({length:900-READ_CTA_FRAMES},(_,frame)=>readingScrollY(frame,900,height));
-   assert.equal(positions[0],24);
-   assert.equal(positions.at(-1)!+height,24);
-   assert.equal(readingScrollY(899,900,height),positions.at(-1));
-   const step = positions[1]-positions[0];
-   assert.ok(step<0);
-   positions.slice(1).forEach((position,i)=>assert.ok(Math.abs(position-positions[i]-step)<1e-8));
- }
 });
 test('visual cues preserve decimal measurements and name topics without asserting a forecast', async () => {
  const { readingBlocks, readingTopic } = await import('../../../shared/eddy-read-reel');

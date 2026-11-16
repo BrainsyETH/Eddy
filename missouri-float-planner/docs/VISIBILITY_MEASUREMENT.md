@@ -8,7 +8,7 @@ launch ads, change App Store categories, or change the database.
 
 - `/app` always links to Eddy's published App Store listing. Public identity
   has committed defaults; optional URL/ID overrides remain validated.
-- Header (including the mobile menu), homepage and footer link to `/app`.
+- Header (including the mobile menu), homepage and footer use “Get Eddy for iPhone”. On iOS, generic install links go straight to the store; desktop links go to `/app`. Android hides the invitations after hydration.
 - Root metadata supplies the iPhone Safari banner. River, access, gauge, dam
   and shared-plan pages supply the matching existing `eddy:` route. No new
   universal-link claims or native dependencies are introduced. iOS Safari
@@ -84,9 +84,9 @@ It is a labeled example, not live readings. Starring a dam does not configure
 this widget: users add Dam generation and select a dam in Edit Widget.
 
 `src/lib/dam-app-promotion.ts` is the shared allowlist for placement, landing
-context and analytics; it stores IDs and campaigns, not another copy of dam
+context; it stores IDs and campaigns, not another copy of dam
 names. The footer receives the snapshot's name and the server-rendered app page
-reads the registry. The link carries `dam=swl-bull-shoals-dam` (or the other
+reads the registry. On desktop, the link carries `dam=swl-bull-shoals-dam` (or the other
 allowed ID) to `/app`, plus the default campaign `dam_bull_shoals`,
 `dam_table_rock` or `dam_beaver`. An existing session campaign, including a
 partner's `ct`, keeps priority. The separate `dam_id` event parameter preserves
@@ -104,12 +104,16 @@ iOS (including iPad desktop mode); viewport width is not a device detector.
 The generic app page keeps its existing QR. This does not implement deferred
 links after a new installation.
 
-The footer emits `app_promotion_view` once per mounted dam page when at least
+The shared visibility hook emits `app_promotion_view` once per placement and context on a page when at least
 half of the invitation enters the viewport, with `label=dam_schedule`, `dam_id`
 and `page_path`. It uses the same GA host, automation, frame and opt-out guards;
 unsupported IntersectionObserver browsers omit the view event without hiding
 the link. This is visibility measurement, not proof the visitor read the text.
-The link emits `app_landing_click` with `label=dam_schedule` and `dam_id`.
+On iPhone, the primary action opens the App Store in a new tab and emits
+`app_store_click`; the quieter “Already have Eddy? Open it” action uses the dam's
+existing native route and emits `app_open_click`. Desktop emits `app_landing_click`
+and keeps the contextual landing and QR. All three include `label=dam_schedule`,
+`dam_id`, page path and campaign. A store click is not an install.
 The two download buttons emit `app_store_click` with `dam_id` plus their
 existing placement, page path and campaign. Register `dam_id` as an
 event-scoped GA4 custom dimension if it is needed in standard reports or
@@ -121,6 +125,109 @@ and delegated click event with all network requests routed locally. It also
 checks single-count visibility, partner attribution, Android hiding, a QR in a
 narrow desktop window, the real screenshot and generic fallbacks. Real iPhone Safari Open
 behavior and GA4 event receipt remain deployment checks.
+
+## Contextual app invitations
+
+`AppCta` owns the compact inline/card treatments and the device-specific actions.
+`AppLink` handles generic links and the existing Read/dam placements. Its
+impressions are opt-in (`trackView`); header, footer, home, landing and Read
+placements explicitly opt in so their click-through rates remain comparable.
+Contextual `AppCta` and dam wrappers own their impressions and disable tracking
+on nested links. Both use `useAppPromotionView` so responsive duplicates cannot
+count two impressions.
+Half of an invitation must enter the viewport. Existing analytics host, frame,
+automation and opt-out guards still apply. No native-banner or installed-app
+visibility detection is attempted.
+
+| Placement label | When shown | Destination |
+| --- | --- | --- |
+| `planner_result` | Valid, current route with both endpoints and completed hazard lookup | A user tap saves the route through the existing plan API |
+| `planner_handoff` | The save succeeded | The saved `/float/<code>` native screen |
+| `shared_plan` | A shared plan has loaded | That same saved plan |
+| `river_widget` | Initial Read check finished without an available generated Read | The river detail |
+| `gauge_widget` | Initial Read check finished without an available generated Read | The gauge detail |
+| `access_offline` | Access point detail | That access point in its river |
+
+Preparing a planner handoff does not invoke sharing or start recording. It keeps
+endpoints and vessel, handles save errors with a retry, and abandons a pending
+handoff when the route changes. No save occurs on an impression. A successful
+save supplies a stable link that remains usable after installation.
+
+Each river/gauge report has one invitation slot (`ReportAppCta`). An available
+Read gets the Read action; a settled report without one gets the widget action.
+Initial loading gets neither, and an existing Read keeps its action during
+background refresh. Dam-release tabs use the same public availability check as
+their teaser, rather than promising a Read that has not been published.
+Read actions go directly to the App Store on iPhone, retaining campaign attribution
+and keeping the source page open. Desktop Read actions add `feature=read` to the
+river/gauge/dam handoff: the landing page and QR retain that topic, show the daily
+report illustration and explain that the full Read requires Eddy Premium.
+`ReadAppLink` also covers the dam Read card, planner river quote and statewide
+map rail. Its labels are `dam_eddy_read`, `map_river_eddy_read` and
+`map_gauge_eddy_read`; views and clicks include `app_destination` (the existing native
+path) and `app_feature=read`, so different map selections remain distinguishable.
+Dam Read handoffs accept any registered dam, independently of the three-dam
+widget promotion. `dam_id` is included for those Read views and clicks too.
+Android retains the public summary and replaces the link with availability copy.
+This query parameter changes landing copy only; the banner still opens the same
+river/gauge/dam detail. Widget invitations keep their widget-focused landing.
+
+On iOS, **Get Eddy for iPhone** is the primary contextual action. A quieter
+**Already have Eddy? Open…** custom-scheme link is explicitly for installed-app
+users; it can fail when Eddy is not installed. The Smart App Banner remains an
+additional opening path, not a dependency for downloading. Opening a detail never starts River Mode,
+creates an alert, configures a widget or downloads a map. Widget copy describes
+manual Edit Widget setup; access copy says to download before losing signal.
+Compact widget invitations have no cropped phone artwork. The dedicated app
+landing retains its full, labeled App Store illustration. Generic iOS downloads
+skip `/app`.
+
+Desktop visitors can expand **Send to iPhone** beside a contextual invitation.
+The QR encodes the same first-party `/app` context and campaign as the link. The
+contextual landing page keeps that QR expanded, provides the store link, and
+supplies the existing native route to Safari's banner. On iPhone it offers download
+first, with a secondary Open link.
+A saved-plan landing page also links back to the complete web plan. After a fresh
+install users return to the retained page/link; automatic deferred deep linking
+is not implemented. Existing universal-link claims remain unchanged.
+
+`app-destination.ts` accepts only bounded plan, river, gauge and river/access
+identifiers. Conflicting/repeated parameters and arbitrary return URLs are not
+accepted. `/api/app/qr` renders only these destinations or the existing promoted
+dams. QR generation stays on the server, without a third-party service. QR URLs
+always use `https://eddy.guide`, including from a preview; scanning one does not
+verify preview-only code or test-database plans.
+
+Android hides install invitations, not report sections. Public compact Read
+summaries and dam teasers remain; the existing noncompact Read stays blurred,
+with an iPhone-only availability note in place of an unsupported action. No
+entitlement or public response contract changes. Both generic and contextual
+`/app` pages explain that Eddy is iPhone-only and retain their web navigation.
+Device selection remains client-side after neutral SSR; hydration layout shift
+is measured in the browser fixture, not assumed away or fixed by varying caches
+on user agent. No Android waitlist is introduced.
+
+Events: `app_promotion_view` → `app_landing_click` (where applicable) →
+`app_store_click`; `app_open_click` measures an attempt to open an installed app,
+not confirmed app activation. `app_plan_prepare` measures the planner's save
+request. Placement (`label`) stays separate from `app_campaign`; an existing
+partner campaign takes precedence over placement defaults. Neither a store click
+nor an open attempt is an installation. `AppLink` owns its event name according
+to the actual destination; callers provide placement labels, not event names.
+
+Reporting discontinuity: after this release, iPhone header, home, footer and
+Read clicks emit `app_store_click` directly, rather than `app_landing_click`.
+Record the deployment date; a lower landing-click count for those labels is not
+itself a conversion loss. Compare initial CTA clicks across the two event names
+by label/device, while keeping downstream `/app` store clicks separate. Do not
+emit a fake landing event to preserve the old series. Apple reporting still requires a real
+provider token. Native banner taps remain outside the web click listener.
+
+Verify cold/warm Open behavior in Safari and an in-app browser, with and without
+Eddy installed. Check 320px/390px layouts, narrow desktop QR availability, Android
+hiding, denied storage, save failures/retries, route changes during saves, and
+one impression per visible placement. These device/production checks are separate
+from the repository's pure destination and save-contract tests.
 
 ## Website analytics scope
 
@@ -150,6 +257,68 @@ Remove that key and reload to resume collection in the tab. Setting the key
 without reloading stops new custom events but cannot unload Google's already
 running automatic tracking. Storage denial does not prevent ordinary visitor
 analytics. This opt-out affects GA4 only, not widget impression accounting.
+
+### Keeping our own browser audits out
+
+Use the shared browser harness for audits of a deployment. From the web folder:
+
+```sh
+# Check only these pages (no crawl).
+BASE_URL=https://eddy.guide npm run audit:pages -- /about /support /rivers/arkansas/buffalo/accesses
+# Crawl up to 120 internal paths from the normal seed pages.
+BASE_URL=https://eddy.guide npm run test:links
+```
+
+An explicit unreachable target fails; only an unavailable default localhost
+server skips. HTTP errors also fail. `PLAYWRIGHT_CHROMIUM_PATH` optionally selects
+an installed browser. A successful redirect is recorded with both response
+statuses, rather than reported as a broken link.
+
+`scripts/lib/audit-browser.ts` creates fresh browser contexts that:
+
+- Set the existing opt-out before document scripts, including new tabs,
+  frames and reloads. Do not conceal `navigator.webdriver` during real audits.
+- Block Google tags/collection, Eddy widget impression beacons and Vercel
+  Web Analytics requests independently of storage. Service workers are disabled
+  so they cannot bypass request interception.
+- Append `EddyAudit/1.0`, the check name and a unique run ID to the browser's
+  user agent. Preserve the underlying desktop/mobile user agent.
+- Write a JSONL log incrementally to `tmp/audits/` (override with
+  `EDDY_AUDIT_OUTPUT`); map/gauge smoke checks place logs in `audits/` beside
+  their screenshots so existing CI artifact uploads retain them. Records
+  include UTC timestamps, run ID, navigation
+  paths, redirect responses, HTTP status, failed document requests and blocked
+  measurements. Query values, fragments, cookies and credentials are omitted.
+  A `browser_closed` record means cleanup ran, not that every assertion passed;
+  an interrupted process may leave a useful partial log.
+
+For a custom check, call `createAuditBrowser(browser, { name, baseURL })`, then
+use its `newPage()` or `newContext()` methods. Close the browser in `finally`.
+When adding page/context request handlers, use `route.fallback()` for unmatched
+requests so the analytics guard still runs. The link checker and the gauge,
+Ozarks map, national map and pinch checks use this harness. Local-only fixture
+checks do not need it; analytics fixtures deliberately exercise normal tracking
+with every network request intercepted.
+
+Keep the visit log with the run's audit evidence; the ignored local directory
+is not a permanent archive. For CI runs, set `EDDY_AUDIT_OUTPUT` to an artifact
+directory and retain it with that run. Node HTTP readiness probes do not execute
+JavaScript or emit GA4 events; their requests are outside this browser log.
+
+To investigate suspicious sessions, compare their property-local times (Eddy's
+GA4 property uses America/Chicago) with the log's UTC times, then match URLs.
+Where request logs are available, the user-agent run ID provides stronger
+attribution. Time/path overlap alone does not prove that an audit caused a GA4
+session. After adoption, compare similar complete days and keep suspected
+automation separate from audience-growth claims; retain the original data.
+External browser/search tools that cannot use this harness can still appear
+in analytics. Record their times and URLs explicitly, and do not claim they
+were excluded. This change cannot identify or remove historical visits.
+
+`npm run test:analytics-browser` checks both ordinary visitor tracking and the
+audit wrapper. The wrapper fixtures conceal WebDriver, deny storage, follow
+redirects, open tabs/frames, send collection requests, and exercise the targeted
+CLI against a local server. They do not send events to production or Google.
 
 The root listener initializes Google once per document with
 `send_page_view: false`. Eddy sends one explicit `page_view` for the initial
@@ -260,3 +429,13 @@ References:
 - [Apple: Smart App Banners](https://developer.apple.com/documentation/webkit/promoting-apps-with-smart-app-banners)
 - [Apple: campaign links](https://developer.apple.com/help/app-store-connect-analytics/acquisition/campaign-links)
 - [Next.js: public environment variables are inlined at build time](https://nextjs.org/docs/app/guides/environment-variables)
+
+## Table Rock search-description trial (November 2026)
+
+Only Table Rock's description changes: posted generation schedule, next scheduled
+change in Central Time, current release into Taneycomo and lake level. Its title,
+canonical, schema and other dams' metadata stay unchanged. The description does
+not promise “today” when a source may be unavailable. After deployment and
+recrawl, compare mobile clicks/impressions for “table rock dam release schedule”
+with the preceding equivalent window; also check position and device mix. Google
+may choose a different snippet. Low counts cannot establish a conversion lift.

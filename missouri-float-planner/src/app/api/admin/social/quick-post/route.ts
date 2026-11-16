@@ -1,3 +1,6 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
+
+import { dispatchDailyReport } from '@/lib/social/daily-report-dispatch';
 // src/app/api/admin/social/quick-post/route.ts
 // POST — Quick-post any registered post type with auto-generated caption + media.
 // All assembly (render data, caption, image) is unified in buildPostContext;
@@ -13,11 +16,12 @@ import { buildPostContext, type PostContext } from '@/lib/social/post-context';
 import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 const BASE_URL = 'https://eddy.guide';
 
-export async function POST(request: NextRequest) {
-  const authError = requireAdminAuth(request);
+async function handlePOST(request: NextRequest) {
+  const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
   const body = await request.json().catch(() => null);
@@ -40,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   // TikTok is video-only (draft / inbox upload), so allow it for the video reel
   // types but never for the image-only `tip` path — its adapter rejects images.
-  const tiktokAllowed = type !== 'tip';
+  const tiktokAllowed = type !== 'tip' && type !== 'digest';
   const validPlatforms = (platforms || []).filter(
     (p): p is SocialPlatform =>
       p === 'facebook' || p === 'instagram' || (p === 'tiktok' && tiktokAllowed)
@@ -64,11 +68,11 @@ export async function POST(request: NextRequest) {
       if (!contentId) {
         return NextResponse.json({ error: 'contentId is required for tip posts' }, { status: 400 });
       }
-      return await postTip(supabase, validPlatforms, contentId);
+      return await postTip(request, supabase, validPlatforms, contentId);
     }
 
     // Map the admin "type" to a canonical PostKind.
-    const kind: VideoPostKind =
+    const kind: Exclude<PostKind, 'tip'> =
       type === 'digest' ? 'daily_digest'
       : type === 'highlight' ? 'river_highlight'
       : type; // weekly_forecast | section_guide | weekly_trend
@@ -81,8 +85,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // All non-tip formats are video-only.
-    return await dispatchVideo(supabase, kind, ctx, validPlatforms, customContent);
+    if (kind === 'daily_digest') {
+      if (!ctx.carousel) throw new Error('Daily Report has no widget snapshots');
+      const result = await dispatchDailyReport(ctx.carousel, validPlatforms, false);
+      return NextResponse.json({ ...result, reviewRequired: true }, { status: result.rendering ? 200 : 502 });
+    }
+
+    return await dispatchVideo(request, supabase, kind, ctx, validPlatforms, customContent);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -92,6 +101,7 @@ export async function POST(request: NextRequest) {
 // --- Video: save drafts, then render each distinct destination layout ---
 
 async function dispatchVideo(
+  request: NextRequest,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   kind: VideoPostKind,
@@ -159,7 +169,7 @@ async function dispatchVideo(
     insertErrors.push(`${group.platforms.join(', ')}: ${reason}`);
   }
 
-  logAdminAction({
+  logAdminAction({ request,
     action: `quick_post_${kind}`,
     entityType: 'social_post',
     details: { platforms, dispatched: rendering },
@@ -173,6 +183,7 @@ async function dispatchVideo(
 // --- Tip (custom content, image-only) ---
 
 async function postTip(
+  request: NextRequest,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   platforms: SocialPlatform[],
@@ -199,7 +210,7 @@ async function postTip(
     riverSlug: null,
   }));
 
-  logAdminAction({
+  logAdminAction({ request,
     action: 'quick_post_tip',
     entityType: 'social_post',
     details: { contentId, platforms, results: results.map((r) => ({ platform: r.platform, status: r.status })) },
@@ -262,3 +273,5 @@ async function createDraftsForPlatforms(
 
   return results;
 }
+
+export const POST = withAdminMutation(handlePOST);

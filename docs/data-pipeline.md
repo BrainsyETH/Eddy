@@ -83,8 +83,18 @@ and remove it from the seed, which re-approves whatever it upserts.
 
 ## Checks & validation (read-only, safe always)
 
+Rain research collection and activation are documented in
+[rainfall-history.md](rainfall-history.md). `rainfall/seed-research-basins.ts
+--evidence DIRECTORY` previews the inspector's versioned basin records;
+`--apply` writes only private research tables through the shared project guard.
+It does not approve a boundary or update live gauge metadata.
+
 | Script | Run | Purpose |
 | --- | --- | --- |
+| `rainfall/inspect-sources.ts` | `node --import tsx scripts/rainfall/inspect-sources.ts --inventory FILE --out NEW_DIR` | Read-only USGS/NOAA source capture, basin triage and raw/display checks; local evidence only, no Supabase client or approvals. See [rainfall sources](rainfall-sources.md). |
+| `rainfall/capture-units-evidence.ts` | `node --import tsx scripts/rainfall/capture-units-evidence.ts --bbox W,S,E,N --out NEW_DIR` | Read-only NOAA raster and USGS rain-gauge capture for the raw-unit check; local evidence only, no Supabase client. Replayed by `src/lib/rainfall/units-evidence.test.ts`. |
+| `rainfall/capture-storm-evidence.ts` | `node --import tsx scripts/rainfall/capture-storm-evidence.ts --tile CAPTURE_JSON --sites ID,ID --end ISO_HOUR --out NEW_DIR` | Read-only coverage evidence for a station release: gauge-corrected and radar-only basin rain for one past 24 hours, against USGS rain gauges. Reads basins; writes only `--out`. Replayed by `src/lib/rainfall/storm-evidence.test.ts`. `rainfall/evidence-fetch.ts` is its shared download helper. |
+| `rainfall/backfill-corrected.ts` | `node --import tsx scripts/rainfall/backfill-corrected.ts [--hours N] [--apply]` | Archives NOAA's gauge-corrected rainfall for recent hours the hourly collector has not captured (default eight days), through the collector's own code. Dry by default; `--apply` writes capture rows and private objects and needs `EXPECTED_SUPABASE_REF`. |
 | `validate-data.ts` | `npm run db:validate` (`-- --strict` to fail on warnings) | Runs DB-side `validate_river_data()` + knowledge-base cross-check. The ingestion gate. |
 | `verify-river-directions.ts` | `npm run db:verify-directions` | Heuristic headwaters-first check; prints suggested `UPDATE` SQL, never runs it. |
 | `calibrate-float-times.ts` | direct | Compares the float-time model against published outfitter/NPS times; prints residuals. |
@@ -131,8 +141,12 @@ when running the write phases.
 | Script | Run | Writes (Supabase) | Guard |
 | --- | --- | --- | --- |
 | `seed-river-guides.ts` | direct | `blog_posts` insert for missing rivers; preserves existing posts and validates route endpoints/miles | dry-default; `--apply` inserts drafts, `--apply --publish` inserts published posts; honors `EXPECTED_SUPABASE_REF`. See [guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing) |
+| `refresh-river-guides.ts` | direct | reviewed editorial fields on existing `blog_posts`; fingerprints, endpoint/mileage validation and compare-and-set writes | dry-default; `--apply` and optional `--river=slug`; honors `EXPECTED_SUPABASE_REF`. See [refresh runbook](../missouri-float-planner/docs/river-guide-style.md#refreshing-existing-guides) |
 | `import-usgs-gauges.ts` | direct | `gauge_stations` upsert (national OGC import) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
+| `audit-national-coverage.ts` | direct | none — per-state coverage report for the national River Map (inventory, fresh readings, seasonal comparisons, NWS matches, seam and antimeridian gaps); `--out <file>` writes the report locally | read-only |
+| `calibrate-change-thresholds.ts` | direct | none — distribution of 6 h / 24 h discharge ratios between recorded national frames, by river size, against the Change view's provisional thresholds; `--out <file>` writes the report locally | read-only (`getScriptClient({ write: false })`) |
+| `build-national-map-geometry.ts` | direct | none — rebuilds `public/river-map/geometry/*.json` from USGS 1:1M hydrography and Census state boundaries ([ADR 0018](decisions/0018-national-river-map.md)) | writes nothing to Supabase, ever |
 | `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` (migrated off the legacy allowlist 2026-08-25) |
 | `import-services-csv.ts` | `npm run db:import-services <csv>` | `nearby_services` + `service_rivers` upsert | dry-default, `--import` |
 | `fetch-drainage-areas.ts` | direct | `gauge_stations.drainage_area_sqmi` update | dry-default, `--write` |

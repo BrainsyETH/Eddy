@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   FULL_GENERATION_SHORT_LABEL,
+  FUTURE_READING_SKEW_MS,
+  generatingForNow,
   generationReferenceCitation,
   generationReferenceLine,
   RACK_ESTIMATE_NOTE,
   schedulePeak,
   schedulePeakWindowLabel,
+  scheduleWindowSummary,
   generationFraction,
   generationNow,
   generationPercentLabel,
@@ -21,6 +25,7 @@ import {
   OBSERVATION_ALIGNMENT_MINUTES,
   OTHER_RELEASE_FLOOR_CFS,
   releaseComparison,
+  releaseRepeatsTurbineFlow,
   scheduleDayVoiceOver,
   scheduledBar,
   scheduledClauseProvenance,
@@ -246,7 +251,7 @@ test('the observed clause and the scheduled clause are separate strings', () => 
   assert.equal(clauses.observed, 'About 6 of 8 generators’ worth now.');
   assert.equal(
     clauses.scheduled,
-    'Generation scheduled to stop at 10 PM. Later hours have not been posted.',
+    'Generation scheduled until 10 PM. Later hours have not been posted.',
     'unbounded only because the posted schedule does not reach a restart'
   );
 });
@@ -263,19 +268,19 @@ test('an idle plant with a start ahead of it says both halves', () => {
 test('short next-change copy preserves timing, bounded stops and unpublished hours', () => {
   const summary = (schedule: ReturnType<typeof day>[]) =>
     scheduledChangeSummary(schedule, BULL_SHOALS, NOON_CENTRAL);
-  assert.equal(summary([day('2026-07-28', { 14: 300 })]), 'Generation starts at 1 PM.');
+  assert.equal(summary([day('2026-07-28', { 14: 300 })]), 'Generation scheduled to start at 1 PM.');
   assert.equal(summary([
     day('2026-07-28', {}), day('2026-07-29', { 1: 300 }),
-  ]), 'Generation starts at midnight tonight.');
+  ]), 'Generation scheduled to start at midnight tonight.');
   assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300 })]),
-    'Generation stops at 2 PM. Later hours have not been posted.');
+    'Generation scheduled until 2 PM. Later hours have not been posted.');
   assert.equal(summary([
     day('2026-07-28', { 13: 300, 14: 300 }), day('2026-07-29', { 7: 300 }),
-  ]), 'Generation stops at 2 PM. Resumes at 6 AM tomorrow.');
-  assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Generation increases at 2 PM.');
-  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Generation decreases at 2 PM.');
+  ]), 'Generation scheduled until 2 PM. Resumes at 6 AM tomorrow.');
+  assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Generation scheduled to increase at 2 PM.');
+  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Generation scheduled to decrease at 2 PM.');
   assert.equal(summary([day('2026-07-28', {})]),
-    'No more releases in the posted schedule.');
+    'No more generation in the posted schedule.');
   assert.equal(summary([]), null);
 });
 
@@ -287,7 +292,7 @@ test('an unreadable feed says so instead of borrowing the schedule', () => {
   assert.equal(clauses.observed, 'Current turbine flow unavailable.');
   assert.equal(
     clauses.scheduled,
-    'Generation scheduled to stop at 8 PM. Later hours have not been posted.'
+    'Generation scheduled until 8 PM. Later hours have not been posted.'
   );
 });
 
@@ -350,7 +355,7 @@ test('a move tomorrow and a move later in the week name their day', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, tomorrow, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'Generation scheduled to stop at 3 AM tomorrow. Later hours have not been posted.'
+    'Generation scheduled until 3 AM tomorrow. Later hours have not been posted.'
   );
 
   const thursday = [
@@ -360,7 +365,7 @@ test('a move tomorrow and a move later in the week name their day', () => {
   ];
   assert.equal(
     nowNextClauses(state, thursday, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'Generation scheduled to stop at 2 AM Thursday. Later hours have not been posted.'
+    'Generation scheduled until 2 AM Thursday. Later hours have not been posted.'
   );
 });
 
@@ -369,15 +374,34 @@ test('a schedule that never changes says so about the POSTED schedule', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, allDay, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'Releasing through the end of the posted schedule.'
+    'Generation continues through the end of the posted schedule.'
   );
 
   const never = [day('2026-07-28', {})];
   const idle = generationNow(dam({ metrics: { generationFlow: reading(20, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(idle, never, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No more releases in the posted schedule.'
+    'No more generation in the posted schedule.'
   );
+});
+
+test('the end of the posted schedule never denies water: minimum flow is named, and no sentence says "releases"', () => {
+  // Bull Shoals after its last generating hour: SWPA posts the ~800 cfs
+  // minimum flow as 7 MW in every remaining hour. "No more releases" sat over
+  // that water all night.
+  const minimumFlowRest = {
+    ...day('2026-07-28', Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i + 1, 7]))),
+  };
+  minimumFlowRest.hours = minimumFlowRest.hours.map((h) => ({ ...h, minimumFlow: true }));
+  assert.equal(scheduledChangeSummary([minimumFlowRest], BULL_SHOALS, NOON_CENTRAL),
+    'Only minimum flow for the rest of the posted schedule.');
+
+  // Minimum flow in only some remaining hours is not "only minimum flow".
+  const mixed = { ...minimumFlowRest, hours: minimumFlowRest.hours.map((h) => (h.hourEnding > 18 ? { ...h, megawatts: 0, minimumFlow: undefined } : h)) };
+  assert.equal(scheduledChangeSummary([mixed], BULL_SHOALS, NOON_CENTRAL), 'No more generation in the posted schedule.');
+
+  const source = readFileSync('shared/dam-generation.ts', 'utf8');
+  assert.doesNotMatch(source, /'(No more releases|Releasing through)/);
 });
 
 // ── Turbine flow against total release ─────────────────────────────────────
@@ -769,7 +793,7 @@ test('a stop is bounded by its restart when the schedule reaches one', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, overnight, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No generation scheduled from 10 PM to 6 AM tomorrow.'
+    'Generation scheduled until 10 PM. Resumes at 6 AM tomorrow.'
   );
 
   const outlook = scheduleOutlook(overnight, BULL_SHOALS, NOON_CENTRAL);
@@ -971,7 +995,7 @@ test('a move at tomorrow’s hour ending 1 is midnight TONIGHT, never tomorrow',
   ];
   assert.equal(
     nowNextClauses(on, nightOff, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No generation scheduled from 10 PM to midnight tonight.'
+    'Generation scheduled until 10 PM. Resumes at midnight tonight.'
   );
 
   // An ordinary tomorrow hour is unaffected.
@@ -1396,4 +1420,104 @@ test('a spillway release is read from its own series, not inferred from total fl
     spillwayRelease(dam({ metrics: { release: reading(18_000, 20), generationFlow: reading(9_000, 20) } }), NOON_CENTRAL),
     null
   );
+});
+
+test('total release that only repeats the turbine figure is said once', () => {
+  // Bull Shoals, 2026-11-02: 683 through the turbines, 683 total, same hour.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(683, 60)), true);
+  assert.equal(releaseRepeatsTurbineFlow(reading(682.6, 60), reading(683.2, 61)), true, 'same rounded cfs, aligned');
+  // A real difference is a fact the reader needs: both figures stay.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(1_250, 60)), false);
+  // Misaligned readings agreeing is a coincidence, not one measurement.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(683, 120)), false);
+  // A daily mean is a different kind of number, even when it matches.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(683, 60, { dailyMean: true })), false);
+  assert.equal(releaseRepeatsTurbineFlow(null, reading(683, 60)), false);
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), undefined), false);
+});
+
+// ── The present-tense generating flag ──────────────────────────────────────
+//
+// DamSnapshot.generating was the latest turbine flow against the floor with no
+// age test, and iOS drew it as a bold chip and a map-pin label. With CWMS five
+// hours behind and the units off since 2 PM, both still said "Generating".
+
+test('generating speaks only for a fresh reading, and is silent past the fresh band', () => {
+  const at = (cfs: number, minutesAgo: number) => dam({ metrics: { generationFlow: reading(cfs, minutesAgo) } });
+  assert.equal(generatingForNow(at(15_000, 30), NOON_CENTRAL), true);
+  assert.equal(generatingForNow(at(20, 30), NOON_CENTRAL), false);
+  assert.equal(generatingForNow(at(15_000, 120), NOON_CENTRAL), true, 'two hours is still fresh');
+  assert.equal(generatingForNow(at(15_000, 121), NOON_CENTRAL), null, 'past it, no present tense');
+  assert.equal(generatingForNow(at(20, 300), NOON_CENTRAL), null, 'a stale idle reading is not "Not generating" either');
+  // The hero beside the chip uses the same line, so the two cannot disagree.
+  const state = generationNow(at(15_000, 300), NOON_CENTRAL);
+  assert.equal(generationStatusLabel(state), 'Generating at last reading');
+});
+
+test('generating is null whenever nobody could have measured it now', () => {
+  const fresh = { generationFlow: reading(15_000, 10) };
+  assert.equal(generatingForNow(dam({ metrics: {} }), NOON_CENTRAL), null, 'no turbine flow published');
+  assert.equal(generatingForNow(dam({ metrics: fresh, generationFloorCfs: undefined }), NOON_CENTRAL), null, 'no floor: leakage would read as generation');
+  assert.equal(generatingForNow(dam({ metrics: fresh, hasTurbines: false }), NOON_CENTRAL), null, 'no powerhouse');
+  assert.equal(generatingForNow(dam({ metrics: { generationFlow: reading(15_000, 10, { at: 'garbage' }) } }), NOON_CENTRAL), null);
+  const ahead = (ms: number) => dam({ metrics: { generationFlow: reading(15_000, 0, { at: new Date(NOON_CENTRAL + ms).toISOString() }) } });
+  assert.equal(generatingForNow(ahead(FUTURE_READING_SKEW_MS), NOON_CENTRAL), true, 'clock skew is tolerated');
+  assert.equal(generatingForNow(ahead(FUTURE_READING_SKEW_MS + 1), NOON_CENTRAL), null, 'a stamp from the future is not now');
+});
+
+test('minimum flow is generating=false, as it always was, while fresh', () => {
+  const bullShoals = { ...dam({ metrics: { generationFlow: reading(700, 10) }, generationFloorCfs: 850 }), minimumFlowThroughTurbine: true };
+  assert.equal(generatingForNow(bullShoals, NOON_CENTRAL), false);
+});
+
+// ── A dam Eddy has no turbine-flow source for is not an outage ─────────────
+//
+// Bagnell's page was headed "Release status unavailable" directly above its
+// current release, on every visit, though no feed Eddy reads was down. The
+// wording is about EDDY: the registry knows which feeds Eddy reads, not what
+// an operator publishes somewhere else.
+
+test('no floor and no turbine reading is "no source", worded as a fact about Eddy', () => {
+  const unreported = generationNow(dam({ metrics: {}, generationFloorCfs: undefined }), NOON_CENTRAL);
+  assert.deepEqual(unreported, { kind: 'unavailable', reason: 'no-source' });
+  assert.equal(generationStatusLabel(unreported), 'Turbine flow not available in Eddy');
+  assert.equal(nowNextClauses(unreported, [], BULL_SHOALS, NOON_CENTRAL).observed, 'Eddy has no turbine flow reading for this dam.');
+  assert.equal(generationVoiceOver(unreported, BULL_SHOALS), 'Eddy has no turbine flow reading for this dam.');
+  for (const text of [generationStatusLabel(unreported), generationVoiceOver(unreported, BULL_SHOALS)]) {
+    assert.doesNotMatch(text!, /publish|report/i, 'no claim about what the operator publishes');
+  }
+  assert.equal(generatingForNow(dam({ metrics: {}, generationFloorCfs: undefined }), NOON_CENTRAL), null);
+
+  // A dam whose turbine flow Eddy does read keeps the outage wording.
+  const outage = generationNow(dam({ metrics: {} }), NOON_CENTRAL);
+  assert.deepEqual(outage, { kind: 'unavailable', reason: 'not-published' });
+  assert.equal(generationStatusLabel(outage), 'Release status unavailable');
+});
+
+test('the check line can name a forecast, so its time is not read as a schedule\'s or a reading\'s', () => {
+  const at = new Date(NOON_CENTRAL - 10 * 60_000).toISOString();
+  assert.match(scheduleCheckLine([at], NOON_CENTRAL)!.text, /^Schedule checked /);
+  const forecast = scheduleCheckLine([at], NOON_CENTRAL, 'Forecast')!;
+  assert.match(forecast.text, /^Forecast checked \d/);
+  assert.equal(forecast.stale, false);
+  assert.equal(scheduleCheckLine([new Date(NOON_CENTRAL - 3 * 3_600_000).toISOString()], NOON_CENTRAL, 'Forecast')!.stale, true);
+  assert.equal(scheduleCheckLine([null], NOON_CENTRAL, 'Forecast')!.text, 'Forecast check time unavailable');
+});
+
+
+test('uniform generation windows have no invented peak, including split runs and minimum flow', () => {
+  const flat: Parameters<typeof scheduleWindowSummary>[0] = day('2026-11-10', { 7: 33, 8: 33, 9: 33, 10: 33,
+    14: 33, 15: 33, 16: 33, 17: 33, 18: 33, 19: 33, 20: 33, 21: 33, 22: 33 });
+  assert.equal(scheduleWindowSummary(flat, BULL_SHOALS, 'Today')?.text,
+    'Today’s scheduled generation: 6–10 AM and 1–10 PM');
+  assert.equal(scheduleWindowSummary(flat, BULL_SHOALS)?.varied, false);
+  flat.hours[0] = { ...flat.hours[0], megawatts: 7, minimumFlow: true };
+  assert.equal(scheduleWindowSummary(flat, BULL_SHOALS)?.varied, false, 'minimum flow does not invent a lower generation level');
+  flat.hours[17].megawatts = 66;
+  const higher = scheduleWindowSummary(flat, BULL_SHOALS, 'Today');
+  assert.equal(higher?.text, 'Highest scheduled generation: 5–6 PM');
+  assert.equal(higher?.varied, true);
+  assert.equal(scheduleWindowSummary(day('2026-11-10', {}), BULL_SHOALS), null);
+  const allDay = day('2026-11-10', Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i + 1, 33])));
+  assert.equal(scheduleWindowSummary(allDay, BULL_SHOALS, 'Tomorrow')?.text, 'Tomorrow’s scheduled generation: all day');
 });

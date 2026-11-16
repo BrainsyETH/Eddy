@@ -14,6 +14,23 @@ export function nearLaunch(point: LngLat, accuracy: number | null, launch: LngLa
     startPointDistance(point, launch) <= 75;
 }
 
+/**
+ * The note an on-river start records with no planned put-in to measure from.
+ * It says no more than "started on the water", so screens that already say
+ * that leave it out.
+ */
+export const BARE_ON_RIVER_START = 'On-river start';
+/** Notes for a launch at a put-in that sits off the mapped river. */
+export const TRACKING_BEGAN_ON_LINE = 'Distance tracking began on Eddy’s mapped river.';
+export const NO_DISTANCE_ON_LINE = 'No distance recorded on Eddy’s mapped river.';
+
+/**
+ * Recorded start notes that name no place. They stay in the recap's info
+ * tip, where they explain a measurement; History shows only a note that says
+ * where the float began ("1.2 mi below Dillard Mill").
+ */
+export const GENERIC_START_NOTES: ReadonlySet<string> = new Set([BARE_ON_RIVER_START, TRACKING_BEGAN_ON_LINE, NO_DISTANCE_ON_LINE]);
+
 export function relativeStart(mile: number, putInMile: number, name: string): string {
   const delta = mile - putInMile;
   return Math.abs(delta) < 0.1 ? `On-river start near ${name}`
@@ -26,12 +43,12 @@ export function recordedOrigin(session: FloatSession): { id: string | null; name
   if (session.putIn && (origin?.atPutIn || session.observedLaunch?.id === session.putIn.id)) {
     return { id: session.putIn.id, name: session.putIn.name,
       note: session.putIn.offLineMeters == null ? null : origin
-        ? 'Distance tracking began on Eddy’s mapped river.'
-        : 'No distance recorded on Eddy’s mapped river.' };
+        ? TRACKING_BEGAN_ON_LINE
+        : NO_DISTANCE_ON_LINE };
   }
   // Legacy accounting retains a first mile, but no reliable launch coordinates.
   const mile = origin?.riverMile ?? session.totals?.firstMile;
   if (mile == null) return { id: null, name: null, note: null };
-  const name = session.putIn ? relativeStart(mile, session.putIn.riverMile, session.putIn.name) : 'On-river start';
+  const name = session.putIn ? relativeStart(mile, session.putIn.riverMile, session.putIn.name) : BARE_ON_RIVER_START;
   return { id: null, name: null, note: name.startsWith('On-river') ? name : `Recording started ${name}` };
 }

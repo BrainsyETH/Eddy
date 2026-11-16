@@ -233,14 +233,51 @@ export function springsForRun(
 }
 
 /**
+ * Choose one item, giving every RIVER an equal turn rather than every item.
+ *
+ * The old pick was `items[day % items.length]` across all sections of all
+ * floatable rivers, so a river with many access points (the Current has 42)
+ * won most days: 10 of 13 Instagram posts in late Oct 2026 were Current River
+ * Float Picks. Eligibility is decided by the caller (condition, distance, car
+ * access) and is untouched here; this only stops section count from deciding
+ * which river gets featured.
+ *
+ * - Rivers rotate in slug order by day; successive visits to the same river
+ *   advance through its items in their given (mile) order.
+ * - `avoidRiver` (the previous Float Pick's river) is skipped when another
+ *   eligible river exists, and allowed when it is the only one.
+ * - Pure and deterministic for a given date, so re-running a day's job picks
+ *   the same item.
+ */
+export function pickByRiver<T extends { riverSlug: string }>(
+  items: T[],
+  date: Date,
+  avoidRiver?: string | null,
+): T | null {
+  const byRiver = new Map<string, T[]>();
+  for (const item of items) {
+    const list = byRiver.get(item.riverSlug) || [];
+    list.push(item);
+    byRiver.set(item.riverSlug, list);
+  }
+  let rivers = Array.from(byRiver.keys()).sort();
+  if (rivers.length === 0) return null;
+  if (avoidRiver && rivers.length > 1) rivers = rivers.filter((slug) => slug !== avoidRiver);
+  const day = dayIndex(date);
+  const list = byRiver.get(rivers[day % rivers.length])!;
+  return list[Math.floor(day / rivers.length) % list.length];
+}
+
+/**
  * Pick the section to feature for the given floatable rivers + distance window,
- * rotating deterministically by day. Returns null when nothing qualifies.
+ * rotating deterministically by day, one turn per river (see pickByRiver).
+ * Returns null when nothing qualifies.
  */
 export async function pickSectionForRivers(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   riverSlugs: string[],
-  opts: { minMi?: number; maxMi?: number } = {},
+  opts: { minMi?: number; maxMi?: number; avoidRiver?: string | null } = {},
   date = new Date(),
 ): Promise<Section | null> {
   const { minMi = 0, maxMi = Infinity } = opts;
@@ -248,8 +285,7 @@ export async function pickSectionForRivers(
   const subset = all.filter(
     (s) => riverSlugs.includes(s.riverSlug) && s.distanceMi >= minMi && s.distanceMi <= maxMi,
   );
-  if (subset.length === 0) return null;
-  return subset[dayIndex(date) % subset.length];
+  return pickByRiver(subset, date, opts.avoidRiver);
 }
 
 /**

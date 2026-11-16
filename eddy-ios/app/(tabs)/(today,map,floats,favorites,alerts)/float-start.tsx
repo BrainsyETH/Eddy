@@ -1,6 +1,6 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
-import { PickupContact } from '@/float/PickupContact';
-import { ReminderChoices } from '@/float/start/ReminderChoices';
+import { TripOptions } from '@/float/start/TripOptions';
+import { savedReminderPreferences } from '@/lib/reminderPreferences';
 import { DEFAULT_REMINDERS, isRemindedHazard, type FloatReminderChoices } from '@/lib/floatReminders';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -20,7 +20,7 @@ import { useGpsRiver } from '@/float/start/useGpsRiver';
 import { VesselPicker } from '@/components/VesselPicker';
 import { StartTiming } from '@/float/start/StartTiming';
 import { VesselSpeedTip } from '@/float/start/VesselSpeedTip';
-import { Card, CardHeading, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
+import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
 import { FloatMap } from '@/float/FloatMap';
@@ -100,7 +100,22 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const account = useSession();
   const { floats } = useSavedFloats();
   const [id] = useState(newSessionId);
+  const [reminderRevision] = useState(() => savedReminderPreferences.revision());
+  const [remindersReady, setRemindersReady] = useState(false);
+  const remindersEdited = useRef(false);
   const [reminders, setReminders] = useState<FloatReminderChoices>(() => ({ ...DEFAULT_REMINDERS }));
+  useEffect(() => {
+    let active = true;
+    void savedReminderPreferences.read().then(value => {
+      if (active && !remindersEdited.current) setReminders(value);
+    }).catch(() => {}).finally(() => { if (active) setRemindersReady(true); });
+    return () => { active = false; };
+  }, []);
+  const changeReminders = (value: FloatReminderChoices) => {
+    remindersEdited.current = true;
+    setReminders(value);
+    void savedReminderPreferences.save(value, reminderRevision).catch(() => {});
+  };
   const [draft, setDraft] = useState(() => ({ riverSlug: initial.riverSlug, putInId: initial.putInId, takeOutId: initial.takeOutId }));
   const [boat, setBoat] = useState<FloatBoat>(() => floatVessel(initial.boatType));
   const boatChosen = useRef(isFloatVessel(initial.boatType));
@@ -184,6 +199,10 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const takeOutPoint = points.find(point => point.id === draft.takeOutId);
   const gpsReady = location.state === 'ready' && usableStartFix(location.fix, location.checkedAt);
   const putInStatus = loaded?.ok && putIn ? putInLocation(loaded.index, location.fix, location.checkedAt, putIn) : null;
+  // A failed lookup is said once, on the put-in row with its retry, in place
+  // of "Waiting for GPS…". Start stays available: tracking begins when GPS
+  // finds the paddler.
+  const gpsFailed = location.state === 'ready' && Boolean(location.error) && !location.busy;
   const gpsLabel = location.state === 'checking' ? 'Finding your location…'
     : location.state === 'precise' ? 'Precise location needed'
     : location.state === 'services' ? 'Location Services are off'
@@ -220,7 +239,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         headerTransparent: false, headerBlurEffect: 'none', headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text, headerShadowVisible: true }} />
       <Shell footer={<>
-        <PrimaryButton label="Start a float" busy={start.busy} disabled={!start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        <PrimaryButton label="Start a float" busy={start.busy} disabled={!remindersReady || !start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
         {!start.canStart ? <Text style={[styles.body, { color: colors.textMuted }]}>{start.featuresReady
           ? 'Starting a new float is temporarily unavailable.' : 'Checking River Mode availability…'}</Text> : null}
         {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
@@ -230,7 +249,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         {!draft.riverSlug ? <Card padded={false}>
           <View style={{ padding: 16, paddingBottom: 12 }}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Choose your river</Text>
-            {gpsRiver.searching ? <Text style={[styles.body, { color: colors.textMuted }]}>Looking for your river…</Text> : null}
+            {/* One searching message: the picker shows its own while GPS is still looking. */}
+            {gpsRiver.searching && !(location.busy && !location.fix) ? <Text style={[styles.body, { color: colors.textMuted }]}>Looking for your river…</Text> : null}
           </View>
           <RiverPicker inline location={location} onSearchChange={stopDetection} onChoose={river => {
             stopDetection(); setAutoRiver(null);
@@ -241,8 +261,11 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           takeOutHint={!takeOut && route && startMile == null ? 'Choose a put-in to see downstream suggestions.' : undefined}
           disabled={start.busy} onRiver={() => openPicker('river')} onFrom={() => openPicker('from')} onTo={() => openPicker('to')}
           from={{ value: putIn?.name ?? (draft.putInId ? null : 'Current location'),
-            detail: startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,
-            status: { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
+            // A current-location start has no published mile; the leg below says how far it is.
+            detail: putIn && startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,
+            status: gpsFailed && !gpsReady
+              ? { label: 'GPS unavailable', ready: false, busy: false, action: { label: 'Try again', onPress: () => void location.act() } }
+              : { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
             photo: putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} /> : undefined }}
           to={{ value: takeOut?.name ?? null, detail: takeOut ? `Mile ${takeOut.mile.toFixed(1)}` : undefined,
             photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
@@ -266,10 +289,10 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, value).catch(() => {});
           }} />
           {valid && takeOut ? <StartTiming minutes={minutes} now={location.checkedAt}
-            at={takeOut.lngLat} loading={estimate.loading} />
+            at={takeOut.lngLat} loading={estimate.loading} failed={estimate.failed}
+            reason={estimate.reason} typical={estimate.typical} onRetry={estimate.retry} />
             : <View style={local.vesselTip}><VesselSpeedTip /></View>}
         </Card>
-        <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} hazards={stretchHazards} /></Card>
         {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
         {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>
@@ -277,20 +300,15 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           <TextButton label="Start from here" onPress={() => selectFrom()} />
         </> : null}
         {location.state !== 'ready' && location.state !== 'checking' ? <LocationGate location={location} /> : null}
-        {location.state === 'ready' && location.error && !location.busy ? <View>
-          <Text style={[styles.body, { color: colors.textMuted }]}>{location.error} You can still start; tracking begins when GPS finds you.</Text>
-          <TextButton label="Try GPS again" onPress={() => void location.act()} />
-        </View> : null}
         {loaded && !loaded.ok ? <Text style={[styles.body, { color: colors.error }]}>{routeProblemCopy(loaded.reason)}</Text> : null}
         {takeOut?.offLineMeters != null ? <Text style={[styles.body, { color: colors.textMuted }]}>
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text> : null}
-        <Card>
-          <CardHeading title="Pickup contact" />
-          <PickupContact compact disabled={start.busy} />
-        </Card>
         <OfflinePreparation tripKey={matchingDownloadKey} disabled={start.busy}
+          download={route && takeOut ? { route, fromId: draft.putInId ?? '', toId: takeOut.id,
+            fromLngLat: fromPoint ?? undefined } : undefined}
           onBuild={() => router.push({ pathname: '/plan-route', params: startPlannerParams(draft, boat) })} />
+        <TripOptions value={reminders} onChange={changeReminders} disabled={start.busy || !remindersReady} hazards={stretchHazards} />
       </Shell>
       {picker ? <RoutePicker field={picker} draft={draft} loaded={loaded} location={location}
         onSearchChange={stopDetection}

@@ -1,5 +1,39 @@
 # Individual campsite photos
 
+## Expanded iOS site details
+
+`/api/campsites/details?facility=<Eddy UUID>&site=<Eddy UUID>` is a separate,
+optional read for expanded iOS cards. It uses public RLS to verify an enabled
+facility and the site's membership before resolving provider IDs. Recreation.gov
+data comes from `https://www.recreation.gov/api/camps/campsites/{source_site_id}`;
+both the returned facility and site IDs must match. The public website endpoint
+is unofficial and may change independently of Eddy. Unknown/malformed responses
+and provider failures return an uncached 503, not cached empty details.
+
+Confirmed source fields become an allowlisted set of site facts. Provider
+display maps take precedence over legacy attribute arrays. Zero equipment lengths
+mean unknown, not zero-length equipment or unlimited fit. Only explicit on-site
+amenities such as picnic tables, fire rings and lantern posts are included;
+shared showers, toilets and dump stations are omitted. Fire permission and
+generic ratings are omitted. Active provider notes retain their complete text
+as folded plain text with the official site link.
+
+Broadfoot Site 1 (10344971) and Buffalo Point B31 (6506) were read directly from
+the provider on 2026-11-13 UTC. Reduced responses preserving the relevant fields
+live in `src/lib/camping/fixtures/recgov-details-*.json`. Parser and route tests
+cover missing values, restrictions, source-ID mismatches, unsupported sources,
+ownership, caching, retries and rate limits. Missouri State Parks' detail service
+returned HTTP 403 during this verification; extra fields are not mapped yet.
+Its existing photos and summaries are unchanged.
+
+Provider detail responses cache for 24 hours, successful API responses for one
+hour with one day of stale-while-revalidate, and native request results for one
+hour. The route allows 60 requests per client per minute. Collapsed cards make
+no detail request; collapsing cancels outstanding work. Release the API before
+the updated app. No migration or provider credentials are needed.
+
+## Photo requests
+
 The iOS Camping tab requests `/api/campsites/photos?media=2&facility=<Eddy UUID>&site=<Eddy site UUID>` after
 site inventory arrives, only while Camping is active. Availability never waits
 for media. Photos map Eddy site UUIDs to up to eight images with titles and credits.
@@ -62,3 +96,34 @@ nonempty exact-site entries after the API deployment. On an iPhone,
 check thumbnail vs booking taps, gallery navigation/zoom/close, VoiceOver, dark
 mode, failed images, and changing pins/tabs while photos load. Check State Park site rows, photo source labels, filters, Show more, and the
 park-level booking action. Fully booked loops retain their compact summaries.
+
+## Web campground dialog
+
+Web opens with the overview's campground-level image, with Eddy artwork when
+that image is missing or fails. Exact-site thumbnails load automatically near
+the visible rows, at most three media requests at once; they never block site
+availability. Clicking a thumbnail opens its inline gallery with source/credits.
+Empty media retains a quiet placeholder; failed requests offer Retry photos.
+Successful metadata is cached for one hour in a bounded browser cache.
+Failed campground cover URLs retain their fallback across card/calendar remounts
+for one minute, capped at 40 URLs, before a later mount can retry them.
+
+Each campground section loads independently. Hovering or focusing a campground
+list action starts its detail request. A bounded 60-second browser cache shares
+in-flight and completed detail requests by facility and exact stay dates. Failed
+requests are evicted, and the display still rechecks observation age and current
+park policy. Open dialogs recheck the cache on the existing 30-second clock.
+Share uses native mobile sharing or desktop clipboard feedback. Cancelling the
+native sheet does not copy the link. No API contract or database change.
+
+Web request deadlines use AbortController and a cleared timer, so photos also
+work in browsers without AbortSignal.any. The ten-second photo deadline starts
+when a queued request runs and covers its response body. Closing the dialog
+cancels queued and running photos. Shared availability requests continue until
+completion or their eight-second deadline, allowing immediate reopen reuse.
+
+A failed background refresh keeps the previous site data and shows a small retry
+notice. Observation age and current park policies still recalculate: retaining
+data never extends its freshness. Initial-load failures keep the full error state.
+The unavailable toggle considers only matching filters, and the date line shows
+the selected night count instead of “Your stay” or “One-night preview”.

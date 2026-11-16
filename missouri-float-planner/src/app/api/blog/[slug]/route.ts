@@ -41,12 +41,17 @@ async function _GET(
     }
 
     const cover = guideCover(data);
+    const guideData = data.category === 'River Guides' && data.guide_data ? data.guide_data : null;
     const formatted = {
       id: data.id,
       slug: data.slug,
       title: data.title,
       description: data.description,
-      content: data.content,
+      // Structured guides render from guide_data on the website. Current's
+      // legacy HTML predates those edits and must not contradict the guide.
+      content: guideData ? null : data.content,
+      guideData,
+      articleUrl: `https://eddy.guide/blog/${encodeURIComponent(data.slug)}`,
       category: data.category,
       featuredImageUrl: publicGuideImage(cover.src),
       featuredImageAlt: cover.alt ?? data.title,

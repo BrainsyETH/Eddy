@@ -1,0 +1,6 @@
+PASS development-only route guards
+PASS 1440px: hierarchy, metrics, filters, map keyboard, chart, missing/stale data, non-pilot and gate regressions
+PASS 768px: hierarchy, metrics, filters, map keyboard, chart, missing/stale data, non-pilot and gate regressions
+PASS 390px: hierarchy, metrics, filters, map keyboard, chart, missing/stale data, non-pilot and gate regressions
+PASS 320px: hierarchy, metrics, filters, map keyboard, chart, missing/stale data, non-pilot and gate regressions
+PASS screenshots: /tmp/eddy-lakes

@@ -38,6 +38,7 @@ import {
   SCHEDULE_CHANGE_NOTE,
 } from '@eddy/conditions/dam-schedule-copy';
 import {
+  generatingForNow,
   generationNow,
   generationStatusLabel,
   nowNextClauses,
@@ -139,6 +140,11 @@ export function DamStateCard({
   // generation line at all — the same test the hero uses to render nothing.
   const state = generationNow(dam);
   const minimumFlow = state.kind === 'not-generating' && state.minimumFlow;
+  // On this device's clock, not the payload's: the wire field is stamped when
+  // the server serves it, and this screen can hold that payload far longer. A
+  // reading past the fresh band gets no present-tense chip; the observed clause
+  // below still gives its number and age.
+  const generating = generatingForNow(dam);
   const spill = secondary ? null : spillwayRelease(dam);
   const clauses =
     secondary || generationStatusLabel(state) === null
@@ -148,33 +154,34 @@ export function DamStateCard({
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       {/* Generating or not, first and in words.
-          `generating` is NULL — not false — for a dam that publishes no turbine
+          `generating` is NULL — not false — when no fresh turbine reading can
+          say (generatingForNow), including a dam that publishes no turbine
           flow, and null must render nothing. Stockton and Truman are SWPA
           schedule entries with no CWMS feed at all; printing "Not generating"
           for them would be an observation nobody made. */}
-      {!secondary && dam.generating !== null ? (
+      {!secondary && generating !== null ? (
         <View style={styles.chipRow}>
           <View
             style={[
               styles.chip,
               {
-                backgroundColor: dam.generating ? colors.interactive : colors.cardRaised,
-                borderColor: dam.generating ? colors.interactive : colors.border,
+                backgroundColor: generating ? colors.interactive : colors.cardRaised,
+                borderColor: generating ? colors.interactive : colors.border,
               },
             ]}
           >
             <ControlIcon
-              name={dam.generating ? 'flash' : 'flash-off-outline'}
+              name={generating ? 'flash' : 'flash-off-outline'}
               size={13}
-              color={dam.generating ? colors.onInteractive : colors.textMuted}
+              color={generating ? colors.onInteractive : colors.textMuted}
             />
             <Text
               style={[
                 styles.chipText,
-                { color: dam.generating ? colors.onInteractive : colors.textMuted },
+                { color: generating ? colors.onInteractive : colors.textMuted },
               ]}
             >
-              {dam.generating ? 'Generating' : minimumFlow ? 'Minimum flow' : 'Not generating'}
+              {generating ? 'Generating' : minimumFlow ? 'Minimum flow' : 'Not generating'}
             </Text>
           </View>
           {generationFlow ? (

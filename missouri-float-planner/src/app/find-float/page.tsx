@@ -5,7 +5,7 @@ import FindFloatClient from './FindFloatClient';
 
 export const metadata: Metadata = {
   ...publicPageMetadata(
-    'Floats',
+    'Find a Float in Missouri & Arkansas',
     'Explore featured Ozarks floats, find a float for your day, or plan your own with Eddy.',
     '/find-float',
     SHARE_IMAGES.plan,

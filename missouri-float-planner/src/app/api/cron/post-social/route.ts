@@ -1,3 +1,5 @@
+import { dispatchDailyReport } from '@/lib/social/daily-report-dispatch';
+import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily-report';
 // src/app/api/cron/post-social/route.ts
 // Cron job: publishes scheduled social media posts to Instagram and Facebook.
 // Runs every 30 min via Vercel Cron.
@@ -193,7 +195,22 @@ async function runSocialPosting(request: NextRequest) {
 
     // Separate video and image posts
     const videoPosts = scheduledPosts.filter(p => p.mediaType === 'video');
-    const imagePosts = scheduledPosts.filter(p => p.mediaType !== 'video');
+    const imagePosts = scheduledPosts.filter(p => p.mediaType !== 'video' && p.postType !== 'daily_digest');
+    const reportPosts = scheduledPosts.filter(p => p.postType === 'daily_digest');
+    if (reportPosts.length) {
+      try {
+        const ctx = await buildPostContext(supabase, { postType: 'daily_digest' });
+        if (ctx?.carousel) {
+          const result = await dispatchDailyReport(ctx.carousel, reportPosts.map(p => p.platform), true);
+          rendering += result.rendering;
+          failed += Math.max(0, reportPosts.length - result.rendering);
+          errors.push(...result.warnings);
+        } else { skipped += reportPosts.length; }
+      } catch (error) {
+        failed += reportPosts.length;
+        errors.push(`Daily Report: ${error instanceof Error ? error.message : 'Preparation failed'}`);
+      }
+    }
 
     // Float Picks use their destination's layout; other formats share a render.
     const videoGroups = new Map<string, ScheduledPost[]>();
@@ -449,6 +466,7 @@ async function runSocialPosting(request: NextRequest) {
 
       const { data: fullPost } = await supabase.from('social_posts').select('*').eq('id', post.id).single();
       if (!fullPost || fullPost.status !== 'failed') continue;
+      if (isDailyReport(fullPost.render_request) && !dailyReportAutoPublishEnabled()) continue;
 
       // The saved media, exactly as the admin retry uses it — never rebuilt.
       let media;

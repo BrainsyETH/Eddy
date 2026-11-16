@@ -329,6 +329,34 @@ export const SCHEDULE_CHANGE_NOTE =
   'at the dam · subject to change · downstream water arrives later';
 
 /**
+ * When SWPA posts, as measured rather than remembered.
+ *
+ * Every surface used to say "posted each afternoon", and the code reasoned from
+ * "schedules post 2-4 PM". dam_forecast_history, which records the first time
+ * Eddy held each day's sheet, says otherwise (2026-10-12 to 11-08, Table Rock;
+ * one SWPA file serves every project): Tuesday-Saturday sheets first appeared
+ * between about 00:35 and 04:35 Central on the day itself, while Sunday and
+ * Monday sheets arrived the evening before. These are when Eddy first DETECTED
+ * a sheet, an upper bound on when SWPA published it, not the publication time
+ * itself (SWPA publishes none). Eddy's 30-minute fetch cache and SWPA's
+ * 10-minute one put detection at most about 40 minutes after publication, and
+ * the hourly cron adds up to an hour more, so "overnight" holds either way;
+ * "usually" and "often" carry the rest of the uncertainty. Re-measure before
+ * changing this wording:
+ *
+ *   select payload->0->>'scheduleDate', min(first_seen_at at time zone 'America/Chicago')
+ *   from dam_forecast_history where source = 'swpa_schedule' and dam_id = 'swl-table-rock-dam'
+ *   group by 1 order by 1 desc;
+ *
+ * One sentence pair for surfaces with room, one line for a card's opening.
+ * dam-page-copy.test.ts fails on any dam surface that says SWPA posts in the
+ * afternoon.
+ */
+export const SCHEDULE_POSTING_NOTE =
+  'Southwestern Power Administration usually posts each day’s schedule overnight. Weekend and Monday schedules often appear the evening before.';
+export const SCHEDULE_POSTED_BY = 'Posted by Southwestern Power Administration, usually overnight.';
+
+/**
  * The same three claims as a sentence, for surfaces with room to say them.
  *
  * ── Why two forms and not one ──────────────────────────────────────────────

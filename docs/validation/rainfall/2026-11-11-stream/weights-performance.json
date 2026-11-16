@@ -1,0 +1,417 @@
+{
+  "checkedAt": "2026-11-11T22:56:28.908Z",
+  "node": "v20.20.2",
+  "version": 2,
+  "tile": {
+    "xmin": -10532957.128554547,
+    "ymin": 4078529.700448977,
+    "xmax": -10039445.860456608,
+    "ymax": 4660040.56815956,
+    "width": 415,
+    "height": 489,
+    "dx": 1189.1837785492494,
+    "dy": 1189.1837785492494
+  },
+  "results": [
+    {
+      "site": "06923250",
+      "name": "Niangua River at Windyville, MO",
+      "key": "weights/v2/89649b319239b37383f14c452d0ccc73310dcfc24a4b432c8fbcd4bc4e614360.json.gz",
+      "milliseconds": 406,
+      "cells": 1091,
+      "coverage": 1.0000000494602843
+    },
+    {
+      "site": "06923950",
+      "name": "Niangua River at Tunnel Dam near Macks Creek, MO",
+      "key": "weights/v2/8ac257e9b4035ed4b845930731cd89de74746833865ad331ddf7218cf9f9e2fd.json.gz",
+      "milliseconds": 519,
+      "cells": 1884,
+      "coverage": 0.9999999989502443
+    },
+    {
+      "site": "06928000",
+      "name": "Gasconade River near Hazelgreen, MO",
+      "key": "weights/v2/b6919722726ba4e5917a5cbe6495bd7ef341c8e9d7f2109d65348bb86005a750.json.gz",
+      "milliseconds": 778,
+      "cells": 3832,
+      "coverage": 1.0000000112881118
+    },
+    {
+      "site": "06928900",
+      "name": "Big Piney River near Houston, MO",
+      "key": "weights/v2/200f1ee170d166c7c3a91d270650b2f4e58e57ca8ec432121628f86aeb6b441c.json.gz",
+      "milliseconds": 170,
+      "cells": 529,
+      "coverage": 1.0000000049322535
+    },
+    {
+      "site": "06930000",
+      "name": "Big Piney River near Big Piney, MO",
+      "key": "weights/v2/b65af34be371dab756afabe248bae6fc7561fc82d0466e2c972d62ccd5087a41.json.gz",
+      "milliseconds": 597,
+      "cells": 1744,
+      "coverage": 0.9999999905701882
+    },
+    {
+      "site": "06933500",
+      "name": "Gasconade River at Jerome, MO",
+      "key": "weights/v2/efa0e03bda24e8e3f63fdc7863180b0def8551c0bbacb1003bf549d89a88a3b2.json.gz",
+      "milliseconds": 1592,
+      "cells": 8546,
+      "coverage": 0.9999999808090657
+    },
+    {
+      "site": "06934000",
+      "name": "Gasconade River near Rich Fountain, MO",
+      "key": "weights/v2/8d142c10f65e0597e21db56ed41f9c080c0e26d28a77910d81b58e04313a0e3c.json.gz",
+      "milliseconds": 2794,
+      "cells": 9682,
+      "coverage": 0.9999999794692738
+    },
+    {
+      "site": "07010350",
+      "name": "Meramec River at Cook Station, MO",
+      "key": "weights/v2/a2df71e5b1cae615c28c18820ba3698dc4a79b7df71199608f288100555a7f59.json.gz",
+      "milliseconds": 189,
+      "cells": 662,
+      "coverage": 1.0000000258132584
+    },
+    {
+      "site": "07013000",
+      "name": "Meramec River near Steelville, MO",
+      "key": "weights/v2/0119f21d21e994ee43193e3afdce865d48a140caea5c5a8ec2c26e6c22ee2245.json.gz",
+      "milliseconds": 591,
+      "cells": 2465,
+      "coverage": 1.0000000360206804
+    },
+    {
+      "site": "07014000",
+      "name": "Huzzah Creek near Steelville, MO",
+      "key": "weights/v2/f19551817af6c8f51a659580e7a89be347afbacd6a9e4383bb72484aec745f95.json.gz",
+      "milliseconds": 233,
+      "cells": 842,
+      "coverage": 1.0000001510263048
+    },
+    {
+      "site": "07014500",
+      "name": "Meramec River near Sullivan, MO",
+      "key": "weights/v2/e9e6cbf7ebccf3173e2aaeeea94f00a2e134486aed4313670b11f7e5496944d9.json.gz",
+      "milliseconds": 806,
+      "cells": 4591,
+      "coverage": 1.0000000252702095
+    },
+    {
+      "site": "07015720",
+      "name": "Bourbeuse River near High Gate, MO",
+      "key": "weights/v2/f888d4068d41b0c8ecb3d21a9a7bc933fd256dac237a8333e75b41e174bd52ba.json.gz",
+      "milliseconds": 95,
+      "cells": 459,
+      "coverage": 0.9999999014888391
+    },
+    {
+      "site": "07016500",
+      "name": "Bourbeuse River at Union, MO",
+      "key": "weights/v2/96c03b022e12b60e5fcc7ed8207c749433c38e1a7c19c5540b289659978c34d7.json.gz",
+      "milliseconds": 592,
+      "cells": 2571,
+      "coverage": 0.999999966778013
+    },
+    {
+      "site": "07018100",
+      "name": "Big River near Richwoods, MO",
+      "key": "weights/v2/61b8b424d92411584b7f64f13fd6c4ac6cdeba2a7e3e8b30f0b103fb925fad0e.json.gz",
+      "milliseconds": 471,
+      "cells": 2325,
+      "coverage": 1.0000000566679033
+    },
+    {
+      "site": "07018500",
+      "name": "Big River at Byrnesville, MO",
+      "key": "weights/v2/9be76523fc10bec194231fabec1d05bb178cd06e0f20a6895e65965c774c2c2d.json.gz",
+      "milliseconds": 828,
+      "cells": 2903,
+      "coverage": 1.0000000066331423
+    },
+    {
+      "site": "07019000",
+      "name": "Meramec River near Eureka, MO",
+      "key": "weights/v2/56f1568a5738677bd209e877bda587fc80d4688cec782a142c39d16bd8854b5a.json.gz",
+      "milliseconds": 2445,
+      "cells": 11579,
+      "coverage": 1.0000000109082157
+    },
+    {
+      "site": "07034000",
+      "name": "St. Francis River near Roselle, MO",
+      "key": "weights/v2/a853cf14984ca58ceaf62d0337806d0d17a2a8ac00cf9099eaffd5f9a9a73416.json.gz",
+      "milliseconds": 176,
+      "cells": 800,
+      "coverage": 0.9999999228813572
+    },
+    {
+      "site": "07037500",
+      "name": "St. Francis River near Patterson, MO",
+      "key": "weights/v2/e416c5a1fcecb274ed2df350f9b0f520a744b26aca54f1fe55188a4e74c5e4a2.json.gz",
+      "milliseconds": 690,
+      "cells": 2948,
+      "coverage": 1.0000000461536673
+    },
+    {
+      "site": "07049000",
+      "name": "War Eagle Creek near Hindsville, AR",
+      "key": "weights/v2/f5c6500f5a8106130a485d8b781f75b8749cae69ab8eedb72d3b7db896153b4f.json.gz",
+      "milliseconds": 268,
+      "cells": 849,
+      "coverage": 1.0000000764820147
+    },
+    {
+      "site": "07050500",
+      "name": "Kings River near Berryville, AR",
+      "key": "weights/v2/52f7e36b98ee93692a818e807481a3333b1e6efbc7cf8dbf26b18c7d37bf760f.json.gz",
+      "milliseconds": 494,
+      "cells": 1639,
+      "coverage": 0.9999999887844541
+    },
+    {
+      "site": "07052250",
+      "name": "James River near Boaz, MO",
+      "key": "weights/v2/26291ea5e65333c4b22a23b833b868d619d6b1317965b4dcf9d0ef9a0e5d782f.json.gz",
+      "milliseconds": 278,
+      "cells": 1466,
+      "coverage": 1.0000000137117258
+    },
+    {
+      "site": "07052500",
+      "name": "James River at Galena, MO",
+      "key": "weights/v2/2f8ba6cb51d3d920b81bbe85dfe58146364c300d699cbc2b3f20dd77b13db191.json.gz",
+      "milliseconds": 537,
+      "cells": 3050,
+      "coverage": 1.000000057226522
+    },
+    {
+      "site": "07055607",
+      "name": "Crooked Creek at Kelly Crossing at Yellville, AR",
+      "key": "weights/v2/7582ba5447d1b74e16369448aedb7a0698682cc876ff12a6c25804a36aa918ba.json.gz",
+      "milliseconds": 345,
+      "cells": 1249,
+      "coverage": 1.0000000253348662
+    },
+    {
+      "site": "07055646",
+      "name": "Buffalo River near Boxley, AR",
+      "key": "weights/v2/300084265764152df3fa5133cfafcb0cf0e17aa322ba831daa91df20acd9f0fd.json.gz",
+      "milliseconds": 72,
+      "cells": 212,
+      "coverage": 0.9999999970848468
+    },
+    {
+      "site": "07055660",
+      "name": "Buffalo River at Ponca, AR",
+      "key": "weights/v2/8dd7d5fe05d9728814c2ab985576a7d9a91a54cc4e246ab6132dccec039305f1.json.gz",
+      "milliseconds": 112,
+      "cells": 392,
+      "coverage": 1.0000000924926513
+    },
+    {
+      "site": "07055680",
+      "name": "Buffalo River at Pruitt, AR",
+      "key": "weights/v2/f540fba7b34e8309ce6bb2186d21891713c170fcdf0a2565daa3038a0de34d17.json.gz",
+      "milliseconds": 234,
+      "cells": 638,
+      "coverage": 1.0000000283620247
+    },
+    {
+      "site": "07056000",
+      "name": "Buffalo River near St. Joe, AR",
+      "key": "weights/v2/ecc5f02c763fd9d3a0bcebbbfbf68e23375373134bc70fa2fbb27e2a19f33716.json.gz",
+      "milliseconds": 524,
+      "cells": 2500,
+      "coverage": 0.9999999571399464
+    },
+    {
+      "site": "07056700",
+      "name": "Buffalo River near Harriet, AR",
+      "key": "weights/v2/cee2b4be95d9a0187c77d4c32a028acb2be4ef9c4f03473c8d356a885b4d092d.json.gz",
+      "milliseconds": 720,
+      "cells": 3229,
+      "coverage": 0.9999999130426661
+    },
+    {
+      "site": "07057370",
+      "name": "White River near Norfork, AR",
+      "key": "weights/v2/b545fcecff0e12798ef12ff532aec201c84b451dc513b3dba2da528d391dd482.json.gz",
+      "milliseconds": 5111,
+      "cells": 23356,
+      "coverage": 1.0000000106097657
+    },
+    {
+      "site": "07057500",
+      "name": "North Fork River near Tecumseh, MO",
+      "key": "weights/v2/75bb0c6e974103624c124091de6dcd14e73325a94aa41a0f6f8d944012ff4df4.json.gz",
+      "milliseconds": 423,
+      "cells": 1732,
+      "coverage": 1.000000041075315
+    },
+    {
+      "site": "07058000",
+      "name": "Bryant Creek near Tecumseh, MO",
+      "key": "weights/v2/cf259be7404b67d5aaa06d3062315fa02c0111c24ca6c9ff85e8126f6a82349e.json.gz",
+      "milliseconds": 400,
+      "cells": 1762,
+      "coverage": 0.999999879831593
+    },
+    {
+      "site": "07060500",
+      "name": "White River at Calico Rock, AR",
+      "key": "weights/v2/49f56099b380173e7c7bae57a7b5e6a8f561db660de927e25ab5def1060a1003.json.gz",
+      "milliseconds": 5538,
+      "cells": 28896,
+      "coverage": 1.0000000020475772
+    },
+    {
+      "site": "07061500",
+      "name": "Black River near Annapolis, MO",
+      "key": "weights/v2/99dbf265aa6402f3fc707efb243b67956ddc8cae91ec3c76c4e1c0954d0cdb72.json.gz",
+      "milliseconds": 322,
+      "cells": 1571,
+      "coverage": 0.9999998363100953
+    },
+    {
+      "site": "07063000",
+      "name": "Black River at Poplar Bluff, MO",
+      "key": "weights/v2/76841cb0f7753bba1421a6a6a3d469cae1f320db01a7bce2bcc7aa280925b970.json.gz",
+      "milliseconds": 1626,
+      "cells": 3914,
+      "coverage": 0.9999999730108318
+    },
+    {
+      "site": "07064440",
+      "name": "Current River at Montauk State Park, MO",
+      "key": "weights/v2/a7668a8d4dfd8a97a79900003f520a37f62fc7d366ff80ea3c71eb7875f4881d.json.gz",
+      "milliseconds": 63,
+      "cells": 217,
+      "coverage": 0.9999998699135006
+    },
+    {
+      "site": "07064533",
+      "name": "Current River above Akers, MO",
+      "key": "weights/v2/8e2fa6a71eb095998a50f5660f76d03e15bd698691f9a292f4a11ff2e164d8c1.json.gz",
+      "milliseconds": 225,
+      "cells": 946,
+      "coverage": 0.9999999975099738
+    },
+    {
+      "site": "07065200",
+      "name": "Jacks Fork near Mountain View, MO",
+      "key": "weights/v2/689f254483714df18fb53ed8c4f38360502781fa438b338bdf6681e7e348d7dd.json.gz",
+      "milliseconds": 141,
+      "cells": 604,
+      "coverage": 1.0000000978787977
+    },
+    {
+      "site": "07065495",
+      "name": "Jacks Fork at Alley Spring, MO",
+      "key": "weights/v2/664766a0787849f79f405201c0eb9e2506b007c7dc9c27c70476be4b00786457.json.gz",
+      "milliseconds": 217,
+      "cells": 982,
+      "coverage": 0.9999998085751326
+    },
+    {
+      "site": "07066000",
+      "name": "Jacks Fork at Eminence, MO",
+      "key": "weights/v2/b0238a94047cc8a08fc6f69dbb0f58c574844c3ce912fe14dd214830d41bac30.json.gz",
+      "milliseconds": 281,
+      "cells": 1288,
+      "coverage": 0.9999999838214583
+    },
+    {
+      "site": "07066510",
+      "name": "Current River above Powder Mill, MO",
+      "key": "weights/v2/b538a74c055fe3ba762370e3bfb6f6a7aa8645731a99ced6b0c462a920fcd889.json.gz",
+      "milliseconds": 727,
+      "cells": 4066,
+      "coverage": 1.0000000156183642
+    },
+    {
+      "site": "07067000",
+      "name": "Current River at Van Buren, MO",
+      "key": "weights/v2/bd811d6153650eb6402100b9af0370e909243a1833371c70ebbebd0d201debdb.json.gz",
+      "milliseconds": 950,
+      "cells": 5072,
+      "coverage": 1.0000000025546285
+    },
+    {
+      "site": "07068000",
+      "name": "Current River at Doniphan, MO",
+      "key": "weights/v2/f7858bd7546a5f53b1a5f690bcec9eaf9f177921c715da41bc7efbbbf1684ffe.json.gz",
+      "milliseconds": 1586,
+      "cells": 6227,
+      "coverage": 1.0000000073169202
+    },
+    {
+      "site": "07069305",
+      "name": "Spring River at Spring Street Bridge at Hardy, AR",
+      "key": "weights/v2/fe8434f50cb304fc19e3aedf26d60538235565c2b7b9cfbec6ef5cc32a65696e.json.gz",
+      "milliseconds": 489,
+      "cells": 2545,
+      "coverage": 1.0000000402492775
+    },
+    {
+      "site": "07069500",
+      "name": "Spring River at Imboden, AR",
+      "key": "weights/v2/714cfa6f0077999cb70ae6e5b0337506163741afdd89febf4dab881ed874e65f.json.gz",
+      "milliseconds": 732,
+      "cells": 3477,
+      "coverage": 1.0000000400099165
+    },
+    {
+      "site": "07071500",
+      "name": "Eleven Point River near Bardley, MO",
+      "key": "weights/v2/3f9a97c5a32e5db2c89ef44d9f8ca163d6921677e47ea62ee8abc4f08e174cbd.json.gz",
+      "milliseconds": 466,
+      "cells": 2419,
+      "coverage": 0.9999999605243755
+    },
+    {
+      "site": "07185765",
+      "name": "Spring River at Carthage, MO",
+      "key": "weights/v2/99a8eaddfd35e46afd5d27a47464e4c2489cc2fdca6c477112a722020cf24e8b.json.gz",
+      "milliseconds": 298,
+      "cells": 1424,
+      "coverage": 1.0000000579006196
+    },
+    {
+      "site": "07186000",
+      "name": "Spring River near Waco, MO",
+      "key": "weights/v2/cf3f03923404ec6ff6a28d579ac3b25e49896c158f7f7274895c2e2f04fd1f66.json.gz",
+      "milliseconds": 767,
+      "cells": 3586,
+      "coverage": 1.0000000024546136
+    },
+    {
+      "site": "07188925",
+      "name": "Elk Rv at MO-59, Noel, MO",
+      "key": "weights/v2/6514688190f509c8894ac8d2e621d6f496198856c88119751189e9947e37ba07.json.gz",
+      "milliseconds": 521,
+      "cells": 2441,
+      "coverage": 0.9999999661593554
+    },
+    {
+      "site": "07252000",
+      "name": "Mulberry River near Mulberry, AR",
+      "key": "weights/v2/62ae6ee98de6f95ddc91059ce3bbd33282eeb37c35a3dcbb5907d492c4b259e4.json.gz",
+      "milliseconds": 287,
+      "cells": 1166,
+      "coverage": 0.999999974157083
+    },
+    {
+      "site": "07359610",
+      "name": "Caddo River near Caddo Gap, AR",
+      "key": "weights/v2/37ebd1f88f2297a512fe4d32703ccf51044f2106044ac078d8f3d109880d7f0f.json.gz",
+      "milliseconds": 89,
+      "cells": 421,
+      "coverage": 0.9999994424805967
+    }
+  ]
+}

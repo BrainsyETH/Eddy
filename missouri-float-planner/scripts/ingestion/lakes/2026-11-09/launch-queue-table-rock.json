@@ -1,0 +1,466 @@
+{
+ "lake_slug": "table-rock",
+ "places": [
+  {
+   "place_key": "table-rock:agfc:a3127569-54c3-44fe-825c-b554d8a83325",
+   "lake_slug": "table-rock",
+   "name": "Beaver Lake Dam Site Boat Ramp",
+   "lon": -93.84238911652606,
+   "lat": 36.42275416154394,
+   "sources": [
+    {
+     "source": "agfc",
+     "source_id": "a3127569-54c3-44fe-825c-b554d8a83325",
+     "name": "Beaver Lake Dam Site Boat Ramp",
+     "source_type": "Boating Access",
+     "source_waterbody": "White River",
+     "agency": "USACOE",
+     "source_updated_at": null,
+     "distance_to_lake_m": 0
+    }
+   ],
+   "distance_to_lake_m": 0,
+   "nearest_area": null,
+   "existing_access_point": null,
+   "launch_methods": [],
+   "review": [
+    "A source files this place under \"White River\"; confirm it is on this lake.",
+    "Decide launch methods (trailer, hand) from the source type and imagery; the queue does not."
+   ]
+  },
+  {
+   "place_key": "table-rock:agfc:9bab0fa1-8874-4f87-9733-7e82bc7bf462",
+   "lake_slug": "table-rock",
+   "name": "Bertrand Boat Ramp",
+   "lon": -93.83379796935158,
+   "lat": 36.44052385308645,
+   "sources": [
+    {
+     "source": "agfc",
+     "source_id": "9bab0fa1-8874-4f87-9733-7e82bc7bf462",
+     "name": "Bertrand Boat Ramp",
+     "source_type": "Boating Access",
+     "source_waterbody": "White River",
+     "agency": "AGFC",
+     "source_updated_at": null,
+     "distance_to_lake_m": 12
+    }
+   ],
+   "distance_to_lake_m": 12,
+   "nearest_area": null,
+   "existing_access_point": null,
+   "launch_methods": [],
+   "review": [
+    "Sits 12 m off the lake polygon; confirm the pin is at the water.",
+    "A source files this place under \"White River\"; confirm it is on this lake.",
+    "Decide launch methods (trailer, hand) from the source type and imagery; the queue does not."
+   ]
+  },
+  {
+   "place_key": "table-rock:agfc:8cab54c7-90ed-4142-a551-d61a5b78bcb3",
+   "lake_slug": "table-rock",
+   "name": "Cricket Creek Boat Ramp",
+   "lon": -93.28860812312844,
+   "lat": 36.4787512202243,
+   "sources": [
+    {
+     "source": "agfc",
+     "source_id": "8cab54c7-90ed-4142-a551-d61a5b78bcb3",
+     "name": "Cricket Creek Boat Ramp",
+     "source_type": "Boating Access",
+     "source_waterbody": "Table Rock Lake",
+     "agency": "AGFC",
+     "source_updated_at": null,
+     "distance_to_lake_m": 0
+    }
+   ],
+   "distance_to_lake_m": 0,
+   "nearest_area": {
+    "area_id": "418030010",
+    "name": "CRICKET CREEK",
+    "subtype": "multipurposeArea",
+    "boat_status": "open",
+    "boat_ramps": 1,
+    "source_updated_at": "2026-04-28T00:00:00.000Z",
+    "distance_m": 634,
+    "matched_by": "name"
+   },
+   "existing_access_point": null,
+   "launch_methods": [],
+   "review": [
+    "Decide launch methods (trailer, hand) from the source type and imagery; the queue does not."
+   ]
+  },
+  {
+   "place_key": "table-rock:agfc:891794d5-39bd-4a49-8c03-375d280155c5",
+   "lake_slug": "table-rock",
+   "name": "Holiday Island Boat Ramp",
+   "lon": -93.76030319712702,
+   "lat": 36.492457616119104,
+   "sources": [
+    {
+     "source": "agfc",
+     "source_id": "891794d5-39bd-4a49-8c03-375d280155c5",
+     "name": "Holiday Island Boat Ramp",
+     "source_type": "Boating Access",
+     "source_waterbody": "Table Rock Lake",
+     "agency": "Other",
+     "source_updated_at": null,
+     "distance_to_lake_m": 50
+    }
+   ],
+   "distance_to_lake_m": 50,
+   "nearest_area": null,
+   "existing_access_point": null,
+   "launch_methods": [],
+   "review": [
+    "Sits 50 m off the lake polygon; confirm the pin is at the water.",
+    "Decide launch methods (trailer, hand) from the source type and imagery; the queue does not."
+   ]
+  },
+  {
+   "place_key": "table-rock:agfc:67995f35-fe1d-4046-9b97-999317d01ef1",
+   "lake_slug": "table-rock",
+   "name": "Houseman Boat Ramp",
+   "lon": -93.81437740627298,
+   "lat": 36.46293351814836,
+   "sources": [
+    {
+     "source": "agfc",
+     "source_id": "67995f35-fe1d-4046-9b97-999317d01ef1",
+     "name": "Houseman Boat Ramp",
+     "source_type": "Boating Access",
+     "source_waterbody": "White River",
+     "agency": "AGFC",
+     "source_updated_at": null,
+     "distance_to_lake_m": 0
+    }
+   ],
+   "distance_to_lake_m": 0,
+   "nearest_area": null,
+   "existing_access_point": null,
+   "launch_methods": [],
+   "review": [
+    "A source files this place under \"White River\"; confirm it is on this lake.",
+    "Decide launch methods (trailer, hand) from the source type and imagery; the queue does not."
+   ]
+  },
+  {
+   "place_key": "table-rock:agfc:22f8de3a-a24d-486f-818a-faee87cd7a6d",
+   "lake_slug": "table-rock",
+   "name": "Romp Hole Boat Ramp",
+   "lon": -93.58092451353671,
+   "lat": 36.484103609817836,
+   "sources": [
+    {
+     "source": "agfc",
+     "source_id": "22f8de3a-a24d-486f-818a-faee87cd7a6d",
+     "name": "Romp Hole Boat Ramp",
+     "source_type": "Boating Access",
+     "source_waterbody": "Kings River",
+     "agency": "AGFC",
+     "source_updated_at": null,
+     "distance_to_lake_m": 5
+    }
+   ],
+   "distance_to_lake_m": 5,
+   "nearest_area": null,
+   "existing_access_point": {
+    "slug": "romp-hole-access",
+    "name": "Romp Hole Access",
+    "river_slug": "kings-river",
+    "distance_m": 1
+   },
+   "launch_methods": [],
+   "review": [
+    "Link to existing access point romp-hole-access (1 m); do not create a second place.",
+    "Sits 5 m off the lake polygon; confirm the pin is at the water.",
+    "A source files this place under \"Kings River\"; confirm it is on this lake.",
+    "Decide launch methods (trailer, hand) from the source type and imagery; the queue does not."
+   ]
+  }
+ ],
+ "off_lake": [],
+ "areas_without_candidate": [
+  {
+   "area_id": "418030011",
+   "name": "AUNTS CREEK",
+   "subtype": "multipurposeArea",
+   "lon": -93.45849609375,
+   "lat": 36.672119140625,
+   "boat_status": "open",
+   "boat_ramps": 2,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030008",
+   "name": "BAXTER",
+   "subtype": "multipurposeArea",
+   "lon": -93.4976806640625,
+   "lat": 36.56787109375,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "286672",
+   "name": "BEAVER PARK",
+   "subtype": "multipurposeArea",
+   "lon": -93.76678466796875,
+   "lat": 36.473876953125,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "769075",
+   "name": "BIG BAY",
+   "subtype": "waterAccessPoint",
+   "lon": -93.56982421875,
+   "lat": 36.6207275390625,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "418030015",
+   "name": "BIG INDIAN",
+   "subtype": "waterAccessPoint",
+   "lon": -93.50640869140625,
+   "lat": 36.5565185546875,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030005",
+   "name": "BIG M",
+   "subtype": "multipurposeArea",
+   "lon": -93.684326171875,
+   "lat": 36.55810546875,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030004",
+   "name": "CAMPBELL POINT",
+   "subtype": "multipurposeArea",
+   "lon": -93.5540771484375,
+   "lat": 36.59747314453125,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030003",
+   "name": "CAPE FAIR",
+   "subtype": "multipurposeArea",
+   "lon": -93.526611328125,
+   "lat": 36.723876953125,
+   "boat_status": "open",
+   "boat_ramps": 2,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030019",
+   "name": "COOMBS FERRY",
+   "subtype": "waterAccessPoint",
+   "lon": -93.335205078125,
+   "lat": 36.6060791015625,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "9712995",
+   "name": "COW CREEK BOAT RAMP",
+   "subtype": "waterAccessPoint",
+   "lon": -93.390380859375,
+   "lat": 36.5662841796875,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "2623851",
+   "name": "COW CREEK PARK",
+   "subtype": "multipurposeArea",
+   "lon": -93.390380859375,
+   "lat": 36.5662841796875,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "2644435",
+   "name": "CRICKET CREEK MARINA",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.3004150390625,
+   "lat": 36.48291015625,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "418030006",
+   "name": "EAGLE ROCK",
+   "subtype": "multipurposeArea",
+   "lon": -93.72869873046875,
+   "lat": 36.5286865234375,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "2623730",
+   "name": "EAGLE ROCK BOAT DOCK",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.72491455078125,
+   "lat": 36.5264892578125,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "2644424",
+   "name": "HIDEAWAY MARINA",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.49639892578125,
+   "lat": 36.66552734375,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "2601115",
+   "name": "INDIAN POINT BOAT DOCK",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.34881591796875,
+   "lat": 36.6270751953125,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "11292063",
+   "name": "INDIAN POINT HARBOR",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.35137939453125,
+   "lat": 36.63232421875,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "418030012",
+   "name": "JOE BALD",
+   "subtype": "waterAccessPoint",
+   "lon": -93.4674072265625,
+   "lat": 36.60552978515625,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "326315",
+   "name": "KIMBERLING PARK",
+   "subtype": "multipurposeArea",
+   "lon": -93.41448974609375,
+   "lat": 36.6348876953125,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "418030014",
+   "name": "KINGS RIVER",
+   "subtype": "waterAccessPoint",
+   "lon": -93.61181640625,
+   "lat": 36.549072265625,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030009",
+   "name": "LONG CREEK",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.30218505859375,
+   "lat": 36.5205078125,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "418030013",
+   "name": "MILL CREEK",
+   "subtype": "multipurposeArea",
+   "lon": -93.4398193359375,
+   "lat": 36.5941162109375,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030250",
+   "name": "MOONSHINE BEACH",
+   "subtype": "dayUseArea",
+   "lon": -93.310302734375,
+   "lat": 36.60791015625,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "418030020",
+   "name": "OLD HWY 86",
+   "subtype": "multipurposeArea",
+   "lon": -93.32220458984375,
+   "lat": 36.5596923828125,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  },
+  {
+   "area_id": "2623732",
+   "name": "PORT OF KIMBERLING MARINA",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.41082763671875,
+   "lat": 36.62847900390625,
+   "boat_status": null,
+   "boat_ramps": 3,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "2601176",
+   "name": "SHEPHARD OF THE HILLS FISH HATCHERY",
+   "subtype": "waterAccessPoint",
+   "lon": -93.3052978515625,
+   "lat": 36.59710693359375,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "769061",
+   "name": "TABLE ROCK STATE PARK",
+   "subtype": "marinaAndOrResort",
+   "lon": -93.30987548828125,
+   "lat": 36.58331298828125,
+   "boat_status": null,
+   "boat_ramps": 1,
+   "source_updated_at": null
+  },
+  {
+   "area_id": "418030007",
+   "name": "VIOLA",
+   "subtype": "multipurposeArea",
+   "lon": -93.59429931640625,
+   "lat": 36.56072998046875,
+   "boat_status": "open",
+   "boat_ramps": 1,
+   "source_updated_at": "2026-04-28T00:00:00.000Z"
+  }
+ ]
+}

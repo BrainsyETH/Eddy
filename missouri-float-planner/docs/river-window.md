@@ -1,6 +1,8 @@
 # River Window
 
 `/embed/display` defaults to the [Missouri mills collection](missouri-mills.md).
+For a portrait dashboard of the rivers around one partner's place, see the
+[home-base river board](home-base-board.md) at `/embed/board/<id>`.
 The original landscape below remains available at `?theme=river`. It is an independent
 replacement for the display proposed in PR #1506; it does not include that
 PR's admin visual-guide gallery.

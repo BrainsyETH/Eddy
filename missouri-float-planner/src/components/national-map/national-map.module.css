@@ -1,0 +1,843 @@
+/* The national River Map's surfaces.
+ *
+ * Scoped tokens on the map root: the light appearance uses the site's own
+ * surfaces; the dark appearance uses deep river teal (the plan's direction),
+ * remapping the semantic tokens Button / Segmented already read, so the shared
+ * controls follow the map's appearance without forks. */
+
+.root {
+  --nm-surface: var(--color-surface);
+  --nm-surface-2: var(--color-secondary-50);
+  --nm-ink: var(--color-neutral-900);
+  --nm-ink-2: var(--color-neutral-600);
+  --nm-edge: var(--color-primary-700);
+  --nm-shadow: 3px 3px 0 var(--color-primary-700);
+  --nm-hairline: var(--color-neutral-200);
+  /* Wall legend / story panel: warm parchment (light). */
+  --nm-wall-panel: rgba(246, 240, 226, 0.94);
+  /* Story locator: land, the gauge's state, outlines. */
+  --nm-locator-land: rgba(45, 42, 36, 0.12);
+  --nm-locator-here: rgba(31, 101, 116, 0.45);
+  --nm-locator-line: rgba(45, 42, 36, 0.35);
+  /* Focus rings inside the map: primary-700 on parchment / white (7–8:1). */
+  --nm-focus: var(--color-primary-700);
+  --nm-input-border: var(--color-neutral-500);
+  --nm-input-ring: var(--color-primary-100);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* clip, not just hidden: a focused child must never scroll the root (a
+     chooser near the bottom edge used to lift the whole map off its frame). */
+  overflow: clip;
+  background: #FAF8F4;
+  color: var(--nm-ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.root[data-theme='dark'] {
+  --color-surface: #0F2D35;
+  --color-surface-hover: #163F4A;
+  --color-surface-pressed: #0A2128;
+  --color-border: #1D525F;
+  --color-border-strong: #256574;
+  --color-text-primary: #F2EAD8;
+  --color-text-secondary: #C2BAAC;
+  --color-text-muted: #A49C8E;
+  --color-text-link: #72B5C4;
+  --color-primary-50: #163F4A;
+  /* Text-on-surface teals (btn-secondary ink and hover ink, icon hover) lift
+     for deep teal. primary-800 is the secondary button's HOVER ink: left at
+     #163F4A it matched the hover fill and the label vanished (1.0:1). */
+  --color-primary-700: #A3D1DB;
+  --color-primary-600: #72B5C4;
+  --color-primary-800: #D4EAEF;
+  /* Ghost-button hover surfaces (the detail panel's close X: 4.95:1). */
+  --color-neutral-100: #163F4A;
+  --color-neutral-200: #1D525F;
+  --nm-focus: #A3D1DB;
+  --nm-input-border: #4A9AAD;
+  --nm-input-ring: #163F4A;
+  --nm-surface: #0F2D35;
+  --nm-surface-2: #12343D;
+  --nm-ink: #F2EAD8;
+  --nm-ink-2: #C2BAAC;
+  --nm-edge: #4A9AAD;
+  --nm-shadow: 3px 3px 0 #061418;
+  --nm-hairline: #1D525F;
+  /* Dark: the deep-teal Eddy panel — parchment would glare on a dark wall. */
+  --nm-wall-panel: rgba(12, 37, 44, 0.92);
+  --nm-locator-land: rgba(242, 234, 216, 0.14);
+  --nm-locator-here: rgba(143, 211, 224, 0.5);
+  --nm-locator-line: rgba(242, 234, 216, 0.3);
+  background: #0A2128;
+}
+
+/* The route's page wrapper (src/app/river-map/page.tsx). It is a fixed
+   stacking context under the site header's z-50; while the in-page
+   fullscreen fallback is showing it lifts above the header, so Map only
+   stays text-free on iPhone Safari. */
+.pageFrame:has(> [data-fallback='true']) {
+  z-index: 80;
+}
+
+/* In-browser fullscreen fallback (no Fullscreen API, e.g. iPhone Safari):
+   the same map-only layout, covering the site chrome. */
+.fallbackFullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  height: 100dvh;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  outline: none;
+}
+
+/* The focus ring and centre reticle are pseudo-elements ABOVE the canvases
+   (z 0–3); a box-shadow on the stage itself painted underneath them. The
+   reticle marks where Enter lists gauges. */
+.stage:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 3px var(--nm-edge);
+}
+
+.stage:focus-visible::before {
+  content: '';
+  position: absolute;
+  left: var(--nm-reticle-x, 50%);
+  top: var(--nm-reticle-y, 50%);
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  z-index: 4;
+  pointer-events: none;
+  border: 2px solid var(--nm-edge);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--nm-surface);
+}
+
+/* Focus inside the map: one high-contrast colour (the site's primary-300/400
+   rings measured 2.2–2.7:1 against parchment and pressed options). */
+.root :focus-visible {
+  outline-color: var(--nm-focus);
+}
+
+.root :global(.segmented__option:focus-visible) {
+  outline-color: var(--nm-focus);
+}
+
+.root :global(.segmented__option[aria-pressed='true']:focus-visible) {
+  outline-color: #fff;
+}
+
+/* Programmatic focus targets (a detail's heading) take focus to move the
+   reading position, not to be operated: no ring. */
+.root [tabindex='-1']:focus-visible {
+  outline: none;
+}
+
+/* No double-tap zoom on map controls (rapid +/− taps on iOS). */
+.root button {
+  touch-action: manipulation;
+}
+
+.searchField {
+  border: 2px solid var(--nm-input-border);
+  background: var(--nm-surface);
+}
+
+.searchField:focus-within {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--nm-input-ring);
+}
+
+.searchInput {
+  color: var(--nm-ink);
+  /* 16 px on touch screens: smaller makes iOS zoom the page on focus. */
+  font-size: 1rem;
+}
+
+.searchInput::placeholder {
+  color: var(--nm-ink-2);
+  opacity: 1;
+}
+
+.searchInput:focus-visible {
+  outline: none;
+}
+
+@media (pointer: fine) and (min-width: 768px) {
+  .searchInput {
+    font-size: 0.875rem;
+  }
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* The place picker: the search field's surface and border. */
+.regionSelect {
+  color: var(--nm-ink);
+  background: var(--nm-surface);
+  border: 1px solid var(--nm-input-border);
+  border-radius: 0.5rem;
+  padding: 0 0.6rem;
+  font-size: 1rem;
+}
+.regionSelect:focus-visible {
+  outline: 2px solid var(--nm-focus);
+  outline-offset: 1px;
+}
+@media (pointer: fine) and (min-width: 768px) {
+  .regionSelect {
+    font-size: 0.875rem;
+  }
+}
+
+.breakAnywhere {
+  overflow-wrap: anywhere;
+}
+
+.hideCursor,
+.hideCursor * {
+  cursor: none !important;
+}
+
+/* OLED care for unattended displays: the whole composition drifts a few pixels
+   over many minutes. Imperceptible, and off when motion is off. */
+.drift {
+  animation: nm-drift 720s ease-in-out infinite alternate;
+}
+
+@keyframes nm-drift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(3px, -2px); }
+  50% { transform: translate(-2px, 3px); }
+  75% { transform: translate(-3px, -1px); }
+  100% { transform: translate(2px, 2px); }
+}
+
+.panel {
+  background: var(--nm-surface);
+  color: var(--nm-ink);
+  border: 2px solid var(--nm-edge);
+  border-radius: 8px;
+  box-shadow: var(--nm-shadow);
+}
+
+.muted {
+  color: var(--nm-ink-2);
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.hairline {
+  border-top: 1px solid var(--nm-hairline);
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.tray {
+  transition:
+    opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+
+.trayHidden {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+}
+
+.sheet {
+  max-height: min(62dvh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.fade {
+  transition: opacity var(--duration-slower) var(--ease-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift { animation: none; }
+  .tray, .fade { transition: none; }
+}
+
+/* The selected view is not live (no frame, stale snapshot, failed refresh,
+   NWS flood status unavailable): geography stays, everything goes quiet.
+   The text-free display says "not current" this way, with no words. */
+.subdued {
+  opacity: 0.68;
+  transition: opacity var(--duration-slower) var(--ease-default);
+}
+
+/* ── Wall legend (fullscreen default) ──────────────────────────────────────
+   Sized for reading across a room: type follows the screen's short side
+   (16–17 px at 1080p, ~30 px on a 4K wall). Side panel in the open left
+   margin of the wall composition; a bottom strip on narrow / portrait. */
+.wallLegend,
+.wallStory {
+  font-size: clamp(13px, 1.62vmin, 32px);
+  line-height: 1.25;
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  padding: 0.85em 1em 0.75em;
+  pointer-events: none;
+}
+/* The left column (wide screens): the legend, and in Story mode the
+   featured event under it. Positioned as one so they never collide. */
+.wallColumn {
+  position: absolute;
+  z-index: 30;
+  left: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-left));
+  top: max(clamp(10px, 3vmin, 64px), env(safe-area-inset-top));
+  width: calc(15 * clamp(13px, 1.62vmin, 32px));
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vmin, 24px);
+  pointer-events: none;
+}
+.wallLegendStrip {
+  position: absolute;
+  z-index: 30;
+  left: 0.75em;
+  right: 0.75em;
+  bottom: max(0.75em, env(safe-area-inset-bottom));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 1.4em;
+  row-gap: 0.35em;
+  padding: 0.6em 0.9em;
+}
+.wallLegendStrip .wallLegendList {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1.1em;
+  row-gap: 0.2em;
+  margin: 0;
+}
+.wallLegendStrip .wallLegendApart {
+  border-top: 0;
+  padding-top: 0;
+  border-left: 1px solid var(--nm-hairline);
+  padding-left: 1.1em;
+}
+.wallLegendTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12em;
+  letter-spacing: 0.005em;
+  margin: 0 0 0.45em;
+}
+.wallLegendStrip .wallLegendTitle {
+  margin: 0;
+}
+.wallLegendList {
+  display: grid;
+  row-gap: 0.32em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wallLegendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+}
+.wallLegendApart {
+  margin-top: 0.55em;
+  padding-top: 0.55em;
+  border-top: 1px solid var(--nm-hairline);
+}
+.wallLegendFine {
+  font-size: 0.86em;
+  color: var(--nm-ink-2);
+}
+.wallLegendPair {
+  display: inline-flex;
+}
+.wallLegendNote {
+  margin: 0;
+  font-size: 0.9em;
+}
+.wallLegendSource {
+  margin: 0.6em 0 0;
+  font-size: 0.74em;
+  color: var(--nm-ink-2);
+}
+.wallLegendStrip .wallLegendSource {
+  margin: 0;
+}
+
+/* ── Story (featured event) ────────────────────────────────────────────── */
+.wallStory {
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  padding: 0.85em 1em 0.75em;
+}
+.wallLegendPlace {
+  margin: 0 0 0.15em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15em;
+}
+.wallStoryTop {
+  position: absolute;
+  z-index: 30;
+  left: 0.75em;
+  right: 0.75em;
+  top: max(0.75em, env(safe-area-inset-top));
+  pointer-events: none;
+}
+.wallStoryLeadKicker {
+  margin: 0 0 0.15em;
+  font-size: 0.84em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nm-ink-2);
+}
+/* The lead: the map's own mark and the category, at title size. */
+.wallStoryStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0 0 0.35em;
+  font-family: var(--font-display);
+  font-size: 1.32em;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.wallStoryHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6em;
+}
+.wallStoryLocator {
+  flex-shrink: 0;
+  width: 4.8em;
+  height: 3.1em;
+}
+.wallStoryStanding {
+  margin: 0.45em 0 0;
+}
+.wallStoryStanding strong {
+  font-size: 1.15em;
+}
+.wallStoryFoot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6em;
+}
+.wallStoryDots {
+  display: inline-flex;
+  gap: 0.32em;
+}
+.wallStoryDots span {
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 999px;
+  background: var(--nm-ink-2);
+  opacity: 0.35;
+}
+.wallStoryDots span[data-on] {
+  background: var(--nm-ink);
+  opacity: 1;
+}
+.wallStoryBands {
+  display: flex;
+  height: 0.7em;
+  margin: 0.6em 0 0;
+  border-radius: 0.2em;
+  overflow: hidden;
+}
+.wallStoryTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12em;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.wallStoryPlace {
+  margin: 0.1em 0 0;
+  font-size: 0.86em;
+  color: var(--nm-ink-2);
+}
+.wallStoryObservation {
+  margin: 0.45em 0 0;
+}
+.wallStoryChart {
+  margin: 0.55em 0 0;
+}
+.wallStoryChart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.wallStoryChart figcaption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+  color: var(--nm-ink-2);
+}
+.wallStoryFine {
+  margin: 0.45em 0 0;
+  font-size: 0.74em;
+  color: var(--nm-ink-2);
+}
+
+/* National flooding trend (TrendStrip): the wall card and the Explore legend. */
+.trendTitle {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5em;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.92em;
+}
+.trendNow {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--nm-ink-2);
+  font-weight: 500;
+}
+.trendChart {
+  margin: 0.45em 0 0;
+}
+.trendChart svg {
+  display: block;
+  width: 100%;
+  height: 3.2em;
+}
+.trendChart figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5em;
+  font-size: 0.74em;
+  color: var(--nm-ink-2);
+}
+.trendExplore {
+  font-size: 12px;
+  padding-top: 0.25rem;
+}
+
+/* The wall's Eddy badge (WallBrand): bottom right, room-distance type. */
+.wallBrand {
+  position: absolute;
+  z-index: 30;
+  right: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-right));
+  bottom: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-bottom));
+  font-size: clamp(12px, 1.4vmin, 28px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.6em 0.7em 0.55em;
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  pointer-events: none;
+}
+.wallBrandName {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25em;
+  line-height: 1;
+  color: var(--color-accent-600);
+}
+.wallBrandMark {
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 0.25em;
+}
+.wallBrandQr {
+  display: block;
+  padding: 0.3em;
+  background: #fff;
+  border-radius: 0.4em;
+}
+.wallBrandQr img {
+  display: block;
+  width: 6.4em;
+  height: 6.4em;
+}
+.wallBrandUrl {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95em;
+  letter-spacing: 0.02em;
+}
+
+.wallLegendSubtitle {
+  margin: 0 0 0.3em;
+  font-weight: 700;
+  font-size: 0.9em;
+}
+
+/* The featured gauge's Eddy float condition, when Eddy rates it. */
+.wallStoryRated {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0.4em 0 0;
+}
+.wallStoryRated svg {
+  flex-shrink: 0;
+  width: 1.6em;
+  height: 0.8em;
+}
+
+/* ── Vertical wall (portrait displays) ───────────────────────────────────
+   Stats band on top, the map full width in the middle, and a dock below:
+   the story (or legend) on the left; the legend, trend and the Eddy card on
+   the right, the card in the bottom-right corner. Room-distance type like
+   the other wall panels (vmin is the screen's width here). */
+.wallHead {
+  position: absolute;
+  z-index: 30;
+  top: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-top));
+  left: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-left));
+  right: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-right));
+  font-size: clamp(13px, 1.62vmin, 32px);
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  padding: 0.8em 1.1em 0.9em;
+  pointer-events: none;
+}
+.wallHeadTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  margin: 0 0 0.55em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.45em;
+  line-height: 1.1;
+}
+.wallHeadView {
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--nm-ink-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.wallHeadTiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5em 1.2em;
+  margin: 0.7em 0 0;
+  padding: 0;
+  list-style: none;
+}
+.wallHeadTiles li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wallHeadValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.9em;
+  line-height: 1;
+}
+.wallHeadNum {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+/* A changed number crossfades once, then settles. */
+.wallHeadNumIn {
+  animation: wallHeadNumIn 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes wallHeadNumIn {
+  from {
+    opacity: 0;
+    transform: translateY(0.18em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.root[data-motion='off'] .wallHeadNumIn {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wallHeadNumIn {
+    animation: none;
+  }
+}
+.wallHeadLeadRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 1.2em;
+}
+.wallHeadLeadNum {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wallHeadBig {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 3em;
+  line-height: 1;
+}
+.wallHeadLabel {
+  margin-top: 0.2em;
+  font-size: 0.82em;
+  color: var(--nm-ink-2);
+}
+.wallHeadChip {
+  display: inline-block;
+  margin-left: 0.3em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--nm-ink);
+  background: var(--nm-surface-2);
+  border: 1px solid var(--nm-hairline);
+  white-space: nowrap;
+}
+.wallHeadChipSince {
+  font-weight: 500;
+  color: var(--nm-ink-2);
+}
+.wallHeadWhy {
+  margin: 0.55em 0 0;
+  font-size: 0.9em;
+}
+.wallHeadTrend {
+  margin: 0;
+  min-width: 0;
+}
+.wallHeadTrend svg {
+  display: block;
+  width: 100%;
+  height: 3.6em;
+}
+.wallHeadTrend figcaption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72em;
+  color: var(--nm-ink-2);
+}
+.wallHeadTrendNote {
+  margin: 0;
+  font-size: 0.82em;
+  color: var(--nm-ink-2);
+}
+/* Flow: the distribution strip, much lower → much higher. */
+.wallHeadDist {
+  margin: 0.6em 0 0;
+}
+.wallHeadDistBar {
+  display: flex;
+  height: 1.25em;
+  border-radius: 0.3em;
+  overflow: hidden;
+  border: 1px solid var(--nm-hairline);
+}
+.wallHeadDistBar span,
+.wallHeadDistLabels span {
+  flex-basis: 0;
+  min-width: 0;
+  transition: flex-grow 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.root[data-motion='off'] .wallHeadDistBar span,
+.root[data-motion='off'] .wallHeadDistLabels span {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wallHeadDistBar span,
+  .wallHeadDistLabels span {
+    transition: none;
+  }
+}
+.wallHeadDistLabels {
+  display: flex;
+  margin-top: 0.25em;
+  font-size: 0.8em;
+  color: var(--nm-ink-2);
+  white-space: nowrap;
+}
+.wallHeadDistLabels span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+.wallHeadDistLabels strong {
+  color: var(--nm-ink);
+}
+.wallHeadFresh {
+  margin: 0.6em 0 0;
+  font-size: 0.74em;
+  color: var(--nm-ink-2);
+}
+.wallHeadNote {
+  margin: 0;
+  font-size: 1em;
+}
+.wallDock {
+  position: absolute;
+  z-index: 30;
+  left: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-left));
+  right: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-right));
+  bottom: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: end;
+  gap: clamp(8px, 1.4vmin, 24px);
+  font-size: clamp(13px, 1.62vmin, 32px);
+  pointer-events: none;
+}
+.wallDockCol {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vmin, 24px);
+  min-width: 0;
+}
+/* The Eddy card closes the right column: bottom-right corner of the screen. */
+.wallDockCol > .wallBrandInline {
+  align-self: flex-end;
+}
+.wallBrandInline {
+  position: static;
+}

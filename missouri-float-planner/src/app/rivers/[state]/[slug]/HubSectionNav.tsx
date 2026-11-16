@@ -14,9 +14,6 @@ const SECTIONS = [
   // whether the trip happens at all, which outranks what the gauge reads.
   { id: 'alerts', label: 'Alerts' },
   { id: 'status', label: 'Live report' },
-  // Only present on a tailwater reach — see fetchRiverDam(). Most rivers have
-  // no dam above them, and a tab that scrolls to nothing is worse than no tab.
-  { id: 'dam', label: 'Dam release' },
   // Client-loaded, so present only once the list has something in it — the
   // section itself is absent on a river with no hazards logged.
   { id: 'hazards', label: 'Hazards' },
@@ -31,11 +28,10 @@ const SECTIONS = [
  * new conditional section has to be added to this one function, or the nav and
  * the spy disagree about which ids exist.
  */
-function visibleSections(hasGuide: boolean, hasDam: boolean, hasAlerts: boolean, hasHazards: boolean) {
+function visibleSections(hasGuide: boolean, hasAlerts: boolean, hasHazards: boolean) {
   return SECTIONS.filter(
     (s) =>
       (s.id !== 'guide' || hasGuide) &&
-      (s.id !== 'dam' || hasDam) &&
       (s.id !== 'alerts' || hasAlerts) &&
       (s.id !== 'hazards' || hasHazards)
   );
@@ -47,14 +43,12 @@ const SCROLL_OFFSET = 112;
 export default function HubSectionNav({
   planUrl,
   hasGuide = true,
-  hasDam = false,
   hasAlerts = false,
   riverSlug,
 }: {
   riverSlug: string;
   planUrl: string;
   hasGuide?: boolean;
-  hasDam?: boolean;
   hasAlerts?: boolean;
 }) {
   // Not `sections[0].id` — the default is what a reader is looking at before
@@ -64,10 +58,10 @@ export default function HubSectionNav({
   // Same query the hazards section runs; React Query shares the request.
   const { data: hazards = [] } = useHazards(riverSlug);
   const hasHazards = hazards.length > 0;
-  const sections = visibleSections(hasGuide, hasDam, hasAlerts, hasHazards);
+  const sections = visibleSections(hasGuide, hasAlerts, hasHazards);
 
   useEffect(() => {
-    const ids = visibleSections(hasGuide, hasDam, hasAlerts, hasHazards).map((s) => s.id);
+    const ids = visibleSections(hasGuide, hasAlerts, hasHazards).map((s) => s.id);
     let ticking = false;
     const onScroll = () => {
       if (ticking) return;
@@ -85,7 +79,7 @@ export default function HubSectionNav({
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, [hasGuide, hasDam, hasAlerts, hasHazards]);
+  }, [hasGuide, hasAlerts, hasHazards]);
 
   return (
     <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-sm border-b border-neutral-200">

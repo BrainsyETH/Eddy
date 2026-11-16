@@ -130,6 +130,13 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     where: '/admin/gauges',
     method: 'usgs_site_id for USGS, site_id_external for NWS LIDs and USACE dam slugs.',
   },
+  gauge_wired_not_curated: {
+    kind: 'mechanical',
+    action: 'Set curated = true on the station, in a migration.',
+    where: 'supabase/migrations/',
+    method:
+      'Every station wired to a river is curated by definition (00196). Re-run that statement: update gauge_stations set curated = true where a river_gauges row points at it. The next gauge cron pass then stores its readings again.',
+  },
   gauge_dual_primary: {
     kind: 'mechanical',
     action:

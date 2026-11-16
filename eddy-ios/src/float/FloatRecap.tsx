@@ -104,7 +104,7 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
         {trip ? <>
           <View style={[styles.hero, { backgroundColor: heroTint }]}>
-            <View style={styles.row}>
+            <View style={[styles.row, styles.heroTop]}>
               <View style={[styles.grow, styles.heroCopy]}>
                 {card?.moodLine ? <Text style={[t.sm, { fontFamily: fonts.semibold, color: condition?.badge ? conditionInk(condition.badge.code, isDark) : colors.text }]}>{card.moodLine}</Text> : null}
                 {!largeText ? <>
@@ -115,7 +115,7 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
                   </Text>
                 </> : null}
               </View>
-              <FloatMoodOtter mood={card?.mood ?? null} size={largeText ? 64 : 80} />
+              <FloatMoodOtter mood={card?.mood ?? null} size={largeText ? 56 : 72} />
             </View>
             {largeText ? <>
               <Text accessibilityRole="header" style={[styles.heroTitle, { color: colors.text }]}>{trip.riverName}</Text>
@@ -124,7 +124,7 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
                 {trip.boatType ? ` · ${trip.boatType.charAt(0).toUpperCase()}${trip.boatType.slice(1)}` : ''}
               </Text>
             </> : null}
-            <View style={styles.row}>
+            <View style={[styles.row, styles.arrival]}>
               {trip.reachedTakeOut ? <ControlIcon name="checkmark-circle" size={20} color={colors.success} /> : null}
               <Text style={[t.sm, styles.grow, { color: colors.text }]}>
                 {trip.reachedTakeOut ? arrivalLine(trip) : 'Take-out wasn’t confirmed'}
@@ -133,24 +133,26 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
             </View>
           </View>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.row, styles.wrap]}>
+            <View style={[styles.row, styles.wrap, styles.cardHeading]}>
               <Text accessibilityRole="header" style={[textStyles.cardTitle, styles.routeTitle, { color: colors.text }]}>Your route</Text>
-              {route?.percent != null ? <Text style={[t.sm, { fontFamily: fonts.semibold, color: colors.interactive }]}>{route.percent}% complete</Text> : null}
-              {route ? <FloatInfoTip title="Your route" message={[
-                'Progress toward your take-out from the start of this stretch. Only a confirmed arrival shows 100%. Orange shows river sections covered, including distance estimated across GPS gaps. Dashed sections have no recorded coverage. The map follows the river, not your exact GPS track. The last recorded point may be before you finished the float.',
-                trip.startNote,
-              ].filter(Boolean).join('\n\n')} /> : null}
+              {route ? <View style={[styles.row, styles.routeStatus, largeText && styles.fullWidth]}>
+                {route.percent != null ? <Text style={[t.sm, styles.progress, { color: colors.interactive }]}>{route.percent}% complete</Text> : null}
+                <FloatInfoTip title="Your route" message={[
+                  'Progress toward your take-out from the start of this stretch. Only a confirmed arrival shows 100%. Orange shows river sections covered, including distance estimated across GPS gaps. Dashed sections have no recorded coverage. The map follows the river, not your exact GPS track. The last recorded point may be before you finished the float.',
+                  trip.startNote,
+                ].filter(Boolean).join('\n\n')} />
+              </View> : null}
             </View>
             {route ? <>
               <FloatRecapMap trip={trip} />
-              <View style={[styles.row, styles.wrap]}>
+              <View style={[styles.endpoints, styles.wrap]}>
                 <View style={[styles.endpoint, largeText && styles.fullWidth]}>
                   <View style={[styles.dot, { backgroundColor: colors.interactive }]} />
-                  <Text style={[t.sm, styles.grow, { color: colors.text }]}>{route.startName}</Text>
+                  <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>{route.startName}</Text>
                 </View>
                 <View style={[styles.endpoint, largeText && styles.fullWidth]}>
                   <View style={[styles.dot, { backgroundColor: colors.accent }]} />
-                  <Text style={[t.sm, styles.grow, { color: colors.text }]}>{trip.takeOutName}</Text>
+                  <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>{trip.takeOutName}</Text>
                 </View>
               </View>
             </> : <View style={styles.row}>
@@ -167,64 +169,74 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
                 <Text style={[t.sm, { color: colors.textMuted }]}>Total time</Text>
               </View>
             </View>
-            {missing ? <Text style={[t.sm, { color: colors.textMuted }]}>{missing}</Text> : null}
-            {card?.tracking === 'partial' ? <Text style={[t.sm, { color: colors.textMuted }]}>Limited tracking</Text> : null}
-          </View>
-          {breakdown && trackedTime > 0 ? <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.row}>
-              <Text accessibilityRole="header" style={[textStyles.cardTitle, styles.grow, { color: colors.text }]}>Time on the river</Text>
-              <FloatInfoTip title="Time on the river" message={TIME_BREAKDOWN_TIP} />
-            </View>
-            <View style={styles.stats}>
-              {breakdown.parts.map(part => <View key={part.label} style={[styles.stat, largeText && styles.fullWidth]}>
-                <Text style={[styles.duration, { color: colors.text }]}>{part.text}</Text>
-                <Text style={[t.sm, { color: colors.textMuted }]}>{part.label}</Text>
-              </View>)}
-            </View>
-            <View style={styles.timeBar} accessible accessibilityRole="image" accessibilityLabel={breakdown.accessibilityLabel}>
-              {breakdown.parts.filter(part => part.ms > 0).map(part => <View key={part.label}
-                style={{ flex: part.ms / trackedTime, backgroundColor: partColor[part.label] }} />)}
-            </View>
-            {breakdown.speed !== '—' ? <View style={[styles.row, styles.wrap]}>
-              <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Moving speed</Text>
-              <Text style={[t.sm, { fontFamily: fonts.semibold, color: colors.text }]}>{breakdown.speed}</Text>
+            {missing || card?.tracking === 'partial' ? <View style={[styles.trackingNote, { backgroundColor: colors.cardRaised }]}>
+              {missing ? <Text style={[t.sm, { color: colors.textMuted }]}>{missing}</Text> : null}
+              {card?.tracking === 'partial' ? <Text style={[t.sm, { color: colors.textMuted }]}>Limited tracking</Text> : null}
             </View> : null}
-            {breakdown.untracked ? <Text style={[t.sm, { color: colors.textMuted }]}>{duration(trip.unknownMs)} untracked</Text> : null}
-          </View> : null}
+            {breakdown && trackedTime > 0 ? <View style={[styles.timeSection, { borderTopColor: colors.border }]}>
+              <View style={styles.statColumns}>
+                {breakdown.parts.map(part => <View key={part.label} style={[styles.stat, largeText && styles.fullWidth]}>
+                  <Text style={[styles.duration, { color: colors.text }]}>{part.text}</Text>
+                  <View style={styles.timeLabel}>
+                    <View style={[styles.dot, { backgroundColor: partColor[part.label] }]} />
+                    <Text style={[t.sm, { color: colors.textMuted }]}>{part.label}</Text>
+                  </View>
+                </View>)}
+              </View>
+              <View style={styles.timeBar} accessible accessibilityRole="image" accessibilityLabel={breakdown.accessibilityLabel}>
+                {breakdown.parts.filter(part => part.ms > 0).map(part => <View key={part.label}
+                  style={{ flex: part.ms / trackedTime, backgroundColor: partColor[part.label] }} />)}
+              </View>
+              <View style={[styles.row, styles.wrap, styles.timeDetail]}>
+                {breakdown.speed !== '—' ? <>
+                  <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Moving speed</Text>
+                  <Text style={[t.sm, { fontFamily: fonts.semibold, color: colors.text }]}>{breakdown.speed}</Text>
+                </> : <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Time on the river</Text>}
+                <FloatInfoTip title="Time on the river" message={TIME_BREAKDOWN_TIP} />
+              </View>
+              {breakdown.untracked ? <Text style={[t.sm, { color: colors.textMuted }]}>{duration(trip.unknownMs)} untracked</Text> : null}
+            </View> : null}
+          </View>
+          <FloatShareButton trip={trip} />
           {condition || weather ? <View style={[styles.card, { backgroundColor: colors.card, borderColor: condition?.badge?.code === 'dangerous' ? conditionChipBorder('dangerous', isDark) : colors.border }]}>
-            <View style={styles.row}>
+            <View style={[styles.row, styles.cardHeading]}>
               <Text accessibilityRole="header" style={[textStyles.cardTitle, styles.grow, { color: colors.text }]}>Conditions at start</Text>
               <FloatInfoTip title="Conditions at start" message={conditionsTip} />
             </View>
-            {condition ? <View style={[styles.row, styles.wrap]}>
-              <EddySymbol name="gauge" size={28} />
-              {condition.badge ? <View style={[styles.badge, {
-                backgroundColor: conditionBg(condition.badge.code, isDark),
-                borderColor: conditionChipBorder(condition.badge.code, isDark),
-              }]}>
-                <Text style={[t.sm, { fontFamily: fonts.semibold, color: conditionInk(condition.badge.code, isDark) }]}>{condition.badge.label}</Text>
-              </View> : null}
-              {condition.reading.split(' · ').filter(Boolean).map((reading, i) => <Text key={reading}
-                style={[i === 0 ? styles.reading : t.base, { color: i === 0 ? colors.text : colors.textMuted }]}>{reading}</Text>)}
+            {condition ? <View style={styles.conditionRow}>
+              <View style={styles.conditionIcon}><EddySymbol name="gauge" size={28} /></View>
+              <View style={[styles.row, styles.wrap, styles.grow]}>
+                {condition.badge ? <View style={[styles.badge, {
+                  backgroundColor: conditionBg(condition.badge.code, isDark),
+                  borderColor: conditionChipBorder(condition.badge.code, isDark),
+                }]}>
+                  <Text style={[t.sm, { fontFamily: fonts.semibold, color: conditionInk(condition.badge.code, isDark) }]}>{condition.badge.label}</Text>
+                </View> : null}
+                <View style={[styles.row, styles.wrap, styles.conditionReadings]}>
+                  {condition.reading.split(' · ').filter(Boolean).map((reading, i) => <Text key={reading}
+                    style={[styles.reading, { color: i === 0 ? colors.text : colors.textMuted }]}>{reading}</Text>)}
+                </View>
+              </View>
             </View> : null}
-            {weather ? <View style={[styles.row, styles.wrap]}>
-              {weather.icon ? <WeatherIcon code={weather.icon} size={28} /> : <EddySymbol name="weather" size={28} />}
-              <Text style={[styles.reading, { color: colors.text }]}>{weather.temperature}</Text>
-              {weather.description ? <Text style={[t.base, { color: colors.text }]}>{weather.description}</Text> : null}
+            {weather ? <View style={styles.conditionRow}>
+              <View style={styles.conditionIcon}>{weather.icon ? <WeatherIcon code={weather.icon} size={28} /> : <EddySymbol name="weather" size={28} />}</View>
+              <View style={[styles.row, styles.wrap, styles.grow]}>
+                <Text style={[styles.reading, { color: colors.text }]}>{weather.temperature}</Text>
+                {weather.description ? <Text style={[t.sm, styles.weatherDescription, { color: colors.textMuted }]}>{weather.description}</Text> : null}
+              </View>
             </View> : null}
-            {condition ? <>
-              <Text style={[t.sm, { color: colors.textMuted }]}>{condition.gaugeName}</Text>
-              <Text style={[t.xs, { color: colors.textMuted }]}>{condition.age}</Text>
-            </> : null}
+            {condition ? <View style={[styles.conditionSource, { borderTopColor: colors.border }]}>
+              <Text style={[t.xs, { color: colors.textMuted }]}>{condition.gaugeName}</Text>
+              <Text style={[t.xs, { color: colors.textSubtle }]}>{condition.age}</Text>
+            </View> : null}
           </View> : null}
           <View style={styles.footer}>
-            <FloatShareButton trip={trip} />
             <Pressable accessibilityRole="button" onPress={showHistory}
               style={[styles.history, { borderBottomColor: colors.border }]}>
               <Text style={[t.base, styles.grow, { color: colors.text }]}>Float history</Text>
               <ControlIcon name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
-            {backup ? <View style={styles.row}>
+            {backup ? <View style={[styles.row, styles.backup]}>
               <ControlIcon name={archive.owner === 'guest' || archive.owner == null ? 'phone-portrait-outline' : row?.dirty || row?.backupError ? 'cloud-upload-outline' : 'cloud-done-outline'} size={18} color={colors.textMuted} />
               <Text accessibilityLiveRegion="polite" style={[t.sm, styles.grow, { color: colors.textMuted }]}>{backup.label}</Text>
               {backup.retry ? <Pressable onPress={() => void retry()} disabled={retrying || archive.syncing}
@@ -256,27 +268,44 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
   );
 }
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 40 },
-  card: { padding: 16, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 20 },
-  row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  content: { padding: 16, paddingTop: 12, gap: 12, paddingBottom: 48 },
+  card: { padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 20 },
+  cardHeading: { marginTop: -6, marginBottom: -4 },
+  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   wrap: { flexWrap: 'wrap' },
-  hero: { padding: 16, gap: 4, borderRadius: 20 },
-  heroCopy: { gap: 6 },
+  hero: { paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderRadius: 20 },
+  heroTop: { alignItems: 'flex-start' },
+  heroCopy: { gap: 2 },
+  arrival: { gap: 6 },
   heroTitle: { ...t['2xl'], fontFamily: fonts.displayBold },
-  badge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  grow: { flex: 1 },
-  routeTitle: { flexGrow: 1, flexBasis: 110 },
+  badge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  grow: { flex: 1, minWidth: 0 },
+  routeTitle: { flexGrow: 1, flexShrink: 1, flexBasis: 100 },
+  routeStatus: { flexShrink: 1, gap: 0 },
+  progress: { fontFamily: fonts.semibold, flexShrink: 1 },
   fullWidth: { flexBasis: '100%' },
-  endpoint: { flexDirection: 'row', gap: 6, alignItems: 'center', flex: 1, minWidth: 120 },
-  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingTop: 8 },
-  stat: { flex: 1, minWidth: 125, gap: 4 },
+  endpoints: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
+  endpoint: { flexDirection: 'row', gap: 6, alignItems: 'baseline', flex: 1, minWidth: 120 },
+  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingTop: 10 },
+  statColumns: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  stat: { flex: 1, minWidth: 125, gap: 2 },
   bigNumber: { ...t['2xl'], fontFamily: fonts.display },
-  timeBar: { flexDirection: 'row', height: 9, borderRadius: 4, overflow: 'hidden' },
+  trackingNote: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, gap: 3 },
+  timeSection: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 8 },
+  timeLabel: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  timeDetail: { marginTop: -4, marginBottom: -6 },
+  timeBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden' },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  duration: { ...t.lg, fontFamily: fonts.semibold },
-  reading: { ...t.lg, fontFamily: fonts.semibold },
+  duration: { ...t.base, fontFamily: fonts.semibold },
+  conditionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  conditionIcon: { width: 30, alignItems: 'center', flexShrink: 0 },
+  conditionReadings: { flexShrink: 1, maxWidth: '100%' },
+  reading: { ...t.base, fontFamily: fonts.monoMedium, flexShrink: 1 },
+  weatherDescription: { flexShrink: 1 },
+  conditionSource: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 9, gap: 2 },
   button: { paddingHorizontal: 8, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
-  footer: { gap: 8 },
+  footer: { gap: 4 },
+  backup: { paddingHorizontal: 12, minHeight: 44 },
   history: { minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 },
-  delete: { minHeight: 44, alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  delete: { minHeight: 44, marginTop: 8, alignSelf: 'flex-end', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
 });

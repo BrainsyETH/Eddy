@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deriveDualPrimaryFindings, type GaugeRiverLink } from './gauge-wiring';
+import { deriveDualPrimaryFindings, deriveUncuratedWiringFindings, gaugeWiringCheck, type GaugeRiverLink, type WiredStation } from './gauge-wiring';
+import type { TrustCheckContext } from '../types';
 
 function link(overrides: Partial<GaugeRiverLink> = {}): GaugeRiverLink {
   return {
@@ -141,4 +142,64 @@ test('renaming the station does not change the finding identity', () => {
   // The name still reaches the operator — it just does not carry identity.
   assert.match(after[0].title, /near Scotia/);
   assert.equal(after[0].evidence!.gaugeStationId, 'station-1');
+});
+
+// ── wired but not curated ─────────────────────────────────────────
+
+function station(overrides: Partial<WiredStation> = {}): WiredStation {
+  return {
+    gaugeStationId: 'station-rf',
+    gaugeLabel: 'Gasconade River near Rich Fountain, MO (06934000)',
+    curated: false,
+    active: true,
+    riverSlugs: ['gasconade'],
+    ...overrides,
+  };
+}
+
+test('an active station wired to a river without the curated flag is a finding', () => {
+  // The production case: wired to the Gasconade after 00196 ran, never flagged,
+  // so the gauge cron skipped it and its stored reading froze for three months.
+  const findings = deriveUncuratedWiringFindings([station()]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'gauge_wired_not_curated');
+  assert.equal(findings[0].entityType, 'gauge');
+  assert.equal(findings[0].entityKey, 'station-rf', 'keyed on the stable id, not the editable name');
+  assert.match(findings[0].detail, /gasconade/);
+  assert.deepEqual(findings[0].evidence, { gaugeStationId: 'station-rf', rivers: ['gasconade'] });
+});
+
+test('curated, inactive and unwired stations are not findings', () => {
+  assert.deepEqual(deriveUncuratedWiringFindings([
+    station({ curated: true }),
+    // Deliberately not polled, so the flag changes nothing for it.
+    station({ gaugeStationId: 'station-houston', active: false }),
+    station({ gaugeStationId: 'station-national', riverSlugs: [] }),
+  ]), []);
+});
+
+test('one station on two rivers is one finding with a stable river order', () => {
+  const [finding] = deriveUncuratedWiringFindings([station({ riverSlugs: ['huzzah', 'courtois'] })]);
+  assert.deepEqual(finding.evidence?.rivers, ['courtois', 'huzzah']);
+  assert.match(finding.detail, /courtois, huzzah/);
+});
+
+test('the check reads every link, pages past the row cap, and reports both rules', async () => {
+  const links = Array.from({ length: 1001 }, (_, i) => ({
+    id: `link-${String(i).padStart(4, '0')}`, gauge_station_id: i === 1000 ? 'station-rf' : `station-${i}`,
+    is_primary: false, distance_from_section_miles: null, rivers: { slug: i === 1000 ? 'gasconade' : 'current' },
+    gauge_stations: { name: i === 1000 ? 'Gasconade River near Rich Fountain, MO' : `Gauge ${i}`, usgs_site_id: i === 1000 ? '06934000' : null, curated: i !== 1000, active: true },
+  }));
+  const ranges: number[][] = [];
+  const supabase = { from: () => ({ select: () => ({
+    // The primary-links query.
+    eq: async () => ({ data: [{ ...links[0], is_primary: true, distance_from_section_miles: 0 }], error: null }),
+    // The every-link query, paged.
+    order: () => ({ range: async (from: number, to: number) => { ranges.push([from, to]); return { data: links.slice(from, to + 1), error: null }; } }),
+  }) }) };
+  const result = await gaugeWiringCheck.run({ supabase, now: new Date(), deadlineMs: Date.now() + 10_000 } as unknown as TrustCheckContext);
+  assert.deepEqual(ranges, [[0, 999], [1000, 1999]], 'a second page is read, so row 1,001 is not silently dropped');
+  assert.deepEqual(result.findings.map(f => f.ruleKey), ['gauge_wired_not_curated']);
+  assert.equal(result.findings[0].entityKey, 'station-rf');
+  assert.equal(result.scopeCount, 1);
 });

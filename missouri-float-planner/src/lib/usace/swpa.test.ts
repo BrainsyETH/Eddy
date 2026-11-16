@@ -11,7 +11,9 @@ import {
   retrievedAtFrom,
   swpaCodeCandidates,
   weekdayFileFor,
+  weekdayFileForKey,
   centralDateKey,
+  scheduleDayKeys,
   type ProjectSchedule,
 } from './swpa';
 
@@ -242,5 +244,37 @@ test('the file and the expected date always agree on the same day', () => {
     const [y, m, d] = key.split('-').map(Number);
     const expected = order[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
     assert.equal(weekdayFileFor(t), expected, `disagreement at ${t.toISOString()} (central ${key})`);
+  }
+});
+
+test('the schedule walk names each Central day once, across both clock changes', () => {
+  // fetchProjectSchedule used to step a Date with setDate(+1) in the server's
+  // zone. On a UTC host that is +24 hours, which across the fall-back night
+  // named Sunday 2026-11-01 twice (production held exactly that version) and
+  // across the spring-forward night skipped Sunday 2026-03-08. These instants
+  // are absolute, so the assertions hold whatever zone runs the test.
+  assert.deepEqual(scheduleDayKeys(3, Date.parse('2026-11-01T05:30:00Z')), ['2026-11-01', '2026-11-02', '2026-11-03'],
+    '00:30 CDT on the fall-back night');
+  assert.deepEqual(scheduleDayKeys(3, Date.parse('2026-11-02T05:30:00Z')), ['2026-11-01', '2026-11-02', '2026-11-03'],
+    '23:30 CST on fall-back day');
+  assert.deepEqual(scheduleDayKeys(3, Date.parse('2026-03-08T05:30:00Z')), ['2026-03-07', '2026-03-08', '2026-03-09'],
+    '23:30 CST the night before spring-forward');
+  assert.deepEqual(scheduleDayKeys(3, Date.parse('2026-03-08T08:30:00Z')), ['2026-03-08', '2026-03-09', '2026-03-10'],
+    '03:30 CDT just after spring-forward');
+  assert.deepEqual(scheduleDayKeys(2, Date.parse('2026-12-31T23:00:00Z')), ['2026-12-31', '2027-01-01'], 'across a year end');
+  assert.equal(scheduleDayKeys(0).length, 1, 'at least today');
+  assert.equal(scheduleDayKeys(30).length, 7, 'never more than the seven weekday files');
+  // And the fetch walks the keys, not a Date stepped in the server's zone.
+  const source = readFileSync('src/lib/usace/swpa.ts', 'utf8');
+  assert.doesNotMatch(source, /\.setDate\(/, 'no Date stepped in the server zone');
+  assert.match(source, /scheduleDayKeys\(days\)\.map\(\(key\) => fetchDayScheduleForKey\(key, options\)\)/);
+});
+
+test('the file for a day key agrees with the file for every instant in that Central day', () => {
+  // Every half hour through 2026, which covers both transitions.
+  const start = Date.parse('2026-01-01T06:00:00Z');
+  for (let t = start; t < start + 365 * 86_400_000; t += 30 * 60_000) {
+    const instant = new Date(t);
+    assert.equal(weekdayFileForKey(centralDateKey(instant)), weekdayFileFor(instant), instant.toISOString());
   }
 });

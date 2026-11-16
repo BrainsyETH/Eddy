@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FakeOutboxDb } from '../alerts/fake-outbox-db';
-import { applyToEntitlement, revokeTransferredSource } from './apply-event';
+import { applyToEntitlement, needsReconcile, revokeTransferredSource } from './apply-event';
 import type { RevenueCatEvent } from './events';
 
 const USER = '00000000-0000-4000-8000-000000000001';
@@ -66,4 +66,30 @@ test('a late transfer does not revoke a source row that has seen a newer event',
 
   await revokeTransferredSource(db, { userId: USER, entitlementId: ENT, event: event('xfer2', 'TRANSFER'), eventAt: '2026-11-02T00:00:00.000Z' });
   assert.equal(row(db).last_event_id, 'xfer2', 'A transfer newer than the row does revoke it');
+});
+
+test('a trial start that lands after its own cancellation is stale and asks for a reconcile', async () => {
+  // The production incident: offer code redeemed, auto-renew switched off in
+  // the same minute, CANCELLATION saved first. The INITIAL_PURCHASE — the only
+  // event with an expiry — is then refused as older, leaving expires_at null.
+  const db = new FakeOutboxDb();
+  const cancelPatch = { will_renew: false } as never;
+  const cancel = await applyToEntitlement(db, {
+    userId: USER, entitlementId: ENT, patch: cancelPatch, event: event('cancel', 'CANCELLATION'), eventAt: RENEWAL_AT,
+  });
+  assert.equal(cancel.status, 'applied');
+  assert.equal(needsReconcile([cancel], cancelPatch), true, 'an event without expiry must reconcile');
+  assert.equal(row(db).expires_at ?? null, null);
+
+  const purchasePatch = { expires_at: '2027-11-01T12:00:00.000Z' } as never;
+  const purchase = await applyToEntitlement(db, {
+    userId: USER, entitlementId: ENT, patch: purchasePatch, event: event('buy', 'INITIAL_PURCHASE'), eventAt: CANCEL_AT,
+  });
+  assert.equal(purchase.status, 'stale');
+  assert.equal(needsReconcile([purchase], purchasePatch), true, 'a dropped stale event must reconcile');
+});
+
+test('an applied event that carries an expiry does not reconcile', () => {
+  assert.equal(needsReconcile([{ status: 'applied' }], { expires_at: '2027-01-01T00:00:00.000Z' } as never), false);
+  assert.equal(needsReconcile([{ status: 'duplicate' }], { expires_at: '2027-01-01T00:00:00.000Z' } as never), false);
 });

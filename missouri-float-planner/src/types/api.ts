@@ -1,4 +1,4 @@
-import type { DamBelowTakeOut } from '@shared/route-hazards';
+import type { DamBelowTakeOut, HazardAbovePutIn } from '@shared/route-hazards';
 // src/types/api.ts
 // API request/response types for Eddy
 
@@ -61,6 +61,8 @@ export interface RiverListItem extends River {
 }
 
 export interface AccessPoint {
+  /** Canonical web detail path. Optional for older cached/offline payloads. */
+  path?: string;
   id: string;
   riverId: string;
   name: string;
@@ -176,8 +178,13 @@ export type NearbyServiceType =
 export interface NearbyService {
   name: string;
   type: NearbyServiceType;
+  /** Verified access-point relationship; absent on legacy/curated nearby entries. */
+  relationship?: 'same_place' | 'located_at';
+  /** This service's own photo; absent on older or photo-less listings. */
+  imageUrl?: string | null;
   phone?: string;
   website?: string;
+  reservationUrl?: string;
   distance?: string;  // "2 mi", "0.5 mi"
   notes?: string;     // "Weekends only after Labor Day"
 }
@@ -559,6 +566,8 @@ export type HazardSeverity = 'info' | 'caution' | 'warning' | 'danger';
 export interface FloatPlan {
   /** Dams within 0.5 river miles below the landing; excluded from in-route hazards. */
   damsBelowTakeOut?: DamBelowTakeOut[];
+  /** Danger hazards within 0.5 river miles above the put-in, such as the dam over a tailwater ramp. Context, not on the route. */
+  hazardsAbovePutIn?: HazardAbovePutIn[];
   /** Typical times are not adjusted to the current gauge reading. */
   estimateBasis?: 'today' | 'typical';
   /** Hazard lookup failed; the rest of the plan remains usable. Never persist as a complete plan. */
@@ -975,6 +984,11 @@ export interface Feedback {
   adminNotes: string | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  /** When an admin last emailed the submitter; null when never. */
+  lastRepliedAt: string | null;
+  lastRepliedBy: string | null;
+  /** Admin list only: where the feedback's context can be opened. */
+  contextLinks?: { label: string; href: string; external: boolean }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -997,6 +1011,8 @@ export interface FeedbackResponse {
 export interface FeedbackListResponse {
   feedback: Feedback[];
   total: number;
+  /** Address admin replies are sent from (admin list only). */
+  replyFrom?: string;
 }
 
 export interface UpdateFeedbackRequest {

@@ -66,6 +66,24 @@ const nextConfig = {
     // search engines, equivalent to 301 for ranking transfer). Query params
     // not in destination are forwarded automatically.
     return [
+      // Access lists live on each river page, not on a separate /accesses page.
+      {
+        source: '/rivers/:state/:slug/accesses',
+        destination: '/rivers/:state/:slug#access',
+        permanent: true,
+      },
+      // Keep previously shared Buffalo access links working after their slugs
+      // changed. Match the exact old URL; do not redirect other Buffalo places.
+      {
+        source: '/rivers/arkansas/buffalo/access/hasty-launch',
+        destination: '/rivers/arkansas/buffalo/access/hasty',
+        permanent: true,
+      },
+      {
+        source: '/rivers/arkansas/buffalo/access/maumee-north',
+        destination: '/rivers/arkansas/buffalo/access/north-maumee',
+        permanent: true,
+      },
       // River Reports consolidated from /gauges onto the canonical /rivers index.
       {
         source: '/gauges',

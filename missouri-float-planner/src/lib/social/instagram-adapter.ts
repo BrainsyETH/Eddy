@@ -2,12 +2,17 @@
 // Instagram platform adapter implementing PlatformAdapter interface
 
 import type { PlatformAdapter, PublishParams, PublishResult } from './types';
-import { publishToInstagram, publishVideoToInstagram, hasInstagramCredentials, validateToken } from './meta-client';
+import { publishCarousel, publishToInstagram, publishVideoToInstagram, hasInstagramCredentials, validateToken } from './meta-client';
 
 export class InstagramAdapter implements PlatformAdapter {
   platform = 'instagram' as const;
 
   async publishPost(params: PublishParams): Promise<PublishResult> {
+    if (params.imageUrls !== undefined) {
+      const result = await publishCarousel({ platform: 'instagram', caption: params.caption,
+        imageUrls: params.imageUrls, onContainer: params.onProviderAttempt });
+      return { success: result.success, platformPostId: result.postId, error: result.error, ambiguous: result.ambiguous };
+    }
     // Video posts use the Reels container flow. If the caller asked for
     // video but did not provide a videoUrl (e.g. retry of a post whose
     // render failed), refuse — do NOT silently downgrade to an image feed

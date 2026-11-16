@@ -123,3 +123,24 @@ test('missing driving coordinates fall back to the access point, on both sides',
   assert.deepEqual(navCoordinatesFor(point), expected);
   assert.deepEqual(getNavCoordinates(point), expected);
 });
+
+test('a place-name override becomes a Google directions URL, never a bare href', () => {
+  // What production actually stores: 34 access points carry a destination, not
+  // a link. Rendered raw, this was a relative href that 404'd on Eddy itself.
+  for (const override of ['Akers Ferry Lower Canoe Access, Jadwin, MO', '37.249595, -91.294243 ']) {
+    const web = generateNavLinks(COORDS, override).map(comparable);
+    const app = navLinksFor(COORDS, override).map(comparable);
+    assert.deepEqual(web, app);
+
+    const google = app.find((l) => l.app === 'google');
+    assert.equal(google?.deepLink, google?.webFallback);
+    const url = new URL(google!.webFallback);
+    assert.equal(url.origin + url.pathname, 'https://www.google.com/maps/dir/');
+    assert.equal(url.searchParams.get('destination'), override.trim());
+  }
+});
+
+test('a blank override falls back to the coordinate link', () => {
+  assert.deepEqual(generateNavLinks(COORDS, '  ').map(comparable), generateNavLinks(COORDS).map(comparable));
+  assert.deepEqual(navLinksFor(COORDS, '  ').map(comparable), navLinksFor(COORDS).map(comparable));
+});

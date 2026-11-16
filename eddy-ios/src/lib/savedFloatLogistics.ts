@@ -9,6 +9,8 @@ export interface SavedFloatLogistics {
   takeOut: SavedFloatLogistics['putIn'];
   hazards: Hazard[];
   damsBelowTakeOut?: FloatPlan['damsBelowTakeOut'];
+  /** Older saves omit it. */
+  hazardsAbovePutIn?: FloatPlan['hazardsAbovePutIn'];
   hazardsUnavailable?: boolean;
   /** When the retained hazard list was last loaded successfully. */
   hazardsSavedAt?: string;
@@ -30,6 +32,7 @@ export function savedFloatLogistics(plan: FloatPlan, now = new Date().toISOStrin
     putIn: point(plan.putIn), takeOut: point(plan.takeOut),
     hazards: (hazardsUnavailable ? retained?.hazards ?? [] : plan.hazards).map((hazard) => ({ ...hazard })),
     damsBelowTakeOut: (hazardsUnavailable ? retained?.damsBelowTakeOut ?? [] : plan.damsBelowTakeOut ?? []).map(dam => ({ ...dam })),
+    hazardsAbovePutIn: (hazardsUnavailable ? retained?.hazardsAbovePutIn ?? [] : plan.hazardsAbovePutIn ?? []).map(hazard => ({ ...hazard })),
     hazardsUnavailable,
     hazardsSavedAt: hazardsUnavailable
       ? retained?.hazardsSavedAt ?? (retained && !retained.hazardsUnavailable ? retained.savedAt : undefined)

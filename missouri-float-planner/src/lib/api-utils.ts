@@ -78,9 +78,9 @@ export function jsonPrivate(body: unknown, init?: ResponseInit): NextResponse {
  * Type guard for Supabase joined river relation data.
  * Used when a query includes `rivers(id, name, slug)`.
  */
-export function getRiverData(rivers: unknown): { id?: string; name?: string; slug?: string } | null {
+export function getRiverData(rivers: unknown): { id?: string; name?: string; slug?: string; state?: string } | null {
   if (!rivers || typeof rivers !== 'object') return null;
-  return rivers as { id?: string; name?: string; slug?: string };
+  return rivers as { id?: string; name?: string; slug?: string; state?: string };
 }
 
 /**

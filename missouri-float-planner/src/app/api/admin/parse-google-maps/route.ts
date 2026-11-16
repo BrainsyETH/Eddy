@@ -1,8 +1,10 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/parse-google-maps/route.ts
 // POST /api/admin/parse-google-maps - Parse Google Maps URL to extract name and coordinates
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/admin-auth';
+import { BlockedUrlError, fetchPublicUrl } from '@/lib/security/public-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,9 +109,9 @@ function extractPlaceId(url: string): string | null {
   return null;
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const body = await request.json();
@@ -159,32 +161,26 @@ export async function POST(request: NextRequest) {
 
     // If it's a shortened URL on an allowlisted host, follow redirects to expand it.
     if (isShortlink) {
-      try {
-        // Follow redirects to get the expanded URL
-        const response = await fetch(url, {
-          method: 'HEAD',
-          redirect: 'follow',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; Eddy/1.0)',
-          },
-        });
-        expandedUrl = response.url;
-        finalUrl = expandedUrl;
-      } catch (fetchError) {
-        // Try with GET request if HEAD fails
+      // Follow redirects one hop at a time. Every hop must be https to a
+      // public address, and the result is only used if it lands on Google
+      // Maps — a short link that redirects anywhere else is ignored rather
+      // than fetched or echoed back.
+      for (const method of ['HEAD', 'GET'] as const) {
         try {
-          const response = await fetch(url, {
-            method: 'GET',
-            redirect: 'follow',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (compatible; Eddy/1.0)',
-            },
+          const { response, finalUrl: landed } = await fetchPublicUrl(url, {
+            init: { method, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Eddy/1.0)' }, signal: AbortSignal.timeout(10_000) },
           });
-          expandedUrl = response.url;
-          finalUrl = expandedUrl;
-        } catch {
-          // If we can't expand it, continue with the original URL
-          console.warn('Could not expand shortened URL:', fetchError);
+          await response.body?.cancel().catch(() => undefined);
+          const landedHost = new URL(landed).hostname.toLowerCase();
+          if (landedHost === 'google.com' || landedHost.endsWith('.google.com')) {
+            expandedUrl = landed;
+            finalUrl = landed;
+          }
+          break;
+        } catch (fetchError) {
+          if (fetchError instanceof BlockedUrlError) break;
+          // HEAD is refused by some hosts; try GET once, then keep the original URL.
+          if (method === 'GET') console.warn('Could not expand shortened URL:', fetchError);
         }
       }
     }
@@ -220,3 +216,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

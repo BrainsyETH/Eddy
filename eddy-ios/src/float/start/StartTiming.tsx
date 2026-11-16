@@ -6,14 +6,20 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { accent } from '@/theme/palette';
 import { fonts, type as t } from '@/theme/typography';
 import { VesselSpeedTip } from './VesselSpeedTip';
+import { startEstimateMessage } from '@/lib/startEstimateStatus';
+import { TextButton } from './ui';
 
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-export function StartTiming({ minutes, now, at, loading }: {
+export function StartTiming({ minutes, now, at, loading, failed, reason, typical, onRetry }: {
   minutes: number | null;
   now: number;
   at: LngLat;
   loading: boolean;
+  failed: boolean;
+  reason: 'dangerous' | 'regulated' | null;
+  typical: boolean;
+  onRetry: () => void;
 }) {
   const { colors, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
@@ -43,9 +49,10 @@ export function StartTiming({ minutes, now, at, loading }: {
           <VesselSpeedTip />
         </View>
       </> : <View style={local.footer}>
-        <Text style={[t.sm, local.daylightCopy, { color: colors.textMuted }]}>
-          {loading ? 'Checking float time…' : 'Eddy will learn your pace'}
+        <Text style={[t.sm, local.daylightCopy, { color: reason === 'dangerous' ? colors.error : colors.textMuted }]}>
+          {startEstimateMessage({ loading, failed, reason, typical })}
         </Text>
+        {failed && !loading ? <TextButton label="Retry" onPress={onRetry} /> : null}
         <VesselSpeedTip />
       </View>}
     </View>

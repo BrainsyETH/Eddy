@@ -122,7 +122,7 @@ test('agency scenery outside the optimizer allowlist renders directly; approved 
 test('reviewed content retains provenance in the saved JSON and binds credits to the exact hero', () => {
   for (const seed of riverGuideSeeds) {
     const saved = guideInsertRow(seed, false, '2026-10-11T00:00:00Z');
-    assert.equal(saved.guide_data.checked_at, '2026-10-11');
+    assert.equal(saved.guide_data.checked_at, '2026-11-10');
     assert.ok(saved.guide_data.sources?.length);
     assert.equal(saved.guide_data.use_access_photos, false);
     assert.notEqual(seed.description, seed.guide_data.hero.lede);

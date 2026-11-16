@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // POST /api/admin/pois/[id]/compute-mile
 // Computes river_mile for a POI by projecting its coordinates onto the river line
 
@@ -7,12 +8,12 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
@@ -90,3 +91,5 @@ export async function POST(
     );
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

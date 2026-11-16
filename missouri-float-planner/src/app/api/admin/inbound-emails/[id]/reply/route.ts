@@ -1,3 +1,4 @@
+import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/inbound-emails/[id]/reply/route.ts
 // POST /api/admin/inbound-emails/[id]/reply — send a reply to a received message
 // from eddy.guide via Resend, threaded to the original, as branded HTML.
@@ -12,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { getResendClient, hasResendApiKey, pickReplyFromAddress } from '@/lib/email/resend';
-import { mapInboundEmailRow } from '@/lib/email/inbound';
+import { countUnreadInboundEmails, mapInboundEmailRow } from '@/lib/email/inbound';
 import { sanitizeRichText } from '@/lib/sanitize';
 import { renderReplyEmail, buildReplyText, htmlToText, escapeHtml, type OriginalMessage } from '@/lib/email/render';
 
@@ -35,12 +36,12 @@ function textToHtml(text: string): string {
     .join('');
 }
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = requireAdminAuth(request);
+    const authError = await requireAdminAuth(request);
     if (authError) return authError;
 
     if (!hasResendApiKey()) {
@@ -155,9 +156,12 @@ export async function POST(
     return NextResponse.json({
       email: mapInboundEmailRow(updated ?? row),
       sendId: sent?.id ?? null,
+      unread: await countUnreadInboundEmails(supabase),
     });
   } catch (error) {
     console.error('[InboundReply] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const POST = withAdminMutation(handlePOST);

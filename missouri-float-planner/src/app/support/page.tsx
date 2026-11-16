@@ -13,6 +13,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import SiteFooter from '@/components/ui/SiteFooter';
+import { FEEDBACK_SUPPORT_ADDRESS } from '@/lib/feedback/admin';
 
 export const metadata: Metadata = publicPageMetadata(
   'Support',
@@ -21,7 +22,7 @@ export const metadata: Metadata = publicPageMetadata(
   SHARE_IMAGES.site,
 );
 
-const SUPPORT_EMAIL = 'eddy@eddy.guide';
+const SUPPORT_EMAIL = FEEDBACK_SUPPORT_ADDRESS;
 
 const heading = 'text-2xl font-bold text-neutral-900 mb-3';
 const body = 'text-neutral-700 leading-relaxed';

@@ -116,8 +116,8 @@ test('the lock row is ONE line', () => {
   //
   // Asserted against the component rather than the constants, because the way
   // this regresses is a second <Text> appearing in the row, not a new export.
-  const take = readFileSync('../eddy-ios/src/components/EddyTake.tsx', 'utf8');
-  const row = take.slice(take.indexOf('accessibilityLabel={PREMIUM_LOCK_TITLE}'));
+  const lock = readFileSync('../eddy-ios/src/components/PremiumLock.tsx', 'utf8');
+  const row = lock.slice(lock.indexOf('accessibilityLabel={PREMIUM_LOCK_TITLE}'));
   const body = row.slice(0, row.indexOf('</Pressable>'));
   assert.equal(
     (body.match(/<Text/g) ?? []).length,
@@ -126,12 +126,29 @@ test('the lock row is ONE line', () => {
   );
 });
 
-test('EddyTake reads the lock copy rather than holding its own', () => {
+test('the lock row reads the lock copy rather than holding its own', () => {
   // The third surface, and the last one to be inlined. It drifted the same way
   // the other two did and for the same reason: nothing could see it.
-  const take = readFileSync('../eddy-ios/src/components/EddyTake.tsx', 'utf8');
-  assert.match(take, /from '@\/lib\/premiumCopy'/);
-  assert.match(take, /PREMIUM_LOCK_TITLE/);
+  const lock = readFileSync('../eddy-ios/src/components/PremiumLock.tsx', 'utf8');
+  assert.match(lock, /from '@\/lib\/premiumCopy'/);
+  assert.match(lock, /PREMIUM_LOCK_TITLE/);
+});
+
+test('every locked Read on a plain card draws the one shared lock', () => {
+  // The dam card once drew its own: a padlock in the header, a grey blurred
+  // slab that doubled as its loading state, and an "Unlock with Premium" link,
+  // beside river and gauge Reads that use frosted prose and one accent row.
+  // Each card using PremiumLock is what keeps a fourth variant from appearing.
+  for (const path of [
+    '../eddy-ios/src/components/EddyTake.tsx',
+    '../eddy-ios/src/components/dam/DamEddyRead.tsx',
+  ]) {
+    const source = readFileSync(path, 'utf8');
+    assert.match(source, /from '@\/components\/PremiumLock'/, `${path} imports the shared lock`);
+    assert.match(source, /<PremiumLockRow\b/, `${path} draws the shared lock row`);
+    assert.doesNotMatch(source, /lock-closed/, `${path} draws a padlock of its own`);
+    assert.doesNotMatch(source, /BlurredReadPreview/, `${path} uses the photo card's grey preview`);
+  }
 });
 
 test('no paywall surface enumerates what is free', () => {
@@ -151,7 +168,8 @@ test('no paywall surface enumerates what is free', () => {
   // free at length, where it is a commitment rather than a sales aside.
   const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
   const take = readFileSync('../eddy-ios/src/components/EddyTake.tsx', 'utf8');
-  for (const source of [paywall, take]) {
+  const lock = readFileSync('../eddy-ios/src/components/PremiumLock.tsx', 'utf8');
+  for (const source of [paywall, take, lock]) {
     assert.doesNotMatch(source, /PREMIUM_FREE_NOTE/);
     assert.doesNotMatch(source, /PREMIUM_LOCK_FREE_NOTE/);
   }
@@ -189,6 +207,8 @@ test('no iOS surface still claims Premium includes alerts or offline maps', () =
     '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/gauge/[siteId].tsx',
     '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx',
     '../eddy-ios/src/components/EddyTake.tsx',
+    '../eddy-ios/src/components/PremiumLock.tsx',
+    '../eddy-ios/src/components/dam/DamEddyRead.tsx',
   ];
   const retired = [
     /Unlock Eddy's daily river reads, 72-hour trends/i,

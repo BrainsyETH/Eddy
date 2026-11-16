@@ -21,7 +21,8 @@
 // shared provider-aware contract, preserving the exact station on the web.
 
 import { shareStation, gaugeSharePath as sharedGaugePath } from '@eddy/conditions/chart-share';
-import { Share } from 'react-native';
+import { Platform, Share } from 'react-native';
+import { linkSharePayload } from './sharePayload';
 import Constants from 'expo-constants';
 
 /**
@@ -44,20 +45,15 @@ export function gaugeSharePath(provider: string | null | undefined, siteId: stri
 }
 
 /**
- * Open the system share sheet.
- *
- * `message` carries the URL as well as the title because iOS drops the `url`
- * field for several targets (SMS and most third-party apps take only text), and
- * a share that arrives as a bare river name with no link is worse than useless.
- * `url` is still passed so the targets that DO honour it — Mail, AirDrop — get
- * a real link object and can render the preview card.
+ * Open the system share sheet for a link. The payload, and why the link goes
+ * once, is in sharePayload.ts.
  *
  * Resolves quietly when the user cancels: dismissing a share sheet is not an
  * error and must never produce an alert.
  *
  * ── No condition text ───────────────────────────────────────────────────
  *
- * The message is the title and the link, nothing else. Eddy's condition
+ * The share is the title and the link, nothing else. Eddy's condition
  * summary once rode along as a middle line, and it reached the recipient with
  * no time attached, so a verdict about this morning's water read as current
  * days later. Opening the link is how a recipient gets current conditions
@@ -66,12 +62,27 @@ export function gaugeSharePath(provider: string | null | undefined, siteId: stri
  * time and time zone in its own helper.
  */
 export async function shareLink(title: string, path: string): Promise<void> {
-  const url = webUrl(path);
-  const message = `${title}\n${url}`;
+  const { content, options } = linkSharePayload(Platform.OS, title, webUrl(path));
   try {
-    await Share.share({ title, url, message });
+    await Share.share(content, options);
   } catch {
     // Sharing is never load-bearing. A failure here costs the user nothing they
     // cannot retry, and an error dialog over a share sheet is noise.
+  }
+}
+
+/**
+ * Share text that already ends with its link: a float plan's summary. The link
+ * stays inside the text on purpose. Sent as a separate item, a target that
+ * accepts only one item could keep the summary and drop the link.
+ *
+ * Quiet on failure, like shareLink. The planner shares through planActions
+ * instead, which reports a sheet that will not open.
+ */
+export async function shareMessage(message: string): Promise<void> {
+  try {
+    await Share.share({ message });
+  } catch {
+    // See shareLink.
   }
 }

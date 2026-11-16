@@ -41,12 +41,28 @@
 //
 // Reads and writes both go through the service client. The table carries no
 // anon or authenticated grant and no RLS policy (see the migration header): its
-// only readers are the two dam routes, and its only writer is
-// /api/cron/sync-dam-snapshots.
+// readers are server-side only — the dam routes, the dam page and embed (as the
+// net under a live read, see withStoredFallback), and the cron itself (to carry
+// a reading over a failed request, see carryFromPrevious) — and its only writer
+// is /api/cron/sync-dam-snapshots.
+//
+// ── Carrying a reading is not serving a stale row ─────────────────────────
+//
+// carryForwardMetrics copies individual OBSERVATIONS out of a fresh row, each
+// with its own timestamp and bounded by its own age (CARRY_FORWARD_MAX_HOURS).
+// carryForwardSchedule copies posted DAYS that are still today or later, each
+// with its own retrievedAt and bounded by it (SCHEDULE_CARRY_MAX_HOURS).
+// Neither reaches past MAX_AGE_MS for a row.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';
-import { declaresNoSources } from '@/lib/data/dams';
+import {
+  carryForwardMetrics,
+  carryForwardSchedule,
+  declaresNoSources,
+  fetchDamDetail,
+  refreshStaleness,
+} from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import type { DamSnapshot } from '@shared/dam-types';
 
@@ -57,8 +73,9 @@ const TABLE = 'dam_snapshots';
  *
  * The cron runs hourly, so three hours is three consecutive failures — past
  * coincidence, and the point at which "the schedule Eddy is showing" and "the
- * schedule SWPA published" can genuinely differ, because SWPA republishes in
- * the afternoon and a stale row could straddle that.
+ * schedule SWPA published" can genuinely differ, because SWPA posts each day's
+ * sheet overnight (and weekend sheets the evening before) and a stale row could
+ * straddle that.
  *
  * NOT derived from the CDN's s-maxage. That governs how long an assembled
  * response may be re-served; this governs how long an assembly is worth
@@ -172,21 +189,70 @@ export async function readStoredSnapshot(
 }
 
 /**
- * Does this snapshot say anything?
+ * Did this snapshot read anything from an upstream source?
  *
- * The same test the dam screen uses to decide whether it has anything to draw.
  * fetchDamDetail never throws — every source it reads is caught and contributes
  * nothing on failure — so a total upstream outage produces a well-formed
  * snapshot with nothing in it, identical in shape to a project that genuinely
  * publishes nothing.
+ *
+ * The observed pattern does NOT count. It is read from dam_metric_readings,
+ * Eddy's own table, so it is present whenever Supabase is up, whatever CWMS and
+ * SWPA did. Counting it let a pass where both upstreams failed write a
+ * pattern-only row over a good one, schedule and readings included, with
+ * keptOnOutage still reading 0.
  */
 export function saysAnything(snapshot: DamSnapshot): boolean {
   return (
     Object.keys(snapshot.metrics).length > 0 ||
     snapshot.schedule.length > 0 ||
-    Boolean(snapshot.generationForecast) ||
-    Boolean(snapshot.pattern?.length)
+    Boolean(snapshot.generationForecast)
   );
+}
+
+/**
+ * A live read, backed by the last stored snapshot where the live read fell short.
+ *
+ * Three cases, by what the live read managed:
+ *
+ *   nothing at all  → the stored snapshot, re-banded. A total upstream outage
+ *                     produces a well-formed EMPTY snapshot (see saysAnything),
+ *                     and serving that over a good row from this hour would
+ *                     tell a reader the Corps publishes nothing about the dam.
+ *   something       → the live snapshot, with any metric it dropped carried
+ *                     from the stored one by carryForwardMetrics — each with
+ *                     its own observation time, bounded by its own age — and
+ *                     any posted day it lost carried by carryForwardSchedule.
+ *   no live result  → the stored snapshot, if any (unknown dam ids stay null).
+ *
+ * The stored side is only ever a FRESH row (readStoredSnapshot's MAX_AGE_MS),
+ * so a dead cron degrades to plain read-through rather than to an old schedule.
+ *
+ * Pure, so the rule is held by tests rather than by a database.
+ */
+export function withStoredFallback(
+  live: DamSnapshot | null,
+  stored: DamSnapshot | null,
+  now = Date.now(),
+): DamSnapshot | null {
+  if (!stored) return live;
+  if (!live || !saysAnything(live)) return refreshStaleness(stored, now);
+  return carryForwardSchedule(carryForwardMetrics(live, stored, now), stored, now);
+}
+
+/**
+ * A dam page's read: live, with the stored snapshot as the safety net.
+ *
+ * The two reads run side by side, so the net costs one single-row query and
+ * no added latency.
+ */
+export async function fetchDamDetailWithFallback(damId: string): Promise<DamSnapshot | null> {
+  const now = Date.now();
+  const [live, stored] = await Promise.all([
+    fetchDamDetail(damId),
+    readStoredSnapshot(damId, { now }),
+  ]);
+  return withStoredFallback(live, stored, Date.now());
 }
 
 /**
@@ -243,6 +309,38 @@ export function decideWrites(
   }
 
   return { writable, keptOnOutage };
+}
+
+/**
+ * Carry each writable snapshot's dropped metrics and lost schedule days forward
+ * from the row it is about to replace, and count the dams that needed each.
+ *
+ * Runs AFTER decideWrites, never before. A pass that read nothing for a dam is
+ * an outage and is not written at all, so the stored row stands whole. Carrying
+ * first would turn that empty read into "something".
+ *
+ * Without this the stored row is only as good as the single request the cron
+ * made per source: one failed generationFlow request at :35 and every reader of
+ * /api/dams/[damId], the embed and the iOS app sees "Release status unavailable"
+ * for the next hour; one failed SWPA file and they see no schedule while SWPA is
+ * posting generation (carryForwardSchedule).
+ */
+export function carryFromPrevious(
+  snapshots: DamSnapshot[],
+  previous: Map<string, DamSnapshot>,
+  now = Date.now(),
+): { snapshots: DamSnapshot[]; carriedDams: number; scheduleCarriedDams: number } {
+  let carriedDams = 0;
+  let scheduleCarriedDams = 0;
+  const out = snapshots.map((snapshot) => {
+    const prior = previous.get(snapshot.id);
+    const withMetrics = carryForwardMetrics(snapshot, prior, now);
+    if (withMetrics !== snapshot) carriedDams += 1;
+    const withSchedule = carryForwardSchedule(withMetrics, prior, now);
+    if (withSchedule !== withMetrics) scheduleCarriedDams += 1;
+    return withSchedule;
+  });
+  return { snapshots: out, carriedDams, scheduleCarriedDams };
 }
 
 /** Write the snapshots decideWrites selected. Returns how many rows landed. */

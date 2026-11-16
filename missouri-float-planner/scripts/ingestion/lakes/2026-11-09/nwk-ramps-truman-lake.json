@@ -1,0 +1,694 @@
+{
+ "lake": {
+  "lake_name": "Truman Lake",
+  "multipurpose_pool_ft": 706,
+  "flood_pool_ft": 739.6,
+  "datum": "NGVD29",
+  "source": "USACE Kansas City District, Harry S. Truman Dam and Reservoir project data (multipurpose pool 706.0, flood control pool 739.6)"
+ },
+ "retrieved_at": "2026-11-09T19:11:23.391Z",
+ "ramps": [
+  {
+   "source_id": "43afe55f-d4d9-4503-b16e-2d4008aadd6f",
+   "name": "Avery",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.32712715236171,
+   "lat": 38.06168133177886,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "bf277e70-19bd-4323-927d-c2a5aba5f218",
+   "name": "Berry Bend",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.50716801993286,
+   "lat": 38.20053966967425,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "2d1872e1-1031-48dd-81ea-bf9d803f64fd",
+   "name": "Brush Creek",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.66548271464097,
+   "lat": 38.06134476598818,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "13de81e5-6db3-4d83-9095-8d4b7a643642",
+   "name": "Bucksaw Marina",
+   "designation": "Boat Ramp",
+   "description": "Marina Boat Ramp",
+   "lake_name": "Truman Lake",
+   "agency": "Lease",
+   "lon": -93.60048748291253,
+   "lat": 38.26141163935122,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "55ab9991-2977-4896-9d9d-e7a74bd9066f",
+   "name": "City of Osceola",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.70614642651876,
+   "lat": 38.047872968074806,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2025-01-15T14:56:33.942Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "9386dc47-e1cc-4caa-8aef-dbfbae252521",
+   "name": "City of Roscoe",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "Lease",
+   "lon": -93.81114919123412,
+   "lat": 37.98575600734657,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "d1af04ee-568a-46c8-8770-32229601e6ce",
+   "name": "County Line",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.50562878723622,
+   "lat": 38.2717944651303,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "5752f297-4e16-4cae-b737-3b0a3794a41d",
+   "name": "Cross Timbers Access",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.31328403927324,
+   "lat": 37.98108125123745,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2025-01-15T14:55:42.140Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "58352ad9-aa07-4978-b9d1-af414321690e",
+   "name": "Crowes Crossing",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.69251990982173,
+   "lat": 38.06296778867434,
+   "ramp_bottom_elev_ft": 706,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "e60cfd54-bb4a-4aea-8802-07d7d290fbe3",
+   "name": "Deepwater",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "Lease",
+   "lon": -93.73961124183056,
+   "lat": 38.26493637828252,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 723,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "010ab50d-cc2c-4904-b3c3-ebc05ba6302f",
+   "name": "Deepwater Creek",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "MDC",
+   "lon": -93.82365302403177,
+   "lat": 38.29360893662937,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "1c5b2d9d-d205-4d8e-a9e5-4b8a489d5ac1",
+   "name": "Drake Harbor",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "Lease",
+   "lon": -93.38193307679167,
+   "lat": 38.240001381043236,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2025-01-15T14:51:39.408Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "2b0740ed-f8b1-4524-9638-2e9411bde4b6",
+   "name": "East Bledsoe Ferry",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.3959965573991,
+   "lat": 38.26203985787798,
+   "ramp_bottom_elev_ft": 645,
+   "ramp_closure_elev_ft": 677,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "thresholds_below_this_lake"
+   ]
+  },
+  {
+   "source_id": "5068e129-363f-4c99-954f-2b8e09efe73d",
+   "name": "Fairfield",
+   "designation": "Access",
+   "description": "Corps Boat Ramp",
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.40896846905366,
+   "lat": 38.14159191941305,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 720,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "16bbe831-2c4c-4a40-8fc1-485c86109070",
+   "name": "Finey",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.5311095712372,
+   "lat": 38.27548687440577,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "0b41b99d-1e01-4eee-b1ec-bc0665605dc0",
+   "name": "Fox Run",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.57332723650416,
+   "lat": 38.17402088540233,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "ab36956a-ecbe-4e96-8151-ad1c3d4b5b54",
+   "name": "Grand River",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "MDC",
+   "lon": -93.81834963919061,
+   "lat": 38.34209088402603,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "88e9eef4-d878-4a35-a97a-f895eed2a9b9",
+   "name": "Higgins Landing",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.56817893232207,
+   "lat": 38.20090038256571,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "7171c55d-276d-424a-a832-92dcbfd84b6d",
+   "name": "Knisely",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.6398403309069,
+   "lat": 38.26034192725205,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "1997f144-3854-4c7b-b740-911b9c890ed8",
+   "name": "Lays Valley View",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.4297757857553,
+   "lat": 38.20793710387185,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2025-01-15T14:53:21.131Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "80b12923-a29e-4183-a52f-d3cd05b237c4",
+   "name": "Long Shoal",
+   "designation": "Boat Ramp",
+   "description": "Corps Boat Ramp",
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.47366807240861,
+   "lat": 38.266767163283774,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "1447a580-a89b-4c9e-81c4-c322e8e805b7",
+   "name": "Long Shoal Marina",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "Lease",
+   "lon": -93.4661086352067,
+   "lat": 38.27638001492321,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 718,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "2f36bbca-22a5-4b8a-a36b-6c0ce7270e3f",
+   "name": "Macks Camp",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.45853656948852,
+   "lat": 38.31145557393559,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "1dd8a254-df17-4f8e-9b4b-cd8bb1b6aa80",
+   "name": "Mockingbird Hill",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.38892509853426,
+   "lat": 38.15497782419859,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "b40ed5ff-3835-4d45-83e1-99c1f4f86bab",
+   "name": "Old Timers",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.55916785624856,
+   "lat": 38.20591167899679,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "064eb553-f2a3-4b2d-a9f9-1b2a7077abd7",
+   "name": "Osage Bluff",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.37862661718269,
+   "lat": 38.18074600544682,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "a15f5c89-a9bb-4d4e-8cc4-a712e7cb8d22",
+   "name": "Osage Bluff Marina",
+   "designation": "Boat Ramp",
+   "description": "Marina Boat Ramp",
+   "lake_name": "Truman Lake",
+   "agency": "Lease",
+   "lon": -93.3759659752961,
+   "lat": 38.17742614155497,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 723,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "31d55ae2-2a59-418b-8a6b-1f7e870b93c8",
+   "name": "Pom-O-Sa",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.39850738724577,
+   "lat": 38.176585874642086,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "da7c78cd-5b73-45a7-baf9-6210210e6fc9",
+   "name": "Sac River",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "MDC",
+   "lon": -93.73572452354863,
+   "lat": 37.99619309054634,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "bcb08b2d-c42e-4b55-b216-1476de5d3a3d",
+   "name": "Sapps Landing",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "MDC",
+   "lon": -93.30361334915125,
+   "lat": 38.0206723680671,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "baaac46d-e0c9-414a-a401-fadb54fafebd",
+   "name": "Shawnee Bend",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.41984819991993,
+   "lat": 38.26575896461869,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "509310bc-9d37-4475-a95b-67c727f18d99",
+   "name": "Shawnee Bend",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.42058779277481,
+   "lat": 38.26633752393364,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "6062e326-fd02-4856-a904-b585866e415b",
+   "name": "South French Bridge",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": null,
+   "lon": -93.56092678632096,
+   "lat": 38.25878481097643,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "b83abba0-810c-4b74-b994-c6fb4e936321",
+   "name": "Sparrowfoot",
+   "designation": "Boat Ramp",
+   "description": "Corps Boat Ramp",
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.73727404914177,
+   "lat": 38.30776788302787,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 725,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "e4169157-5613-4b59-96ac-9c5f691a7152",
+   "name": "Sterett Creek Marina",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.36801409199433,
+   "lat": 38.29443045506661,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 720,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "1eb6cdc2-5b2e-4820-8deb-75709e64442f",
+   "name": "Talley Bend",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.61598554877418,
+   "lat": 38.14337704094897,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "f0dd9efa-7c6e-47d9-aef2-5d78d198ec35",
+   "name": "Talley Bend (high water ramp)",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.615053210697,
+   "lat": 38.14354631010903,
+   "ramp_bottom_elev_ft": 724,
+   "ramp_closure_elev_ft": 727,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "narrow_band"
+   ]
+  },
+  {
+   "source_id": "ff4754f2-5480-48a1-8fe4-216c520e2b0d",
+   "name": "Thibaut Point",
+   "designation": "Boat Ramp",
+   "description": "Boat Ramp",
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.40089059254171,
+   "lat": 38.29831142767944,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 724,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "415aeef1-0a05-48ac-b28f-67ec52da6a53",
+   "name": "Tightwad",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.54643846905948,
+   "lat": 38.27273270613496,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "3ef1bec6-1fa3-412d-8eb3-8403c32538c6",
+   "name": "Truman State Park",
+   "designation": "Boat Ramp",
+   "description": "Boat Ramp",
+   "lake_name": "Truman Lake",
+   "agency": "MODNR",
+   "lon": -93.45449955407643,
+   "lat": 38.29364607805901,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 725,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "aa038028-af68-452c-aa19-22f13521d21a",
+   "name": "Truman State Park Marina",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "MODNR",
+   "lon": -93.42821539953037,
+   "lat": 38.281847506546946,
+   "ramp_bottom_elev_ft": 705,
+   "ramp_closure_elev_ft": 732,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  },
+  {
+   "source_id": "611aa9b3-63a6-4d6b-bdcf-ad2f2b2f5774",
+   "name": "TT Highway",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "MODNR",
+   "lon": -93.50291000728276,
+   "lat": 38.345764787211245,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "cf1acefe-da27-418c-8635-07f014150a07",
+   "name": "Walnut Grove",
+   "designation": "Access",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "MDC",
+   "lon": -93.39480472657905,
+   "lat": 38.20072451682934,
+   "ramp_bottom_elev_ft": null,
+   "ramp_closure_elev_ft": null,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": [
+    "no_thresholds"
+   ]
+  },
+  {
+   "source_id": "3dca18fb-f074-4206-bb0a-dcb9de7f3162",
+   "name": "Warsaw City Harbor",
+   "designation": "Boat Ramp",
+   "description": null,
+   "lake_name": "Truman Lake",
+   "agency": "Lease",
+   "lon": -93.38745738071741,
+   "lat": 38.24545655479123,
+   "ramp_bottom_elev_ft": 645,
+   "ramp_closure_elev_ft": 677,
+   "source_updated_at": "2025-01-15T14:51:39.408Z",
+   "flags": [
+    "thresholds_below_this_lake"
+   ]
+  },
+  {
+   "source_id": "bb72e42b-93c4-416a-8828-187aba392c27",
+   "name": "Windsor Crossing",
+   "designation": "Boat Ramp",
+   "description": "Corps",
+   "lake_name": "Truman Lake",
+   "agency": "USACE",
+   "lon": -93.5426107260743,
+   "lat": 38.36578075976796,
+   "ramp_bottom_elev_ft": 704,
+   "ramp_closure_elev_ft": 720,
+   "source_updated_at": "2024-12-09T20:51:41.000Z",
+   "flags": []
+  }
+ ]
+}

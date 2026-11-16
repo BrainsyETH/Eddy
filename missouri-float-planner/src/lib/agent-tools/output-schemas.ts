@@ -87,6 +87,13 @@ const plan = z
       riverMile: z.number(),
       distanceBelowTakeOutMiles: z.number(),
     })),
+    hazardsAbovePutIn: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      type: z.string(),
+      riverMile: z.number(),
+      distanceAbovePutInMiles: z.number(),
+    })),
     estimatedFloatTime: z
       .object({
         minutes: z.number(),
@@ -132,6 +139,7 @@ const searchPlan = plan
     conditionAvailability: true,
     conditionNote: true,
     damsBelowTakeOut: true,
+    hazardsAbovePutIn: true,
     estimatedFloatTime: true,
     floatTimeWithheldReason: true,
     anchorGauge: true,

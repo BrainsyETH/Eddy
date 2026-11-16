@@ -1,6 +1,6 @@
 import { LABELS } from '@shared/social-brand';
-import type { ReadWeather } from '@shared/eddy-read-reel';
-import { reportStamp, shortSummary } from '@shared/social-editorial';
+import type { ReadWeather, ReadScene } from '@shared/eddy-read-reel';
+import { reportStamp } from '@shared/social-editorial';
 // src/lib/social/post-types.ts
 //
 // Single source of truth for social post types. Each entry declares how a type
@@ -27,7 +27,7 @@ export type PostKind =
   | 'tip';
 
 /** Post types that have a Remotion video composition (can be dispatched to render). */
-export type VideoPostKind = Exclude<PostKind, 'tip'>;
+export type VideoPostKind = Exclude<PostKind, 'tip' | 'daily_digest'>;
 
 /**
  * Assembled render data — the shape produced by the data builders and consumed
@@ -37,6 +37,7 @@ export type VideoPostKind = Exclude<PostKind, 'tip'>;
 export interface RenderData {
   riverName?: string;
   readingText?: string;
+  readScenes?: ReadScene[];
   readWeather?: ReadWeather | null;
   riverSlug?: string;
   conditionCode?: string;
@@ -166,6 +167,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     renderProps: (data) => ({
       riverName: data.riverName || 'Unknown River',
       readingText: data.readingText || data.quoteText || data.summaryText || '',
+      scenes: data.readScenes,
       weather: data.readWeather ?? null,
       dateLabel: data.dateLabel || defaultDate(),
       conditionCode: data.conditionCode,
@@ -176,19 +178,9 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
 
   daily_digest: {
     id: 'daily_digest',
-    label: 'Daily Digest',
+    label: 'Daily Report',
     needs: 'none',
-    media: ['video'],
-    composition: 'social-digest-portrait',
-    ogType: 'digest',
-    renderProps: (data) => ({
-      rivers: data.rivers || [],
-      dateLabel: data.dateLabel || defaultDate(),
-      globalQuote: shortSummary(data.globalQuote) || undefined,
-      followCta: FOLLOW_CTA,
-      format: FORMAT,
-    }),
-    outputFilename: () => `digest-${isoDay()}`,
+    media: ['image'], // Ordered widget JPEGs, rendered by render-daily-report.yml.
   },
 
   weekly_forecast: {
