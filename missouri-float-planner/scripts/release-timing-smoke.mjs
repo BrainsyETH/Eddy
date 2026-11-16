@@ -31,6 +31,10 @@ const variants = {
   unmatched: { results: [notCompared], tally: { ...emptyTally, notCompared: 1 } },
   early: { results: [{ ...compared, roseAt: '2026-11-13T05:30:00Z' }], tally: { ...emptyTally, compared: 1 } },
   late: { results: [{ ...compared, roseAt: '2026-11-14T04:30:00Z', peakCfs: null }], tally: { ...emptyTally, compared: 1 } },
+  exact: { results: [{ ...compared, roseAt: compared.estimateAt }], tally: { ...emptyTally, compared: 1, insideWindow: 1 } },
+  near: { results: [{ ...compared, roseAt: '2026-11-13T09:29:40Z' }], tally: { ...emptyTally, compared: 1, insideWindow: 1 } },
+  overnight: { results: [{ ...compared, releasedAt: '2026-11-13T17:30:00Z', estimateAt: '2026-11-14T07:00:00Z', earlyAt: '2026-11-14T05:30:00Z', lateAt: '2026-11-14T08:30:00Z', roseAt: '2026-11-14T07:05:00Z' }], tally: { ...emptyTally, compared: 1, insideWindow: 1 } },
+  history: { results: [compared, { ...compared, id: 'earlier', releasedAt: '2026-11-11T20:30:00Z', estimateAt: '2026-11-12T09:30:00Z', earlyAt: '2026-11-12T07:30:00Z', lateAt: '2026-11-12T11:30:00Z', roseAt: '2026-11-12T09:45:00Z' }], tally: { ...emptyTally, compared: 2, insideWindow: 2 } },
   unavailable: null,
 };
 let server, browser, activePage, cleanupPromise;
@@ -160,18 +164,37 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     assert.match(await map.getByRole('status').innerText(), /Within the typical window/);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': no page overflow');
     await capture(map, 'arrival-' + width);
-    // The live test shows its progress toward the 60 results the study needs.
+    // The comparison reads at a glance; full readings and pending dates are disclosure-only.
     const close = page.locator('#how-close');
-    assert.match(await close.innerText(), /1 of 60 comparisons collected · Study in progress/);
-    assert.equal(await close.locator('[data-slot]').count(), 0);
-    assert.match(await close.innerText(), /Within the estimated window/);
-    assert.match(await close.innerText(), /15 minutes after Eddy’s estimate/);
-    const outcomeTop = await close.getByText('Within the estimated window', { exact: true }).boundingBox();
-    const progressTop = await close.getByText('1 of 60 comparisons collected · Study in progress').boundingBox();
-    assert(outcomeTop.y < progressTop.y, 'the actual comparison leads, progress follows');
-    assert.match(await close.innerText(), /Released in the 2 PM hour/);
-    assert.doesNotMatch(await close.innerText(), /2:30 PM/);
+    assert.match(await close.innerText(), /Norfork · Nov 13 · CT/);
+    assert.match(await close.innerText(), /1 of 60 compared · 1 waiting/);
+    assert.match(await close.getByRole('heading', { level: 3 }).innerText(), /15 min after estimate/);
+    assert.match(await close.innerText(), /Within window/);
+    assert.doesNotMatch(await close.innerText(), /Released|Waiting for gauge readings|Dashed mark|Study in progress|Couldn’t compare/);
+    assert((await close.boundingBox()).height < 450, width + ': the result card stays compact');
+    assert.equal(await close.locator('details').count(), 1);
+    const details = close.locator('details');
+    assert.equal(await details.getAttribute('open'), null);
+    const labels = close.locator('[data-reading-label]');
+    assert.equal(await labels.count(), 2);
+    const estimateLabel = await labels.nth(0).boundingBox();
+    const riseLabel = await labels.nth(1).boundingBox();
+    assert(estimateLabel.y + estimateLabel.height < riseLabel.y, 'nearby times have separate label rows');
+    const graphicBounds = await close.getByRole('img').boundingBox();
+    for (const bounds of [estimateLabel, riseLabel]) {
+      assert(bounds.x >= graphicBounds.x && bounds.x + bounds.width <= graphicBounds.x + graphicBounds.width, 'timeline labels fit');
+    }
+    assert((await close.getByRole('button', { name: 'Replay release', exact: true }).boundingBox()).height >= 44);
     await capture(close, 'results-' + width);
+    await details.locator('summary').focus();
+    await details.locator('summary').press('Enter');
+    assert.match(await details.innerText(), /Readings · Central time[\s\S]*Nov 12, 2026, 2 PM hour/);
+    assert.match(await details.innerText(), /Waiting for gauge readings[\s\S]*Released in the 2 PM hour/);
+    assert.match(await details.innerText(), /The gauge record had a gap/);
+    assert.doesNotMatch(await details.innerText(), /2:30 PM/);
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': expanded details fit');
+    await capture(close, 'details-' + width);
+    await details.locator('summary').press('Enter');
     await page.getByRole('button', { name: 'Starting release', exact: true }).click();
     assert.match(await page.locator('#when-it-changes').innerText(), /An existing release changes the timing[\s\S]*already releasing 3,000\+ cfs/);
     assert.doesNotMatch(await page.locator('#when-it-changes').innerText(), /Above 8.5 ft/);
@@ -215,15 +238,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   activePage = page;
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('**/*', (request) => new URL(request.request().url()).origin === origin ? request.continue() : request.abort());
-  for (const [variant, text] of [['empty', 'No results yet'], ['waiting', 'Waiting for gauge readings'], ['unmatched', 'Couldn’t compare'], ['unavailable', 'Results can’t be loaded'], ['early', 'before the window'], ['late', 'after the window']]) {
+  for (const [variant, text] of [['empty', 'No results yet'], ['waiting', 'Waiting for gauge readings'], ['unmatched', 'Couldn’t compare'], ['unavailable', 'Results can’t be loaded'], ['early', 'Before window'], ['late', 'After window'], ['exact', 'Matched estimate'], ['near', '<1 min before estimate'], ['overnight', '5 min after estimate']]) {
     await page.goto(url + '?variant=' + variant, { waitUntil: 'networkidle' });
     assert((await page.locator('#how-close').innerText()).includes(text), variant);
     if (variant === 'unavailable') {
       assert.equal(await page.locator('#how-close [data-slot]').count(), 0, 'no progress shown when results cannot be read');
-      assert.equal(await page.getByText(/comparisons collected/).count(), 0);
+      assert.equal(await page.getByText(/of 60 compared/).count(), 0);
     }
-    if (variant === 'empty') assert.match(await page.locator('#how-close').innerText(), /0 of 60 comparisons collected/);
+    if (variant === 'empty') assert.match(await page.locator('#how-close').innerText(), /0 of 60 compared/);
     if (['waiting', 'unmatched', 'unavailable', 'empty'].includes(variant)) assert.equal(await page.getByRole('button', { name: 'Replay release' }).count(), 0);
+    const close = page.locator('#how-close');
+    if (['waiting', 'unmatched', 'unavailable', 'empty'].includes(variant)) assert.equal(await close.getByRole('img').count(), 0, 'no estimate is exposed without a comparison');
+    if (variant === 'early') {
+      assert.match(await close.innerText(), /Norfork · Nov 12 · CT/);
+      assert.match(await close.locator('[data-reading-label=estimate]').textContent(), /Nov 13/);
+    }
+    if (variant === 'overnight') assert.match(await close.innerText(), /Nov 13, 11:30 PM–Nov 14, 2:30 AM/);
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), variant + ': no overflow');
     if (variant === 'late') {
       await page.getByRole('button', { name: 'Replay release' }).click();
       const map = page.locator('#release-map');
@@ -233,6 +264,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     }
     await capture(page.locator('#how-close'), 'state-' + variant);
   }
+  await page.goto(url + '?variant=history', { waitUntil: 'networkidle' });
+  const history = page.locator('#how-close');
+  assert.doesNotMatch(await history.innerText(), /Other releases/);
+  await history.locator('summary').click();
+  await capture(history, 'state-history');
+  await history.getByRole('button', { name: 'Replay release from Nov 11, 2026', exact: true }).click();
+  assert.match(await page.locator('#release-map').innerText(), /Recorded release · Nov 11, 2026/);
   assert.deepEqual(errors, []);
   console.log('PASS timing model, observed release, controls, viewport and publication-state checks');
 } catch (error) {
