@@ -92,6 +92,7 @@ It does not approve a boundary or update live gauge metadata.
 | Script | Run | Purpose |
 | --- | --- | --- |
 | `rainfall/inspect-sources.ts` | `node --import tsx scripts/rainfall/inspect-sources.ts --inventory FILE --out NEW_DIR` | Read-only USGS/NOAA source capture, basin triage and raw/display checks; local evidence only, no Supabase client or approvals. See [rainfall sources](rainfall-sources.md). |
+| `rainfall/capture-units-evidence.ts` | `node --import tsx scripts/rainfall/capture-units-evidence.ts --bbox W,S,E,N --out NEW_DIR` | Read-only NOAA raster and USGS rain-gauge capture for the raw-unit check; local evidence only, no Supabase client. Replayed by `src/lib/rainfall/units-evidence.test.ts`. |
 | `validate-data.ts` | `npm run db:validate` (`-- --strict` to fail on warnings) | Runs DB-side `validate_river_data()` + knowledge-base cross-check. The ingestion gate. |
 | `verify-river-directions.ts` | `npm run db:verify-directions` | Heuristic headwaters-first check; prints suggested `UPDATE` SQL, never runs it. |
 | `calibrate-float-times.ts` | direct | Compares the float-time model against published outfitter/NPS times; prints residuals. |

@@ -100,10 +100,16 @@ There are no feature migrations or public-screen changes to roll back.
 
 ## What still gates public rain
 
-- Reproduce a wet-window hosted-raw-unit check against rain gauges and retain
-  station IDs, windows and responses. An anecdotal comparison is not a replay.
-- Review Windyville and Big Piney's area disagreements, Doniphan's station-point
-  difference, and Elk's missing stored area. All boundaries remain unreviewed.
+- **Product accuracy (open, found 2026-11-16).** The collected product is NOAA's
+  radar-only estimate. In the recorded wet window it read about 1.9 times what
+  75 rain gauges measured; NOAA's gauge-corrected product matched them. Decide
+  what public amounts are built from before any station is released. See
+  *Release review (2026-11-16)*.
+- Raw unit: recorded. Hosted raw values equal NOAA's RadarOnly source file, which
+  NOAA documents in millimetres (`validation/rainfall/2026-11-16-units/`).
+- Boundaries: 42 of 49 enabled basins are reviewed by rule. Seven still need a
+  person: Windyville's area, Doniphan's station point, and five between 2% and
+  5.5% (Carthage, Boxley, Montauk, Caddo Gap, Roselle).
 - Validate area-weighted native-pixel amounts and valid-area coverage, plus
   representative forecast sampling and partial coverage behavior.
 - Replay storms and quiet days; measure lag on separate events/seasons and
@@ -196,6 +202,57 @@ keyboard detail dismissal, section switching, and wet/dry/missing/stale data.
 Its map uses the captured USGS Annapolis outline; rain and readings are fixtures.
 The existing `river-sections-web` CI job retains its screenshots. Native device,
 VoiceOver, large-text and rotation checks remain required before app distribution.
+
+### Release review (2026-11-16)
+
+Done on the owner's instruction to approve basins within 2% and turn on Jacks
+Fork. The approvals were made. Jacks Fork was **not** turned on, because the
+units check surfaced an accuracy problem the gates had not named.
+
+**Basin approvals (production).** `review_status = 'reviewed'` was set on the 42
+enabled basins whose outline area is within 2% of USGS's published drainage
+area and that carry no area or station-point flag. All three Jacks Fork basins
+are among them (Alley Spring +1.8%, Eminence +1.5%, Mountain View +0.1%). Elk
+at Noel is included: its flag was Eddy's own missing stored area, and its
+outline matches USGS's 801 sq mi. Area agreement is a screening rule, not a
+boundary survey, and it says nothing about springs.
+
+**Units (recorded).** `validation/rainfall/2026-11-16-units/` holds a locked
+24-hour raster over Louisiana (2026-11-15 18:00Z to 2026-11-16 18:00Z), the USGS
+rain-gauge record for the same window, and NOAA's source files read at the 75
+gauges that caught at least 0.2 in. `units-evidence.test.ts` replays it.
+
+| Comparison at 75 gauges | Middle value | Middle half |
+| --- | --- | --- |
+| Hosted raw value / RadarOnly source file | 1.00 | 0.99 to 1.00 |
+| RadarOnly / gauge inches (25.4 = unbiased mm) | 48.0 | 36.1 to 60.5 |
+| MultiSensor Pass 1 / gauge inches | 47.8 | 33.9 to 57.3 |
+| MultiSensor Pass 2 / gauge inches | 26.7 | 25.1 to 29.2 |
+
+The first row settles the unit: the hosted raster is the RadarOnly product, in
+millimetres. The second is the problem: in this storm that product read about
+1.9 times the gauges. An earlier one-off check in Washington and Oregon read
+about 1.2 times. Pass 2 is corrected with gauges, so its agreement is partly by
+construction, but it is the product whose inches a person on the ground would
+recognise. It is published on NOAA's open archive
+(`noaa-mrms-pds`, GRIB2, back to October 2020) roughly an hour after the radar
+product, and it is not on the hosted image service the collector reads.
+
+**What Jacks Fork would show today.** A read-only replay of the production
+archive for the three gauges found 105 archived hours since 2026-11-11, full
+coverage on every one, and no rain at all. Turning it on now would draw a flat
+baseline and 0.00 in totals, and the first storm would be shown from the
+radar-only product.
+
+**Publisher runtime.** That replay made 107 archive downloads in 22 s (about
+0.2 s each) from outside the hosting region, and prepared the three Jacks Fork
+weights in 1 s. A full eight-day replay is about 194 downloads, so roughly 40 s
+of the hourly run at this rate.
+
+**Still to do for a release:** decide the product; then prepare weights for the
+released basins, add them to `public-policy.ts` with the evidence folders, and
+set `RAINFALL_PUBLIC_ENABLED`. No weights have been prepared and the release
+list is still empty.
 
 ### Collection fixes (2026-11-12)
 
