@@ -5,7 +5,9 @@ contain scenery/artwork and a small Eddy signature. A river page and a guide
 also print their own name, which does not go stale. Put-in/take-out, distance
 and saved estimates remain in HTML metadata. No link image or description
 publishes a reading or a floatability verdict that could outlive it. Opening
-the link is how a recipient gets current conditions.
+the link is how a recipient gets current conditions. The river page's own
+HTML does state the reading, dated and never older than six hours; that is the
+destination, not a preview.
 
 ## Artwork contract
 

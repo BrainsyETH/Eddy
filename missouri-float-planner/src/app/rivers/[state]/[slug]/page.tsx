@@ -19,7 +19,8 @@ import Button from '@/components/ui/Button';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
-import { pageRiverDam, pageRiverReportSections } from '@/lib/data/public-pages';
+import { pageGaugeStations, pageRiverDam, pageRiverReportSections } from '@/lib/data/public-pages';
+import { buildRiverReadingSeed } from '@/lib/gauge/reading-seed';
 import RiverHubMap from './RiverHubMap';
 import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
@@ -125,7 +126,7 @@ export default async function RiverGuidePage({ params }: Props) {
   const [riverResult, guideResult] = await Promise.all([
     supabase
       .from('rivers')
-      .select('id, name, slug, state, description, float_tip, length_miles, difficulty_rating, region, geom, river_type, active')
+      .select('id, name, slug, state, description, float_tip, length_miles, difficulty_rating, region, geom, river_type, active, timezone')
       .eq('slug', slug)
       .maybeSingle(),
     supabase
@@ -154,8 +155,10 @@ export default async function RiverGuidePage({ params }: Props) {
   }
 
   // Fetch access points and the river's panels in parallel (need river.id first).
-  // The condition itself is read client-side by the live report's reading card.
-  const [{ data: accessPoints }, riverDam, riverSections, { alerts: riverAlerts, unavailable: alertsUnavailable }] = await Promise.all([
+  // The live report's reading card states the condition. It is seeded from
+  // gaugeStations below so the reading is in this HTML, then kept current by
+  // the card's own query.
+  const [{ data: accessPoints }, riverDam, riverSections, { alerts: riverAlerts, unavailable: alertsUnavailable }, gaugeStations] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
@@ -174,7 +177,18 @@ export default async function RiverGuidePage({ params }: Props) {
     // has to exist before HubSectionNav can decide whether to offer the tab.
     // Optional context failures render an explicit unavailable state.
     pageRiverAlerts(slug),
+    // A failed read leaves the report to its client query, as before the seed.
+    pageGaugeStations().catch(() => null),
   ]);
+
+  // Null when the gauge the report opens on has no reading from the last six
+  // hours: an old number is kept out of HTML that others cache and quote.
+  const initialReading = gaugeStations && buildRiverReadingSeed(gaugeStations, {
+    riverSlug: river.slug,
+    sections: riverSections ?? undefined,
+    timeZone: river.timezone || 'America/Chicago',
+    now: Date.now(),
+  });
 
   const guidePost = guideResult.data || null;
   const guideImage = guidePost ? guideCover(guidePost) : null;
@@ -393,6 +407,7 @@ export default async function RiverGuidePage({ params }: Props) {
               damControlled={Boolean(riverDam && !riverDam.dam.tailwater?.sectionSlug)}
               sections={riverSections ?? undefined}
               damSectionSlug={riverDam?.dam.tailwater?.sectionSlug ?? null}
+              initialReading={initialReading}
             />
           </section>
 

@@ -820,6 +820,22 @@ is no button that reveals only more blur. Duplicate context is omitted. Existing
 access rules are preserved. A dam section still uses its dam interpretation and
 keeps its controlling-dam context with the chart.
 
+The river page puts the current reading in its server HTML: condition, level,
+flow, ladder and the observation time. Search indexes and AI fetchers read that
+HTML and never run the browser's gauge query, and a visitor sees a reading
+where there was a skeleton. The page and `/api/gauges` build the list with one
+loader (`src/lib/gauges/stations.ts`), so the number does not change when the
+browser's query replaces the server's. Two rules apply only to the server copy
+(`src/lib/gauge/reading-seed.ts`): a reading older than six hours is left out
+and the report waits for the browser as before, and the time is printed as a
+date ("Nov 16, 2026, 4:30 PM CST") because "15m ago" is wrong once HTML is
+cached or copied. The browser applies the same cutoff when the page arrives.
+Safety, forecast, the Read and the outlook are not in the server HTML; they
+come from queries the server does not run. Both gauge syncs mark river pages
+for refresh after writing, so a quiet river's page is rendered against current
+readings on its next request. Titles, descriptions and share images still
+carry no reading ([sharing previews](docs/SHARING_PREVIEWS.md)).
+
 Thin dividers separate the Read, Weather and Bottom line while locked prose
 stays blurred. The free outlook says **Next 3 days** (today and the next two
 Central calendar days). Official river heights appear in a separate

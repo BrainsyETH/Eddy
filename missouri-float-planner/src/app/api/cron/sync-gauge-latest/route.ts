@@ -33,6 +33,7 @@ import {
 import { calculateDischargePercentile } from '@/lib/usgs/gauges';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
+import { refreshRiverPages } from '@/lib/gauges/river-page-cache';
 import {
   GAUGE_LATEST_COMPARED_COLUMNS,
   latestRowCurrent,
@@ -314,6 +315,9 @@ async function runSync(request: NextRequest) {
   } finally {
     await releaseCronLock(supabase, JOB);
   }
+
+  // River pages state the current reading in their HTML.
+  if (written > 0) refreshRiverPages();
 
   return NextResponse.json({
     ok: true,

@@ -4,6 +4,7 @@
 
 import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
+import { refreshRiverPages } from '@/lib/gauges/river-page-cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
 import { applyFloodStageOverride, computeCondition, hasMaterialConditionChange, type ConditionThresholds } from '@/lib/conditions';
@@ -937,6 +938,9 @@ async function runUpdate(request: NextRequest) {
         { note: 'ledger liveness is UNKNOWN, not healthy' },
       );
     }
+
+    // River pages state the current reading in their HTML.
+    if (updated > 0) refreshRiverPages();
 
     return NextResponse.json({
       message: 'Gauge update complete',

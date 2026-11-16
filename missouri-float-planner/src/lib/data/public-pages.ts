@@ -10,6 +10,7 @@ import { fetchRiverDam, refreshStaleness, summaryOf } from './dams';
 import { fetchDamDetailWithFallback, readStoredSnapshots } from './dam-snapshot-store';
 import { fetchRiverReaches, fetchRiverReportSections } from './river-reaches';
 import { getAccessPointDetail } from '@/lib/access-points/detail';
+import { loadGaugeStations } from '@/lib/gauges/stations';
 
 // Public HTML snapshots only. API, auth, premium, cron and live readers keep
 // their existing policies. Water-bearing snapshots use a short 60s window;
@@ -36,6 +37,12 @@ export const pageCondition = unstable_cache(async (id: string) => {
   if (error) throw error;
   return data;
 }, ['page-condition-v1'], { revalidate: 60 });
+// The curated list behind /api/gauges, which the river page seeds its live
+// report from. No live-USGS fallback: public HTML states what is stored and
+// never waits on an upstream provider. One entry serves every river page.
+export const pageGaugeStations = unstable_cache(
+  () => loadGaugeStations(createAdminClient(), { liveFallback: false }),
+  ['page-gauge-stations-v1'], { revalidate: 60 });
 export const pageAccess = unstable_cache(async (river: string, access: string) =>
   getAccessPointDetail(createPublicReadClient(), river, access, { segmentReader: publicRouteSegment }),
 ['page-access-v2'], { revalidate: 60 });

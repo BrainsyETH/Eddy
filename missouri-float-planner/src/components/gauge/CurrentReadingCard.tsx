@@ -55,6 +55,14 @@ interface CurrentReadingCardProps {
    */
   waterQualitySourceName?: string | null;
   readingAgeHours?: number | null;
+  /** ISO time of the reading, for the machine-readable <time>. */
+  observedAt?: string | null;
+  /**
+   * The observation time as a date ("Nov 16, 2026, 4:30 PM CST"), shown in
+   * place of the age. Set while the reading comes from server HTML, where
+   * "15m ago" would be wrong as soon as that HTML is cached or copied.
+   */
+  observedAtLabel?: string | null;
   /** Condition ladder in `thresholdUnit`. Omit to render the card without a track. */
   zones?: Zone[];
   className?: string;
@@ -84,6 +92,8 @@ export default function CurrentReadingCard({
   dissolvedOxygenAgeHours,
   waterQualitySourceName,
   readingAgeHours,
+  observedAt,
+  observedAtLabel,
   zones,
   className = '',
   embedded = false,
@@ -110,7 +120,11 @@ export default function CurrentReadingCard({
   const activeZone = activeIndex >= 0 ? ladder[activeIndex] : null;
 
   const formatFt = (val: number) => val.toFixed(2);
-  const formatCfs = (val: number) => val.toLocaleString();
+  // A fixed locale: this card is in the server HTML, and the browser's own
+  // grouping would not match it on hydration.
+  const formatCfs = (val: number) => val.toLocaleString('en-US');
+  const whenText = observedAtLabel ?? (readingAgeHours != null ? formatAgeFromHours(readingAgeHours) : null);
+  const when = whenText && observedAt ? <time dateTime={observedAt}>{whenText}</time> : whenText;
 
   const conditionLabel = conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
 
@@ -153,7 +167,7 @@ export default function CurrentReadingCard({
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
             <h3 className="font-heading text-base font-bold text-neutral-900 sm:text-lg">{sectionHeading}</h3>
             <p className="pt-0.5 text-xs text-neutral-500">
-              {readingAgeHours != null ? `Observed ${formatAgeFromHours(readingAgeHours)}` : 'Observation time unavailable'}
+              {when ? <>Observed {when}</> : 'Observation time unavailable'}
             </p>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
@@ -177,7 +191,7 @@ export default function CurrentReadingCard({
               <div className="min-w-0">
                 <dt className="text-xs text-neutral-600 sm:text-sm">Flow</dt>
                 <dd className="font-mono text-xl font-bold tabular-nums text-neutral-900 sm:text-3xl">
-                  {dischargeCfs != null ? <>{Math.round(dischargeCfs).toLocaleString()} <span className="text-sm font-medium sm:text-lg">cfs</span></> : <span className="text-sm font-medium">Unavailable</span>}
+                  {dischargeCfs != null ? <>{Math.round(dischargeCfs).toLocaleString('en-US')} <span className="text-sm font-medium sm:text-lg">cfs</span></> : <span className="text-sm font-medium">Unavailable</span>}
                 </dd>
               </div>
             </div>
@@ -273,12 +287,12 @@ export default function CurrentReadingCard({
       {/* Safety and forecast lines from the summary, when the page passes them. */}
       {children && <div className={`mt-3 border-t border-neutral-200 ${sectionHeading ? 'mx-4 pb-3 pt-3 sm:mx-5' : embedded ? 'pt-3' : 'mx-4 pt-3 sm:mx-5'}`}>{children}</div>}
 
-      {!sectionHeading && readingAgeHours != null && (
+      {!sectionHeading && when && (
         <p className={`text-xs text-neutral-500 ${embedded ? 'mt-3' : 'px-4 pb-4 pt-3 sm:px-5'}`}>
-          Updated {formatAgeFromHours(readingAgeHours)}
+          Updated {when}
         </p>
       )}
-      {readingAgeHours == null && !embedded && !footer && <div className="pb-4" />}
+      {!when && !embedded && !footer && <div className="pb-4" />}
       {footer}
     </div>
   );

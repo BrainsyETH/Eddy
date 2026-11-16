@@ -18,6 +18,8 @@ import Card from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
 import type { ConditionCode } from '@/types/api';
 import { useRiverGroup } from '@/hooks/useRiverGroups';
+import { findRiverGroupBySlug, groupGaugesByRiver } from '@/lib/river-groups';
+import { freshRiverGauges, type RiverReadingSeed } from '@/lib/gauge/reading-seed';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverOutlook } from '@/hooks/useRiverOutlook';
@@ -80,6 +82,13 @@ interface RiverGaugeDetailProps {
   sections?: RiverReportSection[];
   /** Raw registry slug: an unresolved section must never apply to the whole river. */
   damSectionSlug?: string | null;
+  /**
+   * The reading the page put in its server HTML (src/lib/gauge/reading-seed.ts).
+   * It stands in until the gauge query answers, so the report is in the HTML a
+   * search index or an AI fetcher reads, and a visitor sees a reading instead
+   * of a skeleton. Absent when the server had nothing fresh enough to state.
+   */
+  initialReading?: RiverReadingSeed | null;
 }
 
 export default function RiverGaugeDetail({
@@ -90,8 +99,33 @@ export default function RiverGaugeDetail({
   damControlled = false,
   sections = NO_SECTIONS,
   damSectionSlug = null,
+  initialReading = null,
 }: RiverGaugeDetailProps) {
-  const { riverGroup, isLoading } = useRiverGroup(riverSlug);
+  const { riverGroup: liveGroup, isLoading: liveLoading, error: liveError } = useRiverGroup(riverSlug);
+  // Null for the server pass and the hydrating render, which must repeat the
+  // server's HTML exactly; this browser's clock after that.
+  const [arrivedAt, setArrivedAt] = useState<number | null>(null);
+  useEffect(() => {
+    setArrivedAt(Date.now());
+  }, []);
+  // The HTML carrying the seed may have waited in a cache, so the cutoff the
+  // server applied is applied again here before the seed is trusted.
+  const seededGroup = useMemo(() => {
+    if (!initialReading) return null;
+    const gauges = arrivedAt === null
+      ? initialReading.gauges
+      : freshRiverGauges(initialReading.gauges, { riverSlug, sections, now: arrivedAt });
+    return gauges ? findRiverGroupBySlug(groupGaugesByRiver(gauges), riverSlug) : null;
+  }, [initialReading, arrivedAt, riverSlug, sections]);
+  // The live answer always wins. A failed query keeps the seed, which states
+  // its own observation time, rather than replacing a reading with an apology.
+  const riverGroup = liveGroup ?? (liveLoading || liveError ? seededGroup : null);
+  const fromSeed = !liveGroup && Boolean(riverGroup);
+  // Server HTML states only what the server read: the reading, its ladder and
+  // its time. The safety, forecast and outlook rows are built from queries
+  // that have not answered yet, and their "nothing published" wording would
+  // be a claim, so they hold a shape until the browser takes over.
+  const serverPass = fromSeed && arrivedAt === null;
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [selectedSiteId, setActiveSiteId] = useState<string | null>(null);
   const [lastYearFor, setLastYearFor] = useState<string | null>(null);
@@ -131,10 +165,17 @@ export default function RiverGaugeDetail({
 
   const activeGauge = useMemo(() => {
     if (!riverGroup) return null;
-    if (hasSections) return sectionReady ? sectionGauge(selectedSection, riverGroup.allGauges) : null;
+    // The seed opens on the first section, the one the server rendered; the
+    // URL's choice applies as soon as it has been read.
+    if (hasSections) return sectionReady || fromSeed ? sectionGauge(selectedSection, riverGroup.allGauges) : null;
     return riverGroup.allGauges.find((gauge) => gauge.usgsSiteId === selectedSiteId) ?? riverGroup.primaryGauge;
-  }, [riverGroup, hasSections, sectionReady, selectedSection, selectedSiteId]);
+  }, [riverGroup, hasSections, sectionReady, fromSeed, selectedSection, selectedSiteId]);
   const activeSiteId = activeGauge?.usgsSiteId ?? null;
+  // The seed only stands in for a gauge it has a reading for. Another section
+  // or tab chosen before the query answers waits for it, as before.
+  const seedCovers = fromSeed && Boolean(activeGauge?.readingTimestamp);
+  const isLoading = liveLoading && !seedCovers;
+  const observedAtLabel = seedCovers && activeGauge ? initialReading?.observedAt[activeGauge.id] ?? null : null;
   const showDamContext = !damSectionSlug || selectedSection?.sectionSlug === damSectionSlug
     || activeSiteId === heldDamId;
   const selectedDamControlled = damControlled || selectedSection?.riverType === 'dam_tailwater';
@@ -452,7 +493,7 @@ export default function RiverGaugeDetail({
   const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
 
   // Loading state
-  if (isLoading || (hasSections && !sectionReady)) {
+  if (isLoading || (hasSections && !sectionReady && !seedCovers)) {
     return (
       <section aria-busy="true">
         {sectionSelector}
@@ -557,6 +598,8 @@ export default function RiverGaugeDetail({
                 null
               }
               readingAgeHours={activeGauge.readingAgeHours}
+              observedAt={activeGauge.readingTimestamp}
+              observedAtLabel={observedAtLabel}
               zones={ladderZones}
               embedded={hasSections}
               sectionHeading={hasSections ? `${shortenGaugeName(activeGauge.name)} gauge` : undefined}
@@ -571,7 +614,7 @@ export default function RiverGaugeDetail({
             >
               {/* Safety and forecast only — the card above already shows the
                   level, trend and verdict. */}
-              <GaugeSummary
+              {serverPass ? <Skeleton className="h-10" /> : <GaugeSummary
                 hideCurrentReading
                 bare
                 siteId={activeGauge.usgsSiteId}
@@ -588,7 +631,7 @@ export default function RiverGaugeDetail({
                 flowPercentile={gaugeDetail?.flowPercentile ?? null}
                 floodStages={gaugeDetail?.floodStages ?? null}
                 waterTemperature={gaugeDetail?.waterTemperature ?? null}
-              />
+              />}
             </CurrentReadingCard>
           )}
 
@@ -626,7 +669,7 @@ export default function RiverGaugeDetail({
         </div>
 
         {/* What happens next, in its own card as on iOS. */}
-        <section className="card-panel" aria-label="Eddy's Read and three-day outlook">
+        {serverPass ? <Skeleton rounded="xl" className="h-72" /> : <section className="card-panel" aria-label="Eddy's Read and three-day outlook">
           <EddyOutlookFooter
             destination={{ kind: 'river', id: riverSlug }}
             compact={hasSections}
@@ -642,7 +685,7 @@ export default function RiverGaugeDetail({
             outlook={outlook}
             embedded
           />
-        </section>
+        </section>}
 
         {activeThreshold && (
           <div>

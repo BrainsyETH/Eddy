@@ -92,14 +92,23 @@ import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import type { RiverDamContext } from '@/lib/data/dams';
 import type { RiverReportSection } from '@/lib/river-report-sections';
+import type { GaugeStation } from '@/app/api/gauges/route';
+import { buildRiverReadingSeed } from '@/lib/gauge/reading-seed';
 const context = ${JSON.stringify(damContext)} as unknown as RiverDamContext;
-export default async function Page({ searchParams }: { searchParams: Promise<{ ordinary?: string }> }) {
+const stored = ${JSON.stringify([station, lower])} as unknown as GaugeStation[];
+export default async function Page({ searchParams }: { searchParams: Promise<{ ordinary?: string; seeded?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_SECTIONS_SMOKE !== '1') notFound();
-  const { ordinary } = await searchParams;
+  const { ordinary, seeded } = await searchParams;
+  // What the river page does: seed the report from stored readings. The flow
+  // differs from the browser fixture's so the handover to live data is visible.
+  const renderedAt = Date.now();
+  const initialReading = seeded ? buildRiverReadingSeed(stored.map(gauge => ({ ...gauge, dischargeCfs: 175,
+    readingTimestamp: new Date(renderedAt - (seeded === 'stale' ? 7 : 0.25) * 3_600_000).toISOString() })),
+    { riverSlug: 'black', sections: ordinary ? undefined : ${JSON.stringify(sections)} as RiverReportSection[], timeZone: 'America/Chicago', now: renderedAt }) : null;
   return <main className="mx-auto max-w-5xl px-4 py-6"><h1 className="mb-6 font-display text-3xl font-semibold">Black River</h1>
     <div id="gauge-selection-slot" /><h2 className="mb-4 font-display text-2xl font-semibold">Live report</h2>
     <RiverGaugeDetail riverSlug="black" sections={ordinary ? undefined : ${JSON.stringify(sections)} as RiverReportSection[]}
-      damSectionSlug="lower-markham-hammer" heldDamId="swl-clearwater-dam"
+      damSectionSlug="lower-markham-hammer" heldDamId="swl-clearwater-dam" initialReading={initialReading}
       damLead={<RiverDamPanel context={context} position="lead" now={${now}} />}
       damFooter={<RiverDamPanel context={context} position="footer" now={${now}} />} /></main>;
 }`);
@@ -118,6 +127,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const page = await browser.newPage({ viewport: { width, height: 1050 }, reducedMotion: 'reduce' });
     page.setDefaultTimeout(20_000);
     page.on('pageerror', error => browserErrors.push(error.message));
+    // A server-rendered report that the browser cannot reuse is logged, not thrown.
+    page.on('console', message => { if (message.type() === 'error' && /hydrat/i.test(message.text())) browserErrors.push(message.text().slice(0, 300)); });
     const requests = [];
     let releaseLower, markLower;
     const lowerRequested = new Promise(resolve => { markLower = resolve; });
@@ -126,7 +137,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       const url = new URL(route.request().url()); requests.push(url.pathname + url.search);
       const json = body => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
       const gauge = url.pathname.includes('07063000') ? lower : station;
-      if (url.pathname === '/api/gauges') return json({ gauges: mode === 'missing' ? [station] : [station, lower] });
+      if (url.pathname === '/api/gauges') {
+        if (mode === 'held-gauges') { markLower(); await lowerGate; }
+        return json({ gauges: mode === 'missing' ? [station] : [station, lower] });
+      }
       if (/\/api\/gauges\/[^/]+\/rainfall$/.test(url.pathname)) {
         if (gauge === lower) return route.fulfill({ status: 404, body: '{}' });
         const rain = rainFixture(mode);
@@ -297,6 +311,39 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await page.locator('#gauge-selection-slot select').waitFor();
     assert.equal(await page.getByRole('radio').count(), 0);
     await page.close(); console.log('PASS ordinary river retains its gauge picker');
+  }
+  {
+    // What a search index or an AI fetcher reads: the HTML, with no JavaScript.
+    const observed = /<time dateTime="[^"]+">[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M C[SD]T<\/time>/;
+    for (const query of ['seeded=1&ordinary=1', 'seeded=1']) {
+      const html = await (await fetch(`${target}?${query}`)).text();
+      assert.match(html, /aria-label="Current gauge reading"/, `${query}: the reading card is in the HTML`);
+      assert.match(html, />175<!-- --> <span[^>]*>cfs<|175 cfs/, `${query}: with its flow`);
+      assert.match(html, observed, `${query}: and its observation time as a date`);
+      assert.doesNotMatch(html, /\d+m ago|just now/, `${query}: never as an age, which a cached copy would get wrong`);
+      // Rows built from queries the server did not run are not stated.
+      assert.doesNotMatch(html, /No flood stages published|No river forecast|Bottom line/, `${query}: nothing the server did not read`);
+    }
+    const stale = await (await fetch(`${target}?seeded=stale&ordinary=1`)).text();
+    assert.doesNotMatch(stale, /aria-label="Current gauge reading"/, 'A reading past the cutoff stays out of the HTML');
+    assert.match(stale, /aria-busy="true"/);
+    console.log('PASS server HTML: reading and observation date present, omitted past the cutoff');
+  }
+  for (const [width, query] of [[1440, 'seeded=1&ordinary=1'], [390, 'seeded=1&ordinary=1'], [390, 'seeded=1']]) {
+    const { page, releaseLower: releaseGauges, lowerRequested: gaugesRequested } = await newPage(width, 'held-gauges');
+    await page.goto(`${target}?${query}`); await gaugesRequested;
+    const reading = page.getByRole('group', { name: 'Current gauge reading' });
+    // The seed stands in while the gauge query is unanswered: no skeleton.
+    await reading.getByText('175').first().waitFor();
+    assert.equal(await page.locator('[aria-busy="true"]').count(), 0);
+    assert.match(await reading.locator('time').innerText(), /^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M C[SD]T$/);
+    await page.screenshot({ path: `${out}/seeded-${query.includes('ordinary') ? 'ordinary' : 'sections'}-${width}.png`, fullPage: true });
+    releaseGauges();
+    await reading.getByText('186').first().waitFor();
+    assert.equal(await reading.getByText('175').count(), 0, 'Live data replaces the seed');
+    assert.equal(await reading.locator('time').innerText(), '15m ago');
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow`);
+    await page.close(); console.log(`PASS ${width}px ${query}: seeded reading hydrates, then live data replaces it`);
   }
   for (const [width, mode] of [[1440, 'outlook'], [390, 'outlook'], [320, 'outlook'], [390, 'outlook-partial'], [390, 'outlook-no-river'], [390, 'outlook-no-weather']]) {
     const { page } = await newPage(width, mode);

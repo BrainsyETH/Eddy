@@ -17,6 +17,9 @@ launch ads, change App Store categories, or change the database.
 - `/rivers` sends a real river directory in its initial HTML, using the same
   server catalog already loaded for its summary and filters. The live charts
   replace it when ready; failed gauge requests preserve the directory.
+- Each river page sends its current reading in the initial HTML, with the
+  observation time as a date and nothing older than six hours. The README's
+  river report section has the rules. Titles and descriptions stay timeless.
 - Canonical/social metadata identifies the rivers index, dams index and each
   dam. Support and photo-submission titles avoid repeating Eddy.
 - Photo-submission forms are `noindex, follow`. The sitemap excludes those
