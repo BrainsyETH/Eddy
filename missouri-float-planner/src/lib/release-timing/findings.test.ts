@@ -211,10 +211,10 @@ const trial = (...rows: Array<[StoredPrediction, StoredOutcome[]]>) => publicRes
 
 test('collection progress excludes waiting results and does not imply a pass at the target', () => {
   const results = trial(stored(14, 25), stored(15, -200), stored(16, null));
-  assert.equal(studyProgress(results.tally.compared), '2 of 60 comparisons collected · Study in progress');
-  assert.equal(studyProgress(0), '0 of 60 comparisons collected · Study in progress');
-  assert.equal(studyProgress(60), '60 comparisons collected · Study target reached');
-  assert.equal(studyProgress(61), '61 comparisons collected · Study target reached');
+  assert.equal(studyProgress(results.tally.compared), '2 of 60 compared');
+  assert.equal(studyProgress(0), '0 of 60 compared');
+  assert.equal(studyProgress(60), '60 compared · Study target reached');
+  assert.equal(studyProgress(61), '61 compared · Study target reached');
 });
 
 test('the research log ends with what comes next and adds the first result when there is one', () => {

@@ -461,9 +461,12 @@ that this is not a forecast or a guide to when to wade or launch.
   travel. Tapping or keyboard-selecting a place highlights its name and river
   mile without claiming an arrival time there. Rounded, unmeasured upstream
   times live under “Rough guide upstream”. Nothing is timed below the gauge.
-- **How close was Eddy?** The latest completed comparison leads, with the
-  estimated window and recorded rise on one timeline. A separate line names
-  the difference from Eddy's estimate. Waiting releases reveal no estimate.
+- **How close was Eddy?** The latest completed comparison leads with the
+  difference from Eddy's estimate and a quiet window-status label. The timeline
+  labels the estimate and recorded rise directly. One progress line follows;
+  readings, pending releases, history and methodology live under Details.
+  The header date is the recorded-rise date; other dates are shown when needed
+  to distinguish overnight timings. Waiting releases reveal no estimate.
   Collection progress toward 60 comparisons follows the results; reaching the
   target does not imply a passing verdict. Replaying a completed result uses
   its recorded dam-to-gauge delay and Central clock, with no historical band.

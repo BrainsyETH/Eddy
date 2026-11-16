@@ -192,78 +192,27 @@
 .close {
   background: var(--color-secondary-50);
 }
-.progress { display: grid; gap: 4px; padding-top: 12px; border-top: 1px solid var(--color-border); }
-.progress p { font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
-.progress b { font-weight: 500; }
-.resultLead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
-.difference { margin-top: 4px; font-size: 14px; line-height: 1.5; color: var(--color-text-secondary); }
-.estimateKey { font-size: 12px; line-height: 1.5; color: var(--color-text-secondary); }
-.empty b {
-  display: block;
-  font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--color-text-primary);
-}
-.empty span {
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--color-text-secondary);
-}
-.status {
-  padding: 10px 12px;
-  border: 1px dashed var(--color-border-strong);
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--color-text-secondary);
-}
-.status b {
-  color: var(--color-text-primary);
-  font-weight: 600;
-}
-.featured {
-  display: grid;
-  gap: 10px;
-}
-.featured h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-.outcome {
-  font-family: var(--font-display), system-ui, sans-serif;
-  font-size: clamp(19px, 3.2vw, 24px);
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--color-text-primary);
-}
-.window svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-.windowLabels {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px 20px;
-  font-size: 13px;
-}
-.windowLabels > div { display: grid; gap: 3px; }
-.windowLabels span { color: var(--color-text-secondary); }
-.windowLabels b { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
-.window text {
-  font-family: var(--font-body), system-ui, sans-serif;
-  font-size: 12.5px;
-  fill: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.window .mark {
-  font-weight: 600;
-  fill: var(--color-text-primary);
+.close .cardBody { gap: 12px; padding-top: 8px; }
+.resultMeta { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.resultMeta p { margin: 0; font-variant-numeric: tabular-nums; }
+.progress { padding-top: 12px; border-top: 1px solid var(--color-border); font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
+.empty b { display: block; font-size: 18px; font-weight: 600; line-height: 1.3; color: var(--color-text-primary); }
+.empty span { font-size: 14px; line-height: 1.5; color: var(--color-text-secondary); }
+.featured { display: grid; gap: 12px; }
+.outcome { font-family: var(--font-display), system-ui, sans-serif; font-size: clamp(24px, 3.6vw, 30px); font-weight: 600; line-height: 1.2; color: var(--color-primary-800); }
+.windowStatus { margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
+.windowStatus[data-outside] { color: var(--color-accent-600); }
+.window svg { display: block; width: 100%; height: auto; }
+.windowCaption { margin-bottom: 4px; font-size: 12px; line-height: 1.5; color: var(--color-text-secondary); }
+.windowCaption b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.window text { font-family: var(--font-body), system-ui, sans-serif; font-size: 12px; fill: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.window .mark { font-weight: 600; fill: var(--color-text-primary); }
+.resultDetails h3 { font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.resultDetails h3:not(:first-child) { margin-top: 8px; }
+.more .earlier { padding-left: 0; list-style: none; }
+@media (max-width: 560px) {
+  .more.resultDetails dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .resultDetails dd + dt { margin-top: 8px; }
 }
 .earlier {
   display: grid;

@@ -39,8 +39,8 @@ export const RESULTS_NEEDED = 60;
 /** Collection progress is not an accuracy score or a passing verdict. */
 export function studyProgress(compared: number): string {
   return compared < RESULTS_NEEDED
-    ? `${compared} of ${RESULTS_NEEDED} comparisons collected · Study in progress`
-    : `${compared} comparisons collected · Study target reached`;
+    ? `${compared} of ${RESULTS_NEEDED} compared`
+    : `${compared} compared · Study target reached`;
 }
 
 export interface LogEntry {
