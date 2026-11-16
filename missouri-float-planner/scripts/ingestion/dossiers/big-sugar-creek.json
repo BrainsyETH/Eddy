@@ -102,6 +102,20 @@
           "reachLabel": "Cyclone → Big Elk Camp — trip log distance only (held put-in)",
           "distanceMiles": 9.9,
           "source": "https://rivers.moherp.org/river/?9 (trip 2005-05-29, Edmond; Good at 130 cfs)"
+        },
+        {
+          "reachLabel": "Mikes Creek confluence → gravel bar ~1 mi above Cyclone (solo canoe, ~7 mi)",
+          "distanceMiles": 7.0,
+          "hoursTypical": 3.0,
+          "vessel": "canoe",
+          "source": "https://forums.ozarkanglers.com/topic/11158-big-sugar-trip-report-and-pictures (GloryDaze, April 2008; text supplied by the owner 2026-11-16 because the forum blocks automated reads; flows verified on USGS IV 07188653) — 2008-04-18 evening; Powell ~303–297 cfs (4.42–4.40 ft)"
+        },
+        {
+          "reachLabel": "~1 mi above Cyclone → Elk River below the US-71 bridge (solo canoe, ~14 mi)",
+          "distanceMiles": 14.0,
+          "hoursTypical": 5.0,
+          "vessel": "canoe",
+          "source": "https://forums.ozarkanglers.com/topic/11158-big-sugar-trip-report-and-pictures (GloryDaze, April 2008; text supplied by the owner 2026-11-16 because the forum blocks automated reads; flows verified on USGS IV 07188653) — 2008-04-19; Powell ~285–273 cfs"
         }
       ],
       "characteristics": {
@@ -163,6 +177,21 @@
           "value": "Creekside Rd low-water crossing at Eddy mile ~25.96, right at the Creekside Campground put-in. The roadside is posted 'No parking / Private property / No creek access'; launch from the campground only. No passage, portage side or safe level is claimed.",
           "source": "Owner street-level photo and pin, 2026-11-09; USGS orthoimagery (basemap.nationalmap.gov USGSImageryOnly)",
           "confidence": "medium"
+        },
+        {
+          "value": "Rock garden about 100 yards long that crosses the whole creek and ends in a 2–3 ft drop, roughly 2 hours (~5 mi) below the Mikes Creek confluence and above Cyclone. At ~300 cfs it ran without dragging but swamped the front of a solo canoe.",
+          "source": "https://forums.ozarkanglers.com/topic/11158-big-sugar-trip-report-and-pictures (GloryDaze, April 2008; text supplied by the owner 2026-11-16 because the forum blocks automated reads; flows verified on USGS IV 07188653)",
+          "confidence": "low — single trip report; position approximate"
+        },
+        {
+          "value": "Strainers below Cyclone: two portages at ~280 cfs in April 2008, after a flood. Strainer positions change after every high-water event.",
+          "source": "https://forums.ozarkanglers.com/topic/11158-big-sugar-trip-report-and-pictures (GloryDaze, April 2008; text supplied by the owner 2026-11-16 because the forum blocks automated reads; flows verified on USGS IV 07188653)",
+          "confidence": "low"
+        },
+        {
+          "value": "Channel split above Pineville (guide mile 23.9): in 2008 the right channel was a dead end and the left had to be taken; floatmissouri describes the right channel as the old, shorter channel. Check the split before committing.",
+          "source": "https://forums.ozarkanglers.com/topic/11158-big-sugar-trip-report-and-pictures (GloryDaze, April 2008; text supplied by the owner 2026-11-16 because the forum blocks automated reads; flows verified on USGS IV 07188653) ; https://www.floatmissouri.com/plan/missouri-rivers/big-sugar-creek/",
+          "confidence": "low — sources conflict and the channel shifts"
         }
       ],
       "localKnowledge": [
@@ -170,7 +199,9 @@
         "Deep Ford Access prohibits camping. Overnight stays need a private campground; gravel bars and banks are commonly private.",
         "Water is exceptionally clear. A 2018 Memorial Day account reported paddlers had the creek to themselves while Elk River lots were packed (https://www.nwaonline.com/news/2018/jul/03/stream-s-beauty-dazzles-paddlers-on-big/).",
         "Seasonality (inference from USGS daily medians at Powell against the moherp observed floor): median flow is about 92–146 cfs from March through May, falls below 50 cfs by July and to about 11 cfs in early October. Expect spring and early summer floats; late summer and early autumn are often too low at Powell.",
-        "Big Sugar Creek State Park borders the valley but is a trail park; it publishes no creek launch."
+        "Big Sugar Creek State Park borders the valley but is a trail park; it publishes no creek launch.",
+        "Late summer is usually too low to rent: Big Elk Floats told an NWA Democrat-Gazette writer in early September that they 'haven't put anyone in up there since mid-August'; floaters waded and pushed but the smallmouth fishing was excellent (owner-supplied article, Flip Putthoff; date not recovered).",
+        "Locals call it 'Big Sugar', not 'Big Sugar Creek' (same article)."
       ]
     }
   ],

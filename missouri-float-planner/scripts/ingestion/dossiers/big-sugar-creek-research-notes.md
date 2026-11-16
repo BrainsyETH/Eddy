@@ -153,3 +153,21 @@ Big Rock → Deep Ford (~1.5 mi), Deep Ford → Sugar Island (~2 mi) and
 Big Rock → Sugar Island (~3.5 mi). That would remove the dependence on the
 cross-river Pineville take-out. Address-point positions are approximate;
 launch pins still need imagery placement and review.
+
+## Addendum 2026-11-16: calibration evidence from the owner
+
+- **Observed ideal point, ~300 cfs.** GloryDaze's April 2008 trip report
+  ([Ozark Anglers topic 11158](https://forums.ozarkanglers.com/topic/11158-big-sugar-trip-report-and-pictures);
+  text supplied by the owner because the forum blocks automated reads) put in
+  at the Mikes Creek confluence "with the gauge at Powell reading 4.4" and
+  called the level "about perfect, I only scraped once or twice". USGS
+  instantaneous data confirm 4.40–4.42 ft = **297–303 cfs** that evening; the
+  next day ran 285–273 cfs and felt high and quick. The same stage today means
+  ~11 cfs, so Big Sugar must be rated in cfs.
+- **Seasonal low.** Big Elk Floats told the NWA Democrat-Gazette in early
+  September that they had not put anyone in on Big Sugar since mid-August;
+  floaters walked a lot. No date or gauge reading was recovered.
+
+Still missing for a rated ladder: the ideal range's edges, a High line and a
+do-not-float level (two sources). moherp's observed 50 / 80 cfs floor remains
+the low end.

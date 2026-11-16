@@ -274,7 +274,7 @@
           "low_water_crossing",
           "crowding"
         ],
-        "lowWaterMeaning": "No trusted low-water cutoff found. Outfitters advertise floats all season (late-summer Chewey flows are typically about 200–300 cfs). Eagle Bluff's 'ideal 3.5–5.5 ft' names no gauge. Expect shallow riffles and dragging at low water; no gauge floor is signed off.",
+        "lowWaterMeaning": "No trusted low-water cutoff found. Outfitters advertise floats all season (late-summer Chewey flows are typically about 200–300 cfs). Eagle Bluff's 'ideal 3.5–5.5 ft' names no gauge. Expect shallow riffles and dragging at low water; no gauge floor is signed off. The roughly 22 miles above Chewey Bridge get too low for enjoyable trips during long droughts (paddling guide). No Chewey low-water reading is signed off.",
         "risingWaterHazards": "Rain-driven rises travel down from Arkansas. Eagle Bluff says water at the Watts gauge reaches its beach (~RM 36) in 12–18 h, and water at Chewey in 6–12 h. GRDA limits commercial floating by Chewey stage (rafts only for children ≤10 at 5'6\"; rafts only for everyone at 6'; no children ≤10 at 7'; no commercial floating at 9'6\") and prohibits it at flood stage or while rising toward it. NWPS flood stage at Chewey is 12 ft.",
         "rainLagNote": "Outfitter-reported travel times (Eagle Bluff Resort): Watts → ~RM 36 in 12–18 h; Chewey → ~RM 36 in 6–12 h."
       },
@@ -325,6 +325,11 @@
           "corroboratingSources": [
             "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
           ]
+        },
+        {
+          "value": "Large logjams and downed trees between Watts and Chewey Bridge; be prepared to portage. Strainers also around the Sparrowhawk Loop.",
+          "source": "Owner-supplied Illinois River paddling guide text (2026-11-16; author and URL not recovered; OSRC-era rules date it before 2016)",
+          "confidence": "low — undated guide; strainers move after floods"
         }
       ],
       "localKnowledge": [

@@ -267,3 +267,20 @@ outfitter ("stop kayaking and canoeing" at 5–5.5 ft, "stop rafting at seven
 feet") with no gauge named, so not used as an anchor.
 
 **Decision 2026-11-16:** the owner chose 7.5 ft as Tahlequah's danger line. The 9.5 ft line stays on record as the regulatory and NWS level, not the Eddy anchor.
+
+## Addendum 2026-11-16 (later): owner-supplied guides
+
+- An older paddling guide (OSRC era, before 2016; author not recovered) says
+  "Stages between 3.5 - 4.5 feet on the Tahlequah gauge indicate optimum flow".
+  Tahlequah has not read below 4.42 ft in three years, consistent with the
+  post-2008 stage shift, so this is historical and not an anchor.
+  Riverbend's 2023 statement (4–5.5 ft) remains the ideal range.
+- The same guide: the ~22 miles above Chewey Bridge get too low in long
+  droughts; logjams between Watts and Chewey; strainers around the
+  Sparrowhawk Loop. It also lists Buck Ford (river right, OSRC mile 25.4) and
+  Riverside Park (river right, 52.2) public accesses, which GRDA's 2025 guide
+  does not list. Leads only.
+- A text claiming "safe floating conditions generally exist when water levels
+  are between 5 and 7 feet" at Chewey could not be traced. Diamondhead's page
+  does not contain it, and 5.5–7 ft is where GRDA and Diamondhead put floaters
+  in rafts. Rejected.
