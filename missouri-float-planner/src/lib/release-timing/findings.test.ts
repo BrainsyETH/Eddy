@@ -5,8 +5,9 @@ import test from 'node:test';
 
 import { FINDINGS, hoursOf, hoursText, quantile, sizeHours, sizeIndexFor, spread, type Stats } from './findings';
 import { frontMile, GAUGE_MILE, MAP, paceShare, PLACES, riverFrame } from './river';
-import { durationText, timeSpan } from './time';
-import { elapsedText, playbackHours, windowPosition } from './presentation';
+import { durationText, releaseHour, timeSpan } from './time';
+import { elapsedText, playbackHours, studyProgress, researchLog, roughHours, sizePhrase, windowPosition } from './presentation';
+import { publicResults, type StoredOutcome, type StoredPrediction } from '../arrival-trial/public-results';
 
 // ── The page's numbers are the study's numbers ───────────────────────────────
 //
@@ -176,4 +177,54 @@ test('playback includes late recorded rises beyond the normal day view', () => {
   assert.equal(playbackHours(24), 24);
   assert.equal(playbackHours(24.25), 30);
   assert.equal(playbackHours(32), 36);
+});
+
+// ── What the redesigned page says, and what it refuses to say ────────────────
+
+test('an unmeasured place gets a rounded time and never minutes', () => {
+  assert.deepEqual([0.1, 0.6, 1.1, 2.18, 5.19, 9.28, 12.74].map(roughHours), [
+    'about half an hour', 'about half an hour', 'about 1 hour', 'about 2 hours', 'about 5 hours', 'about 9½ hours', 'about 12½ hours',
+  ]);
+  // Every access point the rough guide lists is upstream of the gauge, so it has a share to scale by.
+  for (const place of PLACES.filter((p) => !p.kind && !p.minor && p.mile < GAUGE_MILE)) assert.ok(paceShare(place)! > 0 && paceShare(place)! < 1, place.name);
+});
+
+test('the answer names the release size the way people say it', () => {
+  assert.deepEqual([0, 3, 4].map((i) => sizePhrase(i, FINDINGS.size.length)), ['1 generator', '4 generators', '5+ generators']);
+});
+
+test('a release is named by the hour it began in, not a clock time', () => {
+  // The log times a release at half past its first hour; 11:30 UTC is the 5 AM hour in Central standard time.
+  assert.equal(releaseHour(Date.UTC(2026, 10, 14, 11, 30)), '5 AM hour');
+  assert.equal(releaseHour(Date.UTC(2026, 10, 14, 20, 30)), '2 PM hour');
+});
+
+const stored = (day: number, minutesFromEstimate: number | null): [StoredPrediction, StoredOutcome[]] => {
+  const estimate = Date.UTC(2026, 10, day, 11, 30) + 14 * 3_600_000;
+  const prediction: StoredPrediction = {
+    id: `d${day}`, onset_hour: new Date(Date.UTC(2026, 10, day, 11)).toISOString(), decision: 'issued', reason: null, peak_cfs: 6600,
+    predicted_arrival_at: new Date(estimate).toISOString(), range_early_at: new Date(estimate - 90 * 60_000).toISOString(), range_late_at: new Date(estimate + 75 * 60_000).toISOString(),
+  };
+  return [prediction, minutesFromEstimate === null ? [] : [{ prediction_id: prediction.id, status: 'matched', matched_rise_at: new Date(estimate + minutesFromEstimate * 60_000).toISOString() }]];
+};
+const trial = (...rows: Array<[StoredPrediction, StoredOutcome[]]>) => publicResults(rows.map((r) => r[0]), rows.flatMap((r) => r[1]));
+
+test('collection progress excludes waiting results and does not imply a pass at the target', () => {
+  const results = trial(stored(14, 25), stored(15, -200), stored(16, null));
+  assert.equal(studyProgress(results.tally.compared), '2 of 60 comparisons collected · Study in progress');
+  assert.equal(studyProgress(0), '0 of 60 comparisons collected · Study in progress');
+  assert.equal(studyProgress(60), '60 comparisons collected · Study target reached');
+  assert.equal(studyProgress(61), '61 comparisons collected · Study target reached');
+});
+
+test('the research log ends with what comes next and adds the first result when there is one', () => {
+  const before = researchLog(FINDINGS, trial(stored(16, null)));
+  assert.deepEqual(before.map((e) => e.when), ['Nov 12, 2026', 'Nov 12, 2026', 'Nov 13, 2026', 'Next']);
+  assert.match(before[0].text, /Measured 695 releases from 2019 to 2026/);
+  const after = researchLog(FINDINGS, trial(stored(15, -200), stored(14, 25)));
+  assert.deepEqual(after.map((e) => e.when), ['Nov 12, 2026', 'Nov 12, 2026', 'Nov 13, 2026', 'Nov 14, 2026', 'Nov 15, 2026', 'Next']);
+  assert.equal(after[3].text, 'First result: the gauge rose inside the estimated window.', 'the first result is the oldest, not the newest');
+  assert.match(after[4].text, /Latest comparison: the gauge rose 1 hour 50 minutes before/);
+  assert.match(researchLog(FINDINGS, trial(stored(14, -200)))[3].text, /First result: the gauge rose 1 hour 50 minutes before the estimated window/);
+  assert.equal(researchLog(FINDINGS, null).length, 4);
 });

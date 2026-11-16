@@ -11,23 +11,23 @@ import Button from '@/components/ui/Button';
 import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
 import { comparison, type PublicResult, type PublicResults } from '@/lib/arrival-trial/public-results';
 import { GAUGE_MILE } from '@/lib/release-timing/river';
-import { clockTime, datedDay, durationText, shortDate, timeSpan } from '@/lib/release-timing/time';
+import { RESULTS_NEEDED, studyProgress } from '@/lib/release-timing/presentation';
+import { clockTime, datedDay, durationText, releaseHour, shortDate, timeSpan } from '@/lib/release-timing/time';
 import styles from './release-timing.module.css';
 
 type Compared = Extract<PublicResult, { kind: 'compared' }>;
 const HOUR_MS = 3_600_000;
-/** The study scores once this many estimates have been compared (protocol_forward.json). */
-const NEEDED = 60;
 const EARLIER_SHOWN = 8;
 
 /** One plain sentence: where the rise fell against the estimated window. */
 export function outcomeSentence(result: Compared): string {
-  const { position, outsideMinutes, fromEstimateMinutes } = comparison(result);
-  if (position !== 'inside') return `Rise ${durationText(outsideMinutes)} ${position} the window.`;
-  const off = Math.abs(fromEstimateMinutes);
-  return off < 8
-    ? 'Within the window · Near the estimate'
-    : `Within the window · ${durationText(off)} ${fromEstimateMinutes < 0 ? 'early' : 'late'}`;
+  const { position, outsideMinutes } = comparison(result);
+  return position === 'inside' ? 'Within the estimated window' : `Rise ${durationText(outsideMinutes)} ${position} the window`;
+}
+function estimateDifference(result: Compared): string {
+  const { fromEstimateMinutes } = comparison(result);
+  if (fromEstimateMinutes === 0) return 'At Eddy’s estimate.';
+  return `${durationText(Math.abs(fromEstimateMinutes))} ${fromEstimateMinutes < 0 ? 'before' : 'after'} Eddy’s estimate.`;
 }
 const shortOutcome = (result: Compared): string => {
   const { position, outsideMinutes } = comparison(result);
@@ -67,6 +67,7 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
         <line x1={x(rose)} x2={x(rose)} y1={mid - band / 2 - (compact ? 3 : 7)} y2={mid + band / 2 + (compact ? 3 : 7)} stroke={marker} strokeWidth={compact ? 2.5 : 3} strokeLinecap="round" />
         {!compact && <circle cx={x(rose)} cy={mid} r={5.5} fill={marker} stroke="var(--color-surface)" strokeWidth={2} />}
       </svg>
+      {!compact && <p className={styles.estimateKey}>Dashed mark: Eddy’s estimate · {clockTime(estimate)}</p>}
     </div>
   );
 }
@@ -86,7 +87,13 @@ export default function HowClose({
   const latest = shown[0];
   const earlier = shown.filter((r) => r !== featured && r.kind !== 'waiting').slice(0, EARLIER_SHOWN);
   const withheld = results?.tally.noEstimate.reduce((sum, row) => sum + row.count, 0) ?? 0;
-  const oldest = results?.results[results.results.length - 1];
+  const others = results
+    ? [
+        results.tally.waiting > 0 && `${results.tally.waiting} waiting`,
+        withheld > 0 && `${withheld} with no estimate`,
+        results.tally.notCompared > 0 && `${results.tally.notCompared} couldn’t be compared`,
+      ].filter(Boolean)
+    : [];
 
   return (
     <section id="how-close" className={`card-panel scroll-mt-24 ${styles.close}`} aria-labelledby="how-close-heading">
@@ -104,11 +111,24 @@ export default function HowClose({
           </div>
         ) : (
           <>
+            {featured && (
+              <div className={styles.featured}>
+                <h3>{datedDay(Date.parse(featured.releasedAt))} · Released in the {releaseHour(Date.parse(featured.releasedAt))}</h3>
+                <div className={styles.resultLead}>
+                  <div>
+                    <p className={styles.outcome}>{outcomeSentence(featured)}</p>
+                    <p className={styles.difference}>{estimateDifference(featured)}</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="min-h-11" onClick={() => onPlay(featured)}>Replay release</Button>
+                </div>
+                <WindowGraphic result={featured} />
+              </div>
+            )}
             {pending.length > 0 && (
               <p className={styles.status}>
                 <b>Waiting for gauge readings.</b>{' '}
                 {pending.length === 1
-                  ? `Release: ${shortDate(Date.parse(pending[0].releasedAt))}, ${clockTime(Date.parse(pending[0].releasedAt))}.`
+                  ? `Released ${shortDate(Date.parse(pending[0].releasedAt))}, in the ${releaseHour(Date.parse(pending[0].releasedAt))}.`
                   : `${pending.length} releases pending.`}
               </p>
             )}
@@ -116,14 +136,6 @@ export default function HowClose({
               <p className={styles.status}>
                 <b>Couldn’t compare the {shortDate(Date.parse(latest.releasedAt))} release.</b> {latest.why}.
               </p>
-            )}
-            {featured && (
-              <div className={styles.featured}>
-                <h3>{datedDay(Date.parse(featured.releasedAt))} · Release at {clockTime(Date.parse(featured.releasedAt))}</h3>
-                <WindowGraphic result={featured} />
-                <p className={styles.outcome}>{outcomeSentence(featured)}</p>
-                <div><Button variant="outline" size="sm" className="min-h-11" onClick={() => onPlay(featured)}>Replay release</Button></div>
-              </div>
             )}
             {earlier.length > 0 && (
               <ul className={styles.earlier} aria-label="Earlier releases">
@@ -142,6 +154,12 @@ export default function HowClose({
             )}
           </>
         )}
+        {results !== null && (
+          <div className={styles.progress}>
+            <p><b>{studyProgress(results.tally.compared)}</b></p>
+            {others.length > 0 && <p>{others.join(' · ')}</p>}
+          </div>
+        )}
       </div>
       {featured && (
         <details className={styles.more}>
@@ -149,7 +167,7 @@ export default function HowClose({
           <div>
             <dl>
               <dt>Release rose at the dam</dt>
-              <dd>{clockTime(Date.parse(featured.releasedAt))}, {shortDate(Date.parse(featured.releasedAt))}</dd>
+              <dd>{releaseHour(Date.parse(featured.releasedAt))}, {shortDate(Date.parse(featured.releasedAt))}</dd>
               <dt>Estimated window</dt>
               <dd>{timeSpan(Date.parse(featured.earlyAt), Date.parse(featured.lateAt))}, {shortDate(Date.parse(featured.estimateAt))}</dd>
               <dt>Eddy’s estimate</dt>
@@ -163,13 +181,9 @@ export default function HowClose({
       <details className={styles.more}>
         <summary>How we compare</summary>
         <div>
-          {results && results.tally.compared > 0 && (
-            <p>{results.tally.insideWindow} of {results.tally.compared} within the window since {datedDay(Date.parse((oldest ?? latest).releasedAt))}.
-              {results.tally.compared < NEEDED ? ` Study target: ${NEEDED} comparisons.` : ''}
-            </p>
-          )}
           <p>
             Eddy saves each estimate before the rise, then compares it with the gauge a day later. Results include misses.
+            We judge the estimates once {RESULTS_NEEDED} have been compared, not before.
           </p>
           <p>These results apply only to the gauge, not to access points.</p>
           {withheld > 0 && results && (

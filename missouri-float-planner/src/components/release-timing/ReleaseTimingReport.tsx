@@ -1,9 +1,10 @@
 'use client';
 
-// The interactive part of the findings page: the release map, "How close was
-// Eddy?" directly under it, and the two measured findings. One release size
-// drives the map and the size chart together, and picking a live result plays
-// that release on the map.
+// The interactive part of the findings page, in the order a reader asks:
+// how long does it take (the map, whose heading is the answer), how close has
+// Eddy been (the live test), and what changes it (the two measured findings).
+// One release size drives the answer, the map and the size chart together, and
+// picking a live result replays that release on the map.
 
 import { useMemo, useState } from 'react';
 import Segmented from '@/components/ui/Segmented';
@@ -11,7 +12,7 @@ import type { PublicResult, PublicResults } from '@/lib/arrival-trial/public-res
 import { FINDINGS, hoursOf, hoursText, sizeHours, sizeIndexFor, spread } from '@/lib/release-timing/findings';
 import HowClose from './HowClose';
 import RangeRows, { type RangeRow } from './RangeRows';
-import ReleaseMap, { SIZE_OPTIONS, type ShownRelease } from './ReleaseMap';
+import ReleaseMap, { type ShownRelease } from './ReleaseMap';
 import styles from './release-timing.module.css';
 
 const SIZE_LABELS = ['About 1 generator', 'About 2 generators', 'About 3 generators', 'About 4 generators', '5 or more generators'];
@@ -42,10 +43,11 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
     setSize(sizeIndex);
     setPlayRequest((n) => n + 1);
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById('release-map')?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+    const map = document.getElementById('release-map');
+    map?.querySelector('h2')?.focus({ preventScroll: true });
+    map?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
   };
 
-  const band = F.size[size];
   const high = F.height[F.height.length - 1];
   const changeSize = (index: number) => { setSize(index); setShown(null); };
   return (
@@ -55,18 +57,11 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
       <HowClose results={results} onPlay={play} />
 
       <section id="by-size" className="card-panel scroll-mt-24" aria-labelledby="by-size-heading">
-        <div className={styles.cardHead}><h2 id="by-size-heading">Bigger releases arrived sooner</h2></div>
+        <div className={styles.cardHead}>
+          <h2 id="by-size-heading">Bigger releases arrive sooner</h2>
+          <p>The biggest releases reached the gauge about {hoursText(F.size[0].median - F.size[F.size.length - 1].median)} hours sooner than the smallest.</p>
+        </div>
         <div className={styles.cardBody}>
-          <div className={styles.answerRow}>
-            <p className={styles.answer} aria-live="polite">
-              <b>About {hoursText(band.median)} hours</b>
-              <span>Typical window: {hoursText(band.p10)}–{hoursText(band.p90)} hr at the gauge</span>
-            </p>
-            <div className={styles.sizePick}>
-              <span>Generators</span>
-              <Segmented options={SIZE_OPTIONS} value={size} onChange={changeSize} size="md" aria-label="Release size, in generators" />
-            </div>
-          </div>
           <RangeRows rows={bySize} label="Hours to first rise near Norfork, by release size" emphasis={size} onPick={changeSize} />
           <div className={styles.key}>
             <span><i data-key="bar" />Typical window</span>
@@ -78,7 +73,12 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
       </section>
 
       <section id="when-it-changes" className="card-panel scroll-mt-24" aria-labelledby="when-it-changes-heading">
-        <div className={styles.cardHead}><h2 id="when-it-changes-heading">Higher water, earlier rise</h2></div>
+        <div className={styles.cardHead}>
+          <h2 id="when-it-changes-heading">{view === 'height' ? 'Higher water, earlier rise' : 'An existing release changes the timing'}</h2>
+          <p>{view === 'height'
+            ? `Above 8.5 ft, the rise came about ${hoursText(F.normalAll.median - high.median)} hours sooner than on a normal river, with a wider spread.`
+            : `When the dam was already releasing 3,000+ cfs, the next increase arrived about ${hoursText(F.baseline[0].median - F.baseline[2].median)} hours sooner than from below 1,500 cfs.`}</p>
+        </div>
         <div className={styles.cardBody}>
           <div>
             <Segmented
@@ -96,15 +96,9 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
           )}
         </div>
         <p className={styles.note}>
-          {view === 'height' ? (
-            <>
-              <b>Above 8.5 ft the rise came about {hoursText(F.height[2].median - high.median)} hours sooner</b> than at 6 to 7 ft, and the spread was much wider. Below 7 ft the gauge height made little difference.
-            </>
-          ) : (
-            <>
-              <b>An increase on top of a release already running arrived about {hoursText(F.baseline[0].median - F.baseline[2].median)} hours sooner.</b> The last two groups overlap: the third is part of the second.
-            </>
-          )}
+          {view === 'height'
+            ? 'Below 7 ft the gauge height made little difference.'
+            : 'The 3,000+ cfs group is also included in the 1,500+ cfs group.'}
         </p>
       </section>
     </div>
