@@ -241,7 +241,7 @@ The dossier is now a **rated proposal** with Tahlequah (07196500) as the primary
 |---|---|---|
 | Flowing (ideal) | 4.0–5.5 | [Riverbend Floats](https://www.riverbendfloats.com/water-level-safety-) (2023-12-02, explicitly "the Hwy 62 bridge gauge known as the Tahlequah Gauge"): "The average water level is 4 ft. to 5.5 ft.", an easily navigable time to float. Corroborating: Eagle Bluff "ideal 3.5–5.5 ft" (gauge unnamed); moherp's one observed trip, Good at 4.88 ft / 311 cfs (2011). |
 | High | above 5.5 (6.0 caution anchor) | GRDA Appendix A 6'0" children raft only; Riverbend 6' children raft only, adults urged into life jackets. |
-| Dangerous | **7.5 proposed** | Riverbend 7.5': "All floating trip must cease." GRDA Appendix A 7'6": no floating for children 10 and under. On 2020-05-30, when a floater drowned on the Watts–Barren Fork reach, Tahlequah read **7.73–8.62 ft**. |
+| Dangerous | **7.5 (owner decision, 2026-11-16)** | Riverbend 7.5': "All floating trip must cease." GRDA Appendix A 7'6": no floating for children 10 and under. On 2020-05-30, when a floater drowned on the Watts–Barren Fork reach, Tahlequah read **7.73–8.62 ft**. |
 | (alternative danger line) | 9.5 | NWS TALO2 impact statement: "all recreational floating along the Illinois River ceases at and above 9.5 feet"; GRDA 9'6" no commercial floating; American Whitewater runnable to 9.6 ft. With 9.5, the 2020 drowning day would have badged only "High". |
 
 Too low / low: no source. Tahlequah's three-year minimum stage is 4.42 ft, so a
@@ -265,3 +265,5 @@ instead of silently grading the upper river on Tahlequah.
 Also noted from the owner's sources: a 2025 newspaper quote from a Tahlequah
 outfitter ("stop kayaking and canoeing" at 5–5.5 ft, "stop rafting at seven
 feet") with no gauge named, so not used as an anchor.
+
+**Decision 2026-11-16:** the owner chose 7.5 ft as Tahlequah's danger line. The 9.5 ft line stays on record as the regulatory and NWS level, not the Eddy anchor.

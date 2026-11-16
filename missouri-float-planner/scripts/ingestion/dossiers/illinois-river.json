@@ -1,5 +1,5 @@
 {
-  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — Tahlequah 07196500 ladder in ft (Flowing 4.0–5.5, High >5.5, Dangerous 7.5 proposed) for the lower section; upper section awaits a Chewey ideal range. Not signed off; readiness pending.",
+  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — Tahlequah 07196500 ladder in ft (Flowing 4.0–5.5, High >5.5, Dangerous 7.5, owner-decided 2026-11-16) for the lower section; upper section awaits a Chewey ideal range. Not signed off; readiness pending.",
   "name": "Illinois River",
   "slug": "illinois-river",
   "primaryGaugeSiteId": "07196500",
@@ -396,12 +396,13 @@
           "unit": "ft",
           "referenceGauge": "07196500",
           "referenceGaugeIsPolled": true,
-          "source": "https://www.riverbendfloats.com/water-level-safety- (Riverbend Floats, \"Water Level Safety Guidelines\", 2023-12-02; states the guidelines use the Hwy 62 bridge \"Tahlequah Gauge\") — 7.5': \"All floating trip must cease.\" PROPOSED; owner to choose 7.5 vs 9.5 ft",
+          "source": "https://www.riverbendfloats.com/water-level-safety- (Riverbend Floats, \"Water Level Safety Guidelines\", 2023-12-02; states the guidelines use the Hwy 62 bridge \"Tahlequah Gauge\") — 7.5': \"All floating trip must cease.\"",
           "corroboratingSources": [
+            "Owner decision 2026-11-16: dangerous = 7.5 ft at Tahlequah (chosen over the 9.5 ft NWS/GRDA line)",
             "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf (OAC 300:40 Appendix A, Tahlequah column) — 7'6\": no floating for children 10 and under",
             "https://www.americanwhitewater.org/accident/may-30-2020-illinois-river-watts-to-barren-fork-creek/ ; USGS IV 07196500 on 2020-05-30 read 7.73–8.62 ft (https://nwis.waterservices.usgs.gov/nwis/iv/?sites=07196500&parameterCd=00065&startDT=2020-05-30&endDT=2020-05-30)"
           ],
-          "confidence": "medium"
+          "confidence": "high"
         }
       ],
       "publishedFloatTimes": [],
@@ -761,7 +762,7 @@
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Rated proposal (2026-11-16). Tahlequah ladder in ft: Flowing 4.0–5.5 (Riverbend), High above 5.5 with GRDA/Riverbend 6.0 caution, Dangerous 7.5 (Riverbend 'all floating must cease'; GRDA no children at 7'6\"; the 2020 drowning day read 7.73–8.62 ft). Owner decisions: 7.5 vs 9.5 ft danger line (9.5 = NWS 'all recreational floating ceases' + GRDA no commercial floating + AW 9.6), whether Tahlequah ever reads too low (3-year minimum 4.42 ft), and Chewey's ideal range for the upper section. Chewey high-water evidence (6.0 ft all rafts only: GRDA + Diamondhead; 9.0 ft stop: NWS CWYO2 impact + Diamondhead 'No Floating') is held in the research notes until a Chewey low end exists, because a top-only ladder would badge normal water 'Too Low'."
+      "notes": "Rated proposal (2026-11-16). Tahlequah ladder in ft: Flowing 4.0–5.5 (Riverbend), High above 5.5 with GRDA/Riverbend 6.0 caution, Dangerous 7.5 (owner decision 2026-11-16; Riverbend 'all floating must cease'; GRDA no children at 7'6\"; the 2020 drowning day read 7.73–8.62 ft). Decided 2026-11-16: 7.5 ft danger line, chosen over 9.5 ft (NWS 'all recreational floating ceases' + GRDA no commercial floating + AW 9.6). Still open: whether Tahlequah ever reads too low (3-year minimum 4.42 ft), and Chewey's ideal range for the upper section. Chewey high-water evidence (6.0 ft all rafts only: GRDA + Diamondhead; 9.0 ft stop: NWS CWYO2 impact + Diamondhead 'No Floating') is held in the research notes until a Chewey low end exists, because a top-only ladder would badge normal water 'Too Low'."
     },
     "hazards": {
       "status": "pending",
