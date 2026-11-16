@@ -1,5 +1,5 @@
 {
-  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — Tahlequah 07196500 ladder in ft (Flowing 4.0–5.5, High >5.5, Dangerous 7.5, owner-decided 2026-11-16) for the lower section; upper section awaits a Chewey ideal range. Not signed off; readiness pending.",
+  "_status": "RESEARCH DRAFT 2026-11-16: RATED PROPOSAL — lower section on Tahlequah 07196500 in ft (Flowing 4.0–5.5, High >5.5, Dangerous 7.5); upper section on Chewey 07196090 in cfs (150 / 190–500 / 500 / 2,000). Danger lines are owner decisions. Not signed off; readiness pending.",
   "name": "Illinois River",
   "slug": "illinois-river",
   "primaryGaugeSiteId": "07196500",
@@ -145,7 +145,7 @@
         "illinois-upper"
       ],
       "knownBias": "At Chewey Bridge (GRDA RM 23.6), below Flint Creek. It is the GRDA regulatory reference gauge above RM 40 (OAC 300:40-3-3); Diamondhead and War Eagle outfitters cite it too. NWS LID CWYO2; NWPS action 9 ft, flood 12 ft. CAUTION: the stage–flow relation has swung by about 2 ft between years (summer median at ~250 cfs: 4.81 ft in 2011, 2.41 ft in 2014, 4.20 ft in 2017, 2.28 ft in 2023). This is my analysis of USGS IV pairs; the cause (datum change, relocation or control shift) is unverified. A fixed-ft threshold here has not meant the same flow every year. On 2026-11-02 its provisional discharge (247 cfs) read below Watts (318 cfs) despite 195 sq mi more drainage. IV since June 2010; daily discharge since Oct 2000.",
-      "measurementUnit": "ft",
+      "measurementUnit": "cfs",
       "positionRiverMile": 70.97
     },
     {
@@ -200,10 +200,75 @@
       "riverMileEnd": 88.94,
       "representativeGauge": {
         "siteId": "07196090",
-        "rationale": "GRDA's binding rules (OAC 300:40-3-3) set Chewey as the river-level reference upstream of RM 40, and the IRA 1993 guidelines and Diamondhead Resort agree. Under the unrated recommendation it is a measurement link only, in ft (the unit GRDA and the outfitters use). Owner may choose cfs instead.",
+        "rationale": "Chewey sits mid-way through the upper section and is the gauge the upper outfitters (Diamondhead) and GRDA's Appendix A use. Rated in cfs: at the same flow, its stage rose about 0.5 ft between 2024 and 2026 (1.96 vs 2.45 ft at 180–260 cfs), against an ideal band only about a foot wide.",
         "knownBias": "About 20 mi below Watts PAA and below Flint Creek (116 sq mi), so the Watts–Chewey miles carry less water than Chewey shows; the Watts gauge 07195500 is the closer reading there. The stage record has shifted about 2 ft at the same flow between years (see gauges[].knownBias)."
       },
-      "thresholds": [],
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 150,
+          "unit": "cfs",
+          "referenceGauge": "07196090",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner approval 2026-11-16 of the Chewey ladder (cfs), derived by pairing 867 daily means of Chewey and Tahlequah (USGS IV 2023-11-15..2026-11-15) against the owner-approved Tahlequah bands — below ~150 cfs matches the driest days (Tahlequah under 4.5 ft; Chewey 138–158 cfs)",
+          "corroboratingSources": [
+            "Owner-supplied paddling guide: the ~22 miles above Chewey get too low in long droughts",
+            "https://nwis.waterservices.usgs.gov/nwis/iv/?sites=07196090,07196500&parameterCd=00065,00060&startDT=2023-11-15&endDT=2026-11-15 (paired daily means; analysis in illinois-river-research-notes.md)"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_min",
+          "value": 190,
+          "unit": "cfs",
+          "referenceGauge": "07196090",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner approval 2026-11-16 of the Chewey ladder (cfs), derived by pairing 867 daily means of Chewey and Tahlequah (USGS IV 2023-11-15..2026-11-15) against the owner-approved Tahlequah bands — Chewey p10 (194 cfs) on days Tahlequah was in its 4.0–5.5 ft ideal band",
+          "corroboratingSources": [
+            "https://nwis.waterservices.usgs.gov/nwis/iv/?sites=07196090,07196500&parameterCd=00065,00060&startDT=2023-11-15&endDT=2026-11-15 (paired daily means; analysis in illinois-river-research-notes.md)"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "optimal_max",
+          "value": 500,
+          "unit": "cfs",
+          "referenceGauge": "07196090",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner approval 2026-11-16 of the Chewey ladder (cfs), derived by pairing 867 daily means of Chewey and Tahlequah (USGS IV 2023-11-15..2026-11-15) against the owner-approved Tahlequah bands — Chewey p90 (488 cfs) on Tahlequah-ideal days; above it Tahlequah reads 5.5 ft or more",
+          "corroboratingSources": [
+            "https://nwis.waterservices.usgs.gov/nwis/iv/?sites=07196090,07196500&parameterCd=00065,00060&startDT=2023-11-15&endDT=2026-11-15 (paired daily means; analysis in illinois-river-research-notes.md)"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "high",
+          "value": 500,
+          "unit": "cfs",
+          "referenceGauge": "07196090",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner approval 2026-11-16 of the Chewey ladder (cfs), derived by pairing 867 daily means of Chewey and Tahlequah (USGS IV 2023-11-15..2026-11-15) against the owner-approved Tahlequah bands — High begins where Tahlequah leaves its ideal band (Chewey p10 507 cfs on Tahlequah 5.5–6.0 ft days)",
+          "corroboratingSources": [
+            "https://nwis.waterservices.usgs.gov/nwis/iv/?sites=07196090,07196500&parameterCd=00065,00060&startDT=2023-11-15&endDT=2026-11-15 (paired daily means; analysis in illinois-river-research-notes.md)",
+            "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf (Appendix A, Chewey column: 6'0\" all floaters raft only, about 2,950 cfs at the 2025–26 stage–discharge relation)"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "level": "dangerous",
+          "value": 2000,
+          "unit": "cfs",
+          "referenceGauge": "07196090",
+          "referenceGaugeIsPolled": true,
+          "source": "Owner decision 2026-11-16: Chewey do-not-float at 2,000 cfs, matching the Tahlequah 7.5 ft danger line (Chewey p10 2,064 cfs on days Tahlequah was at or above 7.5 ft)",
+          "corroboratingSources": [
+            "https://nwis.waterservices.usgs.gov/nwis/iv/?sites=07196090,07196500&parameterCd=00065,00060&startDT=2023-11-15&endDT=2026-11-15 (paired daily means; analysis in illinois-river-research-notes.md)",
+            "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf (Appendix A, Chewey column: 6'0\" all floaters raft only, about 2,950 cfs at the 2025–26 stage–discharge relation)",
+            "https://api.water.noaa.gov/nwps/v1/gauges/CWYO2 (NWS impact: all recreational floating ceases at 9 ft)"
+          ],
+          "confidence": "high"
+        }
+      ],
       "publishedFloatTimes": [
         {
           "reachLabel": "Peyton's Place short trip (put-in and take-out not stated; resort at GRDA RM 36.8)",
@@ -767,7 +832,7 @@
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Rated proposal (2026-11-16). Tahlequah ladder in ft: Flowing 4.0–5.5 (Riverbend), High above 5.5 with GRDA/Riverbend 6.0 caution, Dangerous 7.5 (owner decision 2026-11-16; Riverbend 'all floating must cease'; GRDA no children at 7'6\"; the 2020 drowning day read 7.73–8.62 ft). Decided 2026-11-16: 7.5 ft danger line, chosen over 9.5 ft (NWS 'all recreational floating ceases' + GRDA no commercial floating + AW 9.6). Still open: whether Tahlequah ever reads too low (3-year minimum 4.42 ft), and Chewey's ideal range for the upper section. Chewey high-water evidence (6.0 ft all rafts only: GRDA + Diamondhead; 9.0 ft stop: NWS CWYO2 impact + Diamondhead 'No Floating') is held in the research notes until a Chewey low end exists, because a top-only ladder would badge normal water 'Too Low'."
+      "notes": "Rated proposal (2026-11-16). Lower section, Tahlequah in ft: Flowing 4.0–5.5 (Riverbend), High above 5.5 (6.0 caution anchor), Dangerous 7.5 (owner decision). Upper section, Chewey in cfs (owner-approved pairing against the Tahlequah bands): Too Low <150, Low 150–190, Flowing 190–500, High >500, Dangerous 2,000 (owner decision). Open: whether Tahlequah ever reads too low (three-year minimum 4.42 ft). Official flood-stage overrides still apply."
     },
     "hazards": {
       "status": "pending",

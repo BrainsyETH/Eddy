@@ -284,3 +284,25 @@ feet") with no gauge named, so not used as an anchor.
   are between 5 and 7 feet" at Chewey could not be traced. Diamondhead's page
   does not contain it, and 5.5–7 ft is where GRDA and Diamondhead put floaters
   in rafts. Rejected.
+
+## Addendum 2026-11-16: Chewey ladder (owner-approved)
+
+867 paired daily means (USGS IV, 2023-11-15 to 2026-11-15), binned by the
+owner-approved Tahlequah bands:
+
+| Tahlequah | Chewey stage (p10–p90) | Chewey cfs (p10 / p50 / p90) |
+|---|---|---|
+| under 4.5 ft | 1.71–1.79 ft | 138 / 151 / 158 |
+| 4.0–5.5 ft (ideal) | 1.92–3.03 ft | 194 / 336 / 488 |
+| 5.5–6.0 ft | 3.04–3.65 ft | 507 / 647 / 849 |
+| 6.0–7.5 ft | 3.64–5.18 ft | 862 / 1,262 / 1,973 |
+| 7.5 ft and up (danger) | 5.13–9.78 ft | 2,064 / 3,306 / 8,816 |
+
+Chewey's stage drifts: at 180–260 cfs it read a median 1.96 ft in 2024 and
+2.45 ft in 2026. The ladder is therefore in cfs. GRDA's 6'0" rafts-only line
+at Chewey is about 2,950 cfs today, consistent with the Tahlequah 7.5 ft line.
+
+Approved Chewey ladder (cfs): Too Low <150, Low 150–190, Flowing 190–500,
+High >500, **Dangerous 2,000** (owner decision 2026-11-16; 3,000 cfs, GRDA's
+rafts-only line, was the alternative). Watts and Moodys stay in the dossier for
+reference but get no rated link.
