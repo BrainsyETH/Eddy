@@ -7,7 +7,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 
-const port = 3141;
+const port = Number(process.env.RELEASE_TIMING_PORT || 3141);
 const origin = 'http://127.0.0.1:' + port;
 const route = resolve('src/app/dam-layout-check');
 const out = process.env.RELEASE_TIMING_OUTPUT || '/tmp/eddy-release-timing';
@@ -58,7 +58,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_RELEASE_TIMING_SMOKE !== '1') notFound();
   const { variant = 'results' } = await searchParams;
   const results = variants[variant] ?? null;
-  return <main className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:px-8" data-timing-check><ReleaseTimingIntro results={results} /><ReleaseTimingReport results={results} /><ResearchLog results={results} /></main>;
+  return <main className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:px-8" data-timing-check><ReleaseTimingIntro /><ReleaseTimingReport results={results} /><ResearchLog results={results} /></main>;
 }`);
   assert.equal(spawnSync('git', ['check-ignore', '--quiet', route + '/page.tsx']).status, 0, 'Fixture must stay out of Git');
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
@@ -91,31 +91,55 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     const map = page.locator('#release-map');
     const slider = map.getByRole('slider');
     const sizes = map.getByRole('group', { name: 'Release size, in generators', exact: true });
-    // The opening says what the page is before anything interactive.
-    assert.match(await intro.innerText(), /What we measured[\s\S]*695 releases[\s\S]*What we found[\s\S]*13¼ hours[\s\S]*What we’re testing now[\s\S]*1 of 60[\s\S]*What this isn’t[\s\S]*forecast/);
-    // The map's heading is the answer, and it is the gauge's: the one measured place.
-    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /A 4-generator release takes about 12¾ hours to reach the gauge near Norfork/);
-    assert.match(await map.innerText(), /Not live/);
-    assert.equal(await map.getByLabel('Location').count(), 0, 'no access-point picker');
-    assert.doesNotMatch(await map.innerText(), /8 in 10|All risen|Assumed pace|Oct 24|of 93|hr \d+ min–/);
+    assert.match(await intro.innerText(), /Bull Shoals release timing[\s\S]*695 measured releases[\s\S]*Not a forecast/);
+    assert((await intro.boundingBox()).height < 350, width + ': the introduction stays compact');
+    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 12¾ hours/);
+    assert.match(await map.innerText(), /4 generators · normal river/);
+    assert.match(await map.innerText(), /Historical timing · Not live/);
+    assert.doesNotMatch(await map.innerText(), /8 in 10|All risen|Assumed pace|of 93|hr \d+ min–/);
     assert.equal(await map.locator('[data-timing-band]').count(), 1);
     assert.match(await map.getByRole('status').innerText(), /Before the typical window/);
-    // Upstream access points get one rounded time each, labelled unmeasured, and no window.
-    const guide = map.getByRole('complementary', { name: 'Rough guide upstream', exact: true });
+    const mapGraphic = map.getByRole('group', { name: 'White River map, select a place for river miles' });
+    assert((await mapGraphic.boundingBox()).y < 800, width + ': the map is reached without a long preamble');
+    await page.screenshot({ path: out + '/page-' + width + '.png', fullPage: true, style: screenshotStyle });
+    await capture(intro, 'intro-' + width);
+    await capture(map, 'map-' + width);
+    // Place selection supplies geography, never an unmeasured arrival window.
+    const cotter = mapGraphic.getByRole('button', { name: 'Cotter, mile 16.9', exact: true });
+    await cotter.click();
+    assert.equal(await cotter.getAttribute('aria-pressed'), 'true');
+    const selectedPlace = map.locator('[aria-live="polite"]').filter({ hasText: 'Timing not measured here' });
+    assert.match(await selectedPlace.innerText(), /Cotter[\s\S]*Mile 16.9/);
+    assert.doesNotMatch(await selectedPlace.innerText(), /hours|window/);
+    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 12¾ hours/);
+    const rim = mapGraphic.getByRole('button', { name: 'Rim Shoals, mile 21.3', exact: true });
+    await rim.focus();
+    await rim.press('Enter');
+    assert.equal(await rim.getAttribute('aria-pressed'), 'true');
+    await capture(map, 'place-' + width);
+    for (const button of await mapGraphic.getByRole('button').all()) {
+      const hit = await button.locator('circle').first().boundingBox();
+      assert(hit.width >= 43.5 && hit.height >= 43.5, 'map touch targets remain 44px');
+    }
+    await mapGraphic.getByRole('button', { name: 'Gauge near Norfork, mile 41.5' }).click();
+    // The rough guide is collapsed until requested, with rounded times only.
+    const guide = map.locator('details').filter({ has: page.locator('summary', { hasText: 'Rough guide upstream' }) });
+    assert.equal(await guide.getAttribute('open'), null);
+    await guide.locator('summary').click();
     const rough = guide.getByRole('list');
-    assert.match(await guide.innerText(), /Rough guide upstream\s+Not measured/);
-    assert.equal(await guide.getByRole('button').count(), 0, 'the rough guide is a list, not a control');
+    assert.match(await guide.innerText(), /Not measured/);
     assert.match(await rough.innerText(), /Cotter\s+about 5 hours/);
     assert.match(await rough.innerText(), /Buffalo City\s+about 9½ hours/);
     assert.doesNotMatch(await rough.innerText(), /Calico Rock|Gauge|min/);
     // One size control drives the answer, the rough guide and the chart together.
     await sizes.getByRole('button', { name: '1', exact: true }).click();
-    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /A 1-generator release takes about 15¾ hours/);
+    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 15¾ hours/);
     assert.match(await rough.innerText(), /Cotter\s+about 6½ hours/);
     assert.equal(await page.locator('#by-size').getByRole('button', { name: 'About 1 generator', exact: true }).getAttribute('aria-pressed'), 'true');
     await page.locator('#by-size').getByRole('button', { name: '5 or more generators', exact: true }).click();
-    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /A release of 5 or more generators takes about 11¾ hours/);
+    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 11¾ hours/);
     await sizes.getByRole('button', { name: '4', exact: true }).click();
+    await guide.locator('summary').click();
     await map.getByRole('button', { name: 'Restart from the dam' }).click();
     assert.equal(await slider.inputValue(), '0');
     await map.getByRole('button', { name: 'Play', exact: true }).click();
@@ -127,34 +151,56 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     await slider.fill(String(Math.round(12.75 * 12)));
     assert.match(await map.getByRole('status').innerText(), /Within the typical window/);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': no page overflow');
-    await capture(intro, 'intro-' + width);
-    await capture(map, 'map-' + width);
+    await capture(map, 'arrival-' + width);
     // The live test shows its progress toward the 60 results the study needs.
     const close = page.locator('#how-close');
-    assert.match(await close.innerText(), /1 of 60 results in before we call it\. Also 1 waiting, 1 couldn’t be compared\./);
-    assert.equal(await close.locator('[data-slot="inside"]').count(), 2, 'one filled slot and its key');
-    assert.equal(await close.locator('[role="img"] [data-slot]').count(), 60);
+    assert.match(await close.innerText(), /1 of 60 comparisons collected · Study in progress/);
+    assert.equal(await close.locator('[data-slot]').count(), 0);
+    assert.match(await close.innerText(), /Within the estimated window/);
+    assert.match(await close.innerText(), /15 minutes after Eddy’s estimate/);
+    const outcomeTop = await close.getByText('Within the estimated window', { exact: true }).boundingBox();
+    const progressTop = await close.getByText('1 of 60 comparisons collected · Study in progress').boundingBox();
+    assert(outcomeTop.y < progressTop.y, 'the actual comparison leads, progress follows');
     assert.match(await close.innerText(), /Released in the 2 PM hour/);
     assert.doesNotMatch(await close.innerText(), /2:30 PM/);
     await capture(close, 'results-' + width);
     await page.getByRole('button', { name: 'Starting release', exact: true }).click();
+    assert.match(await page.locator('#when-it-changes').innerText(), /An existing release changes the timing[\s\S]*already releasing 3,000\+ cfs/);
+    assert.doesNotMatch(await page.locator('#when-it-changes').innerText(), /Above 8.5 ft/);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': baseline chart fits');
     await capture(page.locator('#when-it-changes'), 'baseline-' + width);
     const log = page.locator('#research-log');
-    assert.match(await log.innerText(), /Nov 13, 2026\s+Started the live test[\s\S]*First result: the gauge rose inside the estimated window[\s\S]*Next\s+Releases that start slowly/);
+    assert.match(await log.innerText(), /First result: the gauge rose inside the estimated window[\s\S]*Next[\s\S]*Test releases that start slowly/);
+    assert.doesNotMatch(await log.innerText(), /Tested a formula/);
+    await log.getByText('Earlier study updates', { exact: true }).click();
+    assert.match(await log.innerText(), /Tested a formula/);
+    await log.getByText('Earlier study updates', { exact: true }).click();
     await capture(log, 'log-' + width);
     await close.getByRole('button', { name: 'Replay release', exact: true }).click();
     await map.getByRole('button', { name: 'Pause', exact: true }).click();
     assert.match(await map.innerText(), /Recorded release · Nov 12, 2026/);
-    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /This release took about 13¼ hours to reach the gauge near Norfork/);
+    assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 13¼ hours/);
     assert.equal(await map.locator('[data-timing-band]').count(), 0, 'An observed release never replays a cohort median');
     assert.equal(await sizes.count(), 0);
     await slider.fill('159');
     assert.match(await map.getByRole('status').innerText(), /At the recorded rise · Fri, Nov 13, 3:45 AM CT/);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), width + ': recorded replay fits');
     await capture(map, 'replay-' + width);
+    if (width === 390) {
+      await map.getByRole('button', { name: 'Restart from the dam' }).click();
+      await map.getByRole('button', { name: 'Play', exact: true }).click();
+      await page.waitForFunction(() => Number(document.querySelector('#release-map input[type=range]').value) > 75);
+      await capture(map, 'motion-390');
+      await page.waitForFunction(() => document.querySelector('#release-map [role=status]').textContent.startsWith('At the recorded rise'), undefined, { timeout: 30000 });
+      assert.equal(await map.getByRole('button', { name: 'Pause', exact: true }).count(), 0, 'playback stops at the recorded arrival');
+      assert.equal(await slider.inputValue(), '159');
+      assert(await map.locator('[data-rise-marker]').isVisible(), 'the arrival marker remains at the gauge');
+      await capture(map, 'motion-arrived-390');
+    }
     await map.getByRole('button', { name: 'Back to timing' }).click();
     assert.match(await map.innerText(), /Not live/);
+    assert.equal(await slider.inputValue(), '0', 'returning to historical timing resets the clock');
+    assert(await map.getByRole('heading', { level: 2 }).evaluate((el) => el === document.activeElement), 'return focus stays in the map');
     await page.close();
   }
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
@@ -166,15 +212,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     assert((await page.locator('#how-close').innerText()).includes(text), variant);
     if (variant === 'unavailable') {
       assert.equal(await page.locator('#how-close [data-slot]').count(), 0, 'no progress shown when results cannot be read');
-      assert.match(await page.locator('[data-timing-check] > header').innerText(), /We judge it after 60 results/);
+      assert.equal(await page.getByText(/comparisons collected/).count(), 0);
     }
-    if (variant === 'empty') assert.match(await page.locator('#how-close').innerText(), /0 of 60 results in/);
+    if (variant === 'empty') assert.match(await page.locator('#how-close').innerText(), /0 of 60 comparisons collected/);
     if (['waiting', 'unmatched', 'unavailable', 'empty'].includes(variant)) assert.equal(await page.getByRole('button', { name: 'Replay release' }).count(), 0);
     if (variant === 'late') {
       await page.getByRole('button', { name: 'Replay release' }).click();
       const map = page.locator('#release-map');
       await map.getByRole('button', { name: 'Pause', exact: true }).click();
-      assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /This release took about 32 hours/);
+      assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 32 hours/);
       assert.equal(Number(await map.getByRole('slider').getAttribute('max')), 432, 'a late rise stays reachable');
     }
     await capture(page.locator('#how-close'), 'state-' + variant);

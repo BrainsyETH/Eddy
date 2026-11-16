@@ -28,20 +28,19 @@ export function roughHours(hours: number): string {
   return halves === 1 ? 'about half an hour' : halves === 2 ? 'about 1 hour' : `about ${hoursText(halves / 2)} hours`;
 }
 
-/** "A 4-generator release" / "A release of 5 or more generators". */
+/** A compact label for the selected historical release-size group. */
 export function sizePhrase(index: number, bands: number): string {
-  return index >= bands - 1 ? `A release of ${index + 1} or more generators` : `A ${index + 1}-generator release`;
+  return index >= bands - 1 ? `${index + 1}+ generators` : `${index + 1} generator${index === 0 ? '' : 's'}`;
 }
 
 /** The study scores once this many estimates have been compared (protocol_forward.json). */
 export const RESULTS_NEEDED = 60;
 
-export type Slot = 'inside' | 'outside' | 'open';
-/** One slot per result the study needs, oldest first: filled as estimates are compared. */
-export function progressSlots(results: PublicResults | null): Slot[] {
-  const compared = (results?.results ?? []).filter((r): r is Extract<PublicResult, { kind: 'compared' }> => r.kind === 'compared').reverse();
-  const filled: Slot[] = compared.slice(0, RESULTS_NEEDED).map((r) => (comparison(r).position === 'inside' ? 'inside' : 'outside'));
-  return [...filled, ...Array<Slot>(Math.max(0, RESULTS_NEEDED - filled.length)).fill('open')];
+/** Collection progress is not an accuracy score or a passing verdict. */
+export function studyProgress(compared: number): string {
+  return compared < RESULTS_NEEDED
+    ? `${compared} of ${RESULTS_NEEDED} comparisons collected · Study in progress`
+    : `${compared} comparisons collected · Study target reached`;
 }
 
 export interface LogEntry {
@@ -54,14 +53,15 @@ export interface LogEntry {
  * results, so it appears on its own when the river gives one.
  */
 export function researchLog(findings: Findings, results: PublicResults | null): LogEntry[] {
-  const first = (results?.results ?? []).filter((r): r is Extract<PublicResult, { kind: 'compared' }> => r.kind === 'compared').at(-1);
+  const compared = (results?.results ?? []).filter((r): r is Extract<PublicResult, { kind: 'compared' }> => r.kind === 'compared');
+  const first = compared.at(-1);
   const entries: LogEntry[] = [
     { when: 'Nov 12, 2026', text: `Measured ${findings.scored.toLocaleString('en-US')} releases from ${findings.years[0]} to ${findings.years[1]}.` },
     {
       when: 'Nov 12, 2026',
       text: 'Tested a formula on 2022 to 2024. It landed within two hours about 9 times in 10, but about 1 in 10 arrived more than two hours early, mostly on a high river. A stricter rule on 2019 to 2021 applied to only 39 releases, too few to judge.',
     },
-    { when: 'Nov 13, 2026', text: 'Started the live test. Eddy saves an estimate at each release, before the river answers, and checks the gauge a day later.' },
+    { when: 'Nov 13, 2026', text: 'Started collecting estimates before each rise, then checking them against the gauge.' },
   ];
   if (first) {
     const { position, outsideMinutes } = comparison(first);
@@ -72,6 +72,16 @@ export function researchLog(findings: Findings, results: PublicResults | null): 
         : `First result: the gauge rose ${durationText(outsideMinutes)} ${position} the estimated window.`,
     });
   }
-  entries.push({ when: 'Next', text: 'Releases that start slowly. The live test doesn’t count them yet, and we’re working out how to include them.' });
+  const latest = compared[0];
+  if (latest && latest !== first) {
+    const { position, outsideMinutes } = comparison(latest);
+    entries.push({
+      when: datedDay(Date.parse(latest.roseAt)),
+      text: position === 'inside'
+        ? 'Latest comparison: the gauge rose inside the estimated window.'
+        : `Latest comparison: the gauge rose ${durationText(outsideMinutes)} ${position} the estimated window.`,
+    });
+  }
+  entries.push({ when: 'Next', text: 'Test releases that start slowly. The current rule doesn’t include them.' });
   return entries;
 }

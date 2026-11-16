@@ -11,7 +11,7 @@ import Button from '@/components/ui/Button';
 import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
 import { comparison, type PublicResult, type PublicResults } from '@/lib/arrival-trial/public-results';
 import { GAUGE_MILE } from '@/lib/release-timing/river';
-import { progressSlots, RESULTS_NEEDED } from '@/lib/release-timing/presentation';
+import { RESULTS_NEEDED, studyProgress } from '@/lib/release-timing/presentation';
 import { clockTime, datedDay, durationText, releaseHour, shortDate, timeSpan } from '@/lib/release-timing/time';
 import styles from './release-timing.module.css';
 
@@ -21,12 +21,13 @@ const EARLIER_SHOWN = 8;
 
 /** One plain sentence: where the rise fell against the estimated window. */
 export function outcomeSentence(result: Compared): string {
-  const { position, outsideMinutes, fromEstimateMinutes } = comparison(result);
-  if (position !== 'inside') return `Rise ${durationText(outsideMinutes)} ${position} the window.`;
-  const off = Math.abs(fromEstimateMinutes);
-  return off < 8
-    ? 'Within the window · Near the estimate'
-    : `Within the window · ${durationText(off)} ${fromEstimateMinutes < 0 ? 'early' : 'late'}`;
+  const { position, outsideMinutes } = comparison(result);
+  return position === 'inside' ? 'Within the estimated window' : `Rise ${durationText(outsideMinutes)} ${position} the window`;
+}
+function estimateDifference(result: Compared): string {
+  const { fromEstimateMinutes } = comparison(result);
+  if (fromEstimateMinutes === 0) return 'At Eddy’s estimate.';
+  return `${durationText(Math.abs(fromEstimateMinutes))} ${fromEstimateMinutes < 0 ? 'before' : 'after'} Eddy’s estimate.`;
 }
 const shortOutcome = (result: Compared): string => {
   const { position, outsideMinutes } = comparison(result);
@@ -66,6 +67,7 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
         <line x1={x(rose)} x2={x(rose)} y1={mid - band / 2 - (compact ? 3 : 7)} y2={mid + band / 2 + (compact ? 3 : 7)} stroke={marker} strokeWidth={compact ? 2.5 : 3} strokeLinecap="round" />
         {!compact && <circle cx={x(rose)} cy={mid} r={5.5} fill={marker} stroke="var(--color-surface)" strokeWidth={2} />}
       </svg>
+      {!compact && <p className={styles.estimateKey}>Dashed mark: Eddy’s estimate · {clockTime(estimate)}</p>}
     </div>
   );
 }
@@ -85,9 +87,6 @@ export default function HowClose({
   const latest = shown[0];
   const earlier = shown.filter((r) => r !== featured && r.kind !== 'waiting').slice(0, EARLIER_SHOWN);
   const withheld = results?.tally.noEstimate.reduce((sum, row) => sum + row.count, 0) ?? 0;
-  const slots = progressSlots(results);
-  const inside = slots.filter((slot) => slot === 'inside').length;
-  const outside = slots.filter((slot) => slot === 'outside').length;
   const others = results
     ? [
         results.tally.waiting > 0 && `${results.tally.waiting} waiting`,
@@ -103,19 +102,6 @@ export default function HowClose({
         <p>Gauge near Norfork · {GAUGE_MILE} miles downstream · Central time</p>
       </div>
       <div className={styles.cardBody}>
-        {results !== null && (
-          <div className={styles.progress}>
-            <p><b>{inside + outside} of {RESULTS_NEEDED}</b> results in before we call it.{others.length > 0 ? ` Also ${others.join(', ')}.` : ''}</p>
-            <div className={styles.slots} role="img" aria-label={`${inside + outside} of ${RESULTS_NEEDED} results in: ${inside} inside the estimated window, ${outside} outside it.`}>
-              {slots.map((slot, k) => <i key={k} data-slot={slot} />)}
-            </div>
-            <div className={styles.slotKey}>
-              <span><i data-slot="inside" />Inside the window</span>
-              <span><i data-slot="outside" />Outside it</span>
-              <span><i data-slot="open" />Still to come</span>
-            </div>
-          </div>
-        )}
         {results === null ? (
           <p className={styles.status}>Results can’t be loaded right now.</p>
         ) : shown.length === 0 ? (
@@ -125,6 +111,19 @@ export default function HowClose({
           </div>
         ) : (
           <>
+            {featured && (
+              <div className={styles.featured}>
+                <h3>{datedDay(Date.parse(featured.releasedAt))} · Released in the {releaseHour(Date.parse(featured.releasedAt))}</h3>
+                <div className={styles.resultLead}>
+                  <div>
+                    <p className={styles.outcome}>{outcomeSentence(featured)}</p>
+                    <p className={styles.difference}>{estimateDifference(featured)}</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="min-h-11" onClick={() => onPlay(featured)}>Replay release</Button>
+                </div>
+                <WindowGraphic result={featured} />
+              </div>
+            )}
             {pending.length > 0 && (
               <p className={styles.status}>
                 <b>Waiting for gauge readings.</b>{' '}
@@ -137,14 +136,6 @@ export default function HowClose({
               <p className={styles.status}>
                 <b>Couldn’t compare the {shortDate(Date.parse(latest.releasedAt))} release.</b> {latest.why}.
               </p>
-            )}
-            {featured && (
-              <div className={styles.featured}>
-                <h3>{datedDay(Date.parse(featured.releasedAt))} · Released in the {releaseHour(Date.parse(featured.releasedAt))}</h3>
-                <WindowGraphic result={featured} />
-                <p className={styles.outcome}>{outcomeSentence(featured)}</p>
-                <div><Button variant="outline" size="sm" className="min-h-11" onClick={() => onPlay(featured)}>Replay release</Button></div>
-              </div>
             )}
             {earlier.length > 0 && (
               <ul className={styles.earlier} aria-label="Earlier releases">
@@ -162,6 +153,12 @@ export default function HowClose({
               </ul>
             )}
           </>
+        )}
+        {results !== null && (
+          <div className={styles.progress}>
+            <p><b>{studyProgress(results.tally.compared)}</b></p>
+            {others.length > 0 && <p>{others.join(' · ')}</p>}
+          </div>
         )}
       </div>
       {featured && (

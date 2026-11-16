@@ -6,7 +6,7 @@ import test from 'node:test';
 import { FINDINGS, hoursOf, hoursText, quantile, sizeHours, sizeIndexFor, spread, type Stats } from './findings';
 import { frontMile, GAUGE_MILE, MAP, paceShare, PLACES, riverFrame } from './river';
 import { durationText, releaseHour, timeSpan } from './time';
-import { elapsedText, playbackHours, progressSlots, researchLog, RESULTS_NEEDED, roughHours, sizePhrase, windowPosition } from './presentation';
+import { elapsedText, playbackHours, studyProgress, researchLog, roughHours, sizePhrase, windowPosition } from './presentation';
 import { publicResults, type StoredOutcome, type StoredPrediction } from '../arrival-trial/public-results';
 
 // ── The page's numbers are the study's numbers ───────────────────────────────
@@ -190,7 +190,7 @@ test('an unmeasured place gets a rounded time and never minutes', () => {
 });
 
 test('the answer names the release size the way people say it', () => {
-  assert.deepEqual([0, 3, 4].map((i) => sizePhrase(i, FINDINGS.size.length)), ['A 1-generator release', 'A 4-generator release', 'A release of 5 or more generators']);
+  assert.deepEqual([0, 3, 4].map((i) => sizePhrase(i, FINDINGS.size.length)), ['1 generator', '4 generators', '5+ generators']);
 });
 
 test('a release is named by the hour it began in, not a clock time', () => {
@@ -209,11 +209,12 @@ const stored = (day: number, minutesFromEstimate: number | null): [StoredPredict
 };
 const trial = (...rows: Array<[StoredPrediction, StoredOutcome[]]>) => publicResults(rows.map((r) => r[0]), rows.flatMap((r) => r[1]));
 
-test('progress has one slot per result the study needs, filled oldest first', () => {
-  assert.deepEqual(progressSlots(null), Array(RESULTS_NEEDED).fill('open'));
-  const slots = progressSlots(trial(stored(14, 25), stored(15, -200), stored(16, null)));
-  assert.equal(slots.length, RESULTS_NEEDED);
-  assert.deepEqual(slots.slice(0, 3), ['inside', 'outside', 'open'], 'a release still travelling fills no slot');
+test('collection progress excludes waiting results and does not imply a pass at the target', () => {
+  const results = trial(stored(14, 25), stored(15, -200), stored(16, null));
+  assert.equal(studyProgress(results.tally.compared), '2 of 60 comparisons collected · Study in progress');
+  assert.equal(studyProgress(0), '0 of 60 comparisons collected · Study in progress');
+  assert.equal(studyProgress(60), '60 comparisons collected · Study target reached');
+  assert.equal(studyProgress(61), '61 comparisons collected · Study target reached');
 });
 
 test('the research log ends with what comes next and adds the first result when there is one', () => {
@@ -221,8 +222,9 @@ test('the research log ends with what comes next and adds the first result when 
   assert.deepEqual(before.map((e) => e.when), ['Nov 12, 2026', 'Nov 12, 2026', 'Nov 13, 2026', 'Next']);
   assert.match(before[0].text, /Measured 695 releases from 2019 to 2026/);
   const after = researchLog(FINDINGS, trial(stored(15, -200), stored(14, 25)));
-  assert.deepEqual(after.map((e) => e.when), ['Nov 12, 2026', 'Nov 12, 2026', 'Nov 13, 2026', 'Nov 14, 2026', 'Next']);
+  assert.deepEqual(after.map((e) => e.when), ['Nov 12, 2026', 'Nov 12, 2026', 'Nov 13, 2026', 'Nov 14, 2026', 'Nov 15, 2026', 'Next']);
   assert.equal(after[3].text, 'First result: the gauge rose inside the estimated window.', 'the first result is the oldest, not the newest');
+  assert.match(after[4].text, /Latest comparison: the gauge rose 1 hour 50 minutes before/);
   assert.match(researchLog(FINDINGS, trial(stored(14, -200)))[3].text, /First result: the gauge rose 1 hour 50 minutes before the estimated window/);
   assert.equal(researchLog(FINDINGS, null).length, 4);
 });

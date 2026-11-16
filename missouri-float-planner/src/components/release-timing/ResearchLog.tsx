@@ -1,5 +1,4 @@
-// The study so far, as dated one-liners ending with what comes next. Visible,
-// not folded away: it is how the page shows the work is still moving.
+// Keep the latest update and next step visible; retain the history on request.
 
 import type { PublicResults } from '@/lib/arrival-trial/public-results';
 import { FINDINGS } from '@/lib/release-timing/findings';
@@ -7,20 +6,29 @@ import { researchLog } from '@/lib/release-timing/presentation';
 import styles from './release-timing.module.css';
 
 export default function ResearchLog({ results }: { results: PublicResults | null }) {
+  const entries = researchLog(FINDINGS, results);
+  const recent = entries.slice(-2);
   return (
     <section id="research-log" className="card-panel scroll-mt-24" aria-labelledby="research-log-heading">
       <div className={styles.cardHead}>
-        <h2 id="research-log-heading">Research log</h2>
-        <p>We have not shown that an arrival can be called ahead of time. This is where the work stands.</p>
+        <h2 id="research-log-heading">Study updates</h2>
       </div>
       <ol className={styles.log}>
-        {researchLog(FINDINGS, results).map((entry, k) => (
+        {recent.map((entry, k) => (
           <li key={k} data-next={entry.when === 'Next' || undefined}>
             <span>{entry.when}</span>
             <p>{entry.text}</p>
           </li>
         ))}
       </ol>
+      <details className={styles.more}>
+        <summary>Earlier study updates</summary>
+        <div>
+          {entries.slice(0, -2).map((entry, k) => (
+            <p key={k}><b>{entry.when}</b> · {entry.text}</p>
+          ))}
+        </div>
+      </details>
     </section>
   );
 }

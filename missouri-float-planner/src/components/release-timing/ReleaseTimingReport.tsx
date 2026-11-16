@@ -43,7 +43,9 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
     setSize(sizeIndex);
     setPlayRequest((n) => n + 1);
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById('release-map')?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+    const map = document.getElementById('release-map');
+    map?.querySelector('h2')?.focus({ preventScroll: true });
+    map?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
   };
 
   const high = F.height[F.height.length - 1];
@@ -72,8 +74,10 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
 
       <section id="when-it-changes" className="card-panel scroll-mt-24" aria-labelledby="when-it-changes-heading">
         <div className={styles.cardHead}>
-          <h2 id="when-it-changes-heading">A high river answers sooner</h2>
-          <p>With the gauge above 8.5 ft, the rise came about {hoursText(F.normalAll.median - high.median)} hours sooner than on a normal river, and much less predictably.</p>
+          <h2 id="when-it-changes-heading">{view === 'height' ? 'Higher water, earlier rise' : 'An existing release changes the timing'}</h2>
+          <p>{view === 'height'
+            ? `Above 8.5 ft, the rise came about ${hoursText(F.normalAll.median - high.median)} hours sooner than on a normal river, with a wider spread.`
+            : `When the dam was already releasing 3,000+ cfs, the next increase arrived about ${hoursText(F.baseline[0].median - F.baseline[2].median)} hours sooner than from below 1,500 cfs.`}</p>
         </div>
         <div className={styles.cardBody}>
           <div>
@@ -94,7 +98,7 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
         <p className={styles.note}>
           {view === 'height'
             ? 'Below 7 ft the gauge height made little difference.'
-            : `An increase on top of a release already running arrived about ${hoursText(F.baseline[0].median - F.baseline[2].median)} hours sooner. The last two groups overlap: the third is part of the second.`}
+            : 'The 3,000+ cfs group is also included in the 1,500+ cfs group.'}
         </p>
       </section>
     </div>

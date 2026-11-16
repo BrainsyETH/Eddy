@@ -1,8 +1,7 @@
 // src/app/dams/[damId]/release-timing/page.tsx
 // How long a Bull Shoals release takes to reach the gauge near Norfork.
 //
-// A findings page, not a forecast. It opens with what the study is in four
-// labelled facts, then answers three questions in order: how long it takes (the
+// A findings page, not a forecast. A short introduction leads to how long it takes (the
 // map), how close Eddy has been (each estimate the release-arrival trial saved
 // beforehand next to what the gauge then recorded), and what changes it. A
 // research log shows where the work stands. Estimates appear only after their
@@ -71,7 +70,7 @@ export default async function ReleaseTimingPage({ params }: { params: Promise<{ 
           </Link>
         </div>
 
-        <ReleaseTimingIntro results={trial} />
+        <ReleaseTimingIntro />
 
         <ReleaseTimingReport results={trial} />
 
