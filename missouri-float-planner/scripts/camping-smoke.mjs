@@ -447,6 +447,21 @@ try {
     path: `${out}/desktop-photo-cards-fixture.png`,
     fullPage: true,
   });
+  // Every part of a card lands on its one control; a directory card lands on its link.
+  const hitTarget = (locator, selector) => locator.evaluate((node, css) => {
+    node.scrollIntoView({ block: "center", behavior: "instant" });
+    const box = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return hit?.closest(css)?.textContent ?? `not ${css}: <${hit?.tagName.toLowerCase()} class="${hit?.className}">`;
+  }, selector);
+  for (const name of names) {
+    const card = page.getByRole("article").filter({ hasText: name });
+    assert.equal(await hitTarget(card.locator("[data-campground-photo]"), "button"), name);
+    assert.equal(await hitTarget(card.locator("p").last(), "button"), name, "the card body is clickable too");
+  }
+  const directoryCard = page.getByRole("article").filter({ hasText: "Fixture · Check directly" });
+  assert.equal(await hitTarget(directoryCard.locator("[data-campground-photo]"), "a"), "View campground →");
+  await page.getByRole("heading", { name: "Find your next campsite." }).scrollIntoViewIfNeeded();
   // All-river cards prioritise campsite availability; conditions appear once for a selected river.
   assert.equal(riverRequests, requestsBeforeAllRivers, "conditions are not requested until a river is selected");
   const cards = page
@@ -617,9 +632,15 @@ try {
     true,
   );
   const beforeReopen = siteRequests;
-  await page.getByRole('button', { name: 'View campground' }).first().click();
+  // The whole card opens its campground: reopen by clicking the photo.
+  await cards.first().locator('[data-campground-photo]').evaluate((node) => node.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const firstPhoto = await cards.first().locator('[data-campground-photo]').boundingBox();
+  await page.mouse.click(firstPhoto.x + firstPhoto.width / 2, firstPhoto.y + firstPhoto.height / 2);
+  await page.getByRole('dialog').getByRole('heading', { name: names[0], exact: true }).waitFor();
   await page.getByText('Site 01', { exact: true }).waitFor();
   assert.equal(siteRequests, beforeReopen, 'recent details are reused on reopen');
+  const provider = page.getByRole('dialog').getByRole('link', { name: 'Book on Recreation.gov', exact: true });
+  assert.equal(await provider.getAttribute('href'), camps[0].booking.url, 'the booking button says what it does');
   await page.keyboard.press('Escape');
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   const availableOnly = page.getByLabel('Available for my stay');

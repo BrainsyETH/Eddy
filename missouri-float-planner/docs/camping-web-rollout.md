@@ -142,6 +142,12 @@ selected stay stays highlighted. Fields use the site's input focus style
 rather than the coral ring used on buttons and links, and a select releases
 focus after a mouse or touch pick; a keyboard pick keeps it.
 
+The whole card opens its campground, photo included: the title button's hit
+area covers the card, so there is still one control per card for keyboards and
+screen readers. "More places to camp" cards work the same way through their
+link. In campground details the provider button reads "Book on Recreation.gov"
+or "Book on Missouri State Parks", including for district-permit loops.
+
 Cards, calendar thumbnails and campground details use the overview's exact
 campground image. Missing or failed images use Eddy artwork with "Photo
 unavailable", never a nearby river or a numbered site's image. Responsive image
