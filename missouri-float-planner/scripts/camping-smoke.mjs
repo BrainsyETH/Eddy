@@ -225,9 +225,9 @@ try {
     await new Promise(() => {});
   }
   browser = await chromium.launch({
-    executablePath:
-      process.env.CHROMIUM_PATH ||
-      (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : undefined),
+    // CI installs Playwright's matching browser. System Chromium may be a
+    // launcher that cannot start on the runner; local overrides stay explicit.
+    executablePath: process.env.CHROMIUM_PATH || undefined,
     headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage"],
   });
@@ -479,21 +479,63 @@ try {
   const sort = page.getByRole('combobox', { name: 'Sort campgrounds' });
   assert.equal(await sort.inputValue(), 'river');
   // Dates choose openings first until the person explicitly picks an order.
-  await page.getByRole('button', { name: 'Tonight', exact: true }).click();
+  const tonightShortcut = page.getByRole('button', { name: 'Tonight', exact: true });
+  const weekendShortcut = page.getByRole('button', { name: 'This weekend', exact: true });
+  const stayDates = () => ['arrival', 'departure'].map((key) => new URL(page.url()).searchParams.get(key)).join();
+  assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'false');
+  await tonightShortcut.click();
   await openCard.getByText('40 sites available', { exact: true }).waitFor();
+  assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'true', 'the chosen shortcut stays highlighted');
+  const tonightDates = stayDates();
   assert.equal(await sort.inputValue(), 'available');
   assert.equal((await cards.locator('h3').allTextContents())[0], names[0]);
   assert.equal(await page.getByRole('heading', { name: 'More campgrounds', exact: true }).count(), 0);
   await sort.selectOption('river');
   assert.equal(new URL(page.url()).searchParams.get('sort'), 'river');
-  await page.getByRole('button', { name: 'This weekend', exact: true }).click();
+  await weekendShortcut.click();
+  assert.equal(await weekendShortcut.getAttribute('aria-pressed'), 'true', 'the chosen shortcut stays highlighted');
+  // On a day when tonight is also the weekend, both describe the stay.
+  if (stayDates() !== tonightDates) {
+    assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'false');
+    assert.notEqual(
+      await weekendShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
+      await tonightShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
+      'the highlight is visible, not only announced',
+    );
+  }
   assert.equal(await sort.inputValue(), 'river', 'date changes retain an explicit sort');
   await page.getByRole('button', { name: 'Calendar', exact: true }).click();
   await page.getByRole('table').getByText('River mile 51', { exact: true }).waitFor();
   await page.getByRole('cell', { name: 'More campgrounds', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Cards', exact: true }).click();
   await page.getByRole('button', { name: 'Clear dates', exact: true }).click();
+  assert.equal(await weekendShortcut.getAttribute('aria-pressed'), 'false');
   assert.equal(await sort.inputValue(), 'river');
+  // Chevrons are drawn at the text's inset, not the browser's flush arrow.
+  for (const select of [riverSelect, sort]) {
+    const style = await select.evaluate((node) => {
+      const computed = getComputedStyle(node);
+      return { appearance: computed.appearance, image: computed.backgroundImage, room: parseFloat(computed.paddingRight) };
+    });
+    assert.equal(style.appearance, 'none');
+    assert.match(style.image, /^url\(/);
+    assert.ok(style.room >= 30, 'the label cannot run under the chevron');
+  }
+  // A mouse or touch pick releases the select, so no focus ring lingers on it.
+  await sort.dispatchEvent('pointerdown');
+  await sort.selectOption('available');
+  assert.equal(await sort.evaluate((node) => node === document.activeElement), false);
+  // A keyboard pick keeps focus, shown as the site's field focus, not a coral ring.
+  await sort.focus();
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await sort.inputValue(), 'river');
+  assert.equal(await sort.evaluate((node) => node === document.activeElement), true);
+  const fieldFocus = await sort.evaluate((node) => {
+    const computed = getComputedStyle(node);
+    return { outline: computed.outlineStyle, ring: computed.boxShadow };
+  });
+  assert.equal(fieldFocus.outline, 'none');
+  assert.notEqual(fieldFocus.ring, 'none');
   assert.equal(await openCard.getByText("Good", { exact: true }).count(), 0, "the panel replaces per-card conditions");
   await page.getByText("Upstream to downstream", { exact: false }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get("river"), "current");
@@ -702,6 +744,20 @@ try {
     ),
     "320px has no page overflow",
   );
+  // Small visible pills still respond in the extra touch space around them.
+  const electricFilter = page.getByRole('button', { name: /Electric/ });
+  await electricFilter.scrollIntoViewIfNeeded();
+  const electricBox = await electricFilter.boundingBox();
+  const availabilityBox = await availableOnly.locator('..').boundingBox();
+  assert.ok(Math.abs(electricBox.y - availabilityBox.y) < 2, 'both mobile filters fit on one row');
+  await page.mouse.click(electricBox.x + electricBox.width / 2, electricBox.y - 4);
+  assert.equal(await electricFilter.getAttribute('aria-pressed'), 'true', 'Electric responds outside its visible pill');
+  await electricFilter.click();
+  const availableTap = await availableOnly.locator('..').boundingBox();
+  await page.mouse.click(availableTap.x + availableTap.width / 2, availableTap.y - 4);
+  assert.equal(await availableOnly.isChecked(), true, 'availability responds outside its visible pill');
+  assert.equal(await page.getByRole('button', { name: 'View campground' }).count(), 1);
+  await availableOnly.uncheck();
   await riverSelect.selectOption('current');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'river summary and sort fit 320px');
   await page.screenshot({ path: `${out}/small-mobile-river-fixture.png`, fullPage: true });
