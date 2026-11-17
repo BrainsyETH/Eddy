@@ -104,18 +104,19 @@ export function poolPosition(
   return 'within_operating_range';
 }
 
-export function poolPositionSentence(position: PoolPosition | null, elevationFt: number, range: { conservationFt: number; floodFt: number } | null): string {
+export function poolPositionSentence(position: PoolPosition | null, elevationFt: number, range: { conservationFt: number; floodFt: number } | null, referenceLabel: 'conservation pool' | 'seasonal pool' = 'conservation pool'): string {
   if (!position || !range) return 'Operating range not published.';
   const vsConservation = elevationFt - range.conservationFt;
   const feet = `${Math.abs(vsConservation).toFixed(1)} ft`;
+  const reference = `${range.conservationFt.toFixed(referenceLabel === 'seasonal pool' ? 1 : 0)} ft ${referenceLabel}`;
   switch (position) {
     case 'below_conservation':
-      return `${feet} below the ${range.conservationFt.toFixed(0)} ft conservation pool.`;
+      return `${feet} below the ${reference}.`;
     case 'above_flood':
       return `${(elevationFt - range.floodFt).toFixed(1)} ft above the ${range.floodFt.toFixed(0)} ft flood pool.`;
     default:
       return vsConservation < 0.05
-        ? `At the ${range.conservationFt.toFixed(0)} ft conservation pool.`
-        : `${feet} above the ${range.conservationFt.toFixed(0)} ft conservation pool, in the flood-control range.`;
+        ? `At the ${reference}.`
+        : `${feet} above the ${reference}, in the flood-control range.`;
   }
 }

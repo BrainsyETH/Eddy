@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, Pause, Play, X } from 'lucide-react';
 import type { DamSnapshot, DamMetricValue } from '@shared/dam-types';
 import type { LakeSection } from '@shared/lake-types';
-import { readingStaleness } from '@shared/dam-schedule-copy';
+import { readingStaleness, tailwaterMovementSentence } from '@shared/dam-schedule-copy';
 import {
   ABOVE_FULL_GENERATION_LABEL, FULL_GENERATION_SHORT_LABEL, RACK_ESTIMATE_SHORT,
   generationNow, generationPercentLabel, generationStatusLabel, generationVoiceOver, generatorRack,
@@ -16,8 +16,8 @@ import Button from '@/components/ui/Button';
 import { ReadingTime } from './DamGenerationHero';
 import DamGeneratorRack from './DamGeneratorRack';
 import DamWaterScene from './DamWaterScene';
-import LakeLevelChart from './LakeLevelChart';
 import LakeMovement from '@/components/lake/LakeMovement';
+import { lakePoolPositionSentence } from '@shared/lake-pool-reference';
 
 type Detail = 'lake' | 'turbines' | 'downstream';
 const areas: Array<{ id: Detail; label: string }> = [
@@ -34,13 +34,13 @@ function ReadingNote({ metric, now, showTime = true }: { metric: DamMetricValue;
   </div>;
 }
 
-function DetailReading({ label, metric, now, format }: {
-  label: string; metric?: DamMetricValue; now: number; format: (value: number) => string;
+function DetailReading({ label, metric, now, format, note }: {
+  label: string; metric?: DamMetricValue; now: number; format: (value: number) => string; note?: ReactNode;
 }) {
   const available = validMetric(metric);
   return <div><p className="dam-water-label">{label}</p>
     <p className={`font-mono text-lg ${available && outdated(metric, now) ? 'opacity-70' : ''}`}>{available ? format(metric.value) : 'Unavailable'}</p>
-    {available && <ReadingNote metric={metric} now={now} />}
+    {available && (note ? <><p className="dam-water-note">{note}</p><ReadingNote metric={metric} now={now} showTime={false} /></> : <ReadingNote metric={metric} now={now} />)}
   </div>;
 }
 
@@ -52,6 +52,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
   const release = dam.metrics.release!;
   const turbine = validMetric(dam.metrics.generationFlow) && dam.metrics.generationFlow.value >= 0 ? dam.metrics.generationFlow : undefined;
   const spillway = validMetric(dam.metrics.spillwayFlow) && dam.metrics.spillwayFlow.value >= 0 ? dam.metrics.spillwayFlow : undefined;
+  const floodPool = validMetric(dam.metrics.pctFloodPool) && dam.metrics.pctFloodPool.value >= 0 ? dam.metrics.pctFloodPool : undefined;
   const view = damWaterIllustrationState(dam, now, lake);
   const commonAt = sharedObservationAt([pool, release, turbine, spillway]);
   const state = generationNow(dam, now);
@@ -80,13 +81,18 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     setDetail(null);
   };
 
-  return <section ref={root} className="dam-water-root" aria-label="Reported water release" data-dam-water-illustration data-motion={moving ? 'running' : 'paused'} data-level-motion={view.poolFresh && reducedMotion === false && !paused && visible && pageVisible ? 'allowed' : 'off'}>
+  return <section ref={root} className="dam-water-root" aria-label="Reported water release" data-dam-water-illustration data-motion={moving ? 'running' : 'paused'} data-level-motion={view.poolFresh && reducedMotion === false && !paused && visible && pageVisible ? 'allowed' : 'off'} onKeyDown={event => { if (detail && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeDetail(); } }}>
     <div className="dam-water-readings">
       <div className="dam-water-level">
         <p className="dam-water-label">Lake level</p>
         <p className={`dam-water-level-value ${outdated(pool, now) ? 'opacity-70' : ''}`}>{pool.value.toFixed(2)} <span>ft</span></p>
         {outdated(pool, now) && <p className="dam-water-outdated">Outdated lake reading</p>}
         {view.change24hFt !== undefined && <LakeMovement delta={view.change24hFt} hours={24} />}
+        {view.highWaterContext && <p data-high-water-context className="dam-water-note">{view.highWaterContext}</p>}
+        {floodPool && <div data-flood-pool className="dam-water-note">
+          <p className={outdated(floodPool, now) ? 'opacity-70' : ''}>{floodPool.value.toFixed(0)}% flood pool</p>
+          <ReadingNote metric={floodPool} now={now} showTime={floodPool.at !== pool.at} />
+        </div>}
         {pool.dailyMean && <p className="dam-water-note">Daily average</p>}
         {!commonAt && <ReadingTime at={pool.at} now={now} className="" />}
       </div>
@@ -115,13 +121,13 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
         {area.label}<ChevronDown size={14} aria-hidden="true" />
       </Button>)}
     </div>
-    <div id={panelId} hidden={!detail} role="region" aria-labelledby={`${panelId}-heading`} className="dam-water-detail-panel" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); closeDetail(); } }}>
+    <div id={panelId} hidden={!detail} role="region" aria-labelledby={`${panelId}-heading`} className="dam-water-detail-panel">
       {detail && <>
         <div className="dam-water-panel-heading"><h3 id={`${panelId}-heading`}>{detail === 'lake' ? 'Lake readings' : detail === 'turbines' ? 'Generation details' : 'Below the dam'}</h3><Button variant="icon" className="min-h-11 min-w-11" onClick={closeDetail} aria-label="Close reading details"><X size={18} aria-hidden="true" /></Button></div>
         {detail === 'lake' && <>
-          <p className="dam-water-note">The dashed line follows the Corps&apos; seasonal pool for this reading&apos;s date. Elevations use NGVD29.</p>
-          {validMetric(dam.metrics.inflow) && <DetailReading label="Inflow" metric={dam.metrics.inflow} now={now} format={cfs} />}
-          {lake?.slug === 'table-rock' && lake.history.length > 1 ? <LakeLevelChart history={lake.history} seasonalPool now={now} timeZone={lake.timeZone} datum={lake.datum} compact /> : <p className="dam-water-note">Lake-level history is currently unavailable.</p>}
+          {!view.highWaterContext && <p className="dam-water-note">{lakePoolPositionSentence({ slug: 'table-rock', pool: { valueFt: pool.value, at: pool.at, staleness: pool.staleness } })}</p>}
+          <DetailReading label="Inflow" metric={dam.metrics.inflow} now={now} format={cfs} />
+          <p className="dam-water-note">The illustration marks the Corps&apos; seasonal pool. Elevations use NGVD29.</p>
         </>}
         {detail === 'turbines' && <>
           {status && <p className="font-semibold">{status}</p>}
@@ -130,10 +136,10 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
           {state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && <p className="dam-water-note">{ABOVE_FULL_GENERATION_LABEL}</p>}
           <p className="dam-water-note">The wheel shows reported generation. Its speed does not represent turbine speed.</p>
         </>}
-        {detail === 'downstream' && <div className="dam-water-detail-readings">
-          <DetailReading label="River level" metric={dam.metrics.tailwaterElevation} now={now} format={value => `${value.toFixed(2)} ft`} />
+        {detail === 'downstream' && <><div className="dam-water-detail-readings">
+          <DetailReading label="River level" metric={dam.metrics.tailwaterElevation} now={now} format={value => `${value.toFixed(2)} ft`} note={dam.metrics.tailwaterElevation && tailwaterMovementSentence(dam.metrics.tailwaterElevation, now)} />
           <DetailReading label="Water temperature" metric={dam.metrics.tailwaterTempF} now={now} format={value => `${value.toFixed(1)} °F`} />
-        </div>}
+        </div>{dam.tailwaterFishery && <p className="dam-water-note">{dam.tailwaterFishery === 'trout' ? 'Trout fishery · cold year-round, deep release' : 'Warmwater fishery · bass, crappie, catfish'}</p>}</>}
       </>}
     </div>
 
@@ -144,8 +150,8 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
       <div><span>Spillway</span>{' '}<strong className={spillway && outdated(spillway, now) ? 'opacity-70' : ''}>{spillway ? cfs(spillway.value) : 'Unavailable'}</strong>
         {spillway && (!commonAt || spillway.dailyMean || outdated(spillway, now)) && <ReadingNote metric={spillway} now={now} showTime={!commonAt} />}
       </div>
-      <Button variant="ghost" size="sm" className="dam-water-motion-toggle" disabled={!view.releaseActive || reducedMotion !== false} onClick={() => setPaused(!paused)}>
-        {paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}{reducedMotion || !view.releaseActive ? 'Motion off' : paused ? 'Play motion' : 'Pause motion'}
+      <Button variant="ghost" size="sm" className="dam-water-motion-toggle" aria-label={reducedMotion || !view.releaseActive ? 'Motion off' : paused ? 'Play motion' : 'Pause motion'} disabled={!view.releaseActive || reducedMotion !== false} onClick={() => setPaused(!paused)}>
+        {paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}{reducedMotion || !view.releaseActive ? 'Off' : paused ? 'Play' : 'Pause'}
       </Button>
     </div>
     <div className="dam-water-source">{source}{commonAt && <ReadingTime at={commonAt} now={now} className="" />}</div>

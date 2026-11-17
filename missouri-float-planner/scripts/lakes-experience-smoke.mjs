@@ -16,7 +16,8 @@ const dam = {
   id: 'swl-table-rock-dam', name: 'Table Rock Dam', lakeName: 'Table Rock Lake', state: 'MO', lat: 36.6, lon: -93.3,
   hasTurbines: true, generating: true, generationFloorCfs: 100, releaseExcludesGeneration: true,
   generationReference: { units: 4, fullGenerationCfs: 14000, schedulingCapacityMw: 200, source: 'SWPA' },
-  metrics: { generationFlow: metric(7000, 'cfs'), release: metric(7200, 'cfs'), spillwayFlow: metric(0, 'cfs'), poolElevation: metric(914.4), tailwaterElevation: { ...metric(704.12), trend: { hours: 3, delta: -0.4 } }, tailwaterTempF: metric(56, 'F') },
+  tailwaterFishery: 'trout',
+  metrics: { inflow: metric(3000, 'cfs'), pctFloodPool: metric(0, '%'), generationFlow: metric(7000, 'cfs'), release: metric(7200, 'cfs'), spillwayFlow: metric(0, 'cfs'), poolElevation: metric(914.4), tailwaterElevation: { ...metric(704.12), trend: { hours: 3, delta: -0.4 } }, tailwaterTempF: metric(56, 'F') },
   schedule: [{ scheduleDate: '2026-11-09', retrievedAt: at, hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i >= 12 && i < 20 ? 100 : 0, cfs: i >= 12 && i < 20 ? 7000 : 0, isRamp: false })), idle: [{ from: 1, to: 12 }, { from: 21, to: 24 }] }],
   pattern: [], sources: ['USACE CWMS', 'SWPA'],
   sourceLinks: [{ kind: 'readings', label: 'Corps of Engineers data', publisher: 'U.S. Army Corps of Engineers', url: 'https://water.usace.army.mil/overview/swl/locations/table_rock_dam' }, { kind: 'schedule', label: 'SWPA schedule', publisher: 'Southwestern Power Administration', url: 'https://www.energy.gov/swpa/generation-schedules' }],
@@ -46,6 +47,8 @@ import LakeDetail from '@/components/lake/LakeDetail';
 import PlaceHeader from '@/components/lake/PlaceHeader';
 import StationShareButton from '@/components/gauge/StationShareButton';
 import { damLakeExperienceEnabled, lakePageHref } from '@/lib/lakes/public-pages';
+import { lakeOperatingRangeAt, TABLE_ROCK_OPERATING_RANGE } from '@shared/lake-pool-reference';
+import { poolPosition } from '@shared/lake-status';
 const baseDam = ${JSON.stringify(dam)};
 const baseLake = ${JSON.stringify(lake)};
 export default async function Page({ searchParams }: { searchParams: Promise<{ kind?: string; variant?: string }> }) {
@@ -54,7 +57,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   const dam = structuredClone(baseDam) as import('@shared/dam-types').DamSnapshot;
   const lake = structuredClone(baseLake) as unknown as import('@shared/lake-types').LakeSection;
   if (variant === 'truman') {
-    dam.id = 'nwk-truman-dam'; dam.name = 'Harry S. Truman Dam'; lake.name = 'Truman Lake'; lake.slug = 'truman'; lake.states = ['MO'];
+    delete dam.tailwaterFishery; dam.id = 'nwk-truman-dam'; dam.name = 'Harry S. Truman Dam'; lake.name = 'Truman Lake'; lake.slug = 'truman'; lake.states = ['MO'];
     dam.metrics = { poolElevation: { value: 705.4, unit: 'ft', at: '2026-11-08T22:00:00Z', staleness: 'stale' } };
     lake.pool = { valueFt: 705.4, at: '2026-11-08T22:00:00Z', staleness: 'stale', daily: true };
     lake.history = lake.history.map(([at, ft]) => [at, ft - 209]);
@@ -62,6 +65,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   }
   if (variant === 'caution') { lake.cautionsVerified = true; lake.pool!.at = new Date(${now} - 5.9 * 3600000).toISOString(); lake.launches[0].caution = 'low_water'; }
   if (variant === 'spillway') { dam.metrics.spillwayFlow = { ...dam.metrics.spillwayFlow!, value: 4000 }; dam.metrics.release = { ...dam.metrics.release!, value: 11000 }; dam.metrics.poolElevation = { ...dam.metrics.poolElevation!, value: 921.4 }; lake.pool!.valueFt = 921.4; }
+  if (variant === 'aboveFlood') { dam.metrics.poolElevation!.value = 932; lake.pool!.valueFt = 932; dam.metrics.pctFloodPool!.value = 107; }
+  if (variant === 'staleFlood') dam.metrics.pctFloodPool = { ...dam.metrics.pctFloodPool!, value: 65, at: '2026-11-07T18:00:00Z' };
   if (variant === 'unknownSpillway') delete dam.metrics.spillwayFlow;
   if (variant === 'missingPool') delete dam.metrics.poolElevation;
   if (variant === 'dailyRelease') dam.metrics.release!.dailyMean = true;
@@ -71,6 +76,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   if (variant === 'stale') { lake.pool!.at = '2026-11-07T18:00:00Z'; for (const metric of Object.values(dam.metrics)) if (metric) metric.at = '2026-11-07T18:00:00Z'; }
   if (variant === 'mixed') { lake.pool!.at = '2026-11-08T18:00:00Z'; dam.metrics.poolElevation!.at = lake.pool!.at; }
   if (variant === 'baseline') dam.id = 'swl-bull-shoals-dam';
+  if (lake.slug === 'table-rock' && lake.pool) { lake.operatingRange = lakeOperatingRangeAt(TABLE_ROCK_OPERATING_RANGE, lake.pool.at) ?? undefined; lake.poolPosition = poolPosition(lake.pool.valueFt, lake.operatingRange ?? null) ?? undefined; }
   const enabled = variant !== 'held' && damLakeExperienceEnabled(dam.id);
   return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader kind={kind === 'lake' ? 'lake' : 'dam'} damId={dam.id} actions={kind === 'lake' ? undefined : <StationShareButton station={{ provider: 'usace', siteId: dam.id }} title={dam.name} label="Share" />} lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader><div className="place-content">{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div></div>;
 }
@@ -115,6 +121,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${kind} ${variant} overflow at ${width}`);
         assert.equal(await page.locator('[data-launch-id]').count(), kind === 'dam' ? 0 : 2, 'launch list belongs only on lake page');
         assert.equal(await page.getByRole('link', { name: /photo credit/i }).count(), 0, 'credits remain on the central credits page');
+        if (variant === 'truman') assert.equal(await page.locator('figure svg text').filter({ hasText: 'conservation pool 706 ft' }).count(), 1, 'Truman keeps its reference label inside the plot');
         if (kind === 'dam' && !variant) {
           await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
         }
@@ -162,7 +169,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             const close = details.getByRole('button', { name: 'Close reading details' });
             const closeBox = await close.boundingBox();
             assert(closeBox.width >= 44 && closeBox.height >= 44, 'close control is a full touch target');
-            await close.focus();
+            assert(await turbines.evaluate(el => el === document.activeElement), 'opening leaves focus on the trigger');
+            await page.keyboard.press('Escape');
+            assert.equal(await details.isVisible(), false, 'Enter then Escape closes without moving focus');
+            await page.keyboard.press('Enter');
+            await page.keyboard.press('Tab');
+            await page.keyboard.press('Tab');
+            assert(await close.evaluate(el => el === document.activeElement), 'Tab reaches the close button naturally');
             await page.keyboard.press('Escape');
             assert.equal(await details.isVisible(), false);
             assert(await turbines.evaluate(el => el === document.activeElement), 'Escape returns focus to the trigger');
@@ -171,8 +184,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             await illustrated.getByRole('button', { name: 'River', exact: true }).click();
             assert.match(await details.innerText(), /704.12 ft/);
             assert.match(await details.innerText(), /56.0 °F/);
+            assert.match(await details.innerText(), /0.4 ft over 3h/);
+            assert.match(await details.innerText(), /Trout fishery/);
             await illustrated.getByRole('button', { name: 'Lake', exact: true }).click();
-            assert.equal(await details.locator('figure').count(), 1, 'lake opens measured history in the shared panel');
+            assert.equal(await details.locator('figure').count(), 0, 'history has one home in the lake preview');
+            assert.match(await details.innerText(), /Inflow\s+3,000 cfs/);
+            assert.equal(await page.locator('[data-lake-section] figure').count(), 1);
+            if (width === 390) { assert(observedBox.height <= 540, 'collapsed observations keep the schedule close at 390px'); console.log('Observed panel height at 390px:', observedBox.height); }
             await details.getByRole('button', { name: 'Close reading details' }).click();
             await illustrated.locator('.dam-water-scene').scrollIntoViewIfNeeded();
             await page.clock.runFor(100);
@@ -214,7 +232,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
               await page.screenshot({ path: `${out}/illustration-large-text-${width}.png`, fullPage: true });
               await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
             }
-            assert(!(await page.locator('[data-dam-measurements]').innerText()).includes('Lake level'), 'the illustration owns the lake reading');
+            assert.equal(await page.locator('[data-dam-measurements]').count(), 0, 'illustration details own the supporting readings once');
             const tip = await generation.getByRole('button', { name: 'About generation and schedule', exact: true }).boundingBox();
             const headings = illustrated.locator('.dam-water-readings .dam-water-label');
             assert.equal(await headings.count(), 2, 'overlap check covers real illustrated headings');
@@ -224,7 +242,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             }
           }
           const conditions = page.locator('[data-dam-measurements]');
-          assert.equal(await conditions.count(), 1, 'one supporting measurement group');
+          assert.equal(await conditions.count(), variant === 'truman' ? 1 : 0, 'only the unillustrated dam keeps a separate measurement group');
           assert(await conditions.locator('.dam-measurements > div').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'measurements do not overlap');
           if (variant === 'truman') {
             assert((await conditions.innerText()).includes('Daily report') && !(await conditions.innerText()).includes('Outdated'), '20-hour daily report is not stale');
@@ -239,7 +257,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         await page.screenshot({ path: `${out}/${variant || 'table-rock'}-${kind}-${width}.png`, fullPage: true });
       }
     }
-    for (const variant of ['spillway', 'unknownSpillway', 'missingPool', 'dailyRelease', 'stale', 'mixed']) {
+    for (const variant of ['spillway', 'aboveFlood', 'staleFlood', 'unknownSpillway', 'missingPool', 'dailyRelease', 'stale', 'mixed']) {
       await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=${variant}`, { waitUntil: 'networkidle' });
       const illustration = page.locator('[data-dam-water-illustration]');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${variant} fits ${width}px`);
@@ -252,6 +270,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           assert.equal(await illustration.locator('[data-water-path="spillway"]').count(), 1);
           assert.equal((await illustration.innerText()).match(/4,000 cfs/g)?.length, 1, 'spillway quantity appears once');
         }
+        if (variant === 'aboveFlood') {
+          assert.match(await illustration.locator('[data-high-water-context]').innerText(), /1.0 ft above the 931 ft flood pool/);
+          assert.match(await illustration.locator('[data-flood-pool]').innerText(), /107% flood pool/);
+          assert.match(await page.locator('[data-lake-section]').innerText(), /1.0 ft above the 931 ft flood pool/);
+        }
+        if (variant === 'staleFlood') {
+          const flood = illustration.locator('[data-flood-pool]');
+          assert.match(await flood.innerText(), /65% flood pool/);
+          assert.match(await flood.innerText(), /Outdated reading/);
+          assert.match(await flood.innerText(), /2 days ago/);
+          assert(await flood.locator('p').first().evaluate(el => Number(getComputedStyle(el).opacity) < 1), 'flood storage has its own staleness');
+        }
+        if (variant === 'spillway') assert.match(await illustration.locator('[data-high-water-context]').innerText(), /flood-control range/);
         if (variant === 'unknownSpillway') assert.match(await illustration.innerText(), /Spillway\s+Unavailable/);
         if (['stale', 'dailyRelease'].includes(variant)) assert.equal(await illustration.locator('[data-water-path]').count(), 0, 'old or averaged readings do not paint active flows');
         if (variant === 'stale') {
@@ -265,7 +296,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         if (variant === 'dailyRelease') assert((await illustration.innerText()).includes('Daily average'));
         if (variant === 'mixed') assert((await illustration.locator('time').count()) > 1, 'different observation times stay attached to their readings');
       }
-      if (['spillway', 'stale', 'mixed'].includes(variant)) {
+      if (['spillway', 'aboveFlood', 'staleFlood', 'stale', 'mixed'].includes(variant)) {
         await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
         await page.locator('.place-header').scrollIntoViewIfNeeded();
         await page.screenshot({ path: `${out}/illustration-${variant}-${width}.png`, fullPage: true });

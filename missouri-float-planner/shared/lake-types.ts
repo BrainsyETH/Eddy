@@ -14,7 +14,10 @@ import type { PoolPosition, RampCaution, VerticalDatum } from './lake-status';
 export type LaunchMethod = 'trailer' | 'hand';
 
 export interface LakeOperatingRange {
+  /** Resolved for the pool observation in API responses; nominal in the registry. */
   conservationFt: number;
+  /** Optional on older payloads and fixed-pool lakes. */
+  conservationSchedule?: 'table-rock';
   floodFt: number;
   /** Who documents these elevations, for the page's source line. */
   source: string;

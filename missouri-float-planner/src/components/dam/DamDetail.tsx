@@ -28,14 +28,14 @@ export default function DamDetail({ dam, renderedAt, availability, lake, lakeHre
   const { now, refreshing } = useDamPageClock(renderedAt);
   const { poolElevation, tailwaterElevation, tailwaterTempF, inflow } = dam.metrics;
   const illustrated = hasDamWaterIllustration(dam);
-  const hasMeasurements = Boolean((!illustrated && poolElevation) || tailwaterElevation || tailwaterTempF || inflow || dam.tailwaterFishery);
+  const hasMeasurements = !illustrated && Boolean(poolElevation || tailwaterElevation || tailwaterTempF || inflow || dam.tailwaterFishery);
   // Optional lake data only controls the lake preview. Every dam keeps the
   // same schedule, observed readings and interpretation order.
   const pilot = lakeExperienceEnabled && Boolean(lake);
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
       <GenerationCard dam={dam} now={now} availability={availability} lake={pilot ? lake : undefined} />
-      {hasMeasurements && <DamStateCard dam={dam} secondary now={now} hidePool={illustrated} lakePool={pilot ? lake?.pool : undefined} />}
+      {hasMeasurements && <DamStateCard dam={dam} secondary now={now} lakePool={pilot ? lake?.pool : undefined} />}
       {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}
       {dam.pattern && dam.pattern.length > 0 && <DamPatternStrip pattern={dam.pattern} schedule={dam.schedule} reference={dam.generationReference} generationFloorCfs={dam.generationFloorCfs} now={now} />}

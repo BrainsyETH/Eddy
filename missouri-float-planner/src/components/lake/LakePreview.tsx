@@ -7,7 +7,7 @@ import LakeLevelChart from '@/components/dam/LakeLevelChart';
 import type { LakeSection } from '@shared/lake-types';
 import LakeMovement from './LakeMovement';
 import { lakeReadingIsStale, lakeReadingLabel } from '@/lib/lakes/presentation';
-import { lakePoolPositionSentence } from '@/lib/lakes/pool-reference';
+import { lakePoolPositionSentence } from '@shared/lake-pool-reference';
 import { lakePhoto } from '@/lib/lakes/photography';
 
 /** Context below all dam operations. The measurement row already shows the current level. */

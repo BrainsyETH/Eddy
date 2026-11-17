@@ -1,0 +1,173 @@
+{
+  "checkedAt": "2026-11-17",
+  "levelUrl": "https://cwms-data.usace.army.mil/cwms-data/levels/Table_Rock_Dam.Elev-Pool.Inst.0.Top%20of%20Conservation?office=SWL&effective-date=2026-11-17T00:00:00Z&unit=ft",
+  "level": {
+    "office-id": "SWL",
+    "location-level-id": "Table_Rock_Dam.Elev-Pool.Inst.0.Top of Conservation",
+    "interpolate-string": "T",
+    "level-units-id": "ft",
+    "level-date": "1906-01-01T06:00:00Z",
+    "attribute-units-id": "ft",
+    "interval-origin": "2001-01-01T06:00:00Z",
+    "interval-months": 12,
+    "seasonal-values": [
+      {
+        "value": 914.9999999999999,
+        "offset-months": 0,
+        "offset-minutes": 0
+      },
+      {
+        "value": 914.9999999999999,
+        "offset-months": 3,
+        "offset-minutes": 41760
+      },
+      {
+        "value": 915.9999999999999,
+        "offset-months": 3,
+        "offset-minutes": 41790
+      },
+      {
+        "value": 916.9999999999999,
+        "offset-months": 4,
+        "offset-minutes": 43260
+      },
+      {
+        "value": 916.9999999999999,
+        "offset-months": 11,
+        "offset-minutes": 0
+      },
+      {
+        "value": 914.9999999999999,
+        "offset-months": 11,
+        "offset-minutes": 30
+      },
+      {
+        "value": 914.9999999999999,
+        "offset-months": 12,
+        "offset-minutes": 0
+      }
+    ]
+  },
+  "samples": [
+    {
+      "url": "https://cwms-data.usace.army.mil/cwms-data/levels/Table_Rock_Dam.Elev-Pool.Inst.0.Top%20of%20Conservation/timeseries?office=SWL&begin=2026-04-30T05:45:00Z&end=2026-04-30T06:45:00Z&interval=15Minutes&unit=ft",
+      "response": {
+        "begin": "2026-04-30T05:45:00Z",
+        "date-version-type": "UNVERSIONED",
+        "end": "2026-04-30T06:45:00Z",
+        "interval": "PT15M",
+        "name": "Table_Rock_Dam.Elev-Pool.Inst.15Minutes.0.Top of Conservation",
+        "office-id": "SWL",
+        "page": "MTc3NzUyNzkwMDAwMHx8NXx8NQ==",
+        "page-size": 5,
+        "time-zone": "America/Chicago",
+        "total": 5,
+        "units": "ft",
+        "value-columns": [
+          {
+            "name": "date-time",
+            "ordinal": 1,
+            "datatype": "java.sql.Timestamp"
+          },
+          {
+            "name": "value",
+            "ordinal": 2,
+            "datatype": "java.lang.Double"
+          },
+          {
+            "name": "quality-code",
+            "ordinal": 3,
+            "datatype": "int"
+          }
+        ],
+        "values": [
+          [
+            1777527900000,
+            914.9999999999999,
+            1
+          ],
+          [
+            1777528800000,
+            914.9999999999999,
+            1
+          ],
+          [
+            1777529700000,
+            915.4999999999999,
+            1
+          ],
+          [
+            1777530600000,
+            915.9999999999999,
+            1
+          ],
+          [
+            1777531500000,
+            916.000335795836,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "url": "https://cwms-data.usace.army.mil/cwms-data/levels/Table_Rock_Dam.Elev-Pool.Inst.0.Top%20of%20Conservation/timeseries?office=SWL&begin=2026-12-01T05:45:00Z&end=2026-12-01T06:45:00Z&interval=15Minutes&unit=ft",
+      "response": {
+        "begin": "2026-12-01T05:45:00Z",
+        "date-version-type": "UNVERSIONED",
+        "end": "2026-12-01T06:45:00Z",
+        "interval": "PT15M",
+        "name": "Table_Rock_Dam.Elev-Pool.Inst.15Minutes.0.Top of Conservation",
+        "office-id": "SWL",
+        "page": "MTc5NjEwMzkwMDAwMHx8NXx8NQ==",
+        "page-size": 5,
+        "time-zone": "America/Chicago",
+        "total": 5,
+        "units": "ft",
+        "value-columns": [
+          {
+            "name": "date-time",
+            "ordinal": 1,
+            "datatype": "java.sql.Timestamp"
+          },
+          {
+            "name": "value",
+            "ordinal": 2,
+            "datatype": "java.lang.Double"
+          },
+          {
+            "name": "quality-code",
+            "ordinal": 3,
+            "datatype": "int"
+          }
+        ],
+        "values": [
+          [
+            1796103900000,
+            916.9999999999999,
+            1
+          ],
+          [
+            1796104800000,
+            916.9999999999999,
+            1
+          ],
+          [
+            1796105700000,
+            915.9999999999999,
+            1
+          ],
+          [
+            1796106600000,
+            914.9999999999999,
+            1
+          ],
+          [
+            1796107500000,
+            914.9999999999999,
+            1
+          ]
+        ]
+      }
+    }
+  ]
+}

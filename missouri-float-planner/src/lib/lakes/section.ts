@@ -11,6 +11,7 @@
 import type { DamMetricValue } from '@shared/dam-types';
 import { readingStaleness } from '@shared/dam-schedule-copy';
 import { poolPosition, rampCaution } from '@shared/lake-status';
+import { lakeOperatingRangeAt } from '@shared/lake-pool-reference';
 import type { LakeLaunch, LakeSection, LaunchMethod } from '@shared/lake-types';
 import { lakeForDam, type LakeEntry } from './registry';
 import { historyForWire, poolChange, toleranceFor, type PoolPoint } from './pool-history';
@@ -92,10 +93,12 @@ export function buildLakeSection({ lake, pool, history, launches, now }: LakeSec
       ...(daily ? { daily: true } : {}),
     };
     poolForCautions = { valueFt: pool.value, ageHours: (now - Date.parse(pool.at)) / 3_600_000 };
-    const position = poolPosition(pool.value, lake.operatingRange ? { conservationFt: lake.operatingRange.conservationFt, floodFt: lake.operatingRange.floodFt } : null);
+    const range = lakeOperatingRangeAt(lake.operatingRange, pool.at);
+    if (range) section.operatingRange = range;
+    const position = poolPosition(pool.value, range);
     if (position) section.poolPosition = position;
   }
-  if (lake.operatingRange) section.operatingRange = lake.operatingRange;
+  if (!pool && lake.operatingRange) section.operatingRange = lake.operatingRange;
   // The change comes from Eddy's own record. The tolerance follows the
   // registry's cadence, not anything the dam snapshot says about itself.
   // Anchor movement to the observation shown on the page. A stopped history

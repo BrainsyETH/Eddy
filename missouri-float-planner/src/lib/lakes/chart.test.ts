@@ -10,7 +10,7 @@ test('the domain is the readings\' range, pulled out to a nearby conservation po
   const model = lakeChartModel(history, { conservationFt: 915, now: NOW })!;
   assert.ok(model);
   assert.ok(model.minFt <= 915 - 0.25 && model.maxFt >= 916.4 + 0.25);
-  assert.ok(model.referencePosition !== null && model.referencePosition > 0 && model.referencePosition < 0.3);
+  assert.deepEqual(model.referencePoints.map(p => p.ft), [915, 915]);
   assert.equal(model.referenceNote, null);
   for (const tick of model.valueTicks) assert.ok(tick.position >= 0 && tick.position <= 1);
   assert.equal(model.timeTicks.length, 4);
@@ -20,18 +20,18 @@ test('the domain is the readings\' range, pulled out to a nearby conservation po
 test('a far reference is not drawn, and is explained instead; fewer than two readings is no chart', () => {
   const flood: Array<[string, number]> = [[iso(100), 928.4], [iso(1), 929.1]];
   const model = lakeChartModel(flood, { conservationFt: 915, now: NOW })!;
-  assert.equal(model.referencePosition, null);
+  assert.deepEqual(model.referencePoints, []);
   assert.equal(model.referenceNote, "Conservation pool 915 ft is 13 ft below this week's range");
   assert.ok(model.minFt > 920, 'the week is not flattened to show a line it is nowhere near');
   // A quiet week 4.8 ft under the pool (Table Rock, November 2026): the spread is 0.4 ft, so the reach is 1 ft and the line stays off.
   const quiet: Array<[string, number]> = [[iso(160), 910.59], [iso(80), 910.4], [iso(1), 910.21]];
   const q = lakeChartModel(quiet, { conservationFt: 915, now: NOW })!;
-  assert.equal(q.referencePosition, null);
+  assert.deepEqual(q.referencePoints, []);
   assert.equal(q.referenceNote, "Conservation pool 915 ft is 4.4 ft above this week's range");
   assert.ok(q.maxFt < 912, 'the chart keeps the week\'s own scale');
   // A week that moved 3 ft can afford a reference 5 ft off.
   const busy: Array<[string, number]> = [[iso(160), 918.0], [iso(1), 921.0]];
-  assert.notEqual(lakeChartModel(busy, { conservationFt: 915, now: NOW })!.referencePosition, null);
+  assert.equal(lakeChartModel(busy, { conservationFt: 915, now: NOW })!.referencePoints.length, 2);
   assert.equal(lakeChartModel([[iso(1), 916]], { now: NOW }), null);
   assert.equal(lakeChartModel([], { now: NOW }), null);
 });
@@ -50,9 +50,9 @@ test('seasonal history follows historical dates rather than a flat current refer
   const model = lakeChartModel(history, { now, conservationFt: 915, seasonalPool: true })!;
   assert.equal(model.referencePoints[0].ft, 917);
   assert.equal(model.referencePoints.at(-1)!.ft, 915);
-  assert.equal(model.referencePoints.find(p => p.t === Date.parse('2026-11-30T18:00:00Z'))!.ft, 916);
+  assert.equal(model.referencePoints.find(p => p.t === Date.parse('2026-12-01T06:00:00Z'))!.ft, 917);
+  assert.equal(model.referencePoints.find(p => p.t === Date.parse('2026-12-01T06:30:00Z'))!.ft, 915);
   assert.equal(model.referenceLabel, 'Seasonal pool 915.0–917.0 ft');
-  assert.equal(model.referencePosition, null, 'the fixed 915 ft line is replaced');
   const far = lakeChartModel(history.map(([at]) => [at, 910]), { now, seasonalPool: true })!;
   assert.equal(far.referencePoints.length, 0);
   assert.match(far.referenceNote!, /^Seasonal pool/);

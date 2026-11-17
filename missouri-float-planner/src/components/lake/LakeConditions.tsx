@@ -2,7 +2,7 @@ import Card from '@/components/ui/Card';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import LakeLevelChart from '@/components/dam/LakeLevelChart';
 import type { LakeSection } from '@shared/lake-types';
-import { lakePoolPositionSentence } from '@/lib/lakes/pool-reference';
+import { lakePoolPositionSentence } from '@shared/lake-pool-reference';
 import { lakeReadingIsStale, lakeReadingLabel } from '@/lib/lakes/presentation';
 import LakeMovement from './LakeMovement';
 

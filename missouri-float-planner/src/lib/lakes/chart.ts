@@ -9,7 +9,7 @@
 // nowhere near. When the reference falls outside, the renderer says where it is
 // in words instead of drawing it.
 
-import { tableRockSeasonalPoolFt } from './pool-reference';
+import { tableRockPoolReferencePoints } from '@shared/lake-pool-reference';
 import { niceValueTicks, timeTicks, type ChartTick } from '@shared/chart-model';
 
 export interface LakeChartPoint {
@@ -25,8 +25,6 @@ export interface LakeChartModel {
   maxFt: number;
   valueTicks: ChartTick[];
   timeTicks: ChartTick[];
-  /** The conservation pool's 0–1 position on the value axis, when it is drawn. */
-  referencePosition: number | null;
   /** Seasonal samples follow each historical date, including ramp days. */
   referencePoints: LakeChartPoint[];
   referenceLabel: string | null;
@@ -62,19 +60,11 @@ export function lakeChartModel(
   const dataMax = Math.max(...points.map((p) => p.ft));
   let minFt = dataMin - PAD_FT;
   let maxFt = dataMax + PAD_FT;
-  let referencePosition: number | null = null;
   let referenceNote: string | null = null;
   const ref = options.seasonalPool ? undefined : options.conservationFt;
   let referencePoints: LakeChartPoint[] = [];
   if (options.seasonalPool) {
-    // Hourly samples cover the short April/November ramps and their Central
-    // midnight boundaries (including the daylight-saving offset).
-    for (let t = t0; t < t1; t += 3_600_000) {
-      const ft = tableRockSeasonalPoolFt(new Date(t).toISOString());
-      if (ft !== null) referencePoints.push({ t, ft });
-    }
-    const last = tableRockSeasonalPoolFt(new Date(t1).toISOString());
-    if (last !== null) referencePoints.push({ t: t1, ft: last });
+    referencePoints = tableRockPoolReferencePoints(t0, t1);
   } else if (ref !== undefined && Number.isFinite(ref)) {
     referencePoints = [{ t: t0, ft: ref }, { t: t1, ft: ref }];
   }
@@ -103,7 +93,6 @@ export function lakeChartModel(
     minFt = Math.min(minFt, ticks[0].value);
     maxFt = Math.max(maxFt, ticks[ticks.length - 1].value);
   }
-  if (ref !== undefined && referenceNote === null) referencePosition = (ref - minFt) / (maxFt - minFt);
   return {
     points,
     t0,
@@ -112,7 +101,6 @@ export function lakeChartModel(
     maxFt,
     valueTicks: ticks.map((tick) => ({ value: tick.value, position: (tick.value - minFt) / (maxFt - minFt) })),
     timeTicks: timeTicks(t0, t1, 4),
-    referencePosition,
     referencePoints,
     referenceLabel,
     referenceNote,

@@ -588,20 +588,35 @@ Android visibility, Read/widget exclusivity and planner retry. The
 Table Rock's **web dam page** places a compact lake–dam–river illustration in
 the existing observed-release panel beneath the photo. It leads with lake
 elevation and total water release; the hourly schedule stays directly below.
-The same lake measurement is omitted from the supporting readings row. iOS,
+Supporting readings live once in the illustration’s detail panels. iOS,
 other dams, directories and embeds retain their existing UI.
 
-The schematic is not to scale. Its seasonal reference follows the [Corps'
-published Table Rock power-pool calendar](https://www.swl-wc.usace.army.mil/pages/data/tabular/htm/tabrock.htm)
-for the observation's Central date (including the April/May and November ramps),
-and is also used by the Table Rock lake preview and lake page. The history chart
-follows the seasonal reference at each historical date, not a flat current value. Lake movement
-appears only when recorded history matches that same fresh pool observation.
+The schematic is not to scale. Its seasonal reference comes from the active
+[USACE CWMS Table Rock location level](https://cwms-data.usace.army.mil/cwms-data/levels?office=SWL&level-id-mask=Table_Rock_Dam*&unit=EN&datum=NGVD29),
+verified against the Corps' generated time-series values on 2026-11-17. The
+shared rule preserves its UTC origin, month/minute offsets and interpolation,
+including the 30-minute April 30 and December 1 transitions. It does not infer
+hourly ramps from the older human-readable calendar. Source responses and
+boundary samples live in `src/lib/lakes/fixtures/table-rock-pool-reference.json`.
+`shared/lake-pool-reference.ts` owns the rule used by API assembly, the
+illustration, lake summaries and history. The API's `operatingRange` is resolved
+for the observation timestamp before `poolPosition` is computed. Its optional
+`conservationSchedule` identifies seasonal references; fixed-pool lakes and
+older installed clients keep their existing fields. No iOS UI changes.
+
+Above-flood wording takes precedence over seasonal comparisons. The reported
+flood-pool percentage stays visible beside the lake reading with its own age
+and stale state; it is never calculated from elevation. The history chart uses
+the exact curve knots, while Truman keeps its fixed reference and in-plot
+label. Lake movement appears only when history matches the fresh observation.
 Turbine and spillway paths require their own fresh, positive reported flow
 and a fresh positive total release; no spillway is inferred from the difference.
 Missing spillway data reads “Unavailable”, not zero. Reading times and outdated
 states stay visible, daily averages stay labeled, and generator detail is
-expandable through Lake / Turbines / River in one shared panel. The
+expandable through Lake / Turbines / River in one shared panel. Lake holds
+inflow and pool context; River keeps downstream elevation, movement, temperature
+and fishery information. The seven-day chart stays in the lake preview. Escape
+closes from either the trigger or the panel and returns focus to its trigger. The
 screen-reader generation summary stays available with that panel closed. Old
 release readings are dimmed and marked directly beneath the number.
 
@@ -616,9 +631,9 @@ A missing/invalid pool or total release retains the original summary.
 Run `npm run test:lakes -- --serve` for the same local fixture preview.
 
 
-Truman and Table Rock keep generation first, followed by a shared measurement
-row, Eddy's Read and operational forecasts/patterns. The lake preview follows
-those operations; launch directories live on the dedicated lake page. On other dam pages,
+Truman and Table Rock keep generation first, before Eddy's Read and operational
+forecasts/patterns. Unillustrated dams retain a supporting measurement row
+between the schedule and those sections. The lake preview follows operations; launch directories live on the dedicated lake page. On other dam pages,
 reported release and turbine status lead the generation card in one row (stacked
 only below about 360px), because the release reading is what people open a dam
 page for. On every dam page, including the illustration, the release stays on a phone's first screen. The posted schedule follows at the

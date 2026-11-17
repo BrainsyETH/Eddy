@@ -1,7 +1,7 @@
 import type { DamMetricValue, DamSnapshot } from '@shared/dam-types';
 import type { LakeSection } from '@shared/lake-types';
-import { tableRockSeasonalPoolFt } from './lakes/pool-reference';
-export { tableRockSeasonalPoolFt } from './lakes/pool-reference';
+import { tableRockSeasonalPoolFt, lakePoolPositionSentence, TABLE_ROCK_OPERATING_RANGE } from '@shared/lake-pool-reference';
+export { tableRockSeasonalPoolFt } from '@shared/lake-pool-reference';
 import { readingStaleness } from '@shared/dam-schedule-copy';
 
 /** Web-only pilot. Incomplete snapshots retain the existing release summary. */
@@ -29,6 +29,8 @@ export function damWaterIllustrationState(dam: DamSnapshot, now: number, lake?: 
     Date.parse(lake.pool.at) === Date.parse(pool.at) && Math.abs(lake.pool.valueFt - pool.value) < .001;
   return {
     seasonalFt,
+    highWaterContext: pool && seasonalFt !== null && pool.value > seasonalFt
+      ? lakePoolPositionSentence({ slug: 'table-rock', pool: { valueFt: pool.value, at: pool.at, staleness: pool.staleness }, operatingRange: TABLE_ROCK_OPERATING_RANGE }) : null,
     surfaceY,
     releaseActive: fresh(release) && release!.value > 0,
     poolFresh: fresh(pool),

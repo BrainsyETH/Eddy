@@ -1,8 +1,9 @@
 import test from 'node:test';
+import referenceFixture from './lakes/fixtures/table-rock-pool-reference.json';
 import assert from 'node:assert/strict';
 import type { DamSnapshot, DamMetricValue } from '@shared/dam-types';
 import type { LakeSection } from '@shared/lake-types';
-import { lakePoolPositionSentence } from './lakes/pool-reference';
+import { lakePoolPositionSentence } from '@shared/lake-pool-reference';
 import { damWaterIllustrationState, hasDamWaterIllustration, tableRockSeasonalPoolFt } from './dam-water-illustration';
 
 const at = '2026-11-17T01:00:00Z';
@@ -23,13 +24,16 @@ test('illustration stays on the web Table Rock pilot and falls back for incomple
   assert(!hasDamWaterIllustration(dam({ release: metric(-1) })));
 });
 
-test('seasonal pool follows the published calendar and Central observation date', () => {
+test('seasonal pool matches Corps samples, including both 30-minute transitions', () => {
+  for (const sample of referenceFixture.samples) for (const [timestamp, expected] of sample.response.values) {
+    assert(Math.abs(tableRockSeasonalPoolFt(new Date(timestamp).toISOString())! - expected) < 1e-8);
+  }
   for (const [stamp, expected] of [
-    ['2026-01-15T18:00:00Z', 915], ['2026-04-30T05:00:00Z', 915],
-    ['2026-04-30T17:00:00Z', 915.5], ['2026-05-01T05:00:00Z', 916],
-    ['2026-06-01T04:59:00Z', 916 + (30 + 1439 / 1440) / 31],
-    ['2026-06-01T05:00:00Z', 917], ['2026-11-30T06:00:00Z', 917],
-    ['2026-11-30T18:00:00Z', 916], ['2026-12-01T06:00:00Z', 915],
+    ['2026-01-01T05:59:00Z', 915], ['2026-04-30T06:00:00Z', 915],
+    ['2026-04-30T06:15:00Z', 915.5], ['2026-04-30T06:30:00Z', 916],
+    ['2026-05-31T07:00:00Z', 917], ['2026-11-30T18:00:00Z', 917],
+    ['2026-12-01T06:00:00Z', 917], ['2026-12-01T06:15:00Z', 916],
+    ['2026-12-01T06:30:00Z', 915], ['2028-04-30T06:15:00Z', 915.5],
   ] as const) assert.equal(tableRockSeasonalPoolFt(stamp), expected, stamp);
   assert.equal(tableRockSeasonalPoolFt('bad'), null);
 });
@@ -59,11 +63,20 @@ test('lake movement belongs to the same observation and disappears when stale', 
   assert(damWaterIllustrationState(dam(), now).surfaceY > 98, 'low lake draws below it');
 });
 
-test('all Table Rock web summaries use the observation-date seasonal reference', () => {
-  const lake = { slug: 'table-rock', pool: { valueFt: 916, at: '2026-07-01T12:00:00Z' }, operatingRange: { conservationFt: 915 }, poolPosition: 'flood' } as unknown as LakeSection;
+test('lake summaries preserve flood context and resolve older cached references consistently', () => {
+  const lake = { slug: 'table-rock', pool: { valueFt: 916, at: '2026-07-01T12:00:00Z' }, operatingRange: { conservationFt: 915, floodFt: 931 } } as LakeSection;
   assert.equal(lakePoolPositionSentence(lake), '1.0 ft below the 917.0 ft seasonal pool.');
-  assert.equal(lakePoolPositionSentence({ ...lake, pool: { ...lake.pool!, at: '2026-01-01T12:00:00Z' } }), '1.0 ft above the 915.0 ft seasonal pool.');
+  assert.equal(lakePoolPositionSentence({ ...lake, pool: { ...lake.pool!, at: '2026-01-01T12:00:00Z' } }), '1.0 ft above the 915.0 ft seasonal pool, in the flood-control range.');
+  for (const [ft, expected] of [
+    [917, 'At the 917.0 ft seasonal pool.'],
+    [920, '3.0 ft above the 917.0 ft seasonal pool, in the flood-control range.'],
+    [931, '14.0 ft above the 917.0 ft seasonal pool, in the flood-control range.'],
+    [932, '1.0 ft above the 931 ft flood pool.'],
+  ] as const) assert.equal(lakePoolPositionSentence({ ...lake, pool: { ...lake.pool!, valueFt: ft } }), expected);
   assert.equal(lakePoolPositionSentence({ ...lake, pool: undefined }), null);
+  const high = damWaterIllustrationState(dam({ poolElevation: metric(932) }), now);
+  assert.equal(high.highWaterContext, '1.0 ft above the 931 ft flood pool.');
+  assert.equal(damWaterIllustrationState(dam(), now).highWaterContext, null);
 });
 
 test('each measured outlet controls only its own flow; total release gates all motion', () => {

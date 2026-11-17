@@ -13,6 +13,7 @@
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import type { VerticalDatum } from '@shared/lake-status';
 import type { LakeOperatingRange } from '@shared/lake-types';
+import { TABLE_ROCK_OPERATING_RANGE } from '@shared/lake-pool-reference';
 
 export type ControllingDamRole =
   /** The dam impounds this lake; its pool IS the lake level. */
@@ -72,15 +73,10 @@ export const LAKES: Record<string, LakeEntry> = {
     pool: { kind: 'dam', damId: 'swl-table-rock-dam' },
     poolCadence: 'hourly',
     datum: 'NGVD29',
-    // Conservation pool 915.0 ft and top of flood-control pool 931.0 ft, the
-    // elevations the Little Rock District publishes for the project and the
-    // ones its `%-Flood Pool` series is computed against.
-    operatingRange: {
-      conservationFt: 915.0,
-      floodFt: 931.0,
-      source: 'USACE Little Rock District, Table Rock Lake project data',
-      asOf: '2026-11-09',
-    },
+    // Nominal winter pool plus the verified seasonal rule. section.ts resolves
+    // it for the observation before classifying or serializing it. Flood-pool
+    // percentage is reported separately by CWMS, never inferred from height.
+    operatingRange: TABLE_ROCK_OPERATING_RANGE,
     rampCautionsVerified: false,
     sources: {
       usaceRecreationProjects: ['TABLE ROCK LAKE'],
