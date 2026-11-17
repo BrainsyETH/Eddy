@@ -20,16 +20,19 @@ function Shade({ from, to, height, above = false, color = 'black' }: { from: num
 }
 
 /** Scenery is scrolling content; navigation remains the native iOS toolbar. */
-export function RiverPageHeader({ name, meta, photo, topInset, onPhotoError, onTitleBottom }: {
+export function RiverPageHeader({ name, meta, photo, topInset, horizontalInset = 16, creditPlacement = 'below', onPhotoError, onTitleBottom }: {
   name: string;
   meta: string;
   photo: RiverHeaderPhoto | null;
   topInset: number;
+  horizontalInset?: number;
+  creditPlacement?: 'below' | 'overlay';
   onPhotoError: (url: string) => void;
   onTitleBottom: (bottom: number) => void;
 }) {
   const { colors, increaseContrast, reduceTransparency } = useTheme();
   const solid = increaseContrast || reduceTransparency;
+  const overlayCredit = creditPlacement === 'overlay' && Boolean(photo?.credit);
   const measured = useRef({ root: null as number | null, block: null as number | null, title: null as number | null });
   function measure(part: 'root' | 'block' | 'title', value: number) {
     measured.current[part] = value;
@@ -37,41 +40,57 @@ export function RiverPageHeader({ name, meta, photo, topInset, onPhotoError, onT
     if (root !== null && block !== null && title !== null) onTitleBottom(root + block + title);
   }
   const ink = photo ? '#FFFFFF' : colors.text;
-  return <View style={[styles.outer, photo && { marginTop: -topInset - 12 }]}
+  const creditLink = photo?.credit ? (
+    <Pressable accessibilityRole="link" accessibilityLabel={`Photo credit: ${photo.credit.text}. Cropped for display. Opens source and license.`}
+      onPress={() => void openExternalLink(photo.credit!.url)} style={overlayCredit ? styles.creditOverlay : styles.credit}>
+      <Text numberOfLines={overlayCredit ? 1 : undefined}
+        style={[styles.creditText, overlayCredit && styles.creditBadge, {
+          color: overlayCredit ? '#FFFFFF' : colors.textMuted,
+          backgroundColor: overlayCredit ? (solid ? colors.anchorSurface : `rgba(0,0,0,${RIVER_TITLE_SHADE})`) : undefined,
+        }]}>
+        {overlayCredit ? photo.credit.text : `Photo: ${photo.credit.text} · Cropped ↗`}
+      </Text>
+    </Pressable>
+  ) : null;
+  return <View style={[styles.outer, { marginHorizontal: -horizontalInset }, photo && { marginTop: -topInset - 12 }]}
     onLayout={event => measure('root', event.nativeEvent.layout.y)}>
     <View style={photo ? [styles.hero, { minHeight: Math.max(236, topInset + 128), paddingTop: topInset + 24, backgroundColor: colors.anchorSurface }] : styles.plain}>
       {photo ? <View style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <ScenicImage source={{ uri: photo.url }} imageWidth={1200} style={StyleSheet.absoluteFill}
+          contentPosition={photo.focus ? { left: photo.focus.split(' ')[0], top: photo.focus.split(' ')[1] } : undefined}
           accessible={false} accessibilityIgnoresInvertColors onError={() => onPhotoError(photo.url)} />
         {/* Blend scenery into the theme beneath the system-managed navigation. */}
         <Shade from={1} to={0} color={colors.bg} height={topInset + 48} />
       </View> : null}
       <View onLayout={event => measure('block', event.nativeEvent.layout.y)}
         style={[styles.titleBlock, photo ? styles.photoTitle : styles.plainTitle,
+          overlayCredit && styles.photoTitleWithCredit,
           photo && { backgroundColor: solid ? colors.anchorSurface : `rgba(0,0,0,${RIVER_TITLE_SHADE})` }]}>
         {photo && !solid ? <Shade above from={0} to={RIVER_TITLE_SHADE} height={32} /> : null}
         <Text accessibilityRole="header" onLayout={event => measure('title', event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
           style={[styles.name, { color: ink }]}>{name}</Text>
         <Text style={[styles.meta, { color: photo ? '#FFFFFF' : colors.textMuted }]}>{meta}</Text>
+        {/* Kept in flow so large text can grow without overlapping the title. */}
+        {overlayCredit ? creditLink : null}
       </View>
     </View>
-    {photo?.credit ? <Pressable accessibilityRole="link" accessibilityLabel={`Photo credit: ${photo.credit.text}. Cropped for display. Opens source and license.`}
-      onPress={() => void openExternalLink(photo.credit!.url)} style={styles.credit}>
-      <Text style={[styles.creditText, { color: colors.textMuted }]}>Photo: {photo.credit.text} · Cropped ↗</Text>
-    </Pressable> : null}
+    {!overlayCredit ? creditLink : null}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  outer: { marginHorizontal: -16, marginBottom: 16 },
+  outer: { marginBottom: 16 },
   hero: { justifyContent: 'flex-end' },
   plain: { paddingTop: 6 },
   titleBlock: { paddingHorizontal: 20 },
   photoTitle: { paddingTop: 8, paddingBottom: 18 },
+  photoTitleWithCredit: { paddingBottom: 0 },
   plainTitle: { paddingBottom: 0 },
   name: { ...t['3xl'], fontFamily: fonts.display, flexShrink: 1 },
   meta: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   shade: { position: 'absolute', left: 0, right: 0 },
   credit: { minHeight: 44, paddingHorizontal: 20, paddingVertical: 8, justifyContent: 'center' },
   creditText: { ...t.xs, fontFamily: fonts.body },
+  creditOverlay: { alignSelf: 'flex-end', maxWidth: '100%', minWidth: 44, minHeight: 44, marginRight: -20, justifyContent: 'flex-end' },
+  creditBadge: { paddingHorizontal: 6, paddingVertical: 3, borderTopLeftRadius: 4, overflow: 'hidden' },
 });

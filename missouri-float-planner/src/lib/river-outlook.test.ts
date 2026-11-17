@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildEddyTakeSections, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
-import { weatherDestination } from '../../../eddy-ios/src/lib/weatherDestination';
+import { nwsRiverForecastUrl, weatherDestination } from '../../../eddy-ios/src/lib/weatherDestination';
 import { weatherSymbol } from '../../../eddy-ios/src/theme/weather';
 
 test('full weather uses the forecast location and rejects missing or invalid coordinates', () => {
@@ -25,6 +25,29 @@ test('weather artwork distinguishes night, mixed skies, and precipitation', () =
   assert.equal(weatherSymbol('11d').storm, true);
   assert.equal(weatherSymbol('13d').snow, true);
   assert.equal(weatherSymbol('50d').mist, true);
+});
+
+test('weather navigation keeps the selected NWS station separate from the weather point', () => {
+  const point = { lat: 37.42, lng: -91.26 };
+  const first = weatherDestination(point, '  VNBM7 ');
+  const second = weatherDestination(point, 'AKRM7');
+  assert.deepEqual(first, {
+    pathname: '/weather', params: { lat: '37.42', lng: '-91.26', nwsLid: 'vnbm7' },
+  });
+  assert.equal(nwsRiverForecastUrl(first?.params.nwsLid), 'https://water.noaa.gov/gauges/vnbm7');
+  assert.equal(nwsRiverForecastUrl(second?.params.nwsLid), 'https://water.noaa.gov/gauges/akrm7');
+  assert.deepEqual(weatherDestination(point, null), weatherDestination(point));
+});
+
+test('river forecast links omit missing or malformed station IDs instead of guessing a gauge', () => {
+  for (const lid of [undefined, null, '', '07067000', '../x', 'https://example.com', 'vnbm7?x', ['VNBM7']]) {
+    assert.equal(nwsRiverForecastUrl(lid), null);
+    if (typeof lid === 'string') {
+      assert.deepEqual(weatherDestination({ lat: 37, lng: -91 }, lid), {
+        pathname: '/weather', params: { lat: '37', lng: '-91' },
+      });
+    }
+  }
 });
 
 const stageThresholds = {

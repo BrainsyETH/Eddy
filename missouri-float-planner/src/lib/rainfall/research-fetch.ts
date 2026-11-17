@@ -1,16 +1,18 @@
 import { trackedFetch } from '@/lib/telemetry/upstream';
 import { MAX_BYTES } from './research-contract';
+import { CORRECTED_ORIGIN } from './corrected-source';
 
 /** Bounded body reads, timeout and one retry; provider payloads never enter logs. */
 export async function researchFetch(url: string, deadline: AbortSignal): Promise<Uint8Array> {
   const parsed = new URL(url);
-  if (!['https://api.weather.gov', 'https://mapservices.weather.noaa.gov'].includes(parsed.origin)) throw new Error('Unapproved research source');
+  if (!['https://api.weather.gov', 'https://mapservices.weather.noaa.gov', CORRECTED_ORIGIN].includes(parsed.origin)) throw new Error('Unapproved research source');
   let failure: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     deadline.throwIfAborted();
     try {
-      const response = await trackedFetch('nws', parsed.hostname === 'api.weather.gov' ? 'rainfall-research-forecast' : 'rainfall-research-mrms', url, {
-        headers: { Accept: 'application/geo+json,application/json,image/tiff', 'User-Agent': 'Eddy rainfall research (https://eddy.guide; support@eddy.guide)' },
+      const response = await trackedFetch('nws', parsed.hostname === 'api.weather.gov' ? 'rainfall-research-forecast'
+        : parsed.origin === CORRECTED_ORIGIN ? 'rainfall-research-corrected' : 'rainfall-research-mrms', url, {
+        headers: { Accept: 'application/geo+json,application/json,image/tiff,application/xml;q=0.9,*/*;q=0.8', 'User-Agent': 'Eddy rainfall research (https://eddy.guide; support@eddy.guide)' },
         cache: 'no-store', redirect: 'error', signal: AbortSignal.any([deadline, AbortSignal.timeout(20_000)]),
       });
       if (!response.ok) throw new Error(`Research source HTTP ${response.status}`);

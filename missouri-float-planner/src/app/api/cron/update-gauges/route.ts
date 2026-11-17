@@ -6,6 +6,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { applyFloodStageOverride, computeCondition, hasMaterialConditionChange, type ConditionThresholds } from '@/lib/conditions';
 import { hasLadder } from '@shared/condition-ladder';
 import { publishConditionChangeAlert, isElevatedCrossing, publishElevatedCrossings } from '@/lib/social/condition-alerts';
@@ -329,7 +330,7 @@ async function runUpdate(request: NextRequest) {
     // for all ~275 stations is what made the old loop unbounded.
     const { data: wiredData, error: wiredError } = await supabase
       .from('river_gauges')
-      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, flood_stage_ft, rivers!inner(slug)');
+      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, flood_stage_ft, rivers!inner(slug), gauge_stations(nwps_flood_stage_ft)');
     if (wiredError) {
       console.error('[update-gauges] river_gauges prefetch failed:', wiredError.message);
     }
@@ -490,6 +491,8 @@ async function runUpdate(request: NextRequest) {
             const riverSlug: string | undefined = rg.rivers?.slug;
             if (!riverSlug) continue;
             const thresholdUnit = (rg.threshold_unit || 'ft') as 'ft' | 'cfs';
+            // Station NWS stage first, then the pairing's: the line the page draws.
+            const floodStageFt = linkFloodStageFt(rg);
             const thresholds: ConditionThresholds = {
               levelTooLow: rg.level_too_low,
               levelLow: rg.level_low,
@@ -502,7 +505,7 @@ async function runUpdate(request: NextRequest) {
               // the website's get_river_condition RPC. Without it a river above
               // flood stage but below the editorial dangerous band read
               // "Dangerous" on the site while alerts stayed silent.
-              floodStageFt: rg.flood_stage_ft,
+              floodStageFt,
             };
 
             // ── An UNRATED gauge has TWO truthful states, not one ────────────
@@ -567,7 +570,7 @@ async function runUpdate(request: NextRequest) {
               gaugeHeightFt: reading.gaugeHeightFt,
               dischargeCfs: reading.dischargeCfs,
               thresholdUnit,
-              floodStageFt: rg.flood_stage_ft,
+              floodStageFt,
               qualifiers: reading.qualifiers,
               readingAt: reading.readingTimestamp,
               provider: station.provider,
@@ -579,7 +582,7 @@ async function runUpdate(request: NextRequest) {
 
             const unrated = !hasLadder(thresholds);
             const aboveFloodStage =
-              applyFloodStageOverride('unknown', reading.gaugeHeightFt, rg.flood_stage_ft) ===
+              applyFloodStageOverride('unknown', reading.gaugeHeightFt, floodStageFt) ===
               'dangerous';
 
             if (unrated && !aboveFloodStage) {

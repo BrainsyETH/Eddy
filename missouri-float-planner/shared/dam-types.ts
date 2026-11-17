@@ -317,6 +317,44 @@ export interface DamGenerationForecast {
   source: string;
 }
 
+/**
+ * A publisher's own public page for this project's data.
+ *
+ * ── Why the URL rides the wire rather than living in each client ───────────
+ * These are pages on other people's sites, and they move: the Corps replaced
+ * its district water-control pages with water.usace.army.mil, and Ameren
+ * retired apps.ameren.com for its hydro reports. A link compiled into an iOS
+ * binary stays broken until that binary is replaced; a link on the wire is
+ * fixed by a deploy. Built from the registry in src/lib/data/dam-source-links.ts.
+ *
+ * A link is a registry fact, not a claim about this response: it is sent
+ * whether or not this read returned a reading, because a failed feed is when
+ * the publisher's page is most worth having.
+ */
+export interface DamSourceLink {
+  /**
+   * Where a surface places the link.
+   *
+   * `readings` is the page the measured data ON THE CARD came from (release,
+   * turbine flow, lake and tailwater levels); `schedule` is the posted
+   * generation plan. A card places each beneath the section it sources, where
+   * it reads as attribution — so `readings` must name the publisher of the
+   * numbers actually shown, never merely the dam's operator.
+   *
+   * `reference` is the operator's own page for a project whose readings Eddy
+   * takes from somebody else (Truman: Corps dam, Ameren-reported readings). It
+   * is offered among the page's other onward links, away from the readings,
+   * because beside them it would claim a source it is not.
+   */
+  kind: 'readings' | 'schedule' | 'reference';
+  /** Link text that names the destination, e.g. "Corps of Engineers data". */
+  label: string;
+  /** The publisher in full, for an accessible name: "U.S. Army Corps of Engineers". */
+  publisher: string;
+  /** An https page on the publisher's own site. */
+  url: string;
+}
+
 export interface DamSnapshot {
   id: string;
   name: string;
@@ -422,6 +460,14 @@ export interface DamSnapshot {
   generationForecast?: DamGenerationForecast;
   /** Where the numbers came from, for attribution in the UI. */
   sources: string[];
+  /**
+   * The publishers' own pages for this project, one per kind at most.
+   *
+   * Optional for the reason every added field here is: an older deploy, or a
+   * snapshot stored before this field existed, does not carry it. Absent or
+   * empty renders no link, never a guessed one.
+   */
+  sourceLinks?: DamSourceLink[];
   /** The reach this dam controls, when Eddy carries it. Absent for most. */
   tailwater?: DamTailwater;
 }

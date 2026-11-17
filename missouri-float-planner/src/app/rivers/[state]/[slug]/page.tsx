@@ -390,7 +390,6 @@ export default async function RiverGuidePage({ params }: Props) {
               heldDamId={riverDam?.dam.id ?? null}
               // The whole river follows the dam only when the dam's tailwater
               // is the river itself; the Black's Clearwater controls one reach.
-              damControlled={Boolean(riverDam && !riverDam.dam.tailwater?.sectionSlug)}
               sections={riverSections ?? undefined}
               damSectionSlug={riverDam?.dam.tailwater?.sectionSlug ?? null}
             />

@@ -48,6 +48,7 @@ import { readPatternHours } from '@/lib/data/dam-history-store';
 import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
 import { centralDayKey, nextDayKey, READING_STALE_AFTER_HOURS } from '@shared/dam-schedule-copy';
 import { generatingForNow } from '@shared/dam-generation';
+import { damSourceLinks } from '@/lib/data/dam-source-links';
 
 /**
  * What a LIST surface needs, and nothing else.
@@ -715,6 +716,11 @@ export function buildSnapshot(
   }
   if (schedule.length > 0) sources.push('SWPA');
 
+  // The publishers' own pages. A registry fact, unlike `sources`: sent whether
+  // or not this read returned anything, because a failed read is when a reader
+  // needs the source most. See dam-source-links.ts.
+  const sourceLinks = damSourceLinks(dam);
+
   // The two SWPA figures a client needs to size an observation against this
   // project, lifted from the same table megawattsToCfs divides by. Emitted
   // field-by-field rather than spread: SwpaProject also carries `code`, `name`
@@ -765,6 +771,7 @@ export function buildSnapshot(
     generating,
     schedule,
     sources,
+    ...(sourceLinks.length > 0 ? { sourceLinks } : {}),
   };
 }
 
@@ -898,7 +905,20 @@ export function refreshStaleness(snapshot: DamSnapshot, now = Date.now()): DamSn
   // hour-old row could otherwise still say the units are turning on a reading
   // that has since stopped speaking for now. Re-derived from the same inputs,
   // which also corrects rows stored before it carried an age test.
-  return { ...snapshot, metrics, generating: generatingForNow({ ...snapshot, metrics }, now) };
+  //
+  // The source links are re-read from the registry for a related reason: it,
+  // not the table, decides what a dam is. A row stored before a link was added
+  // or corrected would otherwise serve the old answer until the next write.
+  const refreshed: DamSnapshot = {
+    ...snapshot,
+    metrics,
+    generating: generatingForNow({ ...snapshot, metrics }, now),
+  };
+  const dam = getUsaceDam(snapshot.id);
+  const sourceLinks = dam ? damSourceLinks(dam) : [];
+  if (sourceLinks.length > 0) refreshed.sourceLinks = sourceLinks;
+  else delete refreshed.sourceLinks;
+  return refreshed;
 }
 
 /**

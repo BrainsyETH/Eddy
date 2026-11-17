@@ -7,6 +7,7 @@ import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import DamAppCTA from './DamAppCTA';
+import DamSourceLink from './DamSourceLink';
 
 export type ScheduleAvailability = Pick<FullScheduleAvailability, 'title' | 'detail'>;
 
@@ -18,13 +19,29 @@ export default function GenerationCard({ dam, now, availability }: {
   const hasSchedule = dam.schedule.length > 0;
   const release = dam.metrics.release;
   const hasObserved = dam.hasTurbines || Boolean(release);
-  const observed = hasObserved && <div className="dam-observed min-w-0 p-4 sm:p-6"><DamGenerationHero dam={dam} now={now} /></div>;
+  // Each publisher's page sits in the half it sources. A dam with no observed
+  // panel still offers the readings' source, beside the schedule state. Asked
+  // for by kind on purpose: the payload can also carry an operator reference
+  // (Truman), which the page offers elsewhere and must never land under a reading.
+  const readingsSource = dam.sourceLinks?.find(link => link.kind === 'readings');
+  const scheduleSource = dam.sourceLinks?.find(link => link.kind === 'schedule');
+  const observed = hasObserved && <div className="dam-observed min-w-0 p-4 sm:p-6">
+    <DamGenerationHero dam={dam} now={now} source={readingsSource && <DamSourceLink link={readingsSource} />} />
+  </div>;
+  const orphanReadingsSource = hasObserved ? undefined : readingsSource;
+  const scheduleSources = (orphanReadingsSource || scheduleSource) ? <>
+    {orphanReadingsSource && <DamSourceLink link={orphanReadingsSource} />}
+    {scheduleSource && <DamSourceLink link={scheduleSource} />}
+  </> : null;
   const schedule = (<div className="min-w-0 p-4 sm:p-6">
-          {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} /> : (
+          {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} source={scheduleSources} /> : (
             <div className="flex min-h-28 flex-col justify-center">
               <h2 className="pr-8 text-base font-bold text-neutral-900">{availability.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600">{availability.detail}</p>
-              {dam.infoPhone && <a className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary-700 underline underline-offset-4" href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}>Recorded release line · {dam.infoPhone}</a>}
+              {(dam.infoPhone || scheduleSources) && <div className="mt-3 flex flex-wrap items-center gap-x-5">
+                {dam.infoPhone && <a className="inline-flex min-h-11 items-center text-sm font-medium text-primary-700 underline underline-offset-4" href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}>Recorded release line · {dam.infoPhone}</a>}
+                {scheduleSources}
+              </div>}
             </div>
           )}
         </div>);

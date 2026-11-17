@@ -205,6 +205,8 @@ export interface Palette {
   /** Dark ink on the camping grid's light green availability fills. */
   campingCountInk: string;
   warm: string;
+  /** Accessible coral ink for aging data-check timestamps. */
+  agingText: string;
   /**
    * Something went wrong.
    *
@@ -308,6 +310,7 @@ export const darkPalette: Palette = {
   success: support[300],
   campingCountInk: neutral[950],
   warm: secondary[500],
+  agingText: accent[400],
   // red-300 keeps small error labels readable on raised controls and panels.
   error: '#FCA5A5',
   chrome: charcoal.card,
@@ -362,6 +365,7 @@ export const lightPalette: Palette = {
   success: support[700],
   campingCountInk: neutral[950],
   warm: secondary[500],
+  agingText: accent[700],
   // red-600, matching the canonical `dangerous` ink's contrast discipline: the
   // lighter red-500 clears AA on white only at large sizes, and error text is small.
   error: '#DC2626',

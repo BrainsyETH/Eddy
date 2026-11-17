@@ -21,6 +21,9 @@ const day = (scheduleDate) => ({ scheduleDate, retrievedAt: at,
   hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i >= 12 && i < 20 ? 200 : 0, cfs: i >= 12 && i < 20 ? 13000 : 0, isRamp: false })),
   idle: [{ from: 1, to: 12 }, { from: 21, to: 24 }],
 });
+const corpsSource = { kind: 'readings', label: 'Corps of Engineers data', publisher: 'U.S. Army Corps of Engineers', url: 'https://water.usace.army.mil/overview/swl/locations/bull_shoals_dam' };
+const amerenSource = { kind: 'readings', label: 'Ameren daily report', publisher: 'Ameren Missouri', url: 'https://www.ameren.com/reliability/generation/hydro/reports/osage/bagnell-daily-report' };
+const swpaSource = { kind: 'schedule', label: 'SWPA schedule', publisher: 'Southwestern Power Administration', url: 'https://www.energy.gov/swpa/generation-schedules' };
 const dam = {
   id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam', lakeName: 'Bull Shoals Lake', state: 'AR', lat: 36.36, lon: -92.57,
   hasTurbines: true, generating: true, generationFloorCfs: 100, releaseExcludesGeneration: true,
@@ -30,6 +33,7 @@ const dam = {
   schedule: [day('2026-10-16'), day('2026-10-17'), day('2026-10-18')],
   pattern: ['2026-10-14', '2026-10-15', '2026-10-16'].map((scheduleDate, i) => ({ scheduleDate, startUtc: `${scheduleDate}T05:00:00Z`, turbineCfs: Array.from({ length: 24 }, (_, h) => h === 7 ? null : i === 2 && h > 10 ? null : h > 12 ? 13200 : 0), totalReleaseCfs: Array(24).fill(null) })),
   sources: ['USACE CWMS', 'SWPA'],
+  sourceLinks: [corpsSource, swpaSource],
 };
 const variants = {
   normal: dam,
@@ -37,6 +41,11 @@ const variants = {
   beaver: { ...dam, id: 'swl-beaver-dam', name: 'Beaver Dam' },
   norfork: { ...dam, id: 'swl-norfork-dam', name: 'Norfork Dam' },
   noReference: { ...dam, generationReference: undefined },
+  // Truman: Ameren-reported readings on a Corps dam. The operator's page is a
+  // reference for the page's onward links, never a link inside this card.
+  truman: { ...dam, id: 'nwk-truman-dam', name: 'Harry S. Truman Dam', sourceLinks: [amerenSource, swpaSource, { ...corpsSource, kind: 'reference' }] },
+  // A payload from before the field existed: the card draws no link and no empty row.
+  noSources: { ...dam, sourceLinks: undefined },
   splitPeak: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [], hours: day('2026-10-16').hours.map((hour, i) => ({ ...hour, megawatts: (i >= 6 && i < 8) || (i >= 16 && i < 19) ? 200 : 100 })) }] },
   allDayPeak: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [], hours: day('2026-10-16').hours.map(hour => ({ ...hour, megawatts: 200 })) }] },
   noGeneration: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [{ from: 1, to: 24 }], hours: day('2026-10-16').hours.map(hour => ({ ...hour, megawatts: 0, cfs: 0 })) }] },
@@ -44,14 +53,14 @@ const variants = {
   noTemp: { ...dam, metrics: { ...dam.metrics, tailwaterTempF: undefined } },
   stale: { ...dam, metrics: { ...dam.metrics, generationFlow: { ...dam.metrics.generationFlow, at: '2026-10-15T10:00:00Z' } }, schedule: dam.schedule.map(d => ({ ...d, retrievedAt: '2026-10-14T10:00:00Z' })) },
   scheduleOnly: { ...dam, metrics: {}, generating: null, pattern: [] },
-  gate: { ...dam, hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: metric(2200) } },
-  gateDaily: { ...dam, hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: { ...metric(2200), dailyMean: true, at: '2026-10-15T16:30:00Z' } } },
+  gate: { ...dam, sourceLinks: [corpsSource], hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: metric(2200) } },
+  gateDaily: { ...dam, sourceLinks: [corpsSource], hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: { ...metric(2200), dailyMean: true, at: '2026-10-15T16:30:00Z' } } },
   missing: { ...dam, schedule: [] },
   missingTomorrow: { ...dam, schedule: [day('2026-10-16'), day('2026-10-18')] },
   tomorrowOnly: { ...dam, schedule: [day('2026-10-17')] },
   emptyTomorrow: { ...dam, schedule: [day('2026-10-16'), { ...day('2026-10-17'), hours: [] }] },
   staleTomorrow: { ...dam, schedule: [day('2026-10-16'), { ...day('2026-10-17'), retrievedAt: '2026-10-14T10:00:00Z' }] },
-  forecast: { ...dam, schedule: [], generationForecast: { timeZone: 'America/Chicago', retrievedAt: at, source: 'U.S. Army Corps of Engineers, Nashville District', windows: [
+  forecast: { ...dam, sourceLinks: [corpsSource], schedule: [], generationForecast: { timeZone: 'America/Chicago', retrievedAt: at, source: 'U.S. Army Corps of Engineers, Nashville District', windows: [
     { startUtc: '2026-10-16T16:00:00Z', endUtc: '2026-10-16T23:00:00Z', generating: true, peakCfs: 13200 },
     { startUtc: '2026-10-16T23:00:00Z', endUtc: '2026-10-17T12:00:00Z', generating: false, peakCfs: null },
     { startUtc: '2026-10-17T12:00:00Z', endUtc: '2026-10-18T12:00:00Z', generating: true, peakCfs: 13200 },
@@ -159,8 +168,8 @@ export default function Fixture() {
     <AppCta destination={{ kind: 'river', id: 'current' }} title="Current River on your Home Screen" detail="Add an Eddy river widget, then choose your river in Edit Widget." label="river_widget" variant="inline" />
     <AppCta destination={{ kind: 'access', id: 'akers-ferry', river: 'current' }} title="Download your float before you head out" detail="Plan your route in Eddy and download its map while you have signal." label="access_offline" />
     <div data-report-check><label>Read availability <select value={read} onChange={event => setRead(event.target.value as typeof read)}><option value="loading">Loading</option><option value="ready">Ready</option><option value="missing">Missing</option></select></label><ReportAppCta destination={{kind: 'gauge', id: '07067000'}} hasRead={read === 'ready'} loading={read === 'loading'} /></div>
-    <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} />
-    <div data-locked-read><EddyOutlookFooter sections={{ eddyRead: 'Locked Read example', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} /></div>
+    <EddyOutlookFooter destination={{ kind: 'river', id: 'current' }} sourceName="Current River" readIsGenerated={true} />
+    <div data-locked-read><EddyOutlookFooter destination={{ kind: 'river', id: 'current' }} sourceName="Current River" readIsGenerated={true} /></div>
   </main>;
 }`);
   await mkdir(`${route}/planner`, { recursive: true });
@@ -260,6 +269,36 @@ export default function Page() {
     const cta = page.locator('[data-dam-app-cta]');
     assert.equal(await cta.locator('a').count(), 1, 'dam promotion has one action');
     assert(await cta.evaluate(el => Boolean(el.closest('section')?.querySelector('[aria-label="Generation schedule"]'))), 'app action belongs to the generation card footer');
+    // Each publisher's page sits in the half it sources, and leaves Eddy safely.
+    const readingsSource = page.locator('.dam-observed [data-dam-source="readings"]');
+    const scheduleSource = page.getByRole('region', { name: 'Generation schedule', exact: true }).locator('[data-dam-source="schedule"]');
+    assert.equal(await page.locator('[data-dam-source]').count(), 2, 'one link per source');
+    for (const [link, source] of [[readingsSource, corpsSource], [scheduleSource, swpaSource]]) {
+      assert.equal(await link.getAttribute('href'), source.url);
+      assert.equal(await link.getAttribute('target'), '_blank');
+      assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+      assert.equal(await link.getAttribute('data-ga-event'), 'dam_source_opened');
+      const box = await link.boundingBox();
+      assert(box.height >= 44, `${name}: ${source.label} keeps a 44px target (${box.height})`);
+      assert(box.x >= 0 && box.x + box.width <= width, `${name}: ${source.label} fits the viewport`);
+    }
+    assert.equal(await page.getByRole('link', { name: /^SWPA schedule \(Southwestern Power Administration, opens in a new tab\)$/ }).count(), 1, 'source link names its publisher and the new tab');
+    // Source on the left and check time on the right when both fit; stacked
+    // and sharing the left edge when they do not. Never a right-aligned
+    // second line, and never overlapping.
+    const checkLine = await page.locator('[data-schedule-check]').boundingBox();
+    const scheduleLink = await scheduleSource.boundingBox();
+    const scheduleFooter = await scheduleSource.locator('xpath=../..').boundingBox();
+    const sideBySide = checkLine.y < scheduleLink.y + scheduleLink.height && scheduleLink.y < checkLine.y + checkLine.height;
+    if (sideBySide) {
+      assert(scheduleLink.x + scheduleLink.width < checkLine.x, `${name}: check time sits right of the schedule source`);
+      assert(Math.abs(checkLine.x + checkLine.width - (scheduleFooter.x + scheduleFooter.width)) < 2, `${name}: check time keeps the right edge`);
+    } else {
+      assert(checkLine.y >= scheduleLink.y + scheduleLink.height - 1, `${name}: check time stacks below the schedule source`);
+      assert(Math.abs(checkLine.x - scheduleLink.x) < 2, `${name}: stacked check time shares the link's left edge (${checkLine.x} vs ${scheduleLink.x})`);
+    }
+    assert(Math.abs(scheduleLink.x - scheduleFooter.x) < 2, `${name}: schedule source keeps the left edge`);
+    console.log(`     ${name}: schedule footer ${sideBySide ? 'side by side' : 'stacked'}`);
     const ctaBox = await cta.boundingBox();
     const ctaLinkBox = await cta.getByRole('link', { name: 'Get Eddy for iPhone' }).boundingBox();
     const historyBox = await page.getByRole('heading', { name: 'Generation pattern', exact: true }).boundingBox();
@@ -379,13 +418,28 @@ export default function Page() {
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
-  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration'])) {
-    const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
+  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration', 'noSources', 'truman', 'staleNarrow'])) {
+    // staleNarrow is the stale fixture on a phone: its longer, flagged check
+    // line is the one that cannot share a row with the source link.
+    const narrow = variant === 'staleNarrow';
+    const page = await browser.newPage({ viewport: narrow ? { width: 390, height: 844 } : { width: 1024, height: 900 } });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
-    await page.goto(`${url}?variant=${variant}`, { waitUntil: 'networkidle' });
+    await page.goto(`${url}?variant=${narrow ? 'stale' : variant}`, { waitUntil: 'networkidle' });
     const text = await page.locator('[data-dam-detail]').innerText();
+    if (narrow) {
+      const link = await page.locator('[data-dam-source="schedule"]').boundingBox();
+      const check = await page.locator('[data-schedule-check="stale"]').boundingBox();
+      assert(check.y >= link.y + link.height - 1, 'a long check line stacks below the schedule source');
+      assert(Math.abs(check.x - link.x) < 2, `the stacked check line is left-aligned with the link (${check.x} vs ${link.x})`);
+      assert(check.x + check.width <= 390, 'the stacked check line fits the phone');
+    }
+    if (variant === 'truman') {
+      assert.deepEqual(await page.locator('[data-dam-detail] [data-dam-source]').evaluateAll(links => links.map(link => [link.dataset.damSource, new URL(link.href).hostname])),
+        [['readings', 'www.ameren.com'], ['schedule', 'www.energy.gov']], 'Ameren-reported readings link to Ameren; the Corps reference stays out of the card');
+      assert(await page.locator('.dam-observed').getByRole('link', { name: /^Ameren daily report/ }).isVisible());
+    }
     if (variant === 'splitPeak') {
       assert.deepEqual(await page.locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [7, 8, 17, 18, 19], 'both disconnected peak windows are retained');
       assert(await page.getByText('Highest scheduled generation: 6–8 AM and 4–7 PM', { exact: true }).isVisible());
@@ -408,6 +462,17 @@ export default function Page() {
       assert.equal(await page.locator('[data-schedule-check="stale"]').count(), 1, 'the one provenance line covers the oldest displayed schedule');
     }
     if (variant === 'missing') assert(text.includes('Schedule currently unavailable') && text.includes('13,200'), 'missing schedule retains observed readings');
+    // A failed schedule read is when the publisher's page matters most.
+    if (variant === 'missing') assert.deepEqual(await page.locator('[data-dam-source]').evaluateAll(links => links.map(link => link.dataset.damSource)), ['readings', 'schedule'], 'both source pages survive a missing schedule');
+    if (variant === 'gate') assert.deepEqual(await page.locator('[data-dam-source]').evaluateAll(links => links.map(link => link.dataset.damSource)), ['readings'], 'a dam SWPA does not schedule links only its operator');
+    if (variant === 'noSources') {
+      assert.equal(await page.locator('[data-dam-source]').count(), 0, 'no link is invented for a payload without one');
+      assert.equal(await page.locator('[data-schedule-check]').count(), 1, 'the check time keeps its row without a source');
+    }
+    if (['missing', 'gate', 'forecast', 'scheduleOnly', 'noSources', 'truman', 'staleNarrow'].includes(variant)) {
+      await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+      await page.locator('[data-dam-detail] section').first().screenshot({ path: `${out}/sources-${variant}.png` });
+    }
     if (variant === 'forecast') {
       assert(text.includes('Generation forecast') && text.includes('Forecast checked'), 'operating forecast retains freshness');
       await page.getByRole('button', { name: 'About generation forecast' }).click();
@@ -658,7 +723,7 @@ export default function Page() {
   await desktop.waitForLoadState('networkidle');
   const qr = desktop.locator('[data-app-qr]');
   assert(await qr.isVisible(), 'narrow desktop windows retain the QR');
-  assert.equal(await qr.locator('a').getAttribute('href'), 'https://eddy.guide/app?ct=partner_guide&dam=swl-table-rock-dam');
+  assert.match(await qr.locator('a').getAttribute('href'), /^https:\/\/apps\.apple\.com\//, 'a scan opens the App Store');
   await writeFile(`${out}/dam-qr.svg`, decodeURIComponent((await qr.locator('img').getAttribute('src')).split(',').slice(1).join(',')));
   await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
   await desktop.screenshot({ path: `${out}/app-narrow-desktop.png`, fullPage: false });
@@ -729,10 +794,8 @@ export default function Page() {
   await writeFile(`${out}/android-hydration.json`, JSON.stringify({ viewport: 390, fixture: 'promotions', layoutShift: hydrationShift, note: 'Single fixture run; not production field CLS.' }, null, 2));
   console.log(`Android promotion fixture layout shift: ${hydrationShift}`);
   assert.equal(await android.locator('[data-app-cta], [data-ga-label="fixture_generic"], [data-ga-label="river_eddy_read"]').count(), 0, 'Android omits all unsupported app actions');
-  assert(await android.getByText('A useful public river summary', { exact: true }).isVisible(), 'Android retains the useful public Read');
-  assert(await android.locator('[data-locked-read]').getByRole('heading', { name: "Eddy's Read" }).isVisible(), 'Android retains the noncompact Read section');
   assert(await android.locator('[data-locked-read]').getByText('Available for iPhone only.', { exact: true }).isVisible());
-  assert(await android.locator('[data-locked-read] [data-nosnippet]').first().evaluate(el => getComputedStyle(el).filter.includes('blur')), 'Android does not unblur gated content');
+  assert.equal(await android.locator('[data-locked-read] [data-nosnippet]').count(), 0, 'Compact river Read has no blurred prose');
   await android.screenshot({ path: `${out}/promotions-android.png`, fullPage: true });
   for (const path of ['/app', '/app?plan=fixture123', '/app?river=current&feature=read']) {
     await android.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
@@ -741,7 +804,7 @@ export default function Page() {
     assert.equal(await android.locator('[data-ga-event="app_store_click"], .app-cta__qr').count(), 0);
   }
   await android.close();
-  console.log('PASS Android keeps the schedule; desktop QR retains dam and campaign below 900px');
+  console.log('PASS Android keeps the schedule; desktop QR opens the App Store below 900px');
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');
   console.log(`Screenshots: ${out}`);
 } finally {

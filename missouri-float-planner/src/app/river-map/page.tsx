@@ -19,7 +19,7 @@ export default async function RiverMapPage() {
   // no QR library ships to the browser (as /app does). Tagged so installs
   // from a wall display are attributable.
   // Quiet zone of 2 modules plus the badge's white tile: the code fills it.
-  const appQr = await appQrImage('river_map_wall', undefined, { margin: 2 });
+  const appQr = await appQrImage('river_map_wall', { margin: 2 });
   // Height tracks the VISIBLE viewport (dvh), so the mobile sheet stays clear
   // of the area under the iOS URL bar.
   return (

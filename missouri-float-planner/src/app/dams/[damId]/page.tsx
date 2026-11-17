@@ -12,7 +12,7 @@ import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
-import { ArrowRight, Phone, Smartphone } from 'lucide-react';
+import { ArrowRight, ExternalLink, Phone, Smartphone } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import SiteFooter from '@/components/ui/SiteFooter';
 import Button from '@/components/ui/Button';
@@ -82,6 +82,11 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   const river = dam.tailwater ? await getRiverContext(dam.tailwater.riverSlug).catch(() => null) : null;
   const riverHref = river ? `${riverPath(river.state, river.slug)}${dam.tailwater?.sectionSlug ? `?section=${encodeURIComponent(dam.tailwater.sectionSlug)}` : ''}` : null;
 
+  // The operator's own page, for a dam whose readings Eddy takes from another
+  // publisher (Truman). Offered with the page's other onward links: under the
+  // readings it would read as their source.
+  const operatorPage = dam.sourceLinks?.find((link) => link.kind === 'reference');
+
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="mx-auto max-w-7xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
@@ -99,6 +104,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
             {/* Without a posted schedule the generation card already offers the
                 release line, so the number is not repeated down here. */}
             {dam.infoPhone && dam.schedule.length > 0 && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Release Line: {dam.infoPhone}</Button>}
+            {operatorPage && <Button href={operatorPage.url} external variant="outline" size="sm" className="min-h-11" data-dam-source="reference" data-ga-event="dam_source_opened" data-ga-label="reference">{operatorPage.label} <ExternalLink className="size-4 shrink-0" aria-hidden="true" /><span className="sr-only">({operatorPage.publisher}, opens in a new tab)</span></Button>}
             {!getDamAppPromotion(dam.id) && <AppLink trackView data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Get Eddy for iPhone</AppLink>}
           </div>
           {project && (

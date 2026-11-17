@@ -1,86 +1,39 @@
-// eddy-ios/src/components/dam/DamGenerationHero.tsx
-// The dominant block on the dam screen: what the powerhouse is doing right now.
-//
-// Ported from the web hero, and it has to stay a port. Every number and every
-// sentence here comes from shared/dam-generation.ts, so the two platforms
-// cannot produce different percentages or different transition language for the
-// same dam — which is the failure a fisherman would notice first, holding a
-// phone next to a laptop.
-//
-// ── The four questions, in order ───────────────────────────────────────────
-//   1. Is the powerhouse generating now?       the status line
-//   2. How large is that for THIS project?      the rack and the percentage
-//   3. How much water is through the turbines?  the cfs figure
-//   4. When does generation change?             the next-change panel
-//
-// ── Why the percentage is the headline, and why the bar and release left ───
-// This block used to say the same magnitude three ways — "About 6 of 8
-// generators' worth", then a capacity bar labelled "72% of full generation",
-// then "Total release at dam", which on a hydropower project is the turbine
-// figure again plus or minus a spillway that is almost always shut. Three
-// statements of one fact stacked the top of the screen tall enough to push the
-// schedule below the fold. The rack still draws the unit picture; the one
-// sentence beneath it is now the percentage, which is the number a reader can
-// check against SWPA's published table. Release stays on the flood-control
-// projects, where DamStateCard is the only surface that carries it.
-//
-// ── Why a generator rack and not just a percentage ─────────────────────────
-// "Six generators" is the unit anglers already think in, and it makes a
-// powerhouse feel like a powerhouse rather than another gauge. The honesty
-// problem it creates is handled by drawing the last active cell PARTIALLY
-// filled: 19,130 cfs is 5.8 units' worth of full-load discharge, and six
-// identical lit icons would claim a unit count the Corps does not publish.
-//
-// ── Colour ─────────────────────────────────────────────────────────────────
-// One hue, the generation ramp, with magnitude carried by fill as well. Never
-// conditionColor(): CONDITION_SYSTEM's palette means "should you float this
-// river", and how hard the units are running is not that verdict.
-
-import { radii } from '@/theme/layout';
+// Total release leads; turbine flow is a separate, independently timed reading.
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
+import { EddySymbol } from '@/components/EddySymbol';
 import type { DamSnapshot } from '@eddy/types';
-import { relativeAge, SCHEDULE_CHANGE_SENTENCE } from '@eddy/conditions/dam-schedule-copy';
+import { relativeAge, readingStaleness } from '@eddy/conditions/dam-schedule-copy';
 import {
+  ABOVE_FULL_GENERATION_LABEL,
   FULL_GENERATION_SHORT_LABEL,
-  RACK_ESTIMATE_SHORT,
-  generationReferenceCitation,
   generationNow,
   generationPercentLabel,
   generationStatusLabel,
   generationVoiceOver,
   generatorRack,
-  nowNextClauses,
-  scheduledClauseProvenance,
+  releaseComparison,
+  releaseRepeatsTurbineFlow,
+  scheduleCheckedPhrase,
   speaksForNow,
   spillwayRelease,
   spillwayReleaseLabel,
-  generationReferenceLine,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-function formatCfs(value: number): string {
-  return `${Math.round(value).toLocaleString()} cfs`;
+function ReadingTime({ at, now }: { at: string; now: number }) {
+  const { colors } = useTheme();
+  const age = relativeAge(at, now);
+  // The shared clock formatter includes a date for earlier Central days.
+  const time = scheduleCheckedPhrase(at, now);
+  return <Text style={[styles.age, { color: colors.textMuted }]}
+    accessibilityLabel={time ? `Last reading ${time}, ${age}` : 'Reading time unavailable'}>
+    {time ? `Read ${time}` : 'Reading time unavailable'}
+  </Text>;
 }
 
-/**
- * One generating bay, filled to `fill`.
- *
- * ── Why a bay and not a circle ─────────────────────────────────────────────
- * Eight circles in a row read as status LEDs — a panel of indicator lamps,
- * which says "on or off" and nothing about magnitude. A rounded upright with a
- * rotor channel reads as machinery, which is what this is.
- *
- * Fills from the BOTTOM UP, never by width: a narrower bay reads as a smaller
- * generator, where a part-full one reads as a generator at part load — and the
- * capacity bar directly beneath already teaches that horizontal extent means
- * something else.
- *
- * An absolutely positioned inner View rather than a gradient: RN has no CSS
- * gradient without a native dependency, and a clipped fill is the same picture.
- */
 function GeneratorCell({
   fill,
   on,
@@ -102,209 +55,105 @@ function GeneratorCell({
   );
 }
 
-export function DamGenerationHero({
-  dam,
-  embedded = false,
-  showNextChange = true,
-  showReference = true,
-  headerAction,
-}: {
+export function DamGenerationHero({ dam, now, headerAction, readingsSource }: {
   dam: DamSnapshot;
-  /**
-   * Drawn INSIDE somebody else's card — no background, no elevation, no padding.
-   *
-   * The dam screen composes this and the schedule into one Generation card
-   * (GenerationCard), because the two were saying the same thing twice: a NEXT
-   * CHANGE panel here and a schedule beneath it describing the same plan, each
-   * with its own copy of the "schedules change without notice" warning.
-   */
-  embedded?: boolean;
-  /**
-   * Whether the next-change panel belongs to this half.
-   *
-   * False inside the merged card, where it moves down into the scheduled
-   * section it describes. It is the one block here sourced from a PLAN rather
-   * than from a measurement, and everything around it is observed — which is
-   * why it was the piece that read as a duplicate.
-   */
-  showNextChange?: boolean;
-  /** The merged card puts the full reference in its information tip. */
-  showReference?: boolean;
+  now: number;
   headerAction?: ReactNode;
+  readingsSource?: ReactNode;
 }) {
-  const { colors, elevation } = useTheme();
-
-  const state = generationNow(dam);
+  const { colors } = useTheme();
+  const release = dam.metrics.release;
+  const state = generationNow(dam, now);
   const status = generationStatusLabel(state);
-
-  // A flood-control project has no powerhouse to report on, and a hero that
-  // said anything at all here would invent one. The screen's own no-powerhouse
-  // copy covers it instead.
-  if (!status) return null;
-
   const ref = dam.generationReference;
   const rack = state.kind === 'generating' ? generatorRack(state.turbineCfs, ref) : null;
   const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
-  const clauses = nowNextClauses(state, dam.schedule, ref);
   const voiceOver = generationVoiceOver(state, ref);
-  const provenance = scheduledClauseProvenance(dam.schedule, ref);
-  const spill = spillwayRelease(dam);
+  const comparison = releaseComparison(dam.metrics.generationFlow, release, ref, {
+    declared: dam.releaseExcludesGeneration, now,
+  });
+  const spill = spillwayRelease(dam, now);
+  const repeatsRelease = releaseRepeatsTurbineFlow(dam.metrics.generationFlow, release);
+  // Matching numbers do not erase a different observation time or daily average.
+  const sameTime = state.kind !== 'unavailable' && release && !release.dailyMean && !dam.metrics.generationFlow?.dailyMean &&
+    Date.parse(state.observedAt) === Date.parse(release.at);
+  const dimRelease = release && readingStaleness(release.at, now) !== 'fresh';
+  const dimTurbine = state.kind !== 'unavailable' && !speaksForNow(state.age);
 
-  const observedAt = state.kind === 'unavailable' ? null : relativeAge(state.observedAt);
-  // The same rule the phrasing uses, so a reading that stopped saying "now"
-  // also stops looking current.
-  const dim = state.kind !== 'unavailable' && !speaksForNow(state.age);
-  const fraction = state.kind === 'generating' ? state.fraction : null;
-  const figureLabel = [
-    voiceOver,
-    observedAt ? `Last reading ${observedAt}.` : null,
-    dim ? 'Older reading.' : null,
-    percent && ref ? (rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)) : null,
-  ].filter(Boolean).join(' ').replace(/\bcfs\b/g, 'cubic feet per second');
-
-  return (
-    <View style={embedded ? undefined : [styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <View style={styles.statusRow}>
-        <ControlIcon name="flash" size={13} color={colors.interactive} />
-        <Text style={[styles.status, headerAction ? styles.statusWithAction : null, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
-        {headerAction}
-      </View>
-
-      {/* The visible figure is one VoiceOver element. Its label carries the
-          reading and reference without relying on a zero-height text node. */}
-      <View
-        style={{ opacity: dim ? 0.6 : 1 }}
-        accessible={Boolean(voiceOver)}
-        accessibilityLabel={figureLabel || undefined}
-      >
-        {rack ? (
-          <View style={styles.rack}>
-            {rack.cells.map((cell, i) => (
-              <GeneratorCell
-                key={i}
-                fill={cell.fill}
-                on={colors.generationHigh}
-                off={colors.cardRaised}
-                channel={colors.card}
-              />
-            ))}
-          </View>
-        ) : null}
-
-        {/* The headline is the percentage. The label names what it is a
-            percentage OF — "72% of full generation", never "72% power", which
-            describes something the number is not. */}
-        {percent && ref && fraction !== null ? (
-          <Text style={[styles.headline, { color: colors.text }]}>
-            {percent}
-            <Text style={[styles.headlineAside, { color: colors.textMuted }]}>
-              {` ${FULL_GENERATION_SHORT_LABEL}`}
-              {/* Above the reference is real information — spill, a different
-                  measurement basis, or a reference that has drifted since the
-                  rehabilitation project. Say so rather than clamp. */}
-              {fraction > 1 ? ' — above the published reference' : ''}
-            </Text>
-          </Text>
-        ) : null}
-
-        {state.kind !== 'unavailable' ? (
-          <Text style={[styles.flow, { color: colors.text }]}>
-            {formatCfs(state.turbineCfs)}
-            <Text style={[styles.flowAside, { color: colors.textSubtle }]}>
-              {'  through the turbines'}
-            </Text>
-          </Text>
-        ) : null}
-        {observedAt ? (
-          <Text style={[styles.age, { color: colors.textSubtle }]}>Last reading {observedAt}</Text>
-        ) : null}
-
-        {/* The full citation is available in the merged card's info tip.
-            Keep the estimate qualifier beside the graphic in either layout. */}
-        {percent && ref && (showReference || rack) ? (
-          <Text style={[styles.note, { color: colors.textSubtle }]}>
-            {showReference
-              ? (rack ? generationReferenceLine(ref) : generationReferenceCitation(ref))
-              : RACK_ESTIMATE_SHORT}
-          </Text>
-        ) : null}
-      </View>
-
-      {/* Read from the district's spillway series, never inferred from total
-          flow: the gates can open well below full turbine capacity. */}
-      {spill ? (
-        <Text style={[styles.note, { color: colors.accent }]}>
-          {[`${spillwayReleaseLabel(spill)} through the spillway gates`, relativeAge(spill.observedAt)]
-            .filter(Boolean)
-            .join(' · ')}
-        </Text>
-      ) : null}
-
-      {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
-          reading size, because this is the answer somebody came for and it was
-          previously the smallest text on the card.
-          The observed clause is deliberately absent: the rack and headline
-          above already say "About 6 of 8 generators' worth", and repeating it
-          here made one observation read as two. The combined sentence still
-          earns its space on the compact row, where there is no rack to have
-          said it first. */}
-      {showNextChange && clauses.scheduled ? (
-        <View
-          style={[
-            styles.nextPanel,
-            { backgroundColor: colors.cardRaised, borderColor: colors.interactive },
-          ]}
-        >
-          <View style={styles.scheduledRow}>
-            <ControlIcon name="time-outline" size={13} color={colors.interactive} />
-            <Text style={[styles.blockLabel, { color: colors.interactive }]}>NEXT CHANGE</Text>
-          </View>
-          <Text style={[styles.nextSentence, { color: colors.text }]}>{clauses.scheduled}</Text>
-          {/* Plain language, and the reason it is three sentences: whose clock
-              this is, what it means where the reader is standing, and how much
-              to trust it. See SCHEDULE_CHANGE_SENTENCE. */}
-          <Text style={[styles.note, { color: colors.textMuted }]}>
-            {SCHEDULE_CHANGE_SENTENCE}
-          </Text>
-          {/* Labelled rather than suppressed — see scheduledClauseProvenance. */}
-          {provenance ? (
-            <Text style={[styles.stale, { color: colors.accent }]}>{provenance}</Text>
-          ) : null}
-        </View>
-      ) : null}
+  return <View>
+    <View style={styles.headingRow}>
+      <EddySymbol name="release" size={28} />
+      <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>Total release</Text>
+      {headerAction}
     </View>
-  );
+    {release ? <>
+      <Text style={[styles.release, { color: dimRelease ? colors.textMuted : colors.text }]}
+        accessibilityLabel={`Total water release, ${Math.round(release.value).toLocaleString()} cubic feet per second${release.dailyMean ? ', daily average' : ''}`}>
+        {Math.round(release.value).toLocaleString()} <Text style={[styles.unit, { color: colors.textMuted }]}>cfs</Text>
+      </Text>
+      {release.dailyMean ? <Text style={[styles.caption, { color: colors.textMuted }]}>Daily average</Text> : null}
+    </> : <Text style={[styles.caption, { color: colors.textMuted }]}>Total release unavailable.</Text>}
+    <View style={styles.readingRow}>
+      {release ? <ReadingTime at={release.at} now={now} /> : null}
+      {readingsSource}
+    </View>
+    {dimRelease && !release?.dailyMean ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated release reading</Text> : null}
+
+    {status ? <View style={[styles.turbine, { borderTopColor: colors.border }]}>
+      <View style={styles.turbineSummary}>
+        <View style={styles.statusRow}>
+          <ControlIcon name="flash" size={13} color={colors.interactive} />
+          <Text accessibilityRole="header" style={[styles.status, { color: colors.text }]}>{status}</Text>
+        </View>
+        {rack ? <View style={styles.rackBlock} accessible accessibilityLabel={`${voiceOver} Estimated from turbine flow.`}>
+          <View style={styles.rack}>
+            {rack.cells.map((cell, i) => <GeneratorCell key={i} fill={cell.fill}
+              on={colors.interactive} off={colors.cardRaised} channel={colors.card} />)}
+          </View>
+          {percent ? <Text style={[styles.estimate, { color: colors.text }]}>
+            ~{percent} <Text style={{ color: colors.textMuted }}>{FULL_GENERATION_SHORT_LABEL}</Text>
+          </Text> : null}
+        </View> : null}
+      </View>
+      {state.kind !== 'unavailable' ? <>
+        {!repeatsRelease || !sameTime ? <Text style={[styles.caption, { color: dimTurbine ? colors.textMuted : colors.text }]}>
+          Through the turbines <Text style={styles.flow}>{Math.round(state.turbineCfs).toLocaleString()} cfs</Text>
+        </Text> : null}
+        {!sameTime ? <View style={styles.readingRow}><ReadingTime at={state.observedAt} now={now} /></View> : null}
+        {dimTurbine ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated turbine reading</Text> : null}
+        {rack && state.kind === 'generating' && state.fraction !== null && state.fraction > 1 ?
+          <Text style={[styles.note, { color: colors.textMuted }]}>{ABOVE_FULL_GENERATION_LABEL}</Text> : null}
+      </> : null}
+    </View> : null}
+
+    {spill ? <Text style={[styles.spill, { color: colors.accent, borderColor: colors.border }]}>
+      {[spillwayReleaseLabel(spill), relativeAge(spill.observedAt, now)].filter(Boolean).join(' · ')}
+    </Text> : null}
+    {comparison.kind === 'other-release' ? <Text style={[styles.note, { color: colors.textMuted }]}>
+      Not through turbines <Text style={styles.flow}>{Math.round(comparison.otherCfs).toLocaleString()} cfs</Text>
+    </Text> : null}
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radii.card, padding: 16, gap: 10 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  status: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, flexShrink: 1 },
-  statusWithAction: { flex: 1 },
-  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
-  cell: {
-    width: 20,
-    height: 32,
-    borderRadius: 4,
-    borderWidth: 2,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
+  headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heading: { ...t.base, fontFamily: fonts.semibold, flex: 1 },
+  release: { ...t['3xl'], fontFamily: fonts.monoMedium, marginTop: 10, fontVariant: ['tabular-nums'] },
+  unit: { ...t.base, fontFamily: fonts.body },
+  caption: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
+  readingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, marginTop: 2 },
+  age: { ...t.xs, fontFamily: fonts.body, flexShrink: 1, paddingVertical: 4 },
+  note: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
+  turbine: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 12 },
+  turbineSummary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  status: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
+  flow: { fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
+  rackBlock: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, flexShrink: 1 },
+  estimate: { ...t.xs, fontFamily: fonts.body, flexShrink: 1 },
+  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
+  cell: { width: 12, height: 18, borderRadius: 3, borderWidth: 1.5, overflow: 'hidden', justifyContent: 'flex-end' },
   cellChannel: { position: 'absolute', top: 4, bottom: 4, left: '50%', width: 1, opacity: 0.7 },
-  headline: { ...t.lg, fontFamily: fonts.display, marginTop: 8, fontVariant: ['tabular-nums'] },
-  // The "of full generation" qualifier, at reading weight beside the figure so
-  // the number leads and what it is a share of follows.
-  headlineAside: { fontSize: 15, lineHeight: 20, fontFamily: fonts.medium },
-  flow: { fontSize: 17, lineHeight: 22, fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
-  flowAside: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
-  age: { ...t.xs },
-  note: { ...t.xs },
-  blockLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, flexShrink: 1 },
-  stale: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium },
-  scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  // The next-change panel: bordered and tinted so it reads as the answer
-  // rather than as another caveat in the stack.
-  nextPanel: { borderRadius: 10, borderWidth: 1, padding: 12, gap: 4 },
-  nextSentence: { fontSize: 15, lineHeight: 20, fontFamily: fonts.heading },
   cellFill: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  spill: { ...t.sm, fontFamily: fonts.medium, marginTop: 12, padding: 10, borderWidth: 1, borderRadius: 10 },
 });

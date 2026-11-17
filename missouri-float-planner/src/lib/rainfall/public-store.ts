@@ -8,6 +8,7 @@ import { nativePixels, weightedRain } from './native-grid';
 import { loadPreparedWeights, type BasinWeights } from './weight-store';
 import { rainMapContext } from './map-context';
 import { publicRainSite, RAIN_RELEASE } from './public-policy';
+import { CORRECTED_HOURS } from './corrected-source';
 
 interface Published { basinId: string; unitsEvidence: string; coverageEvidence: string; data: RainDetail }
 const key = (siteId: string) => `published/v1/${siteId}.json.gz`;
@@ -54,8 +55,11 @@ export async function publishRain(db: SupabaseClient, basins: (Basin & { review_
   };
   // Replay the archive, not just the last capture. A missed publish or later
   // revision must recover without inventing any hours. Decode one TIFF at a time.
+  // Only NOAA's gauge-corrected captures are read here; the radar-only rasters
+  // in the same archive are research material and never become public amounts.
   for await (const capture of rainArchive(db, now, signal)) {
-    const hours = capture.source_key === 'conus_QPE_01H' ? 1 : capture.source_key === 'conus_QPE_24H' ? 24 : 72;
+    const hours = CORRECTED_HOURS[capture.source_key];
+    if (!hours) continue;
     if (hours !== 1 && Date.parse(capture.valid_end) < now - 3 * RAIN_HOUR) continue;
     const identity = hours === 1 ? capture.valid_start : String(hours);
     const targets = states.filter(state => !state.failure && capture.metadata.basinIds.includes(state.basin.id) && !state.seen.has(identity));
@@ -132,7 +136,7 @@ export async function* rainArchive(db: SupabaseClient, now: number, signal: Abor
     signal.throwIfAborted();
     const { data, error } = await db.from('rainfall_research_captures')
       .select('id,source_key,valid_start,valid_end,metadata,object_path,sha256')
-      .eq('kind', 'mrms').in('source_key', ['conus_QPE_01H', 'conus_QPE_24H', 'conus_QPE_72H'])
+      .eq('kind', 'mrms').in('source_key', Object.keys(CORRECTED_HOURS))
       .gte('valid_end', new Date(now - 8 * 24 * RAIN_HOUR).toISOString())
       .lte('valid_end', new Date(now).toISOString()).lte('fetched_at', new Date(now).toISOString())
       .order('valid_end', { ascending: false }).order('fetched_at', { ascending: false }).order('id')

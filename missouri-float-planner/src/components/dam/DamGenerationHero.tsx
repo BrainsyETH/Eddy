@@ -1,5 +1,6 @@
 // Total release leads. Turbine generation remains a separate observation,
 // with its own timestamp and a rack based only on measured turbine flow.
+import type { ReactNode } from 'react';
 import { Zap } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
 import { EddyIcon } from '@/components/ui/EddyIcon';
@@ -24,14 +25,21 @@ const observationClock = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago', timeZoneName: 'short',
 });
 
-function ReadingTime({ at, now }: { at: string; now: number }) {
+function ReadingTime({ at, now, className = 'mt-2' }: { at: string; now: number; className?: string }) {
   const age = relativeAge(at, now);
-  return <p className="mt-2 text-xs leading-5 text-neutral-600">
+  return <p className={`text-xs leading-5 text-neutral-600 ${className}`}>
     {age ? <>Last reading <time dateTime={at}>{observationClock.format(new Date(at))}</time> · {age}</> : 'Reading time unavailable'}
   </p>;
 }
 
-export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now: number }) {
+/**
+ * `source` is the publisher's page for these readings. When one reading time
+ * covers the whole panel (release and turbine share it, or there is no turbine
+ * reading), that time joins the link's row on the right, as the schedule's
+ * check time does beside its source. Two different times stay with their
+ * figures, so neither reads as the other's.
+ */
+export default function DamGenerationHero({ dam, now, source }: { dam: DamSnapshot; now: number; source?: ReactNode }) {
   const state = generationNow(dam, now);
   const status = generationStatusLabel(state);
   const release = dam.metrics.release;
@@ -49,6 +57,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
     Date.parse(state.observedAt) === Date.parse(release.at);
   const dimTurbine = state.kind !== 'unavailable' && !speaksForNow(state.age);
   const dimRelease = release && readingStaleness(release.at, now) !== 'fresh';
+  const timeInFooter = Boolean(source && release && (sameTime || state.kind === 'unavailable'));
 
   return (
     <section aria-label="Reported water release" className="dam-release-summary min-w-0">
@@ -61,7 +70,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
           {Math.round(release.value).toLocaleString()} <span className="text-base tracking-normal text-neutral-600">cfs</span>
         </p>
         <p className="mt-1 text-sm text-neutral-700">{release.dailyMean ? 'Total release at dam · Daily average' : 'Total water released at the dam'}</p>
-        <ReadingTime at={release.at} now={now} />
+        {!timeInFooter && <ReadingTime at={release.at} now={now} />}
         {dimRelease && !release.dailyMean && <p className="mt-1 text-xs font-semibold text-accent-900">Outdated release reading</p>}
       </> : <p className="mt-3 text-sm text-neutral-700">Total release unavailable.</p>}
 
@@ -93,6 +102,11 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
         <span className="font-medium">Not through turbines</span>{' '}
         <span className="font-mono text-primary-900">{Math.round(comparison.otherCfs).toLocaleString()} cfs</span>
       </p>}
+      {/* Source left, reading time right when both fit; wrapped, both keep the left edge. */}
+      {source && <div className="dam-release-note -mt-2 flex flex-wrap items-baseline justify-between gap-x-4">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-5">{source}</div>
+        {timeInFooter && release && <ReadingTime at={release.at} now={now} className="pb-2" />}
+      </div>}
     </section>
   );
 }

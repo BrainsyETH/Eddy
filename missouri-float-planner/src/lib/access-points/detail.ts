@@ -367,7 +367,8 @@ const RIVER_GAUGE_SELECT = `
     usgs_site_id,
     site_id_external,
     provider,
-    name
+    name,
+    nwps_flood_stage_ft
   )
 `;
 

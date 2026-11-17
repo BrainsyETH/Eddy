@@ -25,10 +25,15 @@
 import { gaugeSharePath, shareLink } from '@/lib/share';
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
+import { RiverPageHeader } from '@/components/RiverPageHeader';
+import { useRiverHeaderTitle } from '@/hooks/useRiverHeaderTitle';
+import { damHeaderPhoto } from '@/lib/damHeader';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -45,6 +50,14 @@ import { DAM_CATALOG } from '@/lib/damCatalog';
 import { readBestIndex } from '@/lib/riverCache';
 import { DamStateCard } from '@/components/dam/DamStateCard';
 import { GenerationCard } from '@/components/dam/GenerationCard';
+import { DamSourceLinks } from '@/components/dam/DamSourceLinks';
+import { openExternalLink } from '@/lib/openExternalLink';
+import {
+  damHasAnything,
+  damSourceLink,
+  generationCardRenders,
+  standaloneSourceLinks,
+} from '@/lib/damSourceLinks';
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
 import { GenerationForecast } from '@/components/dam/GenerationForecast';
 import { DamEddyRead } from '@/components/dam/DamEddyRead';
@@ -63,6 +76,12 @@ export default function DamDetailScreen() {
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
+  const headerHeight = useHeaderHeight();
+  const topInset = Platform.OS === 'ios' ? headerHeight : 0;
+  const header = useRiverHeaderTitle(damId, topInset);
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const selectedPhoto = damHeaderPhoto(damId);
+  const photo = selectedPhoto?.url === failedPhoto ? null : selectedPhoto;
 
   /**
    * Who this dam is, out of the binary.
@@ -203,7 +222,7 @@ export default function DamDetailScreen() {
    * A minute is the resolution of every one of those claims; anything finer is
    * re-rendering to move nothing.
    */
-  useObservationClock();
+  const now = useObservationClock();
 
   /**
    * The dam whose first load has SETTLED, so a focus is not an arrival.
@@ -396,13 +415,13 @@ export default function DamDetailScreen() {
   if (!dam) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-        <Stack.Screen options={{ title: catalogEntry!.name }} />
+        <Stack.Screen options={{ title: catalogEntry!.name, headerTitle: header.collapsed ? catalogEntry!.name : '' }} />
         <NativeHeaderHome />
-        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
-          <Text style={[styles.name, { color: colors.text }]}>{catalogEntry!.name}</Text>
-          <Text style={[styles.meta, { color: colors.textMuted }]}>
-            {[catalogEntry!.lakeName, catalogEntry!.state].filter(Boolean).join(' · ')}
-          </Text>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
+          onScroll={header.onScroll} scrollEventThrottle={32}>
+          <RiverPageHeader key={`${damId}:${photo?.url ?? 'plain'}`} name={catalogEntry!.name}
+            meta={[catalogEntry!.lakeName, catalogEntry!.state].filter(Boolean).join(' · ')}
+            photo={photo} topInset={topInset} horizontalInset={0} creditPlacement="overlay" onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
           <View style={styles.section}>
             <ActivityIndicator color={colors.interactive} />
           </View>
@@ -414,9 +433,15 @@ export default function DamDetailScreen() {
   // Everything upstream is read-through and allowed to fail independently, so a
   // dam can arrive with a schedule and no readings, or readings and no
   // schedule. Both are ordinary; only nothing at all is worth saying.
-  const hasMetrics = Object.keys(dam.metrics).length > 0;
-  const hasAnything =
-    hasMetrics || dam.schedule.length > 0 || dam.generating !== null || Boolean(dam.generationForecast);
+  const hasAnything = damHasAnything(dam);
+  // Whether the Generation card is actually on screen. Two things hang off it:
+  // the card itself, and where the source links go when there is no card to
+  // hold them — see standaloneSourceLinks for the case that got this wrong.
+  const showsGenerationCard = generationCardRenders(dam);
+  const hasWaterConditions = Boolean(dam.metrics.poolElevation || dam.metrics.tailwaterElevation ||
+    dam.metrics.tailwaterTempF || dam.metrics.inflow || dam.tailwaterFishery);
+  // The operator's own page, for a dam whose readings came from somebody else.
+  const operatorPage = damSourceLink(dam, 'reference');
 
   const starred = isStarred('dam', dam.id);
 
@@ -436,7 +461,7 @@ export default function DamDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-      <Stack.Screen options={{ title: dam.name }} />
+      <Stack.Screen options={{ title: dam.name, headerTitle: header.collapsed ? dam.name : '' }} />
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
         {sharePath ? (
@@ -459,25 +484,22 @@ export default function DamDetailScreen() {
         </Stack.Toolbar.Button>
       </Stack.Toolbar>
 
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
-        <Text style={[styles.name, { color: colors.text }]}>{dam.name}</Text>
-        <Text style={[styles.meta, { color: colors.textMuted }]}>
-          {[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
-        </Text>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
+        onScroll={header.onScroll} scrollEventThrottle={32}>
+        <RiverPageHeader key={`${damId}:${photo?.url ?? 'plain'}`} name={dam.name}
+          meta={[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
+          photo={photo} topInset={topInset} horizontalInset={0} creditPlacement="overlay" onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
 
-        {/* The order is the hierarchy a fisherman reads in: what the powerhouse
-            is doing now, when it changes, today and the days ahead, the rhythm
-            it has kept all week — and only then the lake, the temperature and
-            the rest of the project. */}
+        {/* Total release leads; turbine generation and the schedule follow. */}
         {hasAnything ? (
           <>
-            {dam.hasTurbines || dam.schedule.length > 0 ? <View style={styles.section}>
+            {showsGenerationCard ? <View style={styles.section}>
               {/* One card, two sections: observed above the rule, scheduled
                   below it. They were two cards saying the same thing twice —
                   a NEXT CHANGE panel over a schedule describing the same plan,
                   each carrying its own copy of the publisher, the freshness and
                   the change warning. See GenerationCard. */}
-              <GenerationCard dam={dam} />
+              <GenerationCard dam={dam} now={now} />
             </View> : null}
             {/* Eddy's Read sits under the hero it interprets: the plan and the
                 measured pattern below are free; the Read of them is Premium. */}
@@ -574,11 +596,18 @@ export default function DamDetailScreen() {
 
         {/* The lake, the temperature and the rest of the project: still worth
             carrying, below the generation the reader came for. */}
-        {hasAnything ? (
+        {hasWaterConditions ? (
           <View style={styles.section}>
             <DamStateCard dam={dam} secondary />
           </View>
         ) : null}
+
+        {/* The publishers' pages normally sit inside the Generation card, each
+            under the half it sources. When that card is not on screen — a
+            dam with no release, turbine or schedule data — they follow here instead.
+            A reader looking at
+            "nothing published" has only the source left to go to. */}
+        <DamSourceLinks links={standaloneSourceLinks(dam)} style={styles.standaloneSources} />
 
         <View style={styles.actions}>
           {/* The reach this dam controls, when Eddy carries it. Absent for most
@@ -667,6 +696,26 @@ export default function DamDetailScreen() {
             </Pressable>
           ) : null}
 
+          {/* The operator's own page, for a dam whose readings Eddy takes from
+              another publisher (Truman: a Corps dam, Ameren-reported readings).
+              Here among the onward actions rather than under the readings,
+              where it would read as their source. */}
+          {operatorPage ? (
+            <Pressable
+              onPress={() => void openExternalLink(operatorPage.url)}
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="link"
+              accessibilityLabel={`${operatorPage.label}, ${operatorPage.publisher}`}
+              accessibilityHint="Opens the publisher’s page"
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>{operatorPage.label}</Text>
+              <ControlIcon name="open-outline" size={16} color={colors.text} />
+            </Pressable>
+          ) : null}
+
           {/* The recorded line. Kept because it is the fallback when a feed is
               down, which is exactly when somebody most needs the number — and
               it is the Corps' own answer rather than Eddy's. */}
@@ -713,8 +762,6 @@ const styles = StyleSheet.create({
   emptyTitle: { ...t.xl, fontFamily: fonts.heading, textAlign: 'center' },
   emptyBodyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', flexShrink: 1 },
   body: { paddingTop: 12, paddingBottom: 40 },
-  name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
-  meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
   section: { paddingHorizontal: 16, marginBottom: 14 },
   /** The "still loading the rest" line: a spinner and its sentence, centred. */
   pendingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
@@ -737,4 +784,7 @@ const styles = StyleSheet.create({
   },
   sourceText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1, textAlign: 'center' },
   sources: { ...t.xs, paddingHorizontal: 20, marginTop: 14 },
+  // On the screen's text edge. The links are 44pt tall, so the row needs only
+  // a little room before the actions.
+  standaloneSources: { paddingHorizontal: 20, marginBottom: 8 },
 });

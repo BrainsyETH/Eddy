@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import AppCta from './AppCta';
-import AppPromotion from './AppPromotion';
 import AppAvailability from './AppAvailability';
 import SiteFooter from './ui/SiteFooter';
 import type { AppDestination } from '@/lib/app-destination';
@@ -23,7 +22,6 @@ export default function ContextAppLanding({ destination, campaign }: { destinati
         <p className="mb-6 mt-3 text-neutral-600">{detail}</p>
         <AppCta destination={destination} campaign={campaign} landing title="Eddy for iPhone" label="app_landing_context" />
         <AppAvailability />
-        <AppPromotion><p className="mt-3 text-sm text-neutral-600">After installing Eddy, return to this page on your iPhone and choose Open.</p></AppPromotion>
         {plan && <Link className="app-cta__link mt-3" href={`/plan/${encodeURIComponent(destination.id)}`}>View your saved plan on the web</Link>}
         <Link href="/app" className="app-cta__link mt-3">See what’s in Eddy</Link>
       </div>

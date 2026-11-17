@@ -38,6 +38,7 @@ import {
 import { persistGaugeAlertPlan } from '@/lib/alerts/gauge-alert-persist';
 import { loadLastTold } from '@/lib/alerts/gauge-last-told';
 import { isRuleLive, parentIdsOf } from '@/lib/alerts/gating';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { toNum } from '@/lib/utils/num';
 import { logger } from '@/lib/logger';
 
@@ -164,7 +165,8 @@ async function loadLadders(
     .from('river_gauges')
     .select(
       'river_id, gauge_station_id, threshold_unit, level_too_low, level_low, ' +
-        'level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft',
+        'level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft, ' +
+        'gauge_stations(nwps_flood_stage_ft)',
     )
     .in('river_id', riverIds)
     .in('gauge_station_id', stationIds);
@@ -183,7 +185,7 @@ async function loadLadders(
       // The NWS line, so a rule reaches the same verdict as the river screen.
       // Without it a river above flood stage but below the editorial dangerous
       // band reads "Dangerous" in the app while the alert stays silent.
-      floodStageFt: toNum(row.flood_stage_ft),
+      floodStageFt: linkFloodStageFt(row),
     });
   }
   return out;

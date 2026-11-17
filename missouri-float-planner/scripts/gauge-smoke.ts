@@ -314,11 +314,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
           Object.defineProperty(navigator, 'clipboard', { value: { writeText: async function (url) { window.sharedUrl = url; } } });
         `);
         await page.goto(`${baseUrl}/chart-layout-check?share=${encodeURIComponent(chartShareQuery(state))}`, { waitUntil: 'domcontentloaded' });
-        await page.getByRole('button', { name: 'Share chart link', exact: true }).waitFor();
+        await page.getByRole('button', { name: 'Share', exact: true }).waitFor();
         check(`${width}px restores the original calendar despite catalog changes`, historyRequests.some(url => new URL(url).searchParams.get('tz') === state.timeZone));
         check(`${width}px uses the responsive chart presentation`, width < 1024 ? await page.getByRole('dialog').isVisible() : await page.getByRole('dialog').count() === 0);
+        await page.getByRole('button', { name: 'Options', exact: true }).click();
         check(`${width}px restores scale`, await page.getByLabel('Scale', { exact: true }).inputValue() === 'visible');
-        await page.getByRole('button', { name: 'Share chart link', exact: true }).click();
+        await page.keyboard.press('Escape');
+        await page.getByRole('button', { name: 'Share', exact: true }).click();
+        await page.getByRole('button', { name: 'Copy chart link', exact: true }).click();
         const sharedUrl = await page.evaluate(() => (window as unknown as { sharedUrl: string }).sharedUrl);
         const restored = parseChartShare('usgs', SITE, new URL(sharedUrl).searchParams)!;
         check(`${width}px re-sharing preserves dates, zoom and scale`, JSON.stringify(restored.loaded) === JSON.stringify(state.loaded) && JSON.stringify(restored.visible) === JSON.stringify(state.visible) && restored.scale === state.scale);
@@ -329,18 +332,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
           await imageReady;
           await route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ code: 'shared_view_unavailable' }) });
         });
+        await page.getByRole('button', { name: 'Share', exact: true }).click();
         await page.getByRole('button', { name: 'Preview share image', exact: true }).click();
+        await page.getByRole('button', { name: 'Share', exact: true }).click();
         await page.getByRole('button', { name: 'Preparing image…', exact: true }).waitFor();
-        check(`${width}px link sharing remains available during rendering`, await page.getByRole('button', { name: 'Share chart link', exact: true }).isEnabled());
+        check(`${width}px link sharing remains available during rendering`, await page.getByRole('button', { name: 'Copy chart link', exact: true }).isEnabled());
+        await page.keyboard.press('Escape');
         releaseImage();
         await page.getByRole('status').filter({ hasText: 'This saved view is no longer available' }).waitFor();
         check(`${width}px unavailable image has a useful recovery message`, true);
         await page.screenshot({ path: path.join(OUT_DIR, `shared-${width}.png`), fullPage: true });
         await page.setViewportSize({ width: width < 1024 ? 1440 : 390, height: 1000 });
         if (width >= 1024) await page.getByRole('button', { name: 'Expand', exact: true }).click();
+        await page.getByRole('button', { name: 'Options', exact: true }).click();
         check(`${width}px resize keeps scale`, await page.getByLabel('Scale', { exact: true }).inputValue() === 'visible');
+        await page.keyboard.press('Escape');
         await page.getByRole('button', { name: 'Show latest', exact: true }).click();
-        await page.getByText('Last 7 days', { exact: true }).waitFor();
+        await page.getByText('Past 7 days', { exact: true }).waitFor();
         check(`${width}px Show latest clears shared dates`, await page.getByText(/Shared view ·/).count() === 0);
         await page.close();
       }
@@ -370,9 +378,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       page.on('request', request => { if (request.url().includes('/history?')) historyRequests.push(request.url()); });
       await page.getByRole('button', { name: '1Y', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('button[aria-pressed="true"]') !== null);
-      await page.getByText('Last year', { exact: true }).waitFor();
+      await page.getByText('Past year', { exact: true }).waitFor();
       check('one-year selection requests one-year history', historyRequests.some(url => new URL(url).searchParams.get('days') === '365'));
-      await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+      check('redundant Zoom in button is removed', await page.getByRole('button', { name: 'Zoom in', exact: true }).count() === 0);
+      const plot = page.getByRole('slider').first();
+      await plot.scrollIntoViewIfNeeded();
+      const box = await plot.boundingBox();
+      assert(box);
+      await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.5);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.5, { steps: 5 });
+      await page.mouse.up();
       check('zoom exposes reset inline', await page.getByRole('button', { name: 'Reset zoom', exact: true }).isVisible());
       await page.getByRole('button', { name: 'Reset zoom', exact: true }).click();
       await page.getByRole('button', { name: 'Custom', exact: true }).click();
@@ -385,7 +401,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       await page.getByText('2026-09-10 to 2026-09-30', { exact: true }).waitFor();
       check('custom selection requests explicit dates', historyRequests.some(url => new URL(url).searchParams.has('from') && new URL(url).searchParams.has('to')));
       const downloaded = page.waitForEvent('download');
-      await page.getByRole('button', { name: 'Export CSV', exact: true }).click();
+      await page.getByRole('button', { name: 'Share', exact: true }).click();
+      await page.getByRole('button', { name: 'Download CSV', exact: true }).click();
       const download = await downloaded;
       await download.saveAs(path.join(OUT_DIR, 'history.csv'));
       check('export keeps its statistic in the filename', download.suggestedFilename().includes('instantaneous'));
@@ -394,7 +411,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       await page.locator('summary').filter({ hasText: 'Data table' }).click();
       await page.getByRole('button', { name: '30D', exact: true }).click();
       await page.getByRole('button', { name: 'cfs', exact: true }).click();
-      await page.getByRole('button', { name: 'Compare', exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Options', exact: true }).click();
+      await page.getByRole('switch', { name: /Last year/ }).waitFor();
+      await page.getByLabel('Typical range', { exact: true }).check();
+      await page.getByLabel('Median', { exact: true }).check();
+      await page.getByLabel('Scale', { exact: true }).selectOption('full');
+      await page.screenshot({ path: path.join(OUT_DIR, 'options-desktop.png'), fullPage: true });
+      await page.keyboard.press('Escape');
+      check('Escape returns focus to Options', await page.getByRole('button', { name: 'Options', exact: true }).evaluate(element => element === document.activeElement));
       await page.screenshot({ path: path.join(OUT_DIR, 'history-desktop.png'), fullPage: true });
 
       // Responsive state and mobile dialog preserve the chosen question.
@@ -403,11 +427,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
       check('mobile Expand preserves 30D and cfs', await dialog.getByRole('button', { name: '30D', exact: true }).getAttribute('aria-pressed') === 'true' && await dialog.getByRole('button', { name: 'cfs', exact: true }).getAttribute('aria-pressed') === 'true');
+      await dialog.getByRole('button', { name: 'Options', exact: true }).click();
+      check('scale persists into mobile Options', await page.getByLabel('Scale', { exact: true }).inputValue() === 'full');
+      await page.keyboard.press('Escape');
+      check('Escape closes Options before expanded chart', await dialog.isVisible() && await page.getByRole('dialog', { name: 'Options', exact: true }).count() === 0);
       await dialog.getByRole('button', { name: '90D', exact: true }).click();
       await page.keyboard.press('Escape');
       await page.getByRole('button', { name: 'Expand', exact: true }).waitFor();
       check('Escape restores focus to Expand', await page.getByRole('button', { name: 'Expand', exact: true }).evaluate(element => element === document.activeElement));
-      check('mobile close preserves long-range selection', await page.getByText('Last 90 days', { exact: true }).isVisible());
+      check('mobile close preserves long-range selection', await page.getByText('Past 90 days', { exact: true }).isVisible());
       check('compact 90D selection stays highlighted', await page.getByRole('group', { name: 'History range' }).getByRole('button', { name: '90D', exact: true }).getAttribute('aria-pressed') === 'true');
 
       await page.setViewportSize({ width: 820, height: 1180 });
@@ -448,7 +476,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       await intercept(page, { list: { gauges: [listStation()] }, detail: detail(), history: history() });
       await page.goto(`${baseUrl}/chart-layout-check?river=1`, { waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: '1Y', exact: true }).waitFor();
-      check('river Live Report exposes the same desktop controls', await page.getByRole('button', { name: 'Export CSV', exact: true }).isVisible());
+      await page.getByRole('button', { name: 'Share', exact: true }).click();
+      check('river Live Report exposes the same desktop controls', await page.getByRole('button', { name: 'Download CSV', exact: true }).isVisible());
+      await page.keyboard.press('Escape');
       await page.screenshot({ path: path.join(OUT_DIR, 'river-desktop.png'), fullPage: true });
       await page.close();
     }

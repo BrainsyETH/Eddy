@@ -12,10 +12,8 @@
 // Renders nothing until the public response says a Read is available, so a dam
 // with no Read, or one withheld because the schedule changed, draws no card.
 //
-// DamReadTeaser is the same teaser without a card, for the "Eddy's read" slot
-// of a tailwater river's Eddy's take on the dam's own release tab
-// (shared/dam-release-tab.ts), where the river Read could only say that no
-// assessment is available.
+// River pages use useDamReadWrittenAt for their compact, source-specific Read
+// link below the forecast. This card remains on standalone dam pages.
 
 import { useEffect, useState } from 'react';
 import ReadAppLink from '@/components/ReadAppLink';
@@ -76,39 +74,5 @@ export default function DamEddyRead({ damId, damName, now }: { damId: string; da
         </ReadAppLink>
       </div>
     </Card>
-  );
-}
-
-/**
- * The dam's Read, as the body of the river page's "Eddy's read" slot. The
- * footer of that panel already links to the app, so this carries no link.
- */
-export function DamReadTeaser({ loading, generatedAt, scheduleAbove }: {
-  loading: boolean;
-  generatedAt: string | null;
-  /** The card above leads with THIS dam's schedule (not another dam's on the same river). */
-  scheduleAbove: boolean;
-}) {
-  if (loading) return <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s read…</p>;
-  if (!generatedAt) {
-    // Not "unavailable for this river": the dam may simply have no Read yet
-    // today, or the schedule changed and the next hourly run has not rewritten it.
-    return (
-      <p className="text-sm font-medium leading-relaxed text-neutral-700">
-        Eddy&apos;s Read of this dam&apos;s schedule isn&apos;t ready right now.
-        {scheduleAbove ? ' The release and posted schedule above are current.' : null}
-      </p>
-    );
-  }
-
-  const age = relativeAgeShort(generatedAt);
-  return (
-    <div data-dam-read-teaser>
-      <p className="flex items-start gap-2 text-sm font-medium leading-relaxed text-neutral-700 lg:text-base">
-        <Lock className="mt-1 h-4 w-4 shrink-0 text-neutral-500" aria-label="Premium" />
-        <span>{DAM_READ_PITCH} Read it in the app with Eddy Premium.</span>
-      </p>
-      {age ? <p className="mt-2 text-xs text-neutral-600">Updated {age}</p> : null}
-    </div>
   );
 }

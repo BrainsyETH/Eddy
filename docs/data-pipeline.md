@@ -92,10 +92,14 @@ It does not approve a boundary or update live gauge metadata.
 | Script | Run | Purpose |
 | --- | --- | --- |
 | `rainfall/inspect-sources.ts` | `node --import tsx scripts/rainfall/inspect-sources.ts --inventory FILE --out NEW_DIR` | Read-only USGS/NOAA source capture, basin triage and raw/display checks; local evidence only, no Supabase client or approvals. See [rainfall sources](rainfall-sources.md). |
+| `rainfall/capture-units-evidence.ts` | `node --import tsx scripts/rainfall/capture-units-evidence.ts --bbox W,S,E,N --out NEW_DIR` | Read-only NOAA raster and USGS rain-gauge capture for the raw-unit check; local evidence only, no Supabase client. Replayed by `src/lib/rainfall/units-evidence.test.ts`. |
+| `rainfall/capture-storm-evidence.ts` | `node --import tsx scripts/rainfall/capture-storm-evidence.ts --tile CAPTURE_JSON --sites ID,ID --end ISO_HOUR --out NEW_DIR` | Read-only coverage evidence for a station release: gauge-corrected and radar-only basin rain for one past 24 hours, against USGS rain gauges. Reads basins; writes only `--out`. Replayed by `src/lib/rainfall/storm-evidence.test.ts`. `rainfall/evidence-fetch.ts` is its shared download helper. |
+| `rainfall/backfill-corrected.ts` | `node --import tsx scripts/rainfall/backfill-corrected.ts [--hours N] [--apply]` | Archives NOAA's gauge-corrected rainfall for recent hours the hourly collector has not captured (default eight days), through the collector's own code. Dry by default; `--apply` writes capture rows and private objects and needs `EXPECTED_SUPABASE_REF`. |
 | `validate-data.ts` | `npm run db:validate` (`-- --strict` to fail on warnings) | Runs DB-side `validate_river_data()` + knowledge-base cross-check. The ingestion gate. |
 | `verify-river-directions.ts` | `npm run db:verify-directions` | Heuristic headwaters-first check; prints suggested `UPDATE` SQL, never runs it. |
 | `calibrate-float-times.ts` | direct | Compares the float-time model against published outfitter/NPS times; prints residuals. |
 | `check-eddy-knowledge.ts` | `npm run check:eddy-knowledge` | Asserts `EDDY_KNOWLEDGE.md` has a section per active river. |
+| `audit-eddy-reads.ts` | `npm run audit:eddy-reads` (`-- --days N` for the log window, default 14) | How Eddy's Read is being produced: model-written versus code-written Reads per river and section, fallback causes from `eddy_generation_log` (once that table exists), `EDDY_KNOWLEDGE.md` reach coverage against `river_sections`, and rivers whose prompt gets a malformed note or no rain lag. Read-only (`getScriptClient({ write: false })`). |
 | `check-tailwind-tokens.ts` | `npm run lint:tokens` (part of `lint`) | Undefined-token and theme-drift gate. |
 | `check-dead-links.ts` | `npm run test:links` | Playwright crawl of a running server; ≥400 same-origin links fail. |
 | `mosw-smoke.ts` | direct (CI: `mosw-smoke.yml`) | Fixture-backed `/river-map` smoke suite; writes screenshots to `.smoke/` only. |

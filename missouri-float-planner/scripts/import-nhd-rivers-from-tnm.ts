@@ -51,8 +51,15 @@
  */
 
 import { readFileSync, mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { simplify, lineString as turfLine, length as turfLength } from '@turf/turf';
+import { basename, join } from 'path';
+import {
+  simplify,
+  lineSlice,
+  lineString as turfLine,
+  length as turfLength,
+  point as turfPoint,
+  pointToLineDistance,
+} from '@turf/turf';
 import type { Feature, LineString } from 'geojson';
 // The flowline download and dissolve live in scripts/lib/nhd.ts so
 // scripts/ingestion/build-tailwater-geometry.ts can share them rather than
@@ -78,7 +85,19 @@ interface RiverSpec {
   gnisNames: string[];
   hucs: string[];
   mode: 'update' | 'insert';
+  /**
+   * Optional downstream end for a river whose named NHD stem runs on into a
+   * reservoir (the Illinois becomes Tenkiller Ferry Lake, then a tailwater).
+   * The line is cut at the point on the stem nearest this anchor, so the
+   * stored river is the float water only. The headwaters end is never cut,
+   * which keeps river miles (measured from the headwaters) unchanged. Each
+   * anchor is a real feature with its source recorded beside it.
+   */
+  endAt?: { label: string; lon: number; lat: number; source: string };
 }
+
+/** An endAt anchor further than this from the stem is a wrong anchor, not a cut. */
+const END_AT_MAX_OFFSET_M = 250;
 
 const RIVERS: RiverSpec[] = [
   // Original seven (geometry source for migration 00116)
@@ -112,6 +131,22 @@ const RIVERS: RiverSpec[] = [
   // 2026-07 — Missouri Spring River (distinct from the AR 'spring-river' above; different
   // HUC). Carthage→Kansas-line float; gnis 'Spring River' within HUC 11070207 is the mainstem.
   { slug: 'spring-river-mo',  gnisNames: ['Spring River'],     hucs: ['11070207'], mode: 'insert' },
+  // 2026-11 research drafts (scripts/ingestion/dossiers/verified-identifiers-*.md).
+  // Big Sugar's TNM mouth is 0 m from the Elk's stored start at the confluence.
+  { slug: 'big-sugar-creek', gnisNames: ['Big Sugar Creek'], hucs: ['11070208'], mode: 'insert' },
+  // The named Illinois stem runs on through Tenkiller Ferry Lake to a regulated
+  // tailwater (148.7 mi). Cut it where Baron Fork enters at the head of the
+  // lake (Eddy mile 108.7, GRDA mile 62.5): the float water ends there.
+  {
+    slug: 'illinois-river', gnisNames: ['Illinois River'], hucs: ['11110103'], mode: 'insert',
+    endAt: {
+      label: 'Baron Fork confluence (head of Tenkiller Ferry Lake)',
+      lon: -94.914366,
+      lat: 35.850902,
+      source: 'Downstream end of the dissolved NHD HR "Baron Fork" stem, HU8 11110103; ' +
+        'NHDWaterbody "Tenkiller Ferry Lake" begins 0.05 mi below it',
+    },
+  },
 ];
 
 interface RiverMeta {
@@ -131,6 +166,34 @@ function loadRiverMeta(slug: string): RiverMeta {
   const meta = (raw.rivers as RiverMeta[]).find((r) => r.slug === slug);
   if (!meta) throw new Error(`No entry for slug '${slug}' in scripts/config/nhd-rivers.json`);
   return meta;
+}
+
+/**
+ * Cut an upstream→downstream chain at the point nearest `end`, keeping the
+ * headwaters start. Throws if the anchor is not on the stem, so a mistyped
+ * coordinate cannot silently store a truncated river.
+ */
+export function cutAtEnd(
+  coords: number[][],
+  end: NonNullable<RiverSpec['endAt']>,
+  slug: string,
+  log: (msg: string) => void = () => {},
+): number[][] {
+  const line = turfLine(coords);
+  const anchor = turfPoint([end.lon, end.lat]);
+  const offsetM = pointToLineDistance(anchor, line, { units: 'meters' });
+  if (offsetM > END_AT_MAX_OFFSET_M) {
+    throw new Error(
+      `${slug}: endAt "${end.label}" is ${Math.round(offsetM)} m from the stem ` +
+      `(limit ${END_AT_MAX_OFFSET_M} m); fix the anchor rather than cutting elsewhere`,
+    );
+  }
+  const cut = lineSlice(turfPoint(coords[0]), anchor, line).geometry.coordinates;
+  const fullMi = turfLength(line, { units: 'miles' });
+  const keptMi = turfLength(turfLine(cut), { units: 'miles' });
+  log(`  ${slug}: cut at ${end.label} (${Math.round(offsetM)} m off stem) — ` +
+      `kept ${keptMi.toFixed(1)} of ${fullMi.toFixed(1)} mi`);
+  return cut;
 }
 
 function sqlQuote(s: string): string {
@@ -188,8 +251,9 @@ async function main() {
       (flowByHuc.get(huc) ?? []).filter((f) => river.gnisNames.includes(f.properties.gnis_name!)),
     );
     if (!matches.length) { log(`  ${river.slug}: no perennial matches in HUC(s) ${river.hucs.join('+')}`); continue; }
-    const merged = dissolveLongest(matches);
-    if (merged.length < 2) { log(`  ${river.slug}: dissolve produced no chain`); continue; }
+    const dissolved = dissolveLongest(matches);
+    if (dissolved.length < 2) { log(`  ${river.slug}: dissolve produced no chain`); continue; }
+    const merged = river.endAt ? cutAtEnd(dissolved, river.endAt, river.slug, log) : dissolved;
     const ls: Feature<LineString> = turfLine(merged);
     const lengthMi = turfLength(ls, { units: 'miles' });
     const simplified = simplify(ls, {
@@ -271,4 +335,9 @@ async function main() {
   log('\nDone.');
 }
 
-main().catch((e) => { console.error('FATAL:', e); process.exit(1); });
+// Run only when executed directly, so tests can import cutAtEnd without
+// starting a download (same pattern as import-dossier-access-points.ts).
+const invokedAs = basename(process.argv[1] ?? '').replace(/\.[cm]?[tj]s$/, '');
+if (invokedAs === 'import-nhd-rivers-from-tnm') {
+  main().catch((e) => { console.error('FATAL:', e); process.exit(1); });
+}

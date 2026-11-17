@@ -26,7 +26,7 @@ The fixture retains real navigation, typography, Eddy icons, cards and charts.
 It omits the production breadcrumb, Share control and footer. External map
 tiles use a neutral test style; the checks verify interactions, not geographic
 accuracy. Photography uses the existing attributed iOS assets; provenance is
-in `public/lakes/credits.json` and public attribution is on `/photo-credits`.
+in `shared/place-photo-credits.json` and public attribution is on `/photo-credits`.
 
 ## Superseded captures
 

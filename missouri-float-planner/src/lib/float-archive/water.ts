@@ -9,7 +9,7 @@ import { gradeReading } from '@/lib/conditions';
 // Anchor only, without the in-stretch escalation the planner applies, so the
 // badge names this gauge. Like all of `water`, computed on first upload only.
 const LINK_COLUMNS =
-  'gauge_station_id,threshold_unit,level_too_low,level_low,level_optimal_min,level_optimal_max,level_high,level_dangerous,flood_stage_ft,gauge_stations(name,usgs_site_id)' as const;
+  'gauge_station_id,threshold_unit,level_too_low,level_low,level_optimal_min,level_optimal_max,level_high,level_dangerous,flood_stage_ft,gauge_stations(name,usgs_site_id,nwps_flood_stage_ft)' as const;
 
 /** A nearby historical observation, never today's reading or a daily mean. */
 export async function waterAtStart(db: SupabaseClient, trip: CompletedFloat): Promise<CompletedFloat['water']> {

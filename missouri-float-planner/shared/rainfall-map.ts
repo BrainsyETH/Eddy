@@ -47,16 +47,23 @@ const project = ([lon, lat]: number[]) => [6378137 * lon * Math.PI / 180,
 
 /** Identical north-up geography in native SVG and web SVG. Raster groups are
  * merged into six paths, rather than thousands of interactive map elements. */
-export function rainfallMap(detail: RainDetail) {
+export function rainfallMap(detail: RainDetail, width = 320, height = 270, bottomInset = 0) {
   const rings = detail.boundary.geometry.coordinates.flat().map(ring => ring.map(project));
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const ring of rings) for (const [px, py] of ring) {
     minX = Math.min(minX, px); maxX = Math.max(maxX, px);
     minY = Math.min(minY, py); maxY = Math.max(maxY, py);
   }
-  const scale = Math.min(280 / Math.max(1, maxX - minX), 230 / Math.max(1, maxY - minY));
-  const x = (v: number) => 160 + (v - (minX + maxX) / 2) * scale;
-  const y = (v: number) => 135 - (v - (minY + maxY) / 2) * scale;
+  const scale = Math.min((width - 40) / Math.max(1, maxX - minX), (height - bottomInset - 40) / Math.max(1, maxY - minY));
+  const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+  const x = (v: number) => width / 2 + (v - centerX) * scale;
+  const y = (v: number) => (height - bottomInset) / 2 - (v - centerY) * scale;
+  const unproject = (px: number, py: number): [number, number] => [px / 6378137 * 180 / Math.PI,
+    (2 * Math.atan(Math.exp(py / 6378137)) - Math.PI / 2) * 180 / Math.PI];
+  // Exact north-up viewport for the native basemap beneath this SVG. Neither
+  // layer accepts gestures, so rain cells cannot drift from the geography.
+  const bounds = { ne: unproject(centerX + width / (2 * scale), centerY + (height - bottomInset) / (2 * scale)),
+    sw: unproject(centerX - width / (2 * scale), centerY - (height + bottomInset) / (2 * scale)) };
   const path = rings.map(ring => ring.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(2)},${y(p[1]).toFixed(2)}`).join('') + 'Z').join('');
   const shading = Array<string>(6).fill('');
   const grid = detail.shading;
@@ -78,5 +85,5 @@ export function rainfallMap(detail: RainDetail) {
     places.push({ name: place.name, ...at });
     if (places.length === 3) break;
   }
-  return { path, shading, river, places, riverName: context?.river.name, gauge: gaugePosition };
+  return { path, shading, river, places, riverName: context?.river.name, gauge: gaugePosition, bounds };
 }

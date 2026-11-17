@@ -33,7 +33,7 @@ export async function loadLlmsRivers(supabase: Client): Promise<LlmsRiver[]> {
         river_id, is_primary, threshold_unit,
         level_too_low, level_low, level_optimal_min, level_optimal_max,
         level_high, level_dangerous, flood_stage_ft,
-        gauge_stations ( id, usgs_site_id, name )
+        gauge_stations ( id, usgs_site_id, name, nwps_flood_stage_ft )
       `)
       .eq('is_primary', true),
   ]);

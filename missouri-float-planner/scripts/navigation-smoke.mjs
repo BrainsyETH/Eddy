@@ -21,9 +21,9 @@ const riverMeta = [
   { id: 'r-meramec', slug: 'meramec', name: 'Meramec River', state: 'MO', value: 320 },
   { id: 'r-buffalo', slug: 'buffalo', name: 'Buffalo National River', state: 'AR', value: 140 },
 ];
-const reports = riverMeta.map((r, i) => ({ ...r, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}`,
+const reports = riverMeta.map(({ value, ...r }, i) => ({ ...r, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}`,
   lengthMiles: 50, description: null, difficultyRating: 'Class I', region: 'Ozarks', riverType: 'spring_fed_float', accessPointCount: 3,
-  primaryGaugeSiteId: `0706700${i}`, currentCondition: { code: 'good', label: 'Good', thresholdUnit: 'cfs', gaugeHeightFt: 3, dischargeCfs: r.value, readingAgeHours: .25, trend: null },
+  primaryGaugeSiteId: `0706700${i}`, currentCondition: { code: 'good', label: 'Good', thresholdUnit: 'cfs', gaugeHeightFt: 3, dischargeCfs: value, readingAgeHours: .25, trend: null },
 }));
 const scheduleDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const tomorrowDate = new Date(`${scheduleDate}T00:00:00Z`);
@@ -65,9 +65,9 @@ const stressStatewide = { ...statewide, gauges: stressRivers.map((r, i) => ({
 })) };
 const api = {
   '/api/gauges': { gauges },
-  '/api/eddy-updates': { updates: {} },
+  '/api/eddy-updates': { updates: {}, statewide: { prose: 'Spring-fed rivers are holding steady across the Ozarks.', generatedAt: timestamp } },
   '/api/dams': { dams },
-  '/api/rivers': { rivers: riverMeta.map(r => ({ ...r, lengthMiles: 50, accessPointCount: 3, path: reports.find(p => p.slug === r.slug).path })) },
+  '/api/rivers': { rivers: reports },
   '/api/usgs/mo-dataset': dataset,
   '/api/usgs/mo-statewide': statewide,
   '/api/usgs/mo-history-bundle': { generatedAt: timestamp, days: 30, entries: [] },
@@ -171,7 +171,16 @@ try {
       const activeRiver = riverCarousel.locator('[data-home-report]:not([inert])');
       const activeDam = damCarousel.locator('[data-home-report]:not([inert])');
       await activeRiver.getByRole('img', { name: /Flow.*trend chart/ }).waitFor();
-      assert.equal(await activeRiver.getByText('Eddy says:', { exact: true }).locator('..').count(), 1);
+      assert.equal(await activeRiver.getByText('Eddy says:', { exact: true }).count(), 0);
+      const readCta = activeRiver.locator('[data-river-app-cta] a');
+      assert.equal(new URL(await readCta.getAttribute('href'), origin).searchParams.get('river'), 'current');
+      assert.equal(new URL(await readCta.getAttribute('href'), origin).searchParams.get('feature'), 'read');
+      assert.equal(await page.getByRole('region', { name: 'Ozarks Pulse', exact: true }).count(), 0);
+      const heroRead = page.locator('a[data-ga-event="bubble_river"]');
+      await heroRead.waitFor();
+      assert.notEqual(await heroRead.getAttribute('data-ga-label'), 'current', 'hero skips the featured river');
+      const heroSlug = await heroRead.getAttribute('data-ga-label');
+      assert.equal(new URL(await heroRead.getAttribute('href'), origin).pathname, reports.find(report => report.slug === heroSlug).path);
       assert(await activeDam.getByText('10,500 cfs', { exact: true }).isVisible());
       assert(await activeDam.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
       assert(await activeDam.getByRole('region', { name: 'Today’s generation schedule', exact: true }).getByRole('img').isVisible());
@@ -195,13 +204,12 @@ try {
       assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).count(), 0);
       const greersHeight = (await activeDam.locator('article').boundingBox()).height;
       assert(greersHeight <= todayHeight + 2, `${name}: Greers Ferry's posted Tomorrow does not grow the card (${greersHeight}px vs ${todayHeight}px)`);
-      const quoteGap = await activeRiver.evaluate(slide => {
-        const card = slide.querySelector('article');
-        const chartLink = card.querySelector(':scope > a');
-        const quote = card.querySelector(':scope > div > div');
-        return quote.getBoundingClientRect().top - chartLink.getBoundingClientRect().bottom;
+      const ctaGap = await activeRiver.evaluate(slide => {
+        const chart = slide.querySelector('section[aria-label^="Flow at"]');
+        const cta = slide.querySelector('[data-river-app-cta]');
+        return cta.getBoundingClientRect().top - chart.getBoundingClientRect().bottom;
       });
-      assert(quoteGap >= 0 && quoteGap < 12, `${name}: Eddy Says stays directly beneath the chart`);
+      assert(ctaGap >= 0 && ctaGap < 16, `${name}: app invitation follows the chart`);
       await damCarousel.getByRole('button', { name: 'Next dam report' }).click();
       await activeDam.getByRole('heading', { name: 'Table Rock Dam', exact: true }).waitFor();
       assert(Math.abs((await activeDam.locator('article').boundingBox()).height - todayHeight) < 2,
@@ -218,7 +226,7 @@ try {
         assert(Math.abs(riverControls.y - damControls.y) < 2, `${name}: carousel controls align`);
       }
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
-      console.log(`PASS ${name}: Today-only cards; Table Rock ${Math.round(todayHeight)}px, Greers Ferry ${Math.round(greersHeight)}px; Eddy Says gap ${Math.round(quoteGap)}px`);
+      console.log(`PASS ${name}: Today-only cards; Table Rock ${Math.round(todayHeight)}px, Greers Ferry ${Math.round(greersHeight)}px; app invitation gap ${Math.round(ctaGap)}px`);
       const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
       assert.equal(await heroCta.textContent(), 'Plan a float');
       assert.equal(await heroCta.getAttribute('href'), '/plan');

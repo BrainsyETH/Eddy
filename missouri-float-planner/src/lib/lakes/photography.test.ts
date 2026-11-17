@@ -6,9 +6,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { existsSync, readdirSync } from 'node:fs';
 import sharp from 'sharp';
-import credits from '../../../public/lakes/credits.json';
+import credits from '../../../shared/place-photo-credits.json';
 import { USACE_DAMS } from '../flow-providers/usace-registry';
 import { damPhoto } from './photography';
+import { damHeaderPhoto } from '../../../../eddy-ios/src/lib/damHeader';
+import { imageUrl } from '../../../../eddy-ios/src/lib/imageUrl';
 
 const DIR = 'public/lakes';
 const records = Object.entries(credits as Record<string, { asset: string; changes: string; focus?: string }>);
@@ -35,4 +37,25 @@ test('dam header photos are large enough for the header and say where to crop', 
 
 test('the credits page supplies the full stop after "changes"', () => {
   for (const [id, photo] of records) assert.ok(!photo.changes.endsWith('.'), `${id}: remove the trailing full stop`);
+});
+
+test('iOS dam headers keep the web selection, crop and attribution together', () => {
+  for (const id of damIds) {
+    const web = damPhoto(id);
+    const native = damHeaderPhoto(id);
+    if (!web) {
+      assert.equal(native, null, `${id}: no substitute photograph`);
+      continue;
+    }
+    assert.equal(native?.url, `https://eddy.guide${web.src}`);
+    assert.equal(native?.focus, web.focus);
+    assert.equal(native?.credit?.text, credits[id as keyof typeof credits].credit);
+    assert.equal(native?.credit?.url, `https://eddy.guide/photo-credits#${id}`);
+    const resized = new URL(imageUrl(native!.url, 1200));
+    assert.equal(resized.searchParams.get('url'), web.src);
+    assert.equal(resized.searchParams.get('w'), '1200');
+  }
+  for (const id of ['unknown-dam', 'lake-table-rock', 'launch-table-rock-moonshine-beach', 'constructor', '__proto__']) {
+    assert.equal(damHeaderPhoto(id), null);
+  }
 });

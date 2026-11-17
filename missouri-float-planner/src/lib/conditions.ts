@@ -8,6 +8,7 @@
 // is Next-only. Everything here is presentation on top of that ladder.
 
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import type { ConditionCode } from '@/types/api';
 import {
   classifyReading,
@@ -120,6 +121,11 @@ export interface GaugeLinkRow {
   threshold_unit?: string | null;
   /** NWS flood stage. Optional so a row selected without it still grades. */
   flood_stage_ft?: unknown;
+  /**
+   * The station embed, `gauge_stations(nwps_flood_stage_ft)`. A station can
+   * carry an NWS flood stage its pairing lacks; linkFloodStageFt resolves both.
+   */
+  gauge_stations?: unknown;
 }
 
 const asNumber = (value: unknown): number | null => {
@@ -158,7 +164,7 @@ export function gradeReading(
     levelOptimalMax: asNumber(row.level_optimal_max),
     levelHigh: asNumber(row.level_high),
     levelDangerous: asNumber(row.level_dangerous),
-    floodStageFt: asNumber(row.flood_stage_ft),
+    floodStageFt: linkFloodStageFt(row),
     thresholdUnit: row.threshold_unit === 'cfs' ? 'cfs' : 'ft',
   };
   return computeCondition(asNumber(gaugeHeightFt), thresholds, asNumber(dischargeCfs), options);

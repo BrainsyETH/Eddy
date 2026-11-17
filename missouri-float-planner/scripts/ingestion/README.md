@@ -122,6 +122,12 @@ against the real mouth and the length against a published figure** — Big Piney
 shipped a 47 km junk polyline that had to be re-imported. NHD flowlines are
 downstream-oriented (`direction_verified=true`).
 
+When the named NHD stem runs on into a reservoir (the Illinois becomes
+Tenkiller Ferry Lake, then a tailwater), give the river spec a sourced `endAt`
+anchor. The importer cuts the line at the stem point nearest the anchor, keeps
+the headwaters start so river miles do not move, and refuses an anchor more
+than 250 m off the stem. Dam tailwaters still use `build-tailwater-geometry.ts`.
+
 ### Phase 6 — Ingest (dry-run, then `--apply`)
 
 ```bash

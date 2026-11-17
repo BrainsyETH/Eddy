@@ -11,13 +11,14 @@ import {
   calculateDischargePercentile,
   classifyQualifiers,
 } from '@/lib/usgs/gauges';
-import { computeCondition, mapConditionCode, type ConditionThresholds } from '@/lib/conditions';
+import { gradeReading, mapConditionCode, type GaugeLinkRow } from '@/lib/conditions';
+import { loadLiveFallbackLink } from '@/lib/conditions/live-fallback';
 import { resolveFloodStages } from '@/lib/gauges/flood-stages';
 import {
   conditionCodeToFlowRating,
   getThresholdBasedDescription,
 } from '@/lib/calculations/conditions';
-import type { ConditionCode, ConditionGauge, ConditionResponse, RiverCondition } from '@/types/api';
+import type { ConditionGauge, ConditionResponse, RiverCondition } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 
 /**
@@ -46,36 +47,6 @@ async function enrichWithStatistics(
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
-
-// Helper to determine condition from gauge height and thresholds
-// Uses shared condition computation logic from @/lib/conditions
-function computeConditionFromReading(
-  gaugeHeightFt: number | null,
-  thresholds: {
-    level_too_low: number | null;
-    level_low: number | null;
-    level_optimal_min: number | null;
-    level_optimal_max: number | null;
-    level_high: number | null;
-    level_dangerous: number | null;
-    threshold_unit?: string;
-  },
-  dischargeCfs?: number | null,
-): { label: string; code: ConditionCode } {
-  // Convert database snake_case to camelCase for shared utility
-  const thresholdsForCompute: ConditionThresholds = {
-    levelTooLow: thresholds.level_too_low,
-    levelLow: thresholds.level_low,
-    levelOptimalMin: thresholds.level_optimal_min,
-    levelOptimalMax: thresholds.level_optimal_max,
-    levelHigh: thresholds.level_high,
-    levelDangerous: thresholds.level_dangerous,
-    thresholdUnit: (thresholds.threshold_unit as 'ft' | 'cfs') || undefined,
-  };
-
-  const result = computeCondition(gaugeHeightFt, thresholdsForCompute, dischargeCfs);
-  return { label: result.label, code: result.code };
-}
 
 async function _GET(
   request: NextRequest,
@@ -286,102 +257,33 @@ async function _GET(
       // Use condition.gauge_usgs_id from the database result, or fall back to primary gauge query
       let selectedGaugeUsgsSiteId = condition.gauge_usgs_id;
       let selectedGaugeName = condition.gauge_name;
-      let selectedThresholds: {
-        level_too_low: number | null;
-        level_low: number | null;
-        level_optimal_min: number | null;
-        level_optimal_max: number | null;
-        level_high: number | null;
-        level_dangerous: number | null;
-        threshold_unit?: string;
-      } | null = null;
-
-      // Get thresholds for the selected gauge
+      // The pairing to grade the live reading against: the gauge the database
+      // function selected, else the river's primary. Loaded with both sources
+      // of the flood stage, because gradeReading applies it and the hand-built
+      // ladder this replaced did not (src/lib/conditions/live-fallback.ts).
+      let selectedLink: GaugeLinkRow | null = null;
       if (selectedGaugeUsgsSiteId) {
-        const { data: gaugeData } = await supabase
-          .from('river_gauges')
-          .select(`
-            level_too_low,
-            level_low,
-            level_optimal_min,
-            level_optimal_max,
-            level_high,
-            level_dangerous,
-            threshold_unit,
-            gauge_stations!inner (
-              usgs_site_id
-            )
-          `)
-          .eq('river_id', riverId)
-          .eq('gauge_stations.usgs_site_id', selectedGaugeUsgsSiteId)
-          .limit(1)
-          .maybeSingle();
-
-        if (gaugeData) {
-          selectedThresholds = {
-            level_too_low: gaugeData.level_too_low,
-            level_low: gaugeData.level_low,
-            level_optimal_min: gaugeData.level_optimal_min,
-            level_optimal_max: gaugeData.level_optimal_max,
-            level_high: gaugeData.level_high,
-            level_dangerous: gaugeData.level_dangerous,
-            threshold_unit: gaugeData.threshold_unit,
-          };
-        }
+        selectedLink = (await loadLiveFallbackLink(supabase, riverId, selectedGaugeUsgsSiteId))?.link ?? null;
       }
-
-      // If no gauge from database result, fall back to primary gauge
-      if (!selectedGaugeUsgsSiteId || !selectedThresholds) {
-        const { data: primaryGaugeData } = await supabase
-          .from('river_gauges')
-          .select(`
-            gauge_station_id,
-            level_too_low,
-            level_low,
-            level_optimal_min,
-            level_optimal_max,
-            level_high,
-            level_dangerous,
-            threshold_unit,
-            gauge_stations (
-              id,
-              name,
-              usgs_site_id
-            )
-          `)
-          .eq('river_id', riverId)
-          .eq('is_primary', true)
-          .limit(1)
-          .maybeSingle();
-
-        if (primaryGaugeData) {
-          const gaugeStation = Array.isArray(primaryGaugeData.gauge_stations)
-            ? primaryGaugeData.gauge_stations[0]
-            : primaryGaugeData.gauge_stations;
-          selectedGaugeUsgsSiteId = gaugeStation?.usgs_site_id || null;
-          selectedGaugeName = gaugeStation?.name || null;
-          selectedThresholds = {
-            level_too_low: primaryGaugeData.level_too_low,
-            level_low: primaryGaugeData.level_low,
-            level_optimal_min: primaryGaugeData.level_optimal_min,
-            level_optimal_max: primaryGaugeData.level_optimal_max,
-            level_high: primaryGaugeData.level_high,
-            level_dangerous: primaryGaugeData.level_dangerous,
-            threshold_unit: primaryGaugeData.threshold_unit,
-          };
+      if (!selectedGaugeUsgsSiteId || !selectedLink) {
+        const primary = await loadLiveFallbackLink(supabase, riverId, null);
+        if (primary) {
+          selectedGaugeUsgsSiteId = primary.usgsSiteId;
+          selectedGaugeName = primary.gaugeName;
+          selectedLink = primary.link;
         }
       }
 
       const usgsSiteId = selectedGaugeUsgsSiteId;
 
-      if (selectedThresholds && usgsSiteId) {
+      if (selectedLink && usgsSiteId) {
         const usgsReading = usgsReadingMap.get(usgsSiteId);
         const hasUsgsData = usgsReading && (usgsReading.gaugeHeightFt !== null || usgsReading.dischargeCfs !== null);
 
         if (hasUsgsData) {
           console.log('[Conditions API] Using live USGS reading:', usgsReading.gaugeHeightFt, 'ft /', usgsReading.dischargeCfs, 'cfs from', selectedGaugeName);
 
-          const computed = computeConditionFromReading(usgsReading.gaugeHeightFt, selectedThresholds, usgsReading.dischargeCfs);
+          const computed = gradeReading(selectedLink, usgsReading.gaugeHeightFt, usgsReading.dischargeCfs);
 
           const readingAgeHours = usgsReading.readingTimestamp
             ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)

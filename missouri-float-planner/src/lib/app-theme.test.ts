@@ -23,6 +23,15 @@ function contrast(ink: string, surface: string): number {
   const a = luminance(ink), b = luminance(surface);
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
+
+test('schedule check age colors remain readable in both appearances and Increase Contrast', () => {
+  for (const palette of [lightPalette, darkPalette, highContrastLightPalette, highContrastDarkPalette]) {
+    for (const role of ['textMuted', 'agingText', 'error'] as const) {
+      assert.ok(contrast(palette[role], palette.card) >= 4.5, `${palette.scheme} ${role} on card`);
+    }
+  }
+});
+
 for (const palette of [lightPalette, darkPalette]) {
   test(`${palette.scheme} supporting text stays readable and subordinate on every standard surface`, () => {
     for (const surface of [palette.bg, palette.card, palette.cardRaised, palette.sheet, palette.sheetGrouped, palette.selectionBg]) {

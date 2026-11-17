@@ -140,9 +140,12 @@ test('observation collection paginates gauge history and survives one missing ra
       return { data: Array.from({ length: offset === 0 ? 1000 : 2 }, (_, n) => ({ id: offset + n, gauge_station_id: 'gauge' })), error: null };
     },
   };
-  const db = { from: (table: string) => table === 'gauge_readings' ? gaugeQuery : ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [basin], error: null }) }) }) }) }),
+  const archived = { select: () => archived, eq: () => archived, in: () => archived, gte: () => archived, order: () => archived, range: async () => ({ data: [], error: null }) };
+  const db = { from: (table: string) => table === 'gauge_readings' ? gaugeQuery : table === 'rainfall_research_captures' ? archived
+    : ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [basin], error: null }) }) }) }) }),
     storage: { getBucket: async () => ({ data: { public: false }, error: null }) } } as unknown as SupabaseClient;
   const end = Math.floor(Date.now() / 3600_000) * 3600_000;
+  const corrected: string[] = [];
   const catalog = { features: [1, 6, 24, 72].map(hours => ({ attributes: { idp_subset: `conus_QPE_${String(hours).padStart(2, '0')}H`, category: 1, objectid: hours, idp_validendtime: end } })) };
   const result = await collectResearch(db, 'observations', new AbortController().signal, {
     save: async (_db, c) => { saved.push(c); return c.bytes.length; },
@@ -151,6 +154,8 @@ test('observation collection paginates gauge history and survives one missing ra
       if (url.includes('/info?')) return { pixelType: 'F32', bandCount: 1, pixelSizeX: 1000, pixelSizeY: 1000, origin: grid.origin, extent: { ...grid.extent, spatialReference: { wkid: 3857 } } };
       return { pixelType: 'F32', bandCount: 1, rasterFunctionInfos: [{ name: 'None' }] };
     }, bytes: async url => {
+      // NOAA's archive lists no gauge-corrected hours yet (corrected.test.ts covers the rest).
+      if (new URL(url).origin === 'https://noaa-mrms-pds.s3.amazonaws.com') { corrected.push(url); return Buffer.from('<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>'); }
       assert.equal(new URL(url).pathname.endsWith('/exportImage'), true);
       const params = new URL(url).searchParams;
       assert.equal(params.get('f'), 'image'); assert.equal(params.get('compression'), 'None');
@@ -163,6 +168,37 @@ test('observation collection paginates gauge history and survives one missing ra
   assert.equal(saved.filter(c => c.kind === 'mrms').length, 3);
   assert.equal(saved.find(c => c.kind === 'gauges')?.metadata.rowCount, 1002);
   assert.ok(saved.filter(c => c.kind === 'mrms').every(c => c.metadata.quality === 'research_unverified'));
+  // One listing per product per UTC day in the lookback: never a request for a file NOAA has not listed.
+  assert.ok(corrected.length >= 3 && corrected.length <= 6 && corrected.every(url => new URL(url).searchParams.get('list-type') === '2'));
+  assert.equal(result.stale, 1, 'no gauge-corrected hour archived yet');
+});
+
+test('a hosted-service outage does not stop the gauge-corrected step or the run', async () => {
+  const saved: Capture[] = [], asked: string[] = [];
+  const empty = { select: () => empty, in: () => empty, eq: () => empty, gte: () => empty, lte: () => empty, order: () => empty, limit: () => empty,
+    range: async () => ({ data: [], error: null }), maybeSingle: async () => ({ data: { metadata: { tile } }, error: null }) };
+  const db = { from: (table: string) => table === 'rainfall_research_basins'
+    ? ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: [basin], error: null }) }) }) }) }) : empty,
+    storage: { getBucket: async () => ({ data: { public: false }, error: null }) } } as unknown as SupabaseClient;
+  const silent = console.warn; console.warn = () => {};
+  try {
+    for (const broken of ['metadata', 'catalog']) {
+      asked.length = 0;
+      const result = await collectResearch(db, 'observations', new AbortController().signal, {
+        save: async (_db, c) => { saved.push(c); return c.bytes.length; },
+        json: async url => {
+          if (broken === 'metadata' || url.includes('/query?')) throw Error('Research source HTTP 503');
+          return { pixelType: 'F32', bandCount: 1, rasterFunctionInfos: [{ name: 'None' }] };
+        },
+        bytes: async url => { asked.push(url); return Buffer.from('<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>'); },
+      });
+      assert.equal(result.monitoring_status, 'partial', `${broken} outage`);
+      assert.ok(result.failed >= 1);
+      assert.ok(asked.length >= 3 && asked.every(url => new URL(url).origin === 'https://noaa-mrms-pds.s3.amazonaws.com'), 'the gauge-corrected source was still read, on the last archived tile');
+    }
+    const stopped = new AbortController(); stopped.abort();
+    await assert.rejects(collectResearch(db, 'observations', stopped.signal, { json: async () => ({}), bytes: async () => new Uint8Array() }), /abort/i);
+  } finally { console.warn = silent; }
 });
 
 test('forecasts shared by two basins are fetched once and keep nulls plus both bindings', async () => {

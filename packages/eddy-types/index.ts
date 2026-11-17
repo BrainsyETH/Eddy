@@ -2239,6 +2239,8 @@ export interface RiverOutlookResponse {
   sourceKind: 'checking' | 'official' | 'guidance';
   sourceLabel: string;
   hasOfficialForecast: boolean;
+  /** NWS station for this outlook; absent on older API responses. */
+  nwsLid?: string | null;
   /** True when there is no official hydrograph and this is weather-only. */
   isGuidance: boolean;
   trend: RiverReadingTrend | null;
@@ -2876,6 +2878,7 @@ export type {
   DamReadRow,
   DamScheduleDay,
   DamSnapshot,
+  DamSourceLink,
   DamStaleness,
   DamTailwater,
   DamsResponse,

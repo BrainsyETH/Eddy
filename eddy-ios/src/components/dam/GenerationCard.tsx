@@ -1,60 +1,27 @@
-// eddy-ios/src/components/dam/GenerationCard.tsx
-// One card for the powerhouse: what it IS doing, then what it is SCHEDULED to.
-//
-// ── What was wrong ────────────────────────────────────────────────────────
-//
-// The screen carried two cards that answered the same question twice. The hero
-// reported the observed turbine flow and then, in a panel of its own, "NEXT
-// CHANGE — Generation scheduled to stop at 8 PM" with a three-sentence
-// explanation of whose clock that is and how much to trust it. Three inches
-// below, the schedule card said the same thing again: the same publisher named
-// in its opening line, the same plan drawn as bars, and the same
-// schedules-change-without-notice warning in its footer.
-//
-// A reader meeting two statements of one fact has to decide whether they
-// disagree. They never did — but the screen made that their problem, and spent
-// the space twice to do it.
-//
-// ── The split that survives, because it is real ───────────────────────────
-//
-// Observed and scheduled remain separate SECTIONS with a rule between them, and
-// nowNextClauses still hands the two out as separate strings so a UI cannot
-// accidentally present a plan as a measurement. They can legitimately disagree
-// — SWPA posts its sheet overnight and the Corps runs the plant — and when
-// they do, the reader should see both and know which is which.
-//
-// What is shared is everything that qualifies BOTH: who publishes the schedule,
-// when Eddy last checked, that the times are at the dam, that the water arrives
-// downstream later, and that any of it can change without notice. Those are
-// available once in the heading's info tip; check time remains on the card.
-//
-// ── Why the lake and the week stay outside ────────────────────────────────
-//
-// DamStateCard and DamPatternStrip are still their own cards. This one is about
-// the powerhouse right now and next; pool elevation and a fortnight's rhythm
-// are different subjects, and folding them in would rebuild the wall of card
-// this change exists to take down.
-
+// Measured total release and turbine flow, followed by the posted schedule.
 import { radii } from '@/theme/layout';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamSnapshot } from '@eddy/types';
 import {
   generationReferenceCitation,
   RACK_ESTIMATE_NOTE,
+  scheduleCheckLine,
+  scheduleOutlook,
   scheduledChangeSummary,
-  scheduledClauseProvenance,
 } from '@eddy/conditions/dam-generation';
 import {
   oldestRetrievedAt,
-  retrievalSentence,
+  relativeAge,
   SCHEDULE_POSTING_NOTE,
-  scheduleIsStale,
+  SCHEDULE_STALE_AFTER_MINUTES,
 } from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { DamGenerationHero } from '@/components/dam/DamGenerationHero';
 import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
 import { DamInfoTip } from '@/components/dam/DamInfoTip';
+import { DamSourceLinks } from '@/components/dam/DamSourceLinks';
+import { damSourceLink } from '@/lib/damSourceLinks';
 
 /**
  * The standing qualification, said once for both halves.
@@ -71,28 +38,35 @@ const DOWNSTREAM_AND_CHANGE = [
   'Never wade or anchor below a dam without checking the horn and posted warnings.',
 ].join(' ');
 
-export function GenerationCard({ dam }: { dam: DamSnapshot }) {
+export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) {
   const { colors, elevation } = useTheme();
   const hasSchedule = dam.schedule.length > 0;
-  // Flood-control dams can have release readings but no generation content.
-  // The hero returns null for them; its container must disappear too.
-  if (!dam.hasTurbines && !hasSchedule) return null;
+  const hasObserved = dam.hasTurbines || Boolean(dam.metrics.release);
+  if (!hasObserved && !hasSchedule) return null;
 
   const ref = dam.generationReference;
-  // The scheduled half of the pair the hero used to draw itself. Read here so
-  // the panel can move down into the section it describes while the observed
-  // half stays where it is measured.
-  const scheduled = scheduledChangeSummary(dam.schedule, ref);
+  // Shorten only a known idle remainder. Minimum flow, continuing generation
+  // and an unknown current hour retain the shared schedule semantics.
+  const outlook = scheduleOutlook(dam.schedule, ref, now);
+  const scheduled = outlook && !outlook.move && !outlook.generating && !outlook.minimumFlowOnly
+    ? 'No further generation posted'
+    : scheduledChangeSummary(dam.schedule, ref, now, true);
   const nextChange = scheduled
-    ? { sentence: scheduled, provenance: scheduledClauseProvenance(dam.schedule, ref) }
+    ? { sentence: scheduled, hasMove: Boolean(outlook?.move) }
     : null;
 
   // Eddy's fetch, never SWPA's post — they publish no timestamp of any kind, so
   // the label says "Schedule checked". As old as the OLDEST day, because a
   // section is only as fresh as its weakest part.
-  const oldestRetrieval = hasSchedule ? oldestRetrievedAt(dam.schedule) : null;
-  const retrieval = retrievalSentence(oldestRetrieval, undefined, 'Schedule');
+  const check = scheduleCheckLine(dam.schedule.map(day => day.retrievedAt), now);
+  const oldestCheck = oldestRetrievedAt(dam.schedule);
+  const checkAgeMinutes = oldestCheck ? (now - Date.parse(oldestCheck)) / 60_000 : 0;
+  // Age describes Eddy's last check, not whether SWPA revised the plan.
+  // Unknown checks stay neutral even if another day's timestamp is old.
+  const checkColor = !check?.stale ? colors.textMuted
+    : checkAgeMinutes > SCHEDULE_STALE_AFTER_MINUTES * 2 ? colors.error : colors.agingText;
   const details = [
+    'Total release includes water leaving the dam through turbines and other outlets. Turbine flow is only the water passing through the generators.',
     ref ? `${generationReferenceCitation(ref)}. ${RACK_ESTIMATE_NOTE}` : null,
     dam.nameplate
       ? `${dam.nameplate.units} generating ${dam.nameplate.units === 1 ? 'unit' : 'units'} · ${dam.nameplate.megawatts} MW nameplate capacity.`
@@ -101,53 +75,54 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
     DOWNSTREAM_AND_CHANGE,
   ].filter(Boolean).join('\n\n');
 
+  // The operator's page shares the observation's time row. A card with no
+  // observed half (a dam with neither turbines nor a release reading)
+  // carries it beside the schedule's source instead.
+  const readingsSource = damSourceLink(dam, 'readings');
+  const scheduleSource = damSourceLink(dam, 'schedule');
+  const observedSources = hasObserved && readingsSource ? [readingsSource] : [];
+  const scheduleSources = [hasObserved ? null : readingsSource, scheduleSource].filter(
+    (link) => link !== null,
+  );
+
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <DamGenerationHero
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card },
+        elevation(2),
+      ]}
+    >
+      {hasObserved ? <DamGenerationHero
         dam={dam}
-        embedded
-        showNextChange={false}
-        showReference={false}
+        now={now}
+        readingsSource={<DamSourceLinks links={observedSources} compact />}
         headerAction={
           <DamInfoTip
-            title="Generation and downstream timing"
+            title="Water release and generation"
             message={details}
           />
         }
-      />
+      /> : null}
 
-      {hasSchedule ? (
-        <>
-          {/* The rule is the whole grammar of this card: above it is measured,
-              below it is planned. Without it the two halves read as one claim,
-              which is the thing the separate cards were protecting against and
-              the reason they cannot simply be concatenated. */}
-          {dam.hasTurbines ? <View style={[styles.rule, { borderTopColor: colors.border }]} /> : null}
+      {hasSchedule || scheduleSources.length > 0 ? (
+        <View style={hasObserved ? [styles.schedule, { borderTopColor: colors.border }] : undefined}>
+          {/* One check time beside the plan it qualifies, including its next
+              change. The timestamp carries the fact; its color grades age. */}
+          {check || scheduleSources.length > 0 ? <View style={styles.sourceRow}>
+            <DamSourceLinks links={scheduleSources} compact />
+            {check ? <Text
+              style={[styles.retrieval, { color: checkColor }]}
+              accessibilityLabel={check.stale ? `${check.text}. Last checked ${relativeAge(oldestCheck, now)}.` : undefined}
+            >{check.text}</Text> : null}
+          </View> : null}
           <GenerationSchedule
             schedule={dam.schedule}
             reference={dam.generationReference}
             embedded
             nextChange={nextChange}
+            now={now}
           />
-        </>
-      ) : null}
-
-      {/* Keep changing freshness information visible, including stale checks. */}
-      {retrieval ? (
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
-          <Text
-            style={[
-              styles.retrieval,
-              {
-                color:
-                  oldestRetrieval && scheduleIsStale(oldestRetrieval)
-                    ? colors.error
-                    : colors.interactive,
-              },
-            ]}
-          >
-            {retrieval}
-          </Text>
         </View>
       ) : null}
     </View>
@@ -156,7 +131,17 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
 
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16 },
-  rule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, marginBottom: 14 },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
-  retrieval: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center' },
+  schedule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 4 },
+  // Source on the left, check time on the right when both fit. When they do
+  // not (a narrow phone, large text) the row wraps and both keep the left
+  // edge, the time directly under the link.
+  sourceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: 12,
+    paddingBottom: 6,
+  },
+  retrieval: { ...t.xs, fontFamily: fonts.body, flexShrink: 1 },
 });

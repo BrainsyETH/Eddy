@@ -41,10 +41,12 @@ function DayRow({
   day,
   reference,
   defaultExpanded,
+  now,
 }: {
   day: DamScheduleDay;
   reference?: GenerationReference | null;
   defaultExpanded: boolean;
+  now: number;
 }) {
   const { colors } = useTheme();
 
@@ -52,7 +54,7 @@ function DayRow({
   // bar row it mirrors is hidden from VoiceOver, and because "is the water on
   // RIGHT NOW" is the question this whole screen exists to answer — it should
   // not require opening a section.
-  const now = nowSentence(day);
+  const current = nowSentence(day, now);
 
   // All schedule surfaces distinguish a real peak from a flat-output day.
   const summary = scheduleWindowSummary(day, reference);
@@ -66,34 +68,34 @@ function DayRow({
       // window ("…: midnight – 6 AM, 8 AM – 9 AM, 11 AM – 4 PM…") restated
       // the bars in a harder-to-read form. The web schedule shows none either;
       // the hour summary stays for VoiceOver, which cannot see the bars.
-      accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), summary?.text, 'Central time'].filter(Boolean).join('. ')}
+      accessibilitySummary={[current?.label, scheduledHoursSummary(day.hours), summary?.text, 'Central time'].filter(Boolean).join('. ')}
       defaultExpanded={defaultExpanded}
-      trailing={now ? (
+      trailing={current ? (
         <Text
           style={[
             styles.nowLabel,
             // Keep styling tied to the flag rather than the label's wording.
-            { color: now.generating ? colors.accent : colors.textSubtle },
+            { color: current.generating ? colors.accent : colors.textSubtle },
           ]}
         >
-          {now.label}
+          {current.label}
         </Text>
       ) : null}
     >
       {/* This is the posted plan. Observed flow remains in the hero above. */}
       {summary ? (
-        <View
+        <Text
           style={styles.peakBlock}
           accessible
           accessibilityLabel={summary.text}
         >
-          <Text style={[styles.peakHeading, { color: colors.textMuted }]}>
-            {summary.heading}
+          <Text style={{ color: colors.textMuted }}>
+            {summary.varied ? 'Peak' : 'Scheduled generation'}{' '}
           </Text>
           <Text style={[styles.peak, { color: colors.text }]}>{summary.window}</Text>
-        </View>
+        </Text>
       ) : null}
-      <DayBars day={day} reference={reference} peakSchedule={peak} />
+      <DayBars day={day} reference={reference} peakSchedule={peak} now={now} />
     </CollapsibleSection>
   );
 }
@@ -103,6 +105,7 @@ export function GenerationSchedule({
   reference,
   embedded = false,
   nextChange = null,
+  now,
 }: {
   schedule: DamScheduleDay[];
   /** SWPA's published pair, so every day is drawn on the project's scale. */
@@ -123,7 +126,8 @@ export function GenerationSchedule({
    * observed turbine reading — which is where it read as a second, competing
    * statement of the same fact. Null keeps the section as it was.
    */
-  nextChange?: { sentence: string; provenance: string | null } | null;
+  nextChange?: { sentence: string; hasMove: boolean } | null;
+  now: number;
 }) {
   const { colors, elevation } = useTheme();
 
@@ -133,34 +137,26 @@ export function GenerationSchedule({
   // One line for the section rather than one per day: three near-identical
   // timestamps invite the reader to think they differ.
   const oldestRetrieval = oldestRetrievedAt(schedule);
-  const retrieval = retrievalSentence(oldestRetrieval, undefined, 'Schedule');
+  const retrieval = retrievalSentence(oldestRetrieval, now, 'Schedule');
 
   const body = (
     <>
-      {/* ── NEXT SCHEDULED CHANGE, over the schedule it is about ───────────
-          "NEXT CHANGE" sat in the observed hero, one panel above a schedule
-          section describing the same plan — so the screen answered "when does
-          it change" twice, in two voices, and the reader had to work out
-          whether they disagreed. SCHEDULED is in the label now for the same
-          reason it is in the peak heading: the hero states what the turbines
-          ARE doing, and this states what SWPA said they WOULD. */}
+      {/* Only an actual transition needs a callout. No-change summaries stay
+          in the schedule, with minimum-flow and continuing-generation caveats. */}
       {nextChange ? (
         <View
           style={[
-            styles.nextPanel,
-            { backgroundColor: colors.cardRaised, borderColor: colors.interactive },
+            nextChange.hasMove ? styles.nextPanel : styles.noChange,
+            nextChange.hasMove ? { backgroundColor: colors.cardRaised, borderColor: colors.interactive } : null,
           ]}
         >
-          <Text style={[styles.blockLabel, { color: colors.interactive }]}>
-            NEXT SCHEDULED CHANGE
-          </Text>
-          <Text style={[styles.nextSentence, { color: colors.text }]}>{nextChange.sentence}</Text>
-          {/* The explanatory paragraph that used to sit here — whose clock this
-              is, what it means downstream, how much to trust it — is stated
-              ONCE now, in the card's footer, under everything it qualifies. */}
-          {nextChange.provenance ? (
-            <Text style={[styles.stale, { color: colors.accent }]}>{nextChange.provenance}</Text>
-          ) : null}
+          {nextChange.hasMove ? <Text style={[styles.blockLabel, { color: colors.interactive }]}>
+            Next scheduled change
+          </Text> : null}
+          <Text style={[
+            nextChange.hasMove ? styles.nextSentence : styles.noChangeText,
+            { color: nextChange.hasMove ? colors.text : colors.textMuted },
+          ]}>{nextChange.sentence}</Text>
         </View>
       ) : null}
 
@@ -187,6 +183,7 @@ export function GenerationSchedule({
             day={day}
             reference={reference}
             defaultExpanded={i === 0}
+            now={now}
           />
         ))}
       </View>
@@ -219,7 +216,7 @@ export function GenerationSchedule({
         <Text
           style={[
             styles.retrieval,
-            { color: scheduleIsStale(oldestRetrieval) ? colors.error : colors.interactive },
+            { color: scheduleIsStale(oldestRetrieval, now) ? colors.error : colors.interactive },
           ]}
         >
           {retrieval}
@@ -237,19 +234,16 @@ const styles = StyleSheet.create({
   title: { ...t.lg, fontFamily: fonts.display },
   intro: { ...t.sm, marginTop: 2 },
   days: { marginTop: 8 },
-  // Lifted from DamGenerationHero with the panel itself, so the block reads
-  // the same after the move as it did before it.
   nextPanel: { borderRadius: 10, borderLeftWidth: 3, padding: 12, marginBottom: 12 },
-  blockLabel: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.6 },
+  noChange: { marginBottom: 4 },
+  noChangeText: { ...t.sm, fontFamily: fonts.body },
+  blockLabel: { ...t.xs, fontFamily: fonts.semibold },
   nextSentence: { ...t.base, fontFamily: fonts.heading, marginTop: 3 },
-  stale: { ...t.xs, fontFamily: fonts.medium, marginTop: 4 },
   nowLabel: { ...t.xs, fontFamily: fonts.semibold },
   // The heading is the quiet half and the figure is the loud one: a reader
   // scanning for "how big" should land on the number, not on the label over it.
-  peakBlock: { marginTop: 10 },
-  peakHeading: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium, letterSpacing: 0.3, textTransform: 'uppercase' },
-  peak: { fontSize: 17, lineHeight: 23, fontFamily: fonts.heading, marginTop: 1 },
-  estimate: { ...t.xs },
+  peakBlock: { ...t.sm, fontFamily: fonts.body, marginTop: 6 },
+  peak: { fontFamily: fonts.semibold },
   footer: { borderTopWidth: 1, marginTop: 12, paddingTop: 10 },
   footerText: { ...t.xs },
   retrieval: { ...t.xs, fontFamily: fonts.semibold, textAlign: 'center', marginTop: 12 },

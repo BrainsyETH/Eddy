@@ -215,7 +215,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
             level_dangerous,
             threshold_unit,
             flood_stage_ft,
-            gauge_stations!inner (usgs_site_id)
+            gauge_stations!inner (usgs_site_id, nwps_flood_stage_ft)
           `)
           .eq('river_id', riverId)
           .eq('gauge_stations.usgs_site_id', gaugeUsgsSiteId)
@@ -271,7 +271,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
             gauge_stations (
               id,
               name,
-              usgs_site_id
+              usgs_site_id,
+              nwps_flood_stage_ft
             )
           `)
           .eq('river_id', riverId)
@@ -341,7 +342,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         .select(`
           level_too_low, level_low, level_optimal_min, level_optimal_max,
           level_high, level_dangerous, threshold_unit, river_mile, flood_stage_ft,
-          gauge_stations!inner (id, name, usgs_site_id, active)
+          gauge_stations!inner (id, name, usgs_site_id, active, nwps_flood_stage_ft)
         `)
         .eq('river_id', riverId)
         .not('river_mile', 'is', null);

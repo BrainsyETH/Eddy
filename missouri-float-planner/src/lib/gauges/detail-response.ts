@@ -514,7 +514,7 @@ export async function gaugeDetailResponse(
         levelOptimalMax: toNum(link.level_optimal_max),
         levelHigh: toNum(link.level_high),
         levelDangerous: toNum(link.level_dangerous),
-        floodStageFt: toNum(link.flood_stage_ft),
+        floodStageFt: resolveFloodStages(stationResult.data, link)?.floodFt ?? null,
         distanceFromSectionMiles: toNum(link.distance_from_section_miles),
       }));
 
