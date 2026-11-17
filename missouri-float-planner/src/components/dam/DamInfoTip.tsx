@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react';
 import { Info, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 /**
  * Native dialog supplies focus containment, Escape and focus restoration.
@@ -19,9 +20,9 @@ export default function DamInfoTip({ title, children, label, anchored = false, c
   className?: string;
 }) {
   const id = useId();
-  const dialog = useRef<HTMLDialogElement>(null);
   const [position, setPosition] = useState<CSSProperties>();
   const [isOpen, setIsOpen] = useState(false);
+  const dialog = useFocusTrap<HTMLDialogElement>(anchored && isOpen, () => dialog.current?.close());
   useEffect(() => {
     if (!anchored || !isOpen) return;
     const previous = document.body.style.overflow;
@@ -30,7 +31,14 @@ export default function DamInfoTip({ title, children, label, anchored = false, c
   }, [anchored, isOpen]);
   useEffect(() => {
     if (!anchored) return;
-    const close = () => dialog.current?.close();
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    const close = () => {
+      if (width === window.innerWidth && height === window.innerHeight) return;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dialog.current?.close();
+    };
     window.addEventListener('resize', close);
     return () => window.removeEventListener('resize', close);
   }, [anchored]);

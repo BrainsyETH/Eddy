@@ -87,6 +87,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   }
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}), args: ['--no-sandbox'] });
   const errors = [];
+  const layoutIssues = [];
+  const checkLayout = (condition, message) => { if (!condition) layoutIssues.push(message); };
   for (const width of [1440, 768, 390, 320]) {
     const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 900 });
     activePage = page;
@@ -110,6 +112,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     assert(studyBounds.x >= 0 && studyBounds.x + studyBounds.width <= width, 'study panel stays in the viewport');
     assert(studyBounds.y >= 0 && studyBounds.y + studyBounds.height <= 1001, 'study panel fits vertically');
     if (width < 640) assert(Math.abs(studyBounds.y + studyBounds.height - 1000) < 2, 'phone study opens as a bottom sheet');
+    await capture(study, 'study-' + width);
     await study.getByRole('link').focus();
     await page.keyboard.press('Tab');
     assert(await study.getByRole('button', { name: 'Close explanation' }).evaluate(el => el === document.activeElement), 'dialog contains keyboard focus');
@@ -128,8 +131,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     const defaultDialog = page.getByRole('dialog', { name: 'Dam readings' });
     assert(await defaultDialog.isVisible(), 'existing icon-only dam explanations still open');
     await defaultDialog.getByRole('button', { name: 'Close explanation' }).click();
-    await intro.scrollIntoViewIfNeeded();
-    assert((await intro.boundingBox()).height < 350, width + ': the introduction stays compact');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    checkLayout((await intro.boundingBox()).height < 350, width + ': introduction height ' + (await intro.boundingBox()).height);
     assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 12¾ hours/);
     assert.match(await map.innerText(), /4 generators · normal river/);
     assert.match(await map.innerText(), /Historical timing · Not live/);
@@ -204,7 +207,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     assert.match(await close.getByRole('heading', { level: 3 }).innerText(), /About 15 min later than estimated/);
     assert.match(await close.innerText(), /Within the estimated window/);
     assert.doesNotMatch(await close.innerText(), /Released|Waiting for gauge readings|Dashed mark|Study in progress|Couldn’t compare/);
-    assert((await close.boundingBox()).height < 450, width + ': the result card stays compact');
+    checkLayout((await close.boundingBox()).height < 450, width + ': result card height ' + (await close.boundingBox()).height);
     assert.equal(await close.locator('details').count(), 1);
     const details = close.locator('details');
     assert.equal(await details.getAttribute('open'), null);
@@ -316,6 +319,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   await history.getByRole('button', { name: 'Replay release from Nov 11, 2026', exact: true }).click();
   assert.match(await page.locator('#release-map').innerText(), /Recorded release · Nov 11, 2026/);
   assert.deepEqual(errors, []);
+  assert.deepEqual(layoutIssues, [], 'compact layout checks');
   console.log('PASS timing model, observed release, controls, viewport and publication-state checks');
 } catch (error) {
   if (activePage && !activePage.isClosed()) {
