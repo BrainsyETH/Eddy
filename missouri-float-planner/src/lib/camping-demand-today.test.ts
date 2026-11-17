@@ -10,6 +10,7 @@ import {
   campingPulseInfo,
   campingPulseFcfsNote,
   campingPulseUpdated,
+  campingPulseWithheldNote,
   todayPopularCamping,
 } from '../../../eddy-ios/src/lib/campingDemand';
 import { campingDemand, demandDetail, type DemandBand } from '../../shared/camping-demand';
@@ -316,10 +317,61 @@ test('the summary distinguishes zero bookings, Packed, and an unavailable readin
   assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), 'FCFS may be available.');
   assert.deepEqual(campingPulseReading(todayCampingDemand(o, now.getTime())), { percent: 100, label: '100%' });
   o.tracked[0].nights = [];
-  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Not enough data');
+  // No reading is a quiet note, never a headline or an empty bar.
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), null);
+  assert.equal(
+    campingPulseWithheldNote(todayCampingDemand(o, now.getTime())),
+    'No Ozarks-wide reading tonight. Campgrounds couldn’t be checked.',
+  );
   assert.equal(campingPulseReading(todayCampingDemand(o, now.getTime())), null);
   assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), null);
   assert.equal(campingPulseUpdated(todayCampingDemand(o, now.getTime()), now.getTime()), null);
+});
+
+test('a withheld regional reading says what happened instead of a failure headline', () => {
+  // Production, November 16, 2026: 23 of 30 campgrounds reported tonight.
+  const o = broadSample(23, 30);
+  // As in production, the unchecked campgrounds sit on other rivers.
+  for (const c of o.tracked.slice(23)) c.riverSlugs = ['buffalo'];
+  const demand = todayCampingDemand(o, now.getTime());
+  assert.equal(demand.withheld, 'unsized_missing');
+  assert.equal(campingPulseHeadline(demand), null);
+  const note = 'No Ozarks-wide reading tonight. 7 of 30 campgrounds couldn’t be checked.';
+  assert.equal(campingPulseWithheldNote(demand), note);
+  assert.equal(
+    campingPulseAccessibilityLabel(demand, 'Ozarks', now.getTime()),
+    `Ozarks camping tonight. ${note}`,
+  );
+  // Rivers with their own usable reading still fill the card.
+  assert.deepEqual(todayPopularCamping(o, now.getTime()).map((r) => r.slug), ['current']);
+  // A usable reading has no note.
+  assert.equal(campingPulseWithheldNote(todayCampingDemand(overview(), now.getTime())), null);
+});
+
+test('each withheld reason has its own wording, and none reads as missing data when it is not', () => {
+  const closed = broadSample(10, 10);
+  for (const c of closed.tracked.slice(0, 6)) c.nights[0] = { ...c.nights[0], sitesOpen: 0, sitesReservable: 0, status: 'closed' };
+  const cases: [ReturnType<typeof overview>, string, string][] = [
+    [closed, 'seasonal_closure', 'Most tracked campgrounds are closed tonight.'],
+    [broadSample(0, 3), 'missing_observations', 'No Ozarks-wide reading tonight. Campgrounds couldn’t be checked.'],
+  ];
+  const unreleased = broadSample(10, 10);
+  for (const c of unreleased.tracked.slice(0, 6)) c.nights[0] = { ...c.nights[0], sitesOpen: 0, sitesReservable: 0, status: 'not_yet_released' };
+  cases.push([unreleased, 'booking_not_open', 'Booking hasn’t opened yet for most tracked campgrounds.']);
+  const walkUp = broadSample(10, 10);
+  for (const c of walkUp.tracked.slice(0, 6)) c.nights[0] = { ...c.nights[0], sitesOpen: 0, sitesReservable: 0, status: 'full' };
+  cases.push([walkUp, 'no_reservable_inventory', 'Most tracked campgrounds have no reservable sites tonight.']);
+  const small = broadSample(1, 1);
+  small.tracked[0].nights[0] = { ...small.tracked[0].nights[0], sitesOpen: 5, sitesReservable: 10 };
+  cases.push([small, 'small_sample', 'Too few reservable sites to rate tonight.']);
+  const stateParksOnly = broadSample(2, 2);
+  for (const c of stateParksOnly.tracked) c.source = 'mo_state_parks';
+  cases.push([stateParksOnly, 'no_tracked_campgrounds', 'No Recreation.gov campgrounds are tracked yet.']);
+  for (const [o, reason, note] of cases) {
+    const demand = todayCampingDemand(o, now.getTime());
+    assert.equal(demand.withheld, reason);
+    assert.equal(campingPulseWithheldNote(demand), note);
+  }
 });
 
 test('all Quiet rows remain separate, and changing demand never changes popular order', () => {
