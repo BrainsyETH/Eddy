@@ -66,11 +66,13 @@ export function damFavoriteDisplay(dam: DamSnapshot, now: number) {
   const tomorrow = packet.scheduleDays.find(day => day.date === nextDayKey(moment.scheduleDate)) ?? null;
   const { peak: tomorrowPeak, caption: tomorrowCaption } = dayChart(tomorrow);
   const status = !dam.hasTurbines ? 'No powerhouse'
-    : !moment.current ? (moment.turbineCfs === null ? 'Unavailable' : 'Older reading')
+    : !moment.current ? (moment.turbineCfs === null ? 'Generation unavailable' : 'Older generation reading')
     : moment.generationKind === 'generating' ? 'Generating'
     : moment.minimumFlow ? 'Minimum flow' : 'No generation';
   const scheduleNotice = packet.scheduleDays.length ? 'Not posted today' : 'Not posted';
-  const observedAge = moment.observedAt === null ? null
+  const observedAge = moment.releaseObservedAt === null ? null
+    : relativeAge(new Date(moment.releaseObservedAt).toISOString(), now);
+  const generationAge = moment.observedAt === null ? null
     : relativeAge(new Date(moment.observedAt).toISOString(), now);
   const scheduleDescription = schedule
     ? spokenGeneration(schedule, 'Today', moment.scheduleHour ?? 1)
@@ -79,7 +81,7 @@ export function damFavoriteDisplay(dam: DamSnapshot, now: number) {
     ? spokenGeneration(tomorrow, 'Tomorrow')
     : null;
   return {
-    moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge, scheduleDescription,
+    moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge, generationAge, scheduleDescription,
     tomorrow, tomorrowPeak, tomorrowCaption, tomorrowDescription,
   };
 }

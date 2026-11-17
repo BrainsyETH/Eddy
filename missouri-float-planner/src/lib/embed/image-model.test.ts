@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import DamEmbed from '@/components/embed/v2/DamEmbed';
 import type { DamSnapshot } from '../../../shared/dam-types';
 import { badgeLayout, damImageModel, riverImageModel } from './image-model';
 import { badgeSvg, stripSvg } from './image-svg';
 import type { RiverEmbedData } from './river-data';
-import { newestTotalRelease, withNewestRelease } from './options';
+import { newestTotalRelease, parseEmbedOptions, withNewestRelease } from './options';
 
 const now = Date.parse('2026-10-30T17:30:00Z');
 
@@ -35,7 +38,10 @@ function dam(): DamSnapshot {
     id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam', lakeName: 'Bull Shoals Lake', state: 'AR', lat: 36, lon: -92,
     hasTurbines: true, generationFloorCfs: 100,
     generationReference: { units: 8, fullGenerationCfs: 26400, schedulingCapacityMw: 391, source: 'SWPA' },
-    metrics: { generationFlow: { value: 6600, unit: 'cfs', at: new Date(now - 3600_000).toISOString(), staleness: 'fresh' } },
+    metrics: {
+      generationFlow: { value: 6600, unit: 'cfs', at: new Date(now - 3600_000).toISOString(), staleness: 'fresh' },
+      release: { value: 7200, unit: 'cfs', at: new Date(now - 30 * 60_000).toISOString(), staleness: 'fresh' },
+    },
     generating: true,
     schedule: [{ scheduleDate: '2026-10-30', retrievedAt: new Date(now).toISOString(), idle: [],
       hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 14 ? 100 : 0, cfs: null, isRamp: false })) }],
@@ -62,10 +68,13 @@ test('the river image leads with the rated reading and the canonical condition',
 test('the dam image says what the iOS widget says', () => {
   const m = damImageModel(dam(), { theme: 'light', accent: null }, now);
   assert.equal(m.status, 'Generating');
-  assert.equal(m.reading, '6,600');
+  assert.equal(m.reading, '7,200');
+  assert.equal(m.age, '30m');
+  assert.equal(m.readingCurrent, true);
   assert.equal(m.unit, 'cfs');
   assert.match(m.subtitle ?? '', /Generation scheduled until 2 PM/);
-  assert.match(m.alt, /Generating now/);
+  assert.match(m.alt, /Generating.*Total release 7,200 cfs/);
+  assert.doesNotMatch(m.alt, /turbine/i);
 
   const idle = dam();
   idle.metrics.generationFlow = { value: 20, unit: 'cfs', at: new Date(now - 600_000).toISOString(), staleness: 'fresh' };
@@ -74,8 +83,46 @@ test('the dam image says what the iOS widget says', () => {
   const silent = dam();
   delete silent.metrics.generationFlow;
   const unavailable = damImageModel(silent, { theme: 'light', accent: null }, now);
-  assert.equal(unavailable.status, 'Unavailable');
-  assert.equal(unavailable.reading, null);
+  assert.equal(unavailable.status, 'Generation unavailable');
+  assert.equal(unavailable.reading, '7,200');
+  delete silent.metrics.release;
+  assert.equal(damImageModel(silent, { theme: 'light', accent: null }, now).reading, null);
+
+  const oldRelease = dam();
+  oldRelease.metrics.release!.at = new Date(now - 4 * 3600_000).toISOString();
+  const older = damImageModel(oldRelease, { theme: 'light', accent: null }, now);
+  assert.equal(older.status, 'Generating');
+  assert.equal(older.readingCurrent, false);
+  assert.equal(older.age, '4h');
+  assert.match(stripSvg(older), new RegExp(`fill="${older.tokens.muted}" textLength="[^\"]+" lengthAdjust="spacingAndGlyphs">7,200`));
+  oldRelease.metrics.release!.dailyMean = true;
+  assert.match(damImageModel(oldRelease, { theme: 'light', accent: null }, now).alt, /daily average/);
+});
+
+test('dam HTML widgets lead with release and keep its clock separate from generation', () => {
+  const snapshot = dam();
+  const render = (size: 'strip' | 'card' | 'full') => renderToStaticMarkup(createElement(DamEmbed, {
+    data: { dam: snapshot, powerhouse: true, tailwaterFishery: 'trout', assembledAt: now },
+    options: parseEmbedOptions(new URLSearchParams(`size=${size}`)), branding: null, origin: 'https://eddy.guide', now,
+  }));
+  for (const size of ['strip', 'card', 'full'] as const) {
+    const html = render(size);
+    assert.match(html, /Total release/);
+    assert.match(html, /7,200/);
+    assert.match(html, /Generating/);
+    assert.doesNotMatch(html, /6,600|turbine flow/i);
+    assert.match(html, /30 min ago/);
+  }
+  snapshot.metrics.release!.at = new Date(now - 4 * 3600_000).toISOString();
+  assert.match(render('card'), /ew-reading-value ew-dim/);
+  assert.match(render('card'), /Generating/);
+  snapshot.metrics.release!.dailyMean = true;
+  assert.match(render('full'), /Total release · daily average/);
+  delete snapshot.metrics.release;
+  assert.match(render('card'), /Release unavailable/);
+  assert.doesNotMatch(render('card'), /6,600|7,200/);
+  snapshot.metrics.release = { value: 0, unit: 'cfs', at: new Date(now).toISOString(), staleness: 'fresh' };
+  assert.match(render('card'), /ew-reading-value">0/);
 });
 
 test('svg renders are well formed, sized to their text, and escape the data', () => {

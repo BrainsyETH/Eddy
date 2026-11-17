@@ -3,7 +3,7 @@
 // widget (eddy-ios/modules/eddy-live-activity/widget/EddyReportWidgets.swift).
 //
 // It draws the SAME packet the phone draws: shared/dam-widget.ts assembles
-// observed turbine flow, the generation state, the next-change sentence and
+// total release, the generation state, the next-change sentence and
 // today's 24 hour-ending schedule bars, and both renderers read that. The
 // rules that matter to a wading angler live there and in
 // shared/dam-generation.ts, not here:
@@ -57,7 +57,7 @@ const SOURCE_NAMES: Record<string, string> = {
 
 /** The iOS widget's compactStatus, verbatim. */
 function compactStatus(moment: Moment): string {
-  if (!moment.current) return moment.turbineCfs == null ? 'Unavailable' : 'Older reading';
+  if (!moment.current) return moment.turbineCfs == null ? 'Generation unavailable' : 'Older generation reading';
   if (moment.generationKind === 'generating') return 'Generating';
   if (moment.generationKind === 'not-generating') return moment.minimumFlow ? 'Minimum flow' : 'No generation';
   return moment.status;
@@ -174,7 +174,7 @@ function utmFor(data: DamEmbedData, options: EmbedOptions, branding: EmbedBrandi
 }
 
 function observedIso(moment: Moment): string | null {
-  return moment.observedAt != null ? new Date(moment.observedAt).toISOString() : null;
+  return moment.releaseObservedAt != null ? new Date(moment.releaseObservedAt).toISOString() : null;
 }
 
 /** The next-change sentence, or the visible stale notice that replaces it. */
@@ -218,14 +218,14 @@ function Strip({ data, options, branding, origin, now }: Props) {
   const next = nextChange(moment);
   return (
     <EmbedFrame size="strip" options={options} kind="dam" label={`${data.dam.name} generation`}>
-      <a href={eddyDeepLink(origin, `/dams/${data.dam.id}`, utmFor(data, options, branding))} target="_blank" rel="noopener noreferrer" className="ew-strip" aria-label={`${data.dam.name}. Observed turbine flow ${moment.turbineCfs != null ? `${Math.round(moment.turbineCfs).toLocaleString("en-US")} cfs` : "unavailable"}. ${moment.current ? compactStatus(moment) : moment.status}. ${formatObservedAge(observedIso(moment), now)}. Posted schedule: ${next.text}`}>
+      <a href={eddyDeepLink(origin, `/dams/${data.dam.id}`, utmFor(data, options, branding))} target="_blank" rel="noopener noreferrer" className="ew-strip" aria-label={`${data.dam.name}. Total release ${moment.releaseCfs != null ? `${Math.round(moment.releaseCfs).toLocaleString("en-US")} cfs` : "unavailable"}${moment.releaseDailyMean ? ', daily average' : ''}. ${compactStatus(moment)}. ${formatObservedAge(observedIso(moment), now)}. Posted schedule: ${next.text}`}>
         <span className="ew-strip-name">
           <span className="ew-strip-river">{data.dam.name}</span>
           <span className={`ew-support ew-clip${next.stale ? ' ew-stale' : ''}`}>Schedule · {next.text}</span>
         </span>
-        <span className="ew-strip-reading">
-          {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
-          {moment.turbineCfs != null && <span className="ew-unit">cfs</span>}
+        <span className={`ew-strip-reading${moment.releaseCurrent ? '' : ' ew-dim'}`}>
+          {moment.releaseCfs != null ? Math.round(moment.releaseCfs).toLocaleString('en-US') : '—'}
+          <span className="ew-unit">{moment.releaseDailyMean ? 'cfs · daily avg' : 'cfs release'}</span>
         </span>
         <span className={`ew-strip-status ew-gen-chip ew-gen ew-gen-${tone}`}>
           <BoltGlyph tone={tone} />
@@ -266,20 +266,11 @@ function Card(props: Props) {
   const pool = full ? dam.metrics.poolElevation ?? null : null;
   const poolAge = pool ? readingStaleness(pool.at, now) : null;
   const tempAge = waterTemp ? readingStaleness(waterTemp.at, now) : null;
-  const release = full ? dam.metrics.release ?? null : null;
   const utm = utmFor(data, options, branding);
   const links = [{ label: 'View full report', path: `/dams/${dam.id}` }];
   if (full && data.riverPath) links.push({ label: 'River below', path: data.riverPath });
   const checked = moment.scheduleCheckedAt != null ? relativeAge(new Date(moment.scheduleCheckedAt).toISOString(), now) : null;
   const sources = dam.sources.map((s) => SOURCE_NAMES[s] ?? s);
-  // Only collapse identical, near-simultaneous spot readings. Daily averages,
-  // older measurements and spillway releases remain distinct facts.
-  const releaseDuplicatesTurbine = Boolean(
-    release && !release.dailyMean && !spillway && moment.turbineCfs != null && moment.observedAt != null
-    && Math.abs(Math.round(release.value) - Math.round(moment.turbineCfs)) <= 1
-    && Number.isFinite(Date.parse(release.at))
-    && Math.abs(Date.parse(release.at) - moment.observedAt) <= 15 * 60_000
-  );
 
   return (
     <EmbedFrame size={options.size} options={options} kind="dam" label={`${dam.name} generation from Eddy`}>
@@ -292,27 +283,27 @@ function Card(props: Props) {
         <time
           className="ew-dam-header-age"
           dateTime={observedIso(moment) ?? undefined}
-          title="Turbine flow observation; other measurements may have different timestamps"
+          title="Total release observation; other measurements may have different timestamps"
         >
-          {props.report ? formatObservedTimestamp(observedIso(moment)) : moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : 'Observation unavailable'}
+          {props.report ? formatObservedTimestamp(observedIso(moment)) : moment.releaseObservedAt != null ? formatObservedAge(observedIso(moment), now) : 'Release unavailable'}
         </time>
       </header>
 
       <div className="ew-dam-now">
         <div className="ew-dam-live">
           <div className="ew-dam-flow">
-            <span className="ew-section-title">Turbine flow</span>
+            <span className="ew-section-title">{moment.releaseDailyMean ? 'Total release · daily average' : 'Total release'}</span>
             <div className="ew-reading">
-              <span className={'ew-reading-value' + (moment.current ? '' : ' ew-dim')}>
-                {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
-                {moment.turbineCfs != null && <span className="ew-unit">cfs</span>}
+              <span className={'ew-reading-value' + (moment.releaseCurrent ? '' : ' ew-dim')}>
+                {moment.releaseCfs != null ? Math.round(moment.releaseCfs).toLocaleString('en-US') : '—'}
+                {moment.releaseCfs != null && <span className="ew-unit">cfs</span>}
               </span>
             </div>
           </div>
           <div className="ew-dam-state">
             <p className={'ew-dam-status ew-gen ew-gen-' + tone}>
               <BoltGlyph tone={tone} />
-              {moment.current ? compactStatus(moment) : moment.status}
+              {compactStatus(moment)}
             </p>
           </div>
         </div>
@@ -427,24 +418,16 @@ function Card(props: Props) {
         </p>
       )}
 
-      {full && release && !releaseDuplicatesTurbine && (
-        <div className="ew-dam-additional" title={formatObservedAge(release.at, now)}>
-          <span className="ew-section-title">{release.dailyMean ? 'Total release · daily average' : 'Total release'}</span>
-          <strong className="ew-dam-additional-value">{Math.round(release.value).toLocaleString('en-US')} cfs</strong>
-          {readingStaleness(release.at, now) !== 'fresh' && <span className="ew-support">Older reading</span>}
-        </div>
-      )}
-
       {!props.report && <details className="ew-about">
         <summary className="ew-link">About this data</summary>
         <ul className="ew-support">
-          <li>Turbine flow is measured at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}. The header age applies to turbine flow only; downstream, lake and temperature measurements have independent timestamps.</li>
+          <li>Total release is measured at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}. The header age applies to total release only; generation, downstream, lake and temperature measurements have independent timestamps.</li>
+          {moment.observedAt != null && <li>Generation reading: {formatObservedAge(new Date(moment.observedAt).toISOString(), now)}.</li>}
           {downstream && <li>Downstream level: {formatObservedAge(downstream.at, now)}.</li>}
           {pool && <li>Lake level: {formatObservedAge(pool.at, now)}.</li>}
           {waterTemp && <li>Water temperature below the dam: {formatObservedAge(waterTemp.at, now)}.</li>}
-          {release && !releaseDuplicatesTurbine && <li>Total release: {formatObservedAge(release.at, now)}.</li>}
           {spillway && <li>Spillway release: {formatObservedAge(spillway.observedAt, now)}.</li>}
-          <li>Hourly bars show posted power generation in MW, not measured river flow. The schedule may differ from observed turbine flow. Schedules are in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
+          <li>Hourly bars show posted power generation in MW, not measured river flow. The schedule may differ from observed generation. Schedules are in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
         </ul>
       </details>}
 

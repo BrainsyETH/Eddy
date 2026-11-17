@@ -140,7 +140,7 @@ function StripPng({ model, avatar, transparent }: { model: EmbedImageModel; avat
           <div style={{ display: 'flex', fontSize: 12, color: t.muted, whiteSpace: 'nowrap', overflow: 'hidden' }}>{model.subtitle}</div>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, fontFamily: 'Geist Mono', fontSize: 22, fontWeight: 700 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, fontFamily: 'Geist Mono', fontSize: 22, fontWeight: 700, color: model.readingCurrent === false ? t.muted : t.text }}>
         {model.reading ?? '—'}
         {model.unit && <span style={{ fontFamily: 'Fredoka', fontSize: 12, color: t.muted }}>{model.unit}</span>}
         {model.trend && <span style={{ fontFamily: 'Fredoka', fontSize: 13, color: t.muted }}>{model.trend}</span>}

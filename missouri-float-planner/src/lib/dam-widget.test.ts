@@ -16,7 +16,10 @@ function fixture(): DamSnapshot {
     id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam', lakeName: 'Bull Shoals Lake', state: 'AR', lat: 36, lon: -92,
     hasTurbines: true, generationFloorCfs: 100,
     generationReference: { units: 8, fullGenerationCfs: 26400, schedulingCapacityMw: 391, source: 'SWPA' },
-    metrics: { generationFlow: { value: 6600, unit: 'cfs', at: new Date(now - 3600_000).toISOString(), staleness: 'fresh' } },
+    metrics: {
+      generationFlow: { value: 6600, unit: 'cfs', at: new Date(now - 3600_000).toISOString(), staleness: 'fresh' },
+      release: { value: 7200, unit: 'cfs', at: new Date(now - 3600_000).toISOString(), staleness: 'fresh' },
+    },
     generating: true,
     schedule: [{ scheduleDate: '2026-10-17', retrievedAt: new Date(now).toISOString(), idle: [],
       hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 14 ? 100 : 0, cfs: null, isRamp: false })) }],
@@ -57,6 +60,40 @@ test('missing, daily-average, negative and future turbine readings never mean of
   const dam = fixture();
   dam.metrics.generationFlow!.value = 20;
   assert.equal(damWidgetSnapshot(dam, now).entries[0].status, 'No turbine generation observed');
+});
+
+test('release and generation values expire independently and missing release never borrows generation', () => {
+  const dam = fixture();
+  dam.metrics.release!.at = new Date(now - 30 * 60_000).toISOString();
+  const packet = damWidgetSnapshot(dam, now);
+  const generationExpired = packet.entries.find(entry => entry.date === now + 3600_000 + 1)!;
+  assert.equal(generationExpired.current, false);
+  assert.equal(generationExpired.releaseCurrent, true);
+  const releaseExpired = packet.entries.find(entry => entry.date === now + 90 * 60_000 + 1)!;
+  assert.equal(releaseExpired.releaseCurrent, false);
+  assert.equal(releaseExpired.releaseCfs, 7200);
+  assert.equal(releaseExpired.releaseObservedAt, now - 30 * 60_000);
+  assert.ok(packet.entries.length <= 30);
+  assert.equal(packet.entries.at(-1)!.releaseCurrent, false);
+
+  dam.metrics.release = { ...dam.metrics.release!, value: 0 };
+  assert.equal(damWidgetSnapshot(dam, now).entries[0].releaseCfs, 0);
+  dam.metrics.release.dailyMean = true;
+  const daily = damWidgetSnapshot(dam, now).entries[0];
+  assert.equal(daily.releaseDailyMean, true);
+  assert.equal(daily.releaseCurrent, false);
+  assert.equal(daily.current, true);
+  for (const release of [undefined,
+    { ...dam.metrics.release, value: -1 }, { ...dam.metrics.release, value: NaN },
+    { ...dam.metrics.release, at: 'invalid' },
+    { ...dam.metrics.release, at: new Date(now + 3600_000).toISOString() }]) {
+    const moment = damWidgetSnapshot({ ...dam, metrics: { ...dam.metrics, release } }, now).entries[0];
+    assert.equal(moment.releaseCfs, null);
+    assert.equal(moment.releaseObservedAt, null);
+    assert.equal(moment.releaseCurrent, false);
+    assert.equal(moment.turbineCfs, 6600);
+    assert.equal(moment.current, true);
+  }
 });
 
 test('unknown or stale schedule provenance cannot promise a next transition', () => {
@@ -133,13 +170,14 @@ test('cached schedules retain their dates while timeline freshness and midnight 
   assert.equal(packet.entries.at(-1)!.scheduleCurrent, false);
 });
 
-test('dam favorites show the widget turbine reading, not total release or estimated schedule flow', () => {
+test('dam favorites lead with total release while generation keeps its own reading', () => {
   const dam = fixture();
   dam.metrics.release = { ...dam.metrics.generationFlow!, value: 9900 };
   dam.schedule[0].hours[12].cfs = 15000;
   dam.schedule[0].hours[12].megawatts = 275;
   const display = damFavoriteDisplay(dam, now);
   assert.equal(display.moment.turbineCfs, 6600);
+  assert.equal(display.moment.releaseCfs, 9900);
   assert.equal(display.observedAge, 'an hour ago');
   assert.equal(display.status, 'Generating');
   assert.equal(display.peak, 275);
@@ -150,15 +188,16 @@ test('dam favorites show the widget turbine reading, not total release or estima
   delete dam.metrics.generationFlow;
   const missing = damFavoriteDisplay(dam, now);
   assert.equal(missing.moment.turbineCfs, null);
-  assert.equal(missing.status, 'Unavailable');
-  assert.equal(missing.observedAge, null);
+  assert.equal(missing.status, 'Generation unavailable');
+  assert.equal(missing.moment.releaseCfs, 9900);
+  assert.equal(missing.observedAge, 'an hour ago');
   assert.ok(missing.schedule); // A schedule is independent of the observation.
 });
 
 test('dam favorites age observations without hiding today\'s schedule or borrowing another day', () => {
   const dam = fixture();
   const older = damFavoriteDisplay(dam, now + 3 * 3600_000);
-  assert.equal(older.status, 'Older reading');
+  assert.equal(older.status, 'Older generation reading');
   assert.equal(older.moment.current, false);
   assert.equal(older.schedule?.date, '2026-10-17');
   assert.equal(older.moment.scheduleHour, 16);
@@ -237,7 +276,7 @@ test('dam favorites preserve zero generation, unknown hours and projects without
   assert.equal(damFavoriteDisplay(dam, now).status, 'No powerhouse');
 });
 
-test('Favorites renders release flow and age for Clearwater and Wappapello, turbine flow for powerhouses', () => {
+test('Favorites renders total release and its age for flood-control dams and powerhouses', () => {
   // Execute the screen's actual dam branch and both real card components.
   // Native hosts and hooks are stubbed; checking only the presentation helper
   // missed the regression where the screen chose a turbine-only card for every dam.
@@ -332,21 +371,36 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
   damById.set(powerhouse.id, powerhouse);
   nodes.length = 0;
   render({ kind: 'dam', entityId: powerhouse.id });
-  assert.match(text(), /Turbine flow/);
-  assert.match(text(), /6,600/);
-  assert.doesNotMatch(text(), /4,200/);
+  assert.match(text(), /Total release/);
+  assert.match(text(), /4,200/);
+  assert.doesNotMatch(text(), /Turbine flow|6,600/);
 
   powerhouse.schedule[0].retrievedAt = new Date(now - 3 * 3600_000).toISOString();
   nodes.length = 0;
   render({ kind: 'dam', entityId: powerhouse.id });
   assert.match(text(), /0–391 MW/);
   assert.match(text(), /12a/);
-  assert.match(text(), /Observed an hour ago/);
+  assert.match(text(), /Release an hour ago/);
   assert.doesNotMatch(text(), /Check schedule|Subject to change/);
   const details = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
   assert.ok(details);
   assert.match(String(details.props.accessibilityLabel), /Generation scheduled 12 AM to 2 PM/);
   assert.doesNotMatch(String(details.props.accessibilityLabel), /subject to change/i);
+
+  powerhouse.metrics.release!.at = new Date(now - 4 * 3600_000).toISOString();
+  nodes.length = 0;
+  render({ kind: 'dam', entityId: powerhouse.id });
+  assert.match(text(), /Release 4 hours ago/);
+  assert.match(text(), /Generating/);
+  powerhouse.metrics.release!.dailyMean = true;
+  nodes.length = 0;
+  render({ kind: 'dam', entityId: powerhouse.id });
+  assert.match(text(), /Total release · daily average/);
+  delete powerhouse.metrics.release;
+  nodes.length = 0;
+  render({ kind: 'dam', entityId: powerhouse.id });
+  assert.match(text(), /Release unavailable/);
+  assert.doesNotMatch(text(), /6,600|4,200|Turbine flow/);
 
   // Bull Shoals on a minimum-flow day: the card says "Minimum flow", never
   // "No generation", and draws every posted hour as a low baseline, not a
@@ -395,7 +449,7 @@ test('a minimum-flow day reads "Minimum flow" with no generation bars or peak, o
   assert.doesNotMatch(display.scheduleDescription, /megawatts|no generation/i);
   assert.match(display.scheduleDescription, /Only minimum flow scheduled/);
   // An older reading keeps its age wording; it never becomes "No generation".
-  assert.equal(damFavoriteDisplay(dam, now + 3 * 3600_000).status, 'Older reading');
+  assert.equal(damFavoriteDisplay(dam, now + 3 * 3600_000).status, 'Older generation reading');
 });
 
 test('a mixed day scales and captions only the scheduled generation', () => {

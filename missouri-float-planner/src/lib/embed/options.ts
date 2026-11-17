@@ -316,7 +316,7 @@ export function statusLabel(code: string, rated: boolean | undefined, fallback: 
 }
 
 /** What the headline number is. A dam's total release is not a river gauge, and
- * is not the turbine flow the dam widget leads with either. */
+ * is independent of the generation observation. */
 export function readingSource(data: {
   primary: { name: string } | null;
   release?: { damName: string } | null;
@@ -348,8 +348,8 @@ export function newestTotalRelease(
 /**
  * A dam snapshot with its total release brought up to the gauge table's
  * reading when that one is newer, so the dam widget and the river widget show
- * the same hour. Turbine flow, the dam widget's headline, is a different series
- * and is left alone. The caller re-bands staleness against its own clock.
+ * the same hour. The generation observation is a different series and is left
+ * alone. The caller re-bands staleness against its own clock.
  */
 export function withNewestRelease<T extends { metrics: { release?: { value: number; unit: string; at: string; dailyMean?: boolean; staleness: 'fresh' | 'lagging' | 'stale' } } }>(
   snapshot: T,

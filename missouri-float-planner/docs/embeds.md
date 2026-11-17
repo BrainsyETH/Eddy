@@ -42,14 +42,13 @@ one. Both widgets choose through `newestTotalRelease` in
 `src/lib/embed/options.ts` (the dam widget via `withNewestRelease`), so they
 show the same hour of the series in both update orders. Their caches are
 separate (river 120 s, dam 60 s), so they can still differ for up to two
-minutes after a new reading lands. Total release and the dam
-widget's turbine flow are different quantities and can differ when a dam spills
-or passes minimum flow outside the turbines; the labels say which is which.
+minutes after a new reading lands. Both widgets lead with total release, including
+water leaving through other outlets. Generation status uses its own observation.
 
 Dam sizes mirror the iOS "Dam generation" Home Screen widget, read off
 `shared/dam-widget.ts` — the same posted MW packet the phone draws, so an
-hour cannot disagree between the two. The card reads: dam and lake → **observed**
-turbine flow with one dated generation status → the **Central-time date**
+hour cannot disagree between the two. The card reads: dam and lake → **total
+release** with separate generation status → the **Central-time date**
 and posted next-change sentence → taller 24-hour MW chart with an Eddy-coral
 Now line → footer. Every day uses the dam's fixed scheduling capacity,
 matching the website and iOS. The packet carries capacity fractions; missing
@@ -68,9 +67,8 @@ sentence with a visible coral notice. Sources, peak MW, the check time and
 the Central-time explanation sit in "About this data"; the iframe resizes
 when the disclosure expands. `full` adds the dam's own dated downstream
 water elevation and only fresh, canonically rounded movement (no safety verdict; outdated elevation values are suppressed),
-spillway discharge when separately observed, and total release only when
-it isn't an effectively identical, near-simultaneous turbine observation.
-Daily-average release stays distinct. The full embed shows **below the dam**,
+and spillway discharge when separately observed. Total release appears once,
+as the headline; daily averages stay labeled. The full embed shows **below the dam**,
 **lake level**, and **water temperature below the dam** in a shared measurement
 row when data exists. Use the existing web/iOS Eddy glyphs for river gauge,
 lake gauge and water temperature, rather than generic iconography. Rising
@@ -90,14 +88,15 @@ its own distinct date heading when the full embed includes it, directly after
 today's chart and before the water measurements at every embed width.
 
 The full card has one visible `Observed … ago` line at the header's top-right,
-referring **only to turbine flow**. It is not a single timestamp for all
+referring **only to total release**. It is not a single timestamp for all
 measurements: exact ages for downstream stage, lake elevation, temperature,
-spillway and other release readings stay in the expanded `About this data`
+spillway and generation readings stay in the expanded `About this data`
 and on the metric's native hover title. Stale levels/temperatures have no
 numeric reading presented as current. Tomorrow's posted bars remain.
 Everything is flat within the Eddy frame, not nested metric tiles.
-"Turbine flow" stays explicit: "release" could include spillway or other
-outlets.
+Missing total release never falls back to generation discharge. Release values
+and their clocks travel separately in the additive v1 widget packet; older or
+daily-average release values are muted independently of generation status.
 Flood-control projects (no powerhouse) render an explanatory unavailable state;
 the workbench picker excludes them, as the iOS picker does.
 

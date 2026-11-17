@@ -376,7 +376,7 @@ function FavoritesContent() {
           </View>
         );
       }
-      // The widget card reports turbine flow. Flood-control dams such as
+      // The widget card pairs total release with generation. Flood-control dams such as
       // Clearwater and Wappapello have release readings but no powerhouse.
       if (!dam.hasTurbines) return (
         <DamRow

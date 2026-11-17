@@ -22,7 +22,7 @@ struct DamQuery: EntityStringQuery {
 }
 struct DamGenerationIntent: WidgetConfigurationIntent {
   static var title: LocalizedStringResource = "Dam generation"
-  static var description = IntentDescription("Choose a powerhouse to see observed turbine flow and the posted schedule.")
+  static var description = IntentDescription("Choose a dam to see total release and the posted generation schedule.")
   @Parameter(title: "Dam") var dam: DamEntity?
 }
 struct DamEntry: TimelineEntry {
@@ -44,7 +44,9 @@ struct DamEntry: TimelineEntry {
       turbineCfs: 6600, observedAt: now.timeIntervalSince1970 * 1000, current: true,
       scheduleSummary: "Generation scheduled until 6 PM. Resumes at 7 AM tomorrow.", scheduleCurrent: true,
       scheduleCheckedAt: now.timeIntervalSince1970 * 1000, generationKind: "generating",
-      scheduleDate: day, scheduleHour: calendar.component(.hour, from: now) + 1)
+      scheduleDate: day, scheduleHour: calendar.component(.hour, from: now) + 1,
+      releaseCfs: 7200, releaseObservedAt: now.timeIntervalSince1970 * 1000,
+      releaseCurrent: true, releaseDailyMean: false)
     let hours = (1...24).map { hour in
       WidgetDamScheduleHour(hourEnding: hour, label: "\((hour - 1) % 12 == 0 ? 12 : (hour - 1) % 12) \(hour <= 12 ? "AM" : "PM")",
         megawatts: (8...18).contains(hour) ? ((14...17).contains(hour) ? 200 : 100) : 0,
@@ -81,7 +83,7 @@ struct EddyDamGenerationWidget: Widget {
         .containerBackground(for: .widget) { WidgetCanvas() }
     }
     .configurationDisplayName("Dam generation")
-    .description("Generation at the dam and today's hourly schedule. Edit to choose a dam.")
+    .description("Total release at the dam and today's generation schedule. Edit to choose a dam.")
     .supportedFamilies([.systemMedium])
   }
 }
@@ -92,6 +94,7 @@ private struct DamGenerationCard: View {
   var body: some View {
     if let choice = entry.choice {
       let moment = entry.packet?.moment(at: entry.date)
+      let generationStamp = moment?.observedAt.map { widgetObservationStamp(Date(timeIntervalSince1970: $0 / 1000), now: entry.date) }
       GeometryReader { geometry in
         // Reserve space for the next scheduled change as well as the chart.
         let compact = typeSize > .large || geometry.size.height < 160
@@ -103,23 +106,24 @@ private struct DamGenerationCard: View {
           }
           HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-              Text("Turbine flow").font(.caption2).foregroundStyle(.secondary)
+              Text(moment?.releaseDailyMean == true ? "Total release · daily average" : "Total release").font(.caption2).foregroundStyle(.secondary)
               HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(moment?.turbineCfs.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "—")
+                Text(moment?.releaseCfs.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "—")
                   .font(.system(compact ? .title3 : .title2, design: .rounded).weight(.bold))
                   .monospacedDigit().minimumScaleFactor(0.8)
                 Text("CFS").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).fixedSize()
-              }.lineLimit(1).foregroundStyle(moment?.current == true ? Color.primary : Color.secondary)
-                .accessibilityLabel("Observed turbine flow, " + (moment?.turbineCfs.map { "\($0) cubic feet per second" } ?? "unavailable"))
+              }.lineLimit(1).foregroundStyle(moment?.releaseCurrent == true ? Color.primary : Color.secondary)
+                .accessibilityLabel("Total release, " + (moment?.releaseCfs.map { "\($0) cubic feet per second" } ?? "unavailable") + (moment?.releaseDailyMean == true ? ", daily average" : ""))
               HStack(spacing: 3) {
                 Image(systemName: moment?.current == true && moment?.generationKind == "generating" ? "bolt.fill" :
                   (moment?.current == true && moment?.generationKind == "not-generating"
                     ? (moment?.minimumFlow == true ? "drop" : "bolt.slash") : "questionmark.circle"))
                   .accessibilityHidden(true)
-                Text(moment?.compactStatus ?? "Unavailable").lineLimit(2)
+                Text(moment?.compactStatus ?? "Generation unavailable").lineLimit(2)
               }.font(.caption2.weight(.medium))
                 .foregroundStyle(moment?.current == true ? WidgetBrand.water(dark: scheme == .dark) : Color.secondary)
-                .accessibilityElement(children: .ignore).accessibilityLabel(moment?.status ?? "Generation unavailable")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel((moment?.compactStatus ?? "Generation unavailable") + (generationStamp.map { ", generation reading \($0)" } ?? ""))
             }.frame(width: geometry.size.width * 0.36, alignment: .leading)
             VStack(alignment: .leading, spacing: 4) {
               if let schedule = entry.packet?.todaySchedule(at: entry.date) {
@@ -145,9 +149,9 @@ private struct DamGenerationCard: View {
             Text("At the dam").lineLimit(1)
             Spacer(minLength: 0)
             if entry.isPreview { Text("Sample data") }
-            else if let at = moment?.observedAt {
-              Text("Observed " + widgetObservationStamp(Date(timeIntervalSince1970: at / 1000), now: entry.date)).lineLimit(1)
-            }
+            else if let at = moment?.releaseObservedAt {
+              Text("Release " + widgetObservationStamp(Date(timeIntervalSince1970: at / 1000), now: entry.date)).lineLimit(1)
+            } else { Text("Release unavailable").lineLimit(1) }
           }.font(.caption2).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       }.widgetURL(choice.url)

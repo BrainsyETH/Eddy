@@ -73,8 +73,8 @@ const SIZE_INFO: Record<EmbedSize, { label: string; detail: string; width: numbe
 };
 const DAM_SIZE_DETAIL: Record<EmbedSize, string> = {
   badge: 'Inline pill — dam name and generating / not.',
-  strip: 'One line — status, turbine flow, next change, age.',
-  card: 'Turbine flow, status, today’s hourly schedule bars.',
+  strip: 'One line — total release, generation, next change, age.',
+  card: 'Total release, generation, today’s hourly schedule bars.',
   full: 'Card plus tailwater, lake level, total release, tomorrow.',
 };
 
