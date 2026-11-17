@@ -6,7 +6,7 @@ import test from 'node:test';
 import { FINDINGS, hoursOf, hoursText, quantile, sizeHours, sizeIndexFor, spread, type Stats } from './findings';
 import { frontMile, GAUGE_MILE, MAP, paceShare, PLACES, riverFrame } from './river';
 import { durationText, releaseHour, timeSpan } from './time';
-import { elapsedText, playbackHours, studyProgress, researchLog, roughHours, sizePhrase, windowPosition } from './presentation';
+import { elapsedText, playbackHours, studyProgress, riseDifference, researchLog, roughHours, sizePhrase, windowPosition } from './presentation';
 import { publicResults, type StoredOutcome, type StoredPrediction } from '../arrival-trial/public-results';
 
 // ── The page's numbers are the study's numbers ───────────────────────────────
@@ -211,10 +211,10 @@ const trial = (...rows: Array<[StoredPrediction, StoredOutcome[]]>) => publicRes
 
 test('collection progress excludes waiting results and does not imply a pass at the target', () => {
   const results = trial(stored(14, 25), stored(15, -200), stored(16, null));
-  assert.equal(studyProgress(results.tally.compared), '2 of 60 compared');
-  assert.equal(studyProgress(0), '0 of 60 compared');
-  assert.equal(studyProgress(60), '60 compared · Study target reached');
-  assert.equal(studyProgress(61), '61 compared · Study target reached');
+  assert.equal(studyProgress(results.tally.compared), 'Early results · 2 releases checked');
+  assert.equal(studyProgress(0), 'Early results · 0 releases checked');
+  assert.equal(studyProgress(60), 'Recent results · 60 releases checked');
+  assert.equal(studyProgress(61), 'Recent results · 61 releases checked');
 });
 
 test('the research log ends with what comes next and adds the first result when there is one', () => {
@@ -227,4 +227,15 @@ test('the research log ends with what comes next and adds the first result when 
   assert.match(after[4].text, /Latest comparison: the gauge rose 1 hour 50 minutes before/);
   assert.match(researchLog(FINDINGS, trial(stored(14, -200)))[3].text, /First result: the gauge rose 1 hour 50 minutes before the estimated window/);
   assert.equal(researchLog(FINDINGS, null).length, 4);
+});
+
+// A stored estimate can have seconds, while the gauge is sampled every 15 minutes.
+test('headline differences are approximate and do not turn near misses into exact matches', () => {
+  const estimate = '2026-11-16T14:13:45Z';
+  assert.equal(riseDifference(estimate, '2026-11-16T14:00:00Z'), 'About 15 min earlier than estimated');
+  assert.equal(riseDifference(estimate, '2026-11-16T14:30:00Z'), 'About 15 min later than estimated');
+  assert.equal(riseDifference(estimate, '2026-11-16T14:13:25Z'), 'Less than 5 min earlier than estimated');
+  assert.equal(riseDifference(estimate, '2026-11-16T14:14:00Z'), 'Less than 5 min later than estimated');
+  assert.equal(riseDifference(estimate, estimate), 'At the estimated time');
+  assert.equal(riseDifference(estimate, '2026-11-16T15:13:45Z'), 'About 1 hr later than estimated');
 });

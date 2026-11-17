@@ -6,23 +6,17 @@ import Button from '@/components/ui/Button';
 import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
 import { comparison, type PublicResult, type PublicResults } from '@/lib/arrival-trial/public-results';
 import { GAUGE_MILE } from '@/lib/release-timing/river';
-import { RESULTS_NEEDED, studyProgress } from '@/lib/release-timing/presentation';
-import { clockTime, datedDay, durationText, releaseHour, shortDate, timeSpan } from '@/lib/release-timing/time';
+import { RESULTS_NEEDED, riseDifference, studyProgress } from '@/lib/release-timing/presentation';
+import { clockTime, datedDay, durationText, releaseHour, shortDate } from '@/lib/release-timing/time';
 import styles from './release-timing.module.css';
 
 type Compared = Extract<PublicResult, { kind: 'compared' }>;
 const HOUR_MS = 3_600_000;
 const EARLIER_SHOWN = 8;
 
-function estimateDifference(result: Compared): string {
-  const delta = Date.parse(result.roseAt) - Date.parse(result.estimateAt);
-  if (delta === 0) return 'Matched estimate';
-  const amount = Math.abs(delta) < 60_000 ? '<1 min' : durationText(Math.abs(delta) / 60_000).replace(/hours?/g, 'hr').replace(/minutes?/g, 'min');
-  return `${amount} ${delta < 0 ? 'before' : 'after'} estimate`;
-}
 const shortOutcome = (result: Compared): string => {
   const { position, outsideMinutes } = comparison(result);
-  return position === 'inside' ? 'Within window' : `${durationText(outsideMinutes)} ${position} the window`;
+  return position === 'inside' ? 'Within estimated window' : `${durationText(outsideMinutes)} ${position} the window`;
 };
 
 /** Labels sit on opposite sides of the axis, so close or identical times stay readable. */
@@ -32,25 +26,24 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
   const early = Date.parse(result.earlyAt);
   const late = Date.parse(result.lateAt);
   const rose = Date.parse(result.roseAt);
-  const reach = Math.max(4 * HOUR_MS, Math.abs(rose - estimate) + HOUR_MS / 2, estimate - early + HOUR_MS / 2, late - estimate + HOUR_MS / 2);
-  const pad = compact ? 6 : 12;
-  const x = (ms: number) => pad + ((ms - (estimate - reach)) / (2 * reach)) * (W - 2 * pad);
+  const start = Math.floor((Math.min(early, estimate, rose) - HOUR_MS / 2) / HOUR_MS) * HOUR_MS;
+  const end = Math.ceil((Math.max(late, estimate, rose) + HOUR_MS / 2) / HOUR_MS) * HOUR_MS;
+  const pad = compact ? 6 : 60;
+  const x = (ms: number) => pad + ((ms - start) / (end - start)) * (W - 2 * pad);
   const labelX = (ms: number) => Math.max(88, Math.min(W - 88, x(ms)));
-  const H = compact ? 28 : 108;
-  const mid = compact ? 14 : 52;
-  const band = compact ? 12 : 20;
+  const H = compact ? 28 : 158;
+  const mid = compact ? 14 : 54;
+  const band = compact ? 12 : 16;
   const inside = rose >= early && rose <= late;
   const marker = inside ? 'var(--color-primary-700)' : 'var(--color-accent-600)';
   // The header names the recorded-rise date. Include dates only where they differ.
   const sameDay = (a: number, b: number) => datedDay(a) === datedDay(b);
   const markTime = (ms: number) => clockTime(ms) + (sameDay(ms, rose) ? '' : ` · ${shortDate(ms)}`);
-  const windowTime = sameDay(early, late)
-    ? `${timeSpan(early, late).replace(' to ', '–')}${sameDay(early, rose) ? '' : ` · ${shortDate(early)}`}`
-    : `${shortDate(early)}, ${clockTime(early)}–${shortDate(late)}, ${clockTime(late)}`;
+  const ticks = [start, start + Math.floor((end - start) / HOUR_MS / 2) * HOUR_MS, end];
   const reading = (ms: number) => `${clockTime(ms)}, ${datedDay(ms)}`;
   return (
     <div ref={frame} className={styles.window}>
-      {!compact && <p className={styles.windowCaption}>Window <b>{windowTime}</b></p>}
+      {!compact && <p className={styles.windowCaption}>Estimated window</p>}
       <svg viewBox={`0 0 ${W} ${H}`} role="img"
         aria-label={`Eddy’s estimate ${reading(estimate)}. Estimated window ${reading(early)} to ${reading(late)}. Recorded rise ${reading(rose)}. Central time.`}>
         <line x1={pad} x2={W - pad} y1={mid} y2={mid} stroke="var(--color-border-strong)" strokeWidth={compact ? 1 : 1.5} />
@@ -59,9 +52,16 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
         <line x1={x(rose)} x2={x(rose)} y1={mid - band / 2 - (compact ? 3 : 4)} y2={mid + band / 2 + (compact ? 3 : 4)} stroke={marker} strokeWidth={compact ? 2.5 : 3} strokeLinecap="round" />
         {!compact && <>
           <path d={`M${labelX(estimate)} 34L${x(estimate)} ${mid - band / 2}`} fill="none" stroke="var(--color-primary-500)" strokeDasharray="2 2" />
-          <path d={`M${x(rose)} ${mid + band / 2 + 4}L${labelX(rose)} 74`} fill="none" stroke={marker} />
-          <text data-reading-label="estimate" x={labelX(estimate)} y={14} textAnchor="middle">Estimate<tspan x={labelX(estimate)} dy={16} className={styles.mark}>{markTime(estimate)}</tspan></text>
-          <text data-reading-label="rise" x={labelX(rose)} y={86} textAnchor="middle">Rise<tspan x={labelX(rose)} dy={16} className={styles.mark}>{clockTime(rose)}</tspan></text>
+          <path d={`M${x(rose)} ${mid + band / 2 + 4}L${labelX(rose)} 98`} fill="none" stroke={marker} />
+          <text data-reading-label="estimate" x={labelX(estimate)} y={14} textAnchor="middle">Eddy’s estimate<tspan x={labelX(estimate)} dy={16} className={styles.mark}>{markTime(estimate)}</tspan></text>
+          <text data-reading-label="rise" x={labelX(rose)} y={112} textAnchor="middle">Recorded rise<tspan x={labelX(rose)} dy={16} className={styles.mark}>{clockTime(rose)}</tspan></text>
+          {[early, late].map((ms, i) => <g key={i} data-window-edge>
+            <line x1={x(ms)} x2={x(ms)} y1={mid + band / 2} y2={mid + band / 2 + 6} stroke="var(--color-primary-300)" />
+            <text x={x(ms)} y={80} textAnchor={i === 0 ? 'end' : 'start'}>{clockTime(ms)}
+              {!sameDay(ms, rose) && <tspan x={x(ms)} dy={14}>{shortDate(ms)}</tspan>}
+            </text>
+          </g>)}
+          {ticks.map((ms, i) => <text key={ms} x={x(ms)} y={152} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className={styles.axisTime}>{clockTime(ms)}</text>)}
           <circle cx={x(rose)} cy={mid} r={5.5} fill={marker} stroke="var(--color-surface)" strokeWidth={2} />
         </>}
       </svg>
@@ -89,7 +89,7 @@ export default function HowClose({ results, onPlay }: {
         <h2 id="how-close-heading">How close was Eddy?</h2>
         <div className={styles.resultMeta}>
           <p aria-label={`Gauge near Norfork${contextDate === null ? '' : `. ${featured ? 'Recorded rise' : 'Release'} ${datedDay(contextDate)}`}. Central time.`}>
-            Norfork{contextDate !== null && ` · ${shortDate(contextDate)}`} · CT
+            Gauge near Norfork{contextDate !== null && ` · ${shortDate(contextDate)}`} · Central time
           </p>
           {featured && <Button variant="outline" size="sm" className="min-h-11" aria-label="Replay release" onClick={() => onPlay(featured)}><Play size={14} aria-hidden="true" />Replay</Button>}
         </div>
@@ -98,8 +98,8 @@ export default function HowClose({ results, onPlay }: {
         {featured ? (
           <div className={styles.featured}>
             <div>
-              <h3 className={styles.outcome}>{estimateDifference(featured)}</h3>
-              <p className={styles.windowStatus} data-outside={position !== 'inside' || undefined}>{position === 'inside' ? 'Within window' : position === 'before' ? 'Before window' : 'After window'}</p>
+              <h3 className={styles.outcome}>{riseDifference(featured.estimateAt, featured.roseAt)}</h3>
+              <p className={styles.windowStatus} data-outside={position !== 'inside' || undefined}>{position === 'inside' ? 'Within the estimated window' : position === 'before' ? 'Before the estimated window' : 'After the estimated window'}</p>
             </div>
             <WindowGraphic result={featured} />
           </div>
@@ -110,11 +110,11 @@ export default function HowClose({ results, onPlay }: {
           </div>
         )}
         {results !== null && <p className={styles.progress}>
-          {studyProgress(results.tally.compared)}{results.tally.waiting > 0 && ` · ${results.tally.waiting} waiting`}
+          {studyProgress(results.tally.compared)}{results.tally.waiting > 0 && ` · ${results.tally.waiting} pending`}
         </p>}
       </div>
       <details className={`${styles.more} ${styles.resultDetails}`}>
-        <summary>Details</summary>
+        <summary>Readings and previous releases</summary>
         <div>
           {featured && <>
             <h3>Readings · Central time</h3>
@@ -138,12 +138,13 @@ export default function HowClose({ results, onPlay }: {
                   ? <button type="button" onClick={() => onPlay(r)} aria-label={`Replay release from ${datedDay(Date.parse(r.releasedAt))}`}>{shortDate(Date.parse(r.releasedAt))}</button>
                   : <span>{shortDate(Date.parse(r.releasedAt))}</span>}
                 {r.kind === 'compared' ? <WindowGraphic result={r} compact /> : <div />}
-                <span>{r.kind === 'compared' ? shortOutcome(r) : r.kind === 'not-compared' ? r.why : ''}</span>
+                <span>{r.kind === 'compared' ? <><b>{riseDifference(r.estimateAt, r.roseAt)}</b><small>{shortOutcome(r)}</small></> : r.kind === 'not-compared' ? r.why : ''}</span>
               </li>)}
             </ul>
           </>}
           <h3>How we compare</h3>
-          <p>Eddy saves each estimate before the rise, then checks the gauge a day later. Results include misses. The study needs {RESULTS_NEEDED} comparisons before judging accuracy.</p>
+          <p>Eddy saves each estimate before the rise, then checks the gauge a day later. Results include misses. These are separate from the historical study. Accuracy will be reviewed after {RESULTS_NEEDED} comparisons.</p>
+          <p>Gauge readings are 15 minutes apart, so headline differences are approximate. The readings above show the saved times.</p>
           <p>Measured at the gauge near Norfork, {GAUGE_MILE} miles downstream. Results apply only to this gauge.</p>
           {withheld > 0 && results && <>
             <p>No estimate for {withheld} release{withheld === 1 ? '' : 's'}:</p>
