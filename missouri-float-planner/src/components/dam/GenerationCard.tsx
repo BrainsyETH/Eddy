@@ -26,8 +26,7 @@ export default function GenerationCard({ dam, now, availability }: {
   const readingsSource = dam.sourceLinks?.find(link => link.kind === 'readings');
   const scheduleSource = dam.sourceLinks?.find(link => link.kind === 'schedule');
   const observed = hasObserved && <div className="dam-observed min-w-0 p-4 sm:p-6">
-    <DamGenerationHero dam={dam} now={now} />
-    {readingsSource && <DamSourceLink link={readingsSource} className="mt-2" />}
+    <DamGenerationHero dam={dam} now={now} source={readingsSource && <DamSourceLink link={readingsSource} />} />
   </div>;
   const orphanReadingsSource = hasObserved ? undefined : readingsSource;
   const scheduleSources = (orphanReadingsSource || scheduleSource) ? <>
