@@ -2876,6 +2876,7 @@ export type {
   DamReadRow,
   DamScheduleDay,
   DamSnapshot,
+  DamSourceLink,
   DamStaleness,
   DamTailwater,
   DamsResponse,

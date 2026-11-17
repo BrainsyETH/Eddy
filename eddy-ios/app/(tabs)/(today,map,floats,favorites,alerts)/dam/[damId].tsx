@@ -45,6 +45,14 @@ import { DAM_CATALOG } from '@/lib/damCatalog';
 import { readBestIndex } from '@/lib/riverCache';
 import { DamStateCard } from '@/components/dam/DamStateCard';
 import { GenerationCard } from '@/components/dam/GenerationCard';
+import { DamSourceLinks } from '@/components/dam/DamSourceLinks';
+import { openExternalLink } from '@/lib/openExternalLink';
+import {
+  damHasAnything,
+  damSourceLink,
+  generationCardRenders,
+  standaloneSourceLinks,
+} from '@/lib/damSourceLinks';
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
 import { GenerationForecast } from '@/components/dam/GenerationForecast';
 import { DamEddyRead } from '@/components/dam/DamEddyRead';
@@ -414,9 +422,13 @@ export default function DamDetailScreen() {
   // Everything upstream is read-through and allowed to fail independently, so a
   // dam can arrive with a schedule and no readings, or readings and no
   // schedule. Both are ordinary; only nothing at all is worth saying.
-  const hasMetrics = Object.keys(dam.metrics).length > 0;
-  const hasAnything =
-    hasMetrics || dam.schedule.length > 0 || dam.generating !== null || Boolean(dam.generationForecast);
+  const hasAnything = damHasAnything(dam);
+  // Whether the Generation card is actually on screen. Two things hang off it:
+  // the card itself, and where the source links go when there is no card to
+  // hold them — see standaloneSourceLinks for the case that got this wrong.
+  const showsGenerationCard = generationCardRenders(dam);
+  // The operator's own page, for a dam whose readings came from somebody else.
+  const operatorPage = damSourceLink(dam, 'reference');
 
   const starred = isStarred('dam', dam.id);
 
@@ -471,7 +483,7 @@ export default function DamDetailScreen() {
             the rest of the project. */}
         {hasAnything ? (
           <>
-            {dam.hasTurbines || dam.schedule.length > 0 ? <View style={styles.section}>
+            {showsGenerationCard ? <View style={styles.section}>
               {/* One card, two sections: observed above the rule, scheduled
                   below it. They were two cards saying the same thing twice —
                   a NEXT CHANGE panel over a schedule describing the same plan,
@@ -580,6 +592,14 @@ export default function DamDetailScreen() {
           </View>
         ) : null}
 
+        {/* The publishers' pages normally sit inside the Generation card, each
+            under the half it sources. When that card is not on screen — a
+            flood-control project, whose release is in the card above, or any
+            dam that arrived with nothing at all — they follow here instead.
+            The second case is the one that matters most: a reader looking at
+            "nothing published" has only the source left to go to. */}
+        <DamSourceLinks links={standaloneSourceLinks(dam)} style={styles.standaloneSources} />
+
         <View style={styles.actions}>
           {/* The reach this dam controls, when Eddy carries it. Absent for most
               projects, and absent is the honest state — a dam whose tailwater
@@ -667,6 +687,26 @@ export default function DamDetailScreen() {
             </Pressable>
           ) : null}
 
+          {/* The operator's own page, for a dam whose readings Eddy takes from
+              another publisher (Truman: a Corps dam, Ameren-reported readings).
+              Here among the onward actions rather than under the readings,
+              where it would read as their source. */}
+          {operatorPage ? (
+            <Pressable
+              onPress={() => void openExternalLink(operatorPage.url)}
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="link"
+              accessibilityLabel={`${operatorPage.label}, ${operatorPage.publisher}`}
+              accessibilityHint="Opens the publisher’s page"
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>{operatorPage.label}</Text>
+              <ControlIcon name="open-outline" size={16} color={colors.text} />
+            </Pressable>
+          ) : null}
+
           {/* The recorded line. Kept because it is the fallback when a feed is
               down, which is exactly when somebody most needs the number — and
               it is the Corps' own answer rather than Eddy's. */}
@@ -737,4 +777,7 @@ const styles = StyleSheet.create({
   },
   sourceText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1, textAlign: 'center' },
   sources: { ...t.xs, paddingHorizontal: 20, marginTop: 14 },
+  // On the screen's text edge. The links are 44pt tall, so the row needs only
+  // a little room before the actions.
+  standaloneSources: { paddingHorizontal: 20, marginBottom: 8 },
 });

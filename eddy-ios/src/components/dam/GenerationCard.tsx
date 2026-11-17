@@ -28,6 +28,14 @@
 // downstream later, and that any of it can change without notice. Those are
 // available once in the heading's info tip; check time remains on the card.
 //
+// ── Where each half came from ──────────────────────────────────────────────
+//
+// Each section ends with a link to its publisher's own page: the operator's
+// data under the observation, the posted schedule beside the check time. Two
+// links rather than one "Sources" row for the same reason there is a rule
+// between the halves — they are different publishers, and the reader checking
+// a number should land on the page that number came from.
+//
 // ── Why the lake and the week stay outside ────────────────────────────────
 //
 // DamStateCard and DamPatternStrip are still their own cards. This one is about
@@ -55,6 +63,8 @@ import { fonts, type as t } from '@/theme/typography';
 import { DamGenerationHero } from '@/components/dam/DamGenerationHero';
 import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
 import { DamInfoTip } from '@/components/dam/DamInfoTip';
+import { DamSourceLinks } from '@/components/dam/DamSourceLinks';
+import { damSourceLink } from '@/lib/damSourceLinks';
 
 /**
  * The standing qualification, said once for both halves.
@@ -101,8 +111,29 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
     DOWNSTREAM_AND_CHANGE,
   ].filter(Boolean).join('\n\n');
 
+  // The operator's page sits under the observation it sources. A card with no
+  // observed half (the hero and its rule are drawn for a powerhouse only)
+  // carries it in the footer instead, ahead of the schedule's.
+  const readingsSource = damSourceLink(dam, 'readings');
+  const scheduleSource = damSourceLink(dam, 'schedule');
+  const observedSources = dam.hasTurbines && readingsSource ? [readingsSource] : [];
+  const footerSources = [dam.hasTurbines ? null : readingsSource, scheduleSource].filter(
+    (link) => link !== null,
+  );
+  // A link is a 44pt target around a line of small text, so it brings its own
+  // space above and below. Whatever divider follows one gives its margin back
+  // rather than the link being pulled around with negative margins.
+  const afterObservedLink = observedSources.length > 0 ? styles.afterLink : null;
+
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+    <View
+      style={[
+        styles.card,
+        footerSources.length > 0 ? styles.cardWithFooterLink : null,
+        { backgroundColor: colors.card },
+        elevation(2),
+      ]}
+    >
       <DamGenerationHero
         dam={dam}
         embedded
@@ -115,6 +146,7 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
           />
         }
       />
+      <DamSourceLinks links={observedSources} style={styles.observedSources} />
 
       {hasSchedule ? (
         <>
@@ -122,7 +154,9 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
               below it is planned. Without it the two halves read as one claim,
               which is the thing the separate cards were protecting against and
               the reason they cannot simply be concatenated. */}
-          {dam.hasTurbines ? <View style={[styles.rule, { borderTopColor: colors.border }]} /> : null}
+          {dam.hasTurbines ? (
+            <View style={[styles.rule, afterObservedLink, { borderTopColor: colors.border }]} />
+          ) : null}
           <GenerationSchedule
             schedule={dam.schedule}
             reference={dam.generationReference}
@@ -132,22 +166,40 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
         </>
       ) : null}
 
-      {/* Keep changing freshness information visible, including stale checks. */}
-      {retrieval ? (
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
-          <Text
-            style={[
-              styles.retrieval,
-              {
-                color:
-                  oldestRetrieval && scheduleIsStale(oldestRetrieval)
-                    ? colors.error
-                    : colors.interactive,
-              },
-            ]}
-          >
-            {retrieval}
-          </Text>
+      {/* Keep changing freshness information visible, including stale checks.
+          The schedule's source shares the row: where the plan came from, and
+          when Eddy last read it. Alone, the check time stays centred. */}
+      {retrieval || footerSources.length > 0 ? (
+        <View
+          style={[
+            styles.footer,
+            // With no schedule there is no rule, and the footer is what
+            // follows the observed link.
+            hasSchedule ? null : afterObservedLink,
+            footerSources.length > 0 ? styles.footerWithSources : null,
+            { borderTopColor: colors.border },
+          ]}
+        >
+          <DamSourceLinks links={footerSources} />
+          {retrieval ? (
+            <Text
+              style={[
+                styles.retrieval,
+                footerSources.length > 0 ? styles.retrievalBesideLink : null,
+                {
+                  // Muted while fresh: this is a statement, and in the brand
+                  // teal beside a teal link it looked like a second thing to
+                  // tap. Stale keeps the error colour — that one is a warning.
+                  color:
+                    oldestRetrieval && scheduleIsStale(oldestRetrieval)
+                      ? colors.error
+                      : colors.textMuted,
+                },
+              ]}
+            >
+              {retrieval}
+            </Text>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -157,6 +209,27 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16 },
   rule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, marginBottom: 14 },
+  // The link's own 44pt height supplies the room either side of it; these only
+  // trim what the neighbouring blocks would otherwise add on top.
+  observedSources: { marginTop: 2 },
+  afterLink: { marginTop: 2 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
+  // Source on the left, check time on the right when both fit. When they do
+  // not (a narrow phone, large text) the row wraps and both keep the left
+  // edge, the time directly under the link.
+  footerWithSources: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: 16,
+    paddingTop: 0,
+  },
+  // The footer link reaches 13pt below its text, so the card needs less of its
+  // own padding beneath it.
+  cardWithFooterLink: { paddingBottom: 12 },
   retrieval: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center' },
+  // In the shared row: left-aligned so a wrapped line sits under the link,
+  // and allowed to shrink so long text wraps inside the card.
+  retrievalBesideLink: { textAlign: 'left', flexShrink: 1 },
 });
