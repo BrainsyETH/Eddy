@@ -210,13 +210,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             assert(await illustrated.locator('.dam-motion').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).animationName === 'none')), 'reduced motion is fully static');
             await page.emulateMedia({ reducedMotion: 'no-preference' });
             await illustrated.getByRole('button', { name: 'Pause motion', exact: true }).waitFor();
+            // A compact page may still show the panel at the bottom of a tall
+            // viewport. Use a shorter real viewport and prove it has left view.
+            await page.setViewportSize({ width, height: 600 });
             await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
             await page.clock.runFor(100);
+            assert(await illustrated.evaluate(el => el.getBoundingClientRect().bottom <= 0), 'offscreen check actually leaves the panel behind');
             await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'paused');
+            await page.setViewportSize({ width, height: 1000 });
             await page.evaluate(() => window.scrollTo(0, 0));
             await page.clock.runFor(100);
             await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'running', undefined, { timeout: 5000 });
             assert(await illustrated.locator('.dam-motion').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).animationPlayState === 'running')), 'motion resumes on returning to the panel');
+            if (width < 640) {
+              const values = await illustrated.locator('.dam-water-breakdown > div > strong').evaluateAll(nodes => nodes.map(el => el.getBoundingClientRect().top));
+              assert.equal(values.length, 2);
+              assert(Math.abs(values[0] - values[1]) < 1, 'outlet values align when their labels wrap');
+            }
             // Full-page captures temporarily change viewport geometry. Exercise
             // motion before taking screenshots, then capture the detail states.
             await illustrated.getByRole('button', { name: 'River', exact: true }).click();
@@ -380,5 +390,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   }
   console.log('PASS published lake routes, canonical URLs, outage states and unknown-route noindex');
   console.log(`PASS screenshots: ${out}`);
-} catch (error) { console.error(log.slice(-5000)); throw error; }
+} catch (error) {
+  console.error(log.slice(-5000));
+  for (const context of browser?.contexts() ?? []) for (const page of context.pages()) {
+    await page.screenshot({ path: `${out}/failure-${page.viewportSize()?.width ?? 'unknown'}.png`, fullPage: true }).catch(() => {});
+  }
+  throw error;
+}
 finally { await cleanup(); }

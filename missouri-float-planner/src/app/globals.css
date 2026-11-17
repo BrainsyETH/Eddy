@@ -1962,6 +1962,7 @@ select.input {
 /* Paired values share a baseline even when one phone label wraps. */
 @container (max-width: 20rem) {
   .dam-water-readings .dam-water-label, .dam-water-detail-readings .dam-water-label { min-height: 3em; }
+  .dam-water-breakdown > div > span { display: block; min-height: 3.2em; }
 }
 /* Also reflow when a reader enlarges their default text size. */
 @container (max-width: 13rem) {
