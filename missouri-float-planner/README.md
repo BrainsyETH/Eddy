@@ -489,11 +489,11 @@ in the registry. That site answers 200 for any path, so run
 
 Bull Shoals links to `/dams/swl-bull-shoals-dam/release-timing`, a findings
 page on how long measured release increases took to reach the USGS gauge near
-Norfork. “Based on 695 historical releases” opens the study's period, reach,
-matched sample, sources and research reports in an anchored desktop dialog or
-mobile bottom sheet. The count and period come from the findings export. A
-visible cream-and-coral notice with Eddy's hazard icon says this is not a
-forecast or a guide to when to wade or launch.
+Norfork. An info icon beside the title opens the study's purpose, period, reach,
+matched sample, sources, limitations and research reports in an anchored desktop
+dialog or mobile bottom sheet. The count and period come from the findings
+export. The collapsed intro shows only the title and a compact “Not a forecast”
+line with Eddy's hazard icon; the panel holds the full wading/launching caveat.
 
 - **How long does it take?** The gauge's typical time leads the map, labelled
   with the selected release size, normal-river context and “Historical timing ·
