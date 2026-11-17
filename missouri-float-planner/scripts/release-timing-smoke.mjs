@@ -228,7 +228,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
         return box.left < bounds.left || box.right > bounds.right;
       }).map(label => label.textContent);
     });
-    assert.deepEqual(clippedText, [], width + ': window edges and clock labels fit');
+    assert.deepEqual(clippedText, [], width + ': window edges and reading labels fit');
     for (const bounds of [estimateLabel, riseLabel]) {
       assert(bounds.x >= graphicBounds.x && bounds.x + bounds.width <= graphicBounds.x + graphicBounds.width, 'timeline labels fit');
     }

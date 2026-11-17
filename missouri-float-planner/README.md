@@ -506,8 +506,8 @@ forecast or a guide to when to wade or launch.
   approximate difference from Eddy's estimate and a quiet window-status label.
   Headline differences round to five minutes; sub-five-minute differences stay
   labelled as such, and only identical timestamps say “At the estimated time”.
-  The timeline labels the estimate, recorded rise and both window edges, with
-  clock labels underneath. Readings, pending releases, history and methodology
+  The timeline labels the estimate, recorded rise and both window edges.
+  Readings, pending releases, history and methodology
   live under “Readings and previous releases”.
   The header date is the recorded-rise date; other dates are shown when needed
   to distinguish overnight timings. Waiting releases reveal no estimate.

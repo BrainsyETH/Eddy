@@ -31,7 +31,7 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
   const pad = compact ? 6 : 60;
   const x = (ms: number) => pad + ((ms - start) / (end - start)) * (W - 2 * pad);
   const labelX = (ms: number) => Math.max(88, Math.min(W - 88, x(ms)));
-  const H = compact ? 28 : 158;
+  const H = compact ? 28 : 132;
   const mid = compact ? 14 : 54;
   const band = compact ? 12 : 16;
   const inside = rose >= early && rose <= late;
@@ -39,7 +39,6 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
   // The header names the recorded-rise date. Include dates only where they differ.
   const sameDay = (a: number, b: number) => datedDay(a) === datedDay(b);
   const markTime = (ms: number) => clockTime(ms) + (sameDay(ms, rose) ? '' : ` · ${shortDate(ms)}`);
-  const ticks = [start, start + Math.floor((end - start) / HOUR_MS / 2) * HOUR_MS, end];
   const reading = (ms: number) => `${clockTime(ms)}, ${datedDay(ms)}`;
   return (
     <div ref={frame} className={styles.window}>
@@ -61,7 +60,6 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
               {!sameDay(ms, rose) && <tspan x={x(ms)} dy={14}>{shortDate(ms)}</tspan>}
             </text>
           </g>)}
-          {ticks.map((ms, i) => <text key={ms} x={x(ms)} y={152} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className={styles.axisTime}>{clockTime(ms)}</text>)}
           <circle cx={x(rose)} cy={mid} r={5.5} fill={marker} stroke="var(--color-surface)" strokeWidth={2} />
         </>}
       </svg>
