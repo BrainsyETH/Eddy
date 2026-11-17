@@ -1533,6 +1533,9 @@ Dam detail uses the same photo header as river detail, with the web's selected
 image, crop focus and attribution from `shared/place-photo-credits.json`.
 Photo metadata ships with the app; images use Eddy's resized, disk-cached copies
 without waiting for the dam readings. Missing or failed images use a plain title.
+Dam photo credits sit at the photo's lower-right edge as author and license;
+tapping opens the full source, license and cropping details. The compact label
+keeps a 44-point touch target and grows within the header at larger text sizes.
 Native back, share and favorite controls stay in the toolbar, with the compact
 title appearing when the large title scrolls out of view. The header's Dynamic
 Type and contrast accommodations follow the river header above; the same native
@@ -1540,10 +1543,20 @@ device verification remains required.
 
 Total water release leads the dam's first card, including flood-control dams.
 Turbine flow and the estimated generator rack follow as a separate observation;
-they never stand in for a missing total release. Matching, aligned spot readings
-share one value; different times keep their own timestamp. Daily averages and
-outdated readings stay labeled. The posted schedule follows the observations.
-The lower conditions card does not repeat total release.
+they never stand in for a missing total release. Matching spot readings with the
+same observation time share one value; different times retain their own value
+and timestamp. The reading time and compact publisher link share a row. Daily
+averages and outdated readings stay labeled; the rack's approximation is
+explained in the info tip and VoiceOver label.
+
+The posted schedule follows the observations, with one publisher/check-time
+row and a single stale warning above the plan. Missing check times stay unknown.
+Only an actual upcoming change gets a callout; “No further generation posted”
+is plain text. Minimum flow and continuing generation keep their own wording.
+Each day names its peak once (“Peak 5–9 AM”); flat-output days retain “Scheduled
+generation.” Hourly details open below the chart, with the return-to-chart
+action above the expanded list. The lower conditions card does not repeat total
+release.
 
 Dam detail readings use Eddy's illustrated metric symbols: Release and Water
 temperature share the web masters; lake and tailwater levels reuse the gauge
