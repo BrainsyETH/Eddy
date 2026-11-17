@@ -2,7 +2,7 @@ name: Dam Story Preview
 on:
   pull_request:
     paths:
-      - 'missouri-float-planner/shared/social-dam-schedule*'
+      - 'missouri-float-planner/shared/**'
       - 'missouri-float-planner/remotion/**'
       - 'missouri-float-planner/src/**/social/**'
       - '.github/workflows/dam-story-check.yml'

@@ -2,7 +2,7 @@
 
 The Table Rock pilot lives in **Admin → Social → Quick Post → Dam schedule video**.
 Choose today or tomorrow (Central time), Instagram Story and/or TikTok, then
-Generate video. History shows each render separately. Preview the finished
+Create video. History shows each render separately. Preview the finished
 video, optionally enable the safe-area guide, and Download MP4. Upload manually
 in the destination app. No social connection is needed to generate an export.
 
@@ -23,9 +23,15 @@ render should be regenerated from the form, which checks the source again.
   or downstream arrival estimate. The animation is labelled “not live”; it
   uses a fixed illustrative water level. No scheduled generation stops the
   decorative turbine, without claiming that the river is dry or safe.
+- Time labels use the shared window formatter’s compact style (Noon/Midnight).
+  Minimum-flow-only days use the shared “Only minimum flow scheduled” label;
+  zero generation does not render a misleading “0 hours posted” count.
+- The time card sizes to its content. The illustration takes the remaining room
+  and the footer sits at the bottom of the safe area. Platform-control margins
+  remain clear. Eddy’s existing canoe artwork bobs gently on the lake.
 - Shared Eddy fonts, palette and per-platform safe insets. Instagram uses the
   Story bounds; TikTok leaves space for its action rail. All facts hold still;
-  only decorative ripples, pipe strokes and the turbine move on a gentle loop.
+  only decorative ripples, pipe strokes, the canoe and the turbine move on a gentle loop.
 - Default Remotion props are visibly marked sample data. Real exports set
   `sample: false`. The CI preview always renders labelled fixtures.
 
@@ -52,5 +58,6 @@ retained for review, including older dated videos.
 `make check-web` covers the date, freshness, completeness, hour-ending,
 minimum-flow and publish guards. The **Dam Story Preview** workflow typechecks
 Remotion, checks both destinations in Chromium at the first/middle/last frames,
-and uploads 12 stills plus two sample MP4s. Cases include midnight, all-day,
-zero/minimum-flow, split windows and the maximum 12 separate windows.
+and uploads 20 stills plus two sample MP4s. Cases include midnight, all-day,
+zero/minimum-flow, split windows and the maximum 12 separate windows. Checks also
+cover the compact time card and Eddy’s canoe staying on the lake surface.

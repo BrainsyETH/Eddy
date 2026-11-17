@@ -1,4 +1,4 @@
-// Check every phrase, river transition and safe-area bound in Chromium.
+// Check schedule copy, card fit, mascot placement and platform bounds in Chromium.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
@@ -45,13 +45,16 @@ try {
     noon: snapshot.hours,
     multiple: Array.from({ length: 24 }, (_, h) => h < 2 || h === 12 || h === 23),
     twelve: Array.from({ length: 24 }, (_, h) => h % 2 === 1),
-    idle: Array(24).fill(false), all: Array(24).fill(true),
+    idle: Array(24).fill(false), minimum: Array(24).fill(false), all: Array(24).fill(true),
+    midnight: Array.from({ length: 24 }, (_, h) => h < 2),
+    four: Array.from({ length: 24 }, (_, h) => [0, 6, 12, 23].includes(h)),
+    mixedMinimum: snapshot.hours,
     long: Array.from({ length: 24 }, (_, h) => h >= 11),
   };
   await mkdir('out/dam-story', { recursive: true });
   for (const platform of ['instagram', 'tiktok']) for (const [name, hours] of Object.entries(patterns)) {
     const id = 'social-dam-schedule';
-    const input = { platform, sample: true, snapshot: { ...snapshot, hours, minimumFlow: name === 'idle' } };
+    const input = { platform, sample: true, snapshot: { ...snapshot, hours, minimumFlow: name === 'minimum' || name === 'mixedMinimum' } };
     await page.evaluateOnNewDocument(input => {
       window.remotion_inputProps = JSON.stringify(input);
       window.remotion_initialFrame = 0; window.remotion_attempt = 1;
@@ -79,7 +82,10 @@ try {
       const result = await page.evaluate(async () => {
         await document.fonts.ready;
         const bounds = el => { const b=el.getBoundingClientRect(); return {left:b.left,top:b.top,right:b.right,bottom:b.bottom}; };
+        const scene = document.querySelector('[data-dam-scene]');
+        const point = (x, y) => { const p = new DOMPoint(x, y).matrixTransform(scene.getScreenCTM()); return { x:p.x, y:p.y }; };
         return {
+          canoe: bounds(document.querySelector('[data-dam-canoe]')), lakeBounds: { left:point(100, 35), right:point(335, 132), surface:point(100, 114) },
           error: window.remotion_cancelledError,
           regions: [...document.querySelectorAll('[data-dam-region]')].map(el => ({ name: el.dataset.damRegion, ...bounds(el) })),
           text: [...document.querySelectorAll('[data-dam-text]')].map(el => { const range=document.createRange(); range.selectNodeContents(el); return {text:el.textContent,...bounds(range),parent:bounds(el.closest('[data-dam-region]'))}; }),
@@ -90,7 +96,8 @@ try {
         };
       });
       assert.ok(!result.error, result.error);
-      assert.ok(result.imageLoaded, 'Eddy logo loads');
+      assert.ok(result.imageLoaded, 'Eddy logo and canoe load');
+      check(result.canoe.left >= result.lakeBounds.left.x && result.canoe.right < result.lakeBounds.right.x && result.canoe.top > result.lakeBounds.left.y && result.canoe.bottom > result.lakeBounds.surface.y && result.canoe.bottom < result.lakeBounds.right.y, `${platform}/${name}: canoe stays on the lake surface`);
       assert.equal(result.hourCount, 24);
       assert.ok(result.text.length >= 12, 'layout assertions must inspect rendered copy');
       const safe = platform === 'instagram' ? { top:250, bottom:1620, left:60, right:1020 } : { top:180, bottom:1500, left:60, right:810 };
@@ -107,14 +114,25 @@ try {
       for (let i=1; i<result.regions.length; i++) check(result.regions[i-1].bottom <= result.regions[i].top, `${platform}/${name}: regions overlap`);
       if (initialCopy === undefined) initialCopy = result.copy;
       assert.equal(result.copy, initialCopy, 'facts remain visible for the whole clip');
-      assert.match(result.copy, /EXAMPLE TIMES/);
-      if (name === 'noon') assert.equal(result.windows, '12–8 PM');
+      assert.match(result.copy, /SAMPLE/);
+      assert.doesNotMatch(result.copy, /hours posted|At the dam|downstream water-level forecast|DESIGN PREVIEW/);
+      if (name === 'noon') {
+        assert.equal(result.windows, 'Noon–8 PM');
+        assert.match(result.copy, /8 hours scheduled/);
+        const card = result.regions.find(region => region.name === 'schedule');
+        check(card.bottom-card.top < 260, `${platform}: single-window card stays compact`);
+      }
+      if (name === 'midnight') assert.equal(result.windows, 'Midnight–2 AM');
+      if (name === 'minimum') { assert.equal(result.windows, 'Only minimum flow scheduled'); assert.doesNotMatch(result.copy, /No generation scheduled|0 hours/); }
+      if (name === 'idle') { assert.equal(result.windows, 'No generation scheduled'); assert.doesNotMatch(result.copy, /0 hours/); }
+      const footer = result.regions.find(region => region.name === 'footer');
+      check(Math.abs(footer.bottom - safe.bottom) < 1, `${platform}: footer uses the safe area's full height`);
       if (frame === 179) await page.screenshot({ path:`out/dam-story/${platform}-${name}.png` });
     }
   }
   assert.deepEqual(errors, []);
   assert.deepEqual([...layoutErrors], []);
-  console.log('Dam story: 12 fixtures × 3 frames; safe bounds, complete windows and static copy passed.');
+  console.log('Dam story: 20 fixtures × 3 frames; safe bounds, complete windows and static copy passed.');
 } finally {
   if (browser) await browser.close();
   if (server) await new Promise(r => server.close(r));

@@ -1,5 +1,7 @@
 import React, { useId } from 'react';
+import { Img, staticFile } from 'remotion';
 import { colors } from '../../../../shared/social-brand';
+import { eddyVariantFile } from '../../components/EddyMascot';
 
 /** Decorative schedule illustration. Fixed lake level; motion never claims live release. */
 export function DamStoryScene({ frame, active }: { frame: number; active: boolean }) {
@@ -10,7 +12,7 @@ export function DamStoryScene({ frame, active }: { frame: number; active: boolea
   const id = useId();
   // The lake is clipped by the same face that outlines the dam: no second,
   // subtly different slope calculation at the water's edge.
-  return <svg viewBox="0 0 720 280" width="100%" height="100%" aria-hidden="true" focusable="false">
+  return <svg data-dam-scene viewBox="0 0 720 280" width="100%" height="100%" aria-hidden="true" focusable="false">
     <defs>
       <clipPath id={`${id}-lake`}><path d="M8 53 H358 L335 233 H8Z" /></clipPath>
       <clipPath id={`${id}-river`}><path d="M478 215 Q540 207 605 216 T712 218 V252 H478Z" /></clipPath>
@@ -21,7 +23,7 @@ export function DamStoryScene({ frame, active }: { frame: number; active: boolea
       <path d="M15 133 Q52 84 103 108 Q150 65 211 107 L281 160" fill={colors.secondary[200]} stroke="none" />
       <path d="M539 153 Q577 119 610 145 Q666 101 709 157 V235 H530Z" fill={colors.secondary[200]} stroke="none" />
       <g fill={colors.secondary[50]}>
-        <path d="M128 51 C114 51 114 34 129 33 C131 14 160 17 162 34 C179 29 188 51 171 51Z" />
+        <path transform="translate(-45 -6)" d="M128 51 C114 51 114 34 129 33 C131 14 160 17 162 34 C179 29 188 51 171 51Z" />
         <path d="M555 68 C543 68 543 53 555 52 C560 36 583 39 585 53 C601 51 607 68 591 68Z" />
       </g>
       <g fill={colors.primary[300]}>
@@ -40,7 +42,11 @@ export function DamStoryScene({ frame, active }: { frame: number; active: boolea
             <path d="M65 142 H92 M103 142 H109 M185 192 H211 M220 192 H227 M262 143 H291" />
           </g>
         </g>
-        
+      </g>
+      <g transform={`translate(0 ${Math.sin(frame * Math.PI / 90) * 1.2}) rotate(${Math.sin(frame * Math.PI / 90) * 0.8} 170 116)`}>
+        <foreignObject x="110" y="45" width="120" height="80">
+          <Img data-dam-canoe alt="" src={staticFile(eddyVariantFile('canoe'))} style={{ width: 120, height: 80, display: 'block' }} />
+        </foreignObject>
       </g>
       <path d="M478 215 Q540 207 605 216 T712 218 V252 H478Z" fill={colors.primary[300]} />
       <path d="M493 241 Q539 229 590 242 T710 242" fill="none" stroke={colors.primary[500]} strokeWidth="10" />

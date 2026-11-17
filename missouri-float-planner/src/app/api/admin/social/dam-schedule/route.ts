@@ -47,12 +47,12 @@ async function handlePOST(request: NextRequest) {
       post_type: 'manual', platform, caption: damStoryCaption(snapshot), hashtags: [],
       media_type: 'video', status: 'rendering', auto_publish: false, render_request: render,
     }).select('id').single();
-    if (error || !data) { results.push({ platform, error: 'Could not save the export.' }); continue; }
+    if (error || !data) { results.push({ platform, error: 'Could not save the video request.' }); continue; }
     const dispatched = await triggerVideoRender({ ...render, postIds: data.id }).catch(() => false);
     if (!dispatched) {
-      await supabase.from('social_posts').update({ status: 'failed', error_message: 'Video render could not start. Generate a new dam export after checking the renderer.' }).eq('id', data.id).eq('status', 'rendering');
+      await supabase.from('social_posts').update({ status: 'failed', error_message: 'Could not create the video. Try again from Dam schedule video.' }).eq('id', data.id).eq('status', 'rendering');
     }
-    results.push({ platform, id: data.id, ...(!dispatched && { error: 'Video render could not start.' }) });
+    results.push({ platform, id: data.id, ...(!dispatched && { error: 'Could not create the video.' }) });
   }
   logAdminAction({ request, action: 'dam_schedule_export', entityType: 'social_post', details: { date: snapshot.scheduleDate, results } });
   return NextResponse.json({ results }, { status: results.some(r => r.id && !r.error) ? 202 : 502 });

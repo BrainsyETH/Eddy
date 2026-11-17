@@ -1,4 +1,4 @@
-import { centralDayKey, hourEndingLabel, nextDayKey, scheduleDayLabel, scheduledGeneration, scheduleIsStale } from './dam-schedule-copy';
+import { centralDayKey, idleScheduleLabel, nextDayKey, scheduleDayLabel, scheduledGeneration, scheduleIsStale, windowLabel } from './dam-schedule-copy';
 import type { DamScheduleDay } from './dam-types';
 
 export const DAM_STORY_COMPOSITION = 'social-dam-schedule';
@@ -24,11 +24,11 @@ export function damStorySnapshot(day: DamScheduleDay | undefined, date: string, 
   if (!day || day.scheduleDate !== date) throw new Error('The generation schedule for this date has not been posted.');
   const checked = Date.parse(day.retrievedAt ?? '');
   if (!Number.isFinite(checked) || checked > now + 300_000 || scheduleIsStale(day.retrievedAt, now)) {
-    throw new Error('The schedule needs a fresh source check before it can be exported. Try again after the next data refresh.');
+    throw new Error('The schedule needs a new check before you can make a video. Try again later.');
   }
   const hours = [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding);
   if (hours.length !== 24 || hours.some((hour, index) => hour.hourEnding !== index + 1 || !Number.isFinite(hour.megawatts) || hour.megawatts < 0)) {
-    throw new Error('The posted schedule is incomplete. A video cannot be generated yet.');
+    throw new Error('The schedule is incomplete. Try again later.');
   }
   return { scheduleDate: date, checkedAt: day.retrievedAt!, hours: hours.map(scheduledGeneration), minimumFlow: hours.some(h => h.minimumFlow === true) };
 }
@@ -44,19 +44,20 @@ export function damStoryWindows(hours: boolean[]): string[] {
     if (!hours[index]) continue;
     const start = index;
     while (index < 23 && hours[index + 1]) index++;
-    if (start === 0 && index === 23) { windows.push('All day'); continue; }
-    const from = hourEndingLabel(start + 1);
-    const to = index === 23 ? 'midnight' : hourEndingLabel(index + 2);
-    const samePeriod = from.slice(-2) === to.slice(-2);
-    windows.push(`${samePeriod ? from.slice(0, -3) : from}–${to}`);
+    windows.push(windowLabel(start + 1, index + 1, { compact: true }));
   }
   return windows;
+}
+
+export function damStorySummary(snapshot: DamStorySnapshot): string {
+  const windows = damStoryWindows(snapshot.hours);
+  return windows.length ? `Scheduled generation: ${windows.join(', ')}` : idleScheduleLabel(snapshot.minimumFlow);
 }
 
 export function damStoryCaption(snapshot: DamStorySnapshot): string {
   const windows = damStoryWindows(snapshot.hours);
   const checked = new Date(snapshot.checkedAt).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
-  return `Table Rock Dam · ${scheduleDayLabel(snapshot.scheduleDate)}\n${windows.length ? `Scheduled generation: ${windows.join(', ')}. Central time.` : 'No generation scheduled.'}${snapshot.minimumFlow ? '\nMinimum flow is also scheduled.' : ''}\nSWPA schedule · Eddy checked ${checked}.\nSchedule can change. This is not a downstream water-level forecast.\nhttps://eddy.guide/dams/${DAM_STORY_ID}`;
+  return `Table Rock Dam · ${scheduleDayLabel(snapshot.scheduleDate)} · ${snapshot.scheduleDate.slice(0, 4)}\n${damStorySummary(snapshot)}.${windows.length ? ' Central time.' : ''}${snapshot.minimumFlow && windows.length ? '\nMinimum flow is also scheduled.' : ''}\nSWPA schedule · Eddy checked ${checked}.\nSchedule can change. Check before you go.\nRiver levels can stay high after generation stops.\nhttps://eddy.guide/dams/${DAM_STORY_ID}`;
 }
 
 export function damStoryRender(snapshot: DamStorySnapshot, platform: DamStoryPlatform) {
