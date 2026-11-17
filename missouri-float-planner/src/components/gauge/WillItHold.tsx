@@ -12,7 +12,6 @@ import {
 interface WillItHoldProps {
   outlook: RiverOutlookState;
   embedded?: boolean;
-  weatherOnlyTitle?: boolean;
   className?: string;
 }
 
@@ -28,7 +27,6 @@ const RAIN_TEXT_STYLES: Record<string, string> = {
 export default function WillItHold({
   outlook,
   embedded = false,
-  weatherOnlyTitle = false,
   className = '',
 }: WillItHoldProps) {
   return (
@@ -40,7 +38,7 @@ export default function WillItHold({
     >
       <div className="flex flex-wrap items-start justify-between gap-2 border-b-2 border-primary-100 px-4 py-3 sm:px-5">
         <div>
-          <h3 id="river-outlook-heading" className="font-heading text-sm font-bold text-neutral-900">{weatherOnlyTitle || !outlook.hasOfficialForecast ? 'Weather' : 'Will it hold?'}</h3>
+          <h3 id="river-outlook-heading" className="font-heading text-sm font-bold text-neutral-900">{outlook.hasOfficialForecast ? 'Forecast' : 'Weather'}</h3>
           <p className="font-sans text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Next 3 days</p>
         </div>
 

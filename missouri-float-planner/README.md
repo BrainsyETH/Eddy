@@ -817,27 +817,35 @@ Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and riv
 
 The Live report reads in this order: selected section/current readings, shared
 river chart, free three-day forecast, then one compact **Eddy’s Read in the app**
-link. Every river uses this layout. The web river report no longer repeats
-blurred Read, Weather or Bottom line prose. The link appears only for an available
+link. Every river uses this layout, including section-selected reports: the
+former free summary sentence is replaced by the link as a deliberate web layout
+decision. Public API summaries and Premium access rules are unchanged. The web
+river report no longer repeats blurred Read, Weather or Bottom line prose. The link appears only for an available
 Read, carries that source’s written time, and opens the selected dam, secondary
 gauge, or primary river in the app. Premium access rules remain unchanged.
 
 A current reading without a recreation ladder leads with the number and quiet
 **Not rated** copy. Missing, stale and flagged observations retain their own
-status; official flood warnings remain visible. Routine publication gaps live
+status; official flood warnings remain visible. Condition verdicts retain the
+river-link flood stage used by Read validation and alerts. Station NWS stages
+still drive the separate safety row and chart. Aligning station and river-link
+stages across verdicts, Read generation/validation and alerts is a follow-up;
+the river page must not introduce its own precedence rule. Routine publication gaps live
 under **Source details**. Gauge-only selectors say **Gauge**; a list mixing dam
 releases and river gauges says **View**, with the source type in each option.
 
 An unrated dam release selection shows that dam’s readings, schedule and history.
 The primary dam panel remains server-rendered; other selected dams load on demand,
-with an isolated loading/error state. Dam context explicitly says **At the dam**;
+with an isolated loading/error state that preserves the known release reading,
+its observation age and trust status. Failed details offer Retry. Dam context explicitly says **At the dam**;
 its schedule is not an arrival prediction downstream. Gauge views keep their own
 location heading and chart, and the existing controlling-dam context (lake level
 stays in the dam view). Additional upstream-dam relationships require verified
 catalog data; they are not inferred from gauge names or roles.
 
-The free outlook covers today and the next two Central calendar days. Tailwaters
-and weather-only outlooks say **Weather · Next 3 days**. Official river heights
+The free outlook covers today and the next two Central calendar days. Weather-only
+outlooks say **Weather · Next 3 days**; a selected station with an official river
+forecast says **Forecast · Next 3 days**, including on tailwaters. Official river heights
 remain in a separate **NWS forecast · daily high** row, with feet and explicit
 missing-day states. Heights never classify the weather or the whole day.
 

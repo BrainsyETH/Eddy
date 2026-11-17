@@ -12,6 +12,7 @@ const out = process.env.RIVER_REPORT_OUTPUT || (process.env.SECTIONS_SMOKE_OUTPU
 const now = Date.now(), hour = 3_600_000;
 const stamp = hours => new Date(now - hours * hour).toISOString();
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(now);
+const dates = [0, 1, 2].map(i => new Date(Date.parse(`${today}T12:00:00Z`) + i * 24 * hour).toISOString().slice(0, 10));
 const metric = (value, unit = 'cfs') => ({ value, unit, at: stamp(0.25), staleness: 'fresh' });
 const dam = {
   id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam', state: 'AR', lakeName: 'Bull Shoals Lake', lat: 36.36, lon: -92.57,
@@ -54,7 +55,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const { ordinary } = await searchParams;
   return <main className="mx-auto max-w-5xl px-4 py-6"><h1 className="font-display text-2xl">{ordinary ? 'Gasconade River' : 'White River'}</h1>
     <div id="gauge-selection-slot" className="my-4" /><h2 className="mb-4 font-display text-xl">Live report</h2>
-    <RiverGaugeDetail riverSlug="white" damControlled={!ordinary} heldDamId={ordinary ? null : context.dam.id}
+    <RiverGaugeDetail riverSlug="white" heldDamId={ordinary ? null : context.dam.id}
       damLead={ordinary ? null : <RiverDamPanel context={context} position="lead" now={${now}} />}
       damFooter={ordinary ? null : <RiverDamPanel context={context} position="footer" now={${now}} />} /></main>;
 }`);
@@ -83,24 +84,26 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       let list = ordinary ? gauges.slice(2).map((g, i) => ({ ...g, name: i === 0 ? 'Gasconade River at Rich Fountain, MO' : 'Gasconade River at Jerome, MO', thresholds: [{ ...threshold, isPrimary: i === 0 }] })) : gauges;
       list = list.map(g => g.usgsSiteId !== '07057370' ? g : { ...g,
         readingAgeHours: mode === 'stale' ? 8 : 0.25, readingSuspect: mode === 'flagged', qualifierNote: mode === 'flagged' ? 'Gauge equipment problem.' : null,
-        dischargeCfs: mode === 'missing' ? null : g.dischargeCfs, gaugeHeightFt: mode === 'missing' ? null : g.gaugeHeightFt });
+        dischargeCfs: mode === 'missing' ? null : g.dischargeCfs, gaugeHeightFt: mode === 'missing' ? null : g.gaugeHeightFt,
+        thresholds: g.thresholds.map(t => ({ ...t, floodStageFt: mode === 'flood' ? 4 : null })) });
+      if (mode === 'error-stale') list = list.map(g => g.provider === 'usace' ? { ...g, readingAgeHours: 8 } : g);
       const gauge = list.find(g => url.pathname.includes(g.usgsSiteId)) ?? list[0];
       if (url.pathname === '/api/gauges') return json({ gauges: list });
       if (url.pathname.endsWith('/history')) return json(history(gauge));
       if (url.pathname.endsWith('/rainfall')) return r.fulfill({ status: 404, body: '{}' });
       if (/\/api\/gauges\/[^/]+$/.test(url.pathname)) return json({ gauge: { ...gauge, siteId: gauge.usgsSiteId, curated: true,
-        timeZone: 'America/Chicago', floodStages: mode === 'flood' ? { actionFt: 3, floodFt: 4, moderateFt: 6, majorFt: 8 } : null,
+        timeZone: 'America/Chicago', floodStages: ['flood', 'station-flood'].includes(mode) ? { actionFt: 3, floodFt: 4, moderateFt: 6, majorFt: 8 } : null,
         waterTemperature: { valueF: 59, observedAt: stamp(0.2), measuredAtName: 'Separate water-quality monitor' }, dissolvedOxygen: null,
         historyCapabilities: { maxInstantDays: 90, supportsDaily: true, supportsCustomRange: true } } });
       if (url.pathname.startsWith('/api/dams/')) {
         if (mode === 'late') { requested(); await held; }
-        if (mode === 'error') return r.fulfill({ status: 503, body: '{}' });
+        if (mode.startsWith('error')) return r.fulfill({ status: 503, body: '{}' });
         return json(mode === 'mismatch' ? dam : norforkDam);
       }
       if (url.pathname.startsWith('/api/dam-update/')) return json({ available: mode !== 'no-read', generatedAt: stamp(url.pathname.includes(norforkDam.id) ? 3 : 2) });
       if (url.pathname.startsWith('/api/gauge-update/') || url.pathname.startsWith('/api/eddy-update/')) return json({ available: mode !== 'no-read', update: { summaryText: 'Private-looking fixture prose must not be rendered here.', generatedAt: stamp(11) } });
-      if (url.pathname.startsWith('/api/weather')) return json({ city: 'Norfork', days: [0, 1, 2].map(i => ({ date: new Date(now + i * 24 * hour).toISOString().slice(0, 10), dayOfWeek: ['Mon', 'Tue', 'Wed'][i], tempHigh: 62, tempLow: 43, conditionIcon: '01d', precipitation: 10, windSpeed: 4, humidity: 50 })) });
-      if (url.pathname.startsWith('/api/usgs/mo-forecast')) return json({ entries: [] });
+      if (url.pathname.startsWith('/api/weather')) return json({ city: 'Norfork', days: dates.map(date => ({ date, dayOfWeek: new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', weekday: 'short' }).format(new Date(`${date}T12:00:00Z`)), tempHigh: 62, tempLow: 43, conditionIcon: '01d', precipitation: 10, windSpeed: 4, humidity: 50 })) });
+      if (url.pathname.startsWith('/api/usgs/mo-forecast')) return json({ entries: mode === 'forecast' ? [{ site_no: '07057370', stages: dates.map(date => ({ dateTime: `${date}T18:00:00Z`, valueFt: 5 })) }] : [] });
       if (url.pathname.endsWith('/visuals')) return json({ byLevel: [], currentCondition: 'unknown' });
       return json({ rivers: [], alerts: [], data: [] });
     });
@@ -151,15 +154,22 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     if (mode === 'flood') await reading.getByText(/flood stage/i).first().waitFor();
     await page.close(); console.log(`PASS ${mode}: status takes precedence over Not rated`);
   }
-  for (const mode of ['error', 'mismatch']) {
+  for (const mode of ['error', 'error-stale', 'mismatch']) {
     const { page } = await pageFor(390, mode); await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption(norforkDam.id);
-    await page.getByText('This dam’s report is unavailable right now.', { exact: true }).waitFor();
+    await page.getByText('Dam details are unavailable right now.', { exact: true }).waitFor();
+    const reading = page.getByRole('group', { name: 'Current gauge reading' });
+    assert(await reading.getByText('3,200 cfs', { exact: true }).isVisible());
+    assert(await page.getByText('Release at the dam', { exact: true }).isVisible());
+    assert(await reading.getByText(mode === 'error-stale' ? 'Last reading' : 'Not rated', { exact: true }).isVisible());
+    assert(await reading.getByText(mode === 'error-stale' ? 'Updated 8h ago' : 'Updated 15m ago', { exact: true }).isVisible());
+    await page.screenshot({ path: `${out}/${mode}-390.png`, fullPage: true });
     assert.equal(await page.getByRole('heading', { name: 'Bull Shoals Dam' }).count(), 0);
-    await page.close(); console.log(`PASS ${mode}: no borrowed dam report`);
+    await page.close(); console.log(`PASS ${mode}: known release and age retained, no borrowed dam report`);
   }
   {
     const { page, release, started } = await pageFor(390, 'late');
     await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption(norforkDam.id); await started;
+    assert(await page.getByRole('group', { name: 'Current gauge reading' }).getByText('3,200 cfs', { exact: true }).isVisible());
     await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption(dam.id); release();
     await page.locator('[data-dam-panel="lead"]').getByRole('heading', { name: 'Bull Shoals Dam' }).waitFor();
     assert.equal(await page.getByRole('heading', { name: 'Norfork Dam' }).count(), 0);
@@ -178,6 +188,28 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await page.getByRole('heading', { name: 'Weather', exact: true }).waitFor();
     assert.equal(await page.locator('[data-river-read]').count(), 0);
     await page.close(); console.log('PASS missing Read does not remove weather');
+  }
+  {
+    const { page } = await pageFor(390, 'station-flood');
+    await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption('07057370');
+    const reading = page.getByRole('group', { name: 'Current gauge reading' });
+    await reading.getByText(/flood stage/i).first().waitFor();
+    assert(await reading.getByText('Not rated', { exact: true }).isVisible());
+    assert.equal(await reading.getByText('Flood', { exact: true }).count(), 0);
+    await page.screenshot({ path: `${out}/station-flood-390.png`, fullPage: true });
+    await page.close(); console.log('PASS station flood warning stays visible without a page-only condition override');
+  }
+  {
+    const { page } = await pageFor(390, 'forecast');
+    await page.getByRole('heading', { name: 'Weather', exact: true }).waitFor();
+    await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption('07057370');
+    await page.getByRole('heading', { name: 'Forecast', exact: true }).waitFor();
+    assert(await page.getByRole('group', { name: 'NWS river forecast, daily high' }).isVisible());
+    await page.screenshot({ path: `${out}/tailwater-forecast-390.png`, fullPage: true });
+    await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption(dam.id);
+    await page.getByRole('heading', { name: 'Weather', exact: true }).waitFor();
+    assert.equal(await page.getByRole('group', { name: 'NWS river forecast, daily high' }).count(), 0);
+    await page.close(); console.log('PASS forecast heading follows selected station data on tailwaters');
   }
   assert.deepEqual(errors, []); console.log(`PASS screenshots: ${out}`);
 } finally { await cleanup(); }

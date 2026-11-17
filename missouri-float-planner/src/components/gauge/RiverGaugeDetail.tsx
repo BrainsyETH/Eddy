@@ -76,8 +76,6 @@ interface RiverGaugeDetailProps {
   damFooter?: React.ReactNode;
   /** The dam those slots describe — the river's controlling dam. */
   heldDamId?: string | null;
-  /** The whole river runs at a dam's release (a dam_tailwater river). */
-  damControlled?: boolean;
   /** Curated hydrological sections; ordinary gauge tabs remain on other rivers. */
   sections?: RiverReportSection[];
   /** Raw registry slug: an unresolved section must never apply to the whole river. */
@@ -89,7 +87,6 @@ export default function RiverGaugeDetail({
   damLead,
   damFooter,
   heldDamId = null,
-  damControlled = false,
   sections = NO_SECTIONS,
   damSectionSlug = null,
 }: RiverGaugeDetailProps) {
@@ -139,7 +136,6 @@ export default function RiverGaugeDetail({
   const activeSiteId = activeGauge?.usgsSiteId ?? null;
   const showDamContext = !damSectionSlug || selectedSection?.sectionSlug === damSectionSlug
     || activeSiteId === heldDamId;
-  const selectedDamControlled = damControlled || selectedSection?.riverType === 'dam_tailwater';
   const sectionSelector = hasSections ? (
     <RiverSectionSelector sections={sections} selectedSlug={selectedSection?.sectionSlug ?? null} onChange={selectSection} />
   ) : null;
@@ -323,20 +319,20 @@ export default function RiverGaugeDetail({
     const result = hasLadder(thresholds)
       ? computeCondition(activeGauge.gaugeHeightFt, thresholds, activeGauge.dischargeCfs)
       : { code: 'unknown' as ConditionCode };
-    // Same flood-stage escalation the gauge-report API applies. Without it the
-    // server could withhold prose for a "dangerous" reading that this page was
-    // still labeling "High".
+    // Use the same river-link stage as server Read validation and alerts.
+    // Station-level NWS stages still drive GaugeSummary's separate safety row;
+    // changing verdict precedence needs to happen across those callers together.
     const code = applyFloodStageOverride(
       result.code,
       activeGauge.gaugeHeightFt,
-      gaugeDetail?.floodStages?.floodFt ?? activeThreshold.floodStageFt,
+      activeThreshold.floodStageFt,
     );
     return {
       code,
       label: getConditionShortLabel(code),
       tailwindColor: getConditionTailwindColor(code),
     };
-  }, [activeGauge, activeThreshold, gaugeDetail?.floodStages?.floodFt]);
+  }, [activeGauge, activeThreshold]);
 
   // A dam's own release with no ladder: the dam leads the card and its Read
   // replaces the river Read. Per TAB, not per river — a downstream USGS gauge
@@ -358,7 +354,9 @@ export default function RiverGaugeDetail({
   });
   const selectedDamLead = damTab
     ? damTab.leadsCard && damLead ? damLead
-      : <SelectedRiverDamPanel key={damTab.damId} damId={damTab.damId} damName={shortenGaugeName(activeGauge?.name ?? 'Dam')} />
+      : <SelectedRiverDamPanel key={damTab.damId} damId={damTab.damId} damName={shortenGaugeName(activeGauge?.name ?? 'Dam')}
+          dischargeCfs={activeGauge?.dischargeCfs ?? null} readingAgeHours={activeGauge?.readingAgeHours ?? null}
+          readingSuspect={activeGauge?.readingSuspect || gaugeDetail?.readingSuspect || false} />
     : null;
   const damLeads = Boolean(selectedDamLead);
 
@@ -625,7 +623,6 @@ export default function RiverGaugeDetail({
           <WillItHold
             key={`outlook-${activeSiteId}`}
             outlook={outlook}
-            weatherOnlyTitle={selectedDamControlled}
             embedded
           />
           <EddyOutlookFooter

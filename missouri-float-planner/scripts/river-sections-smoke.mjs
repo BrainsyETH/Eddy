@@ -194,7 +194,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const rainChartHeight = await page.locator('[data-river-plot]').evaluate(node => node.parentElement.getBoundingClientRect().height);
     assert(rainPlotHeight >= (width >= 1024 ? 384 : 192), 'Rain must preserve the original river plot height');
     assert(Math.abs(rainChartHeight - rainPlotHeight - 84) < 2, 'Rain contributes its own 84px track above the river');
-    const forecastY = await page.getByRole('heading', { name: /^(Will it hold\?|Weather)$/ }).evaluate(node => node.getBoundingClientRect().top + window.scrollY);
+    const forecastY = await page.getByRole('heading', { name: /^(Forecast|Weather)$/ }).evaluate(node => node.getBoundingClientRect().top + window.scrollY);
     assert(firstReadY > forecastY, 'Compact Read follows the free forecast');
     const slider = page.getByRole('slider').first(); await slider.focus(); await page.keyboard.press('End');
     assert.match(await slider.getAttribute('aria-valuetext'), /Rain (upstream|data unavailable)/);
@@ -302,7 +302,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const { page } = await newPage(width, mode);
     await page.goto(`${target}?ordinary=1`);
     const report = page.getByRole('region', { name: "Forecast and Eddy’s Read" });
-    const weather = page.getByRole('region', { name: /^(Will it hold\?|Weather)$/ });
+    const weather = page.getByRole('region', { name: /^(Forecast|Weather)$/ });
     await weather.getByText('Next 3 days', { exact: true }).waitFor();
     if (mode === 'outlook-no-weather') await weather.getByText('Weather unavailable', { exact: true }).first().waitFor();
     else await weather.getByText('27°', { exact: true }).waitFor();
