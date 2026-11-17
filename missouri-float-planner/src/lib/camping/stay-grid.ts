@@ -14,7 +14,7 @@ export function stayGridNights(
     sites.set(night.sourceSiteId, SITE_NIGHT_CODE[night.status]);
     byDate.set(night.date, sites);
   }
-  return result.nights.flatMap((night) => {
+  const grid = result.nights.flatMap((night) => {
     const observed = byDate.get(night.date);
     // Some providers explicitly close an entire facility without publishing units.
     if (!observed?.size)
@@ -57,4 +57,14 @@ export function stayGridNights(
         ]
       : [];
   });
+  // Out-of-season nights carry no site states to project. Zero reservable
+  // sites under `full` is the existing "no reservable sites" night; an
+  // observed night always wins over the marker.
+  const held = new Set(grid.map((night) => night.date));
+  for (const date of result.notReservableNights ?? []) {
+    if (held.has(date)) continue;
+    held.add(date);
+    grid.push({ date, sitesOpen: 0, sitesReservable: 0, status: 'full' });
+  }
+  return grid.sort((a, b) => a.date.localeCompare(b.date));
 }

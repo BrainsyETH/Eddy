@@ -5,6 +5,7 @@ import {
   demandBasis,
   BAND_CUTOFFS,
   type CampingDemand,
+  type DemandWithheld,
 } from '@eddy/conditions/camping-demand';
 import { localDate } from '@eddy/conditions/camping-window';
 import type { CampingOverview } from '@eddy/types';
@@ -46,10 +47,38 @@ export function todayPopularCamping(
     .slice(0, 5);
 }
 
-/** Capacity describes the observed reservable inventory, explained in the legend. */
-export function campingPulseHeadline(demand: CampingDemand): string {
+/** Capacity describes the observed reservable inventory, explained in the legend.
+ * Null when the reading is withheld: the card then shows campingPulseWithheldNote. */
+export function campingPulseHeadline(demand: CampingDemand): string | null {
   const reading = campingPulseReading(demand);
-  return reading ? `At ${reading.label} capacity${demand.riverSlug === null ? ' across the Ozarks' : ''}` : 'Not enough data';
+  return reading ? `At ${reading.label} capacity${demand.riverSlug === null ? ' across the Ozarks' : ''}` : null;
+}
+
+/** Why tonight has no reading, as one plain sentence. A withheld reading is an
+ * ordinary state (off-season, a provider gap), so the card says what happened
+ * instead of leading with a failure headline above rivers that do have data. */
+export function campingPulseWithheldNote(demand: CampingDemand): string | null {
+  if (demand.band !== null || demand.withheld === null) return null;
+  // River rows are filtered to usable readings; keep the shared wording for any other caller.
+  if (demand.riverSlug !== null) return `${demandDetail(demand)}.`;
+  return regionalWithheldNote(demand, demand.withheld);
+}
+
+function regionalWithheldNote(demand: CampingDemand, reason: DemandWithheld): string {
+  switch (reason) {
+    case 'missing_observations':
+    case 'unsized_missing': {
+      const { campgroundsMissing: missing, campgroundsEligible: eligible } = demand;
+      return missing > 0 && missing < eligible
+        ? `No Ozarks-wide reading tonight. ${missing} of ${eligible} campgrounds couldn’t be checked.`
+        : 'No Ozarks-wide reading tonight. Campgrounds couldn’t be checked.';
+    }
+    case 'seasonal_closure': return 'Most tracked campgrounds are closed tonight.';
+    case 'booking_not_open': return 'Booking hasn’t opened yet for most tracked campgrounds.';
+    case 'no_reservable_inventory': return 'Most tracked campgrounds have no reservable sites tonight.';
+    case 'small_sample': return 'Too few reservable sites to rate tonight.';
+    case 'no_tracked_campgrounds': return 'No Recreation.gov campgrounds are tracked yet.';
+  }
 }
 
 /** Reservations do not account for first-come, first-served inventory. */
@@ -120,6 +149,8 @@ export function campingPulseCoverage(demand: CampingDemand): string | null {
 
 /** Speak the same result as the card, including sample scope and reading age. */
 export function campingPulseAccessibilityLabel(demand: CampingDemand, scope: string, now: number): string {
+  const withheld = campingPulseWithheldNote(demand);
+  if (withheld) return `${scope} camping tonight. ${withheld}`;
   return [
     `${scope} camping tonight`,
     campingPulseHeadline(demand),

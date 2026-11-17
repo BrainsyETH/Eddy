@@ -108,6 +108,16 @@ export interface FetchResult {
   nights: DailyAggregate[];
   sites: CampsiteRecord[];
   siteNights: SiteNight[];
+  /**
+   * Nights the provider answered for with the facility's sites but no calendar
+   * on any of them — outside its reservation season. Nothing can be reserved,
+   * and nothing is claimed about whether the campground is open: Buffalo Point
+   * stays open first-come all winter, War Eagle is gated. Stored as a night
+   * with zero reservable sites (never `closed`, never per-site states), so it
+   * is an observation rather than a gap. See recgov.fetchWindow for which
+   * nights qualify.
+   */
+  notReservableNights?: string[];
 }
 
 /** A row of the curated link table, as the adapters need it. */
