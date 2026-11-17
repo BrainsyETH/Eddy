@@ -383,10 +383,22 @@ Eddy rain colors. Phone readouts sit below the plot; the rain header has a real
 
 Approved sites must include the corresponding `riverSlug`. Published map context
 uses that existing river geometry and approved access names inside the basin.
-The shared projection draws the river, labelled gauge and up to three spaced
-place labels; no inferred river line or invented place coordinates. The dry
-swatch is an unfilled surface; unknown coverage is hatched. Context stays out of
-the summary response and loads with the detail.
+The shared projection draws the river and labelled gauge from the published
+coordinates. Web additionally draws up to three place labels. Native uses its
+existing outdoors basemap for geographic context, with a fixed camera matched
+to the rainfall projection and native attribution left unobstructed. If the
+background cannot load, the rainfall SVG remains readable on a neutral surface.
+No inferred river line or invented place coordinates are used. Unknown coverage
+is hatched; only positive amounts receive rain colors. Context stays out of the
+summary response and loads with the detail.
+
+The native dry-state label requires a matching 24-hour map and total, no positive
+map cells, and full coverage within a one-millionth weight-sum tolerance. The
+95% threshold for publishing a numeric estimate is unchanged. Totals with
+incomplete coverage retain a visible missing-data note. Native totals lead the
+detail, with a common ending time only when the periods match; the map always
+identifies its own 24-hour period. Source explanations and hourly history are
+disclosures, with hourly history revealed a day at a time.
 
 Before public activation: replay representative archived wet storms against the
 underlying NOAA product, review basin versions, measure publisher runtime on the

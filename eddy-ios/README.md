@@ -2567,9 +2567,21 @@ default for other callers; shared links retain their requested range. Reviewed
 rain can appear on 24h/7d, adding its own height above the existing river plot, with an independent
 inches scale and a shared cursor. Compare contains the remembered Rain switch;
 tapping Rain upstream opens the existing chart sheet (full screen when expanded).
-The native SVG map, totals and hourly list share data/formatting rules with web.
-Map labels have theme-aware halos. Compact visible timestamps retain full
-VoiceOver labels; a short archive is labelled “Rain record starts…”.
+The rain detail leads with side-by-side 24/72-hour basin averages and a shared
+ending time when both periods match. Its fixed, north-up map reuses the existing
+native outdoors basemap beneath the shared rainfall SVG. Both layers use the
+same Mercator viewport, with space reserved for Mapbox branding and attribution.
+A background failure keeps the area outline and rain visible with a retry; Expo
+Go needs no native map to read the estimates. The map labels only the gauge
+over the basemap, avoiding the former overlapping access labels.
+
+“No rain estimated” requires complete coverage, a matching 24-hour total and
+no positive map cells. Unknown coverage remains hatched; numerical rounding in
+full-coverage weights does not produce a “100% coverage” warning. Rain by hour
+opens the latest 24 records and reveals earlier hours on request. About these
+estimates holds source and coverage explanations. Compact timestamps format
+the date and clock separately for native Intl; a short chart archive remains
+labelled “Rain record starts…”.
 No new native dependency or permission is required.
 
 Eddy's Read follows the chart and precedes the free Will it hold? forecast.
