@@ -1,6 +1,8 @@
--- 20261117190500_eddy_generation_log.sql
+-- 20261117041752_eddy_generation_log.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
+-- Applied to production 2026-11-17 as 20261117041752. Read back afterwards:
+-- 26 columns, RLS enabled with no policies, service_role holds SELECT, INSERT
+-- and DELETE, anon and authenticated hold nothing, and the table is empty.
 --
 -- One row per attempt to write a river Read: what the generator was handed,
 -- what the model returned, and what was published.
@@ -17,8 +19,8 @@
 --
 -- This table is that record. It is evidence, not product: nothing reads it at
 -- request time, and the generator ignores a failed write
--- (src/lib/eddy/generation-log.ts). The code is deployed ahead of this
--- migration and logs one warning per process until the table exists.
+-- (src/lib/eddy/generation-log.ts). Against a database without this table
+-- the generator logs one warning per process and keeps no records.
 --
 -- ── What a row holds ────────────────────────────────────────────────────────
 --   outcome   'model'    the model's text was published

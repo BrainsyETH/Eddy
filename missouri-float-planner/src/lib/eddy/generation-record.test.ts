@@ -165,7 +165,7 @@ test('knowledge blocks are read from what was injected', () => {
 test('every column the application inserts exists in the migration, and no other', () => {
   // The generator swallows a failed insert, so a column that drifted would
   // not fail anything. It would just stop keeping evidence.
-  const sql = readFileSync('supabase/migrations/20261117190500_eddy_generation_log.sql', 'utf8');
+  const sql = readFileSync('supabase/migrations/20261117041752_eddy_generation_log.sql', 'utf8');
   const body = sql.slice(sql.indexOf('create table public.eddy_generation_log ('), sql.indexOf('\n);'));
   const columns = [...body.matchAll(/^ {2}(\w+) /gm)].map((m) => m[1]);
   const row = buildGenerationRecord(capture(), { outcome: 'model', reason: null });

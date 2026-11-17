@@ -17,10 +17,11 @@ export const GENERATION_LOG_RETENTION_DAYS = 180;
 const WRITE_TIMEOUT_MS = 5_000;
 
 /**
- * Set once the table is known to be absent, so one missing migration costs one
- * failed request per process rather than one per target. The code ships ahead
- * of the migration on purpose (the migration is applied by hand, and listed
- * under [pending] until it is); this is what makes that order safe.
+ * Set once the table is known to be absent, so a project without the
+ * migration costs one failed request per process rather than one per target.
+ * Production has had the table since 2026-11-17; this is for a preview or
+ * local database that has not been migrated, where the generator must still
+ * run.
  */
 let tableMissing = false;
 
@@ -41,7 +42,7 @@ export async function recordGeneration(row: GenerationLogRow): Promise<void> {
       tableMissing = true;
       console.warn(
         '[EddyGenLog] eddy_generation_log does not exist; generation records are not being kept. ' +
-          'Apply 20261117190500_eddy_generation_log.sql.',
+          'Apply 20261117041752_eddy_generation_log.sql.',
       );
       return;
     }

@@ -14,7 +14,7 @@
 // decided from the facts). Those are the cases with no other trace.
 //
 // Pure: builds the row, touches no database. generation-log.ts writes it.
-// Columns are defined in 20261117190500_eddy_generation_log.sql, and
+// Columns are defined in 20261117041752_eddy_generation_log.sql, and
 // generation-record.test.ts holds the two in step.
 
 import { createHash } from 'node:crypto';

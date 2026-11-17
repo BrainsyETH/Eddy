@@ -57,7 +57,7 @@ export function auditReport(input: AuditInput): string {
   out.push('');
   if (input.log == null) {
     out.push('GENERATION LOG');
-    out.push('  eddy_generation_log does not exist in this project (migration 20261117190500 not applied).');
+    out.push('  eddy_generation_log does not exist in this project (migration 20261117041752 not applied).');
     out.push('  Fallback causes, raw model output and prompts are not being kept.');
   } else {
     out.push(`GENERATION LOG (last ${input.logDays} days, ${input.log.length} attempts)`);

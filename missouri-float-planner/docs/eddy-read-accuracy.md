@@ -124,8 +124,9 @@ cause in `reason`:
 These are recorded, not yet worded differently for readers: the four
 pre-model causes still publish the same factual fallback.
 
-The table is created by `20261117190500_eddy_generation_log.sql`. Until that
-is applied the generator logs one warning per process and keeps no records.
+The table is created by `20261117041752_eddy_generation_log.sql`. Against a
+database without it the generator logs one warning per process and keeps no
+records.
 Only river and section Reads are recorded; secondary-gauge commentary
 (`generate-gauge-update.ts`) and the statewide summary are not.
 

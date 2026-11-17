@@ -1,6 +1,8 @@
--- 20261117190000_clear_ingest_placeholder_river_notes.sql
+-- 20261117041716_clear_ingest_placeholder_river_notes.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
+-- Applied to production 2026-11-17 as 20261117041716. Before: 16 rows began
+-- with the ingest prefix and 10 held other notes. Read back afterwards: 0 rows
+-- begin with the prefix and the same 10 notes remain.
 --
 -- river_characteristics.river_note is injected into every Eddy's Read prompt
 -- as "Gauge notes:". Until 2026-11-17 scripts/ingestion/ingest-dossier.ts
@@ -13,16 +15,17 @@
 -- that shape, at least 7 of them with `=undefined` for every section.
 --
 -- The ingest no longer writes the column, and the loader
--- (src/lib/rivers/context.ts, via src/lib/eddy/river-note.ts) already drops
--- these strings before a prompt is built, so applying this changes no prompt.
--- What it changes is the stored data: the rows stop looking curated when they
--- are not, and the eddy_knowledge trust check's `river_note_malformed`
--- findings for them close.
+-- (src/lib/rivers/context.ts, via src/lib/eddy/river-note.ts) drops these
+-- strings before a prompt is built. Once that code is deployed this changes
+-- no prompt; it was applied ahead of the deploy, so from the next generation
+-- the sixteen rivers are handed no note instead of the bookkeeping string.
+-- In the stored data the rows stop looking curated when they are not, and the
+-- eddy_knowledge trust check's `river_note_malformed` findings for them close.
 --
 -- Only rows that begin with the ingest's own prefix are touched. A note
 -- somebody wrote by hand cannot match it.
 --
--- Read back after applying: this must return 0.
+-- The read-back query; it must return 0.
 --   SELECT count(*) FROM river_characteristics
 --   WHERE river_note LIKE 'Per-section hydro types:%';
 
