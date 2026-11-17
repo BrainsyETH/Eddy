@@ -1550,7 +1550,11 @@ averages and outdated readings stay labeled; the rack's approximation is
 explained in the info tip and VoiceOver label.
 
 The posted schedule follows the observations, with one publisher/check-time
-row and a single stale warning above the plan. Missing check times stay unknown.
+row above the plan. Its timestamp stays muted through 90 minutes, becomes coral
+after 90 minutes, and red after three hours. Color describes the age of Eddy's
+check; it does not claim SWPA changed the schedule. VoiceOver also reads the age
+of an older check. Missing check times stay unknown and neutral, with no separate
+stale-warning sentence.
 Only an actual upcoming change gets a callout; “No further generation posted”
 is plain text. Minimum flow and continuing generation keep their own wording.
 Each day names its peak once (“Peak 5–9 AM”); flat-output days retain “Scheduled

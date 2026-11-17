@@ -10,7 +10,10 @@ import {
   scheduledChangeSummary,
 } from '@eddy/conditions/dam-generation';
 import {
+  oldestRetrievedAt,
+  relativeAge,
   SCHEDULE_POSTING_NOTE,
+  SCHEDULE_STALE_AFTER_MINUTES,
 } from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -56,6 +59,12 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
   // the label says "Schedule checked". As old as the OLDEST day, because a
   // section is only as fresh as its weakest part.
   const check = scheduleCheckLine(dam.schedule.map(day => day.retrievedAt), now);
+  const oldestCheck = oldestRetrievedAt(dam.schedule);
+  const checkAgeMinutes = oldestCheck ? (now - Date.parse(oldestCheck)) / 60_000 : 0;
+  // Age describes Eddy's last check, not whether SWPA revised the plan.
+  // Unknown checks stay neutral even if another day's timestamp is old.
+  const checkColor = !check?.stale ? colors.textMuted
+    : checkAgeMinutes > SCHEDULE_STALE_AFTER_MINUTES * 2 ? colors.error : colors.accent;
   const details = [
     'Total release includes water leaving the dam through turbines and other outlets. Turbine flow is only the water passing through the generators.',
     ref ? `${generationReferenceCitation(ref)}. ${RACK_ESTIMATE_NOTE}` : null,
@@ -99,14 +108,14 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
       {hasSchedule || scheduleSources.length > 0 ? (
         <View style={hasObserved ? [styles.schedule, { borderTopColor: colors.border }] : undefined}>
           {/* One check time beside the plan it qualifies, including its next
-              change. Unknown times stay unknown; stale checks have a text cue. */}
+              change. The timestamp carries the fact; its color grades age. */}
           {check || scheduleSources.length > 0 ? <View style={styles.sourceRow}>
             <DamSourceLinks links={scheduleSources} compact />
-            {check ? <Text style={[styles.retrieval, { color: colors.textMuted }]}>{check.text}</Text> : null}
+            {check ? <Text
+              style={[styles.retrieval, { color: checkColor }]}
+              accessibilityLabel={check.stale ? `${check.text}. Last checked ${relativeAge(oldestCheck, now)}.` : undefined}
+            >{check.text}</Text> : null}
           </View> : null}
-          {check?.stale ? <Text style={[styles.stale, { color: colors.error }]}>
-            Outdated schedule · may have changed
-          </Text> : null}
           <GenerationSchedule
             schedule={dam.schedule}
             reference={dam.generationReference}
@@ -135,5 +144,4 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   retrieval: { ...t.xs, fontFamily: fonts.body, flexShrink: 1 },
-  stale: { ...t.xs, fontFamily: fonts.medium, marginBottom: 8 },
 });

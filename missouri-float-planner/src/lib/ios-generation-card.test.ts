@@ -22,7 +22,7 @@ function renderCard(dam: DamSnapshot, now = Date.now()) {
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
     'react-native': { View: 'View', Text: 'Text', StyleSheet: { create: (styles: unknown) => styles, hairlineWidth: 1 } },
     '@/theme/layout': { radii: {} },
-    '@/theme/ThemeProvider': { useTheme: () => ({ colors: {}, elevation: () => ({}) }) },
+    '@/theme/ThemeProvider': { useTheme: () => ({ colors: { textMuted: 'muted', accent: 'coral', error: 'red' }, elevation: () => ({}) }) },
     '@/theme/typography': { fonts: {}, type: {} },
     '@eddy/conditions/dam-generation': generation,
     '@eddy/conditions/dam-schedule-copy': scheduleCopy,
@@ -202,7 +202,7 @@ function postedDay(load: (hourEnding: number) => number, minimumFlow = false): D
 }
 const reference = { units: 4, fullGenerationCfs: 15000, schedulingCapacityMw: 230, source: 'SWPA' as const };
 
-test('the native posted plan has one check time and stale warning, with a quiet no-change summary', () => {
+test('the native posted plan grades its single check time by age without claiming the plan changed', () => {
   const day = postedDay(h => h >= 6 && h <= 9 ? 230 : h === 5 || h === 10 ? 115 : 0);
   const dam = { ...floodControl, hasTurbines: true, generationReference: reference, sourceLinks: [corps, swpa], schedule: [day] };
   const content = words(renderCard(dam, scheduleNow).result).replace(/\s+/g, ' ');
@@ -210,7 +210,7 @@ test('the native posted plan has one check time and stale warning, with a quiet 
   assert.doesNotMatch(content, /Next scheduled change/);
   assert.match(content, /Peak 5–9 AM/);
   assert.equal((content.match(/Schedule checked/g) ?? []).length, 1);
-  assert.equal((content.match(/Outdated schedule/g) ?? []).length, 1);
+  assert.doesNotMatch(content, /Outdated schedule|may have changed/);
   assert.match(content, /7:32 PM CST/);
 
   const fresh = words(renderCard({ ...dam, schedule: [{ ...day, retrievedAt: '2026-11-17T02:55:00Z' }] }, scheduleNow).result);
@@ -224,7 +224,24 @@ test('the native posted plan has one check time and stale warning, with a quiet 
     { ...day, scheduleDate: '2026-11-17' },
   ] }, scheduleNow).result);
   assert.match(oldest, /Schedule checked 7:32 PM CST/);
-  assert.equal((oldest.match(/Outdated schedule/g) ?? []).length, 1);
+  assert.doesNotMatch(oldest, /Outdated schedule|may have changed/);
+
+  const checkNode = (schedule: DamScheduleDay[]) => renderCard({ ...dam, schedule }, scheduleNow).nodes.find(node =>
+    node.type === 'Text' && typeof node.props.children === 'string' && node.props.children.startsWith('Schedule check'))!;
+  const color = (node: ReturnType<typeof checkNode>) => Object.assign({}, ...node.props.style as object[]).color;
+  for (const [age, expected] of [[0, 'muted'], [90, 'muted'], [91, 'coral'], [180, 'coral'], [181, 'red']] as const) {
+    const check = checkNode([{ ...day, retrievedAt: new Date(scheduleNow - age * 60_000).toISOString() }]);
+    assert.equal(color(check), expected, `check age ${age} minutes`);
+    if (age > 90) assert.match(String(check.props.accessibilityLabel), /Last checked .+ ago/);
+  }
+  const oldestDay = { ...day, scheduleDate: '2026-11-17', retrievedAt: new Date(scheduleNow - 240 * 60_000).toISOString() };
+  assert.equal(color(checkNode([day, oldestDay])), 'red', 'oldest displayed day determines age');
+  for (const retrievedAt of [null, 'invalid']) {
+    const unknownCheck = checkNode([{ ...day, retrievedAt }, oldestDay]);
+    assert.equal(color(unknownCheck), 'muted', 'an unknown day cannot borrow another day’s age');
+    assert.equal(unknownCheck.props.children, 'Schedule check time unavailable');
+    assert.equal(unknownCheck.props.accessibilityLabel, undefined);
+  }
 });
 
 test('a quieter schedule still distinguishes upcoming changes, minimum flow, flat output and missing hours', () => {
