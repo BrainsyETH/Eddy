@@ -45,7 +45,6 @@ test('a cfs-rated gauge grades discharge, not stage', () => {
  * — new code grades through gradeReading.
  */
 const STILL_GRADING_BY_HAND = new Set([
-  'src/app/api/conditions/[riverId]/route.ts',
   'src/app/api/cron/update-gauges/route.ts',
   'src/components/gauge/GaugeDetailView.tsx',
   'src/components/gauge/RiverGaugeDetail.tsx',

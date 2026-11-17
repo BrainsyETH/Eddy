@@ -338,12 +338,11 @@ test('the backfill stages twelve gauges, leaves everything else alone, and is id
   }
 });
 
-test('the backfill refuses a partial database or a conflicting value, and changes nothing when it does', async () => {
+test('the backfill refuses a conflicting value, and changes nothing when it does', async () => {
   const conflicts: Array<[string, string, RegExp]> = [
     ['a different lid', `UPDATE public.gauge_stations SET nws_lid = 'XXXM7' WHERE usgs_site_id = '07052250'`, /07052250 already carries lid XXXM7/],
     ['a different pairing stage', `UPDATE public.river_gauges SET flood_stage_ft = 12 WHERE gauge_station_id = (SELECT id FROM public.gauge_stations WHERE usgs_site_id = '07186000')`, /07186000 pairing already carries flood stage 12/],
     ['a different station stage', `UPDATE public.gauge_stations SET nwps_flood_stage_ft = 21 WHERE usgs_site_id = '07060500'`, /07060500 station flood stage is 21/],
-    ['an unlinked station', `DELETE FROM public.river_gauges WHERE gauge_station_id = (SELECT id FROM public.gauge_stations WHERE usgs_site_id = '07252000')`, /07252000 is not linked/],
   ];
   for (const [label, damage, message] of conflicts) {
     const db = await backfillDb();
@@ -357,11 +356,35 @@ test('the backfill refuses a partial database or a conflicting value, and change
       await db.close();
     }
   }
-  const partial = await backfillDb();
+});
+
+test('the backfill stages whichever stations exist, so a database built from migrations alone still builds', async () => {
+  // Migrations create only Calico Rock (20260825011543); the other eleven come
+  // from imports. The first version required all twelve or none and failed
+  // that rebuild with "found 1 of 12 stations".
+  const rebuilt = await backfillDb();
   try {
-    await seed(partial, ['07018500', '07058000']);
-    await assert.rejects(partial.exec(backfillSql()), /found 2 of 12 stations/);
+    await seed(rebuilt, ['07060500']);
+    await rebuilt.exec(backfillSql());
+    assert.deepEqual(
+      (await snapshot(rebuilt)).find((r) => (r as { usgs_site_id: string }).usgs_site_id === '07060500'),
+      { usgs_site_id: '07060500', nws_lid: 'CLRA4', station: 19, flood: 19, action: 16, dangerous: 3000, threshold_source: 'editorial' },
+    );
   } finally {
-    await partial.close();
+    await rebuilt.close();
+  }
+
+  // A station present but not yet linked gets its NWS id and no error.
+  const unlinked = await backfillDb();
+  try {
+    await seed(unlinked, ['07018500', '07252000']);
+    await unlinked.exec(`DELETE FROM public.river_gauges WHERE gauge_station_id = (SELECT id FROM public.gauge_stations WHERE usgs_site_id = '07252000')`);
+    await unlinked.exec(backfillSql());
+    const lids = (await unlinked.query(`SELECT usgs_site_id, nws_lid FROM public.gauge_stations WHERE usgs_site_id IN ('07018500', '07252000') ORDER BY 1`)).rows;
+    assert.deepEqual(lids, [{ usgs_site_id: '07018500', nws_lid: 'BYRM7' }, { usgs_site_id: '07252000', nws_lid: 'MLBA4' }]);
+    const staged = (await snapshot(unlinked)).filter((r) => (r as { flood: number | null }).flood === 16);
+    assert.equal(staged.length, 1);
+  } finally {
+    await unlinked.close();
   }
 });

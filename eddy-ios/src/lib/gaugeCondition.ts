@@ -15,7 +15,7 @@
 // the same route ReadingScale takes to threshold-zones.
 
 import type { MapGauge } from '@eddy/types';
-import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
+import { classifyReading } from '@eddy/conditions/condition-ladder';
 import type { ConditionCode } from '@eddy/conditions';
 import { formatReading } from './readingCopy';
 
@@ -61,9 +61,12 @@ export function gaugesForRiver(gauges: MapGauge[], riverSlug: string): MapGauge[
  * Returns 'unknown' — never a colour — in the two cases that matter:
  *
  *   • NO LADDER. A station wired to no river, or to one nobody has rated,
- *     carries a row of nulls. classifyReading answers `too_low` for that (every
- *     band is skipped and the fall-through wins), which would paint a perfectly
- *     healthy river brown. hasLadder is the guard.
+ *     carries a row of nulls, and measurements alone are not a rating.
+ *     classifyReading holds that rule itself, AFTER its flood-stage check: an
+ *     unrated gauge at or above its official flood stage is 'dangerous', as it
+ *     is on the web and in the condition functions. A hasLadder guard here
+ *     used to return first, so White at Calico Rock at 20 ft against its 19 ft
+ *     flood stage read 'unknown' in the app.
  *
  *   • A SUSPECT READING. USGS qualifier codes flag ice-affected, estimated and
  *     sensor-fault values. Those numbers are real enough to display beside a
@@ -71,7 +74,7 @@ export function gaugesForRiver(gauges: MapGauge[], riverSlug: string): MapGauge[
  */
 export function gaugeConditionCode(gauge: MapGauge, riverSlug?: string | null): ConditionCode {
   const link = gaugeLink(gauge, riverSlug);
-  if (!link || !hasLadder(link)) return 'unknown';
+  if (!link) return 'unknown';
   if (gauge.readingSuspect) return 'unknown';
 
   return classifyReading(gauge.gaugeHeightFt, link, gauge.dischargeCfs, {

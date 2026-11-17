@@ -81,9 +81,16 @@
 -- ── Guards ──────────────────────────────────────────────────────────────────
 -- One DO block, so it applies whole or not at all. It refuses to replace a
 -- different lid, a different pairing stage, or a station nwps stage that
--- disagrees with the value here; it requires every station to exist and be
--- linked, unless none exists (an unseeded database, where it does nothing).
--- Re-running it changes nothing.
+-- disagrees with the value here. Re-running it changes nothing.
+--
+-- It stages whichever of the twelve exist, and skips the rest. A database
+-- built from migrations alone holds only Calico Rock (created by
+-- 20260825011543); the other eleven arrive through imports. The version
+-- applied to production also required all twelve or none, which made that
+-- rebuild fail with "found 1 of 12 stations". Completeness is a fact about
+-- production, checked there by reading the twelve pairings back after the
+-- apply, and it is not a condition a rebuild can meet. The writes are
+-- identical for a database that holds all twelve.
 --
 -- ── Effect on apply ─────────────────────────────────────────────────────────
 -- No verdict changes: every gauge reads at least 7.5 ft below its flood stage
@@ -96,7 +103,8 @@ DECLARE
   r record;
   v_station record;
   v_found integer := 0;
-  v_expected integer := 0;
+  v_staged integer := 0;
+  v_rows integer;
   v_links integer;
   v_conflict numeric;
 BEGIN
@@ -116,8 +124,6 @@ BEGIN
       ('07060500', 'CLRA4', 16, 19)
     ) AS t(usgs_site_id, lid, action_ft, flood_ft)
   LOOP
-    v_expected := v_expected + 1;
-
     SELECT gs.id, gs.nws_lid, gs.nwps_flood_stage_ft
       INTO v_station
       FROM public.gauge_stations gs
@@ -140,9 +146,6 @@ BEGIN
       INTO v_links, v_conflict
       FROM public.river_gauges rg
      WHERE rg.gauge_station_id = v_station.id;
-    IF v_links = 0 THEN
-      RAISE EXCEPTION 'flood backfill: % is not linked to a river', r.usgs_site_id;
-    END IF;
     IF v_conflict IS NOT NULL THEN
       RAISE EXCEPTION 'flood backfill: % pairing already carries flood stage %, not %',
         r.usgs_site_id, v_conflict, r.flood_ft;
@@ -157,14 +160,10 @@ BEGIN
            action_stage_ft = r.action_ft
      WHERE gauge_station_id = v_station.id
        AND flood_stage_ft IS NULL;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    v_staged := v_staged + v_rows;
   END LOOP;
 
-  IF v_found = 0 THEN
-    RAISE NOTICE 'flood backfill: none of the % stations exist here; nothing to do', v_expected;
-    RETURN;
-  END IF;
-  IF v_found <> v_expected THEN
-    RAISE EXCEPTION 'flood backfill: found % of % stations', v_found, v_expected;
-  END IF;
+  RAISE NOTICE 'flood backfill: % of 12 stations present, % pairings staged', v_found, v_staged;
 END
 $$;
