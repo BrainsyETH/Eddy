@@ -1914,6 +1914,80 @@ select.input {
   .dam-release-summary { column-gap: 2rem; }
   .dam-turbine-summary { padding-left: 2rem; }
 }
+/* Table Rock's observed-water cutaway: steady HTML readings, decorative SVG. */
+.dam-water-root { display: grid; gap: .5rem; color: var(--color-primary-900); }
+.dam-water-readings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
+.dam-water-level, .dam-water-release { min-width: 0; }
+.dam-water-release .dam-water-label { padding-right: 2.5rem; }
+.dam-water-level { border-right: 1px solid var(--color-neutral-200); padding-right: .75rem; }
+.dam-water-label { font-size: .875rem; line-height: 1.5; font-weight: 600; }
+.dam-water-level-value, .dam-water-release-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -.045em; line-height: 1.3; margin: .2rem 0; }
+.dam-water-level-value { font-size: clamp(1.25rem, 5cqi, 2.5rem); }
+.dam-water-release-value { font-size: clamp(1.5rem, 5.5cqi, 3rem); font-weight: 600; }
+.dam-water-level-value span, .dam-water-release-value span { font-family: var(--font-body); font-size: .8125rem; font-weight: 400; letter-spacing: 0; color: var(--color-neutral-600); }
+.dam-water-note { font-size: .75rem; line-height: 1.6; color: var(--color-neutral-600); }
+.dam-water-outdated { font-size: .75rem; line-height: 1.5; font-weight: 600; color: var(--color-accent-900); }
+.dam-water-figure { margin: 0; min-width: 0; }
+.dam-water-scene { max-width: 860px; margin-inline: auto; }
+.dam-water-drawing { display: block; width: 100%; height: auto; }
+.dam-scene-ink { stroke: var(--color-primary-900); stroke-width: 3.5; }
+.dam-water-reference { fill: none; stroke: var(--color-primary-900); stroke-width: 2; stroke-dasharray: 6 6; }
+.dam-water-caption { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; font-size: .6875rem; color: var(--color-neutral-600); }
+.dam-water-reference-label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .25rem; font-size: .75rem; color: var(--color-primary-900); }
+.dam-water-reference-label::before { content: ''; width: 1rem; border-top: 2px dashed var(--color-primary-700); }
+.dam-water-reference-label strong { font-family: var(--font-mono); font-weight: 500; }
+.dam-water-explore { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.dam-water-explore .dam-water-hotspot { min-height: 44px; padding: .4rem .25rem; gap: .25rem; font-size: .75rem; border: 2px solid var(--color-primary-900); box-shadow: 2px 2px 0 var(--color-primary-900); background: var(--color-secondary-50); color: var(--color-primary-900); white-space: normal; }
+.dam-water-hotspot[aria-expanded="true"] { background: var(--color-primary-200); box-shadow: none; }
+.dam-water-hotspot[aria-expanded="true"] svg { transform: rotate(180deg); }
+.dam-water-hotspot svg { flex-shrink: 0; }
+.dam-water-detail-panel { border: 1px solid var(--color-neutral-300); border-radius: .5rem; padding: .75rem; background: var(--color-secondary-100); font-size: .875rem; }
+.dam-water-detail-panel[hidden] { display: none; }
+.dam-water-detail-panel > * + * { margin-top: .5rem; }
+.dam-water-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-weight: 600; }
+.dam-water-detail-readings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.dam-water-breakdown { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: start; gap: .5rem; border-top: 1px solid var(--color-neutral-200); padding-top: .5rem; font-size: .8125rem; line-height: 1.6; }
+.dam-water-breakdown strong { display: block; font-family: var(--font-mono); font-weight: 500; }
+.dam-water-motion-toggle { justify-self: end; min-height: 44px; min-width: 44px; padding-inline: .25rem; }
+.dam-water-rack { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.dam-water-source { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem 1rem; border-top: 1px solid var(--color-neutral-200); padding-top: .25rem; }
+@container (min-width: 36rem) {
+  .dam-water-readings { padding-inline: 1rem; }
+  .dam-water-label { font-size: 1rem; }
+  .dam-water-explore .dam-water-hotspot { font-size: .875rem; }
+  .dam-water-breakdown { grid-template-columns: 1fr 1fr auto; align-items: start; }
+  .dam-water-breakdown strong { display: inline; margin-left: .4rem; }
+  .dam-water-motion-toggle { grid-column: auto; }
+}
+/* Paired values share a baseline even when one phone label wraps. */
+@container (max-width: 20rem) {
+  .dam-water-readings .dam-water-label, .dam-water-detail-readings .dam-water-label { min-height: 3em; }
+  .dam-water-breakdown > div > span { display: block; min-height: 3.2em; }
+}
+/* Also reflow when a reader enlarges their default text size. */
+@container (max-width: 13rem) {
+  .dam-water-readings, .dam-water-explore, .dam-water-detail-readings { grid-template-columns: 1fr; }
+  .dam-water-breakdown { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dam-water-motion-toggle { grid-column: 1 / -1; }
+  .dam-water-level { border-right: 0; padding-right: 0; }
+  .dam-water-readings .dam-water-label, .dam-water-detail-readings .dam-water-label { min-height: 0; }
+}
+/* Static by default. Only transform animates; no frame loop, layout or dash repaint.
+   Pause persists through clock updates; hidden/offscreen documents also stop. */
+@media (prefers-reduced-motion: no-preference) {
+  .dam-motion { animation-play-state: paused; }
+  .dam-motion-river { animation: dam-water-drift 3s linear infinite paused; }
+  .dam-motion-pipe { animation: dam-water-pipe 2s linear infinite paused; }
+  .dam-motion-spill { animation: dam-water-spill 1.8s linear infinite paused; }
+  .dam-motion-wheel { transform-origin: 400px 199px; animation: dam-water-spin 8s linear infinite paused; }
+  .dam-water-root[data-motion="running"] .dam-motion { animation-play-state: running; }
+  .dam-water-root[data-level-motion="allowed"] .dam-water-level-shift { transition: transform 600ms ease-out; }
+}
+@keyframes dam-water-drift { to { transform: translateX(112px); } }
+@keyframes dam-water-pipe { to { transform: translateX(40px); } }
+@keyframes dam-water-spill { to { transform: translateY(30px); } }
+@keyframes dam-water-spin { to { transform: rotate(360deg); } }
+
 .dam-timeline-axis { container-type: inline-size; }
 /* The closing midnight repeats the opening label; keep all 24 hours and the
    interactive readout while dropping that label when the plot is narrow. */

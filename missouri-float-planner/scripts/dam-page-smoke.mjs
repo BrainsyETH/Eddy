@@ -589,6 +589,9 @@ export default function Page() {
     await page.goto('https://eddy.guide/app?dam=unknown', { waitUntil: 'networkidle' });
     assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Know the river before you go.');
     assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/reports(?:,|$)/);
+    // The preceding dam pages can legitimately record their own Read views.
+    // Start this fixture's one-impression check with its own event collection.
+    events.length = 0;
     // Actual shared components, no production plan writes or native launches.
     await page.goto('https://eddy.guide/dam-layout-check/promotions?ct=partner_guide', { waitUntil: 'networkidle' });
     await page.waitForFunction(() => document.querySelector('[data-ga-label="fixture_generic"]')?.href.startsWith('https://apps.apple.com/'));

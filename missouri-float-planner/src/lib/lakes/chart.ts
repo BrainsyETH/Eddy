@@ -9,6 +9,7 @@
 // nowhere near. When the reference falls outside, the renderer says where it is
 // in words instead of drawing it.
 
+import { tableRockPoolReferencePoints } from '@shared/lake-pool-reference';
 import { niceValueTicks, timeTicks, type ChartTick } from '@shared/chart-model';
 
 export interface LakeChartPoint {
@@ -24,8 +25,9 @@ export interface LakeChartModel {
   maxFt: number;
   valueTicks: ChartTick[];
   timeTicks: ChartTick[];
-  /** The conservation pool's 0–1 position on the value axis, when it is drawn. */
-  referencePosition: number | null;
+  /** Seasonal samples follow each historical date, including ramp days. */
+  referencePoints: LakeChartPoint[];
+  referenceLabel: string | null;
   /** Why the reference is not drawn, when it is not. */
   referenceNote: string | null;
 }
@@ -44,7 +46,7 @@ const PAD_FT = 0.25;
 
 export function lakeChartModel(
   history: Array<[string, number]>,
-  options: { conservationFt?: number; now: number; days?: number; valueTickTarget?: number },
+  options: { seasonalPool?: boolean; conservationFt?: number; now: number; days?: number; valueTickTarget?: number },
 ): LakeChartModel | null {
   const points = history
     .map(([iso, ft]) => ({ t: Date.parse(iso), ft }))
@@ -58,21 +60,32 @@ export function lakeChartModel(
   const dataMax = Math.max(...points.map((p) => p.ft));
   let minFt = dataMin - PAD_FT;
   let maxFt = dataMax + PAD_FT;
-  let referencePosition: number | null = null;
   let referenceNote: string | null = null;
-  const ref = options.conservationFt;
-  if (ref !== undefined) {
+  const ref = options.seasonalPool ? undefined : options.conservationFt;
+  let referencePoints: LakeChartPoint[] = [];
+  if (options.seasonalPool) {
+    referencePoints = tableRockPoolReferencePoints(t0, t1);
+  } else if (ref !== undefined && Number.isFinite(ref)) {
+    referencePoints = [{ t: t0, ft: ref }, { t: t1, ft: ref }];
+  }
+  let referenceLabel: string | null = null;
+  if (referencePoints.length) {
+    const low = Math.min(...referencePoints.map(p => p.ft));
+    const high = Math.max(...referencePoints.map(p => p.ft));
+    const digits = options.seasonalPool ? 1 : 0;
+    const level = low === high ? low.toFixed(digits) : `${low.toFixed(digits)}–${high.toFixed(digits)}`;
+    referenceLabel = `${options.seasonalPool ? 'Seasonal' : 'Conservation'} pool ${level} ft`;
     const reach = referenceReachFt(dataMax - dataMin);
-    const near = ref >= dataMin - reach && ref <= dataMax + reach;
+    const near = low >= dataMin - reach && high <= dataMax + reach;
     if (near) {
-      minFt = Math.min(minFt, ref - PAD_FT);
-      maxFt = Math.max(maxFt, ref + PAD_FT);
+      minFt = Math.min(minFt, low - PAD_FT);
+      maxFt = Math.max(maxFt, high + PAD_FT);
     } else {
-      const gap = ref < dataMin ? dataMin - ref : ref - dataMax;
-      const gapText = gap < 10 ? gap.toFixed(1) : gap.toFixed(0);
-      referenceNote = ref < dataMin
-        ? `Conservation pool ${ref.toFixed(0)} ft is ${gapText} ft below this week's range`
-        : `Conservation pool ${ref.toFixed(0)} ft is ${gapText} ft above this week's range`;
+      const gap = high < dataMin ? dataMin - high : low > dataMax ? low - dataMax : null;
+      const gapText = gap === null ? null : gap < 10 ? gap.toFixed(1) : gap.toFixed(0);
+      referenceNote = gapText === null ? `${referenceLabel} extends outside this week's range`
+        : `${referenceLabel} is ${gapText} ft ${high < dataMin ? 'below' : 'above'} this week's range`;
+      referencePoints = [];
     }
   }
   const ticks = niceValueTicks(minFt, maxFt, options.valueTickTarget ?? 3);
@@ -80,7 +93,6 @@ export function lakeChartModel(
     minFt = Math.min(minFt, ticks[0].value);
     maxFt = Math.max(maxFt, ticks[ticks.length - 1].value);
   }
-  if (ref !== undefined && referenceNote === null) referencePosition = (ref - minFt) / (maxFt - minFt);
   return {
     points,
     t0,
@@ -89,7 +101,8 @@ export function lakeChartModel(
     maxFt,
     valueTicks: ticks.map((tick) => ({ value: tick.value, position: (tick.value - minFt) / (maxFt - minFt) })),
     timeTicks: timeTicks(t0, t1, 4),
-    referencePosition,
+    referencePoints,
+    referenceLabel,
     referenceNote,
   };
 }

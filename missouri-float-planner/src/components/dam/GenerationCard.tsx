@@ -8,13 +8,17 @@ import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import DamAppCTA from './DamAppCTA';
 import DamSourceLink from './DamSourceLink';
+import DamWaterIllustration from './DamWaterIllustration';
+import type { LakeSection } from '@shared/lake-types';
+import { hasDamWaterIllustration } from '@/lib/dam-water-illustration';
 
 export type ScheduleAvailability = Pick<FullScheduleAvailability, 'title' | 'detail'>;
 
-export default function GenerationCard({ dam, now, availability }: {
+export default function GenerationCard({ dam, now, availability, lake }: {
   dam: DamSnapshot;
   now: number;
   availability: ScheduleAvailability;
+  lake?: LakeSection | null;
 }) {
   const hasSchedule = dam.schedule.length > 0;
   const release = dam.metrics.release;
@@ -26,7 +30,9 @@ export default function GenerationCard({ dam, now, availability }: {
   const readingsSource = dam.sourceLinks?.find(link => link.kind === 'readings');
   const scheduleSource = dam.sourceLinks?.find(link => link.kind === 'schedule');
   const observed = hasObserved && <div className="dam-observed min-w-0 p-4 sm:p-6">
-    <DamGenerationHero dam={dam} now={now} source={readingsSource && <DamSourceLink link={readingsSource} />} />
+    {hasDamWaterIllustration(dam)
+      ? <DamWaterIllustration dam={dam} now={now} lake={lake} source={readingsSource && <DamSourceLink link={readingsSource} />} />
+      : <DamGenerationHero dam={dam} now={now} source={readingsSource && <DamSourceLink link={readingsSource} />} />}
   </div>;
   const orphanReadingsSource = hasObserved ? undefined : readingsSource;
   const scheduleSources = (orphanReadingsSource || scheduleSource) ? <>

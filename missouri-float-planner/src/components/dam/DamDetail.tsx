@@ -10,6 +10,7 @@ import LakePreview from '@/components/lake/LakePreview';
 import type { LakeSection } from '@shared/lake-types';
 import { damHasRead } from '@/lib/eddy/dam-read-dams';
 import { useDamPageClock } from './useDamPageClock';
+import { hasDamWaterIllustration } from '@/lib/dam-water-illustration';
 
 /** The server snapshot renders immediately; clocks and RSC refreshes enhance it. */
 export default function DamDetail({ dam, renderedAt, availability, lake, lakeHref, lakeExperienceEnabled = false }: {
@@ -26,13 +27,14 @@ export default function DamDetail({ dam, renderedAt, availability, lake, lakeHre
   // including immediately on return from a hidden tab across an hour boundary.
   const { now, refreshing } = useDamPageClock(renderedAt);
   const { poolElevation, tailwaterElevation, tailwaterTempF, inflow } = dam.metrics;
-  const hasMeasurements = Boolean(poolElevation || tailwaterElevation || tailwaterTempF || inflow || dam.tailwaterFishery);
+  const illustrated = hasDamWaterIllustration(dam);
+  const hasMeasurements = !illustrated && Boolean(poolElevation || tailwaterElevation || tailwaterTempF || inflow || dam.tailwaterFishery);
   // Optional lake data only controls the lake preview. Every dam keeps the
   // same schedule, observed readings and interpretation order.
   const pilot = lakeExperienceEnabled && Boolean(lake);
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
-      <GenerationCard dam={dam} now={now} availability={availability} />
+      <GenerationCard dam={dam} now={now} availability={availability} lake={pilot ? lake : undefined} />
       {hasMeasurements && <DamStateCard dam={dam} secondary now={now} lakePool={pilot ? lake?.pool : undefined} />}
       {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}

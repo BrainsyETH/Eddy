@@ -10,6 +10,7 @@ on:
       - 'missouri-float-planner/src/app/lakes/**'
       - 'missouri-float-planner/src/app/globals.css'
       - 'missouri-float-planner/src/lib/lakes/**'
+      - 'missouri-float-planner/src/lib/dam-water-illustration*'
       - 'missouri-float-planner/shared/dam-*.ts'
       - 'missouri-float-planner/shared/lake-*.ts'
       - 'missouri-float-planner/public/lakes/**'

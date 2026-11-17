@@ -29,11 +29,11 @@ test('the section carries the pool with a live staleness band, its position, the
   assert.equal(section.pool?.valueFt, 916.4);
   assert.equal(section.pool?.staleness, 'stale', 're-banded on the serving clock, not the frozen wire band');
   assert.equal(section.pool?.daily, undefined, 'an hourly lake does not say daily');
-  assert.equal(section.poolPosition, 'within_operating_range');
+  assert.equal(section.poolPosition, 'below_conservation');
   assert.equal(section.change24hFt, 0.12);
   assert.equal(section.change7dFt, 0.84);
   assert.equal(section.history.length, 6, 'the wire window is seven days back from the serving clock, which the 167–169 h points fall outside');
-  assert.equal(section.operatingRange?.conservationFt, 915);
+  assert.equal(section.operatingRange?.conservationFt, 917);
   assert.equal(section.cautionsVerified, false);
   assert.ok(section.sources.includes('Eddy pool record'));
   assert.equal(lakeSectionHasContent(section), true);
@@ -106,4 +106,21 @@ test('unreviewed thresholds never leave the server; reviewed cautions also requi
 
   const linked = buildLakeSection({ lake: truman, pool: dayOld, history: [], launches: [row({ access_point_id: 'ap-1', access_point: { slug: 'romp-hole-access', river_slug: 'kings-river', state: 'AR' } })], now: NOW });
   assert.deepEqual(linked.launches[0].accessPoint, { slug: 'romp-hole-access', riverSlug: 'kings-river', state: 'AR' });
+});
+
+// API and web must resolve the same reference for the same observation.
+test('seasonal operating range and classification travel together on the API', () => {
+  for (const [at, ft, reference, position] of [
+    ['2026-07-01T12:00:00Z', 916, 917, 'below_conservation'],
+    ['2026-07-01T12:00:00Z', 918, 917, 'within_operating_range'],
+    ['2026-07-01T12:00:00Z', 932, 917, 'above_flood'],
+    ['2026-12-01T06:15:00Z', 916.5, 916, 'within_operating_range'],
+    ['2026-12-01T06:30:00Z', 916, 915, 'within_operating_range'],
+    ['2026-01-01T12:00:00Z', 916, 915, 'within_operating_range'],
+  ] as const) {
+    const section = buildLakeSection({ lake: LAKES['table-rock'], pool: { value: ft, at, unit: 'ft', staleness: 'fresh' }, history: [], launches: [], now: NOW });
+    assert.equal(section.operatingRange?.conservationFt, reference);
+    assert.equal(section.poolPosition, position);
+  }
+  assert.equal(LAKES['table-rock'].operatingRange?.conservationFt, 915, 'resolving never mutates the registry');
 });
