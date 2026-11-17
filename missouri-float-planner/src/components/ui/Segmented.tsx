@@ -38,6 +38,9 @@ export interface SegmentedProps<T extends string | number> {
   value: T;
   onChange: (value: T) => void;
   size?: 'sm' | 'md';
+  /** Quiet inset track for chart controls; other surfaces retain their outline. */
+  variant?: 'outline' | 'soft';
+  trailing?: ReactNode;
   /** Equal-width choices that fit a narrow preference panel. */
   stretch?: boolean;
   'aria-label'?: string;
@@ -49,12 +52,14 @@ export default function Segmented<T extends string | number>({
   value,
   onChange,
   size = 'sm',
+  variant = 'outline',
+  trailing,
   stretch = false,
   className,
   'aria-label': ariaLabel,
 }: SegmentedProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className={cx('segmented', size === 'md' && 'segmented--md', stretch && 'segmented--stretch', className)}>
+    <div role="group" aria-label={ariaLabel} className={cx('segmented', size === 'md' && 'segmented--md', variant === 'soft' && 'segmented--soft', stretch && 'segmented--stretch', className)}>
       {options.map((option) => (
         <button
           key={String(option.value)}
@@ -70,6 +75,7 @@ export default function Segmented<T extends string | number>({
           {option.label}
         </button>
       ))}
+      {trailing}
     </div>
   );
 }

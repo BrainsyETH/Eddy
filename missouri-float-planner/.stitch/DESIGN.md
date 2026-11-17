@@ -206,6 +206,7 @@ variant here and in the CSS, not a one-off class string.
 | **Ghost** | Transparent | None | None | 4px rounded | Hover: Neutral-100 fill, primary text. |
 | **Icon** | White surface | 2px solid Neutral 200 | None | 6px rounded, 40×40px | Hover: Primary-50 fill, primary border. |
 | **Outline** | White surface | 1px solid Neutral 300 | None | 8px rounded | Hover: Neutral-50 fill. The neutral chip for small controls on data surfaces (Expand, Zoom, Export). |
+| **Control** | Neutral 100 | Transparent | None | 8px rounded | Quiet chart toolbar action; 36px desktop, 50px touch to match the padded date/unit track. Pressed toggles use Primary 500 with white text and a check. |
 
 **Sizes:** `sm` (0.25rem 0.75rem, 12px), `md` (each variant's own default), `lg`
 (1rem 2rem, 18px). Sizes change the box only, never colour or curve. Icon buttons
@@ -221,6 +222,13 @@ inset, because the group clips overflow. Render with `<Segmented>`.
 Use `<Segmented stretch>` for equal-width choices in a narrow preference panel.
 It keeps 44px targets and compact horizontal padding so labels and vessel glyphs
 remain inside their buttons at 320px viewport widths.
+
+Report charts use `<Segmented variant="soft">`: a Neutral-100 inset track,
+3px padding, 2px gaps, and rounded options without an outer outline. Dates and
+units share this treatment. Custom dates are the trailing disclosure in the
+date group. The full date selector wraps into two rows of three below 480px.
+`ControlPopover` holds secondary chart settings and share actions, keeps focus
+inside an expanded chart, and closes on Escape, outside interaction or resize.
 
 ### Map layer rows
 

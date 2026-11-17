@@ -95,3 +95,13 @@ dialog offers the same full controls and returns focus on close. Provider limits
 sampling declarations, forecast/condition semantics and keyboard scrubbing stay
 in force. Making longer presets visible does not prefetch a year of data;
 their history loads when selected. iOS is unchanged.
+
+## Chart controls revision — 2026-11-16
+
+Dates and units use the same quiet segmented styling. Custom is part of the
+date group; Rain remains visible. Scale, typical range, median and last-year
+comparison live under Options. The standalone Zoom in button is removed;
+pointer/touch brush zoom and its conditional Reset zoom remain. The footer
+groups Share and the collapsed data table. Share contains Copy chart link,
+Preview share image (USGS only), and Download CSV for every supported source.
+Mobile retains Expand and its existing range/state behavior. This is web-only.

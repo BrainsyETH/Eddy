@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
-import { area, bboxPolygon, featureCollection, intersect, multiPolygon, toMercator, toWgs84 } from '@turf/turf';
+import { area, bboxPolygon, featureCollection, intersect, multiPolygon, point, toMercator, toWgs84 } from '@turf/turf';
 import type { MultiPolygon, Polygon } from 'geojson';
-import { normalizeRain, rainAmount, rainAt, rainBars, rainReadout, rainMaximum, rainHistoryStart, RAIN_HOUR, type RainSummary } from '@shared/rainfall';
+import { normalizeRain, rainAmount, rainAt, rainBars, rainReadout, rainMaximum, rainHistoryStart, rainCoverageIncomplete, rainMapState, RAIN_HOUR, type RainDetail, type RainSummary } from '@shared/rainfall';
 import { chartShortStamp } from '@shared/chart-calendar';
 import { normalizeRainDetail, rainfallMap } from '@shared/rainfall-map';
 import { distinctReadContext, readPreview } from '@shared/read-presentation';
@@ -117,6 +117,43 @@ test('public rain needs the flag, both evidence folders and a listed station; no
     if (original === undefined) delete process.env.RAINFALL_PUBLIC_ENABLED; else process.env.RAINFALL_PUBLIC_ENABLED = original;
   }
 });
+
+test('native basemap and rainfall share the exact viewport at phone and landscape sizes', () => {
+  const detail: RainDetail = { ...summary, boundary: multiPolygon([[[[-91.6, 37], [-91.3, 37], [-91.3, 37.3], [-91.6, 37.3], [-91.6, 37]]]]), shading: null };
+  for (const width of [286, 356, 812]) {
+    const height = 260, bottomInset = 36;
+    const map = rainfallMap(detail, width, height, bottomInset);
+    const [east, north] = toMercator(point(map.bounds.ne)).geometry.coordinates;
+    const [west, south] = toMercator(point(map.bounds.sw)).geometry.coordinates;
+    const screen = (coordinates: number[]) => {
+      const [x, y] = toMercator(point(coordinates)).geometry.coordinates;
+      return [(x - west) / (east - west) * width, (north - y) / (north - south) * height];
+    };
+    const gauge = screen(detail.basin.gauge);
+    assert.ok(Math.abs(gauge[0] - map.gauge.x) < 0.001);
+    assert.ok(Math.abs(gauge[1] - map.gauge.y) < 0.001);
+    for (const coordinate of detail.boundary.geometry.coordinates.flat(2)) {
+      const [x, y] = screen(coordinate);
+      assert.ok(x >= 19.999 && x <= width - 19.999);
+      assert.ok(y >= 19.999 && y <= height - bottomInset - 19.999, 'data leaves native attribution unobstructed');
+    }
+  }
+});
+
+test('a dry map needs matching complete coverage and no wet cells, including trace rain', () => {
+  const total = { ...summary.totals[0], inches: 0, coverage: 0.9999998085751326 };
+  const detail: RainDetail = { ...summary, totals: [total], boundary: multiPolygon([[[[-91.6, 37], [-91.3, 37], [-91.3, 37.3], [-91.6, 37]]]]),
+    shading: { start: total.start, end: total.end, xmin: 0, ymax: 1, dx: 1, dy: 1, width: 3, height: 1, inches: [0, 0, null] } };
+  assert.equal(rainCoverageIncomplete(total.coverage), false, 'floating point weight sum is full coverage');
+  assert.equal(rainMapState(detail), 'dry', 'null grid cells outside the basin do not erase full basin coverage');
+  assert.equal(rainMapState({ ...detail, totals: [{ ...total, coverage: 0.999 }] }), 'partial');
+  assert.equal(rainMapState({ ...detail, totals: [{ ...total, inches: null }] }), 'partial');
+  assert.equal(rainMapState({ ...detail, totals: [{ ...total, end: new Date(end - RAIN_HOUR).toISOString() }] }), 'partial');
+  assert.equal(rainMapState({ ...detail, shading: { ...detail.shading!, inches: [0, 0.0001, null] } }), 'wet');
+  assert.equal(rainMapState({ ...detail, shading: { ...detail.shading!, inches: [null, null, null] } }), 'unavailable');
+  assert.equal(rainMapState({ ...detail, shading: null }), 'unavailable');
+  assert.equal(rainMapState({ ...detail, status: 'unavailable' }), 'unavailable');
+});
 test('a compact Read preserves decimals and leaves longer context reachable', () => {
   const read = 'The gauge is at 3.82 ft. It is easing down. Rain upstream is still worth watching.';
   assert.equal(readPreview(read), 'The gauge is at 3.82 ft. It is easing down.');
@@ -145,6 +182,17 @@ test('short history is explained without erasing gaps; compact dates retain stat
   assert.equal(chartShortStamp('2026-11-11T22:00:00Z', 'America/Chicago', end), 'Nov 11 · 4 PM CST');
   assert.equal(chartShortStamp('2025-11-11T22:30:00Z', 'America/Chicago', end), 'Nov 11, 2025 · 4:30 PM CST');
   assert.equal(chartShortStamp('2026-07-11T22:00:00Z', 'America/Chicago', end), 'Jul 11 · 5 PM CDT');
+});
+
+test('compact timestamps retain the clock when native Intl omits time parts from combined dates', t => {
+  const original = Intl.DateTimeFormat.prototype.formatToParts;
+  t.mock.method(Intl.DateTimeFormat.prototype, 'formatToParts', function (this: Intl.DateTimeFormat, value: number) {
+    const parts = original.call(this, value);
+    const options = this.resolvedOptions();
+    return options.year && options.hour ? parts.filter(part => !['hour', 'minute', 'dayPeriod', 'timeZoneName'].includes(part.type)) : parts;
+  });
+  assert.equal(chartShortStamp('2026-11-16T23:00:00Z', 'America/Chicago', end), 'Nov 16 · 5 PM CST');
+  assert.equal(chartShortStamp('2026-11-16T23:35:00Z', 'America/Chicago', end), 'Nov 16 · 5:35 PM CST');
 });
 
 function withNodata(bytes: Uint8Array, raw: string) {

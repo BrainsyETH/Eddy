@@ -1,10 +1,12 @@
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
-function formatter(timeZone: string, kind: 'date' | 'parts' | 'stamp' | 'stampDate') {
+function formatter(timeZone: string, kind: 'date' | 'parts' | 'stamp' | 'stampDate' | 'clock') {
   const key = `${timeZone}:${kind}`;
   let value = formatterCache.get(key);
   if (!value) {
     const options: Intl.DateTimeFormatOptions =
-      kind === 'date' || kind === 'parts'
+      kind === 'clock'
+        ? { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }
+        : kind === 'date' || kind === 'parts'
         ? {
             year: 'numeric',
             month: '2-digit',
@@ -66,10 +68,13 @@ export function chartStamp(time: string | number, timeZone: string, dateOnly = f
 export function chartShortStamp(time: string | number, timeZone: string, now = Date.now()): string {
   const value = typeof time === 'number' ? time : Date.parse(time);
   if (!Number.isFinite(value)) return 'Unavailable';
-  const parts = formatter(timeZone, 'stamp').formatToParts(value);
+  // Format date and clock separately. Some native Intl implementations omit
+  // clock parts from a combined date/time formatter, leaving a dangling colon.
+  const parts = formatter(timeZone, 'stampDate').formatToParts(value);
   const get = (key: string) => parts.find(p => p.type === key)?.value ?? '';
-  const year = formatter(timeZone, 'parts').formatToParts(now).find(p => p.type === 'year')?.value;
-  return `${get('month')} ${get('day')}${get('year') === year ? '' : `, ${get('year')}`} · ${get('hour')}${get('minute') === '00' ? '' : `:${get('minute')}`} ${get('dayPeriod')} ${get('timeZoneName')}`;
+  const year = formatter(timeZone, 'stampDate').formatToParts(now).find(p => p.type === 'year')?.value;
+  const clock = formatter(timeZone, 'clock').format(value).replace(/[\u00a0\u202f]/g, ' ').replace(/:00(?=\s)/, '');
+  return `${get('month')} ${get('day')}${get('year') === year ? '' : `, ${get('year')}`} · ${clock}`;
 }
 
 export function stationDayWindow(from: string, to: string, timeZone: string) {

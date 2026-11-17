@@ -392,9 +392,13 @@ Section screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SM
 
 ## River and gauge history
 
-Desktop reports (1024px and wider) show the full chart tools inline: all supported
-history ranges, Custom dates, comparison, zoom, CSV export, and a collapsed data
-table. Mobile web keeps Expand, preserving the selected range and units on open
+Desktop reports (1024px and wider) show all supported history ranges and Custom
+dates in one segmented control, with matching units beside the title. Rain stays
+visible; Options holds scale, typical range, median and last-year comparison.
+Dragging the plot still zooms, with Reset zoom shown only when needed; there is
+no separate Zoom in button. Share beside the collapsed data table offers Copy
+chart link, Preview share image (USGS), and Download CSV (all sources).
+Mobile web keeps Expand, preserving the selected range and units on open
 and close. A selected long or custom range stays highlighted in the compact
 control. Resizing to desktop closes the dialog until the next Expand tap.
 Both layouts share `GaugeHistoryChart`; iOS is unchanged. See
@@ -451,6 +455,23 @@ The header keeps only Share, with its icon, native touch sharing, and desktop
 copy feedback. The bottom phone action reads “Release Line: [number]”.
 Framed cards keep the brand's border and offset shadow without moving charts on hover. This layout
 does not infer downstream arrival times or add an AI conditions assessment.
+
+Each half of the generation card links to its publisher's own page: the source
+of the readings under the measured release, and SWPA's schedule index beside
+the schedule's check time (stacked, left-aligned, when they do not fit one
+row). A link under a reading is attribution, so it names whoever published the
+numbers shown: the Corps' per-project page on water.usace.army.mil for dams
+read from CWMS, and Ameren's reports for Bagnell and Truman. Truman is a Corps
+dam with Ameren-reported readings, so the Corps page is offered separately with
+the page's other onward links, never under the readings. The links open in a
+new tab on web and the in-app browser on iOS. They are registry facts sent on
+the dam payload as `sourceLinks`, so they appear even when a read fails and a
+moved page is fixed by a deploy rather than an app release; a payload without
+them draws no link. On iOS a dam with no generation card on screen (a
+flood-control project, or any dam that arrived with nothing) shows its links
+below the cards instead. Each Corps dam declares its page as `usaceWaterPage`
+in the registry. That site answers 200 for any path, so run
+`npx tsx scripts/check-dam-source-links.ts` after adding or changing one.
 
 Bull Shoals links to `/dams/swl-bull-shoals-dam/release-timing`, a findings
 page on how long measured release increases took to reach the USGS gauge near

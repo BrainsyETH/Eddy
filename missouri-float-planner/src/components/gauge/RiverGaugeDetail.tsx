@@ -610,7 +610,7 @@ export default function RiverGaugeDetail({
             range.kind === 'custom' ? 'custom' : rangeLabelForDays(range.days),
           )}
           onExpand={() => trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
-          help={<InfoTip title={CFS_EXPLAINER.title} body={CFS_EXPLAINER.body} ariaLabel="What is CFS?"
+          help={<InfoTip quiet title={CFS_EXPLAINER.title} body={CFS_EXPLAINER.body} ariaLabel="What is CFS?"
             colors={{ trigger: '#857D70', triggerBorder: '#C2BAAC', popBg: '#FFFFFF', popBorder: '#DBD5CA', title: '#2D2A24', body: '#524D43', focus: '#2D7889' }} />}
         />
 

@@ -233,6 +233,28 @@ export interface UsaceDam {
   /** Recorded line giving current releases — the fallback when a feed is down. */
   infoPhone?: string;
   /**
+   * This project's page on the Corps' public water-data site, as
+   * `<district>/<location slug>` under water.usace.army.mil/overview/…/locations/.
+   * It is the page a dam card links to as the source of its readings — see
+   * src/lib/data/dam-source-links.ts.
+   *
+   * Explicit for the reason every id in this file is: there is no rule. Little
+   * Rock's slug is its CWMS location lowercased, Tulsa's is the four-letter
+   * code, St. Louis's is the lake (`mark%20twain%20lk`, percent-encoded as the
+   * site itself writes it) rather than the `…-Salt` sub-location the series
+   * hang off, and Nashville's is the pool station. Each was read from the
+   * site's own location list and opened in a browser on 2026-11-16.
+   *
+   * A wrong slug does NOT 404: the site answers 200 and draws "Location Not
+   * Found" in the page, so a link checker cannot see it. Run
+   * `npx tsx scripts/check-dam-source-links.ts` after adding or changing one.
+   *
+   * Set for the two Kansas City projects too. Eddy reads no series from that
+   * district, but the Corps does publish a page for each, and a reader with no
+   * Eddy reading is the one who most needs it.
+   */
+  usaceWaterPage?: string;
+  /**
    * Metrics this project publishes but which do not MEAN here what they mean
    * elsewhere, so they must not be rendered.
    *
@@ -298,6 +320,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'MO',
     lat: 37.1349222,
     lon: -90.7708833,
+    usaceWaterPage: 'swl/clearwater_dam',
     office: 'SWL',
     cdaLocation: 'Clearwater_Dam',
     // No hydropower at all — pure flood control. Its tailwater is walleye,
@@ -320,6 +343,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'MO',
     lat: 36.59539,
     lon: -93.31106,
+    usaceWaterPage: 'swl/table_rock_dam',
     office: 'SWL',
     cdaLocation: 'Table_Rock_Dam',
     swpaCode: 'TRD',
@@ -349,6 +373,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'AR',
     lat: 36.3657191,
     lon: -92.574845,
+    usaceWaterPage: 'swl/bull_shoals_dam',
     office: 'SWL',
     cdaLocation: 'Bull_Shoals_Dam',
     swpaCode: 'BSD',
@@ -399,6 +424,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'AR',
     lat: 36.421283333333,
     lon: -93.847616666667,
+    usaceWaterPage: 'swl/beaver_dam',
     office: 'SWL',
     cdaLocation: 'Beaver_Dam',
     swpaCode: 'BEV',
@@ -418,6 +444,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'AR',
     lat: 36.24863,
     lon: -92.23786,
+    usaceWaterPage: 'swl/norfork_dam',
     office: 'SWL',
     cdaLocation: 'Norfork_Dam',
     swpaCode: 'NFD',
@@ -462,6 +489,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'AR',
     lat: 35.52103,
     lon: -91.99362,
+    usaceWaterPage: 'swl/greersferry_dam',
     office: 'SWL',
     cdaLocation: 'GreersFerry_Dam',
     swpaCode: 'GFD',
@@ -483,6 +511,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'MO',
     lat: 36.9331,
     lon: -90.2837,
+    usaceWaterPage: 'mvs/wappapello%20lk',
     office: 'MVS',
     cdaLocation: 'Wappapello Lk-St Francis',
     // A 175 kW station-service turbine only — it powers the dam, it does not
@@ -513,6 +542,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'MO',
     lat: 39.5342,
     lon: -91.6521,
+    usaceWaterPage: 'mvs/mark%20twain%20lk',
     office: 'MVS',
     cdaLocation: 'Mark Twain Lk-Salt',
     swpaCode: 'CAN',
@@ -546,6 +576,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'MO',
     lat: 37.6672,
     lon: -93.7583,
+    usaceWaterPage: 'nwk/ston',
     swpaCode: 'STD',
     nameplate: { units: 1, megawatts: 52 },
     // Deep release runs cool, but it is a bass fishery, not a trout one.
@@ -559,6 +590,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'MO',
     lat: 38.2653,
     lon: -93.4054,
+    usaceWaterPage: 'nwk/hast',
     swpaCode: 'HST',
     nameplate: { units: 6, megawatts: 160 },
     tailwaterFishery: 'warmwater' as const,
@@ -604,6 +636,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'OK',
     lat: 35.59667,
     lon: -95.04917,
+    usaceWaterPage: 'swt/tenk',
     office: 'SWT',
     cdaLocation: 'TENK',
     swpaCode: 'TKD',
@@ -624,6 +657,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'OK',
     lat: 35.87111,
     lon: -95.22861,
+    usaceWaterPage: 'swt/fgib',
     office: 'SWT',
     cdaLocation: 'FGIB',
     swpaCode: 'FGD',
@@ -641,6 +675,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'OK',
     lat: 34.14306,
     lon: -94.69444,
+    usaceWaterPage: 'swt/brok',
     office: 'SWT',
     cdaLocation: 'BROK',
     swpaCode: 'BBD',
@@ -661,6 +696,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'OK',
     lat: 35.30694,
     lon: -95.3625,
+    usaceWaterPage: 'swt/eufa',
     office: 'SWT',
     cdaLocation: 'EUFA',
     swpaCode: 'EUF',
@@ -678,6 +714,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'OK',
     lat: 36.15167,
     lon: -96.25167,
+    usaceWaterPage: 'swt/keys',
     office: 'SWT',
     cdaLocation: 'KEYS',
     swpaCode: 'KEY',
@@ -698,6 +735,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'TX',
     lat: 33.81806,
     lon: -96.57222,
+    usaceWaterPage: 'swt/deni',
     office: 'SWT',
     cdaLocation: 'DENI',
     swpaCode: 'DEN',
@@ -720,6 +758,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'OK',
     lat: 35.34791,
     lon: -94.77846,
+    usaceWaterPage: 'swt/robe',
     office: 'SWT',
     cdaLocation: 'ROBE',
     swpaCode: 'RSK',
@@ -738,6 +777,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'OK',
     lat: 35.55445,
     lon: -95.16773,
+    usaceWaterPage: 'swt/webb',
     office: 'SWT',
     cdaLocation: 'WEBB',
     swpaCode: 'WFD',
@@ -762,6 +802,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'AR',
     lat: 35.47333,
     lon: -93.81,
+    usaceWaterPage: 'swl/ld12_ozark',
     office: 'SWL',
     cdaLocation: 'LD12_Ozark',
     // SWPA is internally inconsistent about this project's code — its schedule
@@ -783,6 +824,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     state: 'AR',
     lat: 35.24731,
     lon: -93.17323,
+    usaceWaterPage: 'swl/ld10_dardanelle',
     office: 'SWL',
     cdaLocation: 'LD10_Dardanelle',
     swpaCode: 'DAD',
@@ -858,6 +900,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // CWMS-wins rule as the Tulsa block.
     lat: 36.868333,
     lon: -85.146944,
+    usaceWaterPage: 'lrn/wlck2',
     office: 'LRN',
     cdaLocations: ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK', 'Wolf Creek Dam'],
     // 6 x 45 MW. DOE Wolf Creek recon report; verified 2026-08-15.
@@ -895,6 +938,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // CEHT1-CENTER_HILL, public-name "Center Hill Dam".
     lat: 36.0963889,
     lon: -85.8205556,
+    usaceWaterPage: 'lrn/ceht1',
     office: 'LRN',
     cdaLocations: ['CETT1-CENTER_HILL', 'CEHT1-CENTER_HILL', 'Center Hill Dam'],
     // 3 x 45 MW rated. The 2015-2021 Voith rehab kept the 135 rating (one
@@ -939,6 +983,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // DLHT1-DALE_HOLLOW, public-name "Dale Hollow Dam".
     lat: 36.538333,
     lon: -85.451111,
+    usaceWaterPage: 'lrn/dlht1',
     office: 'LRN',
     cdaLocations: ['DHTT1-DALE_HOLLOW', 'DLHT1-DALE_HOLLOW', 'Dale Hollow Dam'],
     // 3 x 18 MW. Corps' own project history; verified 2026-08-15.

@@ -274,17 +274,29 @@ NOAA marks missing or outside coverage is stored as missing. NOAA packs a field 
 bits, or at 8 in an hour when no cell needs more; both are read. A file for
 another product or hour, or in any other layout, is refused.
 
-**Collection.** The hourly run asks for each of the last 12 hours it has not
-archived, newest first and at most six per run, then the newest published 24
-and 72-hour totals. A file NOAA has not published yet is not a failure. The run
-reports stale when the newest archived hour is over three hours old, which is
-when the public view stops calling itself current. The source is independent of
-the hosted service: if that is down, the last archived tile is used.
+**Collection.** The hourly run first reads NOAA's own list of files for each
+product and day, then requests only what is listed: each of the last 12 hours
+it has not archived, newest first and at most six per run, then the newest
+published 24 and 72-hour totals. An hour NOAA has not published yet is never
+requested, so the normal delay is neither a failed request in the provider
+telemetry nor a failure of the run. An unreadable list is one failure and its
+hours wait for the next run. The run reports stale when the newest archived
+hour is over three hours old, which is when the public view stops calling
+itself current. The step does not depend on the hosted service: if that
+service's catalog cannot be read, the run counts the failure, uses the last
+archived tile, and still collects and publishes.
 
-**Timing.** At the :18 run the newest hour is the one that ended 78 minutes
-earlier, so the public view is between about 1 h 20 min and 2 h 20 min behind
-the clock, inside the three-hour freshness limit with one missed run to spare.
-Radar-only would be about an hour fresher and was not chosen.
+**Timing.** NOAA published 238 files over five sampled days between 56 and 58
+minutes after the hour, with one at 83. At the :18 run the newest hour is
+therefore the one that ended 78 minutes earlier, and the public view runs
+between about 1 h 20 min and 2 h 20 min behind the clock. The clients stop
+calling a view current three hours after its newest hour ended. That leaves
+about 40 minutes of slack in normal running and **does not cover a missed
+run**: if one hourly run fails or NOAA is late past :18, the view is
+unavailable from the top of the next hour until the following run publishes,
+about 20 minutes. Covering one missed run would take a second run each hour or
+a longer freshness limit in both clients; neither is in place. Radar-only would
+be about an hour fresher and was not chosen.
 
 **Evidence.** Reading and unit: `validation/rainfall/2026-11-16-corrected/`
 (identical to an independent decoder at all 118,195 cells of a wet tile).
@@ -371,10 +383,22 @@ Eddy rain colors. Phone readouts sit below the plot; the rain header has a real
 
 Approved sites must include the corresponding `riverSlug`. Published map context
 uses that existing river geometry and approved access names inside the basin.
-The shared projection draws the river, labelled gauge and up to three spaced
-place labels; no inferred river line or invented place coordinates. The dry
-swatch is an unfilled surface; unknown coverage is hatched. Context stays out of
-the summary response and loads with the detail.
+The shared projection draws the river and labelled gauge from the published
+coordinates. Web additionally draws up to three place labels. Native uses its
+existing outdoors basemap for geographic context, with a fixed camera matched
+to the rainfall projection and native attribution left unobstructed. If the
+background cannot load, the rainfall SVG remains readable on a neutral surface.
+No inferred river line or invented place coordinates are used. Unknown coverage
+is hatched; only positive amounts receive rain colors. Context stays out of the
+summary response and loads with the detail.
+
+The native dry-state label requires a matching 24-hour map and total, no positive
+map cells, and full coverage within a one-millionth weight-sum tolerance. The
+95% threshold for publishing a numeric estimate is unchanged. Totals with
+incomplete coverage retain a visible missing-data note. Native totals lead the
+detail, with a common ending time only when the periods match; the map always
+identifies its own 24-hour period. Source explanations and hourly history are
+disclosures, with hourly history revealed a day at a time.
 
 Before public activation: replay representative archived wet storms against the
 underlying NOAA product, review basin versions, measure publisher runtime on the

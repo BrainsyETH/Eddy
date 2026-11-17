@@ -44,6 +44,23 @@ export function rainAmount(inches: number | null | undefined): string {
   return inches == null || !Number.isFinite(inches) || inches < 0 ? 'Unavailable'
     : inches > 0 && inches < 0.01 ? '<0.01 in' : `${inches.toFixed(2)} in`;
 }
+
+/** Polygon weights can sum fractionally below one even with every cell present. */
+export function rainCoverageIncomplete(coverage: number): boolean {
+  return !Number.isFinite(coverage) || coverage < 1 - 0.000001;
+}
+
+/** A basin-wide dry statement requires the matching map and complete coverage.
+ * A rounded basin average alone must never hide a small wet area or a gap. */
+export function rainMapState(detail: RainDetail): 'dry' | 'wet' | 'partial' | 'unavailable' {
+  const grid = detail.shading;
+  if (!grid || detail.status === 'unavailable') return 'unavailable';
+  const total = detail.totals.find(row => row.hours === 24 && row.start === grid.start && row.end === grid.end);
+  if (!total || !usableRain(total) || rainCoverageIncomplete(total.coverage)) return 'partial';
+  const values = grid.inches.filter((value): value is number => value !== null);
+  if (!values.length) return 'unavailable';
+  return total.inches === 0 && values.every(value => value === 0) ? 'dry' : 'wet';
+}
 export function rainRange(days: number, custom = false): boolean {
   return !custom && (days === 1 || days === 7);
 }

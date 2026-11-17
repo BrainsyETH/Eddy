@@ -159,11 +159,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const heading = (page, lowerSelected) => page.getByRole('heading', { name: lowerSelected ? 'Poplar Bluff gauge' : 'Annapolis gauge', exact: true });
   // Reduced motion uses a 0.01ms transition, so DOM attributes can update one
   // frame before computed padding/top. Measure only the settled chart layout.
-  const waitForRainLayout = (page, on) => page.waitForFunction(expected => {
+  const waitForRainLayout = (page, on) => page.waitForFunction(enabled => {
     const plot = document.querySelector('[data-river-plot]');
+    const expected = enabled ? document.querySelector('[data-rain-track]')?.getBoundingClientRect().height : 0;
+    if (expected == null) return false;
     return plot && Math.abs(parseFloat(getComputedStyle(plot).top) - expected) < 0.01
       && Math.abs(parseFloat(getComputedStyle(plot.parentElement).paddingTop) - expected) < 0.01;
-  }, on ? 84 : 0);
+  }, on);
   for (const width of [1440, 390, 320]) {
     const { page, requests } = await newPage(width);
     await page.goto(target);
@@ -193,7 +195,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     const rainPlotHeight = await page.locator('[data-river-plot]').evaluate(node => node.getBoundingClientRect().height);
     const rainChartHeight = await page.locator('[data-river-plot]').evaluate(node => node.parentElement.getBoundingClientRect().height);
     assert(rainPlotHeight >= (width >= 1024 ? 384 : 192), 'Rain must preserve the original river plot height');
-    assert(Math.abs(rainChartHeight - rainPlotHeight - 84) < 2, 'Rain contributes its own 84px track above the river');
+    const rainTrackHeight = await page.locator('[data-rain-track]').evaluate(node => node.getBoundingClientRect().height);
+    assert(Math.abs(rainChartHeight - rainPlotHeight - rainTrackHeight) < 2, 'Rain contributes its own track above the river');
     const forecastY = await page.getByRole('heading', { name: /^(Forecast|Weather)$/ }).evaluate(node => node.getBoundingClientRect().top + window.scrollY);
     assert(firstReadY > forecastY, 'Compact Read follows the free forecast');
     const slider = page.getByRole('slider').first(); await slider.focus(); await page.keyboard.press('End');
@@ -265,7 +268,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       await page.getByRole('dialog').waitFor({ state: 'hidden' });
     } else {
       await page.getByRole('button', { name: '1Y', exact: true }).waitFor();
-      await page.getByRole('button', { name: /Export CSV/ }).waitFor();
+      await page.getByRole('button', { name: 'Share', exact: true }).click();
+      await page.getByRole('button', { name: 'Download CSV', exact: true }).waitFor();
+      await page.keyboard.press('Escape');
     }
     await page.goto(`${target}#reach-lower-markham-hammer`); await heading(page, true).waitFor();
     await page.close(); console.log(`PASS ${width}px: section switching, sources, charts, Read, history, reload, keyboard, deep link`);
