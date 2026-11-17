@@ -191,7 +191,7 @@ export async function generateEddyUpdate(
   const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug);
   if (localKnowledge) sourcesUsed.push('local knowledge');
 
-  // --- 5. Fetch gauge trajectory (48h history + percentiles) ---
+  // --- 5. Fetch gauge trajectory (recent history + percentiles) ---
   // Addressed by site rather than by river, so the trend belongs to the SAME
   // gauge the readings above came from. Keyed off the river it would otherwise
   // report the tailwater's movement from the gauge above the dam — the reading
@@ -350,7 +350,7 @@ PLAIN LANGUAGE:
 
 TREND AND FORECAST:
 - Let the measured trend set your tone: falling toward a better level is good news, rising near a threshold deserves caution, and a fast rise in High water deserves a stronger warning.
-- The trend data covers roughly the past day. Do not say how long the gauge has held steady beyond what the data shows, and do not call the river predictable or reliable.
+- The measured changes and rate cover roughly the past day. A peak or low is labelled with the number of days it was taken over and says nothing about the days before that. Do not say how long the gauge has held steady beyond what the data shows, and do not call the river predictable or reliable.
 - Anything about later days must be conditional ("if the dry forecast holds", "rain could"). Never say conditions will stay, remain or be a certain way. Never predict a gauge height or a rise or fall amount.
 - Use rain-to-river lag to explain when rain would reach this gauge. Use recovery knowledge for tone only; do not recite drop rates or timelines.
 - Only describe weather for the days listed in [3-DAY FORECAST]. Mention temperature and wind only when they matter for comfort, and never first.

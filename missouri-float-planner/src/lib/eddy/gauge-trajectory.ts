@@ -10,6 +10,10 @@ import {
   type HistoricalReading,
   type DailyStatistics,
 } from '@/lib/usgs/gauges';
+import { spanDays } from './trajectory-window';
+
+/** Days of history asked for. What comes back is measured, not assumed. */
+const TRAJECTORY_REQUEST_DAYS = 10;
 
 export interface GaugeTrajectory {
   /** Change in gauge height over last 24 hours (ft) */
@@ -20,10 +24,18 @@ export interface GaugeTrajectory {
   rateFtPerHour: number | null;
   /** Acceleration descriptor */
   acceleration: 'rising and accelerating' | 'rising but slowing' | 'falling and accelerating' | 'falling but slowing' | 'steady' | null;
-  /** Highest reading in 10-day window */
-  peak48h: { heightFt: number; timestamp: string } | null;
-  /** Lowest reading in 10-day window */
-  trough48h: { heightFt: number; timestamp: string } | null;
+  /**
+   * Whole days the peak and low below were taken over, measured from the
+   * readings that came back rather than from the number requested. The prompt
+   * prints this next to them, so the label cannot drift from the data again:
+   * these fields were once named for 48 hours, fetched over 10 days, and
+   * labelled "5-day" under a "10-DAY" heading.
+   */
+  windowDays: number;
+  /** Highest reading in the window */
+  windowPeak: { heightFt: number; timestamp: string } | null;
+  /** Lowest reading in the window */
+  windowLow: { heightFt: number; timestamp: string } | null;
   /** Current gauge height */
   currentHeightFt: number | null;
   /** One-sentence trajectory narrative for the prompt */
@@ -82,8 +94,7 @@ export async function buildGaugeTrajectory(riverSlug: string): Promise<GaugeTraj
  */
 export async function buildGaugeTrajectoryForSite(usgsSiteId: string): Promise<GaugeTrajectory | null> {
   try {
-    // Fetch 48h of historical data (reuses existing USGS function)
-    const historical = await fetchHistoricalReadings(usgsSiteId, 10);
+    const historical = await fetchHistoricalReadings(usgsSiteId, TRAJECTORY_REQUEST_DAYS);
     if (!historical || historical.readings.length < 4) {
       return null; // Not enough data points
     }
@@ -121,9 +132,10 @@ export async function buildGaugeTrajectoryForSite(usgsSiteId: string): Promise<G
     // Acceleration: compare recent rate to prior rate
     const acceleration = computeAcceleration(rateLast3h, ratePrior3h);
 
-    // Peak and trough in the 48h window
-    const peak48h = findExtreme(historical.readings, 'max');
-    const trough48h = findExtreme(historical.readings, 'min');
+    // Peak and low across everything that came back, and how long that was.
+    const windowPeak = findExtreme(historical.readings, 'max');
+    const windowLow = findExtreme(historical.readings, 'min');
+    const windowDays = spanDays(historical.readings);
 
     // Percentile context
     let percentile: number | null = null;
@@ -142,15 +154,16 @@ export async function buildGaugeTrajectoryForSite(usgsSiteId: string): Promise<G
     }
 
     // Build narrative
-    const narrative = buildNarrative(currentHeight, change24h, change6h, rateLast3h, acceleration, peak48h, trough48h);
+    const narrative = buildNarrative(currentHeight, change24h, change6h, rateLast3h, acceleration, windowPeak, windowLow);
 
     return {
       change24h,
       change6h,
       rateFtPerHour: rateLast3h,
       acceleration,
-      peak48h,
-      trough48h,
+      windowDays,
+      windowPeak,
+      windowLow,
       currentHeightFt: currentHeight,
       narrative,
       percentileContext,

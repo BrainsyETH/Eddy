@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deriveKnowledgeFindings } from './eddy-knowledge';
+import { deriveKnowledgeFindings, deriveRiverNoteFindings } from './eddy-knowledge';
 
 const GENERAL = 'Strainers are the number one hazard. Spring-fed rivers recover slowly.';
 
@@ -87,6 +87,51 @@ test('no active rivers produces no findings', () => {
   // should not invent work either.
   const findings = deriveKnowledgeFindings({
     activeRiverSlugs: [],
+    knowledgeSlugs: ['current'],
+    generalKnowledge: GENERAL,
+  });
+  assert.deepEqual(findings, []);
+});
+
+// ── the stored river note ───────────────────────────────────────────
+
+const PLACEHOLDER =
+  'Per-section hydro types: wolf-pen-to-redding=undefined, redding-to-turner-bend=undefined. River-level default: rain_flashy.';
+
+test('ingest bookkeeping in river_note is reported per river', () => {
+  // Sixteen active rivers carried this on 2026-11-16, and the Read prompt
+  // presented it as "Gauge notes:". It is data-shaped, so nothing failed.
+  const findings = deriveRiverNoteFindings([
+    { slug: 'mulberry', note: PLACEHOLDER },
+    { slug: 'current', note: 'Spring-fed with a consistent base flow.' },
+    { slug: 'kings-river', note: null },
+  ]);
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'river_note_malformed');
+  assert.equal(findings[0].entityKey, 'mulberry');
+  assert.equal(findings[0].evidence?.defect, 'ingestion_placeholder');
+});
+
+test('a malformed note is still reported when the knowledge file is missing', () => {
+  // Two separate causes. The single knowledge_file_missing finding must not
+  // swallow a defect that lives in the database.
+  const findings = deriveKnowledgeFindings({
+    activeRiverSlugs: ['mulberry'],
+    knowledgeSlugs: [],
+    generalKnowledge: '',
+    riverNotes: [{ slug: 'mulberry', note: PLACEHOLDER }],
+  });
+
+  assert.deepEqual(
+    findings.map((f) => f.ruleKey).sort(),
+    ['knowledge_file_missing', 'river_note_malformed'],
+  );
+});
+
+test('omitting riverNotes leaves the knowledge-file rules unchanged', () => {
+  const findings = deriveKnowledgeFindings({
+    activeRiverSlugs: ['current'],
     knowledgeSlugs: ['current'],
     generalKnowledge: GENERAL,
   });

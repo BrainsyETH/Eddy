@@ -93,10 +93,11 @@ export function buildPrompt(
   } else if (riverNotes) {
     lines.push(`Gauge notes: ${riverNotes}`);
   }
-  // 5-day gauge trajectory
+  // Gauge trajectory. The changes and rate cover the past day; the peak and
+  // low cover trajectory.windowDays, and each line says which it is.
   if (trajectory) {
     lines.push('');
-    lines.push('[10-DAY GAUGE TRAJECTORY]');
+    lines.push('[GAUGE TRAJECTORY]');
     if (trajectory.change24h != null) {
       const sign24 = trajectory.change24h >= 0 ? '+' : '';
       const startHeight = trajectory.currentHeightFt != null
@@ -111,11 +112,11 @@ export function buildPrompt(
     if (trajectory.rateFtPerHour != null && trajectory.acceleration) {
       lines.push(`Rate: ${trajectory.acceleration} at ${Math.abs(trajectory.rateFtPerHour).toFixed(2)} ft/hr`);
     }
-    if (trajectory.peak48h) {
-      lines.push(`5-day peak: ${trajectory.peak48h.heightFt.toFixed(1)} ft`);
+    if (trajectory.windowPeak) {
+      lines.push(`${trajectory.windowDays}-day peak: ${trajectory.windowPeak.heightFt.toFixed(1)} ft`);
     }
-    if (trajectory.trough48h) {
-      lines.push(`5-day low: ${trajectory.trough48h.heightFt.toFixed(1)} ft`);
+    if (trajectory.windowLow) {
+      lines.push(`${trajectory.windowDays}-day low: ${trajectory.windowLow.heightFt.toFixed(1)} ft`);
     }
     lines.push(`Summary: ${trajectory.narrative}`);
 
@@ -127,16 +128,24 @@ export function buildPrompt(
     }
   }
 
-  // Recent precipitation
+  // Recent rain. Three states, and the model has to be able to tell them
+  // apart: an amount, a measured zero, and no measurement at all. Leaving the
+  // block out for both of the last two made "it has not rained" and "we do not
+  // know" the same silence. Every state also says what it is a measurement OF:
+  // one weather point over three hours, not the watershed above the gauge.
+  const rainPlace = weather?.city ? `at ${weather.city}` : 'at the weather point';
+  lines.push('');
   if (precipitation && (precipitation.rain1h > 0 || precipitation.rain3h > 0)) {
-    lines.push('');
     lines.push('[RECENT PRECIPITATION]');
-    if (precipitation.rain1h > 0 || precipitation.rain3h > 0) {
-      const parts: string[] = [];
-      if (precipitation.rain1h > 0) parts.push(`Last 1h: ${rainAmount(precipitation.rain1h)} in`);
-      if (precipitation.rain3h > 0) parts.push(`Last 3h: ${rainAmount(precipitation.rain3h)} in`);
-      lines.push(parts.join(' | '));
-    }
+    const parts: string[] = [];
+    if (precipitation.rain1h > 0) parts.push(`Last 1h: ${rainAmount(precipitation.rain1h)} in`);
+    if (precipitation.rain3h > 0) parts.push(`Last 3h: ${rainAmount(precipitation.rain3h)} in`);
+    lines.push(parts.join(' | '));
+    lines.push(`Measured ${rainPlace}: one weather point, not the watershed upstream.`);
+  } else if (precipitation) {
+    lines.push(`Recent rain: none reported ${rainPlace} in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.`);
+  } else {
+    lines.push('Recent rain: no measurement is available for this report. Do not describe the past hours as dry or as wet.');
   }
 
   // Rain-to-river lag info
