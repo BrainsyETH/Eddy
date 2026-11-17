@@ -367,7 +367,7 @@ the SVG state outlines from the pinned US Census/us-atlas dataset.
 Rivers with different hydrology above and below a dam use **Choose your section**
 at the start of the live report. Upper/Lower Black replace the separate Reaches
 panel and gauge picker. The selected section owns the reading, history, outlook,
-and gauge-specific Eddy summary; Clearwater context appears only below the
+and gauge-specific Read link; Clearwater context appears only below the
 Lower Black chart, with dam release kept distinct from the downstream gauge.
 Section readings use the regular gauge card's condition-aware Eddy otter, with
 water level and flow labeled side by side. Clearwater's link uses Eddy's dam
@@ -385,7 +385,10 @@ its own native controls, chart expansion, and Premium unlock flow.
 `npm run test:river-sections` checks the real report with intercepted fixture
 APIs at 1440, 390, and 320px, including section switching, deep links, history,
 missing readings, late responses, keyboard navigation, and dam scoping.
-Screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SMOKE_OUTPUT`).
+`npm run test:river-report` also checks mixed dam/gauge switching, delayed and
+failed dam responses, unrated/stale/flagged readings, source attribution and Read
+links at the same widths. Its screenshots go to `/tmp/eddy-river-report`.
+Section screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SMOKE_OUTPUT`).
 
 ## River and gauge history
 
@@ -812,20 +815,31 @@ Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and riv
 
 ## River report interpretation and rainfall
 
-The Live report reads in this order: selected section/current conditions, shared
-river chart, **Eddy's Read**, then **Will it hold?** The Read has one heading and
-one Premium CTA. Locked interpretation and context remain a static blurred
-preview with an accessible explanation and a full-width offer on phones; there
-is no button that reveals only more blur. Duplicate context is omitted. Existing public summaries and premium
-access rules are preserved. A dam section still uses its dam interpretation and
-keeps its controlling-dam context with the chart.
+The Live report reads in this order: selected section/current readings, shared
+river chart, free three-day forecast, then one compact **Eddy’s Read in the app**
+link. Every river uses this layout. The web river report no longer repeats
+blurred Read, Weather or Bottom line prose. The link appears only for an available
+Read, carries that source’s written time, and opens the selected dam, secondary
+gauge, or primary river in the app. Premium access rules remain unchanged.
 
-Thin dividers separate the Read, Weather and Bottom line while locked prose
-stays blurred. The free outlook says **Next 3 days** (today and the next two
-Central calendar days). Official river heights appear in a separate
-**NWS forecast · daily high** row, with feet and an explicit missing-day state.
-That row has no condition badges: a height rating does not assess the weather
-or recommend the whole day. Forecast classification still informs the Read.
+A current reading without a recreation ladder leads with the number and quiet
+**Not rated** copy. Missing, stale and flagged observations retain their own
+status; official flood warnings remain visible. Routine publication gaps live
+under **Source details**. Gauge-only selectors say **Gauge**; a list mixing dam
+releases and river gauges says **View**, with the source type in each option.
+
+An unrated dam release selection shows that dam’s readings, schedule and history.
+The primary dam panel remains server-rendered; other selected dams load on demand,
+with an isolated loading/error state. Dam context explicitly says **At the dam**;
+its schedule is not an arrival prediction downstream. Gauge views keep their own
+location heading and chart, and the existing controlling-dam context (lake level
+stays in the dam view). Additional upstream-dam relationships require verified
+catalog data; they are not inferred from gauge names or roles.
+
+The free outlook covers today and the next two Central calendar days. Tailwaters
+and weather-only outlooks say **Weather · Next 3 days**. Official river heights
+remain in a separate **NWS forecast · daily high** row, with feet and explicit
+missing-day states. Heights never classify the weather or the whole day.
 
 Rain adds a track above the river plot inside the same chart; it never takes
 height away from the river line. A short archive is labelled “Rain record starts…”.

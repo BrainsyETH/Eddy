@@ -23,6 +23,7 @@ import {
   zoneMarkerPercent,
   type Zone,
 } from '@/lib/gauge/threshold-zones';
+import { readingPresentation } from '@/lib/gauge/reading-presentation';
 import { formatAgeFromHours } from '@/lib/utils/reading-age';
 
 interface CurrentReadingCardProps {
@@ -31,6 +32,9 @@ interface CurrentReadingCardProps {
   dischargeCfs: number | null;
   thresholdUnit: 'ft' | 'cfs';
   conditionCode?: ConditionCode;
+  readingSuspect?: boolean;
+  /** Name of the selected location; sectionHeading supplies its own title. */
+  heading?: string;
   waterTempF?: number | null;
   /**
    * Age of the water-temperature measurement, hours. Water temperature stays
@@ -78,6 +82,8 @@ export default function CurrentReadingCard({
   dischargeCfs,
   thresholdUnit,
   conditionCode,
+  readingSuspect = false,
+  heading,
   waterTempF,
   waterTempAgeHours,
   dissolvedOxygenMgL,
@@ -100,19 +106,32 @@ export default function CurrentReadingCard({
   // beside it: the one we showed compared today against a 14-day window that
   // today sits inside, so a falling river read "below typical" almost by
   // construction. A tautology is worse than a blank space.
-  const trend = computeTrend(history?.readings, thresholdUnit, 6);
+  const presentation = readingPresentation({
+    value: (isCfsPrimary ? dischargeCfs : gaugeHeightFt) ?? (isCfsPrimary ? gaugeHeightFt : dischargeCfs),
+    ageHours: readingAgeHours,
+    suspect: readingSuspect,
+    hasRating: Boolean(zones?.length),
+    condition: conditionCode,
+  });
+  const interpretable = presentation === 'rated' || presentation === 'unrated';
+  const showVerdict = presentation === 'rated' && Boolean(conditionCode);
+  const trend = interpretable ? computeTrend(history?.readings, thresholdUnit, 6) : null;
   const primaryReadingValue = isCfsPrimary ? dischargeCfs : gaugeHeightFt;
 
   // Band track — equal-width bands, marker interpolated within its own band.
   const ladder = zones ?? [];
-  const markerPercent = zoneMarkerPercent(ladder, primaryReadingValue);
-  const activeIndex = findZoneIndex(ladder, conditionCode);
+  const markerPercent = interpretable ? zoneMarkerPercent(ladder, primaryReadingValue) : null;
+  const activeIndex = showVerdict ? findZoneIndex(ladder, conditionCode) : -1;
   const activeZone = activeIndex >= 0 ? ladder[activeIndex] : null;
 
   const formatFt = (val: number) => val.toFixed(2);
   const formatCfs = (val: number) => val.toLocaleString();
 
-  const conditionLabel = conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
+  const conditionLabel = presentation === 'unrated' ? 'Not rated'
+    : presentation === 'missing' ? 'No reading'
+    : presentation === 'flagged' ? 'Reading flagged'
+    : presentation === 'stale' ? 'Last reading'
+    : conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
 
   // A steady river says so in words; "0 cfs" beside "Holding steady" is noise.
   const roundedDelta = trend ? (isCfsPrimary ? Math.round(trend.delta) : Number(trend.delta.toFixed(2))) : 0;
@@ -120,7 +139,7 @@ export default function CurrentReadingCard({
     ? `${roundedDelta > 0 ? '+' : ''}${isCfsPrimary ? roundedDelta : roundedDelta.toFixed(2)} ${isCfsPrimary ? 'cfs' : 'ft'}`
     : null;
 
-  const ink = conditionCode ? (CONDITION_SYSTEM[conditionCode] ?? CONDITION_SYSTEM.unknown).ink : 'var(--color-neutral-700)';
+  const ink = showVerdict && conditionCode ? (CONDITION_SYSTEM[conditionCode] ?? CONDITION_SYSTEM.unknown).ink : 'var(--color-neutral-700)';
   const primaryText = isCfsPrimary
     ? (dischargeCfs !== null ? `${formatCfs(dischargeCfs)} cfs` : null)
     : (gaugeHeightFt !== null ? `${formatFt(gaugeHeightFt)} ft` : null);
@@ -138,6 +157,7 @@ export default function CurrentReadingCard({
       role="group"
       aria-label="Current gauge reading"
     >
+      {heading && !sectionHeading && <h3 className={`${embedded ? '' : 'px-4 pt-4 sm:px-5'} font-heading text-base font-bold text-neutral-900`}>{heading}</h3>}
       {/* One concise spoken summary instead of letting screen readers re-read
           the card on every background poll. */}
       {!sectionHeading && <p className="sr-only" aria-live="polite">
@@ -157,11 +177,12 @@ export default function CurrentReadingCard({
             </p>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
-            {conditionCode && <div className="flex min-w-0 items-center gap-3">
+            {showVerdict && conditionCode && <div className="flex min-w-0 items-center gap-3">
               <Image src={getEddyImageForCondition(conditionCode)} alt="" width={52} height={52}
                 className="h-[52px] w-[52px] shrink-0 object-contain" />
               <p className="text-lg font-semibold leading-tight" style={{ color: ink }}>{conditionLabel}</p>
             </div>}
+            {!showVerdict && <p className="text-xs text-neutral-600">{conditionLabel}</p>}
             {source}
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-3 sm:gap-6">
@@ -186,7 +207,7 @@ export default function CurrentReadingCard({
         </div>
       ) : <div className={embedded ? '' : 'px-4 pt-4 sm:px-5'} aria-hidden="true">
         <div className="flex items-center gap-3">
-          {conditionCode && (
+          {showVerdict && conditionCode && (
             <Image
               src={getEddyImageForCondition(conditionCode)}
               alt=""
@@ -196,12 +217,12 @@ export default function CurrentReadingCard({
             />
           )}
           <div className="min-w-0 flex-1">
-            {conditionLabel && (
+            {conditionLabel && presentation !== 'unrated' && (
               <p className="text-lg font-semibold leading-tight" style={{ color: ink }}>{conditionLabel}</p>
             )}
             <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="font-mono text-2xl font-bold tabular-nums text-neutral-900">{primaryText ?? 'No reading'}</span>
-              {secondaryText && <span className="font-mono text-sm tabular-nums text-neutral-500">{secondaryText}</span>}
+              <span className="font-mono text-2xl font-bold tabular-nums text-neutral-900">{primaryText ?? secondaryText ?? 'No reading'}</span>
+              {primaryText && secondaryText && <span className="font-mono text-sm tabular-nums text-neutral-500">{secondaryText}</span>}
               {trend && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600">
                   <TrendIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -210,6 +231,7 @@ export default function CurrentReadingCard({
                 </span>
               )}
             </div>
+            {presentation === 'unrated' && <p className="mt-1 text-xs text-neutral-600">Not rated</p>}
           </div>
         </div>
 
