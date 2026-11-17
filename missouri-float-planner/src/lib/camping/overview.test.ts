@@ -374,3 +374,12 @@ test('Pulltite uses its reviewed campground photo when NPS only supplies a map',
   i.nps[0].images = [{ url: 'https://www.nps.gov/new-overview.jpg', title: 'Campground overview' }];
   assert.equal(buildCampingOverview(i, now).tracked[0].imageUrl, 'https://www.nps.gov/new-overview.jpg');
 });
+
+test('river names and canonical links survive without campgrounds or condition readings', () => {
+  const i = input();
+  i.facilities = [];
+  i.rivers = [{ id: 'b', slug: 'buffalo', name: 'Buffalo National River', state: 'AR' }];
+  assert.deepEqual(buildCampingOverview(i, now).rivers, [
+    { slug: 'buffalo', name: 'Buffalo National River', path: '/rivers/arkansas/buffalo' },
+  ]);
+});

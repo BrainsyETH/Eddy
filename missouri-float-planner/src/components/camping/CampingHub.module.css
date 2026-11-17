@@ -190,61 +190,54 @@
   accent-color: var(--color-primary-700);
 }
 .riverNow {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px 24px;
-  min-height: 76px;
-  margin-top: 16px;
-  padding: 12px 18px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
+  gap: 8px 16px;
+  margin-top: 12px;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--color-border);
 }
 .riverReading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 0 16px;
   min-width: 0;
 }
-.riverReading .eyebrow {
-  margin-bottom: 2px;
-}
-.riverName {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-.riverName strong {
-  font-family: var(--font-heading), sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-.riverLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 20px;
-}
-.riverLinks a {
+.riverName,
+.riverPlan {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 44px;
   color: var(--color-primary-700);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
 }
-.riverLinks a:hover {
+.riverName:hover,
+.riverPlan:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.riverName img { flex-shrink: 0; }
+.riverStatus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.riverPlan {
+  align-self: start;
+  font-size: 13px;
+  white-space: nowrap;
+}
 .cardRiver {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -256,6 +249,7 @@
 }
 .resultHeading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -271,6 +265,40 @@
   margin-top: 3px;
   color: var(--color-text-secondary);
   font-size: 13px;
+}
+.resultControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sort {
+  min-width: 0;
+}
+.hub .sort select {
+  min-height: 44px;
+  max-width: 180px;
+  font-size: 13px;
+  padding: 8px;
+}
+.moreHeading {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  font-size: 18px;
+  font-weight: 650;
+}
+.calendarMile {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+}
+.calendar .calendarGroup td {
+  text-align: left;
+  padding: 16px 12px 8px;
+  background: var(--color-secondary-50);
+  font-size: 13px;
+  font-weight: 650;
 }
 .views {
   display: inline-flex;
@@ -639,6 +667,14 @@
     max-width: none;
     flex-basis: 100%;
   }
+  .riverReading { display: block; }
+  .riverStatus { padding-left: 26px; }
+  .resultControls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sort { flex: 1; }
   .resultHeading {
     margin-top: 24px;
     gap: 8px;
@@ -682,6 +718,10 @@
 }
 
 @media (max-width: 359px) {
+  .views button {
+    min-width: 44px;
+    padding-inline: 4px;
+  }
   .search {
     grid-template-columns: minmax(0, 1fr);
   }

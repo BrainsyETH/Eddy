@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ConditionBadge from "@/components/ui/ConditionBadge";
@@ -73,11 +73,14 @@ export default function CampingHub({
   const detailPushed = useRef(false);
   const groups = useMemo(() => groupCampgrounds(overview.tracked), [overview]);
   // Conditions arrive after the campgrounds; the hub is complete without them.
-  const { data: riverList, isPending: riversPending } = useQuery({
+  const { data: riverSnapshot, isPending: riversPending, dataUpdatedAt } = useQuery({
     queryKey: ["camping", "rivers"],
     queryFn: ({ signal }) => loadCampingRivers(signal),
     staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
+  const riverList = riverSnapshot?.rivers;
   const search = params.get("q") ?? "",
     river = params.get("river") ?? "";
   const filters = (params.get("types") ?? "")
@@ -97,6 +100,12 @@ export default function CampingHub({
   );
   const hasDates = Boolean(appliedArrival || appliedDeparture);
   const calendar = params.get("view") === "calendar";
+  // An explicit choice survives date/filter changes and shared URLs. With no
+  // choice, dates prioritise openings; browsing one river follows its course.
+  const requestedSort = params.get("sort");
+  const explicitSort = requestedSort === "river" || requestedSort === "available" ? requestedSort : null;
+  const sort = river && (explicitSort === "river" || (!explicitSort && !stay))
+    ? "river" : "available";
   const hasFilters = Boolean(
     search || river || filters.length || availableOnly,
   );
@@ -127,7 +136,11 @@ export default function CampingHub({
       .filter((c) => c.displayGroup.key !== "other")
       .map((c) => [c.displayGroup.key, c.displayGroup.label]),
   );
-  const riverNow = river ? campingRiverNow(riverList, river) : null;
+  const riverNow = river ? campingRiverNow(riverList, river, Math.max(clock, dataUpdatedAt), riverSnapshot?.receivedAt) : null;
+  const riverDirectory = new Map([
+    ...(riverList ?? []).map((r) => [r.slug, r] as const),
+    ...(overview.rivers ?? []).map((r) => [r.slug, r] as const),
+  ]);
   const rivers = [
     ...new Set([
       ...[...overview.tracked, ...overview.untracked].flatMap(
@@ -135,20 +148,20 @@ export default function CampingHub({
       ),
       // A link from a river with no campgrounds listed keeps its name in the
       // control instead of reading "All rivers" over an empty list.
-      ...(riverNow ? [riverNow.slug] : []),
+      ...(river ? [river] : []),
     ]),
   ]
     .map(
       (slug) =>
         [
           slug,
-          riverNames.get(slug) ??
-            (slug === riverNow?.slug ? riverNow.name : slug.replaceAll("-", " ")),
+          riverDirectory.get(slug)?.name ?? riverNames.get(slug) ??
+            slug.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
         ] as const,
     )
     .sort((a, b) => a[1].localeCompare(b[1]));
-  const riverName =
-    riverNow?.name ?? rivers.find(([slug]) => slug === river)?.[1];
+  const riverName = rivers.find(([slug]) => slug === river)?.[1];
+  const riverPage = riverDirectory.get(river)?.path ?? `/rivers/${encodeURIComponent(river)}`;
   function update(values: Record<string, string | null>, push = false) {
     const next = new URLSearchParams(window.location.search);
     for (const [key, value] of Object.entries(values)) {
@@ -318,9 +331,7 @@ export default function CampingHub({
     }))
     .filter((g) => g.answer.state !== "no_match")
     .filter((g) => !availableOnly || g.answer.state === "available");
-  // One river reads top to bottom like the river. Across rivers there is no
-  // such order, so openings lead.
-  const rows = river
+  const rows = sort === "river"
     ? orderCampingAlongRiver(found, river, (g) => g.camp)
     : [...found].sort(
         (a, b) =>
@@ -329,11 +340,15 @@ export default function CampingHub({
           a.camp.name.localeCompare(b.camp.name),
       );
   const alongRiver =
-    !!river &&
+    sort === "river" &&
     campingRiverOrdered(
       rows.map((g) => g.camp),
       river,
     );
+  // Unknown positions are a separate group, never presented as farther downriver.
+  const firstUnmeasured = sort === "river" && rows.some((g) => campingRiverMile(g.camp, river) !== null)
+    ? rows.find((g) => campingRiverMile(g.camp, river) === null)?.key
+    : undefined;
   const untracked = river
     ? orderCampingAlongRiver(overview.untracked.filter(matches), river, (c) => c)
     : overview.untracked.filter(matches);
@@ -496,39 +511,33 @@ export default function CampingHub({
           </div>
         </div>
       </section>
-      {river && riverName && (riverNow || riversPending) && (
+      {river && riverName && (
         <section className={styles.riverNow} aria-label={`${riverName} now`}>
           <div className={styles.riverReading}>
-            <EddyIcon name="river" size={28} decorative />
-            <div>
-              <p className={styles.eyebrow}>River now</p>
-              <p className={styles.riverName}>
-                <strong>{riverName}</strong>
-                {riverNow?.condition ? (
-                  <>
-                    <ConditionBadge code={riverNow.condition.code} size="md" />
-                    {riverNow.condition.trend && (
-                      <span>{riverNow.condition.trend}</span>
-                    )}
-                  </>
-                ) : (
-                  <span>
-                    {riverNow ? "Conditions unavailable" : "Checking the river…"}
-                  </span>
-                )}
-              </p>
-            </div>
+            <Link href={riverPage} className={styles.riverName}>
+              <EddyIcon name="river" size={20} decorative />
+              {riverName}
+              <span className="sr-only"> conditions</span>
+            </Link>
+            <p className={styles.riverStatus}>
+              <span>Now</span>
+              {riverNow?.condition ? (
+                <>
+                  <ConditionBadge code={riverNow.condition.code} />
+                  {riverNow.condition.trend && (
+                    <span>{riverNow.condition.trend}</span>
+                  )}
+                </>
+              ) : (
+                <span>
+                  {riversPending ? "Checking…" : "Conditions unavailable"}
+                </span>
+              )}
+            </p>
           </div>
-          {riverNow && (
-            <div className={styles.riverLinks}>
-              <Link href={riverNow.path}>
-                River conditions <span aria-hidden>→</span>
-              </Link>
-              <Link href={`/plan?river=${encodeURIComponent(riverNow.slug)}`}>
-                Plan a float <span aria-hidden>→</span>
-              </Link>
-            </div>
-          )}
+          <Link className={styles.riverPlan} href={`/plan?river=${encodeURIComponent(river)}`}>
+            Plan a float <span aria-hidden>→</span>
+          </Link>
         </section>
       )}
       {error && (
@@ -552,19 +561,30 @@ export default function CampingHub({
             {alongRiver && " · Upstream to downstream"}
           </p>
         </div>
-        <div className={styles.views} role="group" aria-label="Result view">
-          <button
-            aria-pressed={!calendar}
-            onClick={() => update({ view: "list" })}
-          >
-            Cards
-          </button>
-          <button
-            aria-pressed={calendar}
-            onClick={() => update({ view: "calendar" })}
-          >
-            Calendar
-          </button>
+        <div className={styles.resultControls}>
+          {river && (
+            <label className={styles.sort}>
+              <span className="sr-only">Sort campgrounds</span>
+              <select value={sort} onChange={(e) => update({ sort: e.target.value })}>
+                <option value="available">Available first</option>
+                <option value="river">Along the river</option>
+              </select>
+            </label>
+          )}
+          <div className={styles.views} role="group" aria-label="Result view">
+            <button
+              aria-pressed={!calendar}
+              onClick={() => update({ view: "list" })}
+            >
+              Cards
+            </button>
+            <button
+              aria-pressed={calendar}
+              onClick={() => update({ view: "calendar" })}
+            >
+              Calendar
+            </button>
+          </div>
         </div>
       </div>
       {calendar ? (
@@ -646,67 +666,78 @@ export default function CampingHub({
               </thead>
               <tbody>
                 {rows.map((g) => (
-                  <tr key={g.key}>
-                    <th scope="row">
-                      <button
-                        className={styles.calendarCamp}
-                        onClick={() => openCamp(g.key)}
-                      >
-                        <CampgroundPhoto
-                          src={g.facilities.find((f) => f.imageUrl)?.imageUrl}
-                          name={g.camp.name}
-                          compact
-                        />
-                        <span>{g.camp.name}</span>
-                      </button>
-                    </th>
-                    {visibleNights.map((date) => {
-                      const cells = g.facilities.map((f) =>
-                        f.nights.find((n) => n.date === date),
-                      );
-                      const fresh = cells.every(
-                        (n) =>
-                          n &&
-                          clock >= Date.parse(n.checkedAt) &&
-                          clock - Date.parse(n.checkedAt) < MAX_AGE_MS,
-                      );
-                      const count = fresh
-                        ? cells.reduce((sum, n) => sum + (n?.sitesOpen ?? 0), 0)
-                        : 0;
-                      const label = !fresh
-                        ? "?"
-                        : count
-                          ? String(count)
-                          : cells.every((n) => n?.status === "closed")
-                            ? "C"
-                            : cells.every(
-                                  (n) => n?.status === "not_yet_released",
-                                )
-                              ? "N"
-                              : "—";
-                      return (
-                        <td
-                          key={date}
-                          data-selected={Boolean(
-                            stay &&
-                              date >= stay.arrival &&
-                              date < stay.departure,
-                          )}
-                        >
+                    <Fragment key={g.key}>
+                      {g.key === firstUnmeasured && (
+                        <tr className={styles.calendarGroup}>
+                          <td colSpan={visibleNights.length + 1}>More campgrounds</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <th scope="row">
                           <button
-                            className={count ? styles.openNight : ""}
-                            aria-label={`${g.camp.name}, ${dateLabel(date)}: ${label === "?" ? "availability unknown" : label === "C" ? "closed" : label === "N" ? "dates not released" : label === "—" ? "no recorded openings" : `${label} recorded openings`}`}
-                            onClick={() => {
-                              applyDates(date, nextCampingDate(date));
-                              openCamp(g.key, date);
-                            }}
+                            className={styles.calendarCamp}
+                            onClick={() => openCamp(g.key)}
                           >
-                            {label}
+                            <CampgroundPhoto
+                              src={g.facilities.find((f) => f.imageUrl)?.imageUrl}
+                              name={g.camp.name}
+                              compact
+                            />
+                            <span>{g.camp.name}
+                              {river && campingRiverMile(g.camp, river) !== null && (
+                                <small className={styles.calendarMile}>{campingMileLabel(campingRiverMile(g.camp, river)!)}</small>
+                              )}
+                            </span>
                           </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
+                        </th>
+                        {visibleNights.map((date) => {
+                          const cells = g.facilities.map((f) =>
+                            f.nights.find((n) => n.date === date),
+                        );
+                        const fresh = cells.every(
+                          (n) =>
+                            n &&
+                            clock >= Date.parse(n.checkedAt) &&
+                            clock - Date.parse(n.checkedAt) < MAX_AGE_MS,
+                        );
+                        const count = fresh
+                          ? cells.reduce((sum, n) => sum + (n?.sitesOpen ?? 0), 0)
+                          : 0;
+                        const label = !fresh
+                          ? "?"
+                          : count
+                            ? String(count)
+                            : cells.every((n) => n?.status === "closed")
+                              ? "C"
+                              : cells.every(
+                                    (n) => n?.status === "not_yet_released",
+                                  )
+                                ? "N"
+                                : "—";
+                        return (
+                          <td
+                            key={date}
+                            data-selected={Boolean(
+                              stay &&
+                                date >= stay.arrival &&
+                                date < stay.departure,
+                            )}
+                          >
+                            <button
+                              className={count ? styles.openNight : ""}
+                              aria-label={`${g.camp.name}, ${dateLabel(date)}: ${label === "?" ? "availability unknown" : label === "C" ? "closed" : label === "N" ? "dates not released" : label === "—" ? "no recorded openings" : `${label} recorded openings`}`}
+                              onClick={() => {
+                                applyDates(date, nextCampingDate(date));
+                                openCamp(g.key, date);
+                              }}
+                            >
+                              {label}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -716,25 +747,18 @@ export default function CampingHub({
         <div className={styles.results}>
           {rows.map((g) => {
             const mile = river ? campingRiverMile(g.camp, river) : null;
-            // With a river picked, the panel above already says how it is running.
-            const now = river
-              ? null
-              : campingRiverNow(riverList, g.camp.displayGroup.key)?.condition;
             return (
-            <article key={g.key} className={styles.card}>
+            <Fragment key={g.key}>
+            {g.key === firstUnmeasured && <h3 className={styles.moreHeading}>More campgrounds</h3>}
+            <article className={styles.card}>
               <CampgroundPhoto
                 src={g.facilities.find((f) => f.imageUrl)?.imageUrl}
                 name={g.camp.name}
               />
               <div className={styles.cardBody}>
                 <div className={styles.cardRiver}>
-                  <p className={styles.eyebrow}>{g.camp.displayGroup.label}</p>
-                  {now && (
-                    <span>
-                      <span className="sr-only">River now: </span>
-                      <ConditionBadge code={now.code} />
-                    </span>
-                  )}
+                  <p className={styles.eyebrow}>{mile !== null ? riverName : g.camp.displayGroup.label}</p>
+                  {mile !== null && <span className={styles.small}>{campingMileLabel(mile)}</span>}
                 </div>
                 <h3>
                   <button onPointerEnter={() => prefetchCamp(g.key)} onFocus={() => prefetchCamp(g.key)} onClick={() => openCamp(g.key)}>{g.camp.name}</button>
@@ -755,7 +779,6 @@ export default function CampingHub({
                     : "Choose dates for availability"}
                 </p>
                 <p className={styles.small}>
-                  {mile !== null ? `${campingMileLabel(mile)} · ` : ""}
                   {g.facilities.length > 1
                     ? `${g.facilities.length} campground sections · `
                     : ""}
@@ -773,6 +796,7 @@ export default function CampingHub({
                 View campground <span aria-hidden>→</span>
               </button>
             </article>
+            </Fragment>
             );
           })}
         </div>

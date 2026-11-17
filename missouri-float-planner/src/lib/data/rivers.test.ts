@@ -41,7 +41,7 @@ async function readCatalog(failSecondPage = false) {
     } else if (resource === 'get_river_conditions') {
       data = ['meramec', 'big', 'no-access'].map(river_id => ({
         river_id, condition_code: 'good', condition_label: 'Good', threshold_unit: 'ft',
-        gauge_height_ft: 2, discharge_cfs: 200, reading_age_hours: 1,
+        gauge_height_ft: 2, discharge_cfs: 200, reading_age_hours: 1, reading_timestamp: '2026-11-17T12:00:00Z',
       }));
     } else if (resource === 'rivers') {
       data = ['meramec', 'big', 'no-access'].map(id => ({
@@ -66,6 +66,7 @@ async function readCatalog(failSecondPage = false) {
 test('river list pages approved accesses once, retains counts, and emits only usable endpoint coordinates', async () => {
   const { rivers, pages } = await readCatalog();
   assert.deepEqual(pages, [0, 1000]);
+  assert.equal(rivers[0].currentCondition?.readingTimestamp, '2026-11-17T12:00:00Z');
   assert.equal(rivers[0].accessPointCount, 1003, 'non-launch places still count on river pages');
   assert.deepEqual(rivers[0].floatAccessCoordinates, [
     { lng: -90.453, lat: 38.546 }, { lng: -91.354, lat: 37.957 },

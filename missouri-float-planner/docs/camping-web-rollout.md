@@ -71,24 +71,35 @@ is enabled and the river has a campground the hub lists: a `campground`-type
 service or one with tracked availability. A business that only also has sites
 is not on the hub, so it does not produce a link to an empty list.
 
-In the hub, river conditions are the river's **current** reading and are
-labelled "River now". They are never tied to the stay dates, which can be weeks
-out. A reading older than the shared six-hour line (`shared/reading-staleness.ts`)
-or an unknown rating shows "Conditions unavailable" in the panel and no chip on
-a card. Conditions load after the campgrounds from `/api/rivers`; the hub is
-complete without them, and a failed load leaves the panel and chips out.
+In the hub, the selected river has one compact summary labelled "Now", with
+the river name linking to conditions and a secondary "Plan a float" link.
+Individual campground cards do not repeat condition chips. Conditions are
+never tied to stay dates. Ratings expire after six hours, including on an open
+or resumed tab; missing, invalid and future observation ages are unavailable.
+The observation timestamp takes precedence over the relative age, so a cached
+response cannot make an old reading fresh. Older responses age from receipt,
+including HTTP cache age. Conditions refresh every five minutes and on return
+to the tab. A failed refresh does not extend the last reading's lifetime.
 
-With a river selected, campgrounds are ordered by river mile, upstream to
-downstream, and each card shows its mile. This replaces openings-first order
-for that view; "Available for my stay" still narrows the list. The mile is the
-access point's `river_mile_downstream`, the same number the river page lists,
-carried on the overview as `accessDestination.riverMile` (optional, so older
-cached responses and installed iOS builds are unaffected). It applies only to
-the river the access point is on. A campground with no access point, or listed
-under a second river, has no mile there and follows the measured ones by name.
+River identity and canonical links travel with the campground overview,
+independently of live conditions. On a condition-load failure the summary says
+"Conditions unavailable" and keeps both links and the selected river name.
+The shared river loaders used by the planner and Find a Float use the same
+browser-compatible deadline as Camping, without requiring AbortSignal statics.
+
+With a river selected, browsing without dates defaults to "Along the river";
+entering dates defaults to "Available first". The compact sort control stores
+an explicit choice in the URL and retains it across date, filter and view
+changes. "Available for my stay" remains a filter, not a sort.
+
+Cards and calendar rows say "River mile 26". The mile is the access point's
+`river_mile_downstream`, the river page's ruler, carried on the overview as
+`accessDestination.riverMile`. It applies only to the river the access point is
+on. In river order, unknown positions follow under "More campgrounds" when
+there are measured positions; they do not imply a location farther downstream.
 The heading says "Upstream to downstream" only when at least two campgrounds
-are measured. On 2026-11-17, 31 of 36 tracked facilities had a mile (read-only
-production query); the five without have no linked access point.
+are measured and river order is selected. On 2026-11-17, 31 of 36 tracked
+facilities had a mile (read-only query); five had no linked access point.
 
 The order, mile label and "now" rules live in `shared/camping-rivers.ts`, pure
 and tested, so the iOS Camping screen can adopt the same behavior. iOS is
@@ -161,7 +172,7 @@ include all errors/timeouts in the report. Use five actual clients within the
 
 `shared/camping-rivers.test.ts` covers river-mile order, the one-river rule for miles and when a condition may be shown as current.
 
-`npm run test:camping-browser` creates a temporary development-only page, tests the real CampingHub at desktop and 390px widths, and removes it. Screenshots are labelled fixtures, never live observations. No credentials are required. It checks the river panel, upstream-to-downstream order, mile labels and a stale reading, immediate checkbox state, rapid typing/caret position, URL state, Back/Forward, Clear filters, whole-stay state, dialog focus/Escape, overflow and the 14-night cap.
+`npm run test:camping-browser` creates a temporary development-only page, tests the real CampingHub at desktop and 390px widths, and removes it. Screenshots are labelled fixtures, never live observations. No credentials are required. It checks failed-load navigation, date-aware and explicit ordering, unknown-mile groups, calendar mile labels, polling and open-tab expiry, immediate checkbox state, rapid typing/caret position, URL state, Back/Forward, Clear filters, whole-stay state, dialog focus/Escape, overflow and the 14-night cap.
 
 Keep `CAMPING_WEB_ENABLED` unset. Run deployment benchmarks and the coverage audit again, then decide on a regional launch or a separately scoped cohort. Rollback: unset the flag; header/sitemap/page/API disappear together. Existing campsite APIs and mobile stay support remain available.
 

@@ -63,9 +63,9 @@ export function campingRiverOrdered(places: readonly CampingRiverPlace[], riverS
   return places.filter((place) => campingRiverMile(place, riverSlug) !== null).length >= 2;
 }
 
-/** "Mile 26", rounded like the river page's access list. */
+/** River position, not distance from the person searching. */
 export function campingMileLabel(mile: number): string {
-  return `Mile ${Math.round(mile)}`;
+  return `River mile ${Math.round(mile)}`;
 }
 
 /** The parts of a rivers-list entry this module reads; RiverListItem satisfies it. */
@@ -76,6 +76,7 @@ export interface CampingRiverSource {
   currentCondition: {
     code: string;
     readingAgeHours?: number | null;
+    readingTimestamp?: string | null;
     trend?: { label: string } | null;
   } | null;
 }
@@ -93,14 +94,22 @@ export interface CampingRiverNow {
 export function campingRiverNow(
   rivers: readonly CampingRiverSource[] | null | undefined,
   slug: string,
+  now = Date.now(),
+  receivedAt = now,
 ): CampingRiverNow | null {
   const river = rivers?.find((candidate) => candidate.slug === slug);
   if (!river) return null;
   const reading = river.currentCondition;
-  const age = reading?.readingAgeHours;
+  // Prefer the observation's timestamp: re-fetching a cached response must not
+  // make its reading young again. Older payloads age from their receipt time.
+  const age = reading?.readingTimestamp != null
+    ? (now - Date.parse(reading.readingTimestamp)) / 3_600_000
+    : reading?.readingAgeHours == null
+      ? null
+      : reading.readingAgeHours + Math.max(0, now - receivedAt) / 3_600_000;
   const current = reading
     && reading.code !== 'unknown'
-    && (age == null || (Number.isFinite(age) && age <= STALE_READING_HOURS));
+    && age !== null && Number.isFinite(age) && age >= 0 && age <= STALE_READING_HOURS;
   return {
     slug: river.slug,
     name: river.name,

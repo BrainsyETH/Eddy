@@ -59,9 +59,9 @@ test('"upstream to downstream" needs at least two measured campgrounds', () => {
 });
 
 test('mile labels round like the river page', () => {
-  assert.equal(campingMileLabel(26.23), 'Mile 26');
-  assert.equal(campingMileLabel(0.02), 'Mile 0');
-  assert.equal(campingMileLabel(33.7), 'Mile 34');
+  assert.equal(campingMileLabel(26.23), 'River mile 26');
+  assert.equal(campingMileLabel(0.02), 'River mile 0');
+  assert.equal(campingMileLabel(33.7), 'River mile 34');
 });
 
 const river = (currentCondition: CampingRiverSource['currentCondition']): CampingRiverSource => ({
@@ -82,7 +82,7 @@ test('a current rating carries its code and trend words', () => {
     },
   );
   assert.deepEqual(
-    campingRiverNow([river({ code: 'high' })], 'current')?.condition,
+    campingRiverNow([river({ code: 'high', readingAgeHours: 1 })], 'current')?.condition,
     { code: 'high', trend: null },
   );
 });
@@ -90,6 +90,9 @@ test('a current rating carries its code and trend words', () => {
 test('an old, unknown or missing reading makes no claim about now', () => {
   for (const reading of [
     null,
+    { code: 'good' },
+    { code: 'good', readingAgeHours: null },
+    { code: 'good', readingAgeHours: -1 },
     { code: 'unknown', readingAgeHours: 1 },
     { code: 'good', readingAgeHours: STALE_READING_HOURS + 0.1 },
     { code: 'good', readingAgeHours: Number.NaN },
@@ -109,4 +112,20 @@ test('a river missing from the list, or a list that has not loaded, is null', ()
   assert.equal(campingRiverNow([river(null)], 'meramec'), null);
   assert.equal(campingRiverNow(undefined, 'current'), null);
   assert.equal(campingRiverNow(null, 'current'), null);
+});
+
+const hour = 3_600_000;
+test('relative-age readings expire while the page stays open, including failed refreshes', () => {
+  const receivedAt = Date.parse('2026-11-17T12:00:00Z');
+  const readings = [river({ code: 'good', readingAgeHours: 5.9 })];
+  assert.equal(campingRiverNow(readings, 'current', receivedAt, receivedAt)?.condition?.code, 'good');
+  assert.equal(campingRiverNow(readings, 'current', receivedAt + hour, receivedAt)?.condition, null);
+});
+
+test('observation timestamps survive cached responses and invalid timestamps fail closed', () => {
+  const now = Date.parse('2026-11-17T12:00:00Z');
+  for (const timestamp of ['invalid', '2026-11-17T05:00:00Z', '2026-11-17T13:00:00Z']) {
+    assert.equal(campingRiverNow([river({ code: 'good', readingAgeHours: 1, readingTimestamp: timestamp })], 'current', now)?.condition, null);
+  }
+  assert.equal(campingRiverNow([river({ code: 'good', readingTimestamp: '2026-11-17T11:00:00Z' })], 'current', now)?.condition?.code, 'good');
 });

@@ -103,6 +103,8 @@ export interface RiverListItem extends River {
     gaugeHeightFt: number | null;
     dischargeCfs: number | null;
     readingAgeHours: number | null;
+    /** Observation time; optional for older cached responses. */
+    readingTimestamp?: string | null;
     /** Null when there aren't two readings in the window to compare honestly. */
     trend: RiverReadingTrend | null;
   } | null;
@@ -3249,6 +3251,8 @@ export interface TrackedCampground extends CampingPlace {
 }
 export interface CampingOverview {
   schemaVersion: 1; generatedAt: string; maxObservationAgeSeconds: number;
+  /** River identity is available even when live conditions cannot be loaded. */
+  rivers?: { slug: string; name: string; path: string }[];
   timeZone: 'America/Chicago';
   horizon: { startDate: string; endDateExclusive: string; nights: string[] };
   weekend: { startDate: string; endDateExclusive: string; nights: string[]; label: string };

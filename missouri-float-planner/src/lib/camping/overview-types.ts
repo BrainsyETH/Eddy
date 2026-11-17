@@ -45,6 +45,8 @@ export interface TrackedCampground extends CampingPlace {
 }
 export interface CampingOverview {
   schemaVersion: 1;
+  /** River identity is available even when live conditions cannot be loaded. */
+  rivers?: { slug: string; name: string; path: string }[];
   generatedAt: string;
   maxObservationAgeSeconds: number;
   timeZone: 'America/Chicago';

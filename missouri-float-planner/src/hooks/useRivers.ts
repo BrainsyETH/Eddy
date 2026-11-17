@@ -1,20 +1,13 @@
 // src/hooks/useRivers.ts
 // React Query hook for fetching rivers
 
+import { loadRiver, loadRivers } from '@/lib/rivers-request';
 import { useQuery } from '@tanstack/react-query';
-import type { RiversResponse, RiverDetailResponse } from '@/types/api';
 
 export function useRivers() {
   return useQuery({
     queryKey: ['rivers'],
-    queryFn: async ({ signal }) => {
-      const response = await fetch('/api/rivers', { signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
-      if (!response.ok) {
-        throw new Error('Failed to fetch rivers');
-      }
-      const data = (await response.json()) as RiversResponse;
-      return data.rivers;
-    },
+    queryFn: ({ signal }) => loadRivers(signal),
     staleTime: 10 * 60 * 1000, // 10 minutes — rivers rarely change
   });
 }
@@ -22,14 +15,7 @@ export function useRivers() {
 export function useRiver(slug: string) {
   return useQuery({
     queryKey: ['river', slug],
-    queryFn: async ({ signal }) => {
-      const response = await fetch(`/api/rivers/${slug}`, { signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
-      if (!response.ok) {
-        throw new Error('Failed to fetch river');
-      }
-      const data = (await response.json()) as RiverDetailResponse;
-      return data.river;
-    },
+    queryFn: ({ signal }) => loadRiver(slug, signal),
     enabled: !!slug,
     // Keep the previously selected river's data on screen while the next
     // one loads. Without this, switching rivers flips isLoading true and

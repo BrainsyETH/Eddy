@@ -117,6 +117,7 @@ const rivers = [
   description: null, difficultyRating: null, region: null, accessPointCount: 0,
   path: `/rivers/missouri/${slug}`, currentCondition,
 }));
+overview.rivers = rivers.map(({ slug, name, path }) => ({ slug, name, path }));
 const flags = { Tent: null, RV: null, Electric: true };
 const summaries = camps.map((c, i) => ({
   facilityId: c.facilityId,
@@ -234,6 +235,10 @@ try {
     viewport: { width: 1440, height: 1100 },
   });
   page.on('pageerror', (e) => errors.push(e.message));
+  // Deliberate image failure must not wait for Next's full 404 page/remote media.
+  await page.route(/camping-missing-photo-fixture/, route => route.fulfill({
+    status: 404, contentType: 'text/plain', body: 'Labelled missing-photo fixture',
+  }));
   // Exercise the client with the AbortSignal statics missing, as on older Safari.
   await page.addInitScript(() => {
     for (const name of ['any', 'timeout']) Object.defineProperty(AbortSignal, name, { value: undefined, configurable: true });
@@ -242,7 +247,13 @@ try {
     errors.push('The web hub must use its own detail endpoint, not the existing iOS API.');
     return route.abort();
   });
-  await page.route("**/api/rivers", (route) => route.fulfill({ json: { rivers } }));
+  let failRivers = false;
+  let riverRequests = 0;
+  let servedRivers = rivers;
+  await page.route("**/api/rivers", (route) => {
+    riverRequests++;
+    return route.fulfill(failRivers ? { status: 503, json: { error: 'Fixture outage' } } : { json: { rivers: servedRivers } });
+  });
   await page.route("**/api/camping/stay?**", (route) => {
     const url = new URL(route.request().url());
     return route.fulfill({
@@ -363,9 +374,18 @@ try {
       { url: '/lakes/nwk-truman-dam.jpg', title: 'Second labelled fixture', source: 'Recreation.gov' },
     ] } } });
   });
+  // Even a failed condition request cannot remove the selected river or its links.
+  failRivers = true;
+  await page.goto(`${origin}/camping-layout-check?river=meramec`);
+  const failedRiver = page.getByRole('region', { name: 'Meramec River now' });
+  await failedRiver.getByText('Conditions unavailable', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('combobox', { name: 'River', exact: true }).inputValue(), 'meramec');
+  assert.equal(await failedRiver.getByRole('link', { name: 'Meramec River conditions' }).getAttribute('href'), '/rivers/missouri/meramec');
+  assert.equal(await failedRiver.getByRole('link', { name: 'Plan a float' }).getAttribute('href'), '/plan?river=meramec');
+  failRivers = false;
   // A link from a river with no campgrounds listed still names that river.
   await page.goto(`${origin}/camping-layout-check?river=meramec`);
-  const riverSelect = page.getByRole("combobox");
+  const riverSelect = page.getByRole("combobox", { name: "River", exact: true });
   await page.getByRole("region", { name: "Meramec River now" }).getByText("High", { exact: true }).waitFor();
   assert.equal(await riverSelect.inputValue(), "meramec");
   assert.equal(await riverSelect.locator("option:checked").textContent(), "Meramec River");
@@ -417,17 +437,12 @@ try {
     path: `${out}/desktop-photo-cards-fixture.png`,
     fullPage: true,
   });
-  // Across rivers each card says how its river is running; no river panel yet.
+  // All-river cards prioritise campsite availability; conditions appear once for a selected river.
   const cards = page
     .getByRole("article")
     .filter({ has: page.getByRole("button", { name: "View campground" }) });
   const openCard = cards.filter({ hasText: "Fixture · Open campground" });
-  await openCard.getByText("Good", { exact: true }).waitFor();
-  assert.equal(
-    await cards.filter({ hasText: "Fixture · Missing inventory" }).getByText("Good", { exact: true }).count(),
-    0,
-    "a day-old reading is not shown as the river now",
-  );
+  assert.equal(await cards.getByText("Good", { exact: true }).count(), 0);
   assert.equal(await page.getByRole("region", { name: /now$/ }).count(), 0);
   assert.equal(await page.getByText("Upstream to downstream", { exact: false }).count(), 0);
   // One river: its condition moves to a panel and campgrounds run downstream.
@@ -436,7 +451,7 @@ try {
   await riverNow.getByText("Good", { exact: true }).waitFor();
   await riverNow.getByText("Falling", { exact: true }).waitFor();
   assert.equal(
-    await riverNow.getByRole("link", { name: "River conditions" }).getAttribute("href"),
+    await riverNow.getByRole("link", { name: "Current River conditions" }).getAttribute("href"),
     "/rivers/missouri/current",
   );
   assert.equal(
@@ -448,7 +463,26 @@ try {
     [2, 4, 0, 3, 1].map((i) => names[i]),
     "upstream to downstream; a campground without a mile follows",
   );
-  await openCard.getByText("Mile 51 · Recreation.gov", { exact: true }).waitFor();
+  await openCard.getByText("River mile 51", { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'More campgrounds', exact: true }).waitFor();
+  const sort = page.getByRole('combobox', { name: 'Sort campgrounds' });
+  assert.equal(await sort.inputValue(), 'river');
+  // Dates choose openings first until the person explicitly picks an order.
+  await page.getByRole('button', { name: 'Tonight', exact: true }).click();
+  await openCard.getByText('40 sites available', { exact: true }).waitFor();
+  assert.equal(await sort.inputValue(), 'available');
+  assert.equal((await cards.locator('h3').allTextContents())[0], names[0]);
+  assert.equal(await page.getByRole('heading', { name: 'More campgrounds', exact: true }).count(), 0);
+  await sort.selectOption('river');
+  assert.equal(new URL(page.url()).searchParams.get('sort'), 'river');
+  await page.getByRole('button', { name: 'This weekend', exact: true }).click();
+  assert.equal(await sort.inputValue(), 'river', 'date changes retain an explicit sort');
+  await page.getByRole('button', { name: 'Calendar', exact: true }).click();
+  await page.getByRole('table').getByText('River mile 51', { exact: true }).waitFor();
+  await page.getByRole('cell', { name: 'More campgrounds', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Cards', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear dates', exact: true }).click();
+  assert.equal(await sort.inputValue(), 'river');
   assert.equal(await openCard.getByText("Good", { exact: true }).count(), 0, "the panel replaces per-card conditions");
   await page.getByText("Upstream to downstream", { exact: false }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get("river"), "current");
@@ -656,6 +690,10 @@ try {
     ),
     "320px has no page overflow",
   );
+  await riverSelect.selectOption('current');
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'river summary and sort fit 320px');
+  await page.screenshot({ path: `${out}/small-mobile-river-fixture.png`, fullPage: true });
+  await riverSelect.selectOption('');
   await page.screenshot({
     path: `${out}/small-mobile-cards-fixture.png`,
     fullPage: true,
@@ -726,6 +764,27 @@ try {
     await page.getByLabel("Arrive", { exact: true }).inputValue(),
     tomorrow,
   );
+  await page.clock.install({ time: new Date(at) });
+  servedRivers = rivers.map(r => r.slug === 'current' ? {
+    ...r, currentCondition: { ...r.currentCondition, readingTimestamp: new Date(Date.parse(at) - 5.9 * 3_600_000).toISOString() },
+  } : r);
+  await page.goto(`${origin}/camping-layout-check?river=current`);
+  const agingRiver = page.getByRole('region', { name: 'Current River now' });
+  await agingRiver.getByText('Good', { exact: true }).waitFor();
+  const beforePolling = riverRequests;
+  const pollingResponse = page.waitForResponse(response => response.url().endsWith('/api/rivers'));
+  await page.clock.fastForward(5 * 60_000);
+  await page.waitForFunction(() => document.querySelector('[aria-label="Current River now"]')?.textContent?.includes('Good'));
+  // Allow the scheduled request to finish before simulating an outage.
+  await pollingResponse;
+  assert.ok(riverRequests > beforePolling, 'current conditions refresh periodically');
+  failRivers = true;
+  const failedRefresh = page.waitForResponse(response => response.url().endsWith('/api/rivers') && response.status() === 503);
+  await page.clock.fastForward(5 * 60_000);
+  await failedRefresh;
+  await agingRiver.getByText('Conditions unavailable', { exact: true }).waitFor();
+  assert.equal(await agingRiver.getByText('Good', { exact: true }).count(), 0, 'cached readings expire on the open page');
+  assert.equal(await agingRiver.getByRole('link', { name: 'Plan a float' }).count(), 1);
   assert.deepEqual(errors, []);
   console.log(
     'Camping browser smoke passed: river panel/order/handoff, desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap, missing AbortSignal statics, refresh failure/recovery and expiry.',
