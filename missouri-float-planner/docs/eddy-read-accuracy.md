@@ -23,6 +23,34 @@ start/end and gauge river miles inside [start, end). No proximity buffer is used
 If curation exists but its station cannot be loaded, a substitute does not inherit
 curated support, even if it lies within the section.
 
+### Connecting a stretch to a gauge
+
+`river_sections.primary_gauge_station_id` is not private to the Read.
+`get_river_condition_segment` uses the same column, with the stretch's mile
+bounds, to choose the gauge that grades a float plan: an assigned stretch
+overrides positional selection for every put-in inside its bounds. Three rules
+follow.
+
+- Set the gauge and both bounds together. An assigned stretch with no bounds
+  matches every mile on its river.
+- Bounds use the stored `river_mile_downstream` of the access points at the
+  stretch's ends, because that is the scale the planner passes in. On the
+  Bourbeuse, Meramec, St. Francis, Buffalo and Black those miles are offset
+  from the river line by 7 to 30 miles, so a caller that passes a map point
+  resolves a different mile from one that passes an access point's stored
+  mile. Bounds on those rivers cannot be right for both until the miles agree.
+- Before assigning, compare the gauge each approved access point resolves to
+  with and without the change, by stored mile and by map point. A change that
+  moves a put-in to another gauge is a planner change and needs its own
+  review. `20261117200000_twenty_one_stretches_read_their_own_gauge.sql` is
+  the pattern: it asserts in the same statement that no put-in changed gauge,
+  and `scripts/stretch-gauge-migration.test.ts` runs it against a fixture.
+
+A stretch with no gauge on it may use the nearest one when that is the only
+gauge or the closest. A gauge below a stretch can read floatable while the
+stretch is thin; the stretch's block in `EDDY_KNOWLEDGE.md` is where that is
+said.
+
 An unsupported section gets a named station observation, explicitly saying the
 section is not assessed. A river with no usable gauge still gets a location-based
 unavailable fallback with relevant alerts and the separate weather summary. It
