@@ -28,10 +28,15 @@ render should be regenerated from the form, which checks the source again.
   zero generation does not render a misleading “0 hours posted” count.
 - The time card sizes to its content. The illustration takes the remaining room
   and the footer sits at the bottom of the safe area. Platform-control margins
-  remain clear. Eddy’s existing canoe artwork bobs gently on the lake.
+  remain clear. Eddy is drawn in the scene's style as layered vector artwork:
+  his seated body sits behind the canoe's front rim, hands follow the paddle,
+  and the blade lifts out of the water during recovery.
 - Shared Eddy fonts, palette and per-platform safe insets. Instagram uses the
   Story bounds; TikTok leaves space for its action rail. All facts hold still;
-  only decorative ripples, pipe strokes, the canoe and the turbine move on a gentle loop.
+  only the illustration moves. The canoe follows the lake surface at bow and
+  stern; paddle ripples follow water contact. Flow highlights follow one curved
+  path through the pipe into the river. Every motion completes whole cycles in
+  12 seconds, including the continuous dash patterns and turbine rotation.
 - Default Remotion props are visibly marked sample data. Real exports set
   `sample: false`. The CI preview always renders labelled fixtures.
 
@@ -57,7 +62,10 @@ retained for review, including older dated videos.
 
 `make check-web` covers the date, freshness, completeness, hour-ending,
 minimum-flow and publish guards. The **Dam Story Preview** workflow typechecks
-Remotion, checks both destinations in Chromium at the first/middle/last frames,
-and uploads 20 stills plus two sample MP4s. Cases include midnight, all-day,
+Remotion, checks both destinations in Chromium at six frames (including the
+paddle's pull and recovery), and uploads 20 stills plus two sample MP4s and an
+isolated `dam-story-motion-study` MP4. Cases include midnight, all-day,
 zero/minimum-flow, split windows and the maximum 12 separate windows. Checks also
 cover the compact time card and Eddy’s canoe staying on the lake surface.
+Motion tests compare the rendered scene across the loop seam, check continuous
+hand movement and verify that the hull follows the same wave as the lake.

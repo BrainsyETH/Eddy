@@ -76,7 +76,7 @@ try {
     }), { id, composition });
     await page.waitForSelector('[data-dam-safe]');
     let initialCopy;
-    for (const frame of [0, 179, 359]) {
+    for (const frame of [0, 45, 90, 135, 179, 359]) {
       await page.evaluate(({ id, frame }) => window.remotion_setFrame(frame, id, 1), { id, frame });
       await page.waitForFunction(() => window.remotion_renderReady === true || window.remotion_cancelledError);
       const result = await page.evaluate(async () => {
@@ -86,6 +86,7 @@ try {
         const point = (x, y) => { const p = new DOMPoint(x, y).matrixTransform(scene.getScreenCTM()); return { x:p.x, y:p.y }; };
         return {
           canoe: bounds(document.querySelector('[data-dam-canoe]')), lakeBounds: { left:point(100, 35), right:point(335, 132), surface:point(100, 114) },
+          layeredCanoe: !!document.querySelector('[data-canoe-hull]') && !!document.querySelector('[data-canoe-paddle]') && !scene.querySelector('foreignObject, image, img'),
           error: window.remotion_cancelledError,
           regions: [...document.querySelectorAll('[data-dam-region]')].map(el => ({ name: el.dataset.damRegion, ...bounds(el) })),
           text: [...document.querySelectorAll('[data-dam-text]')].map(el => { const range=document.createRange(); range.selectNodeContents(el); return {text:el.textContent,...bounds(range),parent:bounds(el.closest('[data-dam-region]'))}; }),
@@ -96,7 +97,8 @@ try {
         };
       });
       assert.ok(!result.error, result.error);
-      assert.ok(result.imageLoaded, 'Eddy logo and canoe load');
+      assert.ok(result.imageLoaded, 'Eddy logo loads');
+      assert.ok(result.layeredCanoe, 'Eddy and canoe are layered vector artwork, not an image overlay');
       check(result.canoe.left >= result.lakeBounds.left.x && result.canoe.right < result.lakeBounds.right.x && result.canoe.top > result.lakeBounds.left.y && result.canoe.bottom > result.lakeBounds.surface.y && result.canoe.bottom < result.lakeBounds.right.y, `${platform}/${name}: canoe stays on the lake surface`);
       assert.equal(result.hourCount, 24);
       assert.ok(result.text.length >= 12, 'layout assertions must inspect rendered copy');
@@ -132,7 +134,7 @@ try {
   }
   assert.deepEqual(errors, []);
   assert.deepEqual([...layoutErrors], []);
-  console.log('Dam story: 20 fixtures × 3 frames; safe bounds, complete windows and static copy passed.');
+  console.log('Dam story: 20 fixtures × 6 frames; safe bounds, layered canoe, complete windows and static copy passed.');
 } finally {
   if (browser) await browser.close();
   if (server) await new Promise(r => server.close(r));

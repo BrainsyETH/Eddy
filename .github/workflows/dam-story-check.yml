@@ -27,7 +27,10 @@ jobs:
           cache-dependency-path: missouri-float-planner/remotion/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: node --import tsx --test test/dam-story-motion.test.ts
       - run: node test/dam-story-browser.mjs
+      - name: Render isolated motion study
+        run: npx remotion render src/index.ts dam-story-motion-study out/dam-story/motion-study.mp4 --codec=h264 --crf=18 --concurrency=2
       - name: Render sample Instagram Story
         run: npx remotion render src/index.ts social-dam-schedule out/dam-story/instagram-story.mp4 --codec=h264 --crf=20 --concurrency=2
       - name: Render sample TikTok
