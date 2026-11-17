@@ -28,6 +28,14 @@
 // downstream later, and that any of it can change without notice. Those are
 // available once in the heading's info tip; check time remains on the card.
 //
+// ── Where each half came from ──────────────────────────────────────────────
+//
+// Each section ends with a link to its publisher's own page: the operator's
+// data under the observation, the posted schedule beside the check time. Two
+// links rather than one "Sources" row for the same reason there is a rule
+// between the halves — they are different publishers, and the reader checking
+// a number should land on the page that number came from.
+//
 // ── Why the lake and the week stay outside ────────────────────────────────
 //
 // DamStateCard and DamPatternStrip are still their own cards. This one is about
@@ -55,6 +63,8 @@ import { fonts, type as t } from '@/theme/typography';
 import { DamGenerationHero } from '@/components/dam/DamGenerationHero';
 import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
 import { DamInfoTip } from '@/components/dam/DamInfoTip';
+import { DamSourceLinks } from '@/components/dam/DamSourceLinks';
+import { damSourceLink } from '@/lib/damSourceLinks';
 
 /**
  * The standing qualification, said once for both halves.
@@ -101,6 +111,16 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
     DOWNSTREAM_AND_CHANGE,
   ].filter(Boolean).join('\n\n');
 
+  // The operator's page sits under the observation it sources. A card with no
+  // observed half (the hero and its rule are drawn for a powerhouse only)
+  // carries it in the footer instead, ahead of the schedule's.
+  const readingsSource = damSourceLink(dam, 'readings');
+  const scheduleSource = damSourceLink(dam, 'schedule');
+  const observedSources = dam.hasTurbines && readingsSource ? [readingsSource] : [];
+  const footerSources = [dam.hasTurbines ? null : readingsSource, scheduleSource].filter(
+    (link) => link !== null,
+  );
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <DamGenerationHero
@@ -115,6 +135,7 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
           />
         }
       />
+      <DamSourceLinks links={observedSources} style={styles.observedSources} />
 
       {hasSchedule ? (
         <>
@@ -132,22 +153,33 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
         </>
       ) : null}
 
-      {/* Keep changing freshness information visible, including stale checks. */}
-      {retrieval ? (
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
-          <Text
-            style={[
-              styles.retrieval,
-              {
-                color:
-                  oldestRetrieval && scheduleIsStale(oldestRetrieval)
-                    ? colors.error
-                    : colors.interactive,
-              },
-            ]}
-          >
-            {retrieval}
-          </Text>
+      {/* Keep changing freshness information visible, including stale checks.
+          The schedule's source shares the row: where the plan came from, and
+          when Eddy last read it. Alone, the check time stays centred. */}
+      {retrieval || footerSources.length > 0 ? (
+        <View
+          style={[
+            styles.footer,
+            footerSources.length > 0 ? styles.footerWithSources : null,
+            { borderTopColor: colors.border },
+          ]}
+        >
+          <DamSourceLinks links={footerSources} />
+          {retrieval ? (
+            <Text
+              style={[
+                styles.retrieval,
+                {
+                  color:
+                    oldestRetrieval && scheduleIsStale(oldestRetrieval)
+                      ? colors.error
+                      : colors.interactive,
+                },
+              ]}
+            >
+              {retrieval}
+            </Text>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -157,6 +189,19 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16 },
   rule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, marginBottom: 14 },
+  // Pulled up under the hero: the link's 44pt target already supplies the gap.
+  observedSources: { marginTop: -4, marginBottom: -8 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
+  // A link is 44pt tall, so the row gives back the padding a bare line needs.
+  // Wraps at large text sizes: the link keeps the left edge, the time drops below.
+  footerWithSources: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: 12,
+    paddingTop: 0,
+    marginBottom: -10,
+  },
   retrieval: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center' },
 });

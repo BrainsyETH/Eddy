@@ -21,6 +21,8 @@ const day = (scheduleDate) => ({ scheduleDate, retrievedAt: at,
   hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i >= 12 && i < 20 ? 200 : 0, cfs: i >= 12 && i < 20 ? 13000 : 0, isRamp: false })),
   idle: [{ from: 1, to: 12 }, { from: 21, to: 24 }],
 });
+const corpsSource = { kind: 'readings', label: 'Corps of Engineers data', publisher: 'U.S. Army Corps of Engineers', url: 'https://water.usace.army.mil/overview/swl/locations/bull_shoals_dam' };
+const swpaSource = { kind: 'schedule', label: 'SWPA schedule', publisher: 'Southwestern Power Administration', url: 'https://www.energy.gov/swpa/generation-schedules' };
 const dam = {
   id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam', lakeName: 'Bull Shoals Lake', state: 'AR', lat: 36.36, lon: -92.57,
   hasTurbines: true, generating: true, generationFloorCfs: 100, releaseExcludesGeneration: true,
@@ -30,6 +32,7 @@ const dam = {
   schedule: [day('2026-10-16'), day('2026-10-17'), day('2026-10-18')],
   pattern: ['2026-10-14', '2026-10-15', '2026-10-16'].map((scheduleDate, i) => ({ scheduleDate, startUtc: `${scheduleDate}T05:00:00Z`, turbineCfs: Array.from({ length: 24 }, (_, h) => h === 7 ? null : i === 2 && h > 10 ? null : h > 12 ? 13200 : 0), totalReleaseCfs: Array(24).fill(null) })),
   sources: ['USACE CWMS', 'SWPA'],
+  sourceLinks: [corpsSource, swpaSource],
 };
 const variants = {
   normal: dam,
@@ -37,6 +40,8 @@ const variants = {
   beaver: { ...dam, id: 'swl-beaver-dam', name: 'Beaver Dam' },
   norfork: { ...dam, id: 'swl-norfork-dam', name: 'Norfork Dam' },
   noReference: { ...dam, generationReference: undefined },
+  // A payload from before the field existed: the card draws no link and no empty row.
+  noSources: { ...dam, sourceLinks: undefined },
   splitPeak: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [], hours: day('2026-10-16').hours.map((hour, i) => ({ ...hour, megawatts: (i >= 6 && i < 8) || (i >= 16 && i < 19) ? 200 : 100 })) }] },
   allDayPeak: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [], hours: day('2026-10-16').hours.map(hour => ({ ...hour, megawatts: 200 })) }] },
   noGeneration: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [{ from: 1, to: 24 }], hours: day('2026-10-16').hours.map(hour => ({ ...hour, megawatts: 0, cfs: 0 })) }] },
@@ -44,14 +49,14 @@ const variants = {
   noTemp: { ...dam, metrics: { ...dam.metrics, tailwaterTempF: undefined } },
   stale: { ...dam, metrics: { ...dam.metrics, generationFlow: { ...dam.metrics.generationFlow, at: '2026-10-15T10:00:00Z' } }, schedule: dam.schedule.map(d => ({ ...d, retrievedAt: '2026-10-14T10:00:00Z' })) },
   scheduleOnly: { ...dam, metrics: {}, generating: null, pattern: [] },
-  gate: { ...dam, hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: metric(2200) } },
-  gateDaily: { ...dam, hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: { ...metric(2200), dailyMean: true, at: '2026-10-15T16:30:00Z' } } },
+  gate: { ...dam, sourceLinks: [corpsSource], hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: metric(2200) } },
+  gateDaily: { ...dam, sourceLinks: [corpsSource], hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: { ...metric(2200), dailyMean: true, at: '2026-10-15T16:30:00Z' } } },
   missing: { ...dam, schedule: [] },
   missingTomorrow: { ...dam, schedule: [day('2026-10-16'), day('2026-10-18')] },
   tomorrowOnly: { ...dam, schedule: [day('2026-10-17')] },
   emptyTomorrow: { ...dam, schedule: [day('2026-10-16'), { ...day('2026-10-17'), hours: [] }] },
   staleTomorrow: { ...dam, schedule: [day('2026-10-16'), { ...day('2026-10-17'), retrievedAt: '2026-10-14T10:00:00Z' }] },
-  forecast: { ...dam, schedule: [], generationForecast: { timeZone: 'America/Chicago', retrievedAt: at, source: 'U.S. Army Corps of Engineers, Nashville District', windows: [
+  forecast: { ...dam, sourceLinks: [corpsSource], schedule: [], generationForecast: { timeZone: 'America/Chicago', retrievedAt: at, source: 'U.S. Army Corps of Engineers, Nashville District', windows: [
     { startUtc: '2026-10-16T16:00:00Z', endUtc: '2026-10-16T23:00:00Z', generating: true, peakCfs: 13200 },
     { startUtc: '2026-10-16T23:00:00Z', endUtc: '2026-10-17T12:00:00Z', generating: false, peakCfs: null },
     { startUtc: '2026-10-17T12:00:00Z', endUtc: '2026-10-18T12:00:00Z', generating: true, peakCfs: 13200 },
@@ -260,6 +265,23 @@ export default function Page() {
     const cta = page.locator('[data-dam-app-cta]');
     assert.equal(await cta.locator('a').count(), 1, 'dam promotion has one action');
     assert(await cta.evaluate(el => Boolean(el.closest('section')?.querySelector('[aria-label="Generation schedule"]'))), 'app action belongs to the generation card footer');
+    // Each publisher's page sits in the half it sources, and leaves Eddy safely.
+    const readingsSource = page.locator('.dam-observed [data-dam-source="readings"]');
+    const scheduleSource = page.getByRole('region', { name: 'Generation schedule', exact: true }).locator('[data-dam-source="schedule"]');
+    assert.equal(await page.locator('[data-dam-source]').count(), 2, 'one link per source');
+    for (const [link, source] of [[readingsSource, corpsSource], [scheduleSource, swpaSource]]) {
+      assert.equal(await link.getAttribute('href'), source.url);
+      assert.equal(await link.getAttribute('target'), '_blank');
+      assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+      assert.equal(await link.getAttribute('data-ga-event'), 'dam_source_opened');
+      const box = await link.boundingBox();
+      assert(box.height >= 44, `${name}: ${source.label} keeps a 44px target (${box.height})`);
+      assert(box.x >= 0 && box.x + box.width <= width, `${name}: ${source.label} fits the viewport`);
+    }
+    assert.equal(await page.getByRole('link', { name: /^SWPA schedule \(Southwestern Power Administration, opens in a new tab\)$/ }).count(), 1, 'source link names its publisher and the new tab');
+    const checkLine = await page.locator('[data-schedule-check]').boundingBox();
+    const scheduleLink = await scheduleSource.boundingBox();
+    assert(scheduleLink.x + scheduleLink.width <= checkLine.x || scheduleLink.y + scheduleLink.height <= checkLine.y + 1 || checkLine.y + checkLine.height <= scheduleLink.y + 1, `${name}: schedule source and check time do not overlap`);
     const ctaBox = await cta.boundingBox();
     const ctaLinkBox = await cta.getByRole('link', { name: 'Get Eddy for iPhone' }).boundingBox();
     const historyBox = await page.getByRole('heading', { name: 'Generation pattern', exact: true }).boundingBox();
@@ -379,7 +401,7 @@ export default function Page() {
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
-  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration'])) {
+  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration', 'noSources'])) {
     const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
@@ -408,6 +430,17 @@ export default function Page() {
       assert.equal(await page.locator('[data-schedule-check="stale"]').count(), 1, 'the one provenance line covers the oldest displayed schedule');
     }
     if (variant === 'missing') assert(text.includes('Schedule currently unavailable') && text.includes('13,200'), 'missing schedule retains observed readings');
+    // A failed schedule read is when the publisher's page matters most.
+    if (variant === 'missing') assert.deepEqual(await page.locator('[data-dam-source]').evaluateAll(links => links.map(link => link.dataset.damSource)), ['readings', 'schedule'], 'both source pages survive a missing schedule');
+    if (variant === 'gate') assert.deepEqual(await page.locator('[data-dam-source]').evaluateAll(links => links.map(link => link.dataset.damSource)), ['readings'], 'a dam SWPA does not schedule links only its operator');
+    if (variant === 'noSources') {
+      assert.equal(await page.locator('[data-dam-source]').count(), 0, 'no link is invented for a payload without one');
+      assert.equal(await page.locator('[data-schedule-check]').count(), 1, 'the check time keeps its row without a source');
+    }
+    if (['missing', 'gate', 'forecast', 'scheduleOnly', 'noSources'].includes(variant)) {
+      await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+      await page.locator('[data-dam-detail] section').first().screenshot({ path: `${out}/sources-${variant}.png` });
+    }
     if (variant === 'forecast') {
       assert(text.includes('Generation forecast') && text.includes('Forecast checked'), 'operating forecast retains freshness');
       await page.getByRole('button', { name: 'About generation forecast' }).click();

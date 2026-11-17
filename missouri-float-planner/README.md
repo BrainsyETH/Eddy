@@ -449,6 +449,17 @@ copy feedback. The bottom phone action reads “Release Line: [number]”.
 Framed cards keep the brand's border and offset shadow without moving charts on hover. This layout
 does not infer downstream arrival times or add an AI conditions assessment.
 
+Each half of the generation card links to its publisher's own page: the
+operator's data page under the measured release (the Corps' per-project page on
+water.usace.army.mil, or Ameren's lake reports for Bagnell) and SWPA's schedule
+index beside the schedule's check time. The links open in a new tab on web and
+the in-app browser on iOS. They are registry facts sent on the dam payload as
+`sourceLinks`, so they appear even when a read fails and a moved page is fixed
+by a deploy rather than an app release; a payload without them draws no link.
+Each Corps dam declares its page as `usaceWaterPage` in the registry. That site
+answers 200 for any path, so run `npx tsx scripts/check-dam-source-links.ts`
+after adding or changing one.
+
 Bull Shoals links to `/dams/swl-bull-shoals-dam/release-timing`, a findings
 page on how long measured release increases took to reach the USGS gauge near
 Norfork. A short introduction gives the study's extent and a visible warning

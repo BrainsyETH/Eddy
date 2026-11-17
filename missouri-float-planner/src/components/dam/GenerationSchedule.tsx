@@ -98,7 +98,7 @@ export function scheduleSectionCheck(
  * Three states stay distinct in the headline: a posted day with no generation,
  * a posted day carrying only minimum flow, and no posted day at all.
  */
-export default function GenerationSchedule({ schedule, reference, now, compact = false, withTomorrow = !compact, expandedChart = false, info }: {
+export default function GenerationSchedule({ schedule, reference, now, compact = false, withTomorrow = !compact, expandedChart = false, info, source }: {
   schedule: DamScheduleDay[];
   reference?: GenerationReference | null;
   now: number;
@@ -114,6 +114,12 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
    */
   withTomorrow?: boolean;
   info?: ReactNode;
+  /**
+   * The publisher's own page for this schedule, on the full report. It shares
+   * the closing row with the check time: where the plan came from, and when
+   * Eddy last read it.
+   */
+  source?: ReactNode;
 }) {
   const today = centralDayKey(now);
   const tomorrow = nextDayKey(today);
@@ -228,7 +234,12 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
           ))}
         </div>
       )}
-      {check && <div className="mt-3 flex justify-end border-t border-neutral-200 pt-3"><ScheduleCheck check={check} /></div>}
+      {(check || (!compact && source)) && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 border-t border-neutral-200 pt-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-5">{!compact && source}</div>
+          {check && <div className="ml-auto py-2"><ScheduleCheck check={check} /></div>}
+        </div>
+      )}
     </section>
   );
 }
