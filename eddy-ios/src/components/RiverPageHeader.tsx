@@ -20,11 +20,12 @@ function Shade({ from, to, height, above = false, color = 'black' }: { from: num
 }
 
 /** Scenery is scrolling content; navigation remains the native iOS toolbar. */
-export function RiverPageHeader({ name, meta, photo, topInset, onPhotoError, onTitleBottom }: {
+export function RiverPageHeader({ name, meta, photo, topInset, horizontalInset = 16, onPhotoError, onTitleBottom }: {
   name: string;
   meta: string;
   photo: RiverHeaderPhoto | null;
   topInset: number;
+  horizontalInset?: number;
   onPhotoError: (url: string) => void;
   onTitleBottom: (bottom: number) => void;
 }) {
@@ -37,11 +38,12 @@ export function RiverPageHeader({ name, meta, photo, topInset, onPhotoError, onT
     if (root !== null && block !== null && title !== null) onTitleBottom(root + block + title);
   }
   const ink = photo ? '#FFFFFF' : colors.text;
-  return <View style={[styles.outer, photo && { marginTop: -topInset - 12 }]}
+  return <View style={[styles.outer, { marginHorizontal: -horizontalInset }, photo && { marginTop: -topInset - 12 }]}
     onLayout={event => measure('root', event.nativeEvent.layout.y)}>
     <View style={photo ? [styles.hero, { minHeight: Math.max(236, topInset + 128), paddingTop: topInset + 24, backgroundColor: colors.anchorSurface }] : styles.plain}>
       {photo ? <View style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <ScenicImage source={{ uri: photo.url }} imageWidth={1200} style={StyleSheet.absoluteFill}
+          contentPosition={photo.focus ? { left: photo.focus.split(' ')[0], top: photo.focus.split(' ')[1] } : undefined}
           accessible={false} accessibilityIgnoresInvertColors onError={() => onPhotoError(photo.url)} />
         {/* Blend scenery into the theme beneath the system-managed navigation. */}
         <Shade from={1} to={0} color={colors.bg} height={topInset + 48} />
@@ -63,7 +65,7 @@ export function RiverPageHeader({ name, meta, photo, topInset, onPhotoError, onT
 }
 
 const styles = StyleSheet.create({
-  outer: { marginHorizontal: -16, marginBottom: 16 },
+  outer: { marginBottom: 16 },
   hero: { justifyContent: 'flex-end' },
   plain: { paddingTop: 6 },
   titleBlock: { paddingHorizontal: 20 },

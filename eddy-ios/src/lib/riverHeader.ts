@@ -4,6 +4,8 @@ import type { RiverListItem } from '@eddy/types';
 export interface RiverHeaderPhoto {
   url: string;
   credit: { text: string; url: string } | null;
+  /** CSS-style focus, translated to expo-image's left/top positioning. */
+  focus?: `${number}% ${number}%`;
 }
 
 /** The existing editorial selection, never whichever access loaded first. */

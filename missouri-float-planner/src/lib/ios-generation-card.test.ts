@@ -27,7 +27,7 @@ function renderCard(dam: DamSnapshot) {
     '@eddy/conditions/dam-generation': generation,
     '@eddy/conditions/dam-schedule-copy': scheduleCopy,
     '@/components/dam/DamGenerationHero': { DamGenerationHero: ({ dam }: { dam: DamSnapshot }) =>
-      generation.generationStatusLabel(generation.generationNow(dam)) ? jsx('Hero', {}) : null },
+      dam.hasTurbines || dam.metrics.release ? jsx('Hero', {}) : null },
     '@/components/dam/GenerationSchedule': { GenerationSchedule: 'Schedule' },
     '@/components/dam/DamInfoTip': { DamInfoTip: 'Info' },
     // The real selection logic with a stub row: an empty list draws nothing,
@@ -36,7 +36,7 @@ function renderCard(dam: DamSnapshot) {
       links.length > 0 ? jsx('Sources', { links }) : null },
     '@/lib/damSourceLinks': sourceLinks,
   };
-  const exports: { GenerationCard?: (props: { dam: DamSnapshot }) => unknown } = {};
+  const exports: { GenerationCard?: (props: { dam: DamSnapshot; now: number }) => unknown } = {};
   const source = readFileSync('../eddy-ios/src/components/dam/GenerationCard.tsx', 'utf8');
   runInNewContext(ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
@@ -45,7 +45,7 @@ function renderCard(dam: DamSnapshot) {
     return dependencies[name];
   } });
   assert.ok(exports.GenerationCard);
-  return { result: exports.GenerationCard({ dam }), nodes };
+  return { result: exports.GenerationCard({ dam, now: Date.now() }), nodes };
 }
 
 const floodControl: DamSnapshot = {
@@ -54,9 +54,12 @@ const floodControl: DamSnapshot = {
   metrics: { release: { value: 336, unit: 'cfs', at: '2026-11-11T21:00:00Z', staleness: 'fresh' } },
 };
 
-test('flood-control dams with release readings do not render an empty generation card', () => {
+test('flood-control dams lead with release readings without an empty generation card', () => {
   for (const id of ['swl-clearwater-dam', 'mvs-wappapello']) {
-    assert.equal(renderCard({ ...floodControl, id }).result, null);
+    const { result, nodes } = renderCard({ ...floodControl, id });
+    assert.ok(result);
+    assert.equal(nodes.filter(node => node.type === 'Hero').length, 1);
+    assert.equal(nodes.filter(node => node.type === 'Schedule').length, 0);
   }
   assert.equal(renderCard({ ...floodControl, metrics: {} }).result, null);
 });
@@ -68,7 +71,7 @@ test('a powerhouse with missing turbine data retains its generation status card'
 });
 
 test('a schedule without a powerhouse remains visible without an orphan divider', () => {
-  const { result, nodes } = renderCard({ ...floodControl, schedule: [{ scheduleDate: '2026-11-11', retrievedAt: null, hours: [], idle: [] }] });
+  const { result, nodes } = renderCard({ ...floodControl, metrics: {}, schedule: [{ scheduleDate: '2026-11-11', retrievedAt: null, hours: [], idle: [] }] });
   assert.ok(result);
   assert.equal(nodes.filter(node => node.type === 'Schedule').length, 1);
   assert.equal(nodes.filter(node => node.type === 'Hero').length, 0);
@@ -88,7 +91,7 @@ test('each publisher’s page sits in the half of the card it sources', () => {
   assert.deepEqual(sourceRows(renderCard(powerhouse).nodes), [['readings'], ['schedule']]);
 
   // No observed half to sit under: the operator's page joins the footer.
-  assert.deepEqual(sourceRows(renderCard({ ...powerhouse, hasTurbines: false }).nodes), [['readings', 'schedule']]);
+  assert.deepEqual(sourceRows(renderCard({ ...powerhouse, hasTurbines: false, metrics: {} }).nodes), [['readings', 'schedule']]);
 
   // A failed schedule read keeps both pages, and the card keeps its footer for them.
   assert.deepEqual(sourceRows(renderCard({ ...powerhouse, schedule: [] }).nodes), [['readings'], ['schedule']]);
@@ -99,4 +102,69 @@ test('a payload without source links draws the card exactly as before', () => {
   assert.ok(result);
   assert.deepEqual(sourceRows(nodes), []);
   assert.equal(nodes.filter(node => node.type === 'View').length, 1, 'no footer is drawn for nothing');
+});
+
+// Render the real release/turbine hierarchy, stubbing native hosts only.
+function renderHero(dam: DamSnapshot): string {
+  type Node = { type: unknown; props: { children?: unknown } };
+  const jsx = (type: unknown, props: Node['props']): unknown =>
+    typeof type === 'function' ? type(props) : { type, props };
+  const dependencies: Record<string, unknown> = {
+    'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    'react-native': { View: 'View', Text: 'Text', StyleSheet: { create: (styles: unknown) => styles, hairlineWidth: 1 } },
+    '@/components/ControlIcon': { ControlIcon: 'Icon' },
+    '@/components/EddySymbol': { EddySymbol: 'Symbol' },
+    '@/theme/ThemeProvider': { useTheme: () => ({ colors: {} }) },
+    '@/theme/typography': { fonts: {}, type: {} },
+    '@eddy/conditions/dam-generation': generation,
+    '@eddy/conditions/dam-schedule-copy': scheduleCopy,
+  };
+  const exports: { DamGenerationHero?: (props: { dam: DamSnapshot; now: number }) => unknown } = {};
+  const source = readFileSync('../eddy-ios/src/components/dam/DamGenerationHero.tsx', 'utf8');
+  runInNewContext(ts.transpileModule(source, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+  } }).outputText, { exports, require: (name: string) => {
+    assert.ok(name in dependencies, `Unexpected hero dependency: ${name}`);
+    return dependencies[name];
+  } });
+  function words(node: unknown): string {
+    if (Array.isArray(node)) return node.map(words).join(' ');
+    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (node && typeof node === 'object' && 'props' in node) return words((node as Node).props.children);
+    return '';
+  }
+  assert.ok(exports.DamGenerationHero);
+  return words(exports.DamGenerationHero({ dam, now: Date.now() })).replace(/\s+/g, ' ').trim();
+}
+
+test('native total release leads even when idle turbines report a different number and time', () => {
+  const now = Date.now();
+  const metric = (value: number, minutesAgo = 20) => ({ value, unit: 'cfs', at: new Date(now - minutesAgo * 60_000).toISOString(), staleness: 'fresh' as const });
+  const dam = { ...floodControl, hasTurbines: true, generationFloorCfs: 100,
+    metrics: { release: metric(6200), generationFlow: metric(20, 80) } };
+  const content = renderHero(dam);
+  assert.match(content, /^Water release 6,200 cfs Total water released at the dam/);
+  assert.match(content, /Through the turbines 20 cfs/);
+  assert.equal((content.match(/Last reading/g) ?? []).length, 2, 'each observation retains its own time');
+  assert.doesNotMatch(content, /Not through turbines/, 'undeclared or misaligned observations are never subtracted');
+
+  const missing = renderHero({ ...dam, metrics: { generationFlow: metric(6200) } });
+  assert.match(missing, /^Water release Total release unavailable/);
+  assert.match(missing, /Through the turbines 6,200 cfs/);
+
+  const matching = renderHero({ ...dam, metrics: { release: metric(20), generationFlow: metric(20) } });
+  assert.match(matching, /Turbine flow matches total release/);
+  assert.equal((matching.match(/Last reading/g) ?? []).length, 1);
+
+  const daily = renderHero({ ...dam, metrics: { release: { ...metric(6200, 1440), dailyMean: true }, generationFlow: metric(20) } });
+  assert.match(daily, /Total release at dam · Daily average/);
+  assert.doesNotMatch(daily, /Turbine flow matches total release/);
+  assert.equal((daily.match(/Last reading/g) ?? []).length, 2);
+
+  const stale = renderHero({ ...dam, metrics: { release: metric(6200, 1440), generationFlow: metric(20) } });
+  assert.match(stale, /Outdated release reading/);
+  assert.doesNotMatch(stale, /Outdated turbine reading/);
+  const flood = renderHero({ ...floodControl, metrics: { release: metric(336) } });
+  assert.match(flood, /^Water release 336 cfs/);
+  assert.doesNotMatch(flood, /turbine|generation/i);
 });

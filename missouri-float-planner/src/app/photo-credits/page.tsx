@@ -4,7 +4,7 @@ import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { guidePhotos } from '@/lib/photos/guides';
 import { reviewedPhotos } from '@/lib/photos/reviewed';
-import lakePhotoCredits from '../../../public/lakes/credits.json';
+import lakePhotoCredits from '../../../shared/place-photo-credits.json';
 
 export const metadata: Metadata = publicPageMetadata(
   'Photo credits',

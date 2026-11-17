@@ -1529,9 +1529,21 @@ readings or a comparison from another calendar day. Search rows stay compact.
 
 ## Dam details
 
-The generation card and its spacing appear only for a powerhouse or a posted
-generation schedule. Flood-control dams such as Clearwater keep their release
-and water-level readings without an empty generation card above them.
+Dam detail uses the same photo header as river detail, with the web's selected
+image, crop focus and attribution from `shared/place-photo-credits.json`.
+Photo metadata ships with the app; images use Eddy's resized, disk-cached copies
+without waiting for the dam readings. Missing or failed images use a plain title.
+Native back, share and favorite controls stay in the toolbar, with the compact
+title appearing when the large title scrolls out of view. The header's Dynamic
+Type and contrast accommodations follow the river header above; the same native
+device verification remains required.
+
+Total water release leads the dam's first card, including flood-control dams.
+Turbine flow and the estimated generator rack follow as a separate observation;
+they never stand in for a missing total release. Matching, aligned spot readings
+share one value; different times keep their own timestamp. Daily averages and
+outdated readings stay labeled. The posted schedule follows the observations.
+The lower conditions card does not repeat total release.
 
 Dam detail readings use Eddy's illustrated metric symbols: Release and Water
 temperature share the web masters; lake and tailwater levels reuse the gauge
