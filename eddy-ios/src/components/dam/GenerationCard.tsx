@@ -64,7 +64,7 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
   // Age describes Eddy's last check, not whether SWPA revised the plan.
   // Unknown checks stay neutral even if another day's timestamp is old.
   const checkColor = !check?.stale ? colors.textMuted
-    : checkAgeMinutes > SCHEDULE_STALE_AFTER_MINUTES * 2 ? colors.error : colors.accent;
+    : checkAgeMinutes > SCHEDULE_STALE_AFTER_MINUTES * 2 ? colors.error : colors.agingText;
   const details = [
     'Total release includes water leaving the dam through turbines and other outlets. Turbine flow is only the water passing through the generators.',
     ref ? `${generationReferenceCitation(ref)}. ${RACK_ESTIMATE_NOTE}` : null,

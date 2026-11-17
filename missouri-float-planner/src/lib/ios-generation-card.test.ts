@@ -22,7 +22,7 @@ function renderCard(dam: DamSnapshot, now = Date.now()) {
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
     'react-native': { View: 'View', Text: 'Text', StyleSheet: { create: (styles: unknown) => styles, hairlineWidth: 1 } },
     '@/theme/layout': { radii: {} },
-    '@/theme/ThemeProvider': { useTheme: () => ({ colors: { textMuted: 'muted', accent: 'coral', error: 'red' }, elevation: () => ({}) }) },
+    '@/theme/ThemeProvider': { useTheme: () => ({ colors: { textMuted: 'muted', agingText: 'coral', error: 'red' }, elevation: () => ({}) }) },
     '@/theme/typography': { fonts: {}, type: {} },
     '@eddy/conditions/dam-generation': generation,
     '@eddy/conditions/dam-schedule-copy': scheduleCopy,
