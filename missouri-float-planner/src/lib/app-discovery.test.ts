@@ -197,12 +197,13 @@ test('device hints distinguish Android, iPhone, desktop-mode iPad and narrow des
   ] as const) assert.equal(appDevice({ userAgent, platform, maxTouchPoints }), expected);
 });
 
-test('QR handoff retains the dam and partner campaign on Eddy’s own app page', async () => {
-  const { href, src } = await appQrImage('partner_guide', 'swl-bull-shoals-dam');
-  assert.equal(href, 'https://eddy.guide/app?ct=partner_guide&dam=swl-bull-shoals-dam');
+test('a scanned QR opens the App Store listing with the campaign, not this site again', async () => {
+  const { href, src } = await appQrImage('partner_guide');
+  assert.equal(href, appStoreUrl('partner_guide'));
+  assert.match(href, /^https:\/\/apps\.apple\.com\//);
   assert.match(decodeURIComponent(src), /^data:image\/svg\+xml,<svg /);
-  const rejected = await appQrImage('a,b', 'https://example.com');
-  assert.equal(rejected.href, 'https://eddy.guide/app');
+  const rejected = await appQrImage('a,b');
+  assert.equal(rejected.href, appStoreUrl(null));
 });
 
 test('every promoted dam has a powerhouse, so the widget line can promise generation', () => {
@@ -212,7 +213,7 @@ test('every promoted dam has a powerhouse, so the widget line can promise genera
   }
 });
 
-test('plan, river, gauge and access handoffs retain context through landing, banner and QR', async () => {
+test('plan, river, gauge and access handoffs retain context through landing and banner; QR keeps the campaign', async () => {
   const { appDestination, nativeDestination } = await import('./app-destination');
   const { GET } = await import('../app/api/app/qr/route');
   for (const [params, path] of [
@@ -239,9 +240,9 @@ test('plan, river, gauge and access handoffs retain context through landing, ban
     const qr = await GET(new Request(`https://eddy.guide/api/app/qr?${new URLSearchParams(query)}`));
     assert.equal(qr.status, 200);
     assert.equal(qr.headers.get('content-type'), 'image/svg+xml');
-    // Compare the actual encoded SVG with the canonical same-context URL.
+    // The scan goes straight to the App Store with this context's campaign.
     const QRCode = (await import('qrcode')).default;
-    assert.equal(await qr.text(), await QRCode.toString(`https://eddy.guide${href}`, { type: 'svg', errorCorrectionLevel: 'M', margin: 4 }));
+    assert.equal(await qr.text(), await QRCode.toString(appStoreUrl('partner_guide'), { type: 'svg', errorCorrectionLevel: 'M', margin: 4 }));
   }
 });
 

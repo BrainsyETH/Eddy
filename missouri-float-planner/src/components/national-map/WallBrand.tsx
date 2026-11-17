@@ -1,7 +1,7 @@
 'use client';
 
 // The wall's small Eddy badge, bottom right: the otter and wordmark, a QR code
-// to Eddy's download page, and the site address underneath — so a guest who
+// to Eddy's App Store listing, and the site address underneath — so a guest who
 // likes the display knows where it comes from and can get the app.
 //
 // Legend and Story presentations only: Map only stays free of any words or

@@ -52,8 +52,8 @@ From the top:
    `/api/weather/<doorstep>/forecast`, refreshed hourly, labelled with the
    forecast's own place. A rain chance of 40% or more is in coral, Eddy's
    rain-coming threshold.
-6. **Footer**: sunrise and sunset, the Eddy credit and a QR code to Eddy's app
-   page tagged with the partner's campaign.
+6. **Footer**: sunrise and sunset, the Eddy credit and a QR code to Eddy's App
+   Store listing tagged with the partner's campaign.
 
 Alignment: content placed directly on the page sits 48px from both edges;
 content inside a card sits 79px from both edges (48 + 3px frame + 28px

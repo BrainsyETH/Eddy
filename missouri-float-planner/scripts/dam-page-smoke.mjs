@@ -723,7 +723,7 @@ export default function Page() {
   await desktop.waitForLoadState('networkidle');
   const qr = desktop.locator('[data-app-qr]');
   assert(await qr.isVisible(), 'narrow desktop windows retain the QR');
-  assert.equal(await qr.locator('a').getAttribute('href'), 'https://eddy.guide/app?ct=partner_guide&dam=swl-table-rock-dam');
+  assert.match(await qr.locator('a').getAttribute('href'), /^https:\/\/apps\.apple\.com\//, 'a scan opens the App Store');
   await writeFile(`${out}/dam-qr.svg`, decodeURIComponent((await qr.locator('img').getAttribute('src')).split(',').slice(1).join(',')));
   await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
   await desktop.screenshot({ path: `${out}/app-narrow-desktop.png`, fullPage: false });
@@ -804,7 +804,7 @@ export default function Page() {
     assert.equal(await android.locator('[data-ga-event="app_store_click"], .app-cta__qr').count(), 0);
   }
   await android.close();
-  console.log('PASS Android keeps the schedule; desktop QR retains dam and campaign below 900px');
+  console.log('PASS Android keeps the schedule; desktop QR opens the App Store below 900px');
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');
   console.log(`Screenshots: ${out}`);
 } finally {
