@@ -348,6 +348,28 @@ test('a withheld regional reading says what happened instead of a failure headli
   assert.equal(campingPulseWithheldNote(todayCampingDemand(overview(), now.getTime())), null);
 });
 
+test('out-of-season campgrounds stored as not reservable no longer withhold the regional reading', () => {
+  // The same November 16 night once the sync records the seven campgrounds
+  // with no calendar as zero reservable sites instead of leaving them missing.
+  const o = broadSample(23, 30);
+  for (const c of o.tracked.slice(23)) {
+    c.riverSlugs = ['buffalo'];
+    c.nights = [{ date: '2026-09-29', sitesOpen: 0, sitesReservable: 0, status: 'full', checkedAt: '2026-09-29T14:00:00Z' }];
+  }
+  const demand = todayCampingDemand(o, now.getTime());
+  assert.equal(demand.withheld, null);
+  assert.equal(demand.band, 'quiet');
+  assert.equal(demand.campgroundsCounted, 23);
+  assert.equal(demand.campgroundsNoInventory, 7);
+  assert.equal(demand.campgroundsMissing, 0);
+  // Zero reservable sites adds nothing to either side of the fraction.
+  assert.equal(demand.reservableSites, 23 * 25);
+  assert.equal(campingPulseHeadline(demand), 'At 20% capacity across the Ozarks');
+  // A river whose campgrounds are all out of season still has no row.
+  assert.deepEqual(todayPopularCamping(o, now.getTime()).map((r) => r.slug), ['current']);
+  assert.equal(campingDemand(o, 'buffalo', '2026-09-29', now.getTime()).withheld, 'no_reservable_inventory');
+});
+
 test('each withheld reason has its own wording, and none reads as missing data when it is not', () => {
   const closed = broadSample(10, 10);
   for (const c of closed.tracked.slice(0, 6)) c.nights[0] = { ...c.nights[0], sitesOpen: 0, sitesReservable: 0, status: 'closed' };

@@ -283,6 +283,8 @@ export async function fetchWindow(
   // record, not two competing ones.
   const sites = new Map<string, CampsiteRecord>();
   const siteNights: SiteNight[] = [];
+  // Months whose payload listed this facility's own overnight sites.
+  const listedMonths = new Set<string>();
 
   for (const month of monthsSpanned(window)) {
     const key = `${facility.sourceFacilityId}:${month}`;
@@ -315,6 +317,7 @@ export async function fetchWindow(
     const parsed = parseMonthSites(payload, facility.sourceLoop);
     for (const site of parsed.sites) sites.set(site.sourceSiteId, site);
     siteNights.push(...parsed.siteNights);
+    if (parsed.sites.length > 0) listedMonths.add(month.slice(0, 7));
   }
 
   const wanted = new Set(window.nights);
@@ -326,5 +329,48 @@ export async function fetchWindow(
     sites: [...sites.values()],
     // A month payload covers the whole month; only the horizon is stored.
     siteNights: siteNights.filter((night) => wanted.has(night.date)),
+    notReservableNights: nightsWithoutCalendar(window, merged, listedMonths),
   };
+}
+
+/**
+ * Window nights the feed answered for without a calendar.
+ *
+ * Outside a campground's reservation season the endpoint still returns every
+ * site, with no `availabilities` entry for the night. Observed 2026-11-16:
+ * Buffalo Point (234043) lists 108 overnight sites with entries through
+ * November 15 and none again until March 15; War Eagle (233279) lists 26 with
+ * none all month. Dropping those nights left the campground looking unchecked
+ * all winter, which withheld the regional camping reading for want of data that
+ * was in fact a clear answer: nothing is reservable.
+ *
+ * Absence is ambiguous at one edge, so only two shapes qualify. Ozark
+ * backcountry permits (10344874) had entries through November 30 and nothing
+ * after — a calendar that has not been published yet, not a season that ended —
+ * and calling those nights unreservable would turn people away from dates that
+ * open later. So a night qualifies when a LATER night does have a calendar (the
+ * gap cannot be the release edge), or when no night from the window's start
+ * onward has one (the nearest dates are always the first released). Trailing
+ * nights after the last calendar stay unknown, as before.
+ *
+ * A month that 404s, or lists none of this facility's sites, says nothing.
+ */
+function nightsWithoutCalendar(
+  window: CampingWindow,
+  merged: Map<string, unknown>,
+  listedMonths: Set<string>,
+): string[] {
+  const start = window.nights[0];
+  let lastCalendar: string | null = null;
+  // Month payloads run past the horizon, so a calendar later in the last
+  // fetched month still proves an earlier gap is not the release edge.
+  for (const date of merged.keys()) {
+    if (date >= start && (lastCalendar === null || date > lastCalendar)) lastCalendar = date;
+  }
+  return window.nights.filter(
+    (night) =>
+      !merged.has(night) &&
+      listedMonths.has(night.slice(0, 7)) &&
+      (lastCalendar === null || night < lastCalendar),
+  );
 }

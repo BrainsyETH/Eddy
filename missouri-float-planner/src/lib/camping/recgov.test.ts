@@ -3,7 +3,7 @@ import test from 'node:test';
 import { fetchWindow, foldNight, parseMonth, parseMonthSites, type MonthCache } from './recgov';
 import { type FacilityLink } from './types';
 import { createLimiter } from './limiter';
-import { resolveWeekend } from './window';
+import { resolveWeekend, type CampingWindow } from './window';
 
 // Fixture shapes are transcribed from live responses captured while designing
 // this: Red Bluff 232391 (walk-up sites), Alley Spring 234046 (seasonal
@@ -170,6 +170,8 @@ test('a 404 yields no data without counting against the failure budget', async (
         nights: [],
         sites: [],
         siteNights: [],
+        // A 404 lists no sites, so it says nothing about any night.
+        notReservableNights: [],
       });
     }
 
@@ -457,4 +459,125 @@ test('unavailable later months preserve valid earlier observations', async () =>
     createLimiter({ name: 'test', minSpacingMs: 0, maxRequests: 0 }), cache);
   assert.deepEqual(result.nights.map((night) => night.date), ['2026-09-05']);
   assert.equal(result.sites.length, 2);
+});
+
+// ── Nights the feed answers for without a calendar ─────────────────────────
+// Shapes transcribed from live responses on 2026-11-16: Buffalo Point 234043
+// (entries through Nov 15, none until Mar 15), War Eagle 233279 (26 sites, no
+// entries all month) and Ozark backcountry permits 10344874 (entries through
+// Nov 30, sites but no entries in December).
+
+function nightsFrom(start: string, count: number): CampingWindow {
+  const nights = Array.from({ length: count }, (_, i) =>
+    new Date(Date.parse(`${start}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10),
+  );
+  return { startDate: start, endDate: nights[nights.length - 1], label: 'test', nights };
+}
+
+/** One month payload per `YYYY-MM`; a month not listed answers 404. */
+async function fetchWith(
+  months: Record<string, Record<string, { loop?: string; type_of_use?: string; dates: Record<string, string> }>>,
+  window: CampingWindow,
+  sourceLoop: string | null = null,
+) {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const month = decodeURIComponent(String(input)).match(/start_date=(\d{4}-\d{2})/)![1];
+    const sites = months[month];
+    if (!sites) return new Response('not found', { status: 404 });
+    return new Response(
+      JSON.stringify({
+        campsites: Object.fromEntries(
+          Object.entries(sites).map(([id, site]) => [
+            id,
+            {
+              campsite_id: id,
+              loop: site.loop,
+              type_of_use: site.type_of_use ?? 'Overnight',
+              availabilities: Object.fromEntries(
+                Object.entries(site.dates).map(([date, value]) => [`${date}T00:00:00Z`, value]),
+              ),
+            },
+          ]),
+        ),
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  }) as typeof globalThis.fetch;
+  try {
+    const limiter = createLimiter({ name: 'test', minSpacingMs: 0, maxRequests: 10, sleep: async () => undefined });
+    return await fetchWindow(
+      { id: 'x', source: 'recreation_gov', sourceFacilityId: '1', sourceLoop, displayName: 'Test', kind: 'campground' },
+      window,
+      limiter,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+test('a campground past its reservation season is not reservable, not unchecked', async () => {
+  // Buffalo Point on November 16: sites listed, the last entry was yesterday.
+  const window = nightsFrom('2026-11-16', 20);
+  const result = await fetchWith(
+    {
+      '2026-11': { a: { dates: { '2026-11-14': 'Reserved', '2026-11-15': 'Reserved' } }, b: { dates: {} } },
+      '2026-12': { a: { dates: {} }, b: { dates: {} } },
+    },
+    window,
+  );
+  assert.deepEqual(result.nights, []);
+  assert.deepEqual(result.siteNights, []);
+  assert.equal(result.sites.length, 2, 'the site catalog is still reported');
+  assert.deepEqual(result.notReservableNights, window.nights);
+});
+
+test('a campground with no calendar at all is not reservable on every fetched night', async () => {
+  // War Eagle in November: 26 sites, no entries.
+  const window = nightsFrom('2026-11-16', 5);
+  const result = await fetchWith({ '2026-11': { a: { dates: {} } } }, window);
+  assert.deepEqual(result.notReservableNights, window.nights);
+});
+
+test('nights after the last published calendar stay unknown: they may not be released yet', async () => {
+  // Ozark backcountry permits: bookable through November 30, nothing published after.
+  const window = nightsFrom('2026-11-28', 6);
+  const result = await fetchWith(
+    {
+      '2026-11': { a: { dates: { '2026-11-28': 'Available', '2026-11-29': 'Available', '2026-11-30': 'Reserved' } } },
+      '2026-12': { a: { dates: {} } },
+    },
+    window,
+  );
+  assert.deepEqual(result.nights.map((n) => n.date), ['2026-11-28', '2026-11-29', '2026-11-30']);
+  assert.deepEqual(result.notReservableNights, []);
+});
+
+test('a gap before a later calendar is not reservable, and observed nights are never marked', async () => {
+  // Winter at Buffalo Point seen from early March: the season opens on the 15th.
+  const window = nightsFrom('2027-03-12', 5);
+  const result = await fetchWith(
+    { '2027-03': { a: { dates: { '2027-03-15': 'Available', '2027-03-16': 'Available' } } } },
+    window,
+  );
+  assert.deepEqual(result.notReservableNights, ['2027-03-12', '2027-03-13', '2027-03-14']);
+  assert.deepEqual(result.nights.map((n) => n.date), ['2027-03-15', '2027-03-16']);
+  // A calendar past the stored horizon, later in the fetched month, also rules out the release edge.
+  const short = nightsFrom('2027-03-12', 2);
+  assert.deepEqual(
+    (await fetchWith({ '2027-03': { a: { dates: { '2027-03-20': 'Available' } } } }, short)).notReservableNights,
+    short.nights,
+  );
+});
+
+test('a month that 404s, or lists none of this campground’s overnight sites, says nothing', async () => {
+  const window = nightsFrom('2026-11-29', 4);
+  // December is a 404: only November's nights are answered for.
+  assert.deepEqual(
+    (await fetchWith({ '2026-11': { a: { dates: {} } } }, window)).notReservableNights,
+    ['2026-11-29', '2026-11-30'],
+  );
+  // Another loop's sites, or day-use shelters, are not this campground's answer.
+  const others = { '2026-11': { a: { loop: 'Other Loop', dates: {} }, b: { loop: 'Mine', type_of_use: 'Day', dates: {} } } };
+  assert.deepEqual((await fetchWith(others, window, 'Mine')).notReservableNights, []);
 });

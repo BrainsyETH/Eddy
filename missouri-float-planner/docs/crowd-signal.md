@@ -175,14 +175,21 @@ of occupancy at the missing campground.
 A read-only check on November 16, 2026 found the regional reading withheld with
 23 of 30 eligible campgrounds reporting (27 of 466 reservable sites booked). The
 seven others were not sync failures. Recreation.gov returns a campground's sites
-with no availability entries for nights outside its reservation season: the four
-Buffalo River campgrounds have none after November 15, and Red Bluff, Silver
-Mines and War Eagle have none in the stored horizon. The sync stores no row for
-such a night, so the scorer counts the campground as missing rather than closed
-or not reservable, and 23 of 30 falls under the 80% regional sample rule. Until
-the sync records those nights, the regional reading stays withheld while enough
-campgrounds are out of season; the card shows the note above and the river rows.
-How to label such a night (some stay open first-come, first-served) is undecided.
+with no availability entries for nights outside its reservation season: Buffalo
+Point has none from November 16 until March 15, and Red Bluff, Silver Mines and
+War Eagle had none all month. The sync stored no row for such a night, so the
+scorer counted the campground as missing, and 23 of 30 fell under the 80%
+regional sample rule.
+
+Owner decision (November 17, 2026): the sync records those nights as not
+reservable — a `full` night with zero reservable sites, the existing “No
+reservable sites” state — never as closed, because some of these campgrounds stay
+open first-come, first-served. The scorer already counts such a night as
+`campgroundsNoInventory`: excluded from booked and reservable sites, and not
+missing. The same night then rates across the 23 campgrounds that take
+reservations. `docs/camping-heatmap.md` (*Nights without a calendar*) owns the
+rule for which nights qualify. It takes effect as each campground is next synced;
+no rows are backfilled.
 
 Later work can add relative busyness from history and resolve state-park coverage.
 Backcountry districts remain outside the campground overview.

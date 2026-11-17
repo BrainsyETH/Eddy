@@ -66,7 +66,8 @@ A full-screen campground row opens a native page sheet. The sheet opens on the f
 The scheduled sync uses `PLANNING_NIGHTS = 90`. The scrolling client requests
 `/api/camping/availability?nights=90`; requests without that parameter retain
 fourteen nights so already-shipped fixed-grid builds remain usable. Existing map-strip
-readers retain the default fourteen nights. Missing provider dates remain unknown;
+readers retain the default fourteen nights. Missing provider dates remain unknown,
+except the Recreation.gov nights described under *Nights without a calendar*;
 scrolling does not imply a date has been checked or released for booking.
 
 The full-screen comparison keeps names fixed and synchronize the header and row scroll offsets.
@@ -119,6 +120,32 @@ where f.enabled and a.fetched_at >= now() - interval '72 hours'
   and a.date >= (now() at time zone 'America/Chicago')::date
 group by f.source;
 ```
+
+### Nights without a calendar
+
+Owner decision (November 17, 2026). Outside a campground's reservation season,
+Recreation.gov still returns every site but no availability entry for the night
+(observed November 16, 2026: Buffalo Point has entries through November 15 and
+none again until March 15; War Eagle, Red Bluff and Silver Mines had none all
+month). The sync stores such a night as `full` with zero reservable sites: the
+existing “No reservable sites” state on iOS and “no recorded openings” on the web
+grid. It is never stored as closed, since some of these campgrounds stay open
+first-come, first-served, and no per-site states are written, so individual sites
+on that night remain unknown.
+
+Absence can also mean the calendar has not been published yet: Ozark backcountry
+permits had entries through November 30 and none after. A night therefore
+qualifies only when a later night in the fetched months has a calendar, or when
+no night from the horizon's start onward has one. Nights after the last
+published calendar remain unknown, as do months that return 404 or list none of
+the campground's own overnight sites. `nightsWithoutCalendar` in
+`src/lib/camping/recgov.ts` implements this; Missouri State Parks is unchanged.
+
+These nights are observations: they count toward freshness, clear
+`camping_synced_without_observations` for a campground that is simply out of
+season, and reach `campsite_occupancy_history` as `full` with zero reservable
+sites instead of `missing`. A provider response that wrongly omitted an in-season
+calendar would be stored the same way until the next sync replaces it.
 
 ## Review refinements (September 28)
 

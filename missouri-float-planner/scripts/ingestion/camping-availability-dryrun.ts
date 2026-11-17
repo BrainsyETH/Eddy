@@ -117,7 +117,9 @@ async function main() {
             (summary
               ? `${String(summary.sitesOpen).padStart(3)}/${String(summary.sitesReservable).padEnd(4)} ${summary.status.padEnd(8)}`
               : ' no weekend data      ') +
-            ` ${strip.padEnd(16)} ${String(sites.length).padStart(3)} sites, ${siteNights.length} site-nights`,
+            ` ${strip.padEnd(16)} ${String(sites.length).padStart(3)} sites, ${siteNights.length} site-nights` +
+            // Out-of-season nights the sync stores as zero reservable sites.
+            (result.notReservableNights?.length ? `, ${result.notReservableNights.length} nights not reservable` : ''),
         );
 
         // The list a person will actually scroll, for the first facility that
