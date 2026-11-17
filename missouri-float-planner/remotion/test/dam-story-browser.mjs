@@ -85,7 +85,10 @@ try {
         const scene = document.querySelector('[data-dam-scene]');
         const point = (x, y) => { const p = new DOMPoint(x, y).matrixTransform(scene.getScreenCTM()); return { x:p.x, y:p.y }; };
         return {
-          canoe: bounds(document.querySelector('[data-dam-canoe]')), lakeBounds: { left:point(100, 35), right:point(335, 132), surface:point(100, 114) },
+          // Measure rendered hull/head paths, not the outer rig's clipped paddle
+          // copies. An SVG group's bounds include geometry outside clip paths.
+          canoe: bounds(document.querySelector('[data-canoe-hull]')), head: bounds(document.querySelector('[data-canoe-head]')),
+          lakeBounds: { left:point(100, 35), right:point(335, 132), surface:point(100, 114) },
           layeredCanoe: !!document.querySelector('[data-canoe-hull]') && !!document.querySelector('[data-canoe-paddle]') && !scene.querySelector('foreignObject, image, img'),
           error: window.remotion_cancelledError,
           regions: [...document.querySelectorAll('[data-dam-region]')].map(el => ({ name: el.dataset.damRegion, ...bounds(el) })),
@@ -99,7 +102,8 @@ try {
       assert.ok(!result.error, result.error);
       assert.ok(result.imageLoaded, 'Eddy logo loads');
       assert.ok(result.layeredCanoe, 'Eddy and canoe are layered vector artwork, not an image overlay');
-      check(result.canoe.left >= result.lakeBounds.left.x && result.canoe.right < result.lakeBounds.right.x && result.canoe.top > result.lakeBounds.left.y && result.canoe.bottom > result.lakeBounds.surface.y && result.canoe.bottom < result.lakeBounds.right.y, `${platform}/${name}: canoe stays on the lake surface`);
+      check(result.canoe.left >= result.lakeBounds.left.x && result.canoe.right < result.lakeBounds.right.x && result.canoe.top > result.lakeBounds.left.y && result.canoe.bottom > result.lakeBounds.surface.y && result.canoe.bottom < result.lakeBounds.right.y, `${platform}/${name}@${frame}: hull stays on the lake surface: ${JSON.stringify(result.canoe)}`);
+      check(result.head.top > result.lakeBounds.left.y && result.head.bottom < result.lakeBounds.surface.y && result.head.left > result.canoe.left && result.head.right < result.canoe.right, `${platform}/${name}@${frame}: Eddy sits above the hull: ${JSON.stringify(result.head)}`);
       assert.equal(result.hourCount, 24);
       assert.ok(result.text.length >= 12, 'layout assertions must inspect rendered copy');
       const safe = platform === 'instagram' ? { top:250, bottom:1620, left:60, right:1020 } : { top:180, bottom:1500, left:60, right:810 };

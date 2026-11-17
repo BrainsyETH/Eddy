@@ -33,7 +33,7 @@ export function EddyCanoe({ frame }: { frame: number }) {
       <circle cx="-31" cy="-60" r="7" fill={fur} />
       <circle cx="15" cy="-61" r="6.5" fill={fur} />
       <path d="M-31 -60 L-28 -57 M14 -61 L12 -58" fill="none" stroke={furLight} strokeWidth="2" />
-      <path d="M-32 -55 Q-34 -68 -19 -70 L-11 -76 L-11 -71 L-2 -74 L-4 -70 Q18 -69 19 -53 Q20 -39 -6 -36 Q-29 -36 -32 -55Z" fill={fur} />
+      <path data-canoe-head d="M-32 -55 Q-34 -68 -19 -70 L-11 -76 L-11 -71 L-2 -74 L-4 -70 Q18 -69 19 -53 Q20 -39 -6 -36 Q-29 -36 -32 -55Z" fill={fur} />
       <path d="M-28 -49 Q-18 -54 -7 -49 Q4 -55 16 -50 Q19 -37 -6 -36 Q-25 -36 -28 -49Z" fill={colors.support[500]} stroke="none" />
       <path d="M-27 -66 Q-20 -69 -16 -70" stroke={colors.support[500]} strokeWidth="2" fill="none" />
       {/* Oversized sunglasses and whiskers carry the identity at Story size. */}
