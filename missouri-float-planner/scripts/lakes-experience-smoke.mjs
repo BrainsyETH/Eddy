@@ -16,9 +16,10 @@ const dam = {
   id: 'swl-table-rock-dam', name: 'Table Rock Dam', lakeName: 'Table Rock Lake', state: 'MO', lat: 36.6, lon: -93.3,
   hasTurbines: true, generating: true, generationFloorCfs: 100, releaseExcludesGeneration: true,
   generationReference: { units: 4, fullGenerationCfs: 14000, schedulingCapacityMw: 200, source: 'SWPA' },
-  metrics: { generationFlow: metric(7000, 'cfs'), release: metric(7200, 'cfs'), poolElevation: metric(914.4), tailwaterElevation: { ...metric(704.12), trend: { hours: 3, delta: -0.4 } }, tailwaterTempF: metric(56, 'F') },
+  metrics: { generationFlow: metric(7000, 'cfs'), release: metric(7200, 'cfs'), spillwayFlow: metric(0, 'cfs'), poolElevation: metric(914.4), tailwaterElevation: { ...metric(704.12), trend: { hours: 3, delta: -0.4 } }, tailwaterTempF: metric(56, 'F') },
   schedule: [{ scheduleDate: '2026-11-09', retrievedAt: at, hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i >= 12 && i < 20 ? 100 : 0, cfs: i >= 12 && i < 20 ? 7000 : 0, isRamp: false })), idle: [{ from: 1, to: 12 }, { from: 21, to: 24 }] }],
   pattern: [], sources: ['USACE CWMS', 'SWPA'],
+  sourceLinks: [{ kind: 'readings', label: 'Corps of Engineers data', publisher: 'U.S. Army Corps of Engineers', url: 'https://water.usace.army.mil/overview/swl/locations/table_rock_dam' }, { kind: 'schedule', label: 'SWPA schedule', publisher: 'Southwestern Power Administration', url: 'https://www.energy.gov/swpa/generation-schedules' }],
 };
 const lake = {
   slug: 'table-rock', name: 'Table Rock Lake', states: ['MO', 'AR'], timeZone: 'America/Chicago', datum: 'NGVD29',
@@ -60,6 +61,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     lake.operatingRange = { conservationFt: 706, floodFt: 739.6, source: 'Preview reference', asOf: '2026-11-09' };
   }
   if (variant === 'caution') { lake.cautionsVerified = true; lake.pool!.at = new Date(${now} - 5.9 * 3600000).toISOString(); lake.launches[0].caution = 'low_water'; }
+  if (variant === 'spillway') { dam.metrics.spillwayFlow = { ...dam.metrics.spillwayFlow!, value: 4000 }; dam.metrics.release = { ...dam.metrics.release!, value: 11000 }; dam.metrics.poolElevation = { ...dam.metrics.poolElevation!, value: 921.4 }; lake.pool!.valueFt = 921.4; }
+  if (variant === 'unknownSpillway') delete dam.metrics.spillwayFlow;
+  if (variant === 'missingPool') delete dam.metrics.poolElevation;
+  if (variant === 'dailyRelease') dam.metrics.release!.dailyMean = true;
   if (variant === 'noSchedule') dam.schedule = [];
   if (variant === 'gate') { dam.id = 'mvs-wappapello-dam'; dam.hasTurbines = false; dam.schedule = []; dam.metrics = { release: { value: 0, unit: 'cfs', at: '2026-11-07T18:00:00Z', staleness: 'stale' } }; }
   if (variant === 'missing') { lake.pool = undefined; lake.history = []; lake.launches = []; dam.metrics = {}; }
@@ -79,6 +84,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   server = spawn(process.execPath, ['scripts/conditions-smoke-server.mjs', '3141'], { env: { ...process.env, EDDY_CONDITIONS_SMOKE: '1', EDDY_LAKES_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stdout.on('data', b => { log += b; process.stdout.write(b); }); server.stderr.on('data', b => { log += b; process.stderr.write(b); });
   for (let i = 0; i < 120; i++) { try { if ((await fetch(`${origin}/lakes-layout-check`, { signal: AbortSignal.timeout(1500) })).ok) break; } catch {} if (server.exitCode !== null) throw new Error(log.slice(-4000)); await new Promise(r => setTimeout(r, 1000)); }
+  if (process.argv.includes('--serve')) {
+    console.log(`Fixture preview: ${origin}/lakes-layout-check (Ctrl-C to stop)`);
+    await new Promise(() => {});
+  }
   browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH, headless: true, args: ['--no-sandbox', '--enable-unsafe-swiftshader'] });
   const errors = [];
   for (const width of [1440, 768, 390, 320]) {
@@ -133,9 +142,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           assert(axesFit, `schedule time labels do not collide at ${width}px`);
           if (!variant) {
             const releaseBox = await page.locator('[data-total-release]').boundingBox();
-            const turbineBox = await page.locator('.dam-turbine-summary').boundingBox();
-            assert(releaseBox.y + releaseBox.height <= 600, `total release is on the first screen at ${width}px`);
-            assert(width < 360 ? turbineBox.y >= releaseBox.y + releaseBox.height : turbineBox.x > releaseBox.x && turbineBox.y < releaseBox.y + releaseBox.height, `release and turbine status share a row where both fit at ${width}px`);
+            const illustrated = page.locator('[data-dam-water-illustration]');
+            assert.equal(await illustrated.count(), 1, 'Table Rock uses the water illustration');
+            assert(releaseBox.y + releaseBox.height <= 690, `total release remains near the top at ${width}px`);
+            assert.equal(await illustrated.locator('[data-water-path="turbine"]').count(), 1);
+            assert.equal(await illustrated.locator('[data-water-path="spillway"]').count(), 0, 'zero spillway flow draws no active spillway');
+            const disclosure = illustrated.locator('details');
+            const summary = disclosure.locator('summary');
+            assert.equal(await disclosure.getAttribute('open'), null, 'generator details start collapsed');
+            assert((await summary.boundingBox()).height >= 44, 'details keeps a touch target');
+            await summary.focus(); await page.keyboard.press('Enter');
+            assert.equal(await disclosure.getAttribute('open'), '', 'keyboard opens generator details');
+            await page.keyboard.press('Enter');
+            assert.equal(await disclosure.getAttribute('open'), null);
+            assert(!(await page.locator('[data-dam-measurements]').innerText()).includes('Lake level'), 'the illustration owns the lake reading');
             const tip = await generation.getByRole('button').first().boundingBox();
             for (const heading of await page.locator('.dam-release-heading, .dam-turbine-heading').all()) {
               const range = await heading.evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return { right: b.right, top: b.top, bottom: b.bottom }; });
@@ -157,6 +177,29 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         await page.screenshot({ path: `${out}/${variant || 'table-rock'}-${kind}-${width}.png`, fullPage: true });
       }
     }
+    for (const variant of ['spillway', 'unknownSpillway', 'missingPool', 'dailyRelease', 'stale', 'mixed']) {
+      await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=${variant}`, { waitUntil: 'networkidle' });
+      const illustration = page.locator('[data-dam-water-illustration]');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${variant} fits ${width}px`);
+      if (variant === 'missingPool') {
+        assert.equal(await illustration.count(), 0, 'missing pool retains the original release summary');
+        assert.equal(await page.locator('[data-total-release]').count(), 1);
+      } else {
+        assert.equal(await illustration.count(), 1);
+        if (variant === 'spillway') assert.equal(await illustration.locator('[data-water-path="spillway"]').count(), 1);
+        if (variant === 'unknownSpillway') assert.match(await illustration.innerText(), /Spillway\s+Unavailable/);
+        if (['stale', 'dailyRelease'].includes(variant)) assert.equal(await illustration.locator('[data-water-path]').count(), 0, 'old or averaged readings do not paint active flows');
+        if (variant === 'stale') assert((await illustration.innerText()).includes('Outdated'));
+        if (variant === 'dailyRelease') assert((await illustration.innerText()).includes('Daily average'));
+        if (variant === 'mixed') assert((await illustration.locator('time').count()) > 1, 'different observation times stay attached to their readings');
+      }
+      if (['spillway', 'stale', 'mixed'].includes(variant)) {
+        await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+        await page.locator('.place-header').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `${out}/illustration-${variant}-${width}.png`, fullPage: true });
+      }
+    }
+    await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=truman`, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: 'Hand launch', exact: true }).click();
     assert.equal(await page.locator('[data-launch-id]').count(), 1);
     await page.getByRole('button', { name: 'All launches', exact: true }).click();
@@ -181,7 +224,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     assert((await page.locator('[data-lake-detail]').innerText()).includes('Lake level is currently unavailable'));
     assert.equal(await page.locator('[data-launch-id]').count(), 0);
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=mixed`, { waitUntil: 'networkidle' });
-    assert((await page.locator('[data-dam-measurements]').innerText()).includes('Lake level'), 'mixed-age measurements remain visible');
+    assert((await page.locator('[data-dam-water-illustration]').innerText()).includes('Lake level'), 'mixed-age lake reading remains in the illustration');
     await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=stale`, { waitUntil: 'networkidle' });
     assert((await page.locator('[aria-labelledby="lake-level-heading"]').innerText()).includes('Outdated'));
     assert(!(await page.locator('[aria-labelledby="lake-level-heading"]').innerText()).includes('in 24h'), 'stale level does not present current movement');

@@ -434,9 +434,8 @@ The root HTML declares the site's smooth-scroll behavior to Next so route
 changes can reset immediately instead of retaining the bottom of the old page.
 
 Dam pages keep measured generation and the posted schedule in one card, with
-separate labelled sections. Screens at least 900px wide place the reading
-beside the wider hourly chart; phones stack the release summary above a full-width chart,
-including in landscape. Today keeps an
+separate labelled sections. The release summary leads a full-width hourly chart
+at every screen size, including phone landscape. Today keeps an
 unavailable state when missing; Tomorrow appears only when it has posted hours.
 Later posted days can be opened individually. The generation pattern
 always includes upcoming scheduled hours alongside measured history. Six-hour
@@ -579,9 +578,29 @@ Android visibility, Read/widget exclusivity and planner retry. The
 
 ### Lake and dam pilots
 
+Table Rock's **web dam page** places a compact lake–dam–river illustration in
+the existing observed-release panel beneath the photo. It leads with lake
+elevation and total water release; the hourly schedule stays directly below.
+The same lake measurement is omitted from the supporting readings row. iOS,
+other dams, directories, embeds and lake pages retain their existing UI.
+
+The schematic is not to scale. Its seasonal reference follows the [Corps'
+published Table Rock power-pool calendar](https://www.swl-wc.usace.army.mil/pages/data/tabular/htm/tabrock.htm)
+for the observation's Central date (including the April/May and November ramps),
+not the fixed conservation-pool reference used by the lake page. Lake movement
+appears only when recorded history matches that same fresh pool observation.
+Turbine and spillway paths require their own fresh, positive reported flow
+and a fresh positive total release; no spillway is inferred from the difference.
+Missing spillway data reads “Unavailable”, not zero. Reading times and outdated
+states stay visible, daily averages stay labeled, and generator detail is
+expandable. A missing/invalid pool or total release retains the original summary.
+`test:lakes` covers the pilot, fallback and flow states at desktop and phone widths.
+Run `npm run test:lakes -- --serve` for the same local fixture preview.
+
+
 Truman and Table Rock keep generation first, followed by a shared measurement
 row, Eddy's Read and operational forecasts/patterns. The lake preview follows
-those operations; launch directories live on the dedicated lake page. The
+those operations; launch directories live on the dedicated lake page. On the other dam pages,
 reported release and turbine status lead the generation card in one row (stacked
 only below about 360px), because the release reading is what people open a dam
 page for; it stays on a phone's first screen. The posted schedule follows at the

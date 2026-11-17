@@ -25,7 +25,7 @@ const observationClock = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago', timeZoneName: 'short',
 });
 
-function ReadingTime({ at, now, className = 'mt-2' }: { at: string; now: number; className?: string }) {
+export function ReadingTime({ at, now, className = 'mt-2' }: { at: string; now: number; className?: string }) {
   const age = relativeAge(at, now);
   return <p className={`text-xs leading-5 text-neutral-600 ${className}`}>
     {age ? <>Last reading <time dateTime={at}>{observationClock.format(new Date(at))}</time> · {age}</> : 'Reading time unavailable'}

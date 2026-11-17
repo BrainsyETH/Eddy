@@ -113,11 +113,14 @@ export default function DamStateCard({
    * this the card dimmed a reading the preview directly below called current.
    */
   lakePool,
+  hidePool = false,
   now = Date.now(),
 }: {
   dam: DamSnapshot;
   secondary?: boolean;
   lakePool?: LakePoolReading;
+  /** The web illustration already carries the lake reading. */
+  hidePool?: boolean;
   now?: number;
 }) {
   const { metrics } = dam;
@@ -272,7 +275,7 @@ export default function DamStateCard({
             dim={isStale(tailwaterTemp, now)}
           />
         )}
-        {pool && (
+        {pool && !hidePool && (
           <Stat
             icon="damGauge"
             label="Lake level"
