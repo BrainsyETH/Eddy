@@ -82,8 +82,14 @@ struct WidgetDamMoment: Codable {
   /// Additive to v1: the observed flow is a minimum-flow release (a unit at
   /// low output), not idle. Absent in older packets.
   var minimumFlow: Bool? = nil
+  /// Separate total-release fields, absent in older v1 caches. Never substitute
+  /// the generation reading when the total release is unavailable.
+  var releaseCfs: Double? = nil
+  var releaseObservedAt: Double? = nil
+  var releaseCurrent: Bool? = nil
+  var releaseDailyMean: Bool? = nil
   var compactStatus: String {
-    guard current else { return turbineCfs == nil ? "Unavailable" : "Older reading" }
+    guard current else { return turbineCfs == nil ? "Generation unavailable" : "Older generation reading" }
     switch generationKind {
     case "generating": return "Generating"
     case "not-generating": return minimumFlow == true ? "Minimum flow" : "No generation"
@@ -145,6 +151,7 @@ struct WidgetDamPacket: Codable {
       && entries.allSatisfy { $0.date.isFinite }
       && zip(entries, entries.dropFirst()).allSatisfy { pair in pair.0.date < pair.1.date }
       && entries.last?.current == false && entries.last?.scheduleCurrent == false
+      && entries.last?.releaseCurrent != true
   }
 }
 struct WidgetForecastDay: Codable {

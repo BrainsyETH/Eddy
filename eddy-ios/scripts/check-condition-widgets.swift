@@ -70,6 +70,16 @@ import Foundation
       """
     let legacy = try JSONDecoder().decode(WidgetDamPacket.self, from: Data(legacyJSON.utf8))
     precondition(legacy.scheduleDays == nil && legacy.entries[0].generationKind == nil)
+    precondition(legacy.entries[0].releaseCfs == nil && legacy.entries[0].releaseObservedAt == nil)
+    precondition(legacy.entries[0].releaseCurrent == nil)
+    let releaseJSON = """
+      {"date":1,"status":"Generating now","turbineCfs":6600,"observedAt":1,"current":true,"scheduleSummary":"Check schedule","scheduleCurrent":false,"releaseCfs":7200,"releaseObservedAt":2,"releaseCurrent":false,"releaseDailyMean":true,"generationKind":"generating"}
+      """
+    let releaseMoment = try JSONDecoder().decode(WidgetDamMoment.self, from: Data(releaseJSON.utf8))
+    precondition(releaseMoment.releaseCfs == 7200 && releaseMoment.turbineCfs == 6600)
+    precondition(releaseMoment.releaseObservedAt == 2 && releaseMoment.observedAt == 1)
+    precondition(releaseMoment.releaseCurrent == false && releaseMoment.releaseDailyMean == true)
+    precondition(releaseMoment.compactStatus == "Generating")
     precondition(legacy.todaySchedule(at: now) == nil)
     // Minimum flow (a unit at low output) is never a generation bar, a peak,
     // or "No generation"; packets without the key keep the old reading.

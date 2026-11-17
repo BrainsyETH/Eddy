@@ -1501,8 +1501,15 @@ and qualifier notes remain visible. The river header omits the condition label,
 and cards omit Eddy's Read excerpt. Favorites does not fetch Reads. Until the
 gauge catalog arrives, cards retain the river headline and scale as a fallback.
 Dam favorites with powerhouses follow the Home Screen Dam generation widget:
-identity and a separate star above observed turbine flow beside today's hourly
-MW schedule.
+identity and a separate star above total release beside today's hourly MW
+schedule. Generation status remains a separate observation. Release uses its
+own timestamp and freshness, never the generator reading's clock; missing total
+release stays unavailable and daily averages stay labeled. The same values and
+labels appear in the Home Screen widget, widget previews and web embeds.
+The v1 widget packet adds optional release fields while preserving the existing
+generation fields for older binaries. Old caches without release fields show an
+unavailable release until refreshed. Native widget UI changes require a new iOS
+build; the Expo bundle alone cannot update the widget extension.
 The chart uses the day's labeled MW peak, Central-time ticks and a current-hour
 marker; missing hours are hollow, while zero MW stays a short solid bar.
 The card shares the widget packet's validation and observation freshness rules:

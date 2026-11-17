@@ -164,10 +164,10 @@ test('the card prints Eddy’s take whole — no sentence splitter, no accordion
 test('the dam card distinguishes dated observations from posted generation and retains stale notices', () => {
   const dam = readFileSync(join(process.cwd(), 'src/components/embed/v2/DamEmbed.tsx'), 'utf8');
   const card = dam.slice(dam.indexOf('function Card('));
-  assert.equal((card.match(/moment\.status/g) ?? []).length, 1, 'observed status has one location');
+  assert.equal((card.match(/compactStatus\(moment\)/g) ?? []).length, 1, 'observed status has one location');
   assert.doesNotMatch(card, /ew-gen-pill/, 'no second status pill in the header');
-  assert.match(card, /<span className="ew-section-title">Turbine flow<\/span>/, 'turbine flow remains the primary observation');
-  assert.match(card, /moment\.current \? compactStatus\(moment\) : moment\.status/, 'old observations never borrow a present-tense chip');
+  assert.match(card, /Total release/, 'total release is the primary observation');
+  assert.match(dam, /Older generation reading/, 'old generation observations never borrow a present-tense chip');
   assert.match(card, /ew-dam-schedule-date/, 'one Central-time date sits above the schedule');
   assert.match(card, /scheduleDayLabel\(moment\.scheduleDate\)/, 'the date uses the dam’s Central calendar day');
   assert.doesNotMatch(card, /Posted generation schedule|Today’s posted generation · CT/, 'remove duplicated schedule headings');
@@ -181,8 +181,8 @@ test('the dam card distinguishes dated observations from posted generation and r
   assert.match(card, /downstream && downstreamAge === 'fresh'/, 'movement is suppressed once the reading ages');
   assert.match(card, /downstreamAge === 'stale' \|\| downstreamAge === null/, 'very old or invalid levels are not displayed as current');
   assert.match(card, /tailwaterMovementLabel\(downstream\.trend\)/, 'downstream movement uses shared rounding');
-  assert.match(card, /releaseDuplicatesTurbine/, 'equivalent release numbers are collapsed');
-  assert.match(card, /!release\.dailyMean && !spillway/, 'daily averages and spillway readings remain visible');
+  assert.doesNotMatch(card, /ew-dam-additional/, 'total release is not repeated below the headline');
+  assert.match(card, /moment\.releaseDailyMean/, 'daily averages stay labeled in the headline');
   assert.doesNotMatch(card, /Safe to wade|Good for fishing|Safe to float/, 'no unsupported safety verdict');
   const header = card.slice(card.indexOf('<header className="ew-head">'), card.indexOf('</header>'));
   const hero = card.slice(card.indexOf('<div className="ew-dam-now">'), card.indexOf('{packet.scheduleDays.length'));
@@ -201,7 +201,7 @@ test('the dam card distinguishes dated observations from posted generation and r
   assert.match(card, /ew-dam-movement-\$\{downstreamDirection\.toLowerCase\(\)\}/, 'rising and falling have visual state without a safety rating');
   assert.match(card, /formatObservedAge\(pool\.at, now\)/, 'the real lake observation time remains available in disclosure/metadata');
   assert.match(card, /formatObservedAge\(waterTemp\.at, now\)/, 'temperature keeps its independent observation clock');
-  assert.match(card, /The header age applies to turbine flow only/, 'header date cannot imply all measurements were simultaneous');
+  assert.match(card, /The header age applies to total release only/, 'header date cannot imply all measurements were simultaneous');
   assert.match(card, /downstreamChange\.split\(' over '\)\[0\]/, 'movement magnitude is compact enough for a third-width column');
   const styles = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
   const detailStart = styles.indexOf('.ew-dam-details {');

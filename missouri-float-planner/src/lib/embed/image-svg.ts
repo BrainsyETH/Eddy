@@ -78,7 +78,7 @@ export function stripSvg(model: EmbedImageModel, transparent = false): string {
     markSvg(padX, (h - mark) / 2, mark, t) +
     `<text x="${nameX}" y="${subtitle ? 27 : h / 2 + 6}" font-family="${FONT}" font-weight="700" font-size="16" fill="${t.text}" textLength="${titleW}" lengthAdjust="spacingAndGlyphs">${esc(model.title)}</text>` +
     (subtitle ? `<text x="${nameX}" y="45" font-family="${FONT}" font-weight="500" font-size="12" fill="${t.muted}" textLength="${subW}" lengthAdjust="spacingAndGlyphs">${esc(subtitle)}</text>` : '') +
-    `<text x="${readingX}" y="${h / 2 + 8}" font-family="${MONO}" font-weight="700" font-size="22" fill="${t.text}" textLength="${readingW}" lengthAdjust="spacingAndGlyphs">${esc(readingText)}</text>` +
+    `<text x="${readingX}" y="${h / 2 + 8}" font-family="${MONO}" font-weight="700" font-size="22" fill="${model.readingCurrent === false ? t.muted : t.text}" textLength="${readingW}" lengthAdjust="spacingAndGlyphs">${esc(readingText)}</text>` +
     (model.unit ? `<text x="${readingX + readingW + 4}" y="${h / 2 + 8}" font-family="${FONT}" font-weight="600" font-size="12" fill="${t.muted}">${esc(model.unit)}</text>` : '') +
     (model.trend ? `<text x="${readingX + readingW + unitW + 8}" y="${h / 2 + 6}" font-family="${FONT}" font-weight="700" font-size="13" fill="${t.muted}">${esc(model.trend)}</text>` : '') +
     `<rect x="${pillX}" y="${(h - pillH) / 2}" width="${pillW}" height="${pillH}" rx="6" fill="${model.statusBg}" stroke="${model.statusBorder}" stroke-width="1"/>` +

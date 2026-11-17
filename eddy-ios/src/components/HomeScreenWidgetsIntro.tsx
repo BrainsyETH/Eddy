@@ -254,8 +254,8 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
         ) : visual && kind === 'dam' ? (
           <View style={styles.previewVisualRow}>
             <View style={styles.previewMetric}>
-              <Text style={[t.xs, { color: colors.textMuted }]}>Turbine flow</Text>
-              <Text style={[styles.previewNumber, { color: colors.text }]}>6,600</Text>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Total release</Text>
+              <Text style={[styles.previewNumber, { color: colors.text }]}>7,200</Text>
               <Text style={[t.xs, { color: colors.textMuted }]}>CFS · Generating</Text>
             </View>
             <View style={styles.previewChart}>
@@ -294,8 +294,8 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
         ) : (
           <>
             {(kind === 'dam' ? [
-              ['Bull Shoals Dam', '6,600 cfs'],
-              ['Turbine flow', 'Generating now'],
+              ['Bull Shoals Dam', '7,200 cfs'],
+              ['Total release', 'Generating now'],
               ['Next scheduled change · CT', 'Generation stops at 6 PM'],
             ] : kind === 'report' ? [
               ['Current River', '250 cfs'],

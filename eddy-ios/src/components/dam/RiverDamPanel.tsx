@@ -1,6 +1,6 @@
 // eddy-ios/src/components/dam/RiverDamPanel.tsx
 // The dam's part of a tailwater river's reading card, drawn as the Favorites
-// dam card's body (DamGlance): observed turbine flow and its status, the
+// dam card's body (DamGlance): total release and generation status, the
 // posted hourly bars with the now marker, and "At the dam" with the
 // observation's age. One drawing of a dam across the app, rather than a
 // third one invented for the river screen.

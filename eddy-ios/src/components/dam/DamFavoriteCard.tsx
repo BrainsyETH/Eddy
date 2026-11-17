@@ -48,7 +48,7 @@ function DayChart({ day, nowHour }: { day: ChartDay; nowHour: number | null }) {
 }
 
 /**
- * The body of the Favorites dam card: observed turbine flow and its status,
+ * The body of the Favorites dam card: total release and generation status,
  * today's posted bars with the now marker, and "At the dam" with the
  * observation's age. Shared with a tailwater river's reading card
  * (RiverDamPanel), so a reader learns one drawing of a dam.
@@ -68,14 +68,16 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
   const display = useMemo(() => damFavoriteDisplay(dam, now), [dam, now]);
   const { moment, schedule, scheduleCaption, status, scheduleNotice, observedAge } = display;
   const tomorrow = withTomorrow ? display.tomorrow : null;
-  const value = moment.turbineCfs === null ? '—' : Math.round(moment.turbineCfs).toLocaleString();
+  const value = moment.releaseCfs === null ? '—' : Math.round(moment.releaseCfs).toLocaleString();
   const statusColor = moment.current ? colors.interactive : colors.textSubtle;
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button"
       accessibilityLabel={[
-        `Observed turbine flow: ${moment.turbineCfs === null ? 'unavailable' : `${value} cubic feet per second`}`,
-        moment.status, observedAge ? `Observed ${observedAge}` : null, 'At the dam', moment.scheduleSummary, display.scheduleDescription,
+        `Total release: ${moment.releaseCfs === null ? 'unavailable' : `${value} cubic feet per second`}${moment.releaseDailyMean ? ', daily average' : ''}`,
+        observedAge ? `Release observed ${observedAge}` : null,
+        status, display.generationAge ? `Generation reading ${display.generationAge}` : null,
+        'At the dam', moment.scheduleSummary, display.scheduleDescription,
         tomorrow ? display.tomorrowDescription : null,
       ].filter(Boolean).join('. ')}
       accessibilityHint="Opens dam details and the full schedule"
@@ -83,9 +85,9 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <View style={[styles.content, stacked && styles.contentStacked]}>
           <View style={[styles.reading, stacked && styles.readingStacked]}>
-            <Text style={[t.xs, { color: colors.textMuted }]}>Turbine flow</Text>
+            <Text style={[t.xs, { color: colors.textMuted }]}>{moment.releaseDailyMean ? 'Total release · daily average' : 'Total release'}</Text>
             <View style={styles.valueRow}>
-              <Text style={[styles.value, { color: moment.current ? colors.text : colors.textSubtle }]}>{value}</Text>
+              <Text style={[styles.value, { color: moment.releaseCurrent ? colors.text : colors.textSubtle }]}>{value}</Text>
               <Text style={[styles.unit, { color: colors.textMuted }]}>CFS</Text>
             </View>
             <View style={styles.statusRow}>
@@ -121,7 +123,7 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
         <View style={styles.footer}>
           <Text style={[t.xs, { color: colors.textSubtle }]}>At the dam</Text>
           <Text style={[t.xs, { color: colors.textSubtle }]}>
-            {observedAge ? `Observed ${observedAge}` : 'Observation unavailable'}
+            {observedAge ? `Release ${observedAge}` : 'Release unavailable'}
           </Text>
         </View>
       </View>

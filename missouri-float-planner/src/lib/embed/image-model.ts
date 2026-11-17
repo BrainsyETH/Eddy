@@ -14,6 +14,7 @@ import type { DamSnapshot } from '@shared/dam-types';
 import {
   embedTokensFor,
   formatReading,
+  formatObservedAge,
   headlineReading,
   readingSource,
   statusLabel,
@@ -38,6 +39,7 @@ export interface EmbedImageModel {
   dot: string;
   /** "51.9" / "6,600"; null when there is no reading. */
   reading: string | null;
+  readingCurrent?: boolean;
   unit: string | null;
   trend: string | null;
   /** "1h" style observation age, or null. */
@@ -82,28 +84,30 @@ export function damImageModel(
   const tokens = embedTokensFor(options);
   const moment = damWidgetSnapshot(dam, now).entries[0];
   const status = !moment.current
-    ? moment.turbineCfs == null ? 'Unavailable' : 'Older reading'
+    ? moment.turbineCfs == null ? 'Generation unavailable' : 'Older generation reading'
     : moment.generationKind === 'generating'
       ? 'Generating'
       : moment.generationKind === 'not-generating'
         ? moment.minimumFlow ? 'Minimum flow' : 'No generation'
         : moment.status;
   const on = moment.current && moment.generationKind === 'generating';
-  const value = moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : null;
+  const value = moment.releaseCfs != null ? Math.round(moment.releaseCfs).toLocaleString('en-US') : null;
+  const releaseIso = moment.releaseObservedAt != null ? new Date(moment.releaseObservedAt).toISOString() : null;
   return {
     title: dam.name,
-    subtitle: moment.scheduleSummary,
+    subtitle: `Total release${moment.releaseDailyMean ? ' · daily average' : ''} · ${moment.scheduleSummary}`,
     status,
     statusInk: on ? tokens.data : tokens.muted,
     statusBg: tokens.surface,
     statusBorder: tokens.border,
     dot: on ? tokens.data : tokens.muted,
     reading: value,
+    readingCurrent: moment.releaseCurrent,
     unit: value ? 'cfs' : null,
     trend: null,
-    age: moment.observedAt != null ? shortAge(new Date(moment.observedAt).toISOString(), now) : null,
+    age: shortAge(releaseIso, now),
     tokens,
-    alt: `${dam.name}: ${moment.status}${value ? `, ${value} cfs through the turbines` : ''}. ${moment.scheduleSummary} Live from Eddy.`,
+    alt: `${dam.name}: ${status}. Total release ${value !== null ? `${value} cfs` : 'unavailable'}${moment.releaseDailyMean ? ', daily average' : ''}. ${formatObservedAge(releaseIso, now)}. ${moment.scheduleSummary} From Eddy.`,
   };
 }
 
