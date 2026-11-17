@@ -1,4 +1,12 @@
--- 20261117013000_flood_stage_resolves_station_first.sql
+-- 20261117014151_flood_stage_resolves_station_first.sql
+--
+-- Applied to production 2026-11-17 as 20261117014151. Before applying, the
+-- same change ran inside a rolled-back transaction on production: identical
+-- output from get_river_conditions and get_river_condition for all 29 rivers
+-- and from get_river_condition_segment for all 411 approved access points;
+-- the dataset changed only at the two gauges below. After applying, the md5
+-- of each installed prosrc equals this file's body, and volatility,
+-- search_path, grants and comments are unchanged.
 --
 -- Condition logic and the safety display read the flood stage from two places.
 --

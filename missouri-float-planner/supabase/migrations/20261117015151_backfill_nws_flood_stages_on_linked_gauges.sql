@@ -1,4 +1,9 @@
--- 20261117013100_backfill_nws_flood_stages_on_linked_gauges.sql
+-- 20261117015151_backfill_nws_flood_stages_on_linked_gauges.sql
+--
+-- Applied to production 2026-11-17 as 20261117015151. Read back afterwards:
+-- all twelve pairings carry the stages below, 36 of 57 pairings now have a
+-- flood stage, no station stage disagrees with its pairing, North Fork is
+-- untouched, and no river's condition changed.
 --
 -- Twelve linked gauges have an official NWS flood stage that no condition
 -- reader can see. This stores it where 00165 stored the others: the NWS id on
