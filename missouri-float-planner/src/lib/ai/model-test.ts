@@ -7,9 +7,10 @@
 // A replay. eddy_generation_log keeps the exact user prompt and the structured
 // facts for every river Read the generator attempted. The panel sends that
 // same prompt, with today's system prompt, to a model the operator picks, and
-// runs the answer through the same guard production runs
+// runs the answer through the same automated checks production runs
 // (prepareGeneratedReport). So the verdict shown is the one production would
-// have reached for that text, on water that really happened.
+// have reached for that text, on water that really happened. It is a verdict
+// on those checks, not on the report: see TestVerdict.
 //
 // It publishes nothing and writes nothing. That is the whole reason a model
 // that is not approved may be called here: this is how its output gets read
@@ -19,7 +20,7 @@
 // test could get wrong is in here, where it can be tested without a model.
 
 import { parseEddyResponse, replaceEmDashes, stripEddyMarkers, type ParsedEddyResponse } from '@/lib/eddy/parse-response';
-import { prepareGeneratedReport, type ReportFacts, type ReportFallbackReason } from '@/lib/eddy/report-facts';
+import { prepareGeneratedReport, type IncompleteReason, type ReportFacts, type ReportFallbackReason } from '@/lib/eddy/report-facts';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
 
 /** One recorded generation the panel can replay. */
@@ -91,41 +92,62 @@ export function latestPerTarget(rows: SampleRow[]): TestSample[] {
 }
 
 /**
- * What the guard decided about a model's text.
+ * What production's automated checks decided about a model's text.
  * - `passed`: production would publish the model's own words.
- * - `replaced`: production would publish the code-written factual report
- *   instead, for the reason given.
+ * - `incomplete`: the response did not finish, or lacks a report block.
+ *   Production would not publish it: it retries on the fallback model when
+ *   there is one, and otherwise publishes the code-written report.
+ * - `replaced`: production would publish the code-written report instead,
+ *   because the text contradicts the gauge or its claims line is wrong.
  * - `empty`: the model returned no text.
+ *
+ * ── What `passed` does not mean ───────────────────────────────────────────
+ *
+ * That the report is true. The checks are narrow on purpose: the condition
+ * label, the measurement and the optimal-range comparison against the gauge
+ * facts, plus completeness. An invented landmark, a wrong forecast or bad
+ * advice passes all of them. Whether local detail is supported, whether the
+ * report stays on its own stretch, and whether it sounds like Eddy are read by
+ * a person, which is what the panel is for.
  */
-export type TestVerdict = 'passed' | 'replaced' | 'empty';
+export type TestVerdict = 'passed' | 'incomplete' | 'replaced' | 'empty';
 
 export interface ReportEvaluation {
   verdict: TestVerdict;
-  /** Why the guard replaced the text. Null unless `replaced`. */
+  /** Why the text would not be published as written. Null when it would. */
   reason: ReportFallbackReason | null;
   contradictions: string[];
+  /** Set exactly when the verdict is `incomplete`. */
+  incomplete: IncompleteReason | null;
   /**
-   * What the model wrote, parsed into its three blocks. Kept when the guard
-   * replaces it, because a replaced report is exactly the one worth reading.
+   * What the model wrote, parsed into its blocks. Kept whatever the verdict,
+   * because a rejected or partial report is exactly the one worth reading. A
+   * block the model never reached is null or empty.
    */
   written: ParsedEddyResponse | null;
 }
 
-/** Applies production's cleanup and guard to a model's raw text. */
-export function evaluateRiverReport(text: string | null, facts: ReportFacts): ReportEvaluation {
+/**
+ * Applies production's cleanup and checks to a model's raw text. `finished` is
+ * whether the model completed its response; a report from one that did not is
+ * incomplete however whole it looks.
+ */
+export function evaluateRiverReport(text: string | null, facts: ReportFacts, finished: boolean): ReportEvaluation {
   const raw = text ? replaceEmDashes(text.trim()) : '';
-  if (!raw) return { verdict: 'empty', reason: null, contradictions: [], written: null };
+  if (!raw) return { verdict: 'empty', reason: null, contradictions: [], incomplete: null, written: null };
 
-  const { usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(raw, facts);
-  // Parsed the way the guard parses it: without the [CLAIMS] line, which is a
+  const prepared = prepareGeneratedReport(raw, facts, { finished });
+  // A wrong claims line is rejected before anything is parsed, so parse it
+  // here the way the guard would have: without the [CLAIMS] line, which is a
   // structured claim for the guard and never part of the published text.
-  const parsed = parseEddyResponse(
-    raw.split(/\r?\n/).filter((line) => !/\[CLAIMS\]/i.test(line)).join('\n'),
-  );
+  const parsed =
+    prepared.written ??
+    parseEddyResponse(raw.split(/\r?\n/).filter((line) => !/\[CLAIMS\]/i.test(line)).join('\n'));
   return {
-    verdict: usedFallback ? 'replaced' : 'passed',
-    reason: fallbackReason,
-    contradictions,
+    verdict: prepared.incomplete ? 'incomplete' : prepared.usedFallback ? 'replaced' : 'passed',
+    reason: prepared.fallbackReason,
+    contradictions: prepared.contradictions,
+    incomplete: prepared.incomplete,
     written: {
       summaryText: parsed.summaryText ? stripEddyMarkers(parsed.summaryText) : null,
       eddyRead: parsed.eddyRead ? stripEddyMarkers(parsed.eddyRead) : null,

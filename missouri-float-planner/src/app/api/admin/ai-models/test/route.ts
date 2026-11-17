@@ -3,7 +3,9 @@
 //
 // GET lists the recorded river Reads a test can replay and the models it may
 // call. POST replays one of them on one model and reports what came back and
-// what production's guard would have done with it.
+// what production's automated checks would have done with it. Those checks are
+// narrow (see TestVerdict in src/lib/ai/model-test.ts): a pass is not a
+// finding that the report is true.
 //
 // ── What this route will not do ────────────────────────────────────────────
 //
@@ -91,6 +93,12 @@ export async function GET(request: NextRequest) {
     envVar: PROVIDERS[profile.provider].envVar,
   }));
 
+  // The model this workload runs when nothing is selected. The panel re-runs
+  // it beside a candidate, so both answer the same instructions; the published
+  // text may have been written under older ones.
+  const baselineId = WORKLOAD_SPECS[TEST_WORKLOAD].default;
+  const baseline = models.find((m) => m.id === baselineId) ?? null;
+
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('eddy_generation_log')
@@ -109,6 +117,7 @@ export async function GET(request: NextRequest) {
       workload: TEST_WORKLOAD,
       workloadLabel: WORKLOAD_SPECS[TEST_WORKLOAD].label,
       models,
+      baseline,
       samples: [],
       samplesError: 'Recorded river reports could not be read.',
     });
@@ -118,6 +127,7 @@ export async function GET(request: NextRequest) {
     workload: TEST_WORKLOAD,
     workloadLabel: WORKLOAD_SPECS[TEST_WORKLOAD].label,
     models,
+    baseline,
     samples: latestPerTarget((data ?? []) as unknown as SampleRow[]),
     samplesError: null,
   });
@@ -212,7 +222,7 @@ async function handlePOST(request: NextRequest) {
       user: row.user_prompt,
     });
     const latencyMs = Math.round(performance.now() - started);
-    const evaluation = evaluateRiverReport(result.text, facts);
+    const evaluation = evaluateRiverReport(result.text, facts, result.finished);
     const { usage } = result;
 
     console.log(
@@ -225,7 +235,11 @@ async function handlePOST(request: NextRequest) {
       verdict: evaluation.verdict,
       reason: evaluation.reason,
       contradictions: evaluation.contradictions,
+      incomplete: evaluation.incomplete,
       written: evaluation.written,
+      // Exactly as returned, markers and claims line included. A partial or
+      // malformed response is only fully visible here.
+      rawText: result.text,
       stopReason: result.stopReason,
       latencyMs,
       usage: {

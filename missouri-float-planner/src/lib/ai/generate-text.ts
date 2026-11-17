@@ -56,6 +56,13 @@ export interface TextResult {
    * on reasoning, before the answer finished).
    */
   stopReason: string | null;
+  /**
+   * Whether the model finished on its own. False when it hit the output cap,
+   * was filtered, refused, or gave no reason. Text from a response that did
+   * not finish can end anywhere, so callers that publish must check this
+   * rather than trust the text to look complete.
+   */
+  finished: boolean;
   usage: UsageStats;
   /** OpenAI only: reasoning tokens inside usage.outputTokens. Null when not reported. */
   reasoningTokens: number | null;
@@ -101,6 +108,7 @@ async function callAnthropic({ feature, model, system, user }: TextRequest, apiK
   return {
     text: textBlock?.text ?? null,
     stopReason: message.stop_reason ?? null,
+    finished: message.stop_reason === 'end_turn' || message.stop_reason === 'stop_sequence',
     usage: extractUsage(model.id, message.usage),
     reasoningTokens: null,
   };
@@ -131,6 +139,7 @@ async function callOpenAI({ feature, model, system, user }: TextRequest, apiKey:
   return {
     text: response.output_text || null,
     stopReason: response.incomplete_details?.reason ?? response.status ?? null,
+    finished: response.status === 'completed' && !response.incomplete_details,
     usage: extractOpenAIUsage(model.id, response.usage),
     reasoningTokens: openAIReasoningTokens(response.usage),
   };

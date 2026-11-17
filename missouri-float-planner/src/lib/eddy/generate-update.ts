@@ -16,7 +16,7 @@ import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { getRiverContext } from '@/lib/rivers/context';
 import { parseEddyResponse, stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
-import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts } from './report-facts';
+import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type PreparedReport } from './report-facts';
 import { buildGenerationRecord, type GenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
 import { modelAttempts, type ResolvedModel } from '@/lib/ai/resolve-models';
@@ -233,7 +233,14 @@ export async function generateEddyUpdate(
   // attempt that publishes nothing writes its own record, under the model that
   // was actually asked, so a fallback is visible as two rows rather than as a
   // row whose model quietly changed.
-  let completion: { result: TextResult; rawText: string } | null = null;
+  //
+  // An attempt is accepted on a WHOLE report, not on any text: the response
+  // must have finished and hold all three blocks. A model that spends its
+  // output cap part-way through returns text that parses and reads as a report
+  // until its last line, so "non-empty" is not the test. An incomplete answer
+  // from a model with a fallback is a failed attempt; from the last model, the
+  // guard replaces it with the code-written report.
+  let completion: { result: TextResult; prepared: PreparedReport } | null = null;
   for (const attempt of modelAttempts(model)) {
     capture.model = captureModel(attempt);
     try {
@@ -250,12 +257,18 @@ export async function generateEddyUpdate(
       // record keeps result.text exactly as returned; the cleanup is not part
       // of the evidence.
       const rawText = result.text ? replaceEmDashes(result.text.trim()) || null : null;
-      if (rawText) {
-        completion = { result, rawText };
+      const prepared = rawText ? prepareGeneratedReport(rawText, facts, { finished: result.finished }) : null;
+      if (prepared && !(prepared.incomplete && attempt.fallback)) {
+        completion = { result, prepared };
         break;
       }
-      console.error(`[EddyGen] Empty ${attempt.id} response for ${target.riverSlug}/${target.sectionSlug}`);
-      await record({ outcome: 'error', reason: 'empty_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
+      if (prepared) {
+        console.error(`[EddyGen] Incomplete ${attempt.id} report for ${target.riverSlug}/${target.sectionSlug}: ${prepared.incomplete} (${result.stopReason})`);
+        await record({ outcome: 'error', reason: 'incomplete_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
+      } else {
+        console.error(`[EddyGen] Empty ${attempt.id} response for ${target.riverSlug}/${target.sectionSlug}`);
+        await record({ outcome: 'error', reason: 'empty_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
+      }
     } catch (e) {
       if (e instanceof MissingApiKeyError) {
         console.error(`[EddyGen] ${e.message}`);
@@ -271,7 +284,6 @@ export async function generateEddyUpdate(
   }
   if (!completion) return null;
 
-  const { rawText } = completion;
   const modelText = completion.result.text;
   // usage.modelUsed is the model that answered, which after a fallback is not
   // the one that was selected.
@@ -279,8 +291,9 @@ export async function generateEddyUpdate(
   const stopReason = completion.result.stopReason;
 
   try {
-    // Parse summary and full text from the model output
-    const { report, usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(rawText, facts);
+    // The guard has already run on this text, inside the attempt that
+    // accepted it. What it decided is what is published.
+    const { report, usedFallback, fallbackReason, contradictions } = completion.prepared;
     const { summaryText, eddyRead, quoteText } = report;
     const publishedSources = !usedFallback ? sourcesUsed
       : sourcesUsed.filter(source => source === 'USGS gauge' || source === 'OpenWeather'

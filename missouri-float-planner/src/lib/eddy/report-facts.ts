@@ -137,7 +137,29 @@ const FALLBACK_MEANING: Record<ConditionCode, string> = {
  * separate fixes, and until this existed both were just rows with no model.
  */
 export type PreflightFallbackReason = 'no_gauge' | 'no_reading' | 'no_rating' | 'unsupported_section';
-export type GuardFallbackReason = 'claims_mismatch' | 'contradiction';
+export type GuardFallbackReason = 'claims_mismatch' | 'contradiction' | 'incomplete';
+
+/**
+ * Why a report is not a whole report.
+ * - `cut_off`: the model did not finish. It hit its output cap, was stopped,
+ *   or refused; whatever text arrived may end anywhere.
+ * - `missing_blocks`: it finished, but without all three of [SUMMARY],
+ *   [EDDY_READ] and [FULL] holding text.
+ */
+export type IncompleteReason = 'cut_off' | 'missing_blocks';
+
+/**
+ * Null when `parsed` is a whole report from a response that finished.
+ *
+ * A response that did not finish is incomplete whatever it contains: a report
+ * cut mid-sentence parses into three tidy blocks and reads as a report until
+ * its last line. That is why the stop reason is asked first and the text is
+ * not trusted to show it.
+ */
+export function reportIncompleteness(parsed: ParsedEddyResponse, finished: boolean): IncompleteReason | null {
+  if (!finished) return 'cut_off';
+  return parsed.summaryText?.trim() && parsed.eddyRead?.trim() && parsed.quoteText.trim() ? null : 'missing_blocks';
+}
 export type ReportFallbackReason = PreflightFallbackReason | GuardFallbackReason;
 
 /** Null when the model may write this report. */
@@ -263,6 +285,29 @@ export interface PreparedReport {
   fallbackReason: GuardFallbackReason | null;
   /** The guard's error codes when fallbackReason is 'contradiction'. */
   contradictions: string[];
+  /** Set exactly when fallbackReason is 'incomplete'. */
+  incomplete: IncompleteReason | null;
+  /**
+   * The model's own text, parsed into its blocks, whatever the guard decided.
+   * `report` is what is published; this is what was written. They are the same
+   * object unless the guard replaced the report. Null when the claims line was
+   * wrong, which is decided before anything is parsed.
+   */
+  written: ParsedEddyResponse | null;
+}
+
+export interface PrepareOptions {
+  /**
+   * Whether the model finished its response. Passing it turns on the
+   * completeness check: the response must have finished AND hold all three
+   * blocks, or it is replaced as `incomplete`.
+   *
+   * Opt-in because it is not true of every caller. River and section reports
+   * have always carried all three blocks; secondary-gauge updates have not
+   * (about three in ten stored rows lack one), and requiring them there would
+   * replace reports that are published today.
+   */
+  finished?: boolean;
 }
 
 /** Only this entry point publishes generated prose. The model's own text is
@@ -270,18 +315,25 @@ export interface PreparedReport {
  * fallback is used only when the guard rejects it. The claims line is
  * optional: a missing one is not a failure, a wrong one is, and it is always
  * removed before parsing so it can never be published. */
-export function prepareGeneratedReport(raw: string, f: ReportFacts): PreparedReport {
+export function prepareGeneratedReport(raw: string, f: ReportFacts, options: PrepareOptions = {}): PreparedReport {
   const lines = raw.trim().split(/\r?\n/);
   const claims = lines.filter(line => /\[CLAIMS\]/i.test(line));
   if (claims.some(line => line.trim() !== reportClaimsLine(f))) {
     console.warn(`[EddyFacts] Mismatched claims for ${f.gaugeName ?? f.locationName}`);
-    return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'claims_mismatch', contradictions: [] };
+    return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'claims_mismatch', contradictions: [], incomplete: null, written: null };
   }
   const parsed = parseEddyResponse(lines.filter(line => !/\[CLAIMS\]/i.test(line)).join('\n'));
+  // Before the contradiction guard: half a report has nothing to contradict,
+  // and "no contradictions found" in one is not a pass.
+  const incomplete = options.finished === undefined ? null : reportIncompleteness(parsed, options.finished);
+  if (incomplete) {
+    console.warn(`[EddyFacts] Replacing incomplete report for ${f.gaugeName ?? f.locationName}: ${incomplete}`);
+    return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'incomplete', contradictions: [], incomplete, written: parsed };
+  }
   const contradictions = reportContradictions(parsed, f);
   if (contradictions.length) {
     console.warn(`[EddyFacts] Replacing contradictory report for ${f.gaugeName}: ${contradictions.join(', ')}`);
-    return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'contradiction', contradictions };
+    return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'contradiction', contradictions, incomplete: null, written: parsed };
   }
-  return { report: parsed, usedFallback: false, fallbackReason: null, contradictions: [] };
+  return { report: parsed, usedFallback: false, fallbackReason: null, contradictions: [], incomplete: null, written: parsed };
 }

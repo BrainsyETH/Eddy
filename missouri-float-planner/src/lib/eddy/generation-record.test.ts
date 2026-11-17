@@ -191,13 +191,17 @@ test('every exit from the generator writes a record, and every caller names its 
   // text, no API key, or a call that threw.
   assert.match(fn.slice(nullReturns[0].index - 30, nullReturns[0].index), /if \(!completion\) $/);
   const attempts = fn.slice(fn.indexOf('for (const attempt of modelAttempts(model))'), nullReturns[0].index);
-  for (const reason of ['empty_response', 'missing_api_key', 'model_error']) {
+  for (const reason of ['empty_response', 'incomplete_response', 'missing_api_key', 'model_error']) {
     assert.match(attempts, new RegExp(`await record\\(\\{ outcome: 'error', reason: '${reason}'`));
   }
   assert.match(attempts, /capture\.model = captureModel\(attempt\);/);
-  // The only way out of an attempt without a record is the one that has text.
+  // The only way out of an attempt without a record is the one that is
+  // accepted. Accepted means a WHOLE report: the guard is told whether the
+  // model finished, and an incomplete answer is accepted only from the last
+  // model, where the guard has already replaced it with the code-written one.
   assert.equal([...attempts.matchAll(/\b(?:break|continue);|\breturn /g)].length, 1);
-  assert.match(attempts, /if \(rawText\) \{\s*completion = \{ result, rawText \};\s*break;/);
+  assert.match(attempts, /prepareGeneratedReport\(rawText, facts, \{ finished: result\.finished \}\)/);
+  assert.match(attempts, /if \(prepared && !\(prepared\.incomplete && attempt\.fallback\)\) \{\s*completion = \{ result, prepared \};\s*break;/);
 
   // The second is the failure to prepare a report from text that did arrive.
   assert.match(fn.slice(Math.max(0, nullReturns[1].index - 260), nullReturns[1].index), /await record\(\{ outcome: 'error'/);

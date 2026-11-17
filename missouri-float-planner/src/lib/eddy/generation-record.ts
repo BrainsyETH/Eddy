@@ -35,7 +35,7 @@ export type GenerationTrigger = 'scheduled' | 'on_demand' | 'condition_change' |
  * `error` published nothing. */
 export type GenerationOutcome = 'model' | 'fallback' | 'error';
 
-export type GenerationErrorReason = 'missing_api_key' | 'empty_response' | 'model_error';
+export type GenerationErrorReason = 'missing_api_key' | 'empty_response' | 'incomplete_response' | 'model_error';
 
 /** Everything the generator gathered. Filled in as it goes, so an early exit
  * records what it had reached and nulls for the rest. */
