@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { area, bboxPolygon, featureCollection, intersect, multiPolygon, point, toMercator, toWgs84 } from '@turf/turf';
 import type { MultiPolygon, Polygon } from 'geojson';
-import { normalizeRain, rainAmount, rainAt, rainBars, rainReadout, rainMaximum, rainHistoryStart, rainCoverageIncomplete, rainMapState, RAIN_HOUR, type RainDetail, type RainSummary } from '@shared/rainfall';
+import { normalizeRain, rainAmount, rainAt, rainBars, rainReadout, rainMaximum, rainHistoryStart, rainCoverageIncomplete, rainMapState, rainDaySummary, rainTrackIsDry, RAIN_HOUR, type RainDetail, type RainSummary } from '@shared/rainfall';
 import { chartShortStamp } from '@shared/chart-calendar';
 import { normalizeRainDetail, rainfallMap } from '@shared/rainfall-map';
 import { distinctReadContext, readPreview } from '@shared/read-presentation';
@@ -153,6 +153,29 @@ test('a dry map needs matching complete coverage and no wet cells, including tra
   assert.equal(rainMapState({ ...detail, shading: { ...detail.shading!, inches: [null, null, null] } }), 'unavailable');
   assert.equal(rainMapState({ ...detail, shading: null }), 'unavailable');
   assert.equal(rainMapState({ ...detail, status: 'unavailable' }), 'unavailable');
+});
+
+test('rain chart summaries describe the actual past-day total, never the arbitrary bar scale', () => {
+  const withTotal = (inches: number | null, coverage = 1): RainSummary => ({ ...summary, totals: [{ ...summary.totals[0], inches, coverage }] });
+  assert.equal(rainDaySummary(withTotal(0, 0.9999998085751326), end), 'No rain estimated in the past 24 hours');
+  assert.equal(rainDaySummary(withTotal(0.003), end), 'Trace rain in the past 24 hours');
+  assert.equal(rainDaySummary(withTotal(0.42), end), '0.42 inches in the past 24 hours');
+  assert.equal(rainDaySummary(withTotal(1), end), '1.00 inch in the past 24 hours');
+  assert.equal(rainDaySummary(withTotal(0, 0.98), end), 'Some rain data is missing');
+  assert.equal(rainDaySummary(withTotal(null), end), 'Rain data unavailable');
+  assert.equal(rainDaySummary({ ...summary, totals: [] }, end), 'Rain data unavailable');
+  assert.equal(rainDaySummary(withTotal(0), end + 4 * RAIN_HOUR), 'Rain data unavailable');
+});
+
+test('only a complete dry rain history can collapse; trace rain, gaps and short archives remain', () => {
+  const dry = rows.map(row => ({ ...row, inches: 0, coverage: 0.9999998085751326 }));
+  assert.equal(rainTrackIsDry(dry), true);
+  assert.equal(rainTrackIsDry(dry, true), false);
+  assert.equal(rainTrackIsDry([]), false);
+  assert.equal(rainTrackIsDry(dry.filter((_, i) => i !== 10)), false, 'a missing interval is not dry');
+  assert.equal(rainTrackIsDry([{ ...dry[0], inches: 0.0001 }, ...dry.slice(1)]), false);
+  assert.equal(rainTrackIsDry([{ ...dry[0], inches: null }, ...dry.slice(1)]), false);
+  assert.equal(rainTrackIsDry([{ ...dry[0], coverage: 0.98 }, ...dry.slice(1)]), false);
 });
 test('a compact Read preserves decimals and leaves longer context reachable', () => {
   const read = 'The gauge is at 3.82 ft. It is easing down. Rain upstream is still worth watching.';

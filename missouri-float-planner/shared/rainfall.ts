@@ -61,6 +61,25 @@ export function rainMapState(detail: RainDetail): 'dry' | 'wet' | 'partial' | 'u
   if (!values.length) return 'unavailable';
   return total.inches === 0 && values.every(value => value === 0) ? 'dry' : 'wet';
 }
+
+/** A recent total, explicitly labelled so a seven-day chart never implies a seven-day sum. */
+export function rainDaySummary(summary: RainSummary, now = Date.now()): string {
+  if (summary.status === 'unavailable' || !rainIsFresh(summary, now)) return 'Rain data unavailable';
+  const total = summary.totals.find(row => row.hours === 24);
+  if (!total || !usableRain(total)) return 'Rain data unavailable';
+  if (rainCoverageIncomplete(total.coverage)) return 'Some rain data is missing';
+  if (total.inches === 0) return 'No rain estimated in the past 24 hours';
+  if (total.inches! < 0.01) return 'Trace rain in the past 24 hours';
+  return `${total.inches!.toFixed(2)} ${total.inches === 1 ? 'inch' : 'inches'} in the past 24 hours`;
+}
+
+/** Hide a flat strip only when every displayed interval is known dry.
+ * Short archives, internal gaps and incomplete coverage must remain visible. */
+export function rainTrackIsDry(rows: readonly RainInterval[], shortHistory = false): boolean {
+  return !shortHistory && rows.length > 0 && rows.every((row, index) => usableRain(row)
+    && !rainCoverageIncomplete(row.coverage) && row.inches === 0
+    && (index === 0 || rows[index - 1].end === row.start));
+}
 export function rainRange(days: number, custom = false): boolean {
   return !custom && (days === 1 || days === 7);
 }

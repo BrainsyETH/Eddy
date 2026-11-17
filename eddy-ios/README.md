@@ -2567,6 +2567,11 @@ default for other callers; shared links retain their requested range. Reviewed
 rain can appear on 24h/7d, adding its own height above the existing river plot, with an independent
 inches scale and a shared cursor. Compare contains the remembered Rain switch;
 tapping Rain upstream opens the existing chart sheet (full screen when expanded).
+The inline entry shows a plain-language 24-hour summary in normal layout flow.
+Complete dry history collapses the empty strip; short archives, gaps and trace
+rain keep their history visible. Wet history has an inches axis beside the
+strip, with period grouping explained in Compare. River condition labels stay
+within the river pane below rainfall, and rain never compresses the river plot.
 The rain detail leads with side-by-side 24/72-hour basin averages and a shared
 ending time when both periods match. Its fixed, north-up map reuses the existing
 native outdoors basemap beneath the shared rainfall SVG. Both layers use the

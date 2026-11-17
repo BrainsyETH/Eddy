@@ -128,6 +128,19 @@ test('rail numbers retain exact positions and choose the closer boundary when la
   });
 });
 
+test('the river rail excludes the rain strip above it', () => {
+  for (const scale of [1, 1.25]) {
+    const rainHeight = 44 * scale, font = 11 * scale;
+    const labels = selectChartRailLabels([
+      { id: 'old-top', kind: 'offscreen', text: '↑ Good', secondLine: '100', y: font * 1.25 + 1, height: font * 2.5, priority: -2 },
+      { id: 'river-top', kind: 'offscreen', text: '↑ Good', secondLine: '100', y: rainHeight + font * 1.25 + 1, height: font * 2.5, priority: -2 },
+      { id: 'current', kind: 'name', text: 'Too Low', y: rainHeight + 130 * scale, height: font * 1.3, priority: -1 },
+    ], rainHeight, 252 * scale, 4 * scale);
+    assert.deepEqual(labels.map(label => label.id), ['river-top', 'current']);
+    assert.ok(labels.every(label => label.y - label.height / 2 >= rainHeight));
+  }
+});
+
 test('threshold lines replace gridlines only when they explain the visible scale', () => {
   const domain = { min: 600, max: 900 };
   const ticks = [600, 700, 800, 900];

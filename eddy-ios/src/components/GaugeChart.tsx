@@ -3,7 +3,7 @@
 
 import { useRainfall, useRainPreference } from '@/hooks/useRainfall';
 import { RainDetail } from '@/components/RainDetail';
-import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh, rainHistoryStart } from '@eddy/conditions/rainfall';
+import { rainBars, rainAt, rainReadout, rainMaximum, rainRange, rainIsFresh, rainHistoryStart, rainDaySummary, rainTrackIsDry } from '@eddy/conditions/rainfall';
 import { chartValueDomain } from '@eddy/conditions/chart-view';
 import { chartStamp, chartShortStamp } from '@eddy/conditions/chart-calendar';
 import { chartStatisticForUnit, resolutionNotice, type ChartShareState } from '@eddy/conditions/chart-share';
@@ -340,16 +340,21 @@ function GaugeChartView({
   const drawnUnit = unitOverride ?? unit;
   const rain = rainfall.data;
   const rainEnabled = !!(rainOn && rain && rain.status !== 'unavailable' && rainIsFresh(rain) && !rainfall.failed && matchesRequest && rainRange(days, !!customWindow));
-  const padTop = (30 + (rainEnabled ? 76 : 0)) * fontScale;
-  // Rain adds its own space; the existing river plot keeps its readable height.
-  // The full-screen container already scrolls at large text/landscape sizes.
-  const chartHeight = baseChartHeight + (rainEnabled ? 76 * fontScale : 0);
   const rainRows = useMemo(() => rainEnabled && rain && history?.requestedWindow
     ? rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6) : [],
     [rainEnabled, rain, history, days]);
   const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
   const rainStart = rainEnabled && rain && history?.requestedWindow
     ? rainHistoryStart(rain.hourly, Date.parse(history.requestedWindow.from), Date.parse(history.requestedWindow.to), days === 1 ? 1 : 6) : null;
+  const rainTrackVisible = rainEnabled && rainRows.length > 0 && !rainTrackIsDry(rainRows, !!rainStart);
+  const rainHasAmounts = rainRows.some(row => row.inches !== null && row.inches > 0);
+  const rainStripHeight = rainTrackVisible ? 44 * fontScale : 0;
+  // The rain header is normal-flow content. Only wet/missing history needs a
+  // strip; adding it never compresses the river plot or moves rail labels into it.
+  const padTop = 30 * fontScale + rainStripHeight;
+  const chartHeight = baseChartHeight + rainStripHeight;
+  const rainSummary = rain ? rainDaySummary(rain) : 'Rain data unavailable';
+  const rainScaleLabel = `${rainMax} in`;
 
   /**
    * The range the line on screen actually covers, which is NOT always `days`.
@@ -539,7 +544,7 @@ function GaugeChartView({
     ...(above ? [`↑ ${above.label}`, axisValue(above.value, drawnUnit)] : []),
     ...(below ? [`↓ ${zones.find(zone => !zone.openEnded && zone.max === below.value)?.label ?? below.label}`, axisValue(below.value, drawnUnit)] : []),
   ];
-  const gutters = chartGutters(valueTicks.map(tick => axisValue(tick.value, drawnUnit)), railTexts, axisFont, railVisible);
+  const gutters = chartGutters([...valueTicks.map(tick => axisValue(tick.value, drawnUnit)), ...(rainTrackVisible && rainHasAmounts ? [rainScaleLabel] : [])], railTexts, axisFont, railVisible);
   const padLeft = gutters.left;
   const padRight = gutters.right;
   const plotWidth = Math.max(0, width - padLeft - padRight);
@@ -989,11 +994,11 @@ function GaugeChartView({
         y: y - axisFont * 1.8, height: axisFont * 1.3, priority: 1000 + Math.abs(y - currentY) });
     }
     if (above) railCandidates.push({ id: 'above', kind: 'offscreen', text: `↑ ${above.label}`, secondLine: axisValue(above.value, drawnUnit),
-      y: axisFont * 1.25 + 1, height: axisFont * 2.5, priority: -2 });
+      y: rainStripHeight + axisFont * 1.25 + 1, height: axisFont * 2.5, priority: -2 });
     if (below) railCandidates.push({ id: 'below', kind: 'offscreen', text: `↓ ${zones.find(zone => !zone.openEnded && zone.max === below.value)?.label ?? below.label}`, secondLine: axisValue(below.value, drawnUnit),
       y: chartHeight - axisFont * 1.25 - 1, height: axisFont * 2.5, priority: -2 });
   }
-  const railLabels = selectChartRailLabels(railCandidates, 0, chartHeight, 4 * fontScale);
+  const railLabels = selectChartRailLabels(railCandidates, rainStripHeight, chartHeight, 4 * fontScale);
 
   return (
     <View style={[styles.card, embedded && styles.embeddedCard, expanded && styles.expandedCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -1058,6 +1063,16 @@ function GaugeChartView({
           quality={readoutPoint?.kind === 'observed' ? qualifierText(readoutPoint.point.qualifiers) : null}
           comparison={priorPoints.length ? priorText(readoutPoint) : null} /> : null}
       </View>
+      {rainEnabled && hasPlot ? <Pressable accessibilityRole="button"
+        accessibilityLabel={`Rain upstream. ${rainSummary}`} accessibilityHint="Open the rain map and totals"
+        onPress={() => { clearScrub(); setSheet('rain'); }}
+        style={({ pressed }) => [styles.rainHeader, { opacity: pressed ? 0.65 : 1 }]}>
+        <View style={styles.rainHeaderCopy}>
+          <Text style={[styles.rainTitle, { color: colors.interactive }]}>Rain upstream</Text>
+          <Text style={[styles.caption, { color: colors.textMuted }]}>{rainSummary}</Text>
+        </View>
+        <ControlIcon name="chevron-forward" size={16} color={colors.interactive} />
+      </Pressable> : null}
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? <GestureDetector gesture={chartGesture}>
           <View accessible accessibilityRole="adjustable" accessibilityLabel={plotSummary}
@@ -1066,17 +1081,18 @@ function GaugeChartView({
             accessibilityActions={[{ name: 'increment', label: 'Later reading' }, { name: 'decrement', label: 'Earlier reading' }]}
             onAccessibilityAction={onAccessibilityAction} onAccessibilityEscape={expanded ? onClose : clearScrub}>
             <Svg width={width} height={chartHeight}>
-              {rainEnabled ? <G>
+              {rainTrackVisible ? <G>
+                {rainHasAmounts ? <SvgText x={padLeft - 7} y={axisFont + 2 * fontScale} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{rainScaleLabel}</SvgText> : null}
                 {rainRows.map(row => {
                   const left = Math.max(padLeft + 4, scale.x(Date.parse(row.start))), right = Math.min(padLeft + plotWidth - 4, scale.x(Date.parse(row.end)));
                   if (right <= left) return null;
-                  const height = Math.max(1, (row.inches ?? 0) / rainMax * 30 * fontScale);
+                  const height = Math.max(1, (row.inches ?? 0) / rainMax * 28 * fontScale);
                   return row.inches === null
-                    ? <Rect key={row.start} x={left} y={46 * fontScale} width={right - left} height={30 * fontScale} fill={colors.cardRaised} stroke={colors.textMuted} strokeDasharray="2 3" strokeWidth={0.5} />
-                    : row.inches === 0 ? <Line key={row.start} x1={left} x2={right} y1={76 * fontScale} y2={76 * fontScale} stroke={colors.rainLikely} strokeWidth={1.5} />
-                    : <Rect key={row.start} x={left} y={76 * fontScale - height} width={Math.max(0.5, (right - left) * 0.88)} height={height} fill={colors.rainLikely} />;
+                    ? <Rect key={row.start} x={left} y={4 * fontScale} width={right - left} height={28 * fontScale} fill={colors.cardRaised} stroke={colors.textMuted} strokeDasharray="2 3" strokeWidth={0.5} />
+                    : row.inches === 0 ? <Line key={row.start} x1={left} x2={right} y1={32 * fontScale} y2={32 * fontScale} stroke={colors.textSubtle} strokeWidth={0.75} />
+                    : <Rect key={row.start} x={left} y={32 * fontScale - height} width={Math.max(0.5, (right - left) * 0.88)} height={height} fill={colors.rainLikely} />;
                 })}
-                {scrubbed ? <Line x1={scale.x(scrubbed.point.t)} x2={scale.x(scrubbed.point.t)} y1={44 * fontScale} y2={padTop + plotHeight} stroke={colors.textMuted} opacity={0.4} /> : null}
+                {scrubbed ? <Line x1={scale.x(scrubbed.point.t)} x2={scale.x(scrubbed.point.t)} y1={2 * fontScale} y2={padTop + plotHeight} stroke={colors.textMuted} opacity={0.4} /> : null}
               </G> : null}
               <Defs><ClipPath id={clipId}><Rect x={padLeft} y={padTop} width={plotWidth} height={plotHeight} /></ClipPath></Defs>
               <G clipPath={`url(#${clipId})`}>
@@ -1144,15 +1160,10 @@ function GaugeChartView({
             <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text></Pressable>
           </> : <Text style={[styles.placeholderText, { color: colors.textMuted }]}>{unavailable ? 'No recent history published for this gauge.' : points.length >= 2 || forecastPoints.length ? 'Use Data & details to read this history at your current text size.' : points.length === 1 ? 'Only one reading in this window — not enough to chart.' : `No ${drawnUnit === 'cfs' ? 'flow' : 'gauge height'} reported in this window.`}</Text>}
         </View>}
-        {rainEnabled && hasPlot ? <View pointerEvents="box-none" style={{ position: 'absolute', left: padLeft, right: padRight, top: 0, height: 44 * fontScale, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Open rain upstream details" style={{ minHeight: 44 * fontScale, justifyContent: 'center' }} onPress={() => { clearScrub(); setSheet('rain'); }}>
-            <Text style={[styles.caption, { color: colors.interactive, fontFamily: fonts.semibold }]}>Rain upstream</Text>
-          </Pressable>
-          <View accessible accessibilityLabel={`Scale zero to ${rainMax.toFixed(2)} inches, ${days === 1 ? 'hourly' : 'six-hour'} bars`}><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>0–{rainMax.toFixed(2)} in</Text><Text style={[styles.caption, { color: colors.textMuted, textAlign: 'right' }]}>{days === 1 ? 'Hourly bars' : '6-hour bars'}</Text></View>
-        </View> : null}
       </View>
       {rainStart ? <Text style={[styles.caption, { color: colors.textMuted, marginTop: 8 }]}
         accessibilityLabel={`Rain record starts ${chartStamp(rainStart, historyTimeZone(history?.timeZone))}`}>Rain record starts {chartShortStamp(rainStart, historyTimeZone(history?.timeZone))}</Text> : null}
+      {rainEnabled && rainRows.length === 0 ? <Text style={[styles.caption, { color: colors.textMuted }]}>Hourly rain history is unavailable</Text> : null}
       <View style={[styles.actions, { borderTopColor: colors.border }]}
         onLayout={expanded ? event => setActionsHeight(event.nativeEvent.layout.height) : undefined}>
         {expanded && provider === 'usgs' && <ChartShareControl state={shareState} stationName={title} />}
@@ -1184,7 +1195,7 @@ function GaugeChartView({
       </View>
       {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'rain' ? 'Rain upstream' : sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
         {sheet === 'rain' && siteId ? <RainDetail siteId={siteId} timeZone={historyTimeZone(history?.timeZone)} /> : sheet === 'compare' ? <>
-          {rain ? <ChartComparison label="Rain upstream" detail={rain.status === 'unavailable' || !rainIsFresh(rain) || rainfall.failed ? 'Rain data unavailable' : 'Radar and gauges · inches per bar'} value={rainOn} disabled={false} onChange={setRainOn}
+          {rain ? <ChartComparison label="Rain upstream" detail={rain.status === 'unavailable' || !rainIsFresh(rain) || rainfall.failed ? 'Rain data unavailable' : `Each column shows ${days === 1 ? 'one hour' : 'six hours'} of rain. Touch the chart to read an amount.`} value={rainOn} disabled={false} onChange={setRainOn}
             action={<Pressable accessibilityRole="button" onPress={() => setSheet('rain')} style={styles.toolbarAction}><Text style={[styles.actionText, { color: colors.interactive }]}>Watershed & totals</Text></Pressable>} /> : null}
           <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Middle half of past years' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
           <ChartComparison label="Median" detail="Middle of past years for this date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />
@@ -1316,6 +1327,8 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
   legendLabel: { flexShrink: 1 },
   rangeStatus: { marginBottom: 8, gap: 4 },
+  rainHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4, paddingTop: 4, paddingBottom: 8 },
+  rainHeaderCopy: { flex: 1, gap: 2 }, rainTitle: { ...t.xs, fontFamily: fonts.semibold },
   plotWrap: { position: 'relative' },
   caption: { ...t.xs },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, borderTopWidth: StyleSheet.hairlineWidth },
