@@ -148,7 +148,7 @@
     "river": "Jacks Fork River",
     "slug": "jacks-fork",
     "state": "MO",
-    "label": "Alley Spring to Two Rivers \u00b7 Eminence",
+    "label": "Eminence (below the spring)",
     "gauge": "Jacks Fork at Eminence, MO",
     "thresholds": {
       "levelTooLow": 100.0,
@@ -164,7 +164,7 @@
     "river": "Jacks Fork River",
     "slug": "jacks-fork",
     "state": "MO",
-    "label": "Upper river \u00b7 Alley Spring",
+    "label": "Alley Spring (upper river)",
     "gauge": "Jacks Fork at Alley Spring, MO",
     "thresholds": {
       "levelTooLow": 76.0,
@@ -180,7 +180,7 @@
     "river": "Jacks Fork River",
     "slug": "jacks-fork",
     "state": "MO",
-    "label": "Headwaters \u00b7 Mountain View",
+    "label": "Mountain View (headwaters)",
     "gauge": "Jacks Fork near Mountain View, MO",
     "thresholds": {
       "levelTooLow": 30.0,

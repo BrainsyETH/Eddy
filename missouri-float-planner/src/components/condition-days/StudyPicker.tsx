@@ -23,7 +23,7 @@ export function StudyPicker({ station, compare }: { station: Station; compare?: 
     <label>Gauge<select value={station.site} disabled={pending || reaches.length === 1} onChange={e => navigate(e.target.value)}>
       {reaches.map(s => <option key={s.site} value={s.site}>{s.label}</option>)}
     </select></label>
-    {reaches.length > 1 && <label>Compare stretches<select value={compare ?? ''} disabled={pending} onChange={e => navigate(station.site, e.target.value)}>
+    {reaches.length > 1 && <label><span>Compare<span className="sr-only"> stretches</span></span><select value={compare ?? ''} disabled={pending} onChange={e => navigate(station.site, e.target.value)}>
       <option value="">One stretch</option>
       {reaches.filter(s => s.site !== station.site).map(s => <option key={s.site} value={s.site}>{s.label}</option>)}
     </select></label>}
