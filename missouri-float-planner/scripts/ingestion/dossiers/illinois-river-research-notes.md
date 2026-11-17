@@ -306,3 +306,33 @@ Approved Chewey ladder (cfs): Too Low <150, Low 150–190, Flowing 190–500,
 High >500, **Dangerous 2,000** (owner decision 2026-11-16; 3,000 cfs, GRDA's
 rafts-only line, was the alternative). Watts and Moodys stay in the dossier for
 reference but get no rated link.
+
+## Addendum 2026-11-17: GRDA 2019 Floater's Guide cross-check
+
+The owner supplied GRDA's 2019 Floater's Guide and map. Compared with the
+2025 guide our data uses (the newer guide wins where they conflict):
+
+**Added or corrected**
+- **Boy Scout Hole** (USACE) public access, between US-62 and Murrell Home:
+  on the 2019 map and in the 2025 USACE footnote, in neither mileage table.
+  Added as a held row with no pin or mile.
+- **Alcohol ashore:** the 2025 rules allow beer and wine only at Round Hollow,
+  Peavine, Edmondson and No Head Hollow. Edmondson now says so; Stunkard and
+  Echota (allowed in 2019) are noted as not on the 2025 list.
+- **Edmondson position:** 2019 lists Combs Bridge 36.1 and Edmondson 36.2
+  (access just below the bridge, matching the pin); 2025 lists Edmondson 36.2
+  above New Combs Bridge 36.5. Still flagged for review.
+- **Chewey Bridge:** a public access area on the 2019 map, a landmark in 2025.
+  Kept as a non-endpoint landmark.
+
+**In 2019 but gone from the 2025 guide (not added)**
+- Public accesses: Lake Frances Access / Lake Frances Dam (RM 2.7; now WOKA),
+  Buck Ford (29.0), City Riverside Park (55.3), Wolf Springs.
+- Businesses: Buck Ford Floats, Elephant Rock Outfitters, Rock-A-Way Lodge,
+  Kamp Paddle Trails. Falcon Floats, All American Floats and Hanging Rock Camp
+  remain held for the licence and website issues recorded above.
+- Fees: the 2019 guide's $28 RV site at Round Hollow; camping is $14 in both.
+
+Other 2019 items match our data: Carnes Ford and Murrell Home marked
+dangerous during high water, the no-alcohol accesses (Watts/US-59, Carnes
+Ford, Todd, US-62), and the $1 day / $10 annual private float permit.

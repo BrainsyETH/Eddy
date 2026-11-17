@@ -122,13 +122,14 @@
     "managing_agency": null,
     "official_site_url": null,
     "facilities": "None verified. USGS gauge 07196090 (Illinois River at Chewey) is at the bridge.",
-    "description": "Landmark only, NOT a planner endpoint. The 2025 GRDA guide shows Chewey Bridge as a landmark, not a green public access area. American Whitewater lists an access on river left, but public launch rights and parking are unverified. The pin is the bridge itself (NBI fields), corroborated by OSM bridge way 233785862 (3 m away). Expected mile converted from GRDA mile 23.6 (+47.2).",
+    "description": "Landmark only, NOT a planner endpoint. The 2025 GRDA guide shows Chewey Bridge as a landmark, not a green public access area. American Whitewater lists an access on river left, but public launch rights and parking are unverified. The pin is the bridge itself (NBI fields), corroborated by OSM bridge way 233785862 (3 m away). Expected mile converted from GRDA mile 23.6 (+47.2). The 2019 GRDA map showed Chewey Bridge as a public access area; the 2025 guide shows it only as a landmark, so it stays non-endpoint.",
     "confidence": "high",
     "source_urls": [
       "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_National_Bridge_Inventory/FeatureServer/0",
       "https://www.openstreetmap.org/way/233785862",
       "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
-      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "GRDA 2019 Illinois River Floater's Guide and map (owner-supplied, 2026-11-17)"
     ]
   },
   {
@@ -172,12 +173,13 @@
     "ownership": "GRDA Scenic Rivers public access area (ODWC-agreement site per 2021 coverage; land ownership unverified)",
     "managing_agency": null,
     "official_site_url": "https://grda.com/illinois-river/",
-    "facilities": "Not verified. OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it.",
+    "facilities": "Not verified. OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it. Alcohol: not among the four access areas (Round Hollow, Peavine, Edmondson, No Head Hollow) where GRDA's 2025 rules allow beer and wine ashore; the 2019 guide allowed it here. Treat as no alcohol on shore.",
     "description": "GRDA public access area on river right, about 0.56 river mile below Round Hollow. The owner supplied this pin on 2026-11-09 (plus code 35Q7+G2 Tahlequah = 8677 35Q7+G2). It agrees with American Whitewater's point within ~15 m and is 123 m from the river line at Eddy mile 75.97. That resolves the earlier conflict with GRDA's mileage (0.3 mi below Round Hollow) in favour of the mapped position. Move the pin onto the launch in review if it sits on the parking area.",
     "confidence": "medium (owner-supplied pin 2026-11-09, plus code 35Q7+G2 Tahlequah; agrees with American Whitewater within ~15 m)",
     "source_urls": [
       "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
-      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf"
     ]
   },
   {
@@ -220,13 +222,14 @@
     "ownership": "GRDA Scenic Rivers public access area (signed 'Edmondson Day Use Only Public Access Area'); land ownership unverified",
     "managing_agency": null,
     "official_site_url": "https://grda.com/illinois-river/",
-    "facilities": "Gravel parking lot, portable toilets and picnic tables (owner's street-level photo). Day use only.",
-    "description": "GRDA public access area on river left beside the road near Combs Bridge, signed 'Edmondson Day Use Only Public Access Area' (owner's photo, 2026-11-09). The pin is American Whitewater's 'Edmondson Public Access Area' point, which sits on a roadside gravel lot visible in USGS imagery, 105 m from the river line at Eddy mile 83.44, about 0.05 mi below the 2015 Combs Bridge (83.39). GRDA's 2025 guide lists Edmondson at RM 36.2, 0.3 mi above New Combs Bridge (RM 36.5); the mapped lot does not agree with that order, so confirm the pin in review. Day use only: no overnight parking or camping.",
+    "facilities": "Gravel parking lot, portable toilets and picnic tables (owner's street-level photo). Day use only. Alcohol allowed (wine, beer and light beer in non-glass packaging, 21+): one of the four public access areas where GRDA's 2025 rules permit it.",
+    "description": "GRDA public access area on river left beside the road near Combs Bridge, signed 'Edmondson Day Use Only Public Access Area' (owner's photo, 2026-11-09). The pin is American Whitewater's 'Edmondson Public Access Area' point, which sits on a roadside gravel lot visible in USGS imagery, 105 m from the river line at Eddy mile 83.44, about 0.05 mi below the 2015 Combs Bridge (83.39). GRDA's 2025 guide lists Edmondson at RM 36.2, 0.3 mi above New Combs Bridge (RM 36.5); the mapped lot does not agree with that order, so confirm the pin in review. Day use only: no overnight parking or camping. The 2019 GRDA guide lists Combs Bridge at RM 36.1 and Edmondson at 36.2, placing the access just below the bridge as this pin does; the 2025 guide lists Edmondson at 36.2 above \"New Combs Bridge\" at 36.5. The guides conflict, so keep the review flag.",
     "confidence": "medium (owner confirmed the public access and its signage 2026-11-09; American Whitewater point matches a gravel lot in USGS imagery; no agency coordinate)",
     "source_urls": [
       "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
       "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
-      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer",
+      "GRDA 2019 Illinois River Floater's Guide and map (owner-supplied, 2026-11-17)"
     ],
     "parking_info": "Gravel day-use lot beside the road. Day use only."
   },
@@ -322,13 +325,14 @@
     "ownership": "GRDA Scenic Rivers public access area (ODWC-agreement site per 2021 coverage; land ownership unverified)",
     "managing_agency": null,
     "official_site_url": "https://grda.com/illinois-river/",
-    "facilities": "Not verified. OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it.",
-    "description": "GRDA public access area on river left at the 90-degree Echota Bend. The owner supplied this pin on 2026-11-09 (plus code W3VQ+5C Tahlequah = 8677 W3VQ+5C). It agrees with American Whitewater's 'Echota Bend' access within ~26 m (the legacy GNIS park point is ~250 m away) and is 79 m from the river line at Eddy mile 100.11. Heavy summer traffic at the bend.",
+    "facilities": "Not verified. OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it. Alcohol: not among the four access areas (Round Hollow, Peavine, Edmondson, No Head Hollow) where GRDA's 2025 rules allow beer and wine ashore; the 2019 guide allowed it here. Treat as no alcohol on shore.",
+    "description": "GRDA public access area on river left at the 90-degree Echota Bend. The owner supplied this pin on 2026-11-09 (plus code W3VQ+5C Tahlequah = 8677 W3VQ+5C). It agrees with American Whitewater's 'Echota Bend' access within ~26 m (the legacy GNIS park point is ~250 m away) and is 79 m from the river line at Eddy mile 100.11. Heavy summer traffic at the bend. The 2019 GRDA guide also marked Echota \"Commercial Use Prohibited\"; the 2025 guide lists that restriction for Todd.",
     "confidence": "medium (owner-supplied pin 2026-11-09, plus code W3VQ+5C Tahlequah; agrees with American Whitewater \"Echota Bend\" within ~26 m)",
     "source_urls": [
       "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
       "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
-      "https://www.openstreetmap.org/node/357391240"
+      "https://www.openstreetmap.org/node/357391240",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf"
     ]
   },
   {
@@ -356,6 +360,28 @@
       "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
     ],
     "road_access": "US-62 / OK-51 crossing of the Illinois River, about 2 miles northeast of Tahlequah."
+  },
+  {
+    "name": "Boy Scout Hole Public Access",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": false,
+    "expected_mile": null,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "US Army Corps of Engineers (GRDA 2025 guide: \"US Army Corps of Engineers own/manage Murrell Home, Boy Scout Hole and Welling Bridge Access area's\", 918-487-5252)",
+    "managing_agency": "COE",
+    "official_site_url": null,
+    "facilities": "Not verified.",
+    "description": "HELD for a pin: USACE public access between the US-62 bridge and Murrell Home Rd, near Camp Fred Darby (Boy Scout camp) on the GRDA map. It appears on the 2019 GRDA map and in the 2025 guide's USACE footnote, but in neither guide's mileage table, so it has no mile yet. Not an endpoint until USACE confirms launch and parking.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "GRDA 2019 Illinois River Floater's Guide and map (owner-supplied, 2026-11-17)"
+    ]
   },
   {
     "name": "Murrell Home Rd Public Access",
