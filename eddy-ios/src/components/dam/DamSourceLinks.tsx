@@ -20,10 +20,13 @@ import { fonts, type as t } from '@/theme/typography';
 export function DamSourceLinks({
   links,
   style,
+  compact = false,
 }: {
   /** Already filtered to drawable links — see damSourceLink in lib/damSourceLinks. */
   links: DamSourceLink[];
   style?: StyleProp<ViewStyle>;
+  /** Quiet attribution alongside an observation or schedule check time. */
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   if (links.length === 0) return null;
@@ -41,7 +44,9 @@ export function DamSourceLinks({
           accessibilityLabel={`${link.label}, ${link.publisher}`}
           accessibilityHint="Opens the publisher’s page"
         >
-          <Text style={[styles.text, { color: colors.interactive }]}>{link.label}</Text>
+          <Text style={[styles.text, compact && t.xs, { color: colors.interactive }]}>
+            {compact && link.label === 'Corps of Engineers data' ? 'Corps data' : link.label}
+          </Text>
           {/* The mark says this leaves Eddy, as it does on every other
               outbound row in the app. */}
           <ControlIcon name="open-outline" size={14} color={colors.interactive} />

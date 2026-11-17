@@ -75,6 +75,7 @@ interface Props {
    * is no headline for it to agree with.
    */
   peakSchedule?: SchedulePeak | null;
+  now?: number;
 }
 
 /**
@@ -161,7 +162,7 @@ function hourReadout(hour: ScheduledHour): string {
   return `${window} · ${hour.megawatts.toLocaleString()} MW scheduled${flow}`;
 }
 
-export function DayBars({ day, reference, compact = false, peakSchedule = null }: Props) {
+export function DayBars({ day, reference, compact = false, peakSchedule = null, now }: Props) {
   const { colors } = useTheme();
   const { fontScale, width } = useWindowDimensions();
   const screenReader = useScreenReaderEnabled();
@@ -184,7 +185,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
   );
 
   // Null on every day but today, which is the point — see scheduleHoursElapsed.
-  const hoursElapsed = scheduleHoursElapsed(day.scheduleDate);
+  const hoursElapsed = scheduleHoursElapsed(day.scheduleDate, now);
   const showMarker = hoursElapsed !== null && rowWidth > 0;
 
   const onLayout = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width);
@@ -222,14 +223,16 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
 
   const scrubbedHour =
     scrubbed === null ? null : hours.find((h) => h.hourEnding === scrubbed + 1) ?? null;
+  const listToggle = !compact ? <Pressable accessibilityRole="button"
+    accessibilityValue={{ text: list ? 'Hourly details shown' : 'Hourly chart shown' }}
+    style={styles.listToggle} onPress={() => setListChoice(!list)}>
+    <Text style={[t.sm, { color: colors.interactive }]}>{list ? 'Show hourly chart' : 'Hourly details'}</Text>
+  </Pressable> : null;
 
   return (
     <View>
-      {!compact ? <Pressable accessibilityRole="button"
-        accessibilityValue={{ text: list ? 'Hourly details shown' : 'Hourly chart shown' }}
-        style={styles.listToggle} onPress={() => setListChoice(!list)}>
-        <Text style={[t.sm, { color: colors.interactive }]}>{list ? 'Show hourly chart' : 'Show hourly details'}</Text>
-      </Pressable> : null}
+      {/* Keep the return action within reach when the 24-hour list is open. */}
+      {list ? listToggle : null}
       {list ? <View>
         <Text style={[t.xs, { color: colors.textMuted }]}>{scheduledHoursSummary(day.hours)} · Central time</Text>
         {hours.map((hour) => {
@@ -274,7 +277,6 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
               />
             );
           })}
-          <Text style={[styles.peakCaption, { color: colors.generationHigh }]}>Peak window</Text>
         </View>
       ) : null}
 
@@ -377,6 +379,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
         </View>
       ) : null}
       </>}
+      {list ? null : listToggle}
     </View>
   );
 }
@@ -409,9 +412,10 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
  * `generating` carries the fact and the label carries the words.
  */
 export function nowSentence(
-  day: DamScheduleDay
+  day: DamScheduleDay,
+  now = Date.now(),
 ): { generating: boolean; label: string } | null {
-  const hoursElapsed = scheduleHoursElapsed(day.scheduleDate);
+  const hoursElapsed = scheduleHoursElapsed(day.scheduleDate, now);
   if (hoursElapsed === null) return null;
   const hour = day.hours.find((h) => h.hourEnding === hourEndingNow(hoursElapsed));
   if (!hour) return null;
@@ -446,10 +450,10 @@ const styles = StyleSheet.create({
   barsCompact: { height: 26, marginTop: 6 },
   bar: { flex: 1, borderRadius: 2 },
   nowLine: { position: 'absolute', top: -3, bottom: -3, width: 2, borderRadius: 1 },
-  // The bracket sits in its own 18pt band above the bars: inside the plot it
+  // The bracket sits in its own band above the bars: inside the plot it
   // would compete with a full-height bar, and below it would collide with the
   // hour axis.
-  peakRow: { minHeight: 18, marginTop: 2 },
+  peakRow: { height: 6, marginTop: 2 },
   peakBracket: {
     position: 'absolute',
     bottom: 0,
@@ -460,7 +464,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 2,
     borderTopRightRadius: 2,
   },
-  peakCaption: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium, textAlign: 'center' },
   // Faint enough to stay behind the data. The bars draw over it either way, so
   // this only ever shows in the air above them.
   peakTint: { position: 'absolute', top: 0, bottom: 0, borderRadius: 2, opacity: 0.1 },

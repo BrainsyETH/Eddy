@@ -1543,10 +1543,20 @@ device verification remains required.
 
 Total water release leads the dam's first card, including flood-control dams.
 Turbine flow and the estimated generator rack follow as a separate observation;
-they never stand in for a missing total release. Matching, aligned spot readings
-share one value; different times keep their own timestamp. Daily averages and
-outdated readings stay labeled. The posted schedule follows the observations.
-The lower conditions card does not repeat total release.
+they never stand in for a missing total release. Matching spot readings with the
+same observation time share one value; different times retain their own value
+and timestamp. The reading time and compact publisher link share a row. Daily
+averages and outdated readings stay labeled; the rack's approximation is
+explained in the info tip and VoiceOver label.
+
+The posted schedule follows the observations, with one publisher/check-time
+row and a single stale warning above the plan. Missing check times stay unknown.
+Only an actual upcoming change gets a callout; “No further generation posted”
+is plain text. Minimum flow and continuing generation keep their own wording.
+Each day names its peak once (“Peak 5–9 AM”); flat-output days retain “Scheduled
+generation.” Hourly details open below the chart, with the return-to-chart
+action above the expanded list. The lower conditions card does not repeat total
+release.
 
 Dam detail readings use Eddy's illustrated metric symbols: Release and Water
 temperature share the web masters; lake and tailwater levels reuse the gauge
