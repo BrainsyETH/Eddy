@@ -20,7 +20,7 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
   const checked = new Date(snapshot.checkedAt).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   return <AbsoluteFill style={{ background: colors.secondary[50], color: ink, fontFamily: fontFamilies.body }}>
     <svg width="1080" height="1920" style={{ position: 'absolute' }} aria-hidden="true"><path d="M-70 70 Q150 -5 320 70 T720 70 T1160 70" stroke={colors.secondary[200]} strokeWidth="32" fill="none" /><path d="M-100 1790 Q100 1720 300 1790 T700 1790 T1160 1790" stroke={colors.primary[100]} strokeWidth="74" fill="none" /><path d="M-100 1850 Q100 1780 300 1850 T700 1850 T1160 1850" stroke={colors.primary[200]} strokeWidth="30" fill="none" /></svg>
-    <main data-dam-safe style={{ position: 'absolute', left: safe.left, top: safe.top, width, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <main data-dam-safe style={{ position: 'absolute', left: safe.left, top: safe.top, width, display: 'flex', flexDirection: 'column', gap: 12 }}>
       <header data-dam-region="header">
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
           <Img src={staticFile('eddy/eddy-favicon.png')} style={{ width: 64, height: 64 }} />
@@ -28,11 +28,11 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
           <span style={{ marginLeft: 'auto', fontSize: 24, fontWeight: 700 }}>DAILY DAM UPDATE</span>
         </div>
         <div data-dam-text style={{ fontSize: 27, fontWeight: 650, marginBottom: 8 }}>{scheduleDayLabel(snapshot.scheduleDate).toUpperCase()} · {snapshot.scheduleDate.slice(0, 4)} · CENTRAL TIME{sample ? ' · SAMPLE' : ''}</div>
-        <h1 data-dam-text style={{ fontFamily: fontFamilies.display, fontSize: 78, fontWeight: 600, lineHeight: 1.1, margin: 0 }}>Table Rock Dam</h1>
+        <h1 data-dam-text style={{ fontFamily: fontFamilies.display, fontSize: 78, fontWeight: 600, lineHeight: 1.25, margin: 0 }}>Table Rock Dam</h1>
       </header>
-      <section data-dam-region="schedule" style={{ height: many ? 362 : 324, boxSizing: 'border-box', border: `5px solid ${ink}`, borderRadius: 22, background: 'white', boxShadow: `8px 8px 0 ${ink}`, padding: '22px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <section data-dam-region="schedule" style={{ height: many ? 382 : windows.length > 2 ? 362 : 324, boxSizing: 'border-box', border: `5px solid ${ink}`, borderRadius: 22, background: 'white', boxShadow: `8px 8px 0 ${ink}`, padding: '22px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
         <div data-dam-text style={{ fontSize: 29, fontWeight: 700 }}>Scheduled generation</div>
-        <div data-dam-windows style={{ display: 'grid', gridTemplateColumns: many ? '1fr 1fr' : '1fr', columnGap: 18, rowGap: 1, fontFamily: fontFamilies.display, fontWeight: 600, fontSize: many ? 37 : windows.length > 2 ? 47 : windows.length === 2 ? 65 : 92, lineHeight: 1.08 }}>
+        <div data-dam-windows style={{ display: 'grid', gridTemplateColumns: many ? '1fr 1fr' : '1fr', columnGap: 18, rowGap: 1, fontFamily: fontFamilies.display, fontWeight: 600, fontSize: many ? 35 : windows.length > 2 ? 47 : windows.length === 2 ? 65 : 92, lineHeight: 1.25 }}>
           {windows.length ? windows.map(window => <span data-dam-text key={window} style={{ whiteSpace: 'nowrap' }}>{window}</span>) : <span data-dam-text style={{ fontSize: 60 }}>No generation<br />scheduled</span>}
         </div>
         <div data-dam-text style={{ fontSize: 25, color: colors.neutral[700] }}>{count} {count === 1 ? 'hour' : 'hours'} posted{snapshot.minimumFlow ? ' · Minimum flow also scheduled' : ' · At the dam'}</div>
