@@ -63,7 +63,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
   const [visible, setVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
-  const scene = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLElement>(null);
   const triggers = useRef<Partial<Record<Detail, HTMLButtonElement | null>>>({});
   const panelId = useId();
   const moving = view.releaseActive && !paused && reducedMotion === false && visible && pageVisible;
@@ -72,7 +72,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     update();
     document.addEventListener('visibilitychange', update);
     const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting));
-    if (scene.current) observer.observe(scene.current);
+    if (root.current) observer.observe(root.current);
     return () => { observer.disconnect(); document.removeEventListener('visibilitychange', update); };
   }, []);
   const closeDetail = () => {
@@ -80,7 +80,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     setDetail(null);
   };
 
-  return <section className="dam-water-root" aria-label="Reported water release" data-dam-water-illustration data-motion={moving ? 'running' : 'paused'} data-level-motion={view.poolFresh && reducedMotion === false && !paused && visible && pageVisible ? 'allowed' : 'off'}>
+  return <section ref={root} className="dam-water-root" aria-label="Reported water release" data-dam-water-illustration data-motion={moving ? 'running' : 'paused'} data-level-motion={view.poolFresh && reducedMotion === false && !paused && visible && pageVisible ? 'allowed' : 'off'}>
     <div className="dam-water-readings">
       <div className="dam-water-level">
         <p className="dam-water-label">Lake level</p>
@@ -101,7 +101,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     <span className="sr-only" data-generation-summary>{generationVoiceOver(state, dam.generationReference)}</span>
 
     <figure className="dam-water-figure">
-      <div ref={scene} className="dam-water-scene">
+      <div className="dam-water-scene">
         <DamWaterScene surfaceY={view.surfaceY} turbine={view.turbineActive} spillway={view.spillwayActive} release={view.releaseActive} />
       </div>
       <figcaption className="dam-water-caption">
@@ -117,7 +117,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     </div>
     <div id={panelId} hidden={!detail} role="region" aria-labelledby={`${panelId}-heading`} className="dam-water-detail-panel" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); closeDetail(); } }}>
       {detail && <>
-        <div className="dam-water-panel-heading"><h3 id={`${panelId}-heading`}>{detail === 'lake' ? 'Lake readings' : detail === 'turbines' ? 'Generation details' : 'Below the dam'}</h3><Button variant="icon" onClick={closeDetail} aria-label="Close reading details"><X size={18} aria-hidden="true" /></Button></div>
+        <div className="dam-water-panel-heading"><h3 id={`${panelId}-heading`}>{detail === 'lake' ? 'Lake readings' : detail === 'turbines' ? 'Generation details' : 'Below the dam'}</h3><Button variant="icon" className="min-h-11 min-w-11" onClick={closeDetail} aria-label="Close reading details"><X size={18} aria-hidden="true" /></Button></div>
         {detail === 'lake' && <>
           <p className="dam-water-note">The dashed line follows the Corps&apos; seasonal pool for this reading&apos;s date. Elevations use NGVD29.</p>
           {validMetric(dam.metrics.inflow) && <DetailReading label="Inflow" metric={dam.metrics.inflow} now={now} format={cfs} />}

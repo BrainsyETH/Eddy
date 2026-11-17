@@ -160,7 +160,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             const turbines = illustrated.getByRole('button', { name: 'Turbines', exact: true });
             await turbines.focus(); await page.keyboard.press('Enter');
             assert(await details.isVisible(), 'keyboard opens generation details');
-            await details.getByRole('button', { name: 'Close reading details' }).focus();
+            const close = details.getByRole('button', { name: 'Close reading details' });
+            const closeBox = await close.boundingBox();
+            assert(closeBox.width >= 44 && closeBox.height >= 44, 'close control is a full touch target');
+            await close.focus();
             await page.keyboard.press('Escape');
             assert.equal(await details.isVisible(), false);
             assert(await turbines.evaluate(el => el === document.activeElement), 'Escape returns focus to the trigger');
@@ -176,7 +179,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             await details.getByRole('button', { name: 'Close reading details' }).click();
             await illustrated.locator('.dam-water-scene').scrollIntoViewIfNeeded();
             await page.clock.runFor(100);
-            await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'running');
+            await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'running', undefined, { timeout: 5000 }).catch(async error => {
+              const diagnostic = await illustrated.evaluate(el => ({ motion: el.dataset.motion, visible: document.visibilityState, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches, bounds: el.getBoundingClientRect().toJSON(), scrollY, text: el.innerText }));
+              console.error('Motion did not resume', JSON.stringify(diagnostic));
+              errors.push(`Motion did not resume at ${width}px: ${error.message}`);
+            });
             await illustrated.getByRole('button', { name: 'Pause motion', exact: true }).click();
             assert.equal(await illustrated.getAttribute('data-motion'), 'paused');
             assert(await illustrated.locator('.dam-motion').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).animationPlayState === 'paused')));
