@@ -30,7 +30,7 @@ import { join } from 'node:path';
 const IOS = join(process.cwd(), '../eddy-ios/src/components/EddyTake.tsx');
 const WEB = join(process.cwd(), 'src/components/gauge/RiverGaugeDetail.tsx');
 
-test('iOS prefers the entitled report while public web uses only the summary', () => {
+test('iOS prefers the entitled report while public web links to an available Read', () => {
   // iOS: `outlook.fullRead || sections?.eddyRead || ''` — fullRead is quote_text.
   assert.match(
     readFileSync(IOS, 'utf8'),
@@ -42,8 +42,8 @@ test('iOS prefers the entitled report while public web uses only the summary', (
   // to the renderer, so premium fields cannot survive under another name.
   assert.match(
     readFileSync(WEB, 'utf8'),
-    /generatedEddyRead:\s*activeEddyUpdate\?\.summaryText/,
-    'RiverGaugeDetail.tsx no longer uses the public summary',
+    /readIsGenerated=\{Boolean\(activeEddyUpdate\?\.summaryText\)\}/,
+    'RiverGaugeDetail.tsx no longer checks public Read availability',
   );
 });
 

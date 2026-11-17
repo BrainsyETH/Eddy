@@ -91,6 +91,8 @@ interface GaugeSummaryProps {
   hideCurrentReading?: boolean;
   /** No frame of its own: the rows sit inside the reading card's footer. */
   bare?: boolean;
+  /** River reports keep publication gaps in source details. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -120,6 +122,7 @@ export default function GaugeSummary({
   waterTemperature,
   hideCurrentReading = false,
   bare = false,
+  compact = false,
   className = '',
 }: GaugeSummaryProps) {
   // The chart's own request — shared with it through the query cache, and
@@ -314,7 +317,7 @@ export default function GaugeSummary({
       </div>
       )}
 
-      {tier === 'reference' && (
+      {tier === 'reference' && !compact && (
         <p className="text-xs text-neutral-500 -mt-1">
           {providerLabel ? `${providerLabel} · ` : ''}
           Not rated by Eddy.
@@ -337,14 +340,20 @@ export default function GaugeSummary({
         </div>
       )}
 
-      {!officialEvent && safetyRow}
+      {!officialEvent && (!compact || safety.kind !== 'no_stages') && safetyRow}
 
-      <div className="flex items-baseline gap-2">
+      {(!compact || forecast.length > 0) && <div className="flex items-baseline gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 w-20 flex-shrink-0">
           Forecast
         </span>
         <span className="text-sm text-neutral-700">{forecastSentence}</span>
-      </div>
+      </div>}
+      {compact && (safety.kind === 'no_stages' || forecast.length === 0) && <details className="text-xs text-neutral-600">
+        <summary className="min-h-11 cursor-pointer py-3">Source details</summary>
+        {providerLabel && <p className="mt-1">{providerLabel}</p>}
+        {safety.kind === 'no_stages' && <p className="mt-1">{safetySentence}</p>}
+        {forecast.length === 0 && <p className="mt-1">{forecastSentence}</p>}
+      </details>}
     </div>
   );
 }

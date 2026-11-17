@@ -132,10 +132,16 @@ Measured on that history (backtest in
    the Read of the dam whose id is its site id. A downstream USGS tab keeps its
    own reading and river Read, because every time in the dam Read is at the
    dam; a rated release (Clearwater on the Black) keeps its verdict and river
-   Read. Weather stays and is written for a dam-controlled river; Bottom line
-   is dropped. On the web this puts the locked teaser in the river page's
-   "Eddy's read" slot, so a tailwater's dam tab shows no free Eddy prose, the
-   exception in decision 7 applied to the river page. On iOS the dam Read sits
+   Read. Weather stays and Bottom line is dropped. **Web presentation updated
+   2026-11-16:** every river page, including ordinary rivers and section-selected
+   reports, shows the free forecast followed by one compact Read link. There is
+   no summary sentence or locked teaser in this web slot. This is a deliberate
+   layout decision, not a change to decision 7's API or Premium access rules;
+   public river/gauge summaries remain available to other clients. The link
+   opens the selected dam, gauge or primary river and carries only that Read's
+   written time. It is absent when that source has no available Read; weather
+   remains. The outlook says “Weather” without an official river forecast and
+   “Forecast” when the NWS daily-high row is present. On iOS the dam Read sits
    inside Eddy's take under its one lock row, with decision 7's access rules.
    The same change moved the dam into the live report card on both platforms,
    drawn as the dam cards draw it (the directory card's readings and hourly
@@ -145,7 +151,12 @@ Measured on that history (backtest in
    holds the dam catalog and selects the snapshot by the displayed USACE site
    id, so the White's Norfork release tab pairs Norfork's schedule and Read.
    It never substitutes the controlling dam's footer on another dam's tab.
-   The standalone Read fallback waits for the river outlook request to settle,
+   Web loads another selected dam's own snapshot on demand. While it loads or
+   if that request fails, the already available release remains visible with
+   its observation age and stale/flagged/missing state, labelled “Release at
+   the dam”; unavailable details get Retry. It never borrows another dam's
+   schedule. Dam measurements and schedule times remain explicitly at the dam.
+   The native standalone Read fallback waits for the river outlook request to settle,
    avoiding an initial card replacement and duplicate member request.
 
 ## Not decided here

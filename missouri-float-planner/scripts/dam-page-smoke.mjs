@@ -168,8 +168,8 @@ export default function Fixture() {
     <AppCta destination={{ kind: 'river', id: 'current' }} title="Current River on your Home Screen" detail="Add an Eddy river widget, then choose your river in Edit Widget." label="river_widget" variant="inline" />
     <AppCta destination={{ kind: 'access', id: 'akers-ferry', river: 'current' }} title="Download your float before you head out" detail="Plan your route in Eddy and download its map while you have signal." label="access_offline" />
     <div data-report-check><label>Read availability <select value={read} onChange={event => setRead(event.target.value as typeof read)}><option value="loading">Loading</option><option value="ready">Ready</option><option value="missing">Missing</option></select></label><ReportAppCta destination={{kind: 'gauge', id: '07067000'}} hasRead={read === 'ready'} loading={read === 'loading'} /></div>
-    <EddyOutlookFooter compact sections={{ eddyRead: 'A useful public river summary', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} />
-    <div data-locked-read><EddyOutlookFooter sections={{ eddyRead: 'Locked Read example', watchFor: 'Weather summary', bottomLine: 'Bottom line' }} readLoading={false} readIsGenerated={true} /></div>
+    <EddyOutlookFooter destination={{ kind: 'river', id: 'current' }} sourceName="Current River" readIsGenerated={true} />
+    <div data-locked-read><EddyOutlookFooter destination={{ kind: 'river', id: 'current' }} sourceName="Current River" readIsGenerated={true} /></div>
   </main>;
 }`);
   await mkdir(`${route}/planner`, { recursive: true });
@@ -794,10 +794,8 @@ export default function Page() {
   await writeFile(`${out}/android-hydration.json`, JSON.stringify({ viewport: 390, fixture: 'promotions', layoutShift: hydrationShift, note: 'Single fixture run; not production field CLS.' }, null, 2));
   console.log(`Android promotion fixture layout shift: ${hydrationShift}`);
   assert.equal(await android.locator('[data-app-cta], [data-ga-label="fixture_generic"], [data-ga-label="river_eddy_read"]').count(), 0, 'Android omits all unsupported app actions');
-  assert(await android.getByText('A useful public river summary', { exact: true }).isVisible(), 'Android retains the useful public Read');
-  assert(await android.locator('[data-locked-read]').getByRole('heading', { name: "Eddy's Read" }).isVisible(), 'Android retains the noncompact Read section');
   assert(await android.locator('[data-locked-read]').getByText('Available for iPhone only.', { exact: true }).isVisible());
-  assert(await android.locator('[data-locked-read] [data-nosnippet]').first().evaluate(el => getComputedStyle(el).filter.includes('blur')), 'Android does not unblur gated content');
+  assert.equal(await android.locator('[data-locked-read] [data-nosnippet]').count(), 0, 'Compact river Read has no blurred prose');
   await android.screenshot({ path: `${out}/promotions-android.png`, fullPage: true });
   for (const path of ['/app', '/app?plan=fixture123', '/app?river=current&feature=read']) {
     await android.goto(`${origin}${path}`, { waitUntil: 'networkidle' });

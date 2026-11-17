@@ -9,6 +9,7 @@ import { shortenGaugeName } from '@/lib/gauge/format-name';
 interface GaugeTab {
   siteId: string;
   name: string;
+  provider?: string | null;
   isPrimaryForRiver: boolean;
 }
 
@@ -21,6 +22,8 @@ interface GaugeTabBarProps {
 export default function GaugeTabBar({ gauges, activeSiteId, onTabChange }: GaugeTabBarProps) {
   if (gauges.length <= 1) return null;
 
+  const mixed = gauges.some(gauge => gauge.provider === 'usace') && gauges.some(gauge => gauge.provider !== 'usace');
+  const label = mixed ? 'View' : gauges.every(gauge => gauge.provider === 'usace') ? 'Dam' : 'Gauge';
   const activeGauge = gauges.find((gauge) => gauge.siteId === activeSiteId);
 
   return (
@@ -28,21 +31,21 @@ export default function GaugeTabBar({ gauges, activeSiteId, onTabChange }: Gauge
       {/* The label used to be desktop-only, which left mobile showing a bare
           chip of truncated gauge names with nothing saying what it switched. */}
       <span className="whitespace-nowrap font-sans text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-        Gauge
+        {label}
       </span>
       <span className="relative min-w-0">
         <select
           value={activeSiteId}
           onChange={(event) => onTabChange(event.target.value)}
-          aria-label="USGS gauge"
+          aria-label={mixed ? 'View dam or gauge' : label}
           title={activeGauge?.name}
-          className="h-9 max-w-[8.25rem] appearance-none truncate rounded-md border-2 border-primary-700 bg-white py-1 pl-2.5 pr-7 font-sans text-xs font-bold text-primary-900 shadow-[2px_2px_0_var(--color-primary-200)] outline-none transition-colors hover:bg-primary-50 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 sm:max-w-[12rem]"
+          className="h-11 max-w-[12rem] appearance-none truncate rounded-md border-2 border-primary-700 bg-white py-1 pl-2.5 pr-7 font-sans text-xs font-bold text-primary-900 shadow-[2px_2px_0_var(--color-primary-200)] outline-none transition-colors hover:bg-primary-50 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 sm:max-w-[19rem]"
         >
           {gauges.map((gauge) => (
             <option key={gauge.siteId} value={gauge.siteId}>
               {/* The old pill bar marked the canonical gauge with a star; the
                   select needs to say so in text or the distinction is lost. */}
-              {shortenGaugeName(gauge.name)}{gauge.isPrimaryForRiver ? ' (main)' : ''}
+              {shortenGaugeName(gauge.name)}{mixed ? gauge.provider === 'usace' ? ' · Release' : ' · River gauge' : ''}{gauge.isPrimaryForRiver ? ' (main)' : ''}
             </option>
           ))}
         </select>
