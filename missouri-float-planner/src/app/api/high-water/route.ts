@@ -47,6 +47,7 @@ import { getRivers } from '@/lib/data/rivers';
 import { fetchTailwaterDams } from '@/lib/data/dams';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { toNum } from '@/lib/utils/num';
 
 export const dynamic = 'force-dynamic';
@@ -220,7 +221,7 @@ async function elevatedGauges(): Promise<HighWaterEntry[]> {
       level_dangerous,
       flood_stage_ft,
       rivers!inner ( id, name, slug, active ),
-      gauge_stations!inner ( id, name, usgs_site_id, site_id_external, active )
+      gauge_stations!inner ( id, name, usgs_site_id, site_id_external, active, nwps_flood_stage_ft )
     `,
     )
     .eq('rivers.active', true)
@@ -273,7 +274,7 @@ async function elevatedGauges(): Promise<HighWaterEntry[]> {
         levelHigh: toNum(row.level_high),
         levelDangerous: toNum(row.level_dangerous),
         thresholdUnit: unit ?? undefined,
-        floodStageFt: toNum(row.flood_stage_ft),
+        floodStageFt: linkFloodStageFt(row),
       },
       dischargeCfs,
       { strictUnit: true },

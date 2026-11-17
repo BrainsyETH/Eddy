@@ -187,7 +187,7 @@ const GAUGE_SELECT = `is_primary,
    alt_level_too_low, alt_level_low, alt_level_optimal_min, alt_level_optimal_max,
    alt_level_high, alt_level_dangerous,
    gauge_station_id,
-   gauge_stations(name, usgs_site_id, nws_lid, location)`;
+   gauge_stations(name, usgs_site_id, nws_lid, location, nwps_flood_stage_ft)`;
 
 async function _GET(
   request: NextRequest,

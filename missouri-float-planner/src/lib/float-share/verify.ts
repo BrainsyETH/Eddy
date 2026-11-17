@@ -22,7 +22,7 @@ const DAY_MARGIN_MS = 12 * 3_600_000;
 const CFS_TOLERANCE = 0.02;
 
 const LINK_COLUMNS =
-  'gauge_station_id,threshold_unit,level_too_low,level_low,level_optimal_min,level_optimal_max,level_high,level_dangerous,flood_stage_ft,gauge_stations!inner(usgs_site_id)' as const;
+  'gauge_station_id,threshold_unit,level_too_low,level_low,level_optimal_min,level_optimal_max,level_high,level_dangerous,flood_stage_ft,gauge_stations!inner(usgs_site_id,nwps_flood_stage_ft)' as const;
 
 export function cfsMatches(claimed: number | null, recorded: number | null): boolean {
   if (claimed == null) return true;

@@ -15,6 +15,7 @@
 import { classifyReading, hasLadder } from '@shared/condition-ladder';
 import { loadLatestReadings } from '@/lib/gauges/latest-readings';
 import { metricUnit, thresholdState, type CrossingState } from './gauge-threshold';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { toNum } from '@/lib/utils/num';
 import type { AlertComparator, AlertMetric } from '@/types/api';
 
@@ -63,7 +64,8 @@ export async function seedCrossingState(
         .from('river_gauges')
         .select(
           'threshold_unit, level_too_low, level_low, level_optimal_min, ' +
-            'level_optimal_max, level_high, level_dangerous, flood_stage_ft',
+            'level_optimal_max, level_high, level_dangerous, flood_stage_ft, ' +
+            'gauge_stations(nwps_flood_stage_ft)',
         )
         .eq('river_id', input.riverId)
         .eq('gauge_station_id', input.gaugeStationId)
@@ -79,7 +81,7 @@ export async function seedCrossingState(
         levelHigh: toNum(pairing.level_high),
         levelDangerous: toNum(pairing.level_dangerous),
         thresholdUnit: (pairing.threshold_unit ?? 'ft') as 'ft' | 'cfs',
-        floodStageFt: toNum(pairing.flood_stage_ft),
+        floodStageFt: linkFloodStageFt(pairing),
       };
       if (!hasLadder(ladder)) return EMPTY;
 

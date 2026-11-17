@@ -16,6 +16,7 @@ import { buildSecondaryGaugeSemantics } from '@/lib/eddy/condition-semantics';
 import { getRiverKnowledgeForGauge } from '@/lib/eddy/knowledge';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import type { ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
@@ -79,7 +80,7 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       level_too_low, level_low, level_optimal_min, level_optimal_max,
       level_high, level_dangerous, threshold_unit, flood_stage_ft,
       rivers!inner (id, slug, name, active),
-      gauge_stations!inner (id, name, usgs_site_id, provider, location, active)
+      gauge_stations!inner (id, name, usgs_site_id, provider, location, active, nwps_flood_stage_ft)
     `)
     .or('is_primary.eq.false,is_primary.is.null')
     .eq('rivers.active', true)
@@ -129,7 +130,7 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       levelHigh: toNum(row.level_high),
       levelDangerous: toNum(row.level_dangerous),
       thresholdUnit: row.threshold_unit ?? 'ft',
-      floodStageFt: toNum(row.flood_stage_ft),
+      floodStageFt: linkFloodStageFt(row),
     };
 
     targets.push({
