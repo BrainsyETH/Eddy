@@ -1,3 +1,4 @@
+import { researchEntries } from '@/components/blog/ResearchEntries';
 import GuideDirectory from '@/components/blog/GuideDirectory';
 import Link from 'next/link';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
@@ -122,12 +123,7 @@ export default async function BlogPage() {
       {/* Blog Posts */}
       <section className="flex-1 py-10 md:py-14">
         <div className="max-w-5xl mx-auto px-4">
-          {blogPosts.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-neutral-500">No blog posts yet. Check back soon!</p>
-            </div>
-          ) : (
-            <GuideDirectory entries={blogPosts.map((post) => {
+          <GuideDirectory research={researchEntries} entries={blogPosts.map((post) => {
                 const riverName = post.river_slug ? riverNames[post.river_slug]?.name ?? null : null;
                 const displayTitle = stripRiverName(post.title, riverName);
                 const cover = guideCover(post);
@@ -181,7 +177,6 @@ export default async function BlogPage() {
                   </article>
                 ) };
               })} />
-          )}
 
           {/* CTA to main app */}
           <div className="mt-12 text-center">

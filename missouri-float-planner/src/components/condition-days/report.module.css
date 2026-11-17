@@ -1,0 +1,94 @@
+.page {background:var(--color-secondary-50,#faf8f4);color:var(--color-primary-900,#0f2d35);min-height:75vh}
+.inner {width:min(100% - 40px,1000px);margin:auto;padding:20px 0 40px}
+.crumb a,.gaugeLink,.method a {font-size:.88rem;font-weight:650;color:var(--color-primary-700,#1d525f);text-underline-offset:4px}
+.hero {display:flex;align-items:center;justify-content:space-between;gap:18px;margin:16px 0 20px}
+.hero h1,.panel h2 {font-family:var(--font-display),sans-serif;line-height:1.09;font-weight:650;letter-spacing:-.025em}
+.hero h1 {font-size:clamp(2.5rem,6vw,4.2rem);margin:0 0 8px}
+.hero p {font-size:1.04rem;max-width:54ch;line-height:1.45}
+.picker {display:flex;flex-wrap:wrap;gap:10px 16px;padding:15px 18px;margin:0 0 16px;border:1px solid #c9d8d9;border-radius:12px;background:#ebf5f7}
+.picker label,.monthPicker {display:grid;gap:4px;font-size:.8rem;font-weight:700}
+.picker select,.monthPicker select {width:100%;min-height:42px;max-width:100%;padding:5px 25px 5px 10px;font:inherit;font-size:.91rem;color:#163f4a;background-color:white;border:1px solid #91acaf;border-radius:7px}
+.picker select:disabled {opacity:.85}
+.report {display:grid;gap:16px}
+.panel {padding:clamp(16px,3vw,27px);background:white;border:1px solid #d8d8d0;border-radius:14px;min-width:0}
+.panel h2 {font-size:clamp(1.45rem,2.5vw,1.95rem);margin:0}
+.panel h3 {font-size:.88rem;font-weight:700;margin-bottom:7px}
+.panel p,.method p {margin:8px 0;color:#45575a;font-size:.93rem;line-height:1.55}
+.panel small {display:block;color:#506266;font-size:.77rem;line-height:1.5}
+.panelTop,.chartTools {display:flex;justify-content:space-between;align-items:center;gap:12px}
+.period {white-space:nowrap;font-size:.79rem;font-weight:600;color:#4a5a5c;font-variant-numeric:tabular-nums}
+.chartTools {margin:20px 0 16px;flex-wrap:wrap}
+.monthPicker {display:flex;align-items:center;gap:6px}
+.monthPicker select {width:auto}
+.segment {display:inline-flex;background:#f0f4f3;border-radius:9px;padding:3px}
+.segment button,.legend button {font-size:.79rem;font-weight:650;border-radius:6px;min-height:38px;padding:5px 10px}
+.segment button[aria-pressed=true] {background:#1d525f;color:white}
+.plot {display:flex;gap:5px}
+.axis {display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding-bottom:26px;color:#536366;font-size:.65rem;width:32px}
+.columns {display:grid;grid-template-columns:repeat(12,minmax(0,1fr));width:100%;gap:clamp(2px,.6vw,7px);background:linear-gradient(transparent calc(50% - 14px),#d5dedc calc(50% - 14px),#d5dedc calc(50% - 13px),transparent calc(50% - 13px))}
+.column {min-width:0;background:transparent;text-align:center;border-radius:4px}
+.stack {display:flex;flex-direction:column-reverse;height:clamp(120px,15vw,170px);overflow:hidden;border-radius:4px 4px 0 0;background:repeating-linear-gradient(135deg,#ebece9 0 2px,#f8f8f6 2px 5px)}
+.stack > span {display:block;box-shadow:inset 0 1px 0 rgba(255,255,255,.83)}
+.monthName {display:block;font-size:clamp(.64rem,1.35vw,.8rem);padding:4px 0 3px;border-bottom:3px solid transparent}
+.column[aria-pressed=true] .monthName {font-weight:800;border-color:#1d525f;color:#163f4a}
+.compareName {margin-top:16px}
+.legend {display:flex;flex-wrap:wrap;gap:0 3px;margin:10px 0 4px}
+.legend button {display:flex;align-items:center;gap:5px;padding:4px 7px;font-weight:500}
+.legend button[aria-pressed=true],.frequency button[aria-pressed=true],.yearGrid button[aria-pressed=true] {background:#ebf5f7;outline:1px solid #347485;outline-offset:-1px}
+.legend i,.frequency span:first-child i {display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.finding {padding:10px 14px;border-left:3px solid #2d7889;background:#f1f6f6;display:grid;gap:2px;font-size:.9rem;line-height:1.45}
+.finding b {font-size:.81rem}
+.details summary,.method summary,.daysDetail summary {cursor:pointer;min-height:44px;align-content:center;color:#1d525f;font-size:.86rem;font-weight:650}
+.details {margin:4px 0 -10px}
+.tableScroll,.dayList {overflow:auto}
+.tableScroll table {width:100%;font-size:.78rem;text-align:right;border-collapse:collapse}
+.tableScroll th,.tableScroll td {padding:6px;border-bottom:1px solid #e5e7e4}
+.tableScroll th:first-child {text-align:left}
+.twins {display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.reading {display:flex;align-items:baseline;gap:6px;margin:8px 0 0;color:#526164}
+.reading strong,.leadStat strong {font-family:var(--font-display);font-size:2.1rem;line-height:1.2;color:#163f4a}
+.reading span {font-size:.8rem;font-weight:700;padding:3px 7px;border-radius:5px}
+.yearGrid {display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:2px;margin:10px 0 4px}
+.yearGrid button,.stripe button {min-height:44px;display:flex;flex-direction:column;justify-content:center;gap:2px;align-items:center;font-size:.64rem;color:#445559;border-radius:3px;min-width:0}
+.yearGrid i,.stripe i {background:repeating-linear-gradient(135deg,#e0e4e1 0 2px,#f6f7f5 2px 4px)}
+.yearGrid i {width:76%;height:15px;border-radius:3px}
+.stripe {display:flex;gap:2px;margin:14px 0 3px}
+.stripe button {flex:1}
+.stripe button>span {display:flex;width:100%;height:26px;overflow:hidden;border-radius:2px}
+.stripe i {flex:1}
+.stripe small {font-size:.64rem}
+.stripe button[aria-expanded=true] {box-shadow:inset 0 -3px #1d525f}
+.dayList {max-height:190px}
+.dayList div {display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;border-top:1px solid #e1e7e6;padding:5px 0;font-size:.78rem}
+.frequency {display:grid;margin-top:10px}
+.frequency button {display:grid;grid-template-columns:minmax(78px,1fr) 4fr minmax(64px,.8fr);align-items:center;text-align:left;gap:3px 14px;border-top:1px solid #e4e8e7;min-height:44px;padding:7px 8px;font-size:.88rem}
+.frequency span:first-child {display:flex;align-items:center;gap:7px}
+.frequency b {text-align:right;font-variant-numeric:tabular-nums}
+.frequency small {grid-column:1/-1}
+.track {height:8px;background:#edf0ed;overflow:hidden;border-radius:6px}
+.track i {display:block;height:100%;border-radius:inherit}
+.method {border-block:1px solid #d1d8d5;padding:4px 8px 4px 0}
+.method p {max-width:83ch}
+.inner :is(button,select,summary,a,[tabindex]):focus-visible {outline:3px solid #256574;outline-offset:2px}
+@media(max-width:680px) {
+  .inner {width:calc(100% - 24px);padding-top:14px}
+  .hero {gap:4px;margin:12px 2px 15px}
+  .hero img {width:64px!important;height:64px!important}
+  .hero p {font-size:.9rem}
+  .twins {grid-template-columns:1fr;gap:12px}
+  .picker {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}
+  .picker label:last-child:nth-child(3) {grid-column:1/-1;display:flex;align-items:center;gap:9px}
+  .picker label:last-child:nth-child(3) select {flex:1;min-width:0}
+  .report {gap:12px}
+  .panelTop {align-items:baseline;flex-wrap:wrap;gap:4px 10px}
+  .chartTools {gap:8px;margin:14px 0}
+  .axis {width:26px}
+  .legend {gap:0}
+  .frequency button {gap:4px 8px}
+}
+@media(max-width:390px) {
+  .panel {padding:14px 12px}
+  .segment button {padding-inline:7px}
+  .monthPicker {font-size:0}
+  .monthPicker select {font-size:.82rem}
+}

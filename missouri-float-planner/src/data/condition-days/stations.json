@@ -1,0 +1,242 @@
+[
+  {
+    "site": "06930000",
+    "river": "Big Piney River",
+    "slug": "big-piney",
+    "state": "MO",
+    "label": "Big Piney",
+    "gauge": "Big Piney River near Big Piney, MO",
+    "thresholds": {
+      "levelTooLow": 164.0,
+      "levelLow": 309.0,
+      "levelOptimalMin": 519.0,
+      "levelOptimalMax": 1013.0,
+      "levelHigh": 1014.0,
+      "levelDangerous": 2049.0
+    }
+  },
+  {
+    "site": "07061500",
+    "river": "Black River",
+    "slug": "black",
+    "state": "MO",
+    "label": "Annapolis",
+    "gauge": "Black River near Annapolis, MO",
+    "thresholds": {
+      "levelTooLow": 153.0,
+      "levelLow": 180.0,
+      "levelOptimalMin": 286.0,
+      "levelOptimalMax": 956.0,
+      "levelHigh": 956.0,
+      "levelDangerous": 2000.0
+    }
+  },
+  {
+    "site": "07016500",
+    "river": "Bourbeuse River",
+    "slug": "bourbeuse",
+    "state": "MO",
+    "label": "Union",
+    "gauge": "Bourbeuse River at Union, MO",
+    "thresholds": {
+      "levelTooLow": 70.0,
+      "levelLow": 215.0,
+      "levelOptimalMin": 359.0,
+      "levelOptimalMax": 964.0,
+      "levelHigh": 964.0,
+      "levelDangerous": 3300.0
+    }
+  },
+  {
+    "site": "07058000",
+    "river": "Bryant Creek",
+    "slug": "bryant-creek",
+    "state": "MO",
+    "label": "Tecumseh",
+    "gauge": "Bryant Creek near Tecumseh, MO",
+    "thresholds": {
+      "levelTooLow": 189.0,
+      "levelLow": 300.0,
+      "levelOptimalMin": 356.0,
+      "levelOptimalMax": 1050.0,
+      "levelHigh": 1050.0,
+      "levelDangerous": 1930.0
+    }
+  },
+  {
+    "site": "07056000",
+    "river": "Buffalo National River",
+    "slug": "buffalo",
+    "state": "AR",
+    "label": "Middle Buffalo \u00b7 St. Joe",
+    "gauge": "Buffalo River near St. Joe, AR",
+    "thresholds": {
+      "levelTooLow": 32.0,
+      "levelLow": 127.0,
+      "levelOptimalMin": 356.0,
+      "levelOptimalMax": 2000.0,
+      "levelHigh": 2000.0,
+      "levelDangerous": 4300.0
+    }
+  },
+  {
+    "site": "07055660",
+    "river": "Buffalo National River",
+    "slug": "buffalo",
+    "state": "AR",
+    "label": "Upper Buffalo \u00b7 Ponca",
+    "gauge": "Buffalo River at Ponca, AR",
+    "thresholds": {
+      "levelTooLow": 100.0,
+      "levelLow": 200.0,
+      "levelOptimalMin": 430.0,
+      "levelOptimalMax": 900.0,
+      "levelHigh": 900.0,
+      "levelDangerous": 1600.0
+    }
+  },
+  {
+    "site": "07055646",
+    "river": "Buffalo National River",
+    "slug": "buffalo",
+    "state": "AR",
+    "label": "Headwaters \u00b7 Boxley",
+    "gauge": "Buffalo River near Boxley, AR",
+    "thresholds": {
+      "levelTooLow": 200.0,
+      "levelLow": 350.0,
+      "levelOptimalMin": 730.0,
+      "levelOptimalMax": 1500.0,
+      "levelHigh": 1500.0,
+      "levelDangerous": 6500.0
+    }
+  },
+  {
+    "site": "07056700",
+    "river": "Buffalo National River",
+    "slug": "buffalo",
+    "state": "AR",
+    "label": "Lower Buffalo \u00b7 Harriet",
+    "gauge": "Buffalo River near Harriet, AR",
+    "thresholds": {
+      "levelTooLow": 60.0,
+      "levelLow": 200.0,
+      "levelOptimalMin": 1130.0,
+      "levelOptimalMax": 3000.0,
+      "levelHigh": 3000.0,
+      "levelDangerous": 9370.0
+    }
+  },
+  {
+    "site": "07064533",
+    "river": "Current River",
+    "slug": "current",
+    "state": "MO",
+    "label": "Akers",
+    "gauge": "Current River above Akers, MO",
+    "thresholds": {
+      "levelTooLow": 110.0,
+      "levelLow": 150.0,
+      "levelOptimalMin": 420.0,
+      "levelOptimalMax": 1150.0,
+      "levelHigh": 1150.0,
+      "levelDangerous": 2800.0
+    }
+  },
+  {
+    "site": "07066000",
+    "river": "Jacks Fork River",
+    "slug": "jacks-fork",
+    "state": "MO",
+    "label": "Alley Spring to Two Rivers \u00b7 Eminence",
+    "gauge": "Jacks Fork at Eminence, MO",
+    "thresholds": {
+      "levelTooLow": 100.0,
+      "levelLow": 200.0,
+      "levelOptimalMin": 313.0,
+      "levelOptimalMax": 900.0,
+      "levelHigh": 900.0,
+      "levelDangerous": 1700.0
+    }
+  },
+  {
+    "site": "07065495",
+    "river": "Jacks Fork River",
+    "slug": "jacks-fork",
+    "state": "MO",
+    "label": "Upper river \u00b7 Alley Spring",
+    "gauge": "Jacks Fork at Alley Spring, MO",
+    "thresholds": {
+      "levelTooLow": 76.0,
+      "levelLow": 100.0,
+      "levelOptimalMin": 159.0,
+      "levelOptimalMax": 637.0,
+      "levelHigh": 637.0,
+      "levelDangerous": 1000.0
+    }
+  },
+  {
+    "site": "07065200",
+    "river": "Jacks Fork River",
+    "slug": "jacks-fork",
+    "state": "MO",
+    "label": "Headwaters \u00b7 Mountain View",
+    "gauge": "Jacks Fork near Mountain View, MO",
+    "thresholds": {
+      "levelTooLow": 30.0,
+      "levelLow": 100.0,
+      "levelOptimalMin": 100.0,
+      "levelOptimalMax": 490.0,
+      "levelHigh": 490.0,
+      "levelDangerous": 1200.0
+    }
+  },
+  {
+    "site": "07013000",
+    "river": "Meramec River",
+    "slug": "meramec",
+    "state": "MO",
+    "label": "Steelville",
+    "gauge": "Meramec River near Steelville, MO",
+    "thresholds": {
+      "levelTooLow": 130.0,
+      "levelLow": 145.0,
+      "levelOptimalMin": 300.0,
+      "levelOptimalMax": 900.0,
+      "levelHigh": 2300.0,
+      "levelDangerous": 5000.0
+    }
+  },
+  {
+    "site": "06923250",
+    "river": "Niangua River",
+    "slug": "niangua",
+    "state": "MO",
+    "label": "Windyville",
+    "gauge": "Niangua River at Windyville, MO",
+    "thresholds": {
+      "levelTooLow": 23.0,
+      "levelLow": 95.0,
+      "levelOptimalMin": 100.0,
+      "levelOptimalMax": 400.0,
+      "levelHigh": 400.0,
+      "levelDangerous": 2000.0
+    }
+  },
+  {
+    "site": "07057500",
+    "river": "North Fork River",
+    "slug": "north-fork-white",
+    "state": "MO",
+    "label": "Tecumseh",
+    "gauge": "North Fork River near Tecumseh, MO",
+    "thresholds": {
+      "levelTooLow": 285.0,
+      "levelLow": 475.0,
+      "levelOptimalMin": 628.0,
+      "levelOptimalMax": 1000.0,
+      "levelHigh": 1000.0,
+      "levelDangerous": 2200.0
+    }
+  }
+]
