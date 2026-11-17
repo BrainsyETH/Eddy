@@ -22,7 +22,8 @@ export default function DamInfoTip({ title, children, label, anchored = false, c
   const id = useId();
   const [position, setPosition] = useState<CSSProperties>();
   const [isOpen, setIsOpen] = useState(false);
-  const dialog = useFocusTrap<HTMLDialogElement>(anchored && isOpen, () => dialog.current?.close());
+  // Native dialog handles Escape; the shared trap keeps Tab on its controls.
+  const dialog = useFocusTrap<HTMLDialogElement>(anchored && isOpen);
   useEffect(() => {
     if (!anchored || !isOpen) return;
     const previous = document.body.style.overflow;
@@ -41,7 +42,7 @@ export default function DamInfoTip({ title, children, label, anchored = false, c
     };
     window.addEventListener('resize', close);
     return () => window.removeEventListener('resize', close);
-  }, [anchored]);
+  }, [anchored, dialog]);
   const open = (button: HTMLButtonElement) => {
     if (anchored && window.matchMedia('(min-width: 640px)').matches) {
       const rect = button.getBoundingClientRect();

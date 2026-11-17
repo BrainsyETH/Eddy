@@ -125,7 +125,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     await studyTrigger.click();
     await page.mouse.click(width - 4, 4);
     assert.equal(await study.isVisible(), false, 'outside click dismisses the explanation');
-    assert.equal(await page.evaluate(() => document.body.style.overflow), '', 'closing releases background scroll');
+    // Native dialog's close event and React's effect cleanup follow the click.
+    await page.waitForFunction(() => document.body.style.overflow === '');
     const defaultTip = page.locator('[data-default-info]');
     await defaultTip.getByRole('button', { name: 'About dam readings' }).click();
     const defaultDialog = page.getByRole('dialog', { name: 'Dam readings' });
