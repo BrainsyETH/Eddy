@@ -1,48 +1,4 @@
-// eddy-ios/src/components/dam/GenerationCard.tsx
-// One card for the powerhouse: what it IS doing, then what it is SCHEDULED to.
-//
-// ── What was wrong ────────────────────────────────────────────────────────
-//
-// The screen carried two cards that answered the same question twice. The hero
-// reported the observed turbine flow and then, in a panel of its own, "NEXT
-// CHANGE — Generation scheduled to stop at 8 PM" with a three-sentence
-// explanation of whose clock that is and how much to trust it. Three inches
-// below, the schedule card said the same thing again: the same publisher named
-// in its opening line, the same plan drawn as bars, and the same
-// schedules-change-without-notice warning in its footer.
-//
-// A reader meeting two statements of one fact has to decide whether they
-// disagree. They never did — but the screen made that their problem, and spent
-// the space twice to do it.
-//
-// ── The split that survives, because it is real ───────────────────────────
-//
-// Observed and scheduled remain separate SECTIONS with a rule between them, and
-// nowNextClauses still hands the two out as separate strings so a UI cannot
-// accidentally present a plan as a measurement. They can legitimately disagree
-// — SWPA posts its sheet overnight and the Corps runs the plant — and when
-// they do, the reader should see both and know which is which.
-//
-// What is shared is everything that qualifies BOTH: who publishes the schedule,
-// when Eddy last checked, that the times are at the dam, that the water arrives
-// downstream later, and that any of it can change without notice. Those are
-// available once in the heading's info tip; check time remains on the card.
-//
-// ── Where each half came from ──────────────────────────────────────────────
-//
-// Each section ends with a link to its publisher's own page: the operator's
-// data under the observation, the posted schedule beside the check time. Two
-// links rather than one "Sources" row for the same reason there is a rule
-// between the halves — they are different publishers, and the reader checking
-// a number should land on the page that number came from.
-//
-// ── Why the lake and the week stay outside ────────────────────────────────
-//
-// DamStateCard and DamPatternStrip are still their own cards. This one is about
-// the powerhouse right now and next; pool elevation and a fortnight's rhythm
-// are different subjects, and folding them in would rebuild the wall of card
-// this change exists to take down.
-
+// Measured total release and turbine flow, followed by the posted schedule.
 import { radii } from '@/theme/layout';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamSnapshot } from '@eddy/types';
@@ -81,12 +37,11 @@ const DOWNSTREAM_AND_CHANGE = [
   'Never wade or anchor below a dam without checking the horn and posted warnings.',
 ].join(' ');
 
-export function GenerationCard({ dam }: { dam: DamSnapshot }) {
+export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) {
   const { colors, elevation } = useTheme();
   const hasSchedule = dam.schedule.length > 0;
-  // Flood-control dams can have release readings but no generation content.
-  // The hero returns null for them; its container must disappear too.
-  if (!dam.hasTurbines && !hasSchedule) return null;
+  const hasObserved = dam.hasTurbines || Boolean(dam.metrics.release);
+  if (!hasObserved && !hasSchedule) return null;
 
   const ref = dam.generationReference;
   // The scheduled half of the pair the hero used to draw itself. Read here so
@@ -103,6 +58,7 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
   const oldestRetrieval = hasSchedule ? oldestRetrievedAt(dam.schedule) : null;
   const retrieval = retrievalSentence(oldestRetrieval, undefined, 'Schedule');
   const details = [
+    'Total release includes water leaving the dam through turbines and other outlets. Turbine flow is only the water passing through the generators.',
     ref ? `${generationReferenceCitation(ref)}. ${RACK_ESTIMATE_NOTE}` : null,
     dam.nameplate
       ? `${dam.nameplate.units} generating ${dam.nameplate.units === 1 ? 'unit' : 'units'} · ${dam.nameplate.megawatts} MW nameplate capacity.`
@@ -112,12 +68,12 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
   ].filter(Boolean).join('\n\n');
 
   // The operator's page sits under the observation it sources. A card with no
-  // observed half (the hero and its rule are drawn for a powerhouse only)
+  // observed half (a dam with neither turbines nor a release reading)
   // carries it in the footer instead, ahead of the schedule's.
   const readingsSource = damSourceLink(dam, 'readings');
   const scheduleSource = damSourceLink(dam, 'schedule');
-  const observedSources = dam.hasTurbines && readingsSource ? [readingsSource] : [];
-  const footerSources = [dam.hasTurbines ? null : readingsSource, scheduleSource].filter(
+  const observedSources = hasObserved && readingsSource ? [readingsSource] : [];
+  const footerSources = [hasObserved ? null : readingsSource, scheduleSource].filter(
     (link) => link !== null,
   );
   // A link is a 44pt target around a line of small text, so it brings its own
@@ -134,18 +90,16 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
         elevation(2),
       ]}
     >
-      <DamGenerationHero
+      {hasObserved ? <DamGenerationHero
         dam={dam}
-        embedded
-        showNextChange={false}
-        showReference={false}
+        now={now}
         headerAction={
           <DamInfoTip
-            title="Generation and downstream timing"
+            title="Water release and generation"
             message={details}
           />
         }
-      />
+      /> : null}
       <DamSourceLinks links={observedSources} style={styles.observedSources} />
 
       {hasSchedule ? (
@@ -154,7 +108,7 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
               below it is planned. Without it the two halves read as one claim,
               which is the thing the separate cards were protecting against and
               the reason they cannot simply be concatenated. */}
-          {dam.hasTurbines ? (
+          {hasObserved ? (
             <View style={[styles.rule, afterObservedLink, { borderTopColor: colors.border }]} />
           ) : null}
           <GenerationSchedule

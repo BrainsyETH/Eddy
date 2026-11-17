@@ -213,10 +213,11 @@ test('the app keeps the links when a dam arrives with nothing at all', () => {
     assert.deepEqual(standaloneSourceLinks(dam), []);
   }
 
-  // A flood-control dam never draws that card, with or without readings.
+  // A flood-control release now leads in the observed card and keeps its source there.
   const floodControl = { ...empty, hasTurbines: false, sourceLinks: damSourceLinks(getUsaceDam('swl-clearwater-dam')!) };
   for (const metrics of [{}, { release: { value: 336, unit: 'cfs', at: '2026-11-16T12:00:00Z', staleness: 'fresh' as const } }]) {
-    assert.deepEqual(standaloneSourceLinks({ ...floodControl, metrics }).map((link) => link.kind), ['readings']);
+    assert.deepEqual(standaloneSourceLinks({ ...floodControl, metrics }).map((link) => link.kind),
+      'release' in metrics ? [] : ['readings']);
   }
 });
 

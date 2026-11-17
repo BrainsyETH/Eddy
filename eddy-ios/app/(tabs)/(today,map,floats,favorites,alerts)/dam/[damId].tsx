@@ -25,10 +25,15 @@
 import { gaugeSharePath, shareLink } from '@/lib/share';
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
+import { RiverPageHeader } from '@/components/RiverPageHeader';
+import { useRiverHeaderTitle } from '@/hooks/useRiverHeaderTitle';
+import { damHeaderPhoto } from '@/lib/damHeader';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -71,6 +76,12 @@ export default function DamDetailScreen() {
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
+  const headerHeight = useHeaderHeight();
+  const topInset = Platform.OS === 'ios' ? headerHeight : 0;
+  const header = useRiverHeaderTitle(damId, topInset);
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const selectedPhoto = damHeaderPhoto(damId);
+  const photo = selectedPhoto?.url === failedPhoto ? null : selectedPhoto;
 
   /**
    * Who this dam is, out of the binary.
@@ -211,7 +222,7 @@ export default function DamDetailScreen() {
    * A minute is the resolution of every one of those claims; anything finer is
    * re-rendering to move nothing.
    */
-  useObservationClock();
+  const now = useObservationClock();
 
   /**
    * The dam whose first load has SETTLED, so a focus is not an arrival.
@@ -404,13 +415,13 @@ export default function DamDetailScreen() {
   if (!dam) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-        <Stack.Screen options={{ title: catalogEntry!.name }} />
+        <Stack.Screen options={{ title: catalogEntry!.name, headerTitle: header.collapsed ? catalogEntry!.name : '' }} />
         <NativeHeaderHome />
-        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
-          <Text style={[styles.name, { color: colors.text }]}>{catalogEntry!.name}</Text>
-          <Text style={[styles.meta, { color: colors.textMuted }]}>
-            {[catalogEntry!.lakeName, catalogEntry!.state].filter(Boolean).join(' · ')}
-          </Text>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
+          onScroll={header.onScroll} scrollEventThrottle={32}>
+          <RiverPageHeader key={`${damId}:${photo?.url ?? 'plain'}`} name={catalogEntry!.name}
+            meta={[catalogEntry!.lakeName, catalogEntry!.state].filter(Boolean).join(' · ')}
+            photo={photo} topInset={topInset} horizontalInset={0} onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
           <View style={styles.section}>
             <ActivityIndicator color={colors.interactive} />
           </View>
@@ -427,6 +438,8 @@ export default function DamDetailScreen() {
   // the card itself, and where the source links go when there is no card to
   // hold them — see standaloneSourceLinks for the case that got this wrong.
   const showsGenerationCard = generationCardRenders(dam);
+  const hasWaterConditions = Boolean(dam.metrics.poolElevation || dam.metrics.tailwaterElevation ||
+    dam.metrics.tailwaterTempF || dam.metrics.inflow || dam.tailwaterFishery);
   // The operator's own page, for a dam whose readings came from somebody else.
   const operatorPage = damSourceLink(dam, 'reference');
 
@@ -448,7 +461,7 @@ export default function DamDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-      <Stack.Screen options={{ title: dam.name }} />
+      <Stack.Screen options={{ title: dam.name, headerTitle: header.collapsed ? dam.name : '' }} />
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
         {sharePath ? (
@@ -471,16 +484,13 @@ export default function DamDetailScreen() {
         </Stack.Toolbar.Button>
       </Stack.Toolbar>
 
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
-        <Text style={[styles.name, { color: colors.text }]}>{dam.name}</Text>
-        <Text style={[styles.meta, { color: colors.textMuted }]}>
-          {[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
-        </Text>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
+        onScroll={header.onScroll} scrollEventThrottle={32}>
+        <RiverPageHeader key={`${damId}:${photo?.url ?? 'plain'}`} name={dam.name}
+          meta={[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
+          photo={photo} topInset={topInset} horizontalInset={0} onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
 
-        {/* The order is the hierarchy a fisherman reads in: what the powerhouse
-            is doing now, when it changes, today and the days ahead, the rhythm
-            it has kept all week — and only then the lake, the temperature and
-            the rest of the project. */}
+        {/* Total release leads; turbine generation and the schedule follow. */}
         {hasAnything ? (
           <>
             {showsGenerationCard ? <View style={styles.section}>
@@ -489,7 +499,7 @@ export default function DamDetailScreen() {
                   a NEXT CHANGE panel over a schedule describing the same plan,
                   each carrying its own copy of the publisher, the freshness and
                   the change warning. See GenerationCard. */}
-              <GenerationCard dam={dam} />
+              <GenerationCard dam={dam} now={now} />
             </View> : null}
             {/* Eddy's Read sits under the hero it interprets: the plan and the
                 measured pattern below are free; the Read of them is Premium. */}
@@ -586,7 +596,7 @@ export default function DamDetailScreen() {
 
         {/* The lake, the temperature and the rest of the project: still worth
             carrying, below the generation the reader came for. */}
-        {hasAnything ? (
+        {hasWaterConditions ? (
           <View style={styles.section}>
             <DamStateCard dam={dam} secondary />
           </View>
@@ -594,9 +604,8 @@ export default function DamDetailScreen() {
 
         {/* The publishers' pages normally sit inside the Generation card, each
             under the half it sources. When that card is not on screen — a
-            flood-control project, whose release is in the card above, or any
-            dam that arrived with nothing at all — they follow here instead.
-            The second case is the one that matters most: a reader looking at
+            dam with no release, turbine or schedule data — they follow here instead.
+            A reader looking at
             "nothing published" has only the source left to go to. */}
         <DamSourceLinks links={standaloneSourceLinks(dam)} style={styles.standaloneSources} />
 
@@ -753,8 +762,6 @@ const styles = StyleSheet.create({
   emptyTitle: { ...t.xl, fontFamily: fonts.heading, textAlign: 'center' },
   emptyBodyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', flexShrink: 1 },
   body: { paddingTop: 12, paddingBottom: 40 },
-  name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
-  meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
   section: { paddingHorizontal: 16, marginBottom: 14 },
   /** The "still loading the rest" line: a spinner and its sentence, centred. */
   pendingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
