@@ -137,7 +137,10 @@ shortcuts, campground-name search and immediately applied filters. "Available
 for my stay" means a confirmed opening for every occupied night. Known type
 mismatches leave the results; unknown metadata still follows the uncertainty
 rules above. River options use each river's own primary label, including places
-listed only under "More places to camp".
+listed only under "More places to camp". The date shortcut that matches the
+selected stay stays highlighted. Fields use the site's input focus style
+rather than the coral ring used on buttons and links, and a select releases
+focus after a mouse or touch pick; a keyboard pick keeps it.
 
 Cards, calendar thumbnails and campground details use the overview's exact
 campground image. Missing or failed images use Eddy artwork with "Photo
