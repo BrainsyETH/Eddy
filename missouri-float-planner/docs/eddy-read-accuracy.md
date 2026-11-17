@@ -42,7 +42,7 @@ follow.
 - Before assigning, compare the gauge each approved access point resolves to
   with and without the change, by stored mile and by map point. A change that
   moves a put-in to another gauge is a planner change and needs its own
-  review. `20261117200000_twenty_one_stretches_read_their_own_gauge.sql` is
+  review. `20261117211017_twenty_one_stretches_read_their_own_gauge.sql` is
   the pattern: it asserts in the same statement that no put-in changed gauge,
   and `scripts/stretch-gauge-migration.test.ts` runs it against a fixture.
 

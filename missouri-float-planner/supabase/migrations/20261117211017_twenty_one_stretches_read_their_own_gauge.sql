@@ -1,6 +1,14 @@
--- 20261117200000_twenty_one_stretches_read_their_own_gauge.sql
+-- 20261117211017_twenty_one_stretches_read_their_own_gauge.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
+-- Applied to production 2026-11-17 as 20261117211017, after production was
+-- confirmed to be serving the commit that pauses stretch Reads (d9dc2a5f7).
+-- Read back afterwards: 21 stretches on these ten rivers carry a gauge with
+-- both bounds, none is half-set, and the other 18 are untouched. All 103
+-- approved access points on these rivers still resolve to their river's
+-- primary gauge by stored mile. By map point, nine resolve to a second gauge
+-- (Big River's lower three, the Spring's lower two, the St. Francis's lower
+-- four), as they did before: none falls inside an assigned stretch, so each
+-- comes from the nearest-gauge rule this migration does not touch.
 --
 -- Twenty-one river stretches get a gauge and mile bounds.
 --
@@ -11,7 +19,7 @@
 -- moves. It is groundwork: if stretch Reads are ever shown, these stretches
 -- can be described instead of publishing "Eddy has no gauge reading for
 -- <stretch> itself". The owner asked for it on condition that stretch Reads
--- are switched off in production before it is applied.
+-- were switched off in production before it was applied.
 --
 -- ── Why they had none ───────────────────────────────────────────────────────
 -- A stretch's Read is written only when its gauge is known to sit on it:
