@@ -225,9 +225,9 @@ try {
     await new Promise(() => {});
   }
   browser = await chromium.launch({
-    executablePath:
-      process.env.CHROMIUM_PATH ||
-      (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : undefined),
+    // CI installs Playwright's matching browser. System Chromium may be a
+    // launcher that cannot start on the runner; local overrides stay explicit.
+    executablePath: process.env.CHROMIUM_PATH || undefined,
     headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage"],
   });
@@ -495,12 +495,14 @@ try {
   await weekendShortcut.click();
   assert.equal(await weekendShortcut.getAttribute('aria-pressed'), 'true', 'the chosen shortcut stays highlighted');
   // On a day when tonight is also the weekend, both describe the stay.
-  if (stayDates() !== tonightDates) assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'false');
-  assert.notEqual(
-    await weekendShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
-    await tonightShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
-    'the highlight is visible, not only announced',
-  );
+  if (stayDates() !== tonightDates) {
+    assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'false');
+    assert.notEqual(
+      await weekendShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
+      await tonightShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
+      'the highlight is visible, not only announced',
+    );
+  }
   assert.equal(await sort.inputValue(), 'river', 'date changes retain an explicit sort');
   await page.getByRole('button', { name: 'Calendar', exact: true }).click();
   await page.getByRole('table').getByText('River mile 51', { exact: true }).waitFor();
@@ -742,6 +744,20 @@ try {
     ),
     "320px has no page overflow",
   );
+  // Small visible pills still respond in the extra touch space around them.
+  const electricFilter = page.getByRole('button', { name: /Electric/ });
+  await electricFilter.scrollIntoViewIfNeeded();
+  const electricBox = await electricFilter.boundingBox();
+  const availabilityBox = await availableOnly.locator('..').boundingBox();
+  assert.ok(Math.abs(electricBox.y - availabilityBox.y) < 2, 'both mobile filters fit on one row');
+  await page.mouse.click(electricBox.x + electricBox.width / 2, electricBox.y - 4);
+  assert.equal(await electricFilter.getAttribute('aria-pressed'), 'true', 'Electric responds outside its visible pill');
+  await electricFilter.click();
+  const availableTap = await availableOnly.locator('..').boundingBox();
+  await page.mouse.click(availableTap.x + availableTap.width / 2, availableTap.y - 4);
+  assert.equal(await availableOnly.isChecked(), true, 'availability responds outside its visible pill');
+  assert.equal(await page.getByRole('button', { name: 'View campground' }).count(), 1);
+  await availableOnly.uncheck();
   await riverSelect.selectOption('current');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'river summary and sort fit 320px');
   await page.screenshot({ path: `${out}/small-mobile-river-fixture.png`, fullPage: true });

@@ -693,6 +693,33 @@
     max-width: none;
     flex-basis: 100%;
   }
+  .chips {
+    row-gap: 12px;
+  }
+  .chips > button:not(.clear),
+  .availabilityFilter {
+    position: relative;
+    min-height: 32px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+  }
+  /* Compact visible pills keep a 44px touch area, with space between rows. */
+  .chips > button:not(.clear)::before,
+  .availabilityFilter::before {
+    content: "";
+    position: absolute;
+    inset: -6px 0;
+  }
+  .availabilityFilter {
+    gap: 6px;
+  }
+  .chips input {
+    position: relative;
+    width: 14px;
+    height: 14px;
+  }
   .riverReading { display: block; }
   .riverStatus { padding-left: 26px; }
   .resultControls {
