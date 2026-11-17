@@ -20,7 +20,9 @@ export default function GenerationCard({ dam, now, availability }: {
   const release = dam.metrics.release;
   const hasObserved = dam.hasTurbines || Boolean(release);
   // Each publisher's page sits in the half it sources. A dam with no observed
-  // panel still offers its operator's page, beside the schedule state.
+  // panel still offers the readings' source, beside the schedule state. Asked
+  // for by kind on purpose: the payload can also carry an operator reference
+  // (Truman), which the page offers elsewhere and must never land under a reading.
   const readingsSource = dam.sourceLinks?.find(link => link.kind === 'readings');
   const scheduleSource = dam.sourceLinks?.find(link => link.kind === 'schedule');
   const observed = hasObserved && <div className="dam-observed min-w-0 p-4 sm:p-6">

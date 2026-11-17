@@ -234,11 +234,18 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
           ))}
         </div>
       )}
-      {(check || (!compact && source)) && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 border-t border-neutral-200 pt-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-5">{!compact && source}</div>
-          {check && <div className="ml-auto py-2"><ScheduleCheck check={check} /></div>}
+      {/* Source on the left, check time on the right when both fit. When they
+          do not, the row wraps and both keep the left edge: a right-aligned
+          second line reads as belonging to something else. Alone, the check
+          time keeps its right-hand corner. */}
+      {!compact && source ? (
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 border-t border-neutral-200 pt-1">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-5">{source}</div>
+          {/* Baseline-aligned beside the link; directly beneath it when wrapped. */}
+          {check && <div className="pb-2"><ScheduleCheck check={check} /></div>}
         </div>
+      ) : check && (
+        <div className="mt-3 flex justify-end border-t border-neutral-200 pt-3"><ScheduleCheck check={check} /></div>
       )}
     </section>
   );

@@ -333,13 +333,20 @@ export interface DamGenerationForecast {
  */
 export interface DamSourceLink {
   /**
-   * Which half of a dam card the page backs. `readings` is the operator's
-   * measured data (release, turbine flow, lake and tailwater levels);
-   * `schedule` is the posted generation plan. A card places each link in the
-   * section it describes, so a plan is never offered as the source of a
-   * measurement.
+   * Where a surface places the link.
+   *
+   * `readings` is the page the measured data ON THE CARD came from (release,
+   * turbine flow, lake and tailwater levels); `schedule` is the posted
+   * generation plan. A card places each beneath the section it sources, where
+   * it reads as attribution — so `readings` must name the publisher of the
+   * numbers actually shown, never merely the dam's operator.
+   *
+   * `reference` is the operator's own page for a project whose readings Eddy
+   * takes from somebody else (Truman: Corps dam, Ameren-reported readings). It
+   * is offered among the page's other onward links, away from the readings,
+   * because beside them it would claim a source it is not.
    */
-  kind: 'readings' | 'schedule';
+  kind: 'readings' | 'schedule' | 'reference';
   /** Link text that names the destination, e.g. "Corps of Engineers data". */
   label: string;
   /** The publisher in full, for an accessible name: "U.S. Army Corps of Engineers". */

@@ -22,6 +22,7 @@ const day = (scheduleDate) => ({ scheduleDate, retrievedAt: at,
   idle: [{ from: 1, to: 12 }, { from: 21, to: 24 }],
 });
 const corpsSource = { kind: 'readings', label: 'Corps of Engineers data', publisher: 'U.S. Army Corps of Engineers', url: 'https://water.usace.army.mil/overview/swl/locations/bull_shoals_dam' };
+const amerenSource = { kind: 'readings', label: 'Ameren daily report', publisher: 'Ameren Missouri', url: 'https://www.ameren.com/reliability/generation/hydro/reports/osage/bagnell-daily-report' };
 const swpaSource = { kind: 'schedule', label: 'SWPA schedule', publisher: 'Southwestern Power Administration', url: 'https://www.energy.gov/swpa/generation-schedules' };
 const dam = {
   id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam', lakeName: 'Bull Shoals Lake', state: 'AR', lat: 36.36, lon: -92.57,
@@ -40,6 +41,9 @@ const variants = {
   beaver: { ...dam, id: 'swl-beaver-dam', name: 'Beaver Dam' },
   norfork: { ...dam, id: 'swl-norfork-dam', name: 'Norfork Dam' },
   noReference: { ...dam, generationReference: undefined },
+  // Truman: Ameren-reported readings on a Corps dam. The operator's page is a
+  // reference for the page's onward links, never a link inside this card.
+  truman: { ...dam, id: 'nwk-truman-dam', name: 'Harry S. Truman Dam', sourceLinks: [amerenSource, swpaSource, { ...corpsSource, kind: 'reference' }] },
   // A payload from before the field existed: the card draws no link and no empty row.
   noSources: { ...dam, sourceLinks: undefined },
   splitPeak: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [], hours: day('2026-10-16').hours.map((hour, i) => ({ ...hour, megawatts: (i >= 6 && i < 8) || (i >= 16 && i < 19) ? 200 : 100 })) }] },
@@ -279,9 +283,22 @@ export default function Page() {
       assert(box.x >= 0 && box.x + box.width <= width, `${name}: ${source.label} fits the viewport`);
     }
     assert.equal(await page.getByRole('link', { name: /^SWPA schedule \(Southwestern Power Administration, opens in a new tab\)$/ }).count(), 1, 'source link names its publisher and the new tab');
+    // Source on the left and check time on the right when both fit; stacked
+    // and sharing the left edge when they do not. Never a right-aligned
+    // second line, and never overlapping.
     const checkLine = await page.locator('[data-schedule-check]').boundingBox();
     const scheduleLink = await scheduleSource.boundingBox();
-    assert(scheduleLink.x + scheduleLink.width <= checkLine.x || scheduleLink.y + scheduleLink.height <= checkLine.y + 1 || checkLine.y + checkLine.height <= scheduleLink.y + 1, `${name}: schedule source and check time do not overlap`);
+    const scheduleFooter = await scheduleSource.locator('xpath=../..').boundingBox();
+    const sideBySide = checkLine.y < scheduleLink.y + scheduleLink.height && scheduleLink.y < checkLine.y + checkLine.height;
+    if (sideBySide) {
+      assert(scheduleLink.x + scheduleLink.width < checkLine.x, `${name}: check time sits right of the schedule source`);
+      assert(Math.abs(checkLine.x + checkLine.width - (scheduleFooter.x + scheduleFooter.width)) < 2, `${name}: check time keeps the right edge`);
+    } else {
+      assert(checkLine.y >= scheduleLink.y + scheduleLink.height - 1, `${name}: check time stacks below the schedule source`);
+      assert(Math.abs(checkLine.x - scheduleLink.x) < 2, `${name}: stacked check time shares the link's left edge (${checkLine.x} vs ${scheduleLink.x})`);
+    }
+    assert(Math.abs(scheduleLink.x - scheduleFooter.x) < 2, `${name}: schedule source keeps the left edge`);
+    console.log(`     ${name}: schedule footer ${sideBySide ? 'side by side' : 'stacked'}`);
     const ctaBox = await cta.boundingBox();
     const ctaLinkBox = await cta.getByRole('link', { name: 'Get Eddy for iPhone' }).boundingBox();
     const historyBox = await page.getByRole('heading', { name: 'Generation pattern', exact: true }).boundingBox();
@@ -401,13 +418,28 @@ export default function Page() {
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
-  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration', 'noSources'])) {
-    const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
+  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration', 'noSources', 'truman', 'staleNarrow'])) {
+    // staleNarrow is the stale fixture on a phone: its longer, flagged check
+    // line is the one that cannot share a row with the source link.
+    const narrow = variant === 'staleNarrow';
+    const page = await browser.newPage({ viewport: narrow ? { width: 390, height: 844 } : { width: 1024, height: 900 } });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
-    await page.goto(`${url}?variant=${variant}`, { waitUntil: 'networkidle' });
+    await page.goto(`${url}?variant=${narrow ? 'stale' : variant}`, { waitUntil: 'networkidle' });
     const text = await page.locator('[data-dam-detail]').innerText();
+    if (narrow) {
+      const link = await page.locator('[data-dam-source="schedule"]').boundingBox();
+      const check = await page.locator('[data-schedule-check="stale"]').boundingBox();
+      assert(check.y >= link.y + link.height - 1, 'a long check line stacks below the schedule source');
+      assert(Math.abs(check.x - link.x) < 2, `the stacked check line is left-aligned with the link (${check.x} vs ${link.x})`);
+      assert(check.x + check.width <= 390, 'the stacked check line fits the phone');
+    }
+    if (variant === 'truman') {
+      assert.deepEqual(await page.locator('[data-dam-detail] [data-dam-source]').evaluateAll(links => links.map(link => [link.dataset.damSource, new URL(link.href).hostname])),
+        [['readings', 'www.ameren.com'], ['schedule', 'www.energy.gov']], 'Ameren-reported readings link to Ameren; the Corps reference stays out of the card');
+      assert(await page.locator('.dam-observed').getByRole('link', { name: /^Ameren daily report/ }).isVisible());
+    }
     if (variant === 'splitPeak') {
       assert.deepEqual(await page.locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [7, 8, 17, 18, 19], 'both disconnected peak windows are retained');
       assert(await page.getByText('Highest scheduled generation: 6–8 AM and 4–7 PM', { exact: true }).isVisible());
@@ -437,7 +469,7 @@ export default function Page() {
       assert.equal(await page.locator('[data-dam-source]').count(), 0, 'no link is invented for a payload without one');
       assert.equal(await page.locator('[data-schedule-check]').count(), 1, 'the check time keeps its row without a source');
     }
-    if (['missing', 'gate', 'forecast', 'scheduleOnly', 'noSources'].includes(variant)) {
+    if (['missing', 'gate', 'forecast', 'scheduleOnly', 'noSources', 'truman', 'staleNarrow'].includes(variant)) {
       await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
       await page.locator('[data-dam-detail] section').first().screenshot({ path: `${out}/sources-${variant}.png` });
     }

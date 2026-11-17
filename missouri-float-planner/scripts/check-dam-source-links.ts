@@ -21,9 +21,14 @@
 // SWPA's schedule index and Ameren's report index are ordinary pages and are
 // checked by status and by a phrase that only the real page carries, so a
 // redirect to a homepage does not pass.
+//
+// Ameren's daily report is another single-page app that answers 200 for any
+// path under its reports. It is checked from the page that links to it: the
+// report index must still carry the daily report's exact path.
 
 import { USACE_DAMS } from '../src/lib/flow-providers/usace-registry';
 import {
+  AMEREN_DAILY_REPORT_URL,
   AMEREN_OSAGE_REPORTS_URL,
   SWPA_SCHEDULES_URL,
   damSourceLinks,
@@ -95,19 +100,22 @@ async function main(): Promise<void> {
     }
   }
 
-  // The two shared pages, once each, if any selected dam links to them.
-  const shared: Array<[string, string, RegExp]> = [
-    ['SWPA schedule index', SWPA_SCHEDULES_URL, /swpa\/(mon|tue|wed|thu|fri|sat|sun)\.htm/i],
-    ['Ameren lake reports', AMEREN_OSAGE_REPORTS_URL, /bagnell-daily-report/i],
+  // The shared pages, once each, if any selected dam links to them.
+  const escaped = (text: string) => new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const shared: Array<{ name: string; linked: string; fetch: string; mustContain: RegExp }> = [
+    { name: 'SWPA schedule index', linked: SWPA_SCHEDULES_URL, fetch: SWPA_SCHEDULES_URL, mustContain: /swpa\/(mon|tue|wed|thu|fri|sat|sun)\.htm/i },
+    { name: 'Ameren lake reports', linked: AMEREN_OSAGE_REPORTS_URL, fetch: AMEREN_OSAGE_REPORTS_URL, mustContain: /bagnell-daily-report/i },
+    // Checked on the index, which is what tells the truth about this path.
+    { name: 'Ameren daily report', linked: AMEREN_DAILY_REPORT_URL, fetch: AMEREN_OSAGE_REPORTS_URL, mustContain: escaped(new URL(AMEREN_DAILY_REPORT_URL).pathname) },
   ];
-  for (const [name, url, mustContain] of shared) {
-    if (!dams.some((dam) => damSourceLinks(dam).some((link) => link.url === url))) continue;
+  for (const page of shared) {
+    if (!dams.some((dam) => damSourceLinks(dam).some((link) => link.url === page.linked))) continue;
     try {
-      const problem = await checkPage(url, mustContain);
-      if (problem) fail(name, `${url} ${problem}`);
-      else console.log(`ok    ${name} → ${url}`);
+      const problem = await checkPage(page.fetch, page.mustContain);
+      if (problem) fail(page.name, `${page.fetch} ${problem}`);
+      else console.log(`ok    ${page.name} → ${page.linked}`);
     } catch (error) {
-      fail(name, `${url} could not be read (${(error as Error).message})`);
+      fail(page.name, `${page.fetch} could not be read (${(error as Error).message})`);
     }
   }
 

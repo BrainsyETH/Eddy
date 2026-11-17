@@ -41,9 +41,60 @@ export function damSourceLink(
   return link && opensWebPage(link) ? link : null;
 }
 
-/** Every drawable link in card order: the operator's readings, then the schedule. */
+/**
+ * The links that belong beside the data: the readings' source, then the
+ * schedule's. Never the `reference` link — that is the operator's page for a
+ * dam whose readings came from somebody else, and beside the readings it would
+ * claim a source it is not. The screen offers it among its actions instead.
+ */
 export function damSourceLinks(dam: Pick<DamSnapshot, 'sourceLinks'>): DamSourceLink[] {
   return (['readings', 'schedule'] as const)
     .map((kind) => damSourceLink(dam, kind))
     .filter((link): link is DamSourceLink => link !== null);
+}
+
+type ScreenDam = Pick<
+  DamSnapshot,
+  'metrics' | 'schedule' | 'generating' | 'generationForecast' | 'hasTurbines' | 'sourceLinks'
+>;
+
+/**
+ * Whether the dam screen has any data to draw at all.
+ *
+ * Everything upstream is read-through and allowed to fail independently, so a
+ * dam can arrive with a schedule and no readings, or readings and no schedule.
+ * Both are ordinary; this is false only for nothing whatsoever.
+ */
+export function damHasAnything(dam: ScreenDam): boolean {
+  return (
+    Object.keys(dam.metrics).length > 0 ||
+    dam.schedule.length > 0 ||
+    dam.generating !== null ||
+    Boolean(dam.generationForecast)
+  );
+}
+
+/**
+ * Whether the screen draws the Generation card — the card that holds the
+ * source links.
+ *
+ * BOTH conditions, because the screen applies both: the card is for a
+ * powerhouse or a schedule, and the screen replaces every data card with its
+ * "nothing published" notice when the dam arrived with nothing.
+ */
+export function generationCardRenders(dam: ScreenDam): boolean {
+  return damHasAnything(dam) && (dam.hasTurbines || dam.schedule.length > 0);
+}
+
+/**
+ * The links the screen must draw itself, because no Generation card is there
+ * to hold them.
+ *
+ * Decided by whether the card RENDERS, not by what kind of dam this is. The
+ * first version asked only "does it have turbines", so a hydropower dam whose
+ * every read had failed drew neither the card nor these — losing the links on
+ * exactly the screen with nothing else to offer.
+ */
+export function standaloneSourceLinks(dam: ScreenDam): DamSourceLink[] {
+  return generationCardRenders(dam) ? [] : damSourceLinks(dam);
 }

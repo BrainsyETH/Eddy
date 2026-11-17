@@ -120,9 +120,20 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
   const footerSources = [dam.hasTurbines ? null : readingsSource, scheduleSource].filter(
     (link) => link !== null,
   );
+  // A link is a 44pt target around a line of small text, so it brings its own
+  // space above and below. Whatever divider follows one gives its margin back
+  // rather than the link being pulled around with negative margins.
+  const afterObservedLink = observedSources.length > 0 ? styles.afterLink : null;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+    <View
+      style={[
+        styles.card,
+        footerSources.length > 0 ? styles.cardWithFooterLink : null,
+        { backgroundColor: colors.card },
+        elevation(2),
+      ]}
+    >
       <DamGenerationHero
         dam={dam}
         embedded
@@ -143,7 +154,9 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
               below it is planned. Without it the two halves read as one claim,
               which is the thing the separate cards were protecting against and
               the reason they cannot simply be concatenated. */}
-          {dam.hasTurbines ? <View style={[styles.rule, { borderTopColor: colors.border }]} /> : null}
+          {dam.hasTurbines ? (
+            <View style={[styles.rule, afterObservedLink, { borderTopColor: colors.border }]} />
+          ) : null}
           <GenerationSchedule
             schedule={dam.schedule}
             reference={dam.generationReference}
@@ -160,6 +173,9 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
         <View
           style={[
             styles.footer,
+            // With no schedule there is no rule, and the footer is what
+            // follows the observed link.
+            hasSchedule ? null : afterObservedLink,
             footerSources.length > 0 ? styles.footerWithSources : null,
             { borderTopColor: colors.border },
           ]}
@@ -169,11 +185,15 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
             <Text
               style={[
                 styles.retrieval,
+                footerSources.length > 0 ? styles.retrievalBesideLink : null,
                 {
+                  // Muted while fresh: this is a statement, and in the brand
+                  // teal beside a teal link it looked like a second thing to
+                  // tap. Stale keeps the error colour — that one is a warning.
                   color:
                     oldestRetrieval && scheduleIsStale(oldestRetrieval)
                       ? colors.error
-                      : colors.interactive,
+                      : colors.textMuted,
                 },
               ]}
             >
@@ -189,19 +209,27 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16 },
   rule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, marginBottom: 14 },
-  // Pulled up under the hero: the link's 44pt target already supplies the gap.
-  observedSources: { marginTop: -4, marginBottom: -8 },
+  // The link's own 44pt height supplies the room either side of it; these only
+  // trim what the neighbouring blocks would otherwise add on top.
+  observedSources: { marginTop: 2 },
+  afterLink: { marginTop: 2 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
-  // A link is 44pt tall, so the row gives back the padding a bare line needs.
-  // Wraps at large text sizes: the link keeps the left edge, the time drops below.
+  // Source on the left, check time on the right when both fit. When they do
+  // not (a narrow phone, large text) the row wraps and both keep the left
+  // edge, the time directly under the link.
   footerWithSources: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    columnGap: 12,
+    columnGap: 16,
     paddingTop: 0,
-    marginBottom: -10,
   },
+  // The footer link reaches 13pt below its text, so the card needs less of its
+  // own padding beneath it.
+  cardWithFooterLink: { paddingBottom: 12 },
   retrieval: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center' },
+  // In the shared row: left-aligned so a wrapped line sits under the link,
+  // and allowed to shrink so long text wraps inside the card.
+  retrievalBesideLink: { textAlign: 'left', flexShrink: 1 },
 });

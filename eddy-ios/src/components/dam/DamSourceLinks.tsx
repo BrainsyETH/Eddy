@@ -52,8 +52,13 @@ export function DamSourceLinks({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 20 },
-  // 44pt tall for the touch target; the text inside stays the card's small size.
-  link: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, flexShrink: 1 },
+  // Shrinks inside a parent row (the card footer), so at the largest text
+  // sizes a long label wraps within the card instead of running past its edge.
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 20, flexShrink: 1, maxWidth: '100%' },
+  // At least 44pt tall for the touch target; the text inside stays the card's
+  // small size. At default sizes the minimum height is what spaces the link
+  // from its neighbours. At large text sizes the line outgrows 44pt, and the
+  // padding is then what keeps it off the text above and the rule below.
+  link: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingVertical: 8, flexShrink: 1 },
   text: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
 });
