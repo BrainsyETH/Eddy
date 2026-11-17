@@ -105,7 +105,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       return json({ rivers: [], alerts: [], data: [] });
     });
     await page.goto(`${origin}/river-report-check${mode === 'ordinary' ? '?ordinary=1' : ''}`);
-    await page.getByRole('combobox').waitFor();
+    await page.getByRole('combobox', { name: /^(View dam or gauge|Gauge)$/ }).waitFor();
     return { page, release, started };
   }
   for (const width of [1440, 390, 320]) {
@@ -144,7 +144,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await page.close(); console.log(`PASS ${width}px: dam/gauge identity, Read targets/age, compact layout, source details`);
   }
   for (const [mode, label] of [['stale', 'Last reading'], ['flagged', 'Reading flagged'], ['missing', 'No reading'], ['flood', 'Flood']]) {
-    const { page } = await pageFor(390, mode); await page.getByRole('combobox').selectOption('07057370');
+    const { page } = await pageFor(390, mode); await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption('07057370');
     const reading = page.getByRole('group', { name: 'Current gauge reading' });
     await reading.getByText(label, { exact: true }).first().waitFor();
     assert.equal(await reading.getByText('Not rated', { exact: true }).count(), 0);
@@ -152,15 +152,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     await page.close(); console.log(`PASS ${mode}: status takes precedence over Not rated`);
   }
   for (const mode of ['error', 'mismatch']) {
-    const { page } = await pageFor(390, mode); await page.getByRole('combobox').selectOption(norforkDam.id);
+    const { page } = await pageFor(390, mode); await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption(norforkDam.id);
     await page.getByText('This dam’s report is unavailable right now.', { exact: true }).waitFor();
     assert.equal(await page.getByRole('heading', { name: 'Bull Shoals Dam' }).count(), 0);
     await page.close(); console.log(`PASS ${mode}: no borrowed dam report`);
   }
   {
     const { page, release, started } = await pageFor(390, 'late');
-    await page.getByRole('combobox').selectOption(norforkDam.id); await started;
-    await page.getByRole('combobox').selectOption(dam.id); release();
+    await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption(norforkDam.id); await started;
+    await page.getByRole('combobox', { name: 'View dam or gauge', exact: true }).selectOption(dam.id); release();
     await page.locator('[data-dam-panel="lead"]').getByRole('heading', { name: 'Bull Shoals Dam' }).waitFor();
     assert.equal(await page.getByRole('heading', { name: 'Norfork Dam' }).count(), 0);
     await page.close(); console.log('PASS late dam response stays isolated');
