@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import { classifyQualifiers, fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -233,7 +234,8 @@ async function fetchRiverGauges(
         level_optimal_max,
         level_high,
         level_dangerous,
-        flood_stage_ft,${includeAlt ? altColumns : ''}
+        flood_stage_ft,
+        gauge_stations ( nwps_flood_stage_ft ),${includeAlt ? altColumns : ''}
         rivers!inner (
           id,
           name,
@@ -452,7 +454,7 @@ async function _GET(request: NextRequest) {
           levelOptimalMax: (rg.level_optimal_max as number) ?? null,
           levelHigh: (rg.level_high as number) ?? null,
           levelDangerous: (rg.level_dangerous as number) ?? null,
-          floodStageFt: (rg.flood_stage_ft as number) ?? null,
+          floodStageFt: linkFloodStageFt(rg),
           altLevelTooLow: (rg.alt_level_too_low as number) ?? null,
           altLevelLow: (rg.alt_level_low as number) ?? null,
           altLevelOptimalMin: (rg.alt_level_optimal_min as number) ?? null,

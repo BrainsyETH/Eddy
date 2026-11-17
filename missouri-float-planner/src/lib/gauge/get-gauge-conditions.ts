@@ -6,6 +6,7 @@
 import type { ConditionCode } from '@/types/api';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings, classifyQualifiers } from '@/lib/usgs/gauges';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { sectionGaugeSupportsReport } from './section-gauge-support';
 import { toNum } from '@/lib/utils/num';
@@ -34,7 +35,7 @@ export interface GaugeConditionResult {
 const GAUGE_LINK_SELECT = `
   level_too_low, level_low, level_optimal_min, level_optimal_max,
   level_high, level_dangerous, threshold_unit, flood_stage_ft, river_mile,
-  gauge_stations!inner (id, name, usgs_site_id)
+  gauge_stations!inner (id, name, usgs_site_id, nwps_flood_stage_ft)
 `;
 
 /** Shape of GAUGE_LINK_SELECT. Named so both lookups below stay typed. */
@@ -208,7 +209,7 @@ export async function getGaugeConditions(
     levelOptimalMax: toNum(gaugeLink.level_optimal_max),
     levelHigh: toNum(gaugeLink.level_high),
     levelDangerous: toNum(gaugeLink.level_dangerous),
-    floodStageFt: toNum(gaugeLink.flood_stage_ft),
+    floodStageFt: linkFloodStageFt(gaugeLink),
     thresholdUnit: (gaugeLink.threshold_unit ?? undefined) as 'ft' | 'cfs' | undefined,
   };
 

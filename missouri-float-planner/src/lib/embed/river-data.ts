@@ -155,7 +155,7 @@ async function loadGauges(
     .select(`
       gauge_station_id, is_primary, threshold_unit,
       level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft,
-      gauge_stations!inner ( id, usgs_site_id, site_id_external, provider, name, location, curated, active )
+      gauge_stations!inner ( id, usgs_site_id, site_id_external, provider, name, location, curated, active, nwps_flood_stage_ft )
     `)
     .eq('river_id', riverId);
   if (error || !data) {
