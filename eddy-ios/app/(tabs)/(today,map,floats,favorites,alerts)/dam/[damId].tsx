@@ -421,7 +421,7 @@ export default function DamDetailScreen() {
           onScroll={header.onScroll} scrollEventThrottle={32}>
           <RiverPageHeader key={`${damId}:${photo?.url ?? 'plain'}`} name={catalogEntry!.name}
             meta={[catalogEntry!.lakeName, catalogEntry!.state].filter(Boolean).join(' · ')}
-            photo={photo} topInset={topInset} horizontalInset={0} onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
+            photo={photo} topInset={topInset} horizontalInset={0} creditPlacement="overlay" onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
           <View style={styles.section}>
             <ActivityIndicator color={colors.interactive} />
           </View>
@@ -488,7 +488,7 @@ export default function DamDetailScreen() {
         onScroll={header.onScroll} scrollEventThrottle={32}>
         <RiverPageHeader key={`${damId}:${photo?.url ?? 'plain'}`} name={dam.name}
           meta={[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
-          photo={photo} topInset={topInset} horizontalInset={0} onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
+          photo={photo} topInset={topInset} horizontalInset={0} creditPlacement="overlay" onPhotoError={setFailedPhoto} onTitleBottom={header.onTitleBottom} />
 
         {/* Total release leads; turbine generation and the schedule follow. */}
         {hasAnything ? (

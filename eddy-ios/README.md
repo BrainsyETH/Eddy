@@ -1533,6 +1533,9 @@ Dam detail uses the same photo header as river detail, with the web's selected
 image, crop focus and attribution from `shared/place-photo-credits.json`.
 Photo metadata ships with the app; images use Eddy's resized, disk-cached copies
 without waiting for the dam readings. Missing or failed images use a plain title.
+Dam photo credits sit at the photo's lower-right edge as author and license;
+tapping opens the full source, license and cropping details. The compact label
+keeps a 44-point touch target and grows within the header at larger text sizes.
 Native back, share and favorite controls stay in the toolbar, with the compact
 title appearing when the large title scrolls out of view. The header's Dynamic
 Type and contrast accommodations follow the river header above; the same native
