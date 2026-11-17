@@ -39,7 +39,7 @@ function DetailReading({ label, metric, now, format }: {
 }) {
   const available = validMetric(metric);
   return <div><p className="dam-water-label">{label}</p>
-    <p className={`font-mono text-lg ${available && outdated(metric, now) ? 'opacity-60' : ''}`}>{available ? format(metric.value) : 'Unavailable'}</p>
+    <p className={`font-mono text-lg ${available && outdated(metric, now) ? 'opacity-70' : ''}`}>{available ? format(metric.value) : 'Unavailable'}</p>
     {available && <ReadingNote metric={metric} now={now} />}
   </div>;
 }
@@ -63,7 +63,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
   const [visible, setVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
-  const root = useRef<HTMLElement>(null);
+  const scene = useRef<HTMLDivElement>(null);
   const triggers = useRef<Partial<Record<Detail, HTMLButtonElement | null>>>({});
   const panelId = useId();
   const moving = view.releaseActive && !paused && reducedMotion === false && visible && pageVisible;
@@ -72,7 +72,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     update();
     document.addEventListener('visibilitychange', update);
     const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting));
-    if (root.current) observer.observe(root.current);
+    if (scene.current) observer.observe(scene.current);
     return () => { observer.disconnect(); document.removeEventListener('visibilitychange', update); };
   }, []);
   const closeDetail = () => {
@@ -80,14 +80,14 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     setDetail(null);
   };
 
-  return <section ref={root} className="dam-water-root" aria-label="Reported water release" data-dam-water-illustration data-motion={moving ? 'running' : 'paused'} data-level-motion={view.poolFresh && reducedMotion === false && !paused && visible && pageVisible ? 'allowed' : 'off'}>
+  return <section className="dam-water-root" aria-label="Reported water release" data-dam-water-illustration data-motion={moving ? 'running' : 'paused'} data-level-motion={view.poolFresh && reducedMotion === false && !paused && visible && pageVisible ? 'allowed' : 'off'}>
     <div className="dam-water-readings">
       <div className="dam-water-level">
         <p className="dam-water-label">Lake level</p>
-        <p className={`dam-water-level-value ${outdated(pool, now) ? 'opacity-60' : ''}`}>{pool.value.toFixed(2)} <span>ft</span></p>
+        <p className={`dam-water-level-value ${outdated(pool, now) ? 'opacity-70' : ''}`}>{pool.value.toFixed(2)} <span>ft</span></p>
         {outdated(pool, now) && <p className="dam-water-outdated">Outdated lake reading</p>}
         {view.change24hFt !== undefined && <LakeMovement delta={view.change24hFt} hours={24} />}
-        {commonAt && pool.dailyMean && <p className="dam-water-note">Daily average</p>}
+        {pool.dailyMean && <p className="dam-water-note">Daily average</p>}
         {!commonAt && <ReadingTime at={pool.at} now={now} className="" />}
       </div>
       <div className="dam-water-release">
@@ -101,7 +101,7 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     <span className="sr-only" data-generation-summary>{generationVoiceOver(state, dam.generationReference)}</span>
 
     <figure className="dam-water-figure">
-      <div className="dam-water-scene">
+      <div ref={scene} className="dam-water-scene">
         <DamWaterScene surfaceY={view.surfaceY} turbine={view.turbineActive} spillway={view.spillwayActive} release={view.releaseActive} />
       </div>
       <figcaption className="dam-water-caption">
@@ -138,10 +138,10 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
     </div>
 
     <div className="dam-water-breakdown">
-      <div><span>Through turbines</span><strong className={turbine && outdated(turbine, now) ? 'opacity-60' : ''}>{turbine ? cfs(turbine.value) : 'Unavailable'}</strong>
+      <div><span>Through turbines</span>{' '}<strong className={turbine && outdated(turbine, now) ? 'opacity-70' : ''}>{turbine ? cfs(turbine.value) : 'Unavailable'}</strong>
         {turbine && (!commonAt || turbine.dailyMean || outdated(turbine, now)) && <ReadingNote metric={turbine} now={now} />}
       </div>
-      <div><span>Spillway</span><strong className={spillway && outdated(spillway, now) ? 'opacity-60' : ''}>{spillway ? cfs(spillway.value) : 'Unavailable'}</strong>
+      <div><span>Spillway</span>{' '}<strong className={spillway && outdated(spillway, now) ? 'opacity-70' : ''}>{spillway ? cfs(spillway.value) : 'Unavailable'}</strong>
         {spillway && (!commonAt || spillway.dailyMean || outdated(spillway, now)) && <ReadingNote metric={spillway} now={now} />}
       </div>
       <Button variant="ghost" size="sm" className="dam-water-motion-toggle" disabled={!view.releaseActive || reducedMotion !== false} aria-pressed={paused} onClick={() => setPaused(!paused)}>

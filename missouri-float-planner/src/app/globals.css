@@ -1928,7 +1928,7 @@ select.input {
 .dam-water-note { font-size: .75rem; line-height: 1.6; color: var(--color-neutral-600); }
 .dam-water-outdated { font-size: .75rem; line-height: 1.5; font-weight: 600; color: var(--color-accent-900); }
 .dam-water-figure { margin: 0; min-width: 0; }
-.dam-water-scene { max-width: 960px; margin-inline: auto; }
+.dam-water-scene { max-width: 860px; margin-inline: auto; }
 .dam-water-drawing { display: block; width: 100%; height: auto; }
 .dam-scene-ink { stroke: var(--color-primary-900); stroke-width: 3.5; }
 .dam-water-reference { fill: none; stroke: var(--color-primary-900); stroke-width: 2; stroke-dasharray: 6 6; }
@@ -1937,7 +1937,7 @@ select.input {
 .dam-water-reference-label::before { content: ''; width: 1rem; border-top: 2px dashed var(--color-primary-700); }
 .dam-water-reference-label strong { font-family: var(--font-mono); font-weight: 500; }
 .dam-water-explore { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
-.dam-water-explore .dam-water-hotspot { min-height: 44px; padding: .4rem .25rem; gap: .25rem; font-size: .75rem; border: 2px solid var(--color-primary-900); box-shadow: 2px 2px 0 var(--color-primary-900); background: var(--color-secondary-50); white-space: normal; }
+.dam-water-explore .dam-water-hotspot { min-height: 44px; padding: .4rem .25rem; gap: .25rem; font-size: .75rem; border: 2px solid var(--color-primary-900); box-shadow: 2px 2px 0 var(--color-primary-900); background: var(--color-secondary-50); color: var(--color-primary-900); white-space: normal; }
 .dam-water-hotspot[aria-expanded="true"] { background: var(--color-primary-200); box-shadow: none; }
 .dam-water-hotspot[aria-expanded="true"] svg { transform: rotate(180deg); }
 .dam-water-hotspot svg { flex-shrink: 0; }

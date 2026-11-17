@@ -11,7 +11,7 @@ export default function DamWaterScene({ surfaceY, turbine, spillway, release }: 
   // subtly different slope calculation at the water's edge.
   return <svg viewBox="0 0 720 280" className="dam-water-drawing" aria-hidden="true" focusable="false">
     <defs>
-      <clipPath id={`${id}-lake`}><path d="M8 60 H359 L335 238 H8Z" /></clipPath>
+      <clipPath id={`${id}-lake`}><path d="M8 53 H358 L335 233 H8Z" /></clipPath>
       <clipPath id={`${id}-river`}><path d="M478 215 Q540 207 605 216 T712 218 V252 H478Z" /></clipPath>
       <clipPath id={`${id}-pipe`}><path d="M343 172 H378 Q404 172 423 202 H514 V220 H414 Q394 190 378 190 H343Z" /></clipPath>
       <clipPath id={`${id}-spill`}><path d="M398 92 Q441 92 457 149 T512 211 L502 223 Q465 210 443 153 T398 108Z" /></clipPath>

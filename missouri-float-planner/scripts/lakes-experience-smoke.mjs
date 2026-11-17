@@ -115,6 +115,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${kind} ${variant} overflow at ${width}`);
         assert.equal(await page.locator('[data-launch-id]').count(), kind === 'dam' ? 0 : 2, 'launch list belongs only on lake page');
         assert.equal(await page.getByRole('link', { name: /photo credit/i }).count(), 0, 'credits remain on the central credits page');
+        if (kind === 'dam' && !variant) {
+          await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+          await page.screenshot({ path: `${out}/illustration-initial-${width}.png`, fullPage: true });
+        }
         if (kind === 'lake') {
           assert(await page.locator('.lake-launch-filter button').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'filter labels fit their controls');
           assert.equal((await page.locator('[data-lake-detail]').innerText()).match(/reviewed launch/g)?.length, 1, 'the launch count is stated once');
@@ -165,8 +169,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             await illustrated.getByRole('button', { name: 'Below the dam', exact: true }).click();
             assert.match(await details.innerText(), /704.12 ft/);
             assert.match(await details.innerText(), /56.0 °F/);
+            await page.screenshot({ path: `${out}/illustration-downstream-${width}.png`, fullPage: true });
             await illustrated.getByRole('button', { name: 'Lake', exact: true }).click();
             assert.equal(await details.locator('figure').count(), 1, 'lake opens measured history in the shared panel');
+            await page.screenshot({ path: `${out}/illustration-lake-detail-${width}.png`, fullPage: true });
             await details.getByRole('button', { name: 'Close reading details' }).click();
             await illustrated.scrollIntoViewIfNeeded();
             await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'running');
