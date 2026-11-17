@@ -113,6 +113,8 @@ export interface RiverOutlookApiResponse {
   sourceKind: 'checking' | 'official' | 'guidance';
   sourceLabel: string;
   hasOfficialForecast: boolean;
+  /** The same station used to request the official river forecast. */
+  nwsLid: string | null;
   isGuidance: boolean;
   trend: { direction: 'rising' | 'falling' | 'steady'; label: string; windowHours: number } | null;
   currentCondition: ConditionCode;
@@ -160,6 +162,7 @@ const EMPTY: RiverOutlookApiResponse = {
   sourceKind: 'guidance',
   sourceLabel: 'Current river trend + weather outlook',
   hasOfficialForecast: false,
+  nwsLid: null,
   isGuidance: false,
   trend: null,
   currentCondition: 'unknown',
@@ -577,6 +580,7 @@ async function _GET(
         sourceKind: outlook.sourceKind,
         sourceLabel: outlook.sourceLabel,
         hasOfficialForecast: outlook.hasOfficialForecast,
+        nwsLid: station?.nws_lid ?? null,
         isGuidance: outlook.isGuidance,
         trend: trend
           ? { direction: trend.direction, label: trend.label, windowHours: trend.windowHours }

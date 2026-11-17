@@ -8,7 +8,8 @@ import { readPreview, distinctReadContext } from '@eddy/conditions/read-presenta
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WeatherIcon } from '@/components/WeatherIcon';
-import { weatherDestination } from '@/lib/weatherDestination';
+import { NwsRiverForecastLink } from '@/components/NwsRiverForecastLink';
+import { nwsRiverForecastUrl, weatherDestination } from '@/lib/weatherDestination';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
 import { conditionBg, conditionInk } from '@/theme/conditions';
@@ -109,7 +110,7 @@ export function EddyTake({
   const { colors, elevation, isDark } = useTheme();
   const { sections, days } = outlook;
   const router = useRouter();
-  const forecastDestination = weatherDestination(outlook.weatherCoordinates);
+  const forecastDestination = weatherDestination(outlook.weatherCoordinates, outlook.nwsLid);
 
   // The long report when the server sent one, the single deterministic line
   // otherwise. `fullRead` is withheld server-side when the live river has moved
@@ -267,134 +268,113 @@ export function EddyTake({
           )}
         </View>
       ) : null}
-      {/* The three-day weather strip and separate NWS river forecast. */}
+      {/* Weather navigation and the NWS source are separate tap targets. */}
       {days.length > 0 ? (
-        <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
-          disabled={!forecastDestination} accessible={false}
-          style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+        <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
           <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
-            disabled={!forecastDestination} accessibilityRole={forecastDestination ? 'button' : undefined}
-            accessibilityLabel={`Will it hold? Next 3 days${outlook.weatherLocation ? ` near ${outlook.weatherLocation}` : ''}`}
-            accessibilityHint={forecastDestination ? 'Opens the full weather forecast for this location' : undefined}
-            style={styles.stripHead}>
-            <View style={styles.stripHeadText}>
-              <Text style={[styles.stripTitle, { color: colors.text }]}>Will it hold?</Text>
-              <Text style={[styles.stripSub, { color: colors.textSubtle }]}>Next 3 days</Text>
-            </View>
-            {/* The location names the weather sample. NWS attribution belongs
-                to the separate river forecast row below. */}
-            {outlook.weatherLocation ? (
-              <View style={styles.source}>
-                <Ionicons name="location-outline" size={12} color={colors.textMuted} />
-                <Text style={[styles.sourceText, { color: colors.textMuted }]} numberOfLines={2}>
-                  {outlook.weatherLocation}
-                </Text>
+            disabled={!forecastDestination} accessible={false}>
+            <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
+              disabled={!forecastDestination} accessibilityRole={forecastDestination ? 'button' : undefined}
+              accessibilityLabel={`Will it hold? Next 3 days${outlook.weatherLocation ? ` near ${outlook.weatherLocation}` : ''}`}
+              accessibilityHint={forecastDestination ? 'Opens the full weather forecast for this location' : undefined}
+              style={styles.stripHead}>
+              <View style={styles.stripHeadText}>
+                <Text style={[styles.stripTitle, { color: colors.text }]}>Will it hold?</Text>
+                <Text style={[styles.stripSub, { color: colors.textSubtle }]}>Next 3 days</Text>
               </View>
-            ) : null}
-            {forecastDestination ? <Ionicons name="chevron-forward" size={16} color={colors.interactive} /> : null}
-          </Pressable>
-
-          <View style={[styles.dayRow, { borderTopColor: colors.border }]}>
-            {days.map((day, index) => (
-              <View
-                key={day.date}
-                style={[
-                  styles.day,
-                  index > 0 ? { borderLeftWidth: 1, borderLeftColor: colors.border } : null,
-                ]}
-                accessibilityLabel={
-                  day.weather
-                    ? `${dayLabel(day.date, index)}, high ${day.weather.tempHigh}, low ${day.weather.tempLow}, ${day.rainLabel}${day.weather.windSpeed != null ? `, wind ${Math.round(day.weather.windSpeed)} miles per hour` : ''}${day.heatAdvisory ? ', heat advisory range' : ''}`
-                    : `${dayLabel(day.date, index)}, weather unavailable`
-                }
-              >
-                <Text style={[styles.dayName, { color: colors.textSubtle }]}>
-                  {dayLabel(day.date, index)}
-                </Text>
-
-                {day.weather ? (
-                  <>
-                    <WeatherIcon code={day.weather.conditionIcon} size={30} style={styles.dayGlyph} />
-                    <Text style={[styles.temp, { color: colors.text }]}>
-                      {day.weather.tempHigh}°{' '}
-                      <Text style={{ color: colors.textSubtle }}>{day.weather.tempLow}°</Text>
-                    </Text>
-                    {/* Rain ramps grey → blue → deep blue with the chance, so
-                        the strip can be read at a glance without parsing seven
-                        percentages. The server picks the bucket; see the rain
-                        roles in palette.ts for why the ramp is per scheme and
-                        why it stopped being coral. */}
-                    <Text
-                      style={[
-                        styles.rain,
-                        {
-                          color:
-                            day.rainKind === 'significant'
-                              ? colors.rainHeavy
-                              : day.rainKind === 'possible'
-                                ? colors.rainLikely
-                                : colors.rainQuiet,
-                          fontFamily:
-                            day.rainKind === 'significant' ? fonts.heading : fonts.body,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {day.rainLabel}
-                    </Text>
-                    {/* Wind, when the server sent it. OMITTED, never zeroed,
-                        for a payload predating the field — absent means "the
-                        source did not say", not calm. Part of the outdoor-
-                        conditions answer the phone could not give before the
-                        outlook carried wind. */}
-                    {day.weather.windSpeed != null ? (
-                      <Text style={[styles.rain, { color: colors.textSubtle }]} numberOfLines={1}>
-                        {Math.round(day.weather.windSpeed)} mph wind
-                      </Text>
-                    ) : null}
-                    {day.heatAdvisory ? (
-                      <View style={[styles.heat, { backgroundColor: conditionBg('high', isDark) }]}>
-                        <Text style={[styles.heatText, { color: conditionInk('high', isDark) }]}>HEAT</Text>
-                      </View>
-                    ) : null}
-                  </>
-                ) : (
-                  <Text style={[styles.unavailable, { color: colors.textSubtle }]}>
-                    No weather
+              {/* The location names the weather sample. NWS attribution belongs
+                  to the separate river forecast row below. */}
+              {outlook.weatherLocation ? (
+                <View style={styles.source}>
+                  <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+                  <Text style={[styles.sourceText, { color: colors.textMuted }]} numberOfLines={2}>
+                    {outlook.weatherLocation}
                   </Text>
-                )}
-              </View>
-            ))}
-          </View>
+                </View>
+              ) : null}
+              {forecastDestination ? <Ionicons name="chevron-forward" size={16} color={colors.interactive} /> : null}
+            </Pressable>
 
-          {/* Official daily highs keep their own label and units. A river-level
-              condition badge here could read as a verdict on the whole day. */}
-          {outlook.hasOfficialForecast ? (
-            <View style={[styles.forecast, { borderTopColor: colors.border }]}>
-              <Text style={[styles.forecastLabel, { color: colors.textMuted }]}>NWS forecast · daily high</Text>
-              <View style={styles.forecastRow}>
-                {days.map((day, index) => (
-                  <View key={day.date} style={[
+            <View style={[styles.dayRow, { borderTopColor: colors.border }]}>
+              {days.map((day, index) => (
+                <View
+                  key={day.date}
+                  style={[
                     styles.day,
                     index > 0 ? { borderLeftWidth: 1, borderLeftColor: colors.border } : null,
-                  ]}>
-                    {day.river.valueFt != null ? (
-                      <Text style={[styles.forecastValue, { color: colors.text }]}
-                        accessibilityLabel={`${dayLabel(day.date, index)}, NWS forecast daily high ${day.river.valueFt.toFixed(2)} feet`}>
-                        {day.river.valueFt.toFixed(2)} ft
+                  ]}
+                  accessibilityLabel={
+                    day.weather
+                      ? `${dayLabel(day.date, index)}, high ${day.weather.tempHigh}, low ${day.weather.tempLow}, ${day.rainLabel}${day.weather.windSpeed != null ? `, wind ${Math.round(day.weather.windSpeed)} miles per hour` : ''}${day.heatAdvisory ? ', heat advisory range' : ''}`
+                      : `${dayLabel(day.date, index)}, weather unavailable`
+                  }
+                >
+                  <Text style={[styles.dayName, { color: colors.textSubtle }]}>
+                    {dayLabel(day.date, index)}
+                  </Text>
+
+                  {day.weather ? (
+                    <>
+                      <WeatherIcon code={day.weather.conditionIcon} size={30} style={styles.dayGlyph} />
+                      <Text style={[styles.temp, { color: colors.text }]}>
+                        {day.weather.tempHigh}°{' '}
+                        <Text style={{ color: colors.textSubtle }}>{day.weather.tempLow}°</Text>
                       </Text>
-                    ) : (
-                      <Text style={[styles.unavailable, { color: colors.textSubtle }]}
-                        accessibilityLabel={`${dayLabel(day.date, index)}, no river forecast`}>
-                        No forecast
+                      {/* Rain ramps grey → blue → deep blue with the chance, so
+                          the strip can be read at a glance without parsing seven
+                          percentages. The server picks the bucket; see the rain
+                          roles in palette.ts for why the ramp is per scheme and
+                          why it stopped being coral. */}
+                      <Text
+                        style={[
+                          styles.rain,
+                          {
+                            color:
+                              day.rainKind === 'significant'
+                                ? colors.rainHeavy
+                                : day.rainKind === 'possible'
+                                  ? colors.rainLikely
+                                  : colors.rainQuiet,
+                            fontFamily:
+                              day.rainKind === 'significant' ? fonts.heading : fonts.body,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {day.rainLabel}
                       </Text>
-                    )}
-                  </View>
-                ))}
-              </View>
+                      {/* Wind, when the server sent it. OMITTED, never zeroed,
+                          for a payload predating the field — absent means "the
+                          source did not say", not calm. Part of the outdoor-
+                          conditions answer the phone could not give before the
+                          outlook carried wind. */}
+                      {day.weather.windSpeed != null ? (
+                        <Text style={[styles.rain, { color: colors.textSubtle }]} numberOfLines={1}>
+                          {Math.round(day.weather.windSpeed)} mph wind
+                        </Text>
+                      ) : null}
+                      {day.heatAdvisory ? (
+                        <View style={[styles.heat, { backgroundColor: conditionBg('high', isDark) }]}>
+                          <Text style={[styles.heatText, { color: conditionInk('high', isDark) }]}>HEAT</Text>
+                        </View>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text style={[styles.unavailable, { color: colors.textSubtle }]}>
+                      No weather
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+
+          </Pressable>
+          {nwsRiverForecastUrl(outlook.nwsLid) ? (
+            <View style={[styles.forecast, { borderTopColor: colors.border }]}>
+              <NwsRiverForecastLink lid={outlook.nwsLid} />
             </View>
           ) : null}
-        </Pressable>
+        </View>
       ) : null}
     </View>
   );
@@ -418,10 +398,7 @@ const styles = StyleSheet.create({
   heat: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 2 },
   heatText: { fontSize: 12, lineHeight: 17, fontFamily: fonts.heading },
   unavailable: { ...t.xs, fontFamily: fonts.body },
-  forecast: { marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
-  forecastLabel: { ...t.xs, fontFamily: fonts.semibold },
-  forecastRow: { flexDirection: 'row', marginTop: 8 },
-  forecastValue: { ...t.xs, fontFamily: fonts.monoMedium },
+  forecast: { marginTop: 12, paddingTop: 4, borderTopWidth: 1 },
   // Nudged up so the mark sits on the label's cap height rather than its box —
   // the artwork carries its own margin, which a 13pt glyph does not.
   bottomLineOtter: { marginLeft: -2 },
