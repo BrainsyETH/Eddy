@@ -71,7 +71,7 @@
 -- point, the eight from Bennett Spring Access to Mountain Creek move; the
 -- seven from Lead Mine down already resolved to Tunnel Dam by distance.
 -- last_condition_code and the pending-change columns are cleared on both rows
--- so the switch posts no condition-change alert (see 20261117230100).
+-- so the switch posts no condition-change alert (see 20261117225734).
 -- rivers.float_summary is NULL for the Niangua and stays NULL.
 --
 -- ── What it checks, in one statement ────────────────────────────────────────

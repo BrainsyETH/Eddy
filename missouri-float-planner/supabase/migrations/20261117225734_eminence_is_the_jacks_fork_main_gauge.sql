@@ -1,7 +1,11 @@
--- 20261117230100_eminence_is_the_jacks_fork_main_gauge.sql
+-- 20261117225734_eminence_is_the_jacks_fork_main_gauge.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
--- Apply after 20261117221408 (the Alley Spring to Two Rivers stretch).
+-- Applied to production 2026-11-17 as 20261117225734, on the owner's
+-- instruction, after 20261117221408 (the Alley Spring to Two Rivers stretch).
+-- Read back afterwards: Eminence is the only main gauge, the stamps on all
+-- three Jacks Fork gauges are NULL, the river rates Low at 150 cfs on
+-- Eminence, the float summary opens "At the Eminence gauge (primary)", and the
+-- thirteen approved put-ins resolve as they did before the switch.
 --
 -- The Jacks Fork's main gauge becomes Eminence (07066000). It was the Alley
 -- Spring gauge (07065495), which sits above the spring's inflow and so speaks

@@ -74,7 +74,7 @@ VALUES (
     active = EXCLUDED.active;
 
 -- Jacks Fork River Gauges (USGS official names)
--- 07065200 = upper (Mountain View); 07065495 = Alley Spring (above the spring's inflow); 07066000 = Eminence (primary since 20261117230100)
+-- 07065200 = upper (Mountain View); 07065495 = Alley Spring (above the spring's inflow); 07066000 = Eminence (primary since 20261117225734)
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
     '07065200',
@@ -397,7 +397,7 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_dangerous = EXCLUDED.level_dangerous;
 
 -- Jacks Fork River - three gauges: Mountain View (upper), Alley Spring (upper, above the spring's inflow), Eminence (primary)
--- 07065200 = Mountain View; 07065495 = Alley Spring; 07066000 = Eminence. Eminence became the main gauge in 20261117230100.
+-- 07065200 = Mountain View; 07065495 = Alley Spring; 07066000 = Eminence. Eminence became the main gauge in 20261117225734.
 INSERT INTO river_gauges (
     river_id, gauge_station_id, is_primary, distance_from_section_miles, threshold_unit,
     level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous

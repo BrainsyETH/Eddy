@@ -57,7 +57,7 @@ gauge just above a large spring grades everything below it from water that has
 not met the spring. The Jacks Fork was that case: the Alley Spring gauge sits
 above the spring's inflow, and the put-ins from the spring to Eminence read
 Too Low on the days the stretch floated. `20261117221408` adds a stretch from
-the spring to Two Rivers graded by Eminence, and `20261117230100` makes
+the spring to Two Rivers graded by Eminence, and `20261117225734` makes
 Eminence the river's main gauge. Check a suspected case with the readings
 before writing anything: where gauges sit either side of an inflow, the gain
 between them at low water is the inflow. The Niangua has the same shape at

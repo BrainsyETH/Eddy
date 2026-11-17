@@ -14,7 +14,7 @@ import { deriveFloatSummaryFindings } from '../src/lib/trust/checks/float-summar
 
 const read = (name: string) => readFileSync(`supabase/migrations/${name}`, 'utf8');
 const jacksForkStretch = read('20261117221408_jacks_fork_below_alley_spring_reads_eminence.sql');
-const jacksForkMain = read('20261117230100_eminence_is_the_jacks_fork_main_gauge.sql');
+const jacksForkMain = read('20261117225734_eminence_is_the_jacks_fork_main_gauge.sql');
 const niangua = read('20261117230200_niangua_below_bennett_spring_reads_tunnel_dam.sql');
 
 const ALLEY = '07065495';
