@@ -74,6 +74,9 @@ import type {
   AlertRuleSeed,
   AlertRuleScope,
   AlertRulesResponse,
+  DamGenerationAlert,
+  DamGenerationAlertResponse,
+  DamGenerationAlertsResponse,
   NotificationPreferences,
   NotificationPreferencesResponse,
   MeEntitlement,
@@ -1918,6 +1921,45 @@ export async function deleteAlertRule(
   await authed(`/api/me/gauge-alerts/${encodeURIComponent(rule.id)}`, token, {
     method: 'DELETE',
   });
+}
+
+// ── Dam generation alerts ──────────────────────────────────────────────────
+//
+// One per dam: push when generation is POSTED to start, at the posted time
+// and/or an hour before. A table of their own on the server, and deliberately
+// NOT merged into /api/me/alerts: a released build that met a third
+// `AlertRule.source` there would treat it as one of the two it knows. See
+// src/lib/damAlerts.ts and docs/decisions/0020.
+
+/** The caller's dam generation alerts. Null when the session is unusable. */
+export async function fetchDamAlerts(
+  token: string,
+  signal?: AbortSignal,
+): Promise<DamGenerationAlert[] | null> {
+  const data = await authed<DamGenerationAlertsResponse>('/api/me/dam-alerts', token, { signal });
+  return data ? (data.alerts ?? []) : null;
+}
+
+/**
+ * Set one dam's alert as a whole. Both false removes it, and the server
+ * answers null.
+ *
+ * Through writeJson, so a 401 or 403 arrives as an ApiError with its status:
+ * useAlertGate turns exactly those into the sign-in sheet.
+ */
+export async function saveDamAlert(
+  token: string,
+  input: { damId: string; atStart: boolean; hourBefore: boolean },
+): Promise<DamGenerationAlert | null> {
+  const data = await writeJson<DamGenerationAlertResponse>('/api/me/dam-alerts', token, 'PUT', input);
+  return data.alert ?? null;
+}
+
+/** Remove one dam's alert. Works for a dam that has since left the catalog. */
+export async function deleteDamAlert(token: string, damId: string): Promise<void> {
+  pushed(await authed(`/api/me/dam-alerts?damId=${encodeURIComponent(damId)}`, token, {
+    method: 'DELETE',
+  }));
 }
 
 /** Quiet hours. Null when the session is unusable — never assume "none set". */

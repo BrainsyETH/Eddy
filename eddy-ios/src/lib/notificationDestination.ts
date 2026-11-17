@@ -41,6 +41,13 @@ export function notificationDestination(input: unknown) {
   const alertParams = alertId ? { alertId, ...(alertSource ? { alertSource } : {}) } : {};
   if (siteId) return { pathname: '/gauge/[siteId]' as const, params: { siteId, ...alertParams } };
   if (slug) return { pathname: '/river/[slug]' as const, params: { slug, ...alertParams } };
+  // A dam generation alert names its dam and nothing else: the dam screen is
+  // where the posted schedule it spoke about, and its two switches, live.
+  // After the gauge and river keys, so a payload carrying one of those keeps
+  // the destination it always had.
+  if (typeof data.damId === 'string' && data.damId) {
+    return { pathname: '/dam/[damId]' as const, params: { damId: data.damId } };
+  }
   // Digests and older payloads without a subject simply foreground the app.
   return null;
 }

@@ -61,6 +61,7 @@ import {
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
 import { GenerationForecast } from '@/components/dam/GenerationForecast';
 import { DamEddyRead } from '@/components/dam/DamEddyRead';
+import { DamGenerationAlerts } from '@/components/dam/DamGenerationAlerts';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { useAccount } from '@/hooks/useAccount';
 import { useSession } from '@/hooks/useSession';
@@ -528,6 +529,19 @@ export default function DamDetailScreen() {
             </View>
           </View>
         )}
+
+        {/* Alerts on the posted schedule, under the schedule and the Read of
+            it. Only for a dam SWPA schedules — `generationReference` is that
+            fact on the wire (see damCardScheduleFacts on the web) — because a
+            switch on a dam with no posted schedule could never fire. Outside
+            the block above on purpose: the alert is about tomorrow's sheet as
+            much as today's, so a moment with nothing published does not
+            withdraw it. */}
+        {dam.generationReference ? (
+          <View style={styles.section}>
+            <DamGenerationAlerts dam={dam} />
+          </View>
+        ) : null}
 
         {/* WHAT IS STILL COMING, OR WHAT DID NOT ARRIVE.
             A summary carries three metrics and two days of schedule; the pool

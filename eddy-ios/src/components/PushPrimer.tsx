@@ -48,11 +48,23 @@ interface Props {
    * the honest thing to say when the caller genuinely does not know.
    */
   promise?: string;
+  /**
+   * Set when the alert just created follows a dam's POSTED GENERATION SCHEDULE
+   * (DamGenerationAlerts) rather than a river or gauge reading.
+   *
+   * The points and the caveat below were written about readings: "only when
+   * the condition actually changes", "gauge reporting and processing mean
+   * alerts can trail the river". Neither is true of a schedule alert — it
+   * fires for every posted start, on time, and its real limit is that
+   * generation can start without being posted. The caller passes that limit as
+   * the caveat so this sheet and the switches say it in the same words.
+   */
+  schedule?: { caveat: string };
   onAllow: () => void;
   onDismiss: () => void;
 }
 
-export function PushPrimer({ visible, riverName, promise, onAllow, onDismiss }: Props) {
+export function PushPrimer({ visible, riverName, promise, schedule, onAllow, onDismiss }: Props) {
   const { colors } = useTheme();
 
   return (
@@ -65,7 +77,10 @@ export function PushPrimer({ visible, riverName, promise, onAllow, onDismiss }: 
           <EddyScene name="checkingGauge" size={120} />
 
           <Text style={[styles.title, { color: colors.text }]}>
-            {riverName ? `Eddy will watch the ${riverName}` : 'Eddy will watch your rivers'}
+            {/* A dam's name reads as a name ("Table Rock Dam"), not as "the …". */}
+            {riverName
+              ? `Eddy will watch ${schedule ? '' : 'the '}${riverName}`
+              : 'Eddy will watch your rivers'}
           </Text>
 
           {/* "a notification", not "one notification": the subscription is
@@ -81,12 +96,20 @@ export function PushPrimer({ visible, riverName, promise, onAllow, onDismiss }: 
           <View style={styles.points}>
             <Point
               symbol="alertWatch"
-              text="Only when the condition actually changes. Never a daily digest."
+              text={
+                schedule
+                  ? 'For every posted start, at the times you switched on.'
+                  : 'Only when the condition actually changes. Never a daily digest.'
+              }
               colors={colors}
             />
             <Point
-              symbol="water"
-              text="Only the rivers you follow, on their own schedule."
+              symbol={schedule ? 'dam' : 'water'}
+              text={
+                schedule
+                  ? 'Only the dams you switch it on for.'
+                  : 'Only the rivers you follow, on their own schedule.'
+              }
               colors={colors}
             />
             <Point
@@ -100,8 +123,9 @@ export function PushPrimer({ visible, riverName, promise, onAllow, onDismiss }: 
               than buried in Settings. USGS reporting lag plus our cron cadence
               means "instant" is a claim we cannot keep. */}
           <Text style={[styles.latency, { color: colors.textMuted }]}>
-            Gauge reporting and processing mean alerts can trail the river by roughly 20–75
-            minutes. Check conditions again before getting on the water.
+            {schedule
+              ? schedule.caveat
+              : 'Gauge reporting and processing mean alerts can trail the river by roughly 20–75 minutes. Check conditions again before getting on the water.'}
           </Text>
         </View>
 

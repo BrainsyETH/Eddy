@@ -2232,6 +2232,20 @@ registration result, not state captured before the save. Notification setup
 failure never rolls back a saved rule or reports that the save failed. Pausing
 an alert does not ask for permission. Restore itself does not override opt-out.
 
+**Dam generation alerts** are a third kind, set on the dam screen and not in
+the alert editor: two switches, "1 hour before it starts" and "When it's posted
+to start", for a dam with a posted hourly schedule. They follow the posted
+schedule and do not confirm that generation began; the card and the push primer
+say that generation can start without being posted (`DAM_ALERT_NOTE` in
+`src/lib/damAlerts.ts`). There is no paused state: both switches off removes
+the alert. They are held by `useDamAlerts` (`/api/me/dam-alerts`), not
+`useAlertRules`, and listed after the rules on Mine, where a row opens the dam
+and a swipe deletes. A push carries `damId` and opens that dam. The decision
+and its limits are in
+[`docs/decisions/0020`](../docs/decisions/0020-dam-generation-alerts-follow-the-posted-schedule.md).
+Implemented in code; device verification is unconfirmed, and the server tables
+are a pending migration.
+
 ### Map sheet tab changes and campsite reservations
 
 The access sheet renders its summary and tab bar once, outside the horizontal

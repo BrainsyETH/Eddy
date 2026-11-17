@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import type { DamGenerationAlert } from '@eddy/types';
+import {
+  applyDamAlert,
+  DAM_ALERT_NOTE,
+  damAlertSummary,
+  damAlertTimes,
+  hasDamAlert,
+  NO_DAM_ALERT,
+} from '../../../eddy-ios/src/lib/damAlerts';
+import { notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
+
+// The Expo app has no test runner, so its pure logic is covered here — the same
+// arrangement as alert-groups.test.ts.
+//
+// What this protects: a dam generation alert has two times and NO paused
+// state. Both off means the alert is gone, on the phone exactly as on the
+// server, so the dam screen's switches and the Alerts tab never show an alert
+// that cannot fire. See docs/decisions/0020.
+
+const TABLE_ROCK = { id: 'swl-table-rock-dam', name: 'Table Rock Dam' };
+const NOW = '2026-11-17T23:00:00.000Z';
+
+function alert(over: Partial<DamGenerationAlert> = {}): DamGenerationAlert {
+  return { damId: TABLE_ROCK.id, damName: TABLE_ROCK.name, atStart: true, hourBefore: false, createdAt: NOW, ...over };
+}
+
+test('a dam with no alert, or a list that has not loaded, reads as both switches off', () => {
+  assert.deepEqual(damAlertTimes(null, TABLE_ROCK.id), NO_DAM_ALERT);
+  assert.deepEqual(damAlertTimes([], TABLE_ROCK.id), NO_DAM_ALERT);
+  assert.deepEqual(damAlertTimes([alert()], 'swl-norfork-dam'), NO_DAM_ALERT);
+  assert.deepEqual(damAlertTimes([alert({ hourBefore: true })], TABLE_ROCK.id), { atStart: true, hourBefore: true });
+  assert.equal(hasDamAlert(NO_DAM_ALERT), false);
+  assert.equal(hasDamAlert({ atStart: false, hourBefore: true }), true);
+});
+
+test('switching the first time on adds the alert at the top', () => {
+  const other = alert({ damId: 'swl-norfork-dam', damName: 'Norfork Dam' });
+  const next = applyDamAlert([other], TABLE_ROCK, { atStart: false, hourBefore: true }, NOW);
+  assert.deepEqual(next.map((a) => a.damId), [TABLE_ROCK.id, 'swl-norfork-dam']);
+  assert.deepEqual(damAlertTimes(next, TABLE_ROCK.id), { atStart: false, hourBefore: true });
+});
+
+test('changing a time keeps the alert in place with its creation time', () => {
+  const first = alert({ createdAt: '2026-11-01T00:00:00.000Z' });
+  const other = alert({ damId: 'swl-norfork-dam', damName: 'Norfork Dam' });
+  const next = applyDamAlert([other, first], TABLE_ROCK, { atStart: true, hourBefore: true }, NOW);
+  assert.deepEqual(next.map((a) => a.damId), ['swl-norfork-dam', TABLE_ROCK.id]);
+  assert.equal(next[1].createdAt, '2026-11-01T00:00:00.000Z');
+  assert.equal(next[1].hourBefore, true);
+});
+
+test('switching both times off removes the alert rather than pausing it', () => {
+  const other = alert({ damId: 'swl-norfork-dam', damName: 'Norfork Dam' });
+  const next = applyDamAlert([alert(), other], TABLE_ROCK, NO_DAM_ALERT, NOW);
+  assert.deepEqual(next.map((a) => a.damId), ['swl-norfork-dam']);
+});
+
+test('the Alerts row says which times are on, and says posted', () => {
+  assert.equal(damAlertSummary({ atStart: true, hourBefore: true }), 'Posted generation: 1 hour before and at the start');
+  assert.equal(damAlertSummary({ atStart: false, hourBefore: true }), 'Posted generation: 1 hour before');
+  assert.equal(damAlertSummary({ atStart: true, hourBefore: false }), 'Posted generation: at the start');
+});
+
+test('the note beside the switches states the limit of a schedule alert', () => {
+  assert.match(DAM_ALERT_NOTE, /posted schedule/);
+  assert.match(DAM_ALERT_NOTE, /at the dam/);
+  assert.match(DAM_ALERT_NOTE, /can start without being posted/);
+});
+
+test('a dam generation push opens its dam, and river or gauge pushes are unchanged', () => {
+  assert.deepEqual(notificationDestination({ damId: TABLE_ROCK.id, kind: 'generation_start' }), {
+    pathname: '/dam/[damId]',
+    params: { damId: TABLE_ROCK.id },
+  });
+  assert.deepEqual(notificationDestination({ riverSlug: 'current', damId: TABLE_ROCK.id }), {
+    pathname: '/river/[slug]',
+    params: { slug: 'current' },
+  });
+  assert.equal(notificationDestination({ damId: '' }), null);
+});

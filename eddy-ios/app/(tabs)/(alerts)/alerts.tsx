@@ -91,12 +91,14 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
+import { DamAlertRow } from '@/components/DamAlertRow';
 import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { HomeScreenWidgetsIntro } from '@/components/HomeScreenWidgetsIntro';
 import { SwipeRow } from '@/components/SwipeRow';
 import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
+import { useDamAlerts } from '@/hooks/useDamAlerts';
 import { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
 import { AlertNotificationSetup } from '@/components/AlertNotificationSetup';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -210,6 +212,9 @@ function AlertsContent() {
     setEnabled,
     remove,
   } = useAlertRules();
+  // Dam generation alerts: "Mine" too, but not AlertRules — see useDamAlerts.
+  // They follow the rules in the list and are counted with them.
+  const { alerts: damAlerts, refresh: refreshDamAlerts, remove: removeDamAlert } = useDamAlerts();
   const notificationSetup = useAlertNotificationSetup();
   const { afterSave: checkSavedNotifications, dismiss: dismissNotifications } = notificationSetup;
   const rulesList = useRef<FlatList<AlertRuleGroup>>(null);
@@ -304,11 +309,12 @@ function AlertsContent() {
       if (state === 'active') {
         refreshStale();
         void refreshRules();
+        void refreshDamAlerts();
       }
     });
     const timer = setInterval(() => setClock(Date.now()), 60_000);
     return () => { subscription.remove(); clearInterval(timer); };
-  }, [load, loadNotices, refreshRules]));
+  }, [load, loadNotices, refreshRules, refreshDamAlerts]));
 
 
   /**
@@ -325,14 +331,15 @@ function AlertsContent() {
   useFocusEffect(
     useCallback(() => {
       void refreshRules();
-    }, [refreshRules]),
+      void refreshDamAlerts();
+    }, [refreshRules, refreshDamAlerts]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([load(), loadNotices(), refreshRules()]);
+    await Promise.all([load(), loadNotices(), refreshRules(), refreshDamAlerts()]);
     setRefreshing(false);
-  }, [load, loadNotices, refreshRules]);
+  }, [load, loadNotices, refreshRules, refreshDamAlerts]);
 
   /**
    * A rule's switch — a river alert's, a gauge alert's, either.
@@ -401,6 +408,16 @@ function AlertsContent() {
   // A river and the gauges on it are ONE row now — see src/lib/alertGroups.ts
   // for what was wrong with four cards all called "Current River".
   const ruleGroups = useMemo(() => groupAlertRules(rules ?? []), [rules]);
+  const damRows = damAlerts ?? [];
+
+  /** Delete a dam alert from the swipe. The hook puts the row back on failure. */
+  const removeDam = useCallback(
+    (damId: string) => {
+      setRuleError(null);
+      return removeDamAlert(damId).catch(() => setRuleError('Could not delete that alert.'));
+    },
+    [removeDamAlert],
+  );
 
   const showingRules = segment === 'rules';
   const showingNotices = segment === 'notices';
@@ -499,7 +516,7 @@ function AlertsContent() {
           so the second word was the title again, and the three labels only
           have to differ from each other. */}
       <View style={styles.toggleRow} accessibilityRole="tablist">
-        {segmentButton('rules', 'Mine', rulesReady ? (rules?.length ?? null) : null)}
+        {segmentButton('rules', 'Mine', rulesReady && rules ? rules.length + damRows.length : null)}
         {segmentButton('high-water', 'Running high', highWater?.length ?? null)}
         {segmentButton('notices', 'Notices', notices?.length ?? null)}
       </View>
@@ -553,7 +570,7 @@ function AlertsContent() {
             <>
               {header}
               <View style={{ marginHorizontal: 20 }}>
-                <AlertNotificationSetup setup={notificationSetup} active={ruleGroups.some(({ rule }) => rule.enabled && !(rule.oneShot && rule.firedAt))} />
+                <AlertNotificationSetup setup={notificationSetup} active={damRows.length > 0 || ruleGroups.some(({ rule }) => rule.enabled && !(rule.oneShot && rule.firedAt))} />
               </View>
               <QuietHoursRow />
               {/* A one-time, dismissible widget discovery card, then a small
@@ -562,7 +579,34 @@ function AlertsContent() {
               <HomeScreenWidgetsIntro />
             </>
           }
-          ListEmptyComponent={
+          // Dam alerts follow the rules. With only dam alerts the list is not
+          // empty, so "No alerts yet" must not sit above them.
+          ListFooterComponent={
+            damRows.length > 0 ? (
+              <View>
+                {damRows.map((alert) => (
+                  <SwipeRow
+                    key={alert.damId}
+                    onAction={() => removeDam(alert.damId)}
+                    actionLabel="Delete"
+                    bottomInset={10}
+                    accessibilityActionLabel={`Delete the generation alert for ${alert.damName}`}
+                    confirm={{
+                      title: 'Delete this alert?',
+                      message: `You will stop being notified about posted generation at ${alert.damName}. This cannot be undone.`,
+                    }}
+                  >
+                    <DamAlertRow
+                      alert={alert}
+                      // The dam screen holds the two switches this row summarises.
+                      onPress={() => router.push({ pathname: '/dam/[damId]', params: { damId: alert.damId } })}
+                    />
+                  </SwipeRow>
+                ))}
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={damRows.length > 0 ? null : (
             <View style={styles.empty}>
               {!rulesReady ? (
                 <ActivityIndicator color={colors.interactive} />
@@ -637,7 +681,7 @@ function AlertsContent() {
                 </>
               )}
             </View>
-          }
+          )}
           renderItem={({ item }) => {
             const parent = item.rule;
             const name = parent.riverName ?? parent.gaugeName ?? 'this water';
