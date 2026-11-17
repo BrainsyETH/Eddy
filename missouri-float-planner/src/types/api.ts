@@ -48,6 +48,8 @@ export interface RiverListItem extends River {
     gaugeHeightFt: number | null;
     dischargeCfs: number | null;
     readingAgeHours: number | null;
+    /** Observation time; optional for older cached responses. */
+    readingTimestamp?: string | null;
     /**
      * Words only, no delta — see RiverReadingTrend in packages/eddy-types for
      * why a raw delta must not cross an API that serves both ft and cfs rivers.

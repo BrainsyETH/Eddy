@@ -317,6 +317,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
                 condition.discharge_cfs == null ? null : Number(condition.discharge_cfs),
               readingAgeHours:
                 condition.reading_age_hours == null ? null : Number(condition.reading_age_hours),
+              readingTimestamp: condition.reading_timestamp ?? null,
               // Words only. GaugeTrend's `delta` is deliberately dropped here —
               // it is unit-dependent and would be meaningless on a cfs river.
               trend: trend
