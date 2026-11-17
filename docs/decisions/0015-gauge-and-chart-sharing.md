@@ -57,8 +57,9 @@ it on touch devices or copies or downloads it on desktop; on iOS the system
 share sheet is the preview and receives the file together with the link text.
 Shared titles and link-preview metadata name the station and the visible
 station-calendar dates (`chartShareTitle`), not a bare site number. Web share
-controls use the system share sheet only on touch devices and copy on
-desktop, matching the site's other Share buttons. Image preparation requires
+controls group actions under Share. Copy chart link copies on every device;
+image sharing uses the system share sheet on touch devices and copy/download
+on desktop. Image preparation requires
 internet; link sharing does not wait for it. Transient render/data failures return retryable 503 responses and are never
 cached. Missing saved station/history/river context returns a typed 422 for
 image attachments. Social metadata requests `preview=1` and receive a neutral

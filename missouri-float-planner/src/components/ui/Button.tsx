@@ -27,7 +27,7 @@ import Link from 'next/link';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import { cx } from '@/lib/utils/cx';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'icon' | 'outline';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'icon' | 'outline' | 'control';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
@@ -36,6 +36,7 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   ghost: 'btn-ghost',
   icon: 'btn-icon',
   outline: 'btn-outline',
+  control: 'btn-control',
 };
 
 const SIZE_CLASS: Record<ButtonSize, string | null> = {
