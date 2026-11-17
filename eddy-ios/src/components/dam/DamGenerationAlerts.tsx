@@ -17,26 +17,43 @@
 // on a dam with no posted schedule could never fire, and the server refuses to
 // save one.
 //
-// ── The gate ────────────────────────────────────────────────────────────────
+// ── A switch saves itself, and only itself ──────────────────────────────────
 //
-// useAlertGate, as the river bell and the alert editor use it: a permanent
-// session to write, the sign-in sheet on 401/403, and the push primer once an
-// alert exists. The change that opened the sign-in sheet is kept and finished
-// after signing in, so the switch someone flicked is the one that ends up on.
+// Flicking a switch sends that one time; the server keeps the other. The card
+// used to send both from its own copy of the alert, and while that copy was
+// loading both read off — so switching "an hour before" on silently cleared a
+// saved "at the start". Two guards now: the switches wait for the saved
+// settings before they accept a tap, and a tap could not clear the other
+// switch even if they did not. The change that opened the sign-in sheet is
+// kept as that same single switch and finished after signing in.
+//
+// ── An alert that is on, on a phone that can receive it ─────────────────────
+//
+// Saving succeeds whether or not this iPhone can be notified, and those are
+// separate facts. useAlertNotificationSetup is the app's one answer to the
+// second: after a switch is turned on it checks permission and registration
+// afresh, and AlertNotificationSetup keeps the result under the switches for
+// as long as the alert is on — Open iOS Settings when notifications are
+// denied, Turn on notifications when this phone opted out, Try again when it
+// is not registered, and the primer when iOS has never been asked. So the
+// primer is opened from there, not by useAlertGate; two paths would show two.
 
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
+import type { DamGenerationAlert } from '@eddy/types';
 import { ApiError } from '@/api/client';
+import { AlertNotificationSetup } from '@/components/AlertNotificationSetup';
 import { AlertSignInSheet } from '@/components/AlertSignInSheet';
-import { PushPrimer } from '@/components/PushPrimer';
 import { useAlertGate } from '@/hooks/useAlertGate';
+import { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
 import { useDamAlerts } from '@/hooks/useDamAlerts';
 import {
   DAM_ALERT_NOTE,
   DAM_ALERT_PROMISE,
   damAlertTimes,
   hasDamAlert,
-  type DamAlertTimes,
+  turnsDamAlertOn,
+  type DamAlertChange,
 } from '@/lib/damAlerts';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -48,28 +65,50 @@ interface Props {
 
 export function DamGenerationAlerts({ dam }: Props) {
   const { colors, elevation } = useTheme();
-  const { alerts, save } = useDamAlerts();
+  const { alerts, ready, save } = useDamAlerts();
   const gate = useAlertGate();
+  const notificationSetup = useAlertNotificationSetup();
+  const { afterSave: checkNotifications, dismiss: dismissNotifications } = notificationSetup;
   const [error, setError] = useState<string | null>(null);
-  // The change waiting on a sign-in. A ref: nothing renders from it.
-  const pending = useRef<DamAlertTimes | null>(null);
+  // The one switch waiting on a sign-in. A ref: nothing renders from it.
+  const pending = useRef<DamAlertChange | null>(null);
 
   const times = damAlertTimes(alerts, dam.id);
+  const alertOn = hasDamAlert(times);
+  // The notice draws nothing when this iPhone can receive the alert, so the
+  // gap above it is only added when there is something to separate.
+  const showsSetup = alertOn && Boolean(notificationSetup.notice || notificationSetup.busy || notificationSetup.error);
+  // Until the saved settings answer, the switches would show "off" for an
+  // alert that may be on. They wait rather than invite a tap on a guess.
+  const loading = !ready;
 
   const apply = useCallback(
-    async (next: DamAlertTimes) => {
+    async (change: DamAlertChange) => {
       setError(null);
-      pending.current = next;
+      pending.current = change;
       try {
+        // A holder, because the write runs inside the gate's callback.
+        const outcome: { alert: DamGenerationAlert | null } = { alert: null };
         const result = await gate.run(
           async (token) => {
-            await save(token, dam, next);
+            outcome.alert = await save(token, dam, change);
           },
-          // Switching the last time off must never ask for permission to send.
-          { primes: hasDamAlert(next) },
+          // The primer is opened by the notification check below, with the
+          // dam's own wording. Left to the gate as well it would open twice.
+          { primes: false },
         );
-        // Not written means the sign-in sheet is up; keep the change for it.
-        if (result.wrote) pending.current = null;
+        // Not written means the sign-in sheet is up; keep the switch for it.
+        if (!result.wrote) return;
+        pending.current = null;
+
+        if (outcome.alert && turnsDamAlertOn(change)) {
+          // A time was switched on: can this iPhone actually receive it?
+          // Never rolls back or reports on the save, which already succeeded.
+          await checkNotifications(Promise.resolve(), true);
+        } else if (!outcome.alert) {
+          // No alert left, so nothing for a notice or a primer to be about.
+          dismissNotifications();
+        }
       } catch (err) {
         pending.current = null;
         // The route writes its refusals for a person; a dropped connection or
@@ -78,18 +117,19 @@ export function DamGenerationAlerts({ dam }: Props) {
         setError(refusal ? err.message : 'Could not change that alert. Try again.');
       }
     },
-    [gate, save, dam],
+    [gate, save, dam, checkNotifications, dismissNotifications],
   );
 
-  const row = (label: string, value: boolean, next: DamAlertTimes, a11y: string) => (
+  const row = (label: string, value: boolean, change: DamAlertChange, a11y: string) => (
     <View style={styles.row}>
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
       <Switch
         value={value}
-        disabled={gate.busy}
-        onValueChange={() => void apply(next)}
+        disabled={gate.busy || loading}
+        onValueChange={() => void apply(change)}
         trackColor={{ true: colors.interactive, false: colors.border }}
         accessibilityLabel={a11y}
+        accessibilityState={{ disabled: gate.busy || loading, busy: gate.busy || loading }}
       />
     </View>
   );
@@ -98,20 +138,26 @@ export function DamGenerationAlerts({ dam }: Props) {
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.titleRow}>
         <Text style={[styles.title, { color: colors.text }]}>Alert me about posted generation</Text>
-        {gate.busy ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
+        {gate.busy || loading ? (
+          <ActivityIndicator
+            size="small"
+            color={colors.textMuted}
+            accessibilityLabel={loading ? 'Loading your alert settings' : 'Saving'}
+          />
+        ) : null}
       </View>
 
       {row(
         '1 hour before it starts',
         times.hourBefore,
-        { ...times, hourBefore: !times.hourBefore },
+        { hourBefore: !times.hourBefore },
         `Notify me 1 hour before generation is posted to start at ${dam.name}`,
       )}
       <View style={[styles.rule, { backgroundColor: colors.border }]} />
       {row(
         'When it’s posted to start',
         times.atStart,
-        { ...times, atStart: !times.atStart },
+        { atStart: !times.atStart },
         `Notify me when generation is posted to start at ${dam.name}`,
       )}
 
@@ -122,30 +168,30 @@ export function DamGenerationAlerts({ dam }: Props) {
         </Text>
       ) : null}
 
+      {/* Directly under the switches, and only while an alert is on: whether
+          this iPhone can receive it, and the one action that fixes it. */}
+      <View style={showsSetup ? styles.setup : null}>
+        <AlertNotificationSetup
+          setup={notificationSetup}
+          active={alertOn}
+          primer={{ riverName: dam.name, promise: DAM_ALERT_PROMISE, schedule: { caveat: DAM_ALERT_NOTE } }}
+        />
+      </View>
+
       <AlertSignInSheet
         visible={gate.signInOpen}
         riverName={dam.name}
         onSignedIn={() => {
           gate.setSignInOpen(false);
-          // Finish the switch they flicked, now that there is a session.
+          // Finish the one switch they flicked, now that there is a session.
+          // Still only that switch: an alert already saved on this account
+          // keeps its other time.
           if (pending.current) void apply(pending.current);
         }}
         onDismiss={() => {
           pending.current = null;
           gate.setSignInOpen(false);
         }}
-      />
-      <PushPrimer
-        visible={gate.primerOpen}
-        riverName={dam.name}
-        promise={DAM_ALERT_PROMISE}
-        schedule={{ caveat: DAM_ALERT_NOTE }}
-        onAllow={async () => {
-          gate.setPrimerOpen(false);
-          // Spends the one-shot prompt. The alert exists either way.
-          await gate.enablePush();
-        }}
-        onDismiss={() => gate.setPrimerOpen(false)}
       />
     </View>
   );
@@ -160,4 +206,6 @@ const styles = StyleSheet.create({
   rowLabel: { ...t.base, fontFamily: fonts.body, flex: 1 },
   rule: { height: StyleSheet.hairlineWidth },
   note: { ...t.xs, fontFamily: fonts.body, marginTop: 8, lineHeight: 17 },
+  // The notice carries its own bottom margin; this is only the gap above it.
+  setup: { marginTop: 10 },
 });

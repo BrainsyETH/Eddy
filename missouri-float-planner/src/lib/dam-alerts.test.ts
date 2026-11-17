@@ -3,11 +3,14 @@ import test from 'node:test';
 import type { DamGenerationAlert } from '@eddy/types';
 import {
   applyDamAlert,
+  changedDamAlertTimes,
   DAM_ALERT_NOTE,
   damAlertSummary,
   damAlertTimes,
   hasDamAlert,
   NO_DAM_ALERT,
+  reconcileDamAlert,
+  turnsDamAlertOn,
 } from '../../../eddy-ios/src/lib/damAlerts';
 import { notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
 
@@ -55,6 +58,34 @@ test('switching both times off removes the alert rather than pausing it', () => 
   const other = alert({ damId: 'swl-norfork-dam', damName: 'Norfork Dam' });
   const next = applyDamAlert([alert(), other], TABLE_ROCK, NO_DAM_ALERT, NOW);
   assert.deepEqual(next.map((a) => a.damId), ['swl-norfork-dam']);
+});
+
+test('a switch changes only its own time in what the app shows', () => {
+  assert.deepEqual(changedDamAlertTimes({ atStart: true, hourBefore: false }, { hourBefore: true }), {
+    atStart: true,
+    hourBefore: true,
+  });
+  assert.equal(turnsDamAlertOn({ hourBefore: true }), true);
+  assert.equal(turnsDamAlertOn({ atStart: false }), false);
+});
+
+test('the server answer replaces the guess, bringing back a time the app did not know was on', () => {
+  // The list had not loaded: the app showed both off, the person switched
+  // "1 hour before" on, and the app guessed that was the whole alert.
+  const guess = applyDamAlert([], TABLE_ROCK, changedDamAlertTimes(damAlertTimes(null, TABLE_ROCK.id), { hourBefore: true }), NOW);
+  assert.deepEqual(damAlertTimes(guess, TABLE_ROCK.id), { atStart: false, hourBefore: true });
+
+  // The server kept the "at the start" that was already saved.
+  const saved = alert({ atStart: true, hourBefore: true, createdAt: '2026-11-01T00:00:00.000Z' });
+  const next = reconcileDamAlert(guess, TABLE_ROCK.id, saved);
+  assert.deepEqual(damAlertTimes(next, TABLE_ROCK.id), { atStart: true, hourBefore: true });
+  assert.equal(next[0].createdAt, '2026-11-01T00:00:00.000Z');
+});
+
+test('a null answer removes the alert, and an answer for an unlisted dam is added', () => {
+  const other = alert({ damId: 'swl-norfork-dam', damName: 'Norfork Dam' });
+  assert.deepEqual(reconcileDamAlert([alert(), other], TABLE_ROCK.id, null).map((a) => a.damId), ['swl-norfork-dam']);
+  assert.deepEqual(reconcileDamAlert([other], TABLE_ROCK.id, alert()).map((a) => a.damId), [TABLE_ROCK.id, 'swl-norfork-dam']);
 });
 
 test('the Alerts row says which times are on, and says posted', () => {

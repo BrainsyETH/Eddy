@@ -20,6 +20,28 @@ export interface DamAlertTimes {
 export const NO_DAM_ALERT: DamAlertTimes = { atStart: false, hourBefore: false };
 
 /**
+ * One switch moving: only the time that changed.
+ *
+ * ── Why a change and not the whole alert ────────────────────────────────────
+ * The card first sent both times, read from this app's copy of the alert.
+ * While that copy was still loading both read off, so switching "an hour
+ * before" on sent `atStart: false` with it and silently cleared a saved "at
+ * the start". The server holds the truth, so the app now says only what the
+ * person changed and the server keeps the rest (mergeAlertTimes there).
+ */
+export type DamAlertChange = Partial<DamAlertTimes>;
+
+/** The times this app should SHOW after a change, until the server answers. */
+export function changedDamAlertTimes(current: DamAlertTimes, change: DamAlertChange): DamAlertTimes {
+  return { ...current, ...change };
+}
+
+/** True when the change switches a time on, which is when a push becomes owed. */
+export function turnsDamAlertOn(change: DamAlertChange): boolean {
+  return change.atStart === true || change.hourBefore === true;
+}
+
+/**
  * Said beside the switches and under the Alerts row.
  *
  * The limit is the point of saying it: generation has started early, and
@@ -66,6 +88,26 @@ export function applyDamAlert(
     return alerts.map((entry) => (entry.damId === dam.id ? { ...entry, ...times } : entry));
   }
   return [{ damId: dam.id, damName: dam.name, ...times, createdAt: nowIso }, ...others];
+}
+
+/**
+ * The list after the server answered a save: its alert replaces this app's
+ * guess, and null means the alert is gone.
+ *
+ * The answer can differ from the guess. It carries the switch the app did not
+ * send, as the server holds it — which is how a switch that was on all along,
+ * and read off because the list had not loaded, comes back on.
+ */
+export function reconcileDamAlert(
+  alerts: readonly DamGenerationAlert[],
+  damId: string,
+  saved: DamGenerationAlert | null,
+): DamGenerationAlert[] {
+  if (!saved) return alerts.filter((entry) => entry.damId !== damId);
+  if (alerts.some((entry) => entry.damId === damId)) {
+    return alerts.map((entry) => (entry.damId === damId ? saved : entry));
+  }
+  return [saved, ...alerts];
 }
 
 /** One line for the Alerts row: which of the two times are on. */

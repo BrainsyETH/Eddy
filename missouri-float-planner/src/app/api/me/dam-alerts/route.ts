@@ -1,17 +1,21 @@
 // src/app/api/me/dam-alerts/route.ts
 // GET    /api/me/dam-alerts          — the caller's dam generation alerts
-// PUT    /api/me/dam-alerts          — set one ({ damId, atStart, hourBefore })
+// PUT    /api/me/dam-alerts          — set one ({ damId, atStart?, hourBefore? })
 // DELETE /api/me/dam-alerts?damId=…  — remove one
 //
 // A dam generation alert pushes when generation is POSTED to start at a dam:
 // at the posted time, an hour before it, or both. ADR 0020 has the decision;
 // src/lib/alerts/dam-generation.ts has the rules; the delivery cron sends.
 //
-// ── One alert per dam, set as a whole ───────────────────────────────────────
-// PUT, not POST and PATCH: the alert is two switches on the dam screen, and
-// the app sends both every time. Switching both off deletes the row — an alert
-// with no time to fire at is not a paused alert, it is nothing — and the
-// response says so with `alert: null`.
+// ── One alert per dam, changed one switch at a time ─────────────────────────
+// The alert is two switches on the dam screen, and the app sends ONLY THE ONE
+// THAT MOVED. The other keeps whatever the server holds. It first sent both,
+// read from its own copy of the alert — and before that copy had loaded, both
+// read off, so switching "an hour before" on silently cleared a saved "at the
+// start". The server holds the truth, so the server does the merge.
+//
+// Both ending up off deletes the row — an alert with no time to fire at is not
+// a paused alert, it is nothing — and the response says so with `alert: null`.
 //
 // ── Free, and a permanent account to write ──────────────────────────────────
 // Free for the reason every alert is (see /api/me/alert-subscriptions). A
@@ -30,6 +34,7 @@ import { jsonPrivate } from '@/lib/api-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import { requirePermanentUser, requireUser } from '@/lib/supabase/request';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
+import { mergeAlertTimes } from '@/lib/alerts/dam-generation';
 import type { DamGenerationAlert, DamGenerationAlertResponse, DamGenerationAlertsResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
@@ -114,22 +119,52 @@ export async function PUT(request: NextRequest) {
     if (!body || typeof body.damId !== 'string' || !body.damId) {
       return jsonPrivate({ error: 'damId required' }, { status: 400 });
     }
-    if (typeof body.atStart !== 'boolean' || typeof body.hourBefore !== 'boolean') {
-      return jsonPrivate({ error: 'atStart and hourBefore must be true or false' }, { status: 400 });
+    const sent = (value: unknown) => value !== undefined;
+    if (
+      (!sent(body.atStart) && !sent(body.hourBefore)) ||
+      (sent(body.atStart) && typeof body.atStart !== 'boolean') ||
+      (sent(body.hourBefore) && typeof body.hourBefore !== 'boolean')
+    ) {
+      return jsonPrivate({ error: 'Send atStart, hourBefore or both, as true or false' }, { status: 400 });
     }
     const damId = body.damId;
 
+    // What is saved now. The switch that was not sent keeps this value.
+    const { data: existing, error: readError } = await supabase
+      .from('dam_generation_alerts')
+      .select(SELECT)
+      .eq('user_id', user.id)
+      .eq('dam_id', damId)
+      .maybeSingle();
+    if (readError) {
+      if (tableMissing(readError)) {
+        return jsonPrivate({ error: 'Dam alerts are not available yet. Try again soon.' }, { status: 503 });
+      }
+      console.error('Error reading dam alert:', readError);
+      return jsonPrivate({ error: 'Could not change that alert' }, { status: 500 });
+    }
+    const current = existing as unknown as Row | null;
+    const { atStart, hourBefore } = mergeAlertTimes(
+      current ? { atStart: current.notify_at_start, hourBefore: current.notify_hour_before } : null,
+      {
+        ...(typeof body.atStart === 'boolean' ? { atStart: body.atStart } : {}),
+        ...(typeof body.hourBefore === 'boolean' ? { hourBefore: body.hourBefore } : {}),
+      },
+    );
+
     // Both off: there is no alert. Not validated against the registry, for the
     // reason DELETE is not — removing must work for a dam that has since left.
-    if (!body.atStart && !body.hourBefore) {
-      const { error } = await supabase
-        .from('dam_generation_alerts')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('dam_id', damId);
-      if (error && !tableMissing(error)) {
-        console.error('Error removing dam alert:', error);
-        return jsonPrivate({ error: 'Could not change that alert' }, { status: 500 });
+    if (!atStart && !hourBefore) {
+      if (current) {
+        const { error } = await supabase
+          .from('dam_generation_alerts')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('dam_id', damId);
+        if (error) {
+          console.error('Error removing dam alert:', error);
+          return jsonPrivate({ error: 'Could not change that alert' }, { status: 500 });
+        }
       }
       return jsonPrivate({ alert: null } satisfies DamGenerationAlertResponse);
     }
@@ -149,8 +184,8 @@ export async function PUT(request: NextRequest) {
         {
           user_id: user.id,
           dam_id: damId,
-          notify_at_start: body.atStart,
-          notify_hour_before: body.hourBefore,
+          notify_at_start: atStart,
+          notify_hour_before: hourBefore,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,dam_id' },
@@ -159,9 +194,6 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error || !data) {
-      if (tableMissing(error)) {
-        return jsonPrivate({ error: 'Dam alerts are not available yet. Try again soon.' }, { status: 503 });
-      }
       console.error('Error saving dam alert:', error);
       return jsonPrivate({ error: 'Could not save that alert' }, { status: 500 });
     }

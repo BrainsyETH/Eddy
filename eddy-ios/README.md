@@ -2238,7 +2238,10 @@ to start", for a dam with a posted hourly schedule. They follow the posted
 schedule and do not confirm that generation began; the card and the push primer
 say that generation can start without being posted (`DAM_ALERT_NOTE` in
 `src/lib/damAlerts.ts`). There is no paused state: both switches off removes
-the alert. They are held by `useDamAlerts` (`/api/me/dam-alerts`), not
+the alert. A switch saves only itself (the server keeps the other), and the
+switches wait for the saved settings before accepting a tap. After a time is
+switched on the card runs the same notification check as the alert editor and
+keeps its notice and action under the switches. They are held by `useDamAlerts` (`/api/me/dam-alerts`), not
 `useAlertRules`, and listed after the rules on Mine, where a row opens the dam
 and a swipe deletes. A push carries `damId` and opens that dam. The decision
 and its limits are in

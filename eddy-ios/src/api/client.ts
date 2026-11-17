@@ -1941,15 +1941,17 @@ export async function fetchDamAlerts(
 }
 
 /**
- * Set one dam's alert as a whole. Both false removes it, and the server
- * answers null.
+ * Change one dam's alert: send ONLY the switch that moved. The server keeps
+ * the other as it holds it and answers with the result, or null when both
+ * times are now off. See DamAlertChange in src/lib/damAlerts.ts for why the
+ * whole alert is not sent.
  *
  * Through writeJson, so a 401 or 403 arrives as an ApiError with its status:
  * useAlertGate turns exactly those into the sign-in sheet.
  */
 export async function saveDamAlert(
   token: string,
-  input: { damId: string; atStart: boolean; hourBefore: boolean },
+  input: { damId: string; atStart?: boolean; hourBefore?: boolean },
 ): Promise<DamGenerationAlert | null> {
   const data = await writeJson<DamGenerationAlertResponse>('/api/me/dam-alerts', token, 'PUT', input);
   return data.alert ?? null;

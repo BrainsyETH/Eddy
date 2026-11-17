@@ -8,7 +8,12 @@ import { FakeOutboxDb } from './fake-outbox-db';
 import {
   buildDamGenerationNotification,
   dueNotices,
+  freshPostedSchedule,
+  mergeAlertTimes,
   postedStarts,
+  pushTtlSeconds,
+  scheduleDayIsFresh,
+  startStanding,
   startTimeLabel,
   type DamAlertRow,
 } from './dam-generation';
@@ -19,8 +24,16 @@ import type { DamScheduleDay } from '@shared/dam-types';
 const DAM = 'swl-table-rock-dam';
 const MINUTE = 60_000;
 
-/** A schedule day generating in the given hour-endings; `floor` marks every other hour minimum flow. */
-function day(scheduleDate: string, generating: number[], options: { floor?: boolean } = {}): DamScheduleDay {
+/**
+ * A schedule day generating in the given hour-endings; `floor` marks every
+ * other hour minimum flow. `retrievedAt` is when Eddy fetched the sheet, which
+ * is what freshness is measured on.
+ */
+function day(
+  scheduleDate: string,
+  generating: number[],
+  options: { floor?: boolean; retrievedAt?: string | null } = {},
+): DamScheduleDay {
   return {
     scheduleDate,
     hours: Array.from({ length: 24 }, (_, i) => {
@@ -35,7 +48,7 @@ function day(scheduleDate: string, generating: number[], options: { floor?: bool
       };
     }),
     idle: [],
-    retrievedAt: null,
+    retrievedAt: options.retrievedAt === undefined ? '2026-07-25T18:35:00.000Z' : options.retrievedAt,
   };
 }
 
@@ -115,6 +128,20 @@ test('a dam with no known schedule this pass has nothing due', () => {
   assert.deepEqual(dueNotices([{ ...ALERT, dam_id: 'swl-norfork-dam' }], STARTS, START_3PM), []);
 });
 
+// ── Saving one switch ────────────────────────────────────────────────────────
+
+test('saving one switch leaves the other as the server holds it', () => {
+  const atStartOnly = { atStart: true, hourBefore: false };
+  // The reported bug: "at the start" saved, then "an hour before" switched on.
+  assert.deepEqual(mergeAlertTimes(atStartOnly, { hourBefore: true }), { atStart: true, hourBefore: true });
+  assert.deepEqual(mergeAlertTimes(atStartOnly, { atStart: false }), { atStart: false, hourBefore: false });
+  assert.deepEqual(mergeAlertTimes({ atStart: true, hourBefore: true }, { hourBefore: false }), atStartOnly);
+  // No alert yet: the switch not sent starts off.
+  assert.deepEqual(mergeAlertTimes(null, { hourBefore: true }), { atStart: false, hourBefore: true });
+  // Both sent: both taken.
+  assert.deepEqual(mergeAlertTimes(atStartOnly, { atStart: false, hourBefore: true }), { atStart: false, hourBefore: true });
+});
+
 // ── Copy ─────────────────────────────────────────────────────────────────────
 
 const bodyAt = (leadMinutes: 0 | 60, minutesFromStart: number) =>
@@ -125,12 +152,12 @@ const bodyAt = (leadMinutes: 0 | 60, minutesFromStart: number) =>
     now: START_3PM + minutesFromStart * MINUTE,
   }).body;
 
-test('the wait in the push is measured when it is sent, not assumed from the lead', () => {
-  assert.equal(bodyAt(60, -60), 'Generation is posted to start at the dam at 3 PM Central, about an hour from now.');
+test('the clock time leads, and the wait is measured when the push is sent', () => {
+  assert.equal(bodyAt(60, -60), '3 PM Central: generation is posted to start at the dam. About an hour from now.');
   // The same "hour before" notice, sent twenty-five minutes late.
-  assert.equal(bodyAt(60, -35), 'Generation is posted to start at the dam at 3 PM Central, in about 35 minutes.');
-  assert.equal(bodyAt(0, 0), 'Generation is posted to start at the dam now, at 3 PM Central.');
-  assert.equal(bodyAt(0, 20), 'Generation was posted to start at the dam at 3 PM Central.');
+  assert.equal(bodyAt(60, -35), '3 PM Central: generation is posted to start at the dam. In about 35 minutes.');
+  assert.equal(bodyAt(0, 0), '3 PM Central: generation is posted to start at the dam. That is now.');
+  assert.equal(bodyAt(0, 20), '3 PM Central: generation was posted to start at the dam.');
 });
 
 test('every push says posted, at the dam, and Central, and never claims generation began', () => {
@@ -142,10 +169,45 @@ test('every push says posted, at the dam, and Central, and never claims generati
       now: START_3PM + offset * MINUTE,
     });
     assert.equal(title, 'Table Rock Dam');
-    assert.match(body, /posted to start at the dam/);
-    assert.match(body, /Central/);
+    // Read hours later in Notification Center, the first sentence still stands.
+    assert.match(body, /^3 PM Central: generation (is|was) posted to start at the dam\./);
     assert.doesNotMatch(body, /has started|is running|generating now|units|water (is )?(on|off)/i);
   }
+});
+
+test('a push expires with its send window, so an offline phone is not told late', () => {
+  // Hour-before, sent on time: the window closes 30 minutes later.
+  assert.equal(pushTtlSeconds(START_3PM, 60, START_3PM - 60 * MINUTE), 30 * 60);
+  // Sent 25 minutes into the window: five minutes left.
+  assert.equal(pushTtlSeconds(START_3PM, 60, START_3PM - 35 * MINUTE), 5 * 60);
+  assert.equal(pushTtlSeconds(START_3PM, 0, START_3PM), 30 * 60);
+  // Never zero or negative, which a push service would read as "keep it".
+  assert.equal(pushTtlSeconds(START_3PM, 0, START_3PM + 30 * MINUTE), 60);
+});
+
+// ── Freshness: by the sheet's own fetch time ─────────────────────────────────
+
+test('a posted day is fresh for three hours after Eddy fetched it, and never when undated', () => {
+  const now = Date.parse('2026-07-25T19:00:00.000Z');
+  assert.equal(scheduleDayIsFresh({ retrievedAt: '2026-07-25T16:00:01.000Z' }, now), true);
+  assert.equal(scheduleDayIsFresh({ retrievedAt: '2026-07-25T16:00:00.000Z' }, now), false);
+  // One failed hourly read (a sheet about two hours old) still alerts.
+  assert.equal(scheduleDayIsFresh({ retrievedAt: '2026-07-25T17:05:00.000Z' }, now), true);
+  assert.equal(scheduleDayIsFresh({ retrievedAt: null }, now), false);
+  assert.equal(scheduleDayIsFresh({ retrievedAt: 'not a date' }, now), false);
+});
+
+test('a queued start is posted, withdrawn or unconfirmed against the schedule known now', () => {
+  const now = Date.parse('2026-07-25T19:05:00.000Z');
+  const fresh = freshPostedSchedule([day('2026-07-25', AFTERNOON)], now);
+  assert.equal(startStanding(fresh, START_3PM), 'posted');
+  // A fresh sheet for that day without the start: it was withdrawn.
+  assert.equal(startStanding(freshPostedSchedule([day('2026-07-25', [])], now), START_3PM), 'withdrawn');
+  // The sheet is too old to say, the day is not held, or there is no snapshot.
+  const old = freshPostedSchedule([day('2026-07-25', AFTERNOON, { retrievedAt: '2026-07-25T14:00:00.000Z' })], now);
+  assert.equal(startStanding(old, START_3PM), 'unconfirmed');
+  assert.equal(startStanding(freshPostedSchedule([day('2026-07-26', AFTERNOON)], now), START_3PM), 'unconfirmed');
+  assert.equal(startStanding(undefined, START_3PM), 'unconfirmed');
 });
 
 // ── The delivery pass ────────────────────────────────────────────────────────
@@ -195,8 +257,10 @@ test('one push an hour before and one at the posted time, each sent once across 
   assert.equal(t.messages.length, 2);
 
   assert.equal(t.messages[0].title, 'Table Rock Dam');
-  assert.match(String(t.messages[0].body), /3 PM Central, about an hour from now/);
-  assert.match(String(t.messages[1].body), /start at the dam now, at 3 PM Central/);
+  assert.match(String(t.messages[0].body), /^3 PM Central: .*About an hour from now\.$/);
+  assert.match(String(t.messages[1].body), /^3 PM Central: .*That is now\.$/);
+  // Each push dies with its own half-hour window.
+  assert.deepEqual(t.messages.map((m) => m.ttl), [30 * 60, 30 * 60]);
   // One routing key, and no river or gauge for an older build to follow.
   assert.deepEqual(
     { damId: t.messages[0].data?.damId, kind: t.messages[0].data?.kind, riverSlug: t.messages[0].data?.riverSlug, gaugeSiteId: t.messages[0].data?.gaugeSiteId },
@@ -219,7 +283,7 @@ test('before the migration is applied the pass reports not ready, and is not an 
 
 test('quiet hours hold a dam alert back, and the notice is not retried after them', async () => {
   // Generation posted for 6 AM; the hour-before notice falls at 5 AM Central (10:00Z).
-  const db = world({}, [day('2026-07-25', [7, 8, 9])]).seed('notification_preferences', [
+  const db = world({}, [day('2026-07-25', [7, 8, 9], { retrievedAt: '2026-07-25T09:35:00.000Z' })]).seed('notification_preferences', [
     {
       user_id: 'u1',
       quiet_hours_enabled: true,
@@ -229,7 +293,6 @@ test('quiet hours hold a dam alert back, and the notice is not retried after the
       safety_overrides_quiet: true,
     },
   ]);
-  (db.rows('dam_snapshots')[0] as Record<string, unknown>).built_at = '2026-07-25T09:35:00.000Z';
   const t = transport();
 
   const stats = await run(db, '2026-07-25T10:00:00.000Z', t);
@@ -238,13 +301,61 @@ test('quiet hours hold a dam alert back, and the notice is not retried after the
   assert.deepEqual(events(db).map((e) => e.push_outcome), ['skipped']);
 });
 
-test('a schedule older than three hours queues nothing', async () => {
-  const db = world();
-  (db.rows('dam_snapshots')[0] as Record<string, unknown>).built_at = '2026-07-25T15:59:00.000Z';
+test('an old sheet inside a freshly rebuilt snapshot queues nothing', async () => {
+  // The carry-forward case: the row was rebuilt five minutes ago, around a
+  // sheet Eddy last fetched five hours ago.
+  const db = world({}, [day('2026-07-25', AFTERNOON, { retrievedAt: '2026-07-25T14:00:00.000Z' })]);
+  (db.rows('dam_snapshots')[0] as Record<string, unknown>).built_at = '2026-07-25T18:55:00.000Z';
+  const t = transport();
+  const stats = await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(stats.due, 0);
+  assert.equal(t.messages.length, 0);
+  assert.equal(events(db).length, 0);
+});
+
+test('a sheet with no fetch time queues nothing', async () => {
+  const db = world({}, [day('2026-07-25', AFTERNOON, { retrievedAt: null })]);
   const t = transport();
   await run(db, '2026-07-25T19:00:00.000Z', t);
   assert.equal(t.messages.length, 0);
   assert.equal(events(db).length, 0);
+});
+
+test('a retry is not sent on a sheet that has gone stale, and goes out once a fresh one confirms it', async () => {
+  // Fetched 16:10: fresh at 19:00 when the notice is queued, stale by 19:10.
+  const db = world({ notify_at_start: false }, [day('2026-07-25', AFTERNOON, { retrievedAt: '2026-07-25T16:10:00.000Z' })]);
+  const t = transport(new Set(['ExponentPushToken[u1]']));
+  await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(events(db)[0].push_attempts, 1);
+
+  t.failing.clear();
+  const heldPass = await run(db, '2026-07-25T19:15:00.000Z', t);
+  assert.equal(heldPass.unconfirmed, 1);
+  assert.equal(t.messages.length, 0, 'Not sent on the stale sheet');
+  assert.equal(events(db)[0].push_delivered_at, undefined, 'Not thrown away either');
+  assert.equal(events(db)[0].push_attempts, 1, 'Waiting does not spend an attempt');
+
+  // The hourly rebuild lands with a fresh read of the same sheet.
+  (db.rows('dam_snapshots')[0] as Record<string, unknown>).schedule = [
+    day('2026-07-25', AFTERNOON, { retrievedAt: '2026-07-25T19:18:00.000Z' }),
+  ];
+  await run(db, '2026-07-25T19:20:00.000Z', t);
+  assert.equal(t.messages.length, 1);
+  assert.equal(t.messages[0].ttl, 10 * 60);
+  assert.equal(events(db)[0].push_outcome, 'sent');
+});
+
+test('a queue write that fails is reported, and the notice still goes out on the next pass', async () => {
+  const db = world({ notify_at_start: false }).fail({ table: 'dam_generation_alert_events', mode: 'upsert', times: 1 });
+  const t = transport();
+  const failed = await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(failed.due, 1);
+  assert.ok(failed.error, 'One due, none queued, must not read as a clean run');
+  assert.equal(t.messages.length, 0);
+
+  const recovered = await run(db, '2026-07-25T19:05:00.000Z', t);
+  assert.equal(recovered.error, undefined);
+  assert.equal(t.messages.length, 1);
 });
 
 test('a time switched off after its notice was queued is not sent', async () => {
@@ -267,6 +378,7 @@ test('a start that has left the posted schedule is not announced', async () => {
   const t = transport();
   await run(db, '2026-07-25T19:00:00.000Z', t);
 
+  // A fresh sheet for the same day, with no generation on it.
   (db.rows('dam_snapshots')[0] as Record<string, unknown>).schedule = [day('2026-07-25', [])];
   const stats = await run(db, '2026-07-25T19:05:00.000Z', t);
   assert.equal(stats.gated, 1);
@@ -284,7 +396,7 @@ test('a failed send is retried on the next pass, inside the window', async () =>
   t.failing.clear();
   await run(db, '2026-07-25T19:05:00.000Z', t);
   assert.equal(t.messages.length, 1);
-  assert.match(String(t.messages[0].body), /in about 55 minutes|about an hour from now/);
+  assert.match(String(t.messages[0].body), /In about 55 minutes|About an hour from now/);
   assert.equal(events(db)[0].push_outcome, 'sent');
 });
 

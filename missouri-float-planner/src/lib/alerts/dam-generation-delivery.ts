@@ -33,11 +33,14 @@ import {
   buildDamGenerationNotification,
   DAM_GENERATION_KIND,
   dueNotices,
+  freshPostedSchedule,
   inSendWindow,
   leadsOf,
-  postedStarts,
+  pushTtlSeconds,
+  startStanding,
   type DamAlertRow,
   type LeadMinutes,
+  type PostedSchedule,
   type PostedStart,
 } from './dam-generation';
 import { toPreferences } from './gauge-delivery';
@@ -51,15 +54,6 @@ import { logger } from '@/lib/logger';
 
 export const MAX_ATTEMPTS = 5;
 const EVENT_BATCH = 200;
-
-/**
- * How old a stored dam snapshot may be before its schedule is not read.
- *
- * The same three hours the dam routes use (dam-snapshot-store.ts MAX_AGE_MS),
- * restated rather than imported: that module pulls in the whole dam fetch path,
- * and this pass only needs the number.
- */
-export const SCHEDULE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -76,6 +70,11 @@ export interface DamGenerationStats {
   quietSuppressed: number;
   /** Dropped because the alert changed, or the start left the posted schedule. */
   gated: number;
+  /**
+   * Held back because no fresh schedule confirms the start: not sent, and not
+   * drained, so it goes out if a fresh sheet arrives before its window closes.
+   */
+  unconfirmed: number;
   retried: number;
   givenUp: number;
   outcomes?: Partial<Record<'sent' | 'skipped' | 'expired' | 'given_up', number>>;
@@ -102,6 +101,7 @@ const EMPTY: DamGenerationStats = {
   failed: 0,
   quietSuppressed: 0,
   gated: 0,
+  unconfirmed: 0,
   retried: 0,
   givenUp: 0,
 };
@@ -140,43 +140,44 @@ async function readAlerts(
 
 interface SnapshotRow {
   dam_id: string;
-  built_at: string;
   /** `payload->schedule`, which is all this pass reads of a ten-kilobyte row. */
   schedule?: DamScheduleDay[] | null;
 }
 
 /**
- * The posted starts for each watched dam, from the stored snapshots.
+ * What each watched dam's schedule says now, from the stored snapshots.
  *
- * A dam whose snapshot is missing or older than SCHEDULE_MAX_AGE_MS has NO
- * entry, which is different from an entry with no starts: no entry means the
- * schedule is unknown this pass, so nothing new is queued for it and a notice
- * already queued is not withdrawn.
+ * ── Fresh by the SHEET, not by the snapshot ─────────────────────────────────
+ * Each posted day is trusted by its own `retrievedAt` (scheduleDayIsFresh).
+ * When the snapshot row was rebuilt says nothing: a rebuild carries the
+ * previous sheet forward over failed SWPA reads for up to six hours, and this
+ * pass once took a five-minute-old row around a five-hour-old sheet as current.
+ *
+ * A dam with no snapshot row has no entry. A dam whose every day is stale has
+ * an entry with no starts and no fresh days. Either way nothing is queued for
+ * it, and a notice already queued is held rather than sent — see startStanding.
  */
-async function readPostedStarts(
+async function readPostedSchedules(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   damIds: string[],
   now: Date,
-): Promise<Map<string, PostedStart[]>> {
+): Promise<Map<string, PostedSchedule>> {
   const rows = await readAllIn<SnapshotRow>('dam schedules', damIds, (chunk, from, to) =>
     supabase
       .from('dam_snapshots')
-      .select('dam_id, built_at, schedule:payload->schedule')
+      .select('dam_id, schedule:payload->schedule')
       .in('dam_id', chunk)
       .order('dam_id')
       .range(from, to),
   );
 
-  const starts = new Map<string, PostedStart[]>();
+  const posted = new Map<string, PostedSchedule>();
   for (const row of rows) {
-    const builtAt = Date.parse(row.built_at);
-    if (!Number.isFinite(builtAt) || now.getTime() - builtAt >= SCHEDULE_MAX_AGE_MS) continue;
     if (!Array.isArray(row.schedule)) continue;
-    const schedule = row.schedule;
-    starts.set(row.dam_id, postedStarts(schedule));
+    posted.set(row.dam_id, freshPostedSchedule(row.schedule, now.getTime()));
   }
-  return starts;
+  return posted;
 }
 
 interface EventRow {
@@ -221,14 +222,23 @@ export async function deliverDamGenerationAlerts(
 
     const alertsById = new Map(alerts.map((alert) => [alert.id, alert]));
     const damIds = [...new Set(alerts.map((alert) => alert.dam_id))];
-    const startsByDam = await readPostedStarts(supabase, damIds, now);
+    const postedByDam = await readPostedSchedules(supabase, damIds, now);
+    const startsByDam = new Map<string, PostedStart[]>(
+      [...postedByDam].map(([damId, posted]) => [damId, posted.starts]),
+    );
 
     // ── Queue ───────────────────────────────────────────────────────────────
     // ignoreDuplicates is the point: a notice stays due for the whole of its
     // window and is re-derived every pass, and only the first insert may land.
+    //
+    // A failed insert is REPORTED, not swallowed. The next pass re-derives the
+    // same notice and can still queue it, but a write that keeps failing eats
+    // the whole send window, and a run that said "one due, none queued, no
+    // error" each time would let that happen behind a green cron.
     const due = dueNotices(alerts, startsByDam, nowMs);
+    let queueFailed = false;
     for (let i = 0; i < due.length; i += IN_CHUNK) {
-      await checkedWrite(
+      const queued = await checkedWrite(
         'dam generation outbox insert',
         supabase.from('dam_generation_alert_events').upsert(
           due.slice(i, i + IN_CHUNK).map((notice) => ({
@@ -241,7 +251,11 @@ export async function deliverDamGenerationAlerts(
           { onConflict: 'alert_id,start_at,lead_minutes', ignoreDuplicates: true },
         ),
       );
+      if (!queued) queueFailed = true;
     }
+    // Carried on every return below: what is already in the outbox still
+    // drains, and the run is still failed.
+    const queueError = queueFailed ? { error: 'could not queue due notices' } : {};
 
     // ── Drain ───────────────────────────────────────────────────────────────
     const { data: pending, error } = await supabase
@@ -258,7 +272,7 @@ export async function deliverDamGenerationAlerts(
     }
 
     const rows = (pending ?? []) as EventRow[];
-    if (rows.length === 0) return { ...EMPTY, alerts: alerts.length, due: due.length };
+    if (rows.length === 0) return { ...EMPTY, alerts: alerts.length, due: due.length, ...queueError };
 
     // Past its window: drained without sending. An "hour before" notice that
     // could not go out in time is not sent late — see SEND_WINDOW_MINUTES.
@@ -272,7 +286,14 @@ export async function deliverDamGenerationAlerts(
     }
 
     const fresh = rows.filter(live);
-    const base = { ...EMPTY, alerts: alerts.length, due: due.length, events: rows.length, expired: expired.length };
+    const base = {
+      ...EMPTY,
+      alerts: alerts.length,
+      due: due.length,
+      events: rows.length,
+      expired: expired.length,
+      ...queueError,
+    };
     if (fresh.length === 0) return base;
 
     const userIds = [...new Set(fresh.map((row) => row.user_id))];
@@ -335,6 +356,10 @@ export async function deliverDamGenerationAlerts(
     const planned: PlannedMessage[] = [];
     let quietSuppressed = 0;
     let gated = 0;
+    // Events held for a fresh schedule. Kept OUT of the drain plan entirely:
+    // an event with nothing planned is drained as skipped, and these must
+    // stay in the outbox, with no attempt spent, until confirmed or expired.
+    const held = new Set<string>();
 
     for (const row of fresh) {
       if (previouslyReached.has(row.id)) continue;
@@ -358,12 +383,18 @@ export async function deliverDamGenerationAlerts(
         continue;
       }
 
-      // A start that has LEFT the posted schedule is not announced. Only when
-      // the schedule is known this pass: an unreadable snapshot is not a
-      // revised one, and must not cancel a notice queued from a good read.
-      const starts = startsByDam.get(row.dam_id);
-      if (starts && !starts.some((start) => start.startAt === startAt)) {
+      // ── The schedule, re-checked at SEND ──────────────────────────────────
+      // A notice is queued from a fresh sheet, but a retry can come up to half
+      // an hour later. A start that has LEFT a fresh sheet is not announced.
+      // One that no fresh sheet confirms any more is not announced on the old
+      // one either: it is held, and sent only if a fresh sheet turns up.
+      const standing = startStanding(postedByDam.get(row.dam_id), startAt);
+      if (standing === 'withdrawn') {
         gated++;
+        continue;
+      }
+      if (standing === 'unconfirmed') {
+        held.add(row.id);
         continue;
       }
 
@@ -388,6 +419,9 @@ export async function deliverDamGenerationAlerts(
             body: notification.body,
             sound: 'default',
             priority: 'default',
+            // Dies with its send window, so a phone that was offline is not
+            // told "about an hour from now" after the start.
+            ttl: pushTtlSeconds(startAt, row.lead_minutes, nowMs),
             data: {
               eventId: row.id,
               kind: DAM_GENERATION_KIND,
@@ -461,7 +495,9 @@ export async function deliverDamGenerationAlerts(
     for (const message of planned) plannedRecipients.set(message.eventId, new Set([message.userId]));
 
     const { delivered, outcomes, retryByNextAttempt, givenUp } = planDrain({
-      events: fresh.map((row) => ({ id: row.id, attempts: row.push_attempts ?? 0 })),
+      events: fresh
+        .filter((row) => !held.has(row.id))
+        .map((row) => ({ id: row.id, attempts: row.push_attempts ?? 0 })),
       plannedRecipients,
       reachedRecipients,
       previouslyReached,
@@ -494,7 +530,8 @@ export async function deliverDamGenerationAlerts(
       failed,
       quietSuppressed,
       gated,
-      retried: fresh.length - delivered.length,
+      unconfirmed: held.size,
+      retried: fresh.length - held.size - delivered.length,
       givenUp,
       outcomes: outcomeCounts,
     };

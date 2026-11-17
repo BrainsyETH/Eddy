@@ -16,7 +16,7 @@
 // (ADR 0017, "Not decided here").
 
 import { centralWallClockToUtc } from '@/lib/ameren/osage';
-import { nextDayKey, scheduledGeneration } from '@shared/dam-schedule-copy';
+import { centralDayKey, nextDayKey, scheduledGeneration } from '@shared/dam-schedule-copy';
 import type { DamScheduleDay, ScheduledHour } from '@shared/dam-types';
 
 /** The two times a posted start can be announced: at it, or an hour ahead. */
@@ -34,6 +34,45 @@ export type LeadMinutes = (typeof LEAD_MINUTES)[number];
 export const SEND_WINDOW_MINUTES = 30;
 
 const MINUTE_MS = 60_000;
+
+/**
+ * How long after EDDY FETCHED a posted day that day may still raise an alert.
+ *
+ * Measured on the day's own `retrievedAt`, never on when the snapshot around
+ * it was rebuilt. A rebuild can carry the previous sheet forward over failed
+ * SWPA reads for up to six hours (carryForwardSchedule in data/dams.ts), each
+ * day still wearing the time it was really fetched; trusting the rebuild time
+ * let a five-hour-old sheet inside a five-minute-old snapshot send a push.
+ *
+ * Three hours, not the ninety minutes at which the dam screen starts calling a
+ * schedule "may be outdated" (SCHEDULE_STALE_AFTER_MINUTES). The schedule is
+ * fetched hourly and notices fall due on the hour, so a healthy sheet is
+ * already 25 to 95 minutes old when one is due: at ninety minutes a single
+ * failed read would drop that hour's alerts, and a missed alert is the worse
+ * failure for someone relying on it. A posted sheet changed after first being
+ * seen on 1 of 180 dam-days (ADR 0020), so one a couple of hours old is almost
+ * always still right. Three hours rides out one or two failed reads.
+ */
+export const SCHEDULE_FRESH_FOR_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Was this posted day fetched recently enough to alert on?
+ *
+ * A day with no `retrievedAt` is NOT fresh. swpa.ts leaves it null when the
+ * fetch time could not be established, and a sheet that cannot be dated cannot
+ * be bounded.
+ */
+export function scheduleDayIsFresh(day: Pick<DamScheduleDay, 'retrievedAt'>, now: number): boolean {
+  if (!day.retrievedAt) return false;
+  const fetched = Date.parse(day.retrievedAt);
+  if (!Number.isFinite(fetched)) return false;
+  return now - fetched < SCHEDULE_FRESH_FOR_MS;
+}
+
+/** The Central calendar day a start falls on, as a schedule's `scheduleDate`. */
+export function startDayKey(startAt: number): string {
+  return centralDayKey(startAt);
+}
 
 /** Stored on the delivery ledger and sent as the push's `kind`. */
 export const DAM_GENERATION_KIND = 'generation_start';
@@ -102,6 +141,43 @@ export function postedStarts(schedule: readonly DamScheduleDay[]): PostedStart[]
   return starts.sort((a, b) => a.startAt - b.startAt);
 }
 
+/** What a dam's schedule says right now, from the days fresh enough to trust. */
+export interface PostedSchedule {
+  starts: PostedStart[];
+  /** The Central days a fresh sheet is held for. A start on any other day is unconfirmed. */
+  freshDays: ReadonlySet<string>;
+}
+
+/**
+ * The posted starts from the days of a schedule that are fresh enough to
+ * alert on (scheduleDayIsFresh), and which days those are.
+ *
+ * Stale days are dropped BEFORE starts are read, so a midnight start whose
+ * previous day is stale is unknown rather than assumed, as when that day is
+ * absent.
+ */
+export function freshPostedSchedule(schedule: readonly DamScheduleDay[], now: number): PostedSchedule {
+  const fresh = schedule.filter((day) => scheduleDayIsFresh(day, now));
+  return { starts: postedStarts(fresh), freshDays: new Set(fresh.map((day) => day.scheduleDate)) };
+}
+
+/**
+ * Where a queued start stands against the schedule as it is known now.
+ *
+ * - `posted`: a fresh sheet for that day still has it. Send.
+ * - `withdrawn`: a fresh sheet for that day no longer has it. Do not send.
+ * - `unconfirmed`: no fresh sheet for that day — the snapshot is missing, or
+ *   the sheet has aged past SCHEDULE_FRESH_FOR_MS since the notice was queued.
+ *   Not sent on an old sheet, and not thrown away either: it waits, and goes
+ *   out if a fresh sheet confirms it before its window closes.
+ */
+export type StartStanding = 'posted' | 'withdrawn' | 'unconfirmed';
+
+export function startStanding(posted: PostedSchedule | undefined, startAt: number): StartStanding {
+  if (!posted || !posted.freshDays.has(startDayKey(startAt))) return 'unconfirmed';
+  return posted.starts.some((start) => start.startAt === startAt) ? 'posted' : 'withdrawn';
+}
+
 /** A dam_generation_alerts row, as the delivery pass reads it. */
 export interface DamAlertRow {
   id: string;
@@ -117,6 +193,24 @@ export function leadsOf(alert: Pick<DamAlertRow, 'notify_at_start' | 'notify_hou
   if (alert.notify_hour_before) leads.push(60);
   if (alert.notify_at_start) leads.push(0);
   return leads;
+}
+
+/**
+ * An alert's two times after ONE switch moved: what was sent replaces what is
+ * saved, and what was not sent keeps it.
+ *
+ * This is the rule /api/me/dam-alerts saves by, kept here so it is tested. The
+ * app first sent both times from its own copy of the alert; before that copy
+ * loaded both read off, so switching one time on cleared the other.
+ */
+export function mergeAlertTimes(
+  saved: { atStart: boolean; hourBefore: boolean } | null,
+  change: { atStart?: boolean; hourBefore?: boolean },
+): { atStart: boolean; hourBefore: boolean } {
+  return {
+    atStart: change.atStart ?? saved?.atStart ?? false,
+    hourBefore: change.hourBefore ?? saved?.hourBefore ?? false,
+  };
 }
 
 /** A notice to queue: one alert, one posted start, one lead time. */
@@ -185,13 +279,34 @@ export function startTimeLabel(startAt: number): string {
 }
 
 /**
+ * How long a push may wait for a phone that is offline, in seconds: until the
+ * end of its send window, and never less than a minute.
+ *
+ * Without it Apple holds an undelivered push for weeks, so a phone that came
+ * back into signal that evening would be told generation starts "about an hour
+ * from now" hours after it had. The server stops SENDING at the end of the
+ * window; this stops the push ARRIVING after it.
+ */
+export function pushTtlSeconds(startAt: number, leadMinutes: number, now: number): number {
+  const windowEnd = dueAt(startAt, leadMinutes) + SEND_WINDOW_MINUTES * MINUTE_MS;
+  return Math.max(60, Math.round((windowEnd - now) / 1000));
+}
+
+/**
  * The push itself.
+ *
+ * ── The clock time leads ────────────────────────────────────────────────────
+ * "3 PM Central: generation is posted to start at the dam." is true whenever
+ * it is read. The wait comes after it, as its own short sentence, because a
+ * push sits in Notification Center long after it arrives: someone opening it
+ * at five must still be able to read off when the start was posted for.
  *
  * ── The wait is computed when the push is SENT ──────────────────────────────
  * A notice can go out up to SEND_WINDOW_MINUTES after it fell due. "About an
  * hour from now" on a push that left twenty-five minutes late would be wrong
  * by nearly half, and this is a sentence someone times getting out of the
- * water against. So the relative part is worked out from the clock at send.
+ * water against. So the relative part is worked out from the clock at send,
+ * and pushTtlSeconds keeps it from arriving after its window.
  *
  * ── Every sentence names the place and the source ───────────────────────────
  * "Posted" because this reads a schedule and has not looked at the powerhouse;
@@ -210,13 +325,13 @@ export function buildDamGenerationNotification(input: {
 
   let body: string;
   if (minutesUntil >= 50) {
-    body = `Generation is posted to start at the dam at ${time}, about an hour from now.`;
+    body = `${time}: generation is posted to start at the dam. About an hour from now.`;
   } else if (minutesUntil >= 10) {
-    body = `Generation is posted to start at the dam at ${time}, in about ${Math.round(minutesUntil / 5) * 5} minutes.`;
+    body = `${time}: generation is posted to start at the dam. In about ${Math.round(minutesUntil / 5) * 5} minutes.`;
   } else if (minutesUntil > -10) {
-    body = `Generation is posted to start at the dam now, at ${time}.`;
+    body = `${time}: generation is posted to start at the dam. That is now.`;
   } else {
-    body = `Generation was posted to start at the dam at ${time}.`;
+    body = `${time}: generation was posted to start at the dam.`;
   }
 
   return { title: input.damName, body };

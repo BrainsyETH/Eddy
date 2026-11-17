@@ -1242,7 +1242,10 @@ export interface DamGenerationAlertsResponse {
   alerts: DamGenerationAlert[];
 }
 
-/** Response for PUT /api/me/dam-alerts. `alert` is null when both times were switched off. */
+/**
+ * Response for PUT /api/me/dam-alerts: the alert as the server now holds it,
+ * after merging the one switch that was sent. Null when both times are off.
+ */
 export interface DamGenerationAlertResponse {
   alert: DamGenerationAlert | null;
 }

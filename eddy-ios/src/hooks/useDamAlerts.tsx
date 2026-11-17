@@ -23,7 +23,14 @@ import {
 } from 'react';
 import type { DamGenerationAlert } from '@eddy/types';
 import { ApiError, deleteDamAlert, fetchDamAlerts, saveDamAlert } from '@/api/client';
-import { applyDamAlert, NO_DAM_ALERT, type DamAlertTimes } from '@/lib/damAlerts';
+import {
+  applyDamAlert,
+  changedDamAlertTimes,
+  damAlertTimes,
+  NO_DAM_ALERT,
+  reconcileDamAlert,
+  type DamAlertChange,
+} from '@/lib/damAlerts';
 import { useSession } from '@/hooks/useSession';
 
 interface DamAlertsValue {
@@ -33,13 +40,22 @@ interface DamAlertsValue {
   ready: boolean;
   refresh: () => Promise<void>;
   /**
-   * Set one dam's two times, with a token already in hand.
+   * Move one of a dam's two switches, with a token already in hand. Resolves
+   * with the alert as the server now holds it, or null when both are off.
+   *
+   * Only the switch that moved is sent; the server keeps the other. So this is
+   * safe to call before the list has loaded — the answer brings back whatever
+   * was already saved.
    *
    * Takes the token rather than fetching one because every caller runs this
    * inside useAlertGate, which owns the session and turns a 401/403 thrown from
    * here into the sign-in sheet. Rejects after putting the list back.
    */
-  save: (token: string, dam: { id: string; name: string }, times: DamAlertTimes) => Promise<void>;
+  save: (
+    token: string,
+    dam: { id: string; name: string },
+    change: DamAlertChange,
+  ) => Promise<DamGenerationAlert | null>;
   /** Remove one dam's alert. Rejects after putting the row back. */
   remove: (damId: string) => Promise<void>;
 }
@@ -48,7 +64,7 @@ const DamAlertsContext = createContext<DamAlertsValue>({
   alerts: null,
   ready: false,
   refresh: async () => {},
-  save: async () => {},
+  save: async () => null,
   remove: async () => {},
 });
 
@@ -99,25 +115,27 @@ export function DamAlertsProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(() => load(), [load]);
 
   const save = useCallback(
-    async (token: string, dam: { id: string; name: string }, times: DamAlertTimes) => {
+    async (token: string, dam: { id: string; name: string }, change: DamAlertChange) => {
       const before = alertsRef.current;
       mutationGen.current += 1;
-      setAlerts(applyDamAlert(before ?? [], dam, times, new Date().toISOString()));
+      // What to show until the server answers: this app's best guess.
+      const guess = changedDamAlertTimes(damAlertTimes(before, dam.id), change);
+      setAlerts(applyDamAlert(before ?? [], dam, guess, new Date().toISOString()));
       try {
-        const saved = await saveDamAlert(token, { damId: dam.id, ...times });
-        // The server's row replaces the optimistic one, so createdAt and the
-        // name are the ones it holds.
-        if (saved) {
-          setAlerts((current) =>
-            current ? current.map((entry) => (entry.damId === saved.damId ? saved : entry)) : current,
-          );
-        }
+        const saved = await saveDamAlert(token, { damId: dam.id, ...change });
+        // The server's answer replaces the guess, including the switch that
+        // was not sent.
+        setAlerts((current) => reconcileDamAlert(current ?? [], dam.id, saved));
+        // Saved before the list was known (a first tap, or straight after
+        // signing in): the answer is one dam, so fetch the rest.
+        if (before === null) void load();
+        return saved;
       } catch (err) {
         setAlerts(before);
         throw err;
       }
     },
-    [],
+    [load],
   );
 
   const remove = useCallback(

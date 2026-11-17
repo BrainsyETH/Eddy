@@ -33,7 +33,11 @@ first two rows.
    "Not decided here").
 2. **Two times, either or both:** at the posted start, and one hour before it.
    One alert per person per dam, shown as two switches on the dam screen. There
-   is no paused state: both off deletes the alert.
+   is no paused state: both off deletes the alert. **A switch saves only
+   itself.** The app sends the one time that moved and the server keeps the
+   other (`mergeAlertTimes`); the switches also wait for the saved settings
+   before accepting a tap. Sending both from the app's own copy let a tap made
+   before that copy loaded clear the other switch.
 3. **Every posted start, not only the day's first.** A start is an hour with
    generation scheduled that follows a known hour without it, tested through
    `scheduledGeneration()` so minimum-flow hours are neither a start nor hide
@@ -41,10 +45,14 @@ first two rows.
    schedule and ended quiet.
 4. **Quiet hours are respected.** It is not a safety alert and never breaks a
    quiet window. A suppressed notice is dropped, not held until morning.
-5. **Late is dropped.** A notice may go out up to 30 minutes after it falls
-   due (slack for a failed pass); after that it is not sent. The wait stated in
-   the push ("about an hour from now", "in about 35 minutes") is computed when
-   it is sent.
+5. **Late is dropped, on the server and on the phone.** A notice may go out up
+   to 30 minutes after it falls due (slack for a failed pass); after that it is
+   not sent. The push carries a `ttl` that ends with the same window, so a
+   phone that was offline is not handed it afterwards. The clock time leads
+   ("3 PM Central: generation is posted to start at the dam.") so the push
+   still reads correctly in Notification Center later; the wait that follows
+   ("About an hour from now.", "In about 35 minutes.") is computed when it is
+   sent.
 6. **Free**, like the rest of alerting. The schedule is free data; a permanent
    account is needed only so there is a device to push to.
 7. **Only dams SWPA schedules.** The dam screen shows the switches where the
@@ -53,14 +61,33 @@ first two rows.
 8. **One pass queues and drains.** `/api/cron/deliver-push` (every five
    minutes) derives the due notices from the stored dam snapshots, inserts them
    into `dam_generation_alert_events` (unique on alert, start and lead), and
-   sends through the shared ledger, receipts and token handling. A snapshot
-   older than three hours queues nothing. A queued start that has left a known
-   schedule, or whose time was switched off, is not sent.
-9. **Kept out of `AlertRule`.** `/api/me/dam-alerts` is its own route and
+   sends through the shared ledger, receipts and token handling. A queue write
+   that fails fails the run, so repeated failures are visible rather than
+   quietly using up a send window.
+9. **A sheet alerts for three hours after Eddy fetched it**, measured on the
+   posted day's own `retrievedAt`, never on when its snapshot was rebuilt: a
+   rebuild can carry the previous sheet forward for six hours
+   (`carryForwardSchedule`). An undated sheet never alerts. Three hours, not
+   the 90 minutes at which the dam screen says "may be outdated": notices fall
+   due on the hour from a schedule fetched at :35, so a healthy sheet is
+   already 25 to 95 minutes old, and at 90 a single failed read would drop that
+   hour's alerts. The check runs when a notice is queued and again on every
+   send: a start that has left a fresh sheet, or whose time was switched off,
+   is not sent; one that no fresh sheet confirms any more is held, without
+   spending an attempt, and goes out only if a fresh sheet arrives before its
+   window closes.
+10. **Kept out of `AlertRule`.** `/api/me/dam-alerts` is its own route and
    `/api/me/alerts` is unchanged, because a released iOS build that met a third
    `AlertRule.source` would treat it as one of the two it knows. The push
    carries `damId` and no river or gauge key, so an older build opens the app
    rather than the wrong screen.
+
+11. **Saved is not the same as deliverable.** After a time is switched on, the
+    dam card runs the app's existing notification check and keeps its notice
+    under the switches while the alert is on: Open iOS Settings when
+    notifications are denied, Turn on notifications when this phone opted out,
+    Try again when it is not registered, and the primer (with the dam's own
+    wording) when iOS has never been asked.
 
 ## The limit, and where it is stated
 
