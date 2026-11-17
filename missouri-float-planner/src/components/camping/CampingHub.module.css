@@ -364,6 +364,28 @@
 .card:hover {
   border-color: var(--color-primary-400);
 }
+/* The whole card, photo included, opens the campground. The title button's
+   hit area is stretched over the card, so keyboards and screen readers still
+   meet one control per card rather than a clickable container. */
+.card,
+.untracked article {
+  position: relative;
+}
+.card h3 button::after,
+.untracked a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.card h3 button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* The footer button keeps its own hover and focus above the stretched area. */
+.card .outline {
+  position: relative;
+  z-index: 1;
+}
 .campPhoto {
   position: relative;
   width: 100%;
