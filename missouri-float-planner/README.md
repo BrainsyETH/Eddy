@@ -43,6 +43,13 @@ vessel instead of forwarding an old URL value. The map's URL is the source of
 its river/gauge selection and condition filters, including browser history and
 query-only navigation. Loading catalogue data never replaces an incoming deep link.
 
+The homepage hero shows **Ozarks Pulse** beside Eddy: the full river catalogue's
+floatable count, the public regional summary and its own written time. The former
+rotating per-river hero bubble is removed. Pulse uses the same count helper and
+public summary as iOS. The count is independent of the prose; failed or withheld
+summaries never turn the count into zero. Missing/unknown conditions show an
+unavailable state, and failed refreshes do not present old prose as current.
+
 The homepage shows **River and Dam Conditions**, the two route actions, river
 guides, and the iPhone app. Its two report columns reuse the Conditions directory's
 `RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
@@ -51,8 +58,11 @@ footers and carousel controls; off-screen slides do not set the height. Stacked
 mobile cards keep their natural height. Homepage dam cards use the same three-reading
 banner as `/dams`: release, water temperature, and lake level, with Eddy icons
 and one shared age line. Dam cards show only Today's generation
-schedule, and Eddy Says follows the river chart without a spacer.
-Both shared cards use Eddy's framed surface and teal header.
+schedule. One compact **Eddy’s Read in the app** invitation follows each river
+chart, retaining that river in the iPhone/App Store or desktop handoff. Individual
+short Reads and their static fallback paragraphs are no longer shown on these cards.
+Both shared cards use Eddy's framed surface; river cards keep the condition
+stripe and plain title, while dams use the teal header.
 Each column shows one report, rotating horizontally every eight seconds while
 visible; the columns stack on mobile and support swipe and previous/next arrows.
 Hover temporarily holds rotation. Keyboard focus or pointer interaction stops
@@ -114,7 +124,7 @@ Current and Buffalo, followed by complete Rivers and Lakes & Dams sections.
 Featured is a fixed editorial selection, not measured popularity, and respects
 the state filter. All cards are visible without a Show all step: two columns
 on desktop, one on mobile. Search results and explicit sorts use those same
-components, including river charts, gauge details, Eddy summaries and condition
+components, including river charts, gauge details, contextual app invitations and condition
 artwork. Dam cards focus on release, water temperature and the generation
 schedule; the generator status/rack and below-dam elevation stay on full reports.
 Dam cards share the full report’s framed border and warm reading surface, with a
@@ -140,7 +150,11 @@ the current Central calendar window, so a snapshot from before midnight keeps
 a posted tomorrow rather than retaining yesterday’s slot.
 
 Both entry points use the “Conditions” heading, Eddy's canoe artwork and the
-cross-river summary. A compact A–Z link directory keeps every destination
+same search and filters. On All and Rivers, a compact **Ozarks Pulse** sits
+beneath the filters and above results. Its disclosure opens the regional prose;
+the whole-catalogue count remains visible and never follows search/state filters.
+Lakes & Dams omits Pulse. The duplicated header summary is removed.
+A compact A–Z link directory keeps every destination
 reachable before JavaScript, including when live gauge metadata is unavailable.
 `/dams` keeps its own search title, canonical URL and initial Lakes & Dams filter.
 The USGS observation-delay note remains below the reports alongside source and

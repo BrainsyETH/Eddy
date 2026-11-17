@@ -12,6 +12,7 @@ import RiverCard from '@/components/gauge/RiverCard';
 import DamListCard from '@/components/dam/DamListCard';
 import RiverReportFallback from './RiverReportFallback';
 import ConditionsDirectory from './ConditionsDirectory';
+import OzarksPulse from './OzarksPulse';
 import { stateName } from '@/lib/navigation/states';
 import {
   DIFFICULTY_TIER_LABELS, LENGTH_BUCKET_LABELS, RIVER_TYPE_LABELS, SORT_LABELS, type Coordinates,
@@ -215,6 +216,7 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
         </div>
       </div>}
     </div>
+    {state.kind !== 'dams' && <OzarksPulse initialRivers={rivers} renderedAt={renderedAt} compact />}
     <div role="status" className="mb-4 space-y-1 text-sm text-neutral-600">
       {!browsing && <p>{results.length} {results.length === 1 ? 'destination' : 'destinations'}</p>}
       {notice && <p>{notice}</p>}
