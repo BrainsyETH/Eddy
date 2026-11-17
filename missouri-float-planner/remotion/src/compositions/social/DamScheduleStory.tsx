@@ -20,7 +20,7 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
   const checked = new Date(snapshot.checkedAt).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   return <AbsoluteFill style={{ background: colors.secondary[50], color: ink, fontFamily: fontFamilies.body }}>
     <svg width="1080" height="1920" style={{ position: 'absolute' }} aria-hidden="true"><path d="M-70 70 Q150 -5 320 70 T720 70 T1160 70" stroke={colors.secondary[200]} strokeWidth="32" fill="none" /><path d="M-100 1790 Q100 1720 300 1790 T700 1790 T1160 1790" stroke={colors.primary[100]} strokeWidth="74" fill="none" /><path d="M-100 1850 Q100 1780 300 1850 T700 1850 T1160 1850" stroke={colors.primary[200]} strokeWidth="30" fill="none" /></svg>
-    <main data-dam-safe style={{ position: 'absolute', left: safe.left, top: safe.top, width, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <main data-dam-safe style={{ position: 'absolute', left: safe.left, top: safe.top, width, lineHeight: 1.25, display: 'flex', flexDirection: 'column', gap: 12 }}>
       <header data-dam-region="header">
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
           <Img src={staticFile('eddy/eddy-favicon.png')} style={{ width: 64, height: 64 }} />
@@ -41,7 +41,7 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
         <div style={{ height: 240 }}><DamStoryScene frame={frame} active={count > 0} /></div>
         <div data-dam-text style={{ textAlign: 'center', fontSize: 24, color: colors.neutral[600] }}>Illustration · not live</div>
       </div>
-      <section data-dam-region="timeline" style={{ height: 130 }}>
+      <section data-dam-region="timeline">
         <div data-dam-text style={{ fontSize: 29, fontWeight: 700, marginBottom: 14 }}>Posted generation hours</div>
         <div style={{ display: 'flex', gap: 4, height: 48 }}>{snapshot.hours.map((active, hour) => <div data-dam-hour={hour} key={hour} style={{ flex: 1, borderRadius: 5, background: active ? colors.accent[500] : colors.secondary[200] }} />)}</div>
         <div style={{ position: 'relative', height: 32, marginTop: 9, fontSize: 23, color: colors.neutral[700] }}>{['12 AM', '6 AM', 'noon', '6 PM', '12 AM'].map((label, i) => <span data-dam-text key={i} style={{ position: 'absolute', left: `${i * 25}%`, transform: `translateX(${i === 0 ? 0 : i === 4 ? -100 : -50}%)`, whiteSpace: 'nowrap' }}>{label}</span>)}</div>

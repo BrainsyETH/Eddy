@@ -39,6 +39,8 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   const url = `http://127.0.0.1:${server.address().port}`;
   const snapshot = { scheduleDate: '2026-11-09', checkedAt: '2026-11-09T16:00:00Z', minimumFlow: false, hours: Array.from({ length: 24 }, (_, h) => h >= 12 && h < 20) };
+  const layoutErrors = new Set();
+  const check = (condition, message) => { if (!condition) layoutErrors.add(message); };
   const patterns = {
     noon: snapshot.hours,
     multiple: Array.from({ length: 24 }, (_, h) => h < 2 || h === 12 || h === 23),
@@ -93,16 +95,16 @@ try {
       assert.ok(result.text.length >= 12, 'layout assertions must inspect rendered copy');
       const safe = platform === 'instagram' ? { top:250, bottom:1620, left:60, right:1020 } : { top:180, bottom:1500, left:60, right:810 };
       for (const rect of [...result.regions, ...result.text]) {
-        assert.ok(rect.left >= safe.left-1 && rect.right <= safe.right+1 && rect.top >= safe.top-1 && rect.bottom <= safe.bottom+1, `${platform}/${name}@${frame}: outside safe bounds: ${JSON.stringify(rect)}`);
+        check(rect.left >= safe.left-1 && rect.right <= safe.right+1 && rect.top >= safe.top-1 && rect.bottom <= safe.bottom+1, `${platform}/${name}@${frame}: outside safe bounds: ${JSON.stringify(rect)}`);
       }
-      for (const rect of result.text) assert.ok(rect.top >= rect.parent.top-1 && rect.bottom <= rect.parent.bottom+1 && rect.left >= rect.parent.left-1 && rect.right <= rect.parent.right+1, `${platform}/${name}: text overflows its region: ${JSON.stringify(rect)}`);
+      for (const rect of result.text) check(rect.top >= rect.parent.top-1 && rect.bottom <= rect.parent.bottom+1 && rect.left >= rect.parent.left-1 && rect.right <= rect.parent.right+1, `${platform}/${name}: text overflows its region: ${JSON.stringify(rect)}`);
       for (let i=0; i<result.text.length; i++) for (let j=i+1; j<result.text.length; j++) {
         const a=result.text[i], b=result.text[j];
         const overlapX=Math.min(a.right,b.right)-Math.max(a.left,b.left);
         const overlapY=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);
-        assert.ok(overlapX<1 || overlapY<1, `${platform}/${name}: text collision: ${a.text} / ${b.text}`);
+        check(overlapX<1 || overlapY<1, `${platform}/${name}: text collision: ${a.text} / ${b.text}`);
       }
-      for (let i=1; i<result.regions.length; i++) assert.ok(result.regions[i-1].bottom <= result.regions[i].top, `${platform}/${name}: regions overlap`);
+      for (let i=1; i<result.regions.length; i++) check(result.regions[i-1].bottom <= result.regions[i].top, `${platform}/${name}: regions overlap`);
       if (initialCopy === undefined) initialCopy = result.copy;
       assert.equal(result.copy, initialCopy, 'facts remain visible for the whole clip');
       assert.match(result.copy, /EXAMPLE TIMES/);
@@ -111,6 +113,7 @@ try {
     }
   }
   assert.deepEqual(errors, []);
+  assert.deepEqual([...layoutErrors], []);
   console.log('Dam story: 12 fixtures × 3 frames; safe bounds, complete windows and static copy passed.');
 } finally {
   if (browser) await browser.close();
