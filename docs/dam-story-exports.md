@@ -1,0 +1,56 @@
+# Daily dam schedule videos
+
+The Table Rock pilot lives in **Admin → Social → Quick Post → Dam schedule video**.
+Choose today or tomorrow (Central time), Instagram Story and/or TikTok, then
+Generate video. History shows each render separately. Preview the finished
+video, optionally enable the safe-area guide, and Download MP4. Upload manually
+in the destination app. No social connection is needed to generate an export.
+
+This adds no public dam-page or iOS UI and does not schedule automatic posting.
+The daily workflow is one checked, dated export per chosen destination. A failed
+render should be regenerated from the form, which checks the source again.
+
+## Data and presentation
+
+- Existing dam snapshot reader and SWPA hour-ending semantics; no new ingestion.
+- Complete 24-hour schedule required. Missing, invalid, future-dated check times,
+  or checks older than the shared 90-minute threshold block export. A missing
+  date never borrows yesterday's schedule. Confirmed zero generation is valid.
+- Every generation window stays visible throughout the 12-second clip. The
+  timeline shows all 24 posted hours. Minimum flow is not counted as generation.
+- Date, Central time, SWPA attribution and the source-check timestamp are burned
+  into the video. No countdown, live cursor, measured cfs, seasonal pool line,
+  or downstream arrival estimate. The animation is labelled “not live”; it
+  uses a fixed illustrative water level. No scheduled generation stops the
+  decorative turbine, without claiming that the river is dry or safe.
+- Shared Eddy fonts, palette and per-platform safe insets. Instagram uses the
+  Story bounds; TikTok leaves space for its action rail. All facts hold still;
+  only decorative ripples, pipe strokes and the turbine move on a gentle loop.
+- Default Remotion props are visibly marked sample data. Real exports set
+  `sample: false`. The CI preview always renders labelled fixtures.
+
+## Operations
+
+Reuses `render-social-video.yml` and its existing renderer credentials and
+callback. `GH_ACTIONS_REF` must include `social-dam-schedule` before using the
+admin control (normally after merge to main). Existing production audio
+normalization adds the social music bed; the preview fixture is silent and all
+information remains readable without audio.
+
+Drafts use the existing `manual` post type with `auto_publish: false` and a saved
+`social-dam-schedule` render request. Both callback and generic publishing/retry
+paths enforce download-only behavior; an Instagram Story cannot accidentally
+be published as a Reel. Downloads require admin auth and proxy only a saved
+Vercel Blob `social-videos/` output. No migration or new environment variable.
+
+Static exports cannot update after posting. Check the burned-in date and source
+time before sharing; regenerate if the source has changed. Download history is
+retained for review, including older dated videos.
+
+## Verification
+
+`make check-web` covers the date, freshness, completeness, hour-ending,
+minimum-flow and publish guards. The **Dam Story Preview** workflow typechecks
+Remotion, checks both destinations in Chromium at the first/middle/last frames,
+and uploads 12 stills plus two sample MP4s. Cases include midnight, all-day,
+zero/minimum-flow, split windows and the maximum 12 separate windows.

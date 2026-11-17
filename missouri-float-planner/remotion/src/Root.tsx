@@ -1,3 +1,5 @@
+import { DamScheduleStory } from './compositions/social/DamScheduleStory';
+import { DAM_STORY_FIXTURE } from '../../shared/social-dam-schedule';
 import { EddyReadReel, type EddyReadReelProps } from "./compositions/social/EddyReadReel";
 import { readingDuration, LONG_READING_FIXTURE } from "../../shared/eddy-read-reel";
 import React from "react";
@@ -114,6 +116,7 @@ const currentTotalFrames = getCurrentMontageFrames();
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition id="social-dam-schedule" component={DamScheduleStory} durationInFrames={360} fps={30} width={1080} height={1920} defaultProps={{ snapshot: DAM_STORY_FIXTURE, platform: 'instagram' as const, sample: true }} />
       {/* ============================================
           FULL TUTORIALS
           ============================================ */}

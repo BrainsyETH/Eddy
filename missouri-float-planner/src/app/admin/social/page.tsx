@@ -3,6 +3,9 @@
 // src/app/admin/social/page.tsx
 // Admin dashboard for social media posting — settings, filters, custom content, post history
 
+import DamScheduleExport from '@/components/admin/social/DamScheduleExport';
+import DamVideoDownload from '@/components/admin/social/DamVideoDownload';
+import { isDamStory } from '@shared/social-dam-schedule';
 import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
@@ -339,7 +342,8 @@ export default function SocialAdminPage() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [videoPreviewPost, setVideoPreviewPost] = useState<SocialPost | null>(null);
-  const previewSafe = videoSafeInsets(videoPreviewPost?.platform);
+  const damPreview = isDamStory(videoPreviewPost?.render_request);
+  const previewSafe = videoSafeInsets(videoPreviewPost?.platform, damPreview && videoPreviewPost?.platform === 'instagram' ? 'story' : 'reel');
 
   // TikTok connection status
   const [tiktokStatus, setTiktokStatus] = useState<{
@@ -975,7 +979,7 @@ export default function SocialAdminPage() {
                   {videoPreviewPost.platform}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
-                  {POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
+                  {damPreview ? 'Dam schedule' : POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
                 </span>
               </div>
               <button onClick={() => setVideoPreviewPost(null)} className="text-neutral-400 hover:text-white">
@@ -986,9 +990,9 @@ export default function SocialAdminPage() {
               {/* The cover beside the video: on Instagram the OG image IS the
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
-              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${!damPreview && (videoPreviewPost.image_url || videoPreviewPost.video_url) ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 max-w-sm mx-auto'}`}>
                 {videoPreviewPost.video_url && <div>
-                  <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Reel</p>
+                  <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">{damPreview && videoPreviewPost.platform === 'instagram' ? 'Instagram Story' : 'Video'}</p>
                   <div className="relative bg-black rounded-lg overflow-hidden aspect-[9/16]">
                     <video
                       src={videoPreviewPost.video_url}
@@ -998,10 +1002,10 @@ export default function SocialAdminPage() {
                     />
                     {previewOverlay !== 'off' && <div aria-hidden="true" className="absolute pointer-events-none border-2 border-dashed border-yellow-400" style={{ top: `${previewSafe.top / 1920 * 100}%`, bottom: `${previewSafe.bottom / 1920 * 100}%`, left: `${previewSafe.left / 1080 * 100}%`, right: `${previewSafe.right / 1080 * 100}%` }} />}
                   </div>
-                  <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Reel text safe area</option></select></label>
+                  <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Text safe area</option></select></label>
                   <p className="mt-1 text-xs text-neutral-400">Guides are approximate; platform controls and crops vary.</p>
                 </div>}
-                <CoverPreview
+                {!damPreview && <CoverPreview
                   key={videoPreviewPost.id}
                   src={videoPreviewPost.image_url}
                   platform={videoPreviewPost.platform}
@@ -1011,12 +1015,13 @@ export default function SocialAdminPage() {
                     .filter(p => p.platform === 'instagram' && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
                     .sort((a, b) => b.created_at.localeCompare(a.created_at))
                     .map(p => p.image_url as string)}
-                />
+                />}
               </div>
               }
               <p className="mt-4 text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
-              {videoPreviewPost.platform === 'tiktok' && <p className="mt-3 text-sm text-neutral-400">Inbox delivery requires finishing the post in TikTok. Check the resulting status after delivery.</p>}
-              {videoPreviewPost.status === 'review' && <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>}
+              {!damPreview && videoPreviewPost.platform === 'tiktok' && <p className="mt-3 text-sm text-neutral-400">Inbox delivery requires finishing the post in TikTok. Check the resulting status after delivery.</p>}
+              {damPreview && videoPreviewPost.video_url && <DamVideoDownload id={videoPreviewPost.id} />}
+              {!damPreview && videoPreviewPost.status === 'review' && <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>}
               <p className="text-xs text-neutral-500 mt-2">
                 {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}
               </p>
@@ -1050,6 +1055,8 @@ export default function SocialAdminPage() {
             Preview Next Posts
           </button>
         </div>
+
+        {isOwner && showQuickPost && <DamScheduleExport onQueued={fetchPosts} />}
 
         {/* Quick Post form */}
         {showQuickPost && (
@@ -1965,6 +1972,7 @@ export default function SocialAdminPage() {
                     <option value="published">Published</option>
                     <option value="failed">Failed</option>
                     <option value="rendering">Rendering</option>
+                    <option value="review">Ready for review</option>
                     <option value="pending">Pending</option>
                     <option value="skipped">Skipped</option>
                   </select>
@@ -2012,7 +2020,7 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{post.platform}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
-                                  {POST_TYPE_LABELS[post.post_type] ?? post.post_type}
+                                  {isDamStory(post.render_request) ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
                                   {post.media_type === 'video' ? (
@@ -2079,7 +2087,7 @@ export default function SocialAdminPage() {
                                         </button>
                                       </>
                                     )}
-                                    {post.status === 'failed' && (
+                                    {post.status === 'failed' && !isDamStory(post.render_request) && (
                                       <button
                                         onClick={() => retryPost(post.id, reportNeedsRender(post) ? 'render' : 'retry')}
                                         className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors"
