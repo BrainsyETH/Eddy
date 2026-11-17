@@ -36,17 +36,18 @@ function readingLabel(p: LakeChartPoint, timeZone: string): string {
 }
 
 export default function LakeLevelChart({
-  history, conservationFt, now, timeZone, datum, compact = false,
+  history, conservationFt, seasonalPool = false, now, timeZone, datum, compact = false,
 }: {
   history: Array<[string, number]>;
   conservationFt?: number;
+  seasonalPool?: boolean;
   now: number;
   timeZone: string;
   datum: string;
   compact?: boolean;
 }) {
   const H = compact ? 112 : 180;
-  const model = useMemo(() => lakeChartModel(history, { conservationFt, now }), [history, conservationFt, now]);
+  const model = useMemo(() => lakeChartModel(history, { conservationFt, seasonalPool, now }), [history, conservationFt, seasonalPool, now]);
   const [hoverAt, setHoverAt] = useState<number | null>(null);
   const titleId = useId();
   const fillId = useId();
@@ -106,18 +107,12 @@ export default function LakeLevelChart({
             {dayLabel(tick.value, timeZone)}
           </text>
         ))}
-        {model.referencePosition !== null && conservationFt !== undefined && (
-          <g>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y(conservationFt)} y2={y(conservationFt)} className="stroke-neutral-400" strokeWidth={1} strokeDasharray="4 4" />
-            <text x={W - PAD.right} y={y(conservationFt) - 4} textAnchor="end" className="fill-neutral-500" fontSize={10}>
-              conservation pool {conservationFt.toFixed(0)} ft
-            </text>
-          </g>
-        )}
+        {model.referencePoints.length > 0 && <path d={model.referencePoints.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${y(p.ft).toFixed(1)}`).join(' ')} fill="none" className="stroke-neutral-400" strokeWidth={1} strokeDasharray="4 4" />}
         <path d={path} fill="none" className="stroke-primary-600" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         <line x1={x(active.t)} x2={x(active.t)} y1={PAD.top} y2={H - PAD.bottom} className="stroke-neutral-300" strokeWidth={1} />
         <circle cx={x(active.t)} cy={y(active.ft)} r={4} className="fill-primary-600 stroke-white" strokeWidth={2} />
       </svg>
+      {model.referencePoints.length > 0 && <p className="mt-1 flex items-center gap-1 text-xs text-neutral-500"><span aria-hidden="true" className="inline-block w-4 border-t border-dashed border-neutral-400" />{model.referenceLabel}</p>}
       {model.referenceNote && <p className="mt-1 text-xs text-neutral-500">{model.referenceNote}.</p>}
     </figure>
   );

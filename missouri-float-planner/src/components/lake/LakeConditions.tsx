@@ -2,7 +2,7 @@ import Card from '@/components/ui/Card';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import LakeLevelChart from '@/components/dam/LakeLevelChart';
 import type { LakeSection } from '@shared/lake-types';
-import { poolPositionSentence } from '@shared/lake-status';
+import { lakePoolPositionSentence } from '@/lib/lakes/pool-reference';
 import { lakeReadingIsStale, lakeReadingLabel } from '@/lib/lakes/presentation';
 import LakeMovement from './LakeMovement';
 
@@ -20,11 +20,11 @@ export default function LakeConditions({ lake, now }: { lake: LakeSection; now: 
           <p className={`inline-flex items-baseline gap-2 whitespace-nowrap font-mono text-4xl font-semibold tracking-tight text-primary-900 lg:text-5xl ${stale ? 'opacity-70' : ''}`}>{pool.valueFt.toFixed(2)}<span className="font-sans text-base font-medium tracking-normal">ft</span></p>
           <p className="mt-1 text-xs text-neutral-500">Elevation · {lake.datum}</p>
           {!stale && <div className="mt-3 flex flex-col items-start gap-1"><LakeMovement delta={lake.change24hFt} hours={24} /><LakeMovement delta={lake.change7dFt} hours={168} /></div>}
-          <p className="mt-3 text-sm leading-6 text-neutral-700">{poolPositionSentence(lake.poolPosition ?? null, pool.valueFt, lake.operatingRange ?? null)}</p>
+          <p className="mt-3 text-sm leading-6 text-neutral-700">{lakePoolPositionSentence(lake)}</p>
         </> : <p className="text-sm text-neutral-600">Lake level is currently unavailable.</p>}
       </div>
       <div className="min-w-0">
-        {lake.history.length > 1 ? <LakeLevelChart history={lake.history} conservationFt={lake.operatingRange?.conservationFt} now={now} timeZone={lake.timeZone} datum={lake.datum} /> : <p className="py-4 text-sm text-neutral-600">Lake-level history is currently unavailable.</p>}
+        {lake.history.length > 1 ? <LakeLevelChart history={lake.history} conservationFt={lake.operatingRange?.conservationFt} seasonalPool={lake.slug === 'table-rock'} now={now} timeZone={lake.timeZone} datum={lake.datum} /> : <p className="py-4 text-sm text-neutral-600">Lake-level history is currently unavailable.</p>}
       </div>
     </div>
     {lake.operatingRange && <details className="mt-4 border-t border-neutral-200 pt-3 text-xs text-neutral-600"><summary className="w-fit cursor-pointer py-2 font-medium">About these levels</summary><p className="mt-2 leading-5">{lake.operatingRange.source}. Reference checked {lake.operatingRange.asOf}. These are lake elevations, not water depths.</p></details>}

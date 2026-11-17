@@ -57,6 +57,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';
 import { generateEddyUpdate, usageColumns } from '@/lib/eddy/generate-update';
+import { pruneGenerationLog } from '@/lib/eddy/generation-log';
 import { generateGlobalUpdate, type GlobalUpdate } from '@/lib/eddy/generate-global-update';
 import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
 
@@ -353,7 +354,10 @@ async function runGeneration(request: NextRequest) {
 
   // Process targets with bounded concurrency (3 parallel model calls)
   const processTarget = async (target: UpdateTarget) => {
-    const update = await generateEddyUpdate(target, models.river_update);
+    const update = await generateEddyUpdate(target, models.river_update, {
+      // ?river=<slug> is somebody asking for one river now, not the daily pass.
+      trigger: singleRiver ? 'on_demand' : 'scheduled',
+    });
 
     if (!update) {
       throw new Error(`generation returned null`);
@@ -428,6 +432,9 @@ async function runGeneration(request: NextRequest) {
     if (cleanupError) {
       console.warn('[EddyCron] Cleanup failed:', cleanupError);
     }
+
+    // The generation log keeps what eddy_updates cannot, for far longer.
+    await pruneGenerationLog(supabase);
   }
 
   // A 200 with per-river failures listed, which is the honest shape for this

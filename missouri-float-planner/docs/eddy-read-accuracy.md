@@ -79,6 +79,61 @@ Guaranteed fallbacks skip paid model calls, knowledge and trajectory work.
 Weather fetching remains for the separate weather summary. Published fallback
 sources exclude discarded model context. Unused primary snapshot queries are gone.
 
+## Prompt inputs
+
+Each input says what it measures, where and over what window, or it is left out.
+
+- **River note.** `river_characteristics.river_note` reaches the prompt as
+  "Gauge notes:". The river loader drops a note that is ingest bookkeeping
+  (`Per-section hydro types: ...`) or carries an unrendered value
+  (`=undefined`); see `src/lib/eddy/river-note.ts`. The `eddy_knowledge` trust
+  check reports the same rows as `river_note_malformed`. The dossier ingest
+  does not write the column.
+- **Trend.** The 24-hour and 6-hour changes and the rate cover the past day.
+  The peak and low are labelled with the number of days the returned readings
+  span (`GaugeTrajectory.windowDays`), measured from the data, not from the
+  number of days requested.
+- **Recent rain.** Three states, never merged: a measured amount, a measured
+  zero ("none reported at <weather point> in the past 3 hours"), and no
+  measurement. Each names the weather point. It is one point, not the
+  watershed above the gauge, and the prompt says so.
+
+## Generation records
+
+`eddy_updates` holds published text only and is pruned after 48 hours. Every
+attempt to write a river Read also writes one row to `eddy_generation_log`
+(`src/lib/eddy/generation-record.ts`): the structured inputs with their units
+and timestamps, the prompt, the model's text as returned, what was published,
+and hashes of the system prompt and injected knowledge beside the deployed
+commit. Rows are kept 180 days. Nothing reads the table at request time, and a
+failed write never changes what is published.
+
+`outcome` is `model`, `fallback` or `error`. A fallback or error carries its
+cause in `reason`:
+
+| Reason | Decided | Meaning |
+| --- | --- | --- |
+| `no_gauge` | before the model | no reporting station resolved for the target |
+| `no_reading` | before the model | a station, but no height or discharge |
+| `no_rating` | before the model | a reading, but nothing to rate it against |
+| `unsupported_section` | before the model | a rated reading from a station that is not on the requested stretch |
+| `claims_mismatch` | after the model | the `[CLAIMS]` line disagreed with the computed facts |
+| `contradiction` | after the model | the prose tripped the contradiction guard; the codes are in `contradictions` |
+| `missing_api_key`, `empty_response`, `model_error` | n/a | nothing was published |
+
+These are recorded, not yet worded differently for readers: the four
+pre-model causes still publish the same factual fallback.
+
+The table is created by `20261117041752_eddy_generation_log.sql`. Against a
+database without it the generator logs one warning per process and keeps no
+records.
+Only river and section Reads are recorded; secondary-gauge commentary
+(`generate-gauge-update.ts`) and the statewide summary are not.
+
+`npm run audit:eddy-reads` prints the current model-written and code-written
+counts, fallback causes from the log, knowledge-file reach coverage and
+malformed prompt inputs. It is read-only.
+
 ## Rollout
 
 No production data, SQL migration, model switch or saved-report regeneration.

@@ -45,8 +45,13 @@ Keep separate river rows even when every river is Quiet. Favorites do not contro
 this list. There is no weekend lookahead: this card always represents tonight.
 
 The former band pills and ordinal Quiet → Packed gauge are removed. All meters
-now use a true percentage axis, including zero and 100%; unknown readings show
-“Not enough data” and the reason, without a misleading empty bar. Percentage labels
+now use a true percentage axis, including zero and 100%. A withheld regional
+reading is one muted caption line in place of the headline and meter, never a
+failure headline or an empty bar: “No Ozarks-wide reading tonight. 7 of 30
+campgrounds couldn’t be checked.” when observations are missing, or the reason
+when most campgrounds are closed, unreleased, walk-up only or too few to rate
+(`campingPulseWithheldNote`). Popular rivers with their own usable reading still
+follow, and VoiceOver reads the same sentence. Percentage labels
 round for readability, but use “<1%” and “>99%” instead of rounding partial bookings
 to zero or full. Partial coverage at 100% still uses the capacity headline, but
 never receives the Packed band; the legend and VoiceOver identify checked rather
@@ -166,6 +171,25 @@ blanked the entire regional gauge. The sample rule now shows Quiet with “Based
 on 29 campgrounds · 1 unavailable,” while retaining unknown capacity and
 incomplete coverage. This is a reading of the observed sample, not an estimate
 of occupancy at the missing campground.
+
+A read-only check on November 16, 2026 found the regional reading withheld with
+23 of 30 eligible campgrounds reporting (27 of 466 reservable sites booked). The
+seven others were not sync failures. Recreation.gov returns a campground's sites
+with no availability entries for nights outside its reservation season: Buffalo
+Point has none from November 16 until March 15, and Red Bluff, Silver Mines and
+War Eagle had none all month. The sync stored no row for such a night, so the
+scorer counted the campground as missing, and 23 of 30 fell under the 80%
+regional sample rule.
+
+Owner decision (November 17, 2026): the sync records those nights as not
+reservable — a `full` night with zero reservable sites, the existing “No
+reservable sites” state — never as closed, because some of these campgrounds stay
+open first-come, first-served. The scorer already counts such a night as
+`campgroundsNoInventory`: excluded from booked and reservable sites, and not
+missing. The same night then rates across the 23 campgrounds that take
+reservations. `docs/camping-heatmap.md` (*Nights without a calendar*) owns the
+rule for which nights qualify. It takes effect as each campground is next synced;
+no rows are backfilled.
 
 Later work can add relative busyness from history and resolve state-park coverage.
 Backcountry districts remain outside the campground overview.

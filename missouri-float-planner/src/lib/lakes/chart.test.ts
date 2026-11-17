@@ -42,3 +42,19 @@ test('the hover readout picks the nearest reading', () => {
   assert.equal(nearestPoint(points, 16)?.ft, 3);
   assert.equal(nearestPoint([], 5), null);
 });
+
+
+test('seasonal history follows historical dates rather than a flat current reference', () => {
+  const now = Date.parse('2026-12-02T18:00:00Z');
+  const history: Array<[string, number]> = [[new Date(now - 6 * 86400000).toISOString(), 916.5], [new Date(now).toISOString(), 915.5]];
+  const model = lakeChartModel(history, { now, conservationFt: 915, seasonalPool: true })!;
+  assert.equal(model.referencePoints[0].ft, 917);
+  assert.equal(model.referencePoints.at(-1)!.ft, 915);
+  assert.equal(model.referencePoints.find(p => p.t === Date.parse('2026-11-30T18:00:00Z'))!.ft, 916);
+  assert.equal(model.referenceLabel, 'Seasonal pool 915.0–917.0 ft');
+  assert.equal(model.referencePosition, null, 'the fixed 915 ft line is replaced');
+  const far = lakeChartModel(history.map(([at]) => [at, 910]), { now, seasonalPool: true })!;
+  assert.equal(far.referencePoints.length, 0);
+  assert.match(far.referenceNote!, /^Seasonal pool/);
+  assert(far.maxFt < 912, 'a distant reference does not flatten observed movement');
+});

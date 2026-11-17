@@ -163,6 +163,23 @@ test('grid preserves explicit facility closures but never invents bookable inven
   );
 });
 
+test('out-of-season nights are stored as zero reservable sites, and an observed night wins', () => {
+  const grid = stayGridNights(
+    {
+      sites: [],
+      siteNights: [{ date: dates[1], status: 'open', sourceSiteId: '1' }],
+      nights: [{ date: dates[1], sitesOpen: 1, sitesReservable: 1, status: 'open' }],
+      notReservableNights: ['2026-10-18', dates[0], dates[1]],
+    },
+    NOW,
+  );
+  assert.deepEqual(grid, [
+    { date: dates[0], sitesOpen: 0, sitesReservable: 0, status: 'full' },
+    { date: dates[1], sitesOpen: 1, sitesReservable: 1, status: 'open' },
+    { date: '2026-10-18', sitesOpen: 0, sitesReservable: 0, status: 'full' },
+  ]);
+});
+
 import { loadStaySummaries } from './stay-summary';
 import { currentCampingStay } from '../../../../eddy-ios/src/lib/campingStay';
 test('batched card summaries page beyond 900 rows and keep campground identities separate', async () => {

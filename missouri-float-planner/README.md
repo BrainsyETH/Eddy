@@ -488,11 +488,11 @@ in the registry. That site answers 200 for any path, so run
 
 Bull Shoals links to `/dams/swl-bull-shoals-dam/release-timing`, a findings
 page on how long measured release increases took to reach the USGS gauge near
-Norfork. “Based on 695 historical releases” opens the study's period, reach,
-matched sample, sources and research reports in an anchored desktop dialog or
-mobile bottom sheet. The count and period come from the findings export. A
-visible cream-and-coral notice with Eddy's hazard icon says this is not a
-forecast or a guide to when to wade or launch.
+Norfork. An info icon beside the title opens the study's purpose, period, reach,
+matched sample, sources, limitations and research reports in an anchored desktop
+dialog or mobile bottom sheet. The count and period come from the findings
+export. The collapsed intro shows only the title and a compact “Not a forecast”
+line with Eddy's hazard icon; the panel holds the full wading/launching caveat.
 
 - **How long does it take?** The gauge's typical time leads the map, labelled
   with the selected release size, normal-river context and “Historical timing ·
@@ -589,28 +589,39 @@ Table Rock's **web dam page** places a compact lake–dam–river illustration i
 the existing observed-release panel beneath the photo. It leads with lake
 elevation and total water release; the hourly schedule stays directly below.
 The same lake measurement is omitted from the supporting readings row. iOS,
-other dams, directories, embeds and lake pages retain their existing UI.
+other dams, directories and embeds retain their existing UI.
 
 The schematic is not to scale. Its seasonal reference follows the [Corps'
 published Table Rock power-pool calendar](https://www.swl-wc.usace.army.mil/pages/data/tabular/htm/tabrock.htm)
 for the observation's Central date (including the April/May and November ramps),
-not the fixed conservation-pool reference used by the lake page. Lake movement
+and is also used by the Table Rock lake preview and lake page. The history chart
+follows the seasonal reference at each historical date, not a flat current value. Lake movement
 appears only when recorded history matches that same fresh pool observation.
 Turbine and spillway paths require their own fresh, positive reported flow
 and a fresh positive total release; no spillway is inferred from the difference.
 Missing spillway data reads “Unavailable”, not zero. Reading times and outdated
 states stay visible, daily averages stay labeled, and generator detail is
-expandable. A missing/invalid pool or total release retains the original summary.
+expandable through Lake / Turbines / Below the dam in one shared panel. The
+screen-reader generation summary stays available with that panel closed. Old
+release readings are dimmed and marked directly beneath the number.
+
+Motion uses CSS transforms only, defaults to static, respects reduced motion,
+and has a persistent Pause / Play control. Offscreen or hidden-page animation
+pauses; stale, future-dated, averaged and missing readings do not drive motion.
+Each outlet requires its own reported reading. Wheel speed is illustrative,
+not measured RPM. Lake-level transitions happen only when its reading changes;
+the river's drawn depth is schematic. No schedule is presented as observed flow.
+A missing/invalid pool or total release retains the original summary.
 `test:lakes` covers the pilot, fallback and flow states at desktop and phone widths.
 Run `npm run test:lakes -- --serve` for the same local fixture preview.
 
 
 Truman and Table Rock keep generation first, followed by a shared measurement
 row, Eddy's Read and operational forecasts/patterns. The lake preview follows
-those operations; launch directories live on the dedicated lake page. On the other dam pages,
+those operations; launch directories live on the dedicated lake page. On other dam pages,
 reported release and turbine status lead the generation card in one row (stacked
 only below about 360px), because the release reading is what people open a dam
-page for; it stays on a phone's first screen. The posted schedule follows at the
+page for. On every dam page, including the illustration, the release stays on a phone's first screen. The posted schedule follows at the
 full card width, or the availability explanation when none is posted. This order
 is consistent across pilot and other dam pages. Dam and lake pages use a shared
 photo header with the primary conditions card overlapping its lower edge. Dam

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { DamSnapshot, DamMetricValue } from '@shared/dam-types';
 import type { LakeSection } from '@shared/lake-types';
+import { lakePoolPositionSentence } from './lakes/pool-reference';
 import { damWaterIllustrationState, hasDamWaterIllustration, tableRockSeasonalPoolFt } from './dam-water-illustration';
 
 const at = '2026-11-17T01:00:00Z';
@@ -56,4 +57,23 @@ test('lake movement belongs to the same observation and disappears when stale', 
   const high = damWaterIllustrationState(dam({ poolElevation: { ...metric(925), unit: 'ft' } }), now);
   assert(high.surfaceY < 98, 'high lake draws above the seasonal line');
   assert(damWaterIllustrationState(dam(), now).surfaceY > 98, 'low lake draws below it');
+});
+
+test('all Table Rock web summaries use the observation-date seasonal reference', () => {
+  const lake = { slug: 'table-rock', pool: { valueFt: 916, at: '2026-07-01T12:00:00Z' }, operatingRange: { conservationFt: 915 }, poolPosition: 'flood' } as unknown as LakeSection;
+  assert.equal(lakePoolPositionSentence(lake), '1.0 ft below the 917.0 ft seasonal pool.');
+  assert.equal(lakePoolPositionSentence({ ...lake, pool: { ...lake.pool!, at: '2026-01-01T12:00:00Z' } }), '1.0 ft above the 915.0 ft seasonal pool.');
+  assert.equal(lakePoolPositionSentence({ ...lake, pool: undefined }), null);
+});
+
+test('each measured outlet controls only its own flow; total release gates all motion', () => {
+  const mixed = dam({ release: metric(9000), generationFlow: { ...metric(7000), at: '2026-11-15T01:00:00Z' }, spillwayFlow: metric(2000) });
+  const view = damWaterIllustrationState(mixed, now);
+  assert(view.releaseActive);
+  assert(!view.turbineActive);
+  assert(view.spillwayActive);
+  for (const change of [{ dailyMean: true }, { at: '2026-11-15T01:00:00Z' }, { at: '2026-11-18T01:00:00Z' }, { value: 0 }]) {
+    const stopped = damWaterIllustrationState({ ...mixed, metrics: { ...mixed.metrics, release: { ...metric(9000), ...change } } }, now);
+    assert(!stopped.releaseActive && !stopped.turbineActive && !stopped.spillwayActive);
+  }
 });

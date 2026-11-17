@@ -99,14 +99,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     const map = page.locator('#release-map');
     const slider = map.getByRole('slider');
     const sizes = map.getByRole('group', { name: 'Release size, in generators', exact: true });
-    assert.match(await intro.innerText(), /Bull Shoals release timing[\s\S]*Based on 695 historical releases[\s\S]*Not a forecast/);
-    const studyTrigger = intro.getByRole('button', { name: 'Based on 695 historical releases. About the timing study' });
+    assert.match(await intro.innerText(), /Bull Shoals release timing[\s\S]*Not a forecast/);
+    assert.doesNotMatch(await intro.innerText(), /695|2019|41.5|How long past|Releases can change|White River/);
+    const studyTrigger = intro.getByRole('button', { name: 'About the timing study' });
     assert((await studyTrigger.boundingBox()).height >= 44);
     await studyTrigger.focus();
     await studyTrigger.press('Enter');
     const study = page.getByRole('dialog', { name: 'The timing study' });
     await study.waitFor({ state: 'visible' });
-    assert.match(await study.innerText(), /2019–2026[\s\S]*41.5 river miles[\s\S]*15 minutes[\s\S]*975[\s\S]*separate check[\s\S]*60 comparisons/);
+    assert.match(await study.innerText(), /White River[\s\S]*2019–2026[\s\S]*41.5 river miles[\s\S]*695[\s\S]*15 minutes[\s\S]*975[\s\S]*separate check[\s\S]*60 comparisons[\s\S]*Not a forecast[\s\S]*wade or launch/);
     assert(await study.getByRole('link', { name: 'Read the research reports' }).getAttribute('href'));
     const studyBounds = await study.boundingBox();
     assert(studyBounds.x >= 0 && studyBounds.x + studyBounds.width <= width, 'study panel stays in the viewport');
@@ -136,7 +137,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     assert(await defaultDialog.isVisible(), 'existing icon-only dam explanations still open');
     await defaultDialog.getByRole('button', { name: 'Close explanation' }).click();
     await page.evaluate(() => window.scrollTo(0, 0));
-    checkLayout((await intro.boundingBox()).height < 350, width + ': introduction height ' + (await intro.boundingBox()).height);
+    checkLayout((await intro.boundingBox()).height < 120, width + ': introduction height ' + (await intro.boundingBox()).height);
     assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 12¾ hours/);
     assert.match(await map.innerText(), /4 generators · normal river/);
     assert.match(await map.innerText(), /Historical timing · Not live/);

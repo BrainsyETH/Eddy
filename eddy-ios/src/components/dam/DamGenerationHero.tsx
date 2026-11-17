@@ -8,7 +8,6 @@ import { relativeAge, readingStaleness } from '@eddy/conditions/dam-schedule-cop
 import {
   ABOVE_FULL_GENERATION_LABEL,
   FULL_GENERATION_SHORT_LABEL,
-  RACK_ESTIMATE_SHORT,
   generationNow,
   generationPercentLabel,
   generationStatusLabel,
@@ -16,6 +15,7 @@ import {
   generatorRack,
   releaseComparison,
   releaseRepeatsTurbineFlow,
+  scheduleCheckedPhrase,
   speaksForNow,
   spillwayRelease,
   spillwayReleaseLabel,
@@ -26,11 +26,11 @@ import { fonts, type as t } from '@/theme/typography';
 function ReadingTime({ at, now }: { at: string; now: number }) {
   const { colors } = useTheme();
   const age = relativeAge(at, now);
-  const time = age ? new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago', timeZoneName: 'short',
-  }).format(new Date(at)) : null;
-  return <Text style={[styles.age, { color: colors.textMuted }]}>
-    {time ? `Last reading ${time} · ${age}` : 'Reading time unavailable'}
+  // The shared clock formatter includes a date for earlier Central days.
+  const time = scheduleCheckedPhrase(at, now);
+  return <Text style={[styles.age, { color: colors.textMuted }]}
+    accessibilityLabel={time ? `Last reading ${time}, ${age}` : 'Reading time unavailable'}>
+    {time ? `Read ${time}` : 'Reading time unavailable'}
   </Text>;
 }
 
@@ -55,7 +55,12 @@ function GeneratorCell({
   );
 }
 
-export function DamGenerationHero({ dam, now, headerAction }: { dam: DamSnapshot; now: number; headerAction?: ReactNode }) {
+export function DamGenerationHero({ dam, now, headerAction, readingsSource }: {
+  dam: DamSnapshot;
+  now: number;
+  headerAction?: ReactNode;
+  readingsSource?: ReactNode;
+}) {
   const { colors } = useTheme();
   const release = dam.metrics.release;
   const state = generationNow(dam, now);
@@ -78,7 +83,7 @@ export function DamGenerationHero({ dam, now, headerAction }: { dam: DamSnapshot
   return <View>
     <View style={styles.headingRow}>
       <EddySymbol name="release" size={28} />
-      <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>Water release</Text>
+      <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>Total release</Text>
       {headerAction}
     </View>
     {release ? <>
@@ -86,36 +91,36 @@ export function DamGenerationHero({ dam, now, headerAction }: { dam: DamSnapshot
         accessibilityLabel={`Total water release, ${Math.round(release.value).toLocaleString()} cubic feet per second${release.dailyMean ? ', daily average' : ''}`}>
         {Math.round(release.value).toLocaleString()} <Text style={[styles.unit, { color: colors.textMuted }]}>cfs</Text>
       </Text>
-      <Text style={[styles.caption, { color: colors.textMuted }]}>
-        {release.dailyMean ? 'Total release at dam · Daily average' : 'Total water released at the dam'}
-      </Text>
-      <ReadingTime at={release.at} now={now} />
-      {dimRelease && !release.dailyMean ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated release reading</Text> : null}
+      {release.dailyMean ? <Text style={[styles.caption, { color: colors.textMuted }]}>Daily average</Text> : null}
     </> : <Text style={[styles.caption, { color: colors.textMuted }]}>Total release unavailable.</Text>}
+    <View style={styles.readingRow}>
+      {release ? <ReadingTime at={release.at} now={now} /> : null}
+      {readingsSource}
+    </View>
+    {dimRelease && !release?.dailyMean ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated release reading</Text> : null}
 
     {status ? <View style={[styles.turbine, { borderTopColor: colors.border }]}>
-      <View style={styles.statusRow}>
-        <ControlIcon name="flash" size={13} color={colors.interactive} />
-        <Text accessibilityRole="header" style={[styles.status, { color: colors.text }]}>{status}</Text>
-      </View>
-      {state.kind !== 'unavailable' ? <>
-        <Text style={[styles.caption, { color: dimTurbine ? colors.textMuted : colors.text }]}>
-          {repeatsRelease ? 'Turbine flow matches total release.' : <>
-            Through the turbines <Text style={styles.flow}>{Math.round(state.turbineCfs).toLocaleString()} cfs</Text>
-          </>}
-        </Text>
-        {!sameTime ? <ReadingTime at={state.observedAt} now={now} /> : null}
-        {dimTurbine ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated turbine reading</Text> : null}
-        {rack ? <View style={styles.rackBlock} accessible accessibilityLabel={voiceOver ?? undefined}>
+      <View style={styles.turbineSummary}>
+        <View style={styles.statusRow}>
+          <ControlIcon name="flash" size={13} color={colors.interactive} />
+          <Text accessibilityRole="header" style={[styles.status, { color: colors.text }]}>{status}</Text>
+        </View>
+        {rack ? <View style={styles.rackBlock} accessible accessibilityLabel={`${voiceOver} Estimated from turbine flow.`}>
           <View style={styles.rack}>
             {rack.cells.map((cell, i) => <GeneratorCell key={i} fill={cell.fill}
               on={colors.interactive} off={colors.cardRaised} channel={colors.card} />)}
           </View>
-          {percent ? <Text style={[styles.caption, { color: colors.text }]}>
+          {percent ? <Text style={[styles.estimate, { color: colors.text }]}>
             ~{percent} <Text style={{ color: colors.textMuted }}>{FULL_GENERATION_SHORT_LABEL}</Text>
           </Text> : null}
         </View> : null}
-        {rack ? <Text style={[styles.note, { color: colors.textMuted }]}>{RACK_ESTIMATE_SHORT}</Text> : null}
+      </View>
+      {state.kind !== 'unavailable' ? <>
+        {!repeatsRelease || !sameTime ? <Text style={[styles.caption, { color: dimTurbine ? colors.textMuted : colors.text }]}>
+          Through the turbines <Text style={styles.flow}>{Math.round(state.turbineCfs).toLocaleString()} cfs</Text>
+        </Text> : null}
+        {!sameTime ? <View style={styles.readingRow}><ReadingTime at={state.observedAt} now={now} /></View> : null}
+        {dimTurbine ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated turbine reading</Text> : null}
         {rack && state.kind === 'generating' && state.fraction !== null && state.fraction > 1 ?
           <Text style={[styles.note, { color: colors.textMuted }]}>{ABOVE_FULL_GENERATION_LABEL}</Text> : null}
       </> : null}
@@ -136,15 +141,18 @@ const styles = StyleSheet.create({
   release: { ...t['3xl'], fontFamily: fonts.monoMedium, marginTop: 10, fontVariant: ['tabular-nums'] },
   unit: { ...t.base, fontFamily: fonts.body },
   caption: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
-  age: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
+  readingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, marginTop: 2 },
+  age: { ...t.xs, fontFamily: fonts.body, flexShrink: 1, paddingVertical: 4 },
   note: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
   turbine: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 12 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  turbineSummary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   status: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   flow: { fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
-  rackBlock: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: 10 },
-  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  cell: { width: 16, height: 24, borderRadius: 4, borderWidth: 2, overflow: 'hidden', justifyContent: 'flex-end' },
+  rackBlock: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, flexShrink: 1 },
+  estimate: { ...t.xs, fontFamily: fonts.body, flexShrink: 1 },
+  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
+  cell: { width: 12, height: 18, borderRadius: 3, borderWidth: 1.5, overflow: 'hidden', justifyContent: 'flex-end' },
   cellChannel: { position: 'absolute', top: 4, bottom: 4, left: '50%', width: 1, opacity: 0.7 },
   cellFill: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   spill: { ...t.sm, fontFamily: fonts.medium, marginTop: 12, padding: 10, borderWidth: 1, borderRadius: 10 },

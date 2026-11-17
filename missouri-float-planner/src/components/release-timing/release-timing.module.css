@@ -56,19 +56,17 @@
 }
 
 /* ── Opening: what the page is ── */
-.intro { display: grid; gap: 10px; }
-.kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--color-secondary-700); }
+.intro { display: grid; gap: 6px; }
+.titleRow { display: flex; align-items: center; gap: 4px; }
 .intro h1 { font-family: var(--font-display), system-ui, sans-serif; font-size: clamp(30px, 5.2vw, 46px); font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; color: var(--color-primary-800); text-wrap: balance; }
-.lede { max-width: 62ch; font-size: 18px; line-height: 1.5; color: var(--color-text-secondary); }
-.context { justify-self: start; margin-block: -6px; }
 .studyPanel h3 { font-family: var(--font-display), system-ui, sans-serif; color: var(--color-primary-800); font-size: 22px; font-weight: 600; }
 .studyFacts { display: grid; gap: 10px; }
 .studyFacts > div { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px; }
 .studyFacts dt { color: var(--color-text-secondary); }
 .studyFacts dd { margin: 0; color: var(--color-text-primary); font-weight: 500; }
-.caution { display: flex; align-items: flex-start; gap: 12px; max-width: 760px; padding: 12px 16px; border-color: var(--color-accent-300); background: var(--color-secondary-50); font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
-.caution > img { flex-shrink: 0; margin-top: 2px; }
-.caution b { display: block; margin-bottom: 2px; color: var(--color-primary-800); font-family: var(--font-display), system-ui, sans-serif; font-size: 18px; font-weight: 600; }
+.caution { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.5; color: var(--color-primary-800); }
+.caution > img { flex-shrink: 0; }
+.caution b { font-family: var(--font-display), system-ui, sans-serif; font-weight: 500; }
 
 /* ── Map: the heading is the answer ── */
 .explorer { overflow: hidden; }

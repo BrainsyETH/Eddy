@@ -193,6 +193,15 @@ export function listKnowledgeRiverSlugs(): string[] {
   return Object.keys(parseKnowledgeFile().rivers);
 }
 
+/**
+ * Subsection slugs (`### ... {#slug}`) under a river's section, in file order.
+ * Empty when the river has no section. Used to compare the file's reach
+ * coverage with river_sections.
+ */
+export function listKnowledgeSectionSlugs(riverSlug: string): string[] {
+  return Object.keys(parseKnowledgeFile().rivers[riverSlug]?.subsections ?? {});
+}
+
 /** The parsed General knowledge block (for regression-testing the parser). */
 export function getGeneralKnowledge(): string {
   return parseKnowledgeFile().general;

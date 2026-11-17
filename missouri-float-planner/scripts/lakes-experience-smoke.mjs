@@ -144,20 +144,52 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             const releaseBox = await page.locator('[data-total-release]').boundingBox();
             const illustrated = page.locator('[data-dam-water-illustration]');
             assert.equal(await illustrated.count(), 1, 'Table Rock uses the water illustration');
-            assert(releaseBox.y + releaseBox.height <= 690, `total release remains near the top at ${width}px`);
+            assert(releaseBox.y + releaseBox.height <= 600, `total release remains near the top at ${width}px`);
             assert.equal(await illustrated.locator('[data-water-path="turbine"]').count(), 1);
             assert.equal(await illustrated.locator('[data-water-path="spillway"]').count(), 0, 'zero spillway flow draws no active spillway');
-            const disclosure = illustrated.locator('details');
-            const summary = disclosure.locator('summary');
-            assert.equal(await disclosure.getAttribute('open'), null, 'generator details start collapsed');
-            assert((await summary.boundingBox()).height >= 44, 'details keeps a touch target');
-            await summary.focus(); await page.keyboard.press('Enter');
-            assert.equal(await disclosure.getAttribute('open'), '', 'keyboard opens generator details');
-            await page.keyboard.press('Enter');
-            assert.equal(await disclosure.getAttribute('open'), null);
+            const details = illustrated.locator('.dam-water-detail-panel');
+            const buttons = illustrated.locator('.dam-water-explore button');
+            assert.equal(await buttons.count(), 3, 'three real detail controls');
+            assert.equal(await details.isVisible(), false, 'details start collapsed');
+            const boxes = await buttons.evaluateAll(nodes => nodes.map(node => { const b = node.getBoundingClientRect(); return { x: b.x, right: b.right, height: b.height, width: b.width, fits: node.scrollWidth <= node.clientWidth }; }));
+            assert(boxes.every((b, i) => b.width >= 44 && b.height >= 44 && b.fits && (i === 0 || b.x >= boxes[i - 1].right + 4)), 'touch targets fit and do not overlap');
+            const turbines = illustrated.getByRole('button', { name: 'Turbines', exact: true });
+            await turbines.focus(); await page.keyboard.press('Enter');
+            assert(await details.isVisible(), 'keyboard opens generation details');
+            await details.getByRole('button', { name: 'Close reading details' }).focus();
+            await page.keyboard.press('Escape');
+            assert.equal(await details.isVisible(), false);
+            assert(await turbines.evaluate(el => el === document.activeElement), 'Escape returns focus to the trigger');
+            assert.equal(await illustrated.locator('[data-generation-summary]').count(), 1, 'generation summary remains outside the closed panel');
+            assert(!(await illustrated.locator('[data-generation-summary]').evaluate(el => Boolean(el.closest('[hidden]')))));
+            await illustrated.getByRole('button', { name: 'Below the dam', exact: true }).click();
+            assert.match(await details.innerText(), /704.12 ft/);
+            assert.match(await details.innerText(), /56.0 °F/);
+            await illustrated.getByRole('button', { name: 'Lake', exact: true }).click();
+            assert.equal(await details.locator('figure').count(), 1, 'lake opens measured history in the shared panel');
+            await details.getByRole('button', { name: 'Close reading details' }).click();
+            await illustrated.scrollIntoViewIfNeeded();
+            await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'running');
+            await illustrated.getByRole('button', { name: 'Pause motion', exact: true }).click();
+            assert.equal(await illustrated.getAttribute('data-motion'), 'paused');
+            assert(await illustrated.locator('.dam-motion').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).animationPlayState === 'paused')));
+            await page.clock.runFor(61000);
+            assert.equal(await illustrated.getAttribute('data-motion'), 'paused', 'pause survives clock updates');
+            await illustrated.getByRole('button', { name: 'Play motion', exact: true }).click();
+            await page.emulateMedia({ reducedMotion: 'reduce' });
+            await illustrated.getByRole('button', { name: 'Motion off', exact: true }).waitFor();
+            assert(await illustrated.locator('.dam-motion').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).animationName === 'none')), 'reduced motion is fully static');
+            await page.emulateMedia({ reducedMotion: 'no-preference' });
+            await illustrated.getByRole('button', { name: 'Pause motion', exact: true }).waitFor();
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'paused');
+            await page.evaluate(() => window.scrollTo(0, 0));
+            assert.match(await page.locator('[data-lake-section]').innerText(), /2.6 ft below the 917.0 ft seasonal pool/);
             assert(!(await page.locator('[data-dam-measurements]').innerText()).includes('Lake level'), 'the illustration owns the lake reading');
-            const tip = await generation.getByRole('button').first().boundingBox();
-            for (const heading of await page.locator('.dam-release-heading, .dam-turbine-heading').all()) {
+            const tip = await generation.getByRole('button', { name: 'About generation and schedule', exact: true }).boundingBox();
+            const headings = illustrated.locator('.dam-water-readings .dam-water-label');
+            assert.equal(await headings.count(), 2, 'overlap check covers real illustrated headings');
+            for (const heading of await headings.all()) {
               const range = await heading.evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return { right: b.right, top: b.top, bottom: b.bottom }; });
               assert(range.right <= tip.x || range.bottom <= tip.y || range.top >= tip.y + tip.height, 'card info button does not cover a heading');
             }
@@ -174,6 +206,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         const content = await page.locator('.place-content').boundingBox();
         assert(content.y < hero.y + hero.height && content.y > hero.y + hero.height - 40, 'main card overlaps the photo edge without covering the title');
         await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+        await page.locator(':focus').evaluateAll(nodes => nodes.forEach(node => node.blur()));
         await page.screenshot({ path: `${out}/${variant || 'table-rock'}-${kind}-${width}.png`, fullPage: true });
       }
     }
@@ -186,10 +219,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         assert.equal(await page.locator('[data-total-release]').count(), 1);
       } else {
         assert.equal(await illustration.count(), 1);
-        if (variant === 'spillway') assert.equal(await illustration.locator('[data-water-path="spillway"]').count(), 1);
+        if (variant === 'spillway') {
+          assert.equal(await illustration.locator('[data-water-path="spillway"]').count(), 1);
+          assert.equal((await illustration.innerText()).match(/4,000 cfs/g)?.length, 1, 'spillway quantity appears once');
+        }
         if (variant === 'unknownSpillway') assert.match(await illustration.innerText(), /Spillway\s+Unavailable/);
         if (['stale', 'dailyRelease'].includes(variant)) assert.equal(await illustration.locator('[data-water-path]').count(), 0, 'old or averaged readings do not paint active flows');
-        if (variant === 'stale') assert((await illustration.innerText()).includes('Outdated'));
+        if (variant === 'stale') {
+          const number = illustration.locator('[data-total-release]');
+          const warning = illustration.locator('[data-release-outdated]');
+          const numberBox = await number.boundingBox(), warningBox = await warning.boundingBox();
+          assert(warningBox.y - (numberBox.y + numberBox.height) < 16, 'outdated release warning stays beside the number');
+          assert(await number.evaluate(el => Number(getComputedStyle(el).opacity) < 1), 'stale value is dimmed');
+          assert.equal(await illustration.getAttribute('data-motion'), 'paused');
+        }
         if (variant === 'dailyRelease') assert((await illustration.innerText()).includes('Daily average'));
         if (variant === 'mixed') assert((await illustration.locator('time').count()) > 1, 'different observation times stay attached to their readings');
       }

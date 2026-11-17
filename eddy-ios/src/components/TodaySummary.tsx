@@ -160,7 +160,7 @@ export function TodaySummary({
         }
       >
         <View style={[styles.iconWell, { backgroundColor: colors.selectionBg }]}>
-          <EddySymbol name="water" size={30} />
+          <EddySymbol name="today" size={30} />
         </View>
         <View style={styles.copy}>
           <Text style={[styles.kicker, { color: colors.accent }]}>OZARKS PULSE</Text>

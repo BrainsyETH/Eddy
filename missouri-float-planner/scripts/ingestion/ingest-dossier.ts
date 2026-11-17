@@ -233,7 +233,13 @@ const characteristics = secs.length ? {
   primary_hazards: [...new Set(secs.flatMap((s) => s.characteristics?.primaryHazards ?? []))],
   low_water_meaning: joinSectionField('lowWaterMeaning'),
   rising_water_hazards: joinSectionField('risingWaterHazards'),
-  river_note: `Per-section hydro types: ${secs.map((s) => `${s.slug}=${s.characteristics?.hydroType}`).join(', ')}. River-level default: ${dossier.riverType}.`,
+  // river_note is deliberately NOT written here. It is injected into every
+  // Read prompt as "Gauge notes:", and this script used to fill it with
+  // `Per-section hydro types: <slug>=<hydroType>, ...` — bookkeeping, and
+  // `=undefined` wherever a section carried no hydroType. A reach whose type
+  // differs from the river's belongs in river_sections.river_type (00204),
+  // not in prose. Leaving the key out also means a re-ingest cannot overwrite
+  // a note somebody curated by hand.
 } : null;
 
 console.log(`\nPlan: update rivers.${dossier.slug}; upsert ${gauges.filter((g: any) => g.lat != null).length}/${gauges.length} gauge_stations; ` +
