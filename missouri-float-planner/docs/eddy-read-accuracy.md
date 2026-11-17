@@ -159,6 +159,44 @@ Each input says what it measures, where and over what window, or it is left out.
   measurement. Each names the weather point. It is one point, not the
   watershed above the gauge, and the prompt says so.
 
+## Knowledge by gauge
+
+`EDDY_KNOWLEDGE.md` is selected per consumer by `src/lib/eddy/knowledge.ts`,
+so that each fact reaching a Read is about the water its gauge speaks for. The
+file's own Format Rules say how to write it. In short:
+
+- Text straight under a river's heading is true along the whole river and
+  reaches every Read on it.
+- `### Gauge: <name> {@site}` holds what one gauge sits on and speaks for. It
+  starts with a `Sits` line (what enters above the gauge and what enters below
+  it) and a `Speaks for` line.
+- Reach notes carry the `{@site}` of the gauge that speaks for them.
+- `### Towns` is for chat.
+
+| Consumer | Gets |
+| --- | --- |
+| River Read | General, the river-wide block, the reporting gauge's block, reach notes tagged with it, and the other gauges' `Sits` and `Speaks for` lines under an "elsewhere, patterns only" header |
+| Gauge Read | the river-wide block, that gauge's block, reach notes tagged with it |
+| Chat | General and everything about the river in view, towns included |
+
+`{unconfirmed}` on a gauge heading keeps a drafted block out of every prompt. A
+river with no confirmed block for a gauge is selected as it was before gauge
+blocks existed: the river-wide block, plus, for a gauge Read, any reach note
+that names the gauge's town. On 2026-11-17 three rivers were confirmed: the
+Current (Van Buren only), the Jacks Fork and the Niangua. The other gauges
+carry drafts built from the river line and access points, with the inflows
+left for the owner to state. `knowledge.test.ts` lists the confirmed rivers, so
+confirming one is a deliberate change.
+
+Confirm a gauge line from the readings where they can speak: with a gauge on
+each side of an inflow, the gain between them at low water is the inflow. That
+is how the Alley Spring and Windyville gauges were shown to sit above their
+springs.
+
+The daily `eddy_knowledge` trust check reports `knowledge_gauge_mismatch` when
+the file tags a gauge the river is not linked to, or when a river has
+confirmed blocks but none for its main gauge.
+
 ## Generation records
 
 `eddy_updates` holds published text only and is pruned after 48 hours. Every

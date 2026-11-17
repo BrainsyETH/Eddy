@@ -309,7 +309,7 @@ export async function generateGaugeUpdate(
   capture.forecast = forecast;
   capture.riverBehaviorApplies = riverBehaviorApplies;
   // The same call buildGaugePrompt makes, so the hash is of the text it sent.
-  capture.riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName) || null;
+  capture.riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName, target.usgsSiteId) || null;
   capture.userPrompt = prompt;
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -445,10 +445,10 @@ function buildGaugePrompt(
   lines.push('');
   lines.push('[CONDITION SEMANTICS — how to interpret conditions on THIS river]');
   lines.push(buildSecondaryGaugeSemantics(riverCtx, riverBehaviorApplies));
-  const riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName);
+  const riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName, target.usgsSiteId);
   if (riverKnowledge) {
     lines.push('');
-    lines.push('[RIVER KNOWLEDGE — about the whole river; use only what fits this station\'s stretch, do not recite]');
+    lines.push('[RIVER KNOWLEDGE — about the whole river unless it says "This gauge"; use only what fits this station\'s stretch, do not recite]');
     lines.push(riverKnowledge);
   }
   lines.push('');

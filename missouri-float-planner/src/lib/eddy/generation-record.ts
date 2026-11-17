@@ -115,7 +115,8 @@ export function sha256(text: string): string {
 
 /**
  * Which knowledge blocks getKnowledgeForTarget() put in the text: 'general',
- * 'river', and 'section:<slug>'. Read back from the block headings it writes,
+ * 'river', 'gauge:<site>' for the reporting gauge's own block,
+ * 'section:<slug>', and 'elsewhere' for the one-line-per-other-gauge list. Read back from the block headings it writes,
  * so this reports what was injected rather than what was asked for. A river
  * with no section in the file gets ['general'] here, which is the Gasconade
  * failure made visible per row.
@@ -125,7 +126,9 @@ export function knowledgeBlocks(text: string | null): string[] {
   const blocks: string[] = [];
   if (/^=== General Ozarks Knowledge ===$/m.test(text)) blocks.push('general');
   if (/^=== .+ River Knowledge ===$/m.test(text)) blocks.push('river');
+  for (const match of text.matchAll(/^=== This gauge: .+ \((.+)\) ===$/gm)) blocks.push(`gauge:${match[1]}`);
   for (const match of text.matchAll(/^=== Section: (.+) ===$/gm)) blocks.push(`section:${match[1]}`);
+  if (/^=== Elsewhere on this river\b/m.test(text)) blocks.push('elsewhere');
   return blocks;
 }
 
@@ -218,17 +221,19 @@ export interface GaugeGenerationCapture {
 
 /**
  * Which knowledge blocks getRiverKnowledgeForGauge() returned: 'river' for the
- * river's main block and 'section:<slug>' for each reach note it attached.
+ * river's main block, 'gauge:<site>' for the gauge's own block and
+ * 'section:<slug>' for each reach note it attached.
  * Read back from the text, so it reports what was sent. A gauge that got the
  * river block and no reach note is the common case, and the one the knowledge
  * file's gauge tags are meant to end.
  */
 export function gaugeKnowledgeBlocks(text: string | null): string[] {
   if (!text?.trim()) return [];
+  const own = [...text.matchAll(/^This gauge: .+ \((.+)\)$/gm)].map((match) => `gauge:${match[1]}`);
   const sections = [...text.matchAll(/^Section (.+):$/gm)].map((match) => `section:${match[1]}`);
   // The river block, when present, comes first and has no header of its own.
-  const hasRiverBlock = !/^Section .+:$/.test(text.trimStart().split('\n')[0]);
-  return [...(hasRiverBlock ? ['river'] : []), ...sections];
+  const hasRiverBlock = !/^(?:Section .+:|This gauge: .+)$/.test(text.trimStart().split('\n')[0]);
+  return [...(hasRiverBlock ? ['river'] : []), ...own, ...sections];
 }
 
 export function buildGaugeGenerationRecord(
