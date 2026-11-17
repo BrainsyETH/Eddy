@@ -390,6 +390,16 @@ try {
   assert.equal(await riverSelect.inputValue(), "meramec");
   assert.equal(await riverSelect.locator("option:checked").textContent(), "Meramec River");
   await page.getByText("No campgrounds match this search.", { exact: false }).waitFor();
+  // A slug that names no river is ignored, not shown as an invented river.
+  const unknownRiverRequest = page.waitForResponse((response) => response.url().endsWith("/api/rivers"));
+  await page.goto(`${origin}/camping-layout-check?river=not-a-river`);
+  await page.getByRole("heading", { name: "5 campgrounds", exact: true }).waitFor();
+  // The slug is checked against the live list too; let that request finish.
+  await unknownRiverRequest;
+  assert.equal(await riverSelect.inputValue(), "");
+  assert.equal(await riverSelect.getByRole("option", { name: "Not A River" }).count(), 0);
+  assert.equal(await page.getByRole("region", { name: /now$/ }).count(), 0);
+  const requestsBeforeAllRivers = riverRequests;
   await page.goto(`${origin}/camping-layout-check`);
   await page
     .getByRole("heading", { name: "Find your next campsite." })
@@ -438,6 +448,7 @@ try {
     fullPage: true,
   });
   // All-river cards prioritise campsite availability; conditions appear once for a selected river.
+  assert.equal(riverRequests, requestsBeforeAllRivers, "conditions are not requested until a river is selected");
   const cards = page
     .getByRole("article")
     .filter({ has: page.getByRole("button", { name: "View campground" }) });
@@ -497,6 +508,7 @@ try {
     .waitFor();
   assert.deepEqual(await cards.locator("h3").allTextContents(), [names[1]]);
   assert.equal(await page.getByText("Upstream to downstream", { exact: false }).count(), 0);
+  assert.equal(await sort.count(), 0, "a river with no measured campgrounds offers no river order");
   await riverSelect.selectOption("");
   assert.equal(await page.getByRole("region", { name: /now$/ }).count(), 0);
   assert.equal(new URL(page.url()).searchParams.has("river"), false);

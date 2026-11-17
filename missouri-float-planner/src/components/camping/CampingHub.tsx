@@ -72,17 +72,32 @@ export default function CampingHub({
   const lastFocus = useRef<HTMLElement | null>(null);
   const detailPushed = useRef(false);
   const groups = useMemo(() => groupCampgrounds(overview.tracked), [overview]);
+  const requestedRiver = params.get("river") ?? "";
   // Conditions arrive after the campgrounds; the hub is complete without them.
+  // Only a selected river shows them, so nothing is requested across all rivers.
   const { data: riverSnapshot, isPending: riversPending, dataUpdatedAt } = useQuery({
     queryKey: ["camping", "rivers"],
     queryFn: ({ signal }) => loadCampingRivers(signal),
+    enabled: Boolean(requestedRiver),
     staleTime: 5 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
   const riverList = riverSnapshot?.rivers;
-  const search = params.get("q") ?? "",
-    river = params.get("river") ?? "";
+  const riverDirectory = new Map([
+    ...(riverList ?? []).map((r) => [r.slug, r] as const),
+    ...(overview.rivers ?? []).map((r) => [r.slug, r] as const),
+  ]);
+  const campgroundRivers = new Set(
+    [...overview.tracked, ...overview.untracked].flatMap((c) => c.riverSlugs),
+  );
+  // A slug that names no river is not a filter: it would otherwise put an
+  // invented river, with links to pages that do not exist, in the control.
+  const river =
+    campgroundRivers.has(requestedRiver) || riverDirectory.has(requestedRiver)
+      ? requestedRiver
+      : "";
+  const search = params.get("q") ?? "";
   const filters = (params.get("types") ?? "")
     .split(",")
     .filter((v): v is WebSiteFilter =>
@@ -104,7 +119,17 @@ export default function CampingHub({
   // choice, dates prioritise openings; browsing one river follows its course.
   const requestedSort = params.get("sort");
   const explicitSort = requestedSort === "river" || requestedSort === "available" ? requestedSort : null;
-  const sort = river && (explicitSort === "river" || (!explicitSort && !stay))
+  // River order needs positions to order by. A river whose campgrounds have no
+  // river mile keeps openings-then-name order and offers no sort.
+  const riverOrderable =
+    !!river &&
+    campingRiverOrdered(
+      groups
+        .filter((g) => g.facilities.some((c) => c.riverSlugs.includes(river)))
+        .map((g) => g.camp),
+      river,
+    );
+  const sort = riverOrderable && (explicitSort === "river" || (!explicitSort && !stay))
     ? "river" : "available";
   const hasFilters = Boolean(
     search || river || filters.length || availableOnly,
@@ -137,15 +162,9 @@ export default function CampingHub({
       .map((c) => [c.displayGroup.key, c.displayGroup.label]),
   );
   const riverNow = river ? campingRiverNow(riverList, river, Math.max(clock, dataUpdatedAt), riverSnapshot?.receivedAt) : null;
-  const riverDirectory = new Map([
-    ...(riverList ?? []).map((r) => [r.slug, r] as const),
-    ...(overview.rivers ?? []).map((r) => [r.slug, r] as const),
-  ]);
   const rivers = [
     ...new Set([
-      ...[...overview.tracked, ...overview.untracked].flatMap(
-        (c) => c.riverSlugs,
-      ),
+      ...campgroundRivers,
       // A link from a river with no campgrounds listed keeps its name in the
       // control instead of reading "All rivers" over an empty list.
       ...(river ? [river] : []),
@@ -562,7 +581,7 @@ export default function CampingHub({
           </p>
         </div>
         <div className={styles.resultControls}>
-          {river && (
+          {riverOrderable && (
             <label className={styles.sort}>
               <span className="sr-only">Sort campgrounds</span>
               <select value={sort} onChange={(e) => update({ sort: e.target.value })}>

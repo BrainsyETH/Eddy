@@ -78,8 +78,9 @@ never tied to stay dates. Ratings expire after six hours, including on an open
 or resumed tab; missing, invalid and future observation ages are unavailable.
 The observation timestamp takes precedence over the relative age, so a cached
 response cannot make an old reading fresh. Older responses age from receipt,
-including HTTP cache age. Conditions refresh every five minutes and on return
-to the tab. A failed refresh does not extend the last reading's lifetime.
+including HTTP cache age. Conditions are requested only while a river is
+selected; they then refresh every five minutes and on return to the tab. A
+failed refresh does not extend the last reading's lifetime.
 
 River identity and canonical links travel with the campground overview,
 independently of live conditions. On a condition-load failure the summary says
@@ -90,7 +91,10 @@ browser-compatible deadline as Camping, without requiring AbortSignal statics.
 With a river selected, browsing without dates defaults to "Along the river";
 entering dates defaults to "Available first". The compact sort control stores
 an explicit choice in the URL and retains it across date, filter and view
-changes. "Available for my stay" remains a filter, not a sort.
+changes. "Available for my stay" remains a filter, not a sort. River order and
+the sort control exist only when at least two of the river's tracked
+campgrounds have a river mile; otherwise the list keeps openings-then-name
+order, as on Big River, whose two tracked campgrounds have no mile.
 
 Cards and calendar rows say "River mile 26". The mile is the access point's
 `river_mile_downstream`, the river page's ruler, carried on the overview as
@@ -106,7 +110,9 @@ and tested, so the iOS Camping screen can adopt the same behavior. iOS is
 unchanged by this release.
 
 A `?river=` link for a river with no listed campgrounds keeps that river's name
-in the control and shows its panel above the empty result.
+in the control and shows its panel above the empty result. A slug that names
+no river (not in the overview's rivers, the live list or any campground) is
+ignored: the control reads "All rivers" and every campground is listed.
 
 ### Scope: new web hub only
 
