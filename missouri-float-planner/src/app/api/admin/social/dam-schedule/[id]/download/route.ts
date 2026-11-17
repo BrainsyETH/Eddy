@@ -21,8 +21,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   try {
     const response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(30_000) });
     if (!response.ok || !response.body) throw new Error('Download failed');
+    const filename = String(post.render_request.outputFilename || id).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 150);
     return new Response(response.body, { headers: {
-      'Content-Type': 'video/mp4', 'Content-Disposition': `attachment; filename="eddy-dam-schedule-${id}.mp4"`,
+      'Content-Type': 'video/mp4', 'Content-Disposition': `attachment; filename="${filename}.mp4"`,
       'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
     } });
   } catch { return NextResponse.json({ error: 'Could not download the video. Try again.' }, { status: 502 }); }

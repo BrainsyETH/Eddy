@@ -990,7 +990,7 @@ export default function SocialAdminPage() {
               {/* The cover beside the video: on Instagram the OG image IS the
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
-              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${!damPreview && (videoPreviewPost.image_url || videoPreviewPost.video_url) ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 max-w-sm mx-auto'}`}>
+              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${damPreview ? 'grid-cols-1 max-w-sm mx-auto' : videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
                 {videoPreviewPost.video_url && <div>
                   <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">{damPreview && videoPreviewPost.platform === 'instagram' ? 'Instagram Story' : 'Video'}</p>
                   <div className="relative bg-black rounded-lg overflow-hidden aspect-[9/16]">

@@ -80,7 +80,7 @@ try {
         return {
           error: window.remotion_cancelledError,
           regions: [...document.querySelectorAll('[data-dam-region]')].map(el => ({ name: el.dataset.damRegion, ...bounds(el) })),
-          text: [...document.querySelectorAll('[data-dam-text]')].map(el => { const range=document.createRange(); range.selectNodeContents(el); return {text:el.textContent,...bounds(range)}; }),
+          text: [...document.querySelectorAll('[data-dam-text]')].map(el => { const range=document.createRange(); range.selectNodeContents(el); return {text:el.textContent,...bounds(range),parent:bounds(el.closest('[data-dam-region]'))}; }),
           copy: document.querySelector('[data-dam-safe]').textContent,
           windows: document.querySelector('[data-dam-windows]').textContent,
           hourCount: document.querySelectorAll('[data-dam-hour]').length,
@@ -94,6 +94,13 @@ try {
       const safe = platform === 'instagram' ? { top:250, bottom:1620, left:60, right:1020 } : { top:180, bottom:1500, left:60, right:810 };
       for (const rect of [...result.regions, ...result.text]) {
         assert.ok(rect.left >= safe.left-1 && rect.right <= safe.right+1 && rect.top >= safe.top-1 && rect.bottom <= safe.bottom+1, `${platform}/${name}@${frame}: outside safe bounds: ${JSON.stringify(rect)}`);
+      }
+      for (const rect of result.text) assert.ok(rect.top >= rect.parent.top-1 && rect.bottom <= rect.parent.bottom+1 && rect.left >= rect.parent.left-1 && rect.right <= rect.parent.right+1, `${platform}/${name}: text overflows its region: ${JSON.stringify(rect)}`);
+      for (let i=0; i<result.text.length; i++) for (let j=i+1; j<result.text.length; j++) {
+        const a=result.text[i], b=result.text[j];
+        const overlapX=Math.min(a.right,b.right)-Math.max(a.left,b.left);
+        const overlapY=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);
+        assert.ok(overlapX<1 || overlapY<1, `${platform}/${name}: text collision: ${a.text} / ${b.text}`);
       }
       for (let i=1; i<result.regions.length; i++) assert.ok(result.regions[i-1].bottom <= result.regions[i].top, `${platform}/${name}: regions overlap`);
       if (initialCopy === undefined) initialCopy = result.copy;

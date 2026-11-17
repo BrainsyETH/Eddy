@@ -27,7 +27,7 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
           <span style={{ color: colors.accent[600], fontFamily: fontFamilies.display, fontSize: 58, fontWeight: 600 }}>Eddy</span>
           <span style={{ marginLeft: 'auto', fontSize: 24, fontWeight: 700 }}>DAILY DAM UPDATE</span>
         </div>
-        <div data-dam-text style={{ fontSize: 27, fontWeight: 650, marginBottom: 8 }}>{scheduleDayLabel(snapshot.scheduleDate).toUpperCase()} · CENTRAL TIME{sample ? ' · SAMPLE' : ''}</div>
+        <div data-dam-text style={{ fontSize: 27, fontWeight: 650, marginBottom: 8 }}>{scheduleDayLabel(snapshot.scheduleDate).toUpperCase()} · {snapshot.scheduleDate.slice(0, 4)} · CENTRAL TIME{sample ? ' · SAMPLE' : ''}</div>
         <h1 data-dam-text style={{ fontFamily: fontFamilies.display, fontSize: 78, fontWeight: 600, lineHeight: 1.1, margin: 0 }}>Table Rock Dam</h1>
       </header>
       <section data-dam-region="schedule" style={{ height: many ? 362 : 324, boxSizing: 'border-box', border: `5px solid ${ink}`, borderRadius: 22, background: 'white', boxShadow: `8px 8px 0 ${ink}`, padding: '22px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -44,7 +44,7 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
       <section data-dam-region="timeline" style={{ height: 130 }}>
         <div data-dam-text style={{ fontSize: 29, fontWeight: 700, marginBottom: 14 }}>Posted generation hours</div>
         <div style={{ display: 'flex', gap: 4, height: 48 }}>{snapshot.hours.map((active, hour) => <div data-dam-hour={hour} key={hour} style={{ flex: 1, borderRadius: 5, background: active ? colors.accent[500] : colors.secondary[200] }} />)}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9, fontSize: 23, color: colors.neutral[700] }}>{['12 AM', '6 AM', 'noon', '6 PM', '12 AM'].map((label, i) => <span data-dam-text key={i}>{label}</span>)}</div>
+        <div style={{ position: 'relative', height: 32, marginTop: 9, fontSize: 23, color: colors.neutral[700] }}>{['12 AM', '6 AM', 'noon', '6 PM', '12 AM'].map((label, i) => <span data-dam-text key={i} style={{ position: 'absolute', left: `${i * 25}%`, transform: `translateX(${i === 0 ? 0 : i === 4 ? -100 : -50}%)`, whiteSpace: 'nowrap' }}>{label}</span>)}</div>
       </section>
       <footer data-dam-region="footer" style={{ borderTop: `2px solid ${colors.neutral[300]}`, paddingTop: 14 }}>
         <div data-dam-text style={{ fontSize: 26 }}>Schedule can change. Check before you go.</div>
