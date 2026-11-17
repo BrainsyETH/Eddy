@@ -51,11 +51,29 @@ gauge or the closest. A gauge below a stretch can read floatable while the
 stretch is thin; the stretch's block in `EDDY_KNOWLEDGE.md` is where that is
 said.
 
+While stretch Reads are paused, an assignment has one live effect: the
+planner's gauge for put-ins inside the stretch.
+
 An unsupported section gets a named station observation, explicitly saying the
 section is not assessed. A river with no usable gauge still gets a location-based
 unavailable fallback with relevant alerts and the separate weather summary. It
-never invents a station or pays for a model call. Section-generation target
-selection and row persistence are unchanged; disabling unused targets is separate.
+never invents a station or pays for a model call.
+
+### Stretch Reads are paused
+
+Eddy does not write a Read per stretch. `STRETCH_READS_ENABLED` in
+`src/lib/eddy/stretch-reads.ts` is `false`, so the daily pass and the
+event-driven rewrites generate whole-river targets only.
+
+They were paused on 2026-11-17 because no screen shows them. Every reader of
+`eddy_updates` on the website and in the iOS app asks for river-level rows, and
+nothing requests `/api/eddy-update/<river>?section=`. The pass had been writing
+58 stretch rows a day, seven of them with a model call. What people see is the
+river Read, each secondary gauge's Read (`generate-gauge-update.ts`), and the
+planner's rating for a put-in.
+
+The stretch code paths below remain, for the day a screen shows a stretch
+Read. Turning them back on is that one constant.
 
 ## Structured claims and prose
 

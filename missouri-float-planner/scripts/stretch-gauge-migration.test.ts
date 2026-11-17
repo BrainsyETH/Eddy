@@ -3,12 +3,13 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 
-// 20261117200000 gives twenty-one stretches a gauge and mile bounds so Eddy's
-// Read can describe them. The same columns choose the gauge that grades a
-// float plan (get_river_condition_segment), so the migration's own promise is
-// that no put-in changes gauge. These tests run the real file against a
-// fixture and check that promise holds, and that the file refuses to apply
-// when it would not.
+// 20261117200000 records a gauge and mile bounds for twenty-one stretches.
+// Stretch Reads are paused, so the Read does not use them yet. The same
+// columns choose the gauge that grades a float plan
+// (get_river_condition_segment), so the migration's own promise is that no
+// put-in changes gauge. These tests run the real file against a fixture and
+// check that promise holds, and that the file refuses to apply when it would
+// not.
 
 const migration = readFileSync(
   'supabase/migrations/20261117200000_twenty_one_stretches_read_their_own_gauge.sql',

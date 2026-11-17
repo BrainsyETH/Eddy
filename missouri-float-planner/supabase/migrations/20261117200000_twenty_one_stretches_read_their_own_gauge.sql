@@ -2,9 +2,16 @@
 --
 -- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
 --
--- Twenty-one river stretches get a gauge and mile bounds, so Eddy's Read can
--- describe them instead of publishing "Eddy has no gauge reading for <stretch>
--- itself".
+-- Twenty-one river stretches get a gauge and mile bounds.
+--
+-- WHAT THIS DOES TODAY: it records, for each stretch, which gauge speaks for
+-- it and where the stretch starts and ends. Nothing a user sees changes.
+-- Stretch Reads are paused (src/lib/eddy/stretch-reads.ts: no screen shows
+-- them), and these assignments were chosen so that no put-in's planner gauge
+-- moves. It is groundwork: if stretch Reads are ever shown, these stretches
+-- can be described instead of publishing "Eddy has no gauge reading for
+-- <stretch> itself". The owner asked for it on condition that stretch Reads
+-- are switched off in production before it is applied.
 --
 -- ── Why they had none ───────────────────────────────────────────────────────
 -- A stretch's Read is written only when its gauge is known to sit on it:
@@ -50,9 +57,8 @@
 -- A gauge below a stretch has more drainage above it than the stretch does and
 -- can read floatable while the stretch is thin. That is the accepted cost of
 -- the rule above. Where EDDY_KNOWLEDGE.md says so for a stretch (Wolf Pen
--- "needs the upper part of the band"), that note reaches the Read once the
--- stretch is connected, because section knowledge is only loaded for a
--- model-written Read.
+-- "needs the upper part of the band"), that note would reach a stretch Read,
+-- because section knowledge is only loaded for a model-written Read.
 --
 -- ── Why only twenty-one of the thirty-one that were approved ────────────────
 -- The assignment made here is not private to the Read.
