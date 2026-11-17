@@ -188,12 +188,60 @@ pre-model causes still publish the same factual fallback.
 The table is created by `20261117041752_eddy_generation_log.sql`. Against a
 database without it the generator logs one warning per process and keeps no
 records.
-Only river and section Reads are recorded; secondary-gauge commentary
-(`generate-gauge-update.ts`) and the statewide summary are not.
+Secondary-gauge Reads (`generate-gauge-update.ts`) are recorded in the same
+table and told apart by `workload`: `river_update` or `gauge_update`. A gauge
+row has no `section_slug`; its station is in `usgs_site_id`, and
+`knowledge_blocks` lists `river` and each `section:<slug>` reach note that was
+attached. The statewide summary is not recorded.
 
 `npm run audit:eddy-reads` prints the current model-written and code-written
 counts, fallback causes from the log, knowledge-file reach coverage and
 malformed prompt inputs. It is read-only.
+
+## Read checks
+
+`npm run report:eddy-reads` scores published Reads against the rules their
+prompts set and prints the pass rate per rule per day, or per week over a long
+window (`-- --days 200 --by week`). It is read-only. Run it before and after a
+change to a prompt or to `EDDY_KNOWLEDGE.md`; the change helped if the columns
+moved. The rules live in `src/lib/eddy/read-checks.ts`:
+
+| Column | A Read passes when |
+| --- | --- |
+| `sum<=120` | its summary is 120 characters or fewer |
+| `read<=240` | its short Read is 240 characters or fewer |
+| `no-nums` | its short Read quotes no reading, temperature or rain percentage |
+| `no-fcst` | its short Read leaves the forecast to the Watch for panel |
+| `no-will` | no sentence states flatly that the water or weather will change or stay |
+| `in-inputs` | every measurement appears in the prompt's facts with the same unit |
+| `not-file` | no measurement appears only in the knowledge block of the prompt |
+
+These are evidence, not a gate. They never change what is published; the
+publish guard above stays narrow. The length limits are targets the owner set
+for readability, not truncation points, so a long Read is counted and still
+published.
+
+`no-will` counts a sentence only when it says something will change or
+persist: a set phrase ("no rain is on its way", "isn't going anywhere"), or
+will / won't / going to with a verb of change or a time ahead. The future
+tense for today's water ("you will be dragging", "the pools will be thin at
+this level") is not a forecast and is not counted.
+
+The two number rules need the prompt, so they show `-` for gauge Reads written
+before those were logged. They compare value and unit only: a number that is
+in the facts for another place still passes.
+
+What no rule here catches is a claim about a place or a cause the inputs do
+not support, such as a spring credited to a gauge that sits above it. That
+needs a model grader, or a knowledge file that tags each fact with its gauge.
+
+Baseline, 2026-11-17. River Reads are the 25 logged that day. Gauge Reads are
+the 182 written from 2026-11-09 to 2026-11-17:
+
+| | `sum<=120` | `read<=240` | `no-nums` | `no-fcst` | `no-will` | `in-inputs` | `not-file` | median Read |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| River | 96% | 48% | 80% | 88% | 76% | 100% | 100% | 250 chars |
+| Gauge | 97% | 68% | 62% | 83% | 93% | - | - | 229 chars |
 
 ## Rollout
 

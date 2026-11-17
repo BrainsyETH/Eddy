@@ -26,7 +26,9 @@ import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
-import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type ReportFacts } from './report-facts';
+import { buildGaugeGenerationRecord, type GaugeGenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
+import { recordGeneration } from './generation-log';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 // The model is resolved once per pass from llm_config and threaded in, so a
@@ -157,10 +159,15 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
  *
  * `model` is resolved once per pass by the caller rather than looked up here,
  * so every row a pass writes provably shares one model.
+ *
+ * Every way out of this function writes one generation record first, including
+ * the ones that return null: see generation-record.ts. `trigger` is required
+ * so a new caller has to say what started it.
  */
 export async function generateGaugeUpdate(
   target: SecondaryGaugeTarget,
   model: ResolvedModel,
+  options: { trigger: GenerationTrigger },
 ): Promise<GeneratedGaugeUpdate | null> {
   const sourcesUsed: string[] = [];
   const supabase = createAdminClient();
@@ -209,7 +216,37 @@ export async function generateGaugeUpdate(
   const facts = buildReportFacts({ gaugeName: target.gaugeName, gaugeHeightFt, dischargeCfs, thresholds: target.thresholds, floodAlerts: alerts });
   const conditionCode = facts.conditionCode;
 
+  // What this attempt was handed. Later steps fill in the rest, so an early
+  // exit records what it had reached.
+  const capture: GaugeGenerationCapture = {
+    target: {
+      riverSlug: target.riverSlug,
+      riverName: target.riverName,
+      usgsSiteId: target.usgsSiteId,
+      gaugeName: target.gaugeName,
+      coordinates: target.coordinates,
+    },
+    trigger: options.trigger,
+    model,
+    facts,
+    readingTimestamp,
+    alerts,
+    forecast: null,
+    trajectory: null,
+    riverBehaviorApplies: null,
+    riverKnowledge: null,
+    systemPrompt: GAUGE_SYSTEM_PROMPT,
+    userPrompt: null,
+  };
+  const record = (result: GenerationResult) =>
+    recordGeneration(buildGaugeGenerationRecord(capture, result, { gitSha: process.env.VERCEL_GIT_COMMIT_SHA }));
+
   const fallback = preflightReportFallback(facts);
+  if (fallback) await record({
+    outcome: 'fallback',
+    reason: preflightFallbackReason(facts),
+    published: { ...fallback, sourcesUsed },
+  });
   if (fallback) return {
     gaugeStationId: target.gaugeStationId,
     usgsSiteId: target.usgsSiteId,
@@ -268,10 +305,17 @@ export async function generateGaugeUpdate(
     }
   }
   const prompt = buildGaugePrompt(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies);
+  capture.trajectory = trajectory;
+  capture.forecast = forecast;
+  capture.riverBehaviorApplies = riverBehaviorApplies;
+  // The same call buildGaugePrompt makes, so the hash is of the text it sent.
+  capture.riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName) || null;
+  capture.userPrompt = prompt;
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     console.error('[GaugeUpdates] ANTHROPIC_API_KEY not configured');
+    await record({ outcome: 'error', reason: 'missing_api_key' });
     return null;
   }
 
@@ -289,18 +333,23 @@ export async function generateGaugeUpdate(
     }));
 
     const textBlock = message.content.find((b) => b.type === 'text');
-    const rawText = textBlock?.text ? replaceEmDashes(textBlock.text.trim()) || null : null;
+    // Recorded exactly as returned; the cleanup below is not part of the evidence.
+    const modelText = textBlock?.text ?? null;
+    const usage = extractUsage(model.id, message.usage);
+    const stopReason = message.stop_reason ?? null;
+    const rawText = modelText ? replaceEmDashes(modelText.trim()) || null : null;
     if (!rawText) {
       console.error(`[GaugeUpdates] Empty ${model.id} response for ${target.usgsSiteId}`);
+      await record({ outcome: 'error', reason: 'empty_response', rawResponse: modelText, stopReason, usage });
       return null;
     }
 
-    const { report, usedFallback } = prepareGeneratedReport(rawText, facts);
+    const { report, usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(rawText, facts);
     const { summaryText, eddyRead, quoteText } = report;
     const publishedSources = !usedFallback ? sourcesUsed
       : sourcesUsed.filter(source => ['USGS gauge', 'NWS alerts'].includes(source));
 
-    return {
+    const update: GeneratedGaugeUpdate = {
       gaugeStationId: target.gaugeStationId,
       usgsSiteId: target.usgsSiteId,
       riverSlug: target.riverSlug,
@@ -311,10 +360,26 @@ export async function generateGaugeUpdate(
       summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
       sourcesUsed: publishedSources,
-      usage: extractUsage(model.id, message.usage),
+      usage,
     };
+    await record({
+      outcome: usedFallback ? 'fallback' : 'model',
+      reason: fallbackReason,
+      contradictions,
+      rawResponse: modelText,
+      stopReason,
+      usage,
+      published: {
+        summaryText: update.summaryText,
+        eddyRead: update.eddyRead,
+        quoteText: update.quoteText,
+        sourcesUsed: update.sourcesUsed,
+      },
+    });
+    return update;
   } catch (e) {
     console.error(`[GaugeUpdates] ${model.id} call failed for ${target.usgsSiteId}:`, e);
+    await record({ outcome: 'error', reason: 'model_error', errorMessage: e instanceof Error ? e.message : String(e) });
     return null;
   }
 }

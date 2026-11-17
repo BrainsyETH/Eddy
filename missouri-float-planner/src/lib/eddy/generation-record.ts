@@ -1,5 +1,5 @@
 // src/lib/eddy/generation-record.ts
-// One row of evidence per attempt to write a river Read: what the generator
+// One row of evidence per attempt to write a river Read or a gauge Read: what the generator
 // was handed, what came back, and what was published in its place if anything.
 //
 // WHY THIS EXISTS. eddy_updates is the serving table. It holds the published
@@ -81,7 +81,9 @@ export interface GenerationResult {
 
 /** The insert shape for public.eddy_generation_log. */
 export interface GenerationLogRow {
-  workload: 'river_update';
+  /** `river_update`: a river's Read (generate-update.ts). `gauge_update`: a
+   * secondary gauge's Read (generate-gauge-update.ts). */
+  workload: 'river_update' | 'gauge_update';
   trigger: GenerationTrigger;
   river_slug: string;
   section_slug: string | null;
@@ -153,14 +155,7 @@ function captureInputs(c: GenerationCapture): Record<string, unknown> {
       weatherLon: c.riverCtx.weatherLon,
       characteristics: c.riverCtx.characteristics,
     },
-    alerts: c.alerts.map((a) => ({
-      event: a.event,
-      severity: a.severity,
-      headline: a.headline,
-      areaDesc: a.areaDesc,
-      expires: a.expires ?? null,
-      description: a.description ? a.description.slice(0, ALERT_DESCRIPTION_MAX) : null,
-    })),
+    alerts: c.alerts.map(captureAlert),
     weather: c.weather,
     forecast: c.forecast,
     precipitation: c.precipitation,
@@ -174,10 +169,6 @@ export function buildGenerationRecord(
   r: GenerationResult,
   env: { gitSha?: string | null } = {},
 ): GenerationLogRow {
-  // A model id is recorded only when a model was actually asked. A fallback
-  // decided from the facts never called one, and saying otherwise would make
-  // the fallback rate look like a property of the model.
-  const calledModel = r.outcome === 'model' || r.rawResponse != null || r.reason === 'model_error' || r.reason === 'empty_response';
   return {
     workload: 'river_update',
     trigger: c.trigger,
@@ -185,21 +176,125 @@ export function buildGenerationRecord(
     section_slug: c.target.sectionSlug,
     usgs_site_id: c.usgsSiteId,
     condition_code: c.facts.conditionCode,
-    outcome: r.outcome,
-    reason: r.reason,
-    contradictions: r.contradictions ?? [],
-    model_used: calledModel ? c.model.id : null,
-    stop_reason: r.stopReason ?? null,
-    input_tokens: r.usage?.inputTokens ?? null,
-    output_tokens: r.usage?.outputTokens ?? null,
-    cache_read_tokens: r.usage?.cacheReadTokens ?? null,
-    cache_creation_tokens: r.usage?.cacheCreationTokens ?? null,
+    ...resultColumns(c.model.id, r),
     git_sha: env.gitSha ?? null,
     system_prompt_hash: sha256(c.systemPrompt),
     knowledge_hash: c.localKnowledge ? sha256(c.localKnowledge) : null,
     knowledge_blocks: knowledgeBlocks(c.localKnowledge),
     user_prompt: c.userPrompt,
     inputs: captureInputs(c),
+    ...publishedColumns(r),
+  };
+}
+
+/** What a secondary gauge's generator gathered. Filled in as it goes, like
+ * GenerationCapture. Narrower: a gauge Read has no current weather, rain
+ * total, rain lag or river note, and its knowledge is the river's block plus
+ * the reach notes that name the gauge's town. */
+export interface GaugeGenerationCapture {
+  target: {
+    riverSlug: string;
+    riverName: string;
+    usgsSiteId: string;
+    gaugeName: string;
+    coordinates: { lat: number; lon: number } | null;
+  };
+  trigger: GenerationTrigger;
+  model: { id: string; maxTokens: number; thinking?: unknown; cacheSystemPrompt: boolean; source: string };
+  facts: ReportFacts;
+  readingTimestamp: string | null;
+  alerts: NWSAlert[];
+  forecast: ForecastData | null;
+  trajectory: GaugeTrajectory | null;
+  /** False when a reach overrides the river's type, so river-wide behaviour
+   * guidance was left out of the prompt. Null until it is decided. */
+  riverBehaviorApplies: boolean | null;
+  /** The text getRiverKnowledgeForGauge() returned, or null if none. */
+  riverKnowledge: string | null;
+  systemPrompt: string;
+  /** The user message, or null when no prompt was built. */
+  userPrompt: string | null;
+}
+
+/**
+ * Which knowledge blocks getRiverKnowledgeForGauge() returned: 'river' for the
+ * river's main block and 'section:<slug>' for each reach note it attached.
+ * Read back from the text, so it reports what was sent. A gauge that got the
+ * river block and no reach note is the common case, and the one the knowledge
+ * file's gauge tags are meant to end.
+ */
+export function gaugeKnowledgeBlocks(text: string | null): string[] {
+  if (!text?.trim()) return [];
+  const sections = [...text.matchAll(/^Section (.+):$/gm)].map((match) => `section:${match[1]}`);
+  // The river block, when present, comes first and has no header of its own.
+  const hasRiverBlock = !/^Section .+:$/.test(text.trimStart().split('\n')[0]);
+  return [...(hasRiverBlock ? ['river'] : []), ...sections];
+}
+
+export function buildGaugeGenerationRecord(
+  c: GaugeGenerationCapture,
+  r: GenerationResult,
+  env: { gitSha?: string | null } = {},
+): GenerationLogRow {
+  return {
+    workload: 'gauge_update',
+    trigger: c.trigger,
+    river_slug: c.target.riverSlug,
+    section_slug: null,
+    usgs_site_id: c.target.usgsSiteId,
+    condition_code: c.facts.conditionCode,
+    ...resultColumns(c.model.id, r),
+    git_sha: env.gitSha ?? null,
+    system_prompt_hash: sha256(c.systemPrompt),
+    knowledge_hash: c.riverKnowledge ? sha256(c.riverKnowledge) : null,
+    knowledge_blocks: gaugeKnowledgeBlocks(c.riverKnowledge),
+    user_prompt: c.userPrompt,
+    inputs: {
+      target: c.target,
+      model: c.model,
+      facts: c.facts,
+      readingTimestamp: c.readingTimestamp,
+      alerts: c.alerts.map(captureAlert),
+      forecast: c.forecast,
+      trajectory: c.trajectory,
+      riverBehaviorApplies: c.riverBehaviorApplies,
+    },
+    ...publishedColumns(r),
+  };
+}
+
+function captureAlert(a: NWSAlert) {
+  return {
+    event: a.event,
+    severity: a.severity,
+    headline: a.headline,
+    areaDesc: a.areaDesc,
+    expires: a.expires ?? null,
+    description: a.description ? a.description.slice(0, ALERT_DESCRIPTION_MAX) : null,
+  };
+}
+
+/** The columns that say how the attempt ended, shared by both workloads. */
+function resultColumns(modelId: string, r: GenerationResult) {
+  // A model id is recorded only when a model was actually asked. A fallback
+  // decided from the facts never called one, and saying otherwise would make
+  // the fallback rate look like a property of the model.
+  const calledModel = r.outcome === 'model' || r.rawResponse != null || r.reason === 'model_error' || r.reason === 'empty_response';
+  return {
+    outcome: r.outcome,
+    reason: r.reason,
+    contradictions: r.contradictions ?? [],
+    model_used: calledModel ? modelId : null,
+    stop_reason: r.stopReason ?? null,
+    input_tokens: r.usage?.inputTokens ?? null,
+    output_tokens: r.usage?.outputTokens ?? null,
+    cache_read_tokens: r.usage?.cacheReadTokens ?? null,
+    cache_creation_tokens: r.usage?.cacheCreationTokens ?? null,
+  };
+}
+
+function publishedColumns(r: GenerationResult) {
+  return {
     raw_response: r.rawResponse ?? null,
     published: r.published
       ? {

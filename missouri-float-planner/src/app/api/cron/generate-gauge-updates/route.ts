@@ -79,7 +79,7 @@ async function runGeneration(request: NextRequest) {
   const errors: string[] = [];
 
   const processTarget = async (target: SecondaryGaugeTarget) => {
-    const update = await generateGaugeUpdate(target, models.gauge_update);
+    const update = await generateGaugeUpdate(target, models.gauge_update, { trigger: 'scheduled' });
     if (!update) throw new Error('generation returned null');
 
     const { error: insertError } = await supabase.from('gauge_updates').insert({
