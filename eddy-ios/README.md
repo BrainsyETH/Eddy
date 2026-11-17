@@ -1529,9 +1529,21 @@ readings or a comparison from another calendar day. Search rows stay compact.
 
 ## Dam details
 
-The generation card and its spacing appear only for a powerhouse or a posted
-generation schedule. Flood-control dams such as Clearwater keep their release
-and water-level readings without an empty generation card above them.
+Dam detail uses the same photo header as river detail, with the web's selected
+image, crop focus and attribution from `shared/place-photo-credits.json`.
+Photo metadata ships with the app; images use Eddy's resized, disk-cached copies
+without waiting for the dam readings. Missing or failed images use a plain title.
+Native back, share and favorite controls stay in the toolbar, with the compact
+title appearing when the large title scrolls out of view. The header's Dynamic
+Type and contrast accommodations follow the river header above; the same native
+device verification remains required.
+
+Total water release leads the dam's first card, including flood-control dams.
+Turbine flow and the estimated generator rack follow as a separate observation;
+they never stand in for a missing total release. Matching, aligned spot readings
+share one value; different times keep their own timestamp. Daily averages and
+outdated readings stay labeled. The posted schedule follows the observations.
+The lower conditions card does not repeat total release.
 
 Dam detail readings use Eddy's illustrated metric symbols: Release and Water
 temperature share the web masters; lake and tailwater levels reuse the gauge
@@ -2567,6 +2579,11 @@ default for other callers; shared links retain their requested range. Reviewed
 rain can appear on 24h/7d, adding its own height above the existing river plot, with an independent
 inches scale and a shared cursor. Compare contains the remembered Rain switch;
 tapping Rain upstream opens the existing chart sheet (full screen when expanded).
+The inline entry shows a plain-language 24-hour summary in normal layout flow.
+Complete dry history collapses the empty strip; short archives, gaps and trace
+rain keep their history visible. Wet history has an inches axis beside the
+strip, with period grouping explained in Compare. River condition labels stay
+within the river pane below rainfall, and rain never compresses the river plot.
 The rain detail leads with side-by-side 24/72-hour basin averages and a shared
 ending time when both periods match. Its fixed, north-up map reuses the existing
 native outdoors basemap beneath the shared rainfall SVG. Both layers use the
@@ -2591,10 +2608,14 @@ Locked previews have no expand button; one accessible Premium offer explains acc
 the single shared lock remain in force. Switching gauge resets expanded prose.
 
 Read sections keep their thin dividers. The free outlook says **Next 3 days**
-(today and the next two Central calendar days), with official heights separated
-below the weather under **NWS forecast · daily high**. Values retain feet and
-day-specific VoiceOver labels; missing days say “No forecast”. This row has no
-condition ratings, which would imply a verdict on the whole day.
+(today and the next two Central calendar days). A separate **NWS river forecast**
+link opens the selected station’s official page instead of repeating daily
+heights under the weather. The outlook API supplies that station’s `nwsLid`;
+weather navigation carries it to the same link in the full weather footer.
+Missing or invalid station IDs omit the link, including older API responses and
+weather opened from Today without a river context. The footer separates weather
+attribution from the note about today’s remaining high/low range. It keeps the
+scroll view’s automatic native insets and existing bottom padding.
 
 Before distribution, verify the rain switch persists, toggling preserves the
 river plot height while adding/removing the rain track, rain/gauge values scrub together, and opening/closing the

@@ -13,6 +13,7 @@ import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
 import { accessFeeSchema, publicPageMetadata, ROUTE_SHARE_IMAGE, SHARE_IMAGES } from './seo';
 import ArticleByline from '../components/blog/ArticleByline';
 import ConditionsLayout from '../components/conditions/ConditionsLayout';
+import OzarksPulse from '../components/conditions/OzarksPulse';
 import GenerationSchedule from '../components/dam/GenerationSchedule';
 import DamTimeline from '../components/dam/DamTimeline';
 import DamGenerationHero from '../components/dam/DamGenerationHero';
@@ -117,6 +118,40 @@ test('the actual Conditions layout links to every destination before JavaScript'
   assert.doesNotMatch(html, /Show all rivers/);
 });
 
+test('Ozarks Pulse keeps the count through withheld, expired and failed summaries without inventing a zero', () => {
+  const now = Date.parse('2026-11-16T18:00:00Z');
+  const prose = 'Spring-fed rivers are holding steady.';
+  const known = directoryRivers.map(river => ({ ...river, currentCondition: {
+    code: 'good' as const, label: 'Good', gaugeHeightFt: 3, dischargeCfs: 400,
+    thresholdUnit: 'cfs' as const, readingAgeHours: .2, trend: null,
+  } }));
+  const render = (rivers: RiverListItem[], summary: { prose: string; generatedAt: string } | null, failed = false) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    client.setQueryData(['ozarksPulse'], summary);
+    if (failed) client.getQueryCache().find({ queryKey: ['ozarksPulse'] })?.setState({ status: 'error', error: new Error('Unavailable') });
+    try {
+      return renderToStaticMarkup(createElement(QueryClientProvider, { client },
+        createElement(OzarksPulse, { initialRivers: rivers, renderedAt: now })));
+    } finally { client.clear(); }
+  };
+  const fresh = { prose, generatedAt: new Date(now - 3600000).toISOString() };
+  assert.match(render(known, fresh), /Written 1h ago/);
+  for (const summary of [null, { ...fresh, generatedAt: new Date(now - 25 * 3600000).toISOString() }, { ...fresh, generatedAt: new Date(now + 3600000).toISOString() }]) {
+    const html = render(known, summary);
+    assert.match(html, /12 of 12 rivers are floatable right now/);
+    assert.ok(!html.includes(prose));
+    assert.doesNotMatch(html, /Retry update/);
+  }
+  const failed = render(known, fresh, true);
+  assert.match(failed, /12 of 12 rivers are floatable right now/);
+  assert.match(failed, /Retry update/);
+  assert.ok(!failed.includes(prose), 'failed refreshes do not retain old regional advice');
+  const unknown = render(directoryRivers, fresh);
+  assert.match(unknown, /River conditions unavailable/);
+  assert.doesNotMatch(unknown, /0 of 12|floatable right now/);
+  assert.ok(!unknown.includes(prose), 'prose alone never claims current conditions');
+});
+
 test('All keeps the river chart and Eddy report alongside the dam schedule and essential readings', () => {
   const now = Date.parse('2026-10-27T17:00:00Z');
   const at = new Date(now - 600000).toISOString();
@@ -136,13 +171,14 @@ test('All keeps the river chart and Eddy report alongside the dam schedule and e
       thresholds: [{ riverId: river.id, riverName: river.name, riverSlug: river.slug, isPrimary: true,
         thresholdUnit: 'cfs', levelTooLow: 50, levelLow: 100, levelOptimalMin: 200, levelOptimalMax: 800, levelHigh: 1000, levelDangerous: 2000 }],
     }]);
-    client.setQueryData(['eddyUpdates'], {});
     client.setQueryData(['gaugeHistory', '07067000', 14, null, null, 'auto', null], normalizeGaugeHistory({
       siteId: '07067000', readings: [400, 450, 500].map((value, i) => ({ timestamp: new Date(now - (3 - i) * 86400000).toISOString(), dischargeCfs: value, gaugeHeightFt: 3 })),
     }));
   });
   const textContent = html.replace(/<[^>]*>/g, '');
-  for (const text of ['Eddy says', 'Full river report', 'At Van Buren', 'Van Buren gauge', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation scheduled to increase at 2 PM.', 'Highest scheduled generation: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  for (const text of ['Ozarks Pulse', 'Eddy’s Read in the app', 'Full river report', 'At Van Buren', 'Van Buren gauge', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation scheduled to increase at 2 PM.', 'Highest scheduled generation: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  assert.doesNotMatch(textContent, /Eddy says|Optimal range:/, 'directory cards replace short prose with an app invitation');
+  assert.match(html, /feature=read/, 'the app handoff retains the Read destination');
   // The card leads its schedule with the next move and the peak window, in
   // place of the hours count, each said once and both above the chart.
   const todaySchedule = scheduleSection(html, 'Today');

@@ -32,10 +32,10 @@ test('the dam panel is inside the reading card, not a section of its own', () =>
 
   const detail = read(WEB_DETAIL);
   // On the dam tab the dam block IS the card: nothing of the gauge card follows it.
-  assert.match(detail, /\{damLeads \? \(\s*<div className="card-framed bg-white"[^>]*>\s*\{damLead\}\s*<\/div>\s*\) : \(\s*<CurrentReadingCard/);
-  assert.match(detail, /footer=\{!hasSections && showDamContext \? damFooter : null\}/);
+  assert.match(detail, /\{damLeads \? \(\s*<div className="card-framed bg-white"[^>]*>\s*\{selectedDamLead\}\s*<\/div>\s*\) : \(\s*<CurrentReadingCard/);
+  assert.match(detail, /footer=\{!hasSections && showDamContext && !damTab \? damFooter : null\}/);
   // Section reports place the same dam footer after their chart, only below the dam.
-  assert.match(detail, /hasSections && showDamContext && damFooter/);
+  assert.match(detail, /hasSections && showDamContext && !damTab && damFooter/);
 
   const ios = read(IOS_RIVER);
   assert.match(ios, /\{damLeads \? \(\s*<RiverDamPanel dam=\{selectedDam\} position="lead"/, 'on the dam tab the dam block is the whole card');
@@ -63,9 +63,10 @@ test('the river card draws the dam the way the dam cards do', () => {
 
 test("the dam tab's Read is the dam's, with Weather kept and Bottom line dropped", () => {
   const footer = read(WEB_FOOTER);
-  assert.match(footer, /<DamReadTeaser/);
-  assert.match(footer, /\{!damRead && bottomLine &&/, 'Bottom line is drawn only off the dam tab');
-  assert.match(footer, />Weather</, 'Weather stays on every tab');
+  assert.match(footer, /useDamReadWrittenAt\(damId\)/);
+  assert.match(footer, /damId \? damRead.generatedAt/, 'dam age never borrows the river report age');
+  assert.doesNotMatch(footer, /DamReadTeaser|bottomLine|sections\.eddyRead/, 'river pages use one compact link');
+  assert.match(read(WEB_DETAIL), /<WillItHold/, 'free weather remains on the river report');
 
   const take = read(IOS_TAKE);
   assert.match(take, /\{damRead \|\| !bottomLine \? null : \(/, 'Bottom line is drawn only off the dam tab');

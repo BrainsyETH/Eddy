@@ -7,7 +7,7 @@
 //  - A metric the dam does not publish is ABSENT from `metrics`, and absent
 //    renders NOTHING. Clearwater is flood control with no powerhouse, so it
 //    must not show a "Generation: 0 cfs" tile implying the turbines are idle.
-//  - Generating vs idle is the fact a wading angler needs first, so it leads.
+//  - On detail screens total release leads in DamGenerationHero; this card carries the other readings.
 //  - A daily-mean release (the St. Louis district publishes release that way,
 //    about a day behind) is labelled. Showing it as "releasing now" would be a
 //    correctness bug, not a cosmetic one.
@@ -223,14 +223,8 @@ export function DamStateCard({
       {/* Tailwater facts lead, lake facts follow. The water below the dam is
           what someone is standing in; the pool is context. */}
       <View style={styles.statGrid}>
-        {/* Hidden on a hydropower project's own screen, where the hero above
-            already shows the turbine flow and total release is that figure
-            again plus or minus a spillway that is almost always shut — the
-            pair read as one number stated twice. A flood-control project
-            renders no hero — DamGenerationHero returns null for a dam with no
-            powerhouse — so on Clearwater this is the only place total release
-            appears, and it stays. */}
-        {release && !(secondary && dam.hasTurbines) ? (
+        {/* The detail screen's leading card already carries total release. */}
+        {release && !secondary ? (
           <Stat
             icon="release"
             label={release.dailyMean ? 'Release (daily avg)' : 'Releasing'}

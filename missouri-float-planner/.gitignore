@@ -75,3 +75,6 @@ tmp/
 
 # Temporary camping fixture created and removed by camping-smoke.mjs.
 /src/app/camping-layout-check/
+
+# Temporary source-switching browser fixture (dev-only, removed by the runner).
+src/app/river-report-check/

@@ -1,6 +1,8 @@
 import { rainChanceColor, weatherAtmosphere, weatherDescription } from '@/theme/weather';
 import { useTheme } from '@/theme/ThemeProvider';
 import { WeatherIcon } from '@/components/WeatherIcon';
+import { NwsRiverForecastLink } from '@/components/NwsRiverForecastLink';
+import { nwsRiverForecastUrl } from '@/lib/weatherDestination';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -40,7 +42,7 @@ export default function WeatherScreen() {
     message: { ...layout.message, color: colors.text },
     source: { ...layout.source, color: colors.textMuted },
   };
-  const { lat: latParam, lng: lngParam } = useLocalSearchParams<{ lat: string; lng: string }>();
+  const { lat: latParam, lng: lngParam, nwsLid } = useLocalSearchParams<{ lat: string; lng: string; nwsLid?: string }>();
   const lat = Number(latParam);
   const lng = Number(lngParam);
   const valid = Boolean(latParam && lngParam) && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
@@ -136,8 +138,11 @@ export default function WeatherScreen() {
           <View style={[styles.panel, styles.metric, stacked && { flex: 0 }]} accessible accessibilityLabel={`Wind ${Math.round(current.windSpeed)} miles per hour`}><ControlIcon name="flag-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>WIND</Text><Text style={styles.metricValue}>{Math.round(current.windSpeed)} <Text style={styles.unit}>mph</Text></Text></View>
           <View style={[styles.panel, styles.metric, stacked && { flex: 0 }]} accessible accessibilityLabel={`Humidity ${Math.round(current.humidity)} percent`}><ControlIcon name="water-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>HUMIDITY</Text><Text style={styles.metricValue}>{Math.round(current.humidity)}<Text style={styles.unit}>%</Text></Text></View>
         </View> : null}
-        {data ? <Text style={styles.source}>OpenWeather · °F{current ? ` · Updated ${new Date(current.fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}
-Today’s range covers the remaining forecast.</Text> : null}
+        {data || nwsRiverForecastUrl(nwsLid) ? <View style={[layout.footer, { borderTopColor: colors.border }]}>
+          <NwsRiverForecastLink lid={nwsLid} />
+          {data ? <Text style={styles.source}>OpenWeather · °F{current ? ` · Updated ${new Date(current.fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}</Text> : null}
+          {today ? <Text style={styles.source}>Today’s high and low cover the rest of today.</Text> : null}
+        </View> : null}
       </ScrollView>
     </SafeAreaView>
   </View>;
@@ -175,5 +180,6 @@ const layout = StyleSheet.create({
   metricValue: { ...t['3xl'], fontFamily: fonts.monoMedium },
   unit: { ...t.base, fontFamily: fonts.body },
   message: { ...t.sm, fontFamily: fonts.body, minHeight: 44, paddingVertical: 16, textAlign: 'center' },
-  source: { ...t.xs, fontFamily: fonts.body, padding: 12, borderRadius: 12, textAlign: 'center', lineHeight: 20 },
+  footer: { alignItems: 'center', gap: 4, paddingTop: 12, paddingHorizontal: 4, borderTopWidth: StyleSheet.hairlineWidth },
+  source: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', lineHeight: 20 },
 });

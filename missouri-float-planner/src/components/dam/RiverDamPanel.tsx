@@ -30,7 +30,7 @@
 // A dam with no powerhouse (Clearwater) has no posted schedule. Its look ahead
 // is the Corps' daily release forecast, given one line (shared/river-dam-panel).
 //
-// Server component, fed by fetchRiverDam() inside the page's Promise.all.
+// Rendered on the server for the primary dam, or from a selected dam snapshot.
 
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
@@ -87,6 +87,7 @@ export default function RiverDamPanel({
           <h3 id="river-dam-heading" className="font-heading text-lg font-bold leading-6 text-neutral-900">
             {dam.name}
           </h3>
+          <span className="mt-0.5 block text-xs font-medium text-neutral-600">At the dam</span>
           {dam.hasTurbines && <ScheduleDateline now={now} className="mt-0.5 block" />}
         </span>
         <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-primary-700">
@@ -95,7 +96,7 @@ export default function RiverDamPanel({
         </span>
       </Link>
 
-      <DamReadings dam={dam} now={now} showLakeLevel unsupported={unsupportedDamReadings(dam.id)} />
+      <DamReadings dam={dam} now={now} showLakeLevel={lead} unsupported={unsupportedDamReadings(dam.id)} />
 
       <div className="px-4 pt-1.5 sm:px-5">
         {dam.hasTurbines ? (

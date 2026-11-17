@@ -43,6 +43,13 @@ vessel instead of forwarding an old URL value. The map's URL is the source of
 its river/gauge selection and condition filters, including browser history and
 query-only navigation. Loading catalogue data never replaces an incoming deep link.
 
+The homepage hero shows **Ozarks Pulse** beside Eddy: the full river catalogue's
+floatable count, the public regional summary and its own written time. The former
+rotating per-river hero bubble is removed. Pulse uses the same count helper and
+public summary as iOS. The count is independent of the prose; failed or withheld
+summaries never turn the count into zero. Missing/unknown conditions show an
+unavailable state, and failed refreshes do not present old prose as current.
+
 The homepage shows **River and Dam Conditions**, the two route actions, river
 guides, and the iPhone app. Its two report columns reuse the Conditions directory's
 `RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
@@ -51,8 +58,11 @@ footers and carousel controls; off-screen slides do not set the height. Stacked
 mobile cards keep their natural height. Homepage dam cards use the same three-reading
 banner as `/dams`: release, water temperature, and lake level, with Eddy icons
 and one shared age line. Dam cards show only Today's generation
-schedule, and Eddy Says follows the river chart without a spacer.
-Both shared cards use Eddy's framed surface and teal header.
+schedule. One compact **Eddy’s Read in the app** invitation follows each river
+chart, retaining that river in the iPhone/App Store or desktop handoff. Individual
+short Reads and their static fallback paragraphs are no longer shown on these cards.
+Both shared cards use Eddy's framed surface; river cards keep the condition
+stripe and plain title, while dams use the teal header.
 Each column shows one report, rotating horizontally every eight seconds while
 visible; the columns stack on mobile and support swipe and previous/next arrows.
 Hover temporarily holds rotation. Keyboard focus or pointer interaction stops
@@ -114,7 +124,7 @@ Current and Buffalo, followed by complete Rivers and Lakes & Dams sections.
 Featured is a fixed editorial selection, not measured popularity, and respects
 the state filter. All cards are visible without a Show all step: two columns
 on desktop, one on mobile. Search results and explicit sorts use those same
-components, including river charts, gauge details, Eddy summaries and condition
+components, including river charts, gauge details, contextual app invitations and condition
 artwork. Dam cards focus on release, water temperature and the generation
 schedule; the generator status/rack and below-dam elevation stay on full reports.
 Dam cards share the full report’s framed border and warm reading surface, with a
@@ -140,7 +150,11 @@ the current Central calendar window, so a snapshot from before midnight keeps
 a posted tomorrow rather than retaining yesterday’s slot.
 
 Both entry points use the “Conditions” heading, Eddy's canoe artwork and the
-cross-river summary. A compact A–Z link directory keeps every destination
+same search and filters. On All and Rivers, a compact **Ozarks Pulse** sits
+beneath the filters and above results. Its disclosure opens the regional prose;
+the whole-catalogue count remains visible and never follows search/state filters.
+Lakes & Dams omits Pulse. The duplicated header summary is removed.
+A compact A–Z link directory keeps every destination
 reachable before JavaScript, including when live gauge metadata is unavailable.
 `/dams` keeps its own search title, canonical URL and initial Lakes & Dams filter.
 The USGS observation-delay note remains below the reports alongside source and
@@ -367,7 +381,7 @@ the SVG state outlines from the pinned US Census/us-atlas dataset.
 Rivers with different hydrology above and below a dam use **Choose your section**
 at the start of the live report. Upper/Lower Black replace the separate Reaches
 panel and gauge picker. The selected section owns the reading, history, outlook,
-and gauge-specific Eddy summary; Clearwater context appears only below the
+and gauge-specific Read link; Clearwater context appears only below the
 Lower Black chart, with dam release kept distinct from the downstream gauge.
 Section readings use the regular gauge card's condition-aware Eddy otter, with
 water level and flow labeled side by side. Clearwater's link uses Eddy's dam
@@ -385,7 +399,10 @@ its own native controls, chart expansion, and Premium unlock flow.
 `npm run test:river-sections` checks the real report with intercepted fixture
 APIs at 1440, 390, and 320px, including section switching, deep links, history,
 missing readings, late responses, keyboard navigation, and dam scoping.
-Screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SMOKE_OUTPUT`).
+`npm run test:river-report` also checks mixed dam/gauge switching, delayed and
+failed dam responses, unrated/stale/flagged readings, source attribution and Read
+links at the same widths. Its screenshots go to `/tmp/eddy-river-report`.
+Section screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SMOKE_OUTPUT`).
 
 ## River and gauge history
 
@@ -833,20 +850,39 @@ Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and riv
 
 ## River report interpretation and rainfall
 
-The Live report reads in this order: selected section/current conditions, shared
-river chart, **Eddy's Read**, then **Will it hold?** The Read has one heading and
-one Premium CTA. Locked interpretation and context remain a static blurred
-preview with an accessible explanation and a full-width offer on phones; there
-is no button that reveals only more blur. Duplicate context is omitted. Existing public summaries and premium
-access rules are preserved. A dam section still uses its dam interpretation and
-keeps its controlling-dam context with the chart.
+The Live report reads in this order: selected section/current readings, shared
+river chart, free three-day forecast, then one compact **Eddy’s Read in the app**
+link. Every river uses this layout, including section-selected reports: the
+former free summary sentence is replaced by the link as a deliberate web layout
+decision. Public API summaries and Premium access rules are unchanged. The web
+river report no longer repeats blurred Read, Weather or Bottom line prose. The link appears only for an available
+Read, carries that source’s written time, and opens the selected dam, secondary
+gauge, or primary river in the app. Premium access rules remain unchanged.
 
-Thin dividers separate the Read, Weather and Bottom line while locked prose
-stays blurred. The free outlook says **Next 3 days** (today and the next two
-Central calendar days). Official river heights appear in a separate
-**NWS forecast · daily high** row, with feet and an explicit missing-day state.
-That row has no condition badges: a height rating does not assess the weather
-or recommend the whole day. Forecast classification still informs the Read.
+A current reading without a recreation ladder leads with the number and quiet
+**Not rated** copy. Missing, stale and flagged observations retain their own
+status; official flood warnings remain visible. Condition verdicts retain the
+river-link flood stage used by Read validation and alerts. Station NWS stages
+still drive the separate safety row and chart. Aligning station and river-link
+stages across verdicts, Read generation/validation and alerts is a follow-up;
+the river page must not introduce its own precedence rule. Routine publication gaps live
+under **Source details**. Gauge-only selectors say **Gauge**; a list mixing dam
+releases and river gauges says **View**, with the source type in each option.
+
+An unrated dam release selection shows that dam’s readings, schedule and history.
+The primary dam panel remains server-rendered; other selected dams load on demand,
+with an isolated loading/error state that preserves the known release reading,
+its observation age and trust status. Failed details offer Retry. Dam context explicitly says **At the dam**;
+its schedule is not an arrival prediction downstream. Gauge views keep their own
+location heading and chart, and the existing controlling-dam context (lake level
+stays in the dam view). Additional upstream-dam relationships require verified
+catalog data; they are not inferred from gauge names or roles.
+
+The free outlook covers today and the next two Central calendar days. Weather-only
+outlooks say **Weather · Next 3 days**; a selected station with an official river
+forecast says **Forecast · Next 3 days**, including on tailwaters. Official river heights
+remain in a separate **NWS forecast · daily high** row, with feet and explicit
+missing-day states. Heights never classify the weather or the whole day.
 
 Rain adds a track above the river plot inside the same chart; it never takes
 height away from the river line. A short archive is labelled “Rain record starts…”.

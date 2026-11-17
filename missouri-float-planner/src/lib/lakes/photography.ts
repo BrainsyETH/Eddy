@@ -1,4 +1,4 @@
-import credits from '../../../public/lakes/credits.json';
+import credits from '../../../shared/place-photo-credits.json';
 
 // Presentation only: this module is safe in client components and never loads
 // the lake registry or a database reader. Rights live on /photo-credits.

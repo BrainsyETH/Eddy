@@ -79,11 +79,11 @@ export function damHasAnything(dam: ScreenDam): boolean {
  * source links.
  *
  * BOTH conditions, because the screen applies both: the card is for a
- * powerhouse or a schedule, and the screen replaces every data card with its
+ * release reading, powerhouse or schedule, and the screen replaces every data card with its
  * "nothing published" notice when the dam arrived with nothing.
  */
 export function generationCardRenders(dam: ScreenDam): boolean {
-  return damHasAnything(dam) && (dam.hasTurbines || dam.schedule.length > 0);
+  return damHasAnything(dam) && (Boolean(dam.metrics.release) || dam.hasTurbines || dam.schedule.length > 0);
 }
 
 /**

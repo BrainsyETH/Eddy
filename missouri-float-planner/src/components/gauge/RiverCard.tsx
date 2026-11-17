@@ -4,26 +4,24 @@
 // Dashboard card for one river, read through ONE primary gauge.
 //
 // Reading order: river and WHERE its reading was taken → the reading with
-// Eddy's practical read (condition, trend, advice) → the 14-day chart at that
+// condition and trend → the 14-day chart at that
 // gauge → the report. The reading is a single station's, so the card says
 // which station beside the number, and the river's other gauges are a link
 // into the report rather than a count that implies a river-wide figure.
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, ChevronDown, ChevronUp, ChevronRight, Camera, Clock } from 'lucide-react';
+import { ArrowRight, ChevronRight, Camera, Clock } from 'lucide-react';
 
 import type { RiverGroup } from '@/lib/river-groups';
-import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getEddyImageForCondition } from '@/constants';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import Card from '@/components/ui/Card';
-import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
+import RiverReadAppCta from './RiverReadAppCta';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import { TrendLabel, useGaugeTrendContext } from '@/components/gauge/GaugeTrendContext';
 import DamInfoTip from '@/components/dam/DamInfoTip';
-import { conditionSnapshotMatches } from '@/lib/condition-snapshot';
 import { shortenGaugeName } from '@/lib/gauge/format-name';
 import { gaugeFreshness } from '@shared/gauge-freshness';
 import { relativeAgeShort } from '@shared/dam-schedule-copy';
@@ -62,67 +60,12 @@ export default function RiverCard({ riverGroup, distanceMiles, href: canonicalHr
     ? `${Math.max(1, Math.round(distanceMiles))} mi away`
     : null;
 
-  const [showFull, setShowFull] = useState(false);
-
-  // Whether the collapsed (2-line clamped) summary is actually truncated. Drives
-  // the More/Less toggle, including for the static fallback.
-  const quoteRef = useRef<HTMLParagraphElement>(null);
-  const [isClamped, setIsClamped] = useState(false);
-
   // The reading's AGE depends on the clock, and a cached render can be minutes
   // or hours old by the time it hydrates. So the server and first client render
   // show only the observation's own time, and the old-reading flag is added
   // once mounted. That flag describes the OBSERVATION, never the page fetch.
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => { setNow(Date.now()); }, []);
-
-  // Eddy update comes from the batched /api/eddy-updates call — one request
-  // shared by every card on the grid (and the home page) via React Query.
-  const { data: eddyUpdates, isLoading: eddyLoading } = useEddyUpdates();
-  const eddyUpdate = riverSlug ? eddyUpdates?.[riverSlug] ?? null : null;
-  const usableEddyUpdate = eddyUpdate && conditionSnapshotMatches(
-    {
-      conditionCode: eddyUpdate.conditionCode,
-      gaugeHeightFt: eddyUpdate.gaugeHeightFt,
-      dischargeCfs: eddyUpdate.dischargeCfs,
-    },
-    {
-      conditionCode: condition.code,
-      gaugeHeightFt: primaryGauge.gaugeHeightFt,
-      dischargeCfs: primaryGauge.dischargeCfs,
-    },
-    primaryThreshold.thresholdUnit,
-  ) ? eddyUpdate : null;
-
-  // Static fallback text — shared with the full river report page so the quote
-  // reads identically across the card and the report (see buildStaticEddyText).
-  const buildStaticText = () =>
-    buildStaticEddyText({
-      conditionCode: condition.code,
-      gaugeHeightFt: primaryGauge.gaugeHeightFt,
-      dischargeCfs: primaryGauge.dischargeCfs,
-      optimalMin: primaryThreshold.levelOptimalMin,
-      optimalMax: primaryThreshold.levelOptimalMax,
-      thresholdUnit: primaryThreshold.thresholdUnit,
-      riverNote: riverSlug ? RIVER_NOTES[riverSlug] : null,
-    });
-
-  const displayText = usableEddyUpdate?.summaryText ?? buildStaticText();
-
-  // Measure whether the collapsed summary overflows its 2-line clamp. Only
-  // measured while collapsed; retained once expanded so Less stays put.
-  useEffect(() => {
-    if (showFull) return;
-    const el = quoteRef.current;
-    if (!el) return;
-    const measure = () => setIsClamped(el.scrollHeight > el.clientHeight + 1);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [displayText, showFull, eddyLoading]);
-
-  const canExpand = isClamped || showFull;
 
   const isCfsPrimary = primaryThreshold.thresholdUnit === 'cfs';
   const primaryValue = isCfsPrimary ? primaryGauge.dischargeCfs : primaryGauge.gaugeHeightFt;
@@ -185,10 +128,8 @@ export default function RiverCard({ riverGroup, distanceMiles, href: canonicalHr
       </Link>
 
       {/* Eddy's practical read: the reading in its condition's ink, the badge,
-          the trend, the advice — one inset panel, as iOS draws raised content.
-          The otter shares only the top row with the reading, so the advice
-          below runs the panel's full width instead of leaving a blank column
-          under the otter. */}
+          the trend — one inset panel, as iOS draws raised content.
+          The recent-level comparison stays beside its info control. */}
       <section aria-label="Conditions" className="mx-3 rounded-xl bg-secondary-50 px-3 pb-1.5 pt-3 sm:mx-4 sm:px-4">
         <div className="flex items-center gap-3">
           <div className="relative size-12 shrink-0">
@@ -211,38 +152,15 @@ export default function RiverCard({ riverGroup, distanceMiles, href: canonicalHr
             {trend && <TrendLabel trend={trend} />}
           </div>
         </div>
-        <div>
-          {eddyLoading && !eddyUpdate ? (
-            <p className="mt-2 text-[15px] leading-6 text-neutral-500">Loading Eddy’s read…</p>
-          ) : (
-            <p ref={quoteRef} className={`mt-2 text-[15px] font-medium leading-6 text-neutral-900 ${showFull ? '' : 'line-clamp-2'}`}>
-              <span className="sr-only">Eddy says: </span>{displayText}
-            </p>
-          )}
-          <div className="flex min-h-11 items-center justify-between gap-2">
-            {recent ? (
-              <div className="flex items-center">
-                <span className="text-[13px] text-neutral-600 first-letter:uppercase">{recent.short}</span>
-                <span className="-ml-1.5">
-                  <DamInfoTip title="Recent levels">
-                    <p>{recent.descriptor} of readings at {gaugePlace}: this reading is {recent.short} for that window.</p>
-                    <p>It is not a seasonal average. A river can sit below its recent levels and still be well above normal for the time of year.</p>
-                  </DamInfoTip>
-                </span>
-              </div>
-            ) : <span />}
-            {canExpand && (
-              <button
-                type="button"
-                onClick={() => setShowFull(!showFull)}
-                aria-expanded={showFull}
-                className="-mr-2 inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded px-2 text-[13px] font-semibold text-primary-700 hover:text-primary-900 focus-visible:outline-2 focus-visible:outline-primary-600"
-              >
-                {showFull ? <>Less <ChevronUp className="size-3.5" aria-hidden="true" /></> : <>More <ChevronDown className="size-3.5" aria-hidden="true" /></>}
-              </button>
-            )}
-          </div>
-        </div>
+        {recent && <div className="flex min-h-11 items-center">
+          <span className="text-[13px] text-neutral-600 first-letter:uppercase">{recent.short}</span>
+          <span className="-ml-1.5">
+            <DamInfoTip title="Recent levels">
+              <p>{recent.descriptor} of readings at {gaugePlace}: this reading is {recent.short} for that window.</p>
+              <p>It is not a seasonal average. A river can sit below its recent levels and still be well above normal for the time of year.</p>
+            </DamInfoTip>
+          </span>
+        </div>}
       </section>
 
       {/* The chart is the primary gauge's, and says so. It stays a static
@@ -276,6 +194,8 @@ export default function RiverCard({ riverGroup, distanceMiles, href: canonicalHr
             the reason this card is where it is. Static river facts (state,
             length, type, difficulty) belong to the report, not the dashboard. */}
         {distance && <p className="text-[13px] leading-[18px] text-neutral-600">{distance}</p>}
+
+        {riverSlug && <div className="mt-2"><RiverReadAppCta slug={riverSlug} name={riverName} /></div>}
 
         <div className="mt-auto pt-2">
           <div className="flex items-center justify-between gap-3 border-t border-neutral-200">

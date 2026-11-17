@@ -469,6 +469,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
               dischargeCfs={gauge.dischargeCfs}
               thresholdUnit={primaryRiver?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
+              readingSuspect={gauge.readingSuspect || gaugeDetail?.readingSuspect || false}
               waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
               waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
               dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}

@@ -31,7 +31,7 @@ export default function PlannerGaugeCard({ gauge, onClose }: { gauge: GaugeStati
     {gauge.readingSuspect && <p className="text-sm text-neutral-700">{gauge.qualifierNote || 'This reading is flagged by the station provider.'}</p>}
     <CurrentReadingCard embedded siteId={gauge.usgsSiteId || ''} gaugeHeightFt={gauge.gaugeHeightFt} dischargeCfs={gauge.dischargeCfs}
       thresholdUnit={threshold?.thresholdUnit ?? (gauge.dischargeCfs != null ? 'cfs' : 'ft')}
-      conditionCode={condition} readingAgeHours={gauge.readingAgeHours} zones={threshold ? buildZones(threshold, gauge.thresholdDescriptions) : undefined} />
+      conditionCode={condition} readingSuspect={gauge.readingSuspect} readingAgeHours={gauge.readingAgeHours} zones={threshold ? buildZones(threshold, gauge.thresholdDescriptions) : undefined} />
     {threshold && <ThresholdTable {...threshold} thresholdDescriptions={gauge.thresholdDescriptions} currentCondition={condition} />}
     {gauge.usgsSiteId && <Button href={`/gauges/${encodeURIComponent(gauge.usgsSiteId)}`} variant="secondary" className="w-full">View gauge & chart →</Button>}
   </section>;
