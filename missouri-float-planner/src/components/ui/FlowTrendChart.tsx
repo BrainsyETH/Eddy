@@ -193,6 +193,8 @@ export interface ChartFloodStages {
 }
 
 interface FlowTrendChartProps {
+  /** Report chrome only; compact river-card charts keep their existing header. */
+  reportLayout?: boolean;
   rain?: RainSummary | null;
   onRainDetails?: () => void;
   gaugeSiteId: string;
@@ -288,6 +290,7 @@ interface FlowTrendChartProps {
 type HoverPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
 
 export default function FlowTrendChart({
+  reportLayout = false,
   gaugeSiteId,
   rain = null,
   onRainDetails,
@@ -512,7 +515,7 @@ export default function FlowTrendChart({
     if (!rain || !rainIsFresh(rain) || !rainRange(days) || !history?.requestedWindow) return [];
     return rainBars(rain.hourly, Date.parse(history.requestedWindow.from), Math.min(Date.parse(rain.updatedAt), Date.parse(history.requestedWindow.to)), days === 1 ? 1 : 6);
   }, [rain, history?.requestedWindow, days]);
-  const rainSpace = rainRows.length ? 84 : 0;
+  const rainSpace = rainRows.length ? 72 : 0;
   const rainStart = rainSpace && rain && history?.requestedWindow
     ? rainHistoryStart(rain.hourly, Date.parse(history.requestedWindow.from), Date.parse(history.requestedWindow.to), days === 1 ? 1 : 6) : null;
   const rainMax = rainMaximum(rainRows, days === 1 ? 1 : 6);
@@ -831,9 +834,14 @@ export default function FlowTrendChart({
     : {};
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-3 gap-2">
-        <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
+    <div className={reportLayout ? 'px-3 pb-2 pt-1' : 'p-4'}>
+      <div className={reportLayout ? 'flex flex-wrap items-center justify-between mb-2 gap-2' : 'flex items-center justify-between mb-3 gap-2'}>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
+          {reportLayout && showCurrent && currentDisplay != null && (
+            <span className="text-sm text-primary-700"><span className="text-xs text-neutral-500">Current </span><strong className="font-semibold tabular-nums">{formatVal(currentDisplay)} {unitLabel}</strong></span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
           {/* A shaded band with nothing naming it is a claim the reader cannot
               check. Both overlays say what they are, or they do not draw — and
@@ -877,7 +885,7 @@ export default function FlowTrendChart({
               {showTypical ? 'Typical range' : 'Median'}
             </span>
           )}
-          {showCurrent && currentDisplay != null && (
+          {!reportLayout && showCurrent && currentDisplay != null && (
             <span className="text-xs text-primary-600 font-medium">
               Current: {formatVal(currentDisplay)} {unitLabel}
             </span>
@@ -911,12 +919,12 @@ export default function FlowTrendChart({
               : ''
           }`}
         >
-          {rainSpace > 0 && <div className="absolute inset-x-0 top-0 h-[84px]" data-rain-track>
+          {rainSpace > 0 && <div className="absolute inset-x-0 top-0" style={{ height: rainSpace }} data-rain-track>
             <div className="flex h-11 items-center justify-between gap-2 text-[11px] text-neutral-600">
               <button type="button" onClick={onRainDetails} className="min-h-11 font-semibold text-primary-700 underline decoration-primary-200 underline-offset-2" aria-label="Open rain upstream details">Rain upstream</button>
               <span className="text-right tabular-nums"><span className="block">Scale: 0–{rainMax.toFixed(2)} in</span><span>{days === 1 ? 'Hourly bars' : '6-hour bars'}</span></span>
             </div>
-            <svg viewBox="0 0 100 18" preserveAspectRatio="none" className="h-8 w-full overflow-hidden" aria-hidden="true"
+            <svg viewBox="0 0 100 18" preserveAspectRatio="none" className="h-5 w-full overflow-hidden" aria-hidden="true"
               onPointerMove={event => { const rect = event.currentTarget.getBoundingClientRect(); setHoverFraction(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))); }}
               onPointerDown={event => { const rect = event.currentTarget.getBoundingClientRect(); setHoverFraction(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))); }}>
               {rainRows.map(row => {

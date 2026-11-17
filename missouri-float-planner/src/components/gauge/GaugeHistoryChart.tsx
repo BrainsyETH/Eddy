@@ -3,14 +3,15 @@
 // One history selection for the desktop report and compact/expanded mobile web.
 // Only the presentation changes at the desktop breakpoint; data and controls
 // use the same series, comparison, export and keyboard-scrubbing contracts.
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useId, useRef, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useRainfall, useRainPreference } from '@/hooks/useRainfall';
 import { rainRange, rainIsFresh } from '@shared/rainfall';
 import { createPortal } from 'react-dom';
-import { X, Download, ZoomOut } from 'lucide-react';
+import { Check, ChevronDown, X, ZoomOut } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import ControlPopover from '@/components/ui/ControlPopover';
 import Segmented from '@/components/ui/Segmented';
 import FlowTrendChart, {
   type ChartFloodStages,
@@ -129,6 +130,8 @@ export default function GaugeHistoryChart({
   );
   const chartTimeZone = sharedView?.timeZone ?? timeZone ?? 'UTC';
   const [customOpen, setCustomOpen] = useState(false);
+  const customId = useId();
+  const customButton = useRef<HTMLButtonElement>(null);
   const [customFrom, setCustomFrom] = useState(initialShareState?.calendar.from ?? '');
   const [customTo, setCustomTo] = useState(initialShareState?.calendar.to ?? '');
   const [dateError, setDateError] = useState<string | null>(null);
@@ -204,15 +207,11 @@ export default function GaugeHistoryChart({
   const applyCustom = () => {
     const error = validateHistoryDates(customFrom, customTo, maxDays);
     setDateError(error);
-    if (!error) chooseRange({ kind: 'custom', from: customFrom, to: customTo });
-  };
-  const zoomIn = () => {
-    const coverage = history?.coverageWindow;
-    const current =
-      zoom ?? (coverage ? { t0: Date.parse(coverage.from), t1: Date.parse(coverage.to) } : null);
-    if (!current || current.t1 - current.t0 < 4 * 3_600_000) return;
-    const quarter = (current.t1 - current.t0) / 4;
-    setZoom({ t0: current.t0 + quarter, t1: current.t1 - quarter });
+    if (!error) {
+      chooseRange({ kind: 'custom', from: customFrom, to: customTo });
+      setCustomOpen(false);
+      requestAnimationFrame(() => customButton.current?.focus());
+    }
   };
   const exportCsv = useCallback(() => {
     if (!history) return;
@@ -272,10 +271,10 @@ export default function GaugeHistoryChart({
     : range.kind === 'custom'
       ? `${range.from} to ${range.to}`
       : range.days === 1
-        ? 'Last 24 hours'
+        ? 'Past 24 hours'
         : range.days === 365
-          ? 'Last year'
-          : `Last ${range.days} days`;
+          ? 'Past year'
+          : `Past ${range.days} days`;
   const compactActiveRange =
     range.kind === 'custom'
       ? { value: 0, label: 'Custom' }
@@ -323,6 +322,10 @@ export default function GaugeHistoryChart({
     riverId: chartReferences(displayUnit, thresholds).length ? riverId : undefined,
     riverSlug,
   });
+  const forecastVisible = !!model?.forecast.some(point => model.domain && point.t >= model.domain.t0 && point.t <= model.domain.t1);
+  const customLabel = range.kind === 'custom'
+    ? [range.from, range.to].map(date => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })).join('–')
+    : 'Custom';
   const notice =
     sharedView && history
       ? resolutionNotice(
@@ -338,19 +341,16 @@ export default function GaugeHistoryChart({
             {dialogOpen ? siteName : `${displayUnit === 'ft' ? 'Stage' : 'Flow'} history`}
           </h2>
           <p className="mt-0.5 text-xs text-neutral-500">
-            {rangeLabel}
+            {rangeLabel}{forecastVisible && ' + forecast'}
             {rainData && rainOn && (rainData.status === 'unavailable' || !rainIsFresh(rainData) || rainfall.isError) && <span role="status" className="ml-2">Rain data unavailable</span>}
             {notice && ` · ${notice}`}
           </p>
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-2">
-          {rainData && <button type="button" aria-pressed={rainOn} aria-label="Show rain upstream" onClick={() => setRainOn(!rainOn)}
-            className={`min-h-11 lg:min-h-9 [@media(pointer:coarse)]:min-h-11 rounded-lg border px-2 text-xs font-semibold ${rainOn ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-neutral-300 text-neutral-600'}`}>Rain</button>}
-          {help}
           {canToggleUnit && (
             <Segmented
               aria-label="Display unit"
-              className="min-h-9"
+              variant="soft"
               options={UNIT_OPTIONS}
               value={displayUnit}
               onChange={(unit) => {
@@ -362,8 +362,7 @@ export default function GaugeHistoryChart({
           {!fullControls && (
             <Button
               ref={expandButton}
-              variant="outline"
-              size="sm"
+              variant="control"
               className="lg:hidden"
               onClick={() => {
                 setExpandedOpen(true);
@@ -374,21 +373,34 @@ export default function GaugeHistoryChart({
             </Button>
           )}
           {dialogOpen && (
-            <button
-              type="button"
+            <Button
+              variant="control"
               onClick={close}
               aria-label="Close expanded chart"
-              className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100"
+              className="!min-w-11 !px-2"
             >
-              <X className="h-5 w-5" />
-            </button>
+              <X className="h-5 w-5" aria-hidden="true" />
+            </Button>
           )}
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 pb-2 pt-3">
+        <div className="min-w-0 max-[479px]:w-full">
           <Segmented
             aria-label="History range"
+            variant="soft"
+            className={fullControls ? 'segmented--history' : undefined}
+            trailing={fullControls && (
+              <button ref={customButton} type="button" className="segmented__option"
+                aria-label="Custom" aria-expanded={customOpen} aria-controls={customOpen ? customId : undefined}
+                aria-pressed={range.kind === 'custom'}
+                aria-disabled={!capabilities.supportsCustomRange || undefined}
+                title={!capabilities.supportsCustomRange ? "Custom dates aren't available from this station's source" : customLabel}
+                onClick={() => { if (capabilities.supportsCustomRange) setCustomOpen(!customOpen); }}>
+                <span className="min-w-0 max-w-32 truncate">{customLabel}</span>
+                <ChevronDown className="h-3 w-3 shrink-0" aria-hidden="true" />
+              </button>
+            )}
             options={presets.map((preset) => ({
               ...preset,
               disabled: preset.value > maxDays,
@@ -411,108 +423,54 @@ export default function GaugeHistoryChart({
               setCustomOpen(false);
             }}
           />
-          {fullControls && (
-            <button
-              type="button"
-              aria-expanded={customOpen}
-              aria-disabled={!capabilities.supportsCustomRange || undefined}
-              title={
-                !capabilities.supportsCustomRange
-                  ? "Custom dates aren't available from this station's source"
-                  : undefined
-              }
-              onClick={() => {
-                if (capabilities.supportsCustomRange) setCustomOpen(!customOpen);
-              }}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${range.kind === 'custom' || customOpen ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-neutral-300 text-neutral-600'} aria-disabled:opacity-50`}
-            >
-              Custom
-            </button>
-          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {lastYear.eligible && (
-            <ChartCompare
-              on={lastYearOn}
-              onChange={onLastYearChange}
-              status={lastYear.status}
-              onRetry={lastYear.retry}
-            />
-          )}
-          {fullControls && (
-            <>
-              <Button variant="outline" size="sm" onClick={zoomIn} disabled={!hasReadings}>
-                Zoom in
-              </Button>
-              {zoom && (
-                <Button variant="outline" size="sm" onClick={() => setZoom(null)}>
-                  <ZoomOut className="h-3.5 w-3.5" />
-                  Reset zoom
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={exportCsv} disabled={!hasReadings}>
-                <Download className="h-3.5 w-3.5" />
-                Export CSV
-              </Button>
-            </>
-          )}
+          {rainData && <Button variant="control" aria-pressed={rainOn} aria-label="Show rain upstream" onClick={() => setRainOn(!rainOn)}>
+            {rainOn && <Check className="h-3.5 w-3.5" aria-hidden="true" />}Rain
+          </Button>}
+          {(fullControls || lastYear.eligible || help) && <ControlPopover label="Options">
+            {() => <div className="space-y-1">
+              {fullControls && <>
+                <label className="grid gap-2 p-2 text-xs font-semibold">
+                  Scale
+                  <select aria-label="Scale" value={scale} onChange={event => setScale(event.target.value as ChartScaleMode)}
+                    className="min-h-11 rounded-lg border border-neutral-300 bg-white px-2 text-sm font-normal">
+                    <option value="loaded">Fit to dates</option>
+                    <option value="visible">Fit to zoom</option>
+                    <option value="full">Full scale</option>
+                  </select>
+                </label>
+                {displayUnit === 'cfs' && <>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-neutral-50">
+                    <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={typicalOn} onChange={event => setTypicalOn(event.target.checked)} />
+                    Typical range
+                  </label>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-neutral-50">
+                    <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={medianOn} onChange={event => setMedianOn(event.target.checked)} />
+                    Median
+                  </label>
+                </>}
+              </>}
+              {lastYear.eligible && <ChartCompare on={lastYearOn} onChange={onLastYearChange} status={lastYear.status} onRetry={lastYear.retry} />}
+              {!fullControls && <p className="px-2 py-1 text-xs text-neutral-500">Expand for scale and display options.</p>}
+              {help && <div className="flex min-h-11 items-center gap-2 border-t border-neutral-100 px-2 text-xs">Flow (cfs) {help}</div>}
+            </div>}
+          </ControlPopover>}
+          {zoom && fullControls && <Button variant="control" onClick={() => setZoom(null)}>
+            <ZoomOut className="h-3.5 w-3.5" aria-hidden="true" />Reset zoom
+          </Button>}
+          {sharedView && <Button variant="control" onClick={() => {
+            chooseRange({ kind: 'days', days: 7 });
+            setScale('loaded');
+            setTypicalOn(showTypical);
+            setMedianOn(showTypical);
+            onLastYearChange(false);
+            onShowLatest?.();
+          }}>Show latest</Button>}
         </div>
       </div>
-      {fullControls && (
-        <div className="flex flex-wrap items-center gap-4 px-5 pb-3 text-xs text-neutral-600">
-          <label className="flex items-center gap-2">
-            Scale
-            <select
-              aria-label="Scale"
-              value={scale}
-              onChange={(event) => setScale(event.target.value as ChartScaleMode)}
-              className="rounded border border-neutral-300 bg-white px-2 py-1.5"
-            >
-              <option value="loaded">Fit to dates</option>
-              <option value="visible">Fit to zoom</option>
-              <option value="full">Full scale</option>
-            </select>
-          </label>
-          {displayUnit === 'cfs' && (
-            <>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={typicalOn}
-                  onChange={(event) => setTypicalOn(event.target.checked)}
-                />
-                Typical range
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={medianOn}
-                  onChange={(event) => setMedianOn(event.target.checked)}
-                />
-                Median
-              </label>
-            </>
-          )}
-          {sharedView && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                chooseRange({ kind: 'days', days: 7 });
-                setScale('loaded');
-                setTypicalOn(showTypical);
-                setMedianOn(showTypical);
-                onLastYearChange(false);
-                onShowLatest?.();
-              }}
-            >
-              Show latest
-            </Button>
-          )}
-        </div>
-      )}
       {fullControls && customOpen && capabilities.supportsCustomRange && (
-        <div className="border-y border-neutral-100 bg-neutral-50 px-5 py-3">
+        <div id={customId} className="border-y border-neutral-100 bg-neutral-50 px-5 py-3">
           <div className="flex flex-wrap items-end gap-3 text-xs text-neutral-600">
             <label className="grid gap-1">
               From date
@@ -520,7 +478,7 @@ export default function GaugeHistoryChart({
                 type="date"
                 value={customFrom}
                 onChange={(event) => setCustomFrom(event.target.value)}
-                className="min-w-0 rounded border border-neutral-300 bg-white px-2 py-1.5"
+                className="min-h-11 min-w-0 rounded-lg border border-neutral-300 bg-white px-2 py-1.5"
               />
             </label>
             <label className="grid gap-1">
@@ -529,10 +487,10 @@ export default function GaugeHistoryChart({
                 type="date"
                 value={customTo}
                 onChange={(event) => setCustomTo(event.target.value)}
-                className="min-w-0 rounded border border-neutral-300 bg-white px-2 py-1.5"
+                className="min-h-11 min-w-0 rounded-lg border border-neutral-300 bg-white px-2 py-1.5"
               />
             </label>
-            <Button variant="outline" size="sm" onClick={applyCustom}>
+            <Button variant="control" onClick={applyCustom}>
               Apply
             </Button>
           </div>
@@ -547,6 +505,7 @@ export default function GaugeHistoryChart({
         <FlowTrendChart
           key={`${siteId}-${displayUnit}`}
           gaugeSiteId={siteId}
+          reportLayout
           rain={rainOn && rainData && rainData.status !== 'unavailable' && !rainfall.isError && rainIsFresh(rainData) ? rainData : null}
           onRainDetails={() => { rainTrigger.current = document.activeElement as HTMLElement; setRainDetailOpen(true); }}
           days={requestDays}
@@ -567,7 +526,7 @@ export default function GaugeHistoryChart({
         />
       </div>
       {fullControls && (
-        <div className="px-5 pb-3 text-xs text-neutral-500">
+        <div className="px-5 text-xs text-neutral-500">
           {history?.statistic && history.statistic !== 'instantaneous' && (
             <p>Daily values · one point per day</p>
           )}
@@ -576,14 +535,15 @@ export default function GaugeHistoryChart({
           <p className="sr-only">Use arrow keys to explore readings.</p>
         </div>
       )}
-      {fullControls && provider === 'usgs' && <ChartShareControls state={shareState} stationName={siteName} />}
+      {fullControls && <ChartShareControls state={provider === 'usgs' ? shareState : null} stationName={siteName}
+        exportCsv={exportCsv} canExport={hasReadings} allowImages={provider === 'usgs'}>
       {fullControls && history && history.readings.length > 0 && !isError && (
-        <details className="border-t border-neutral-200 px-5 py-3">
-          <summary className="cursor-pointer text-xs font-semibold text-neutral-600">
+        <details className="group min-w-0 flex-1">
+          <summary className="min-h-[50px] cursor-pointer content-center text-xs font-semibold text-neutral-600 lg:min-h-9 [@media(pointer:coarse)]:min-h-[50px]">
             Data table ({history.readings.length} readings
             {history.sampled ? ', sampled' : ''})
           </summary>
-          <div className="mt-3 max-h-64 overflow-auto">
+          <div className="mt-2 max-h-64 overflow-auto">
             <table className="w-full text-xs tabular-nums">
               <caption className="sr-only">
                 {siteName} — {rangeLabel}
@@ -623,6 +583,7 @@ export default function GaugeHistoryChart({
           </div>
         </details>
       )}
+      </ChartShareControls>}
     </>
   );
   return (

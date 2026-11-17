@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
+import ControlPopover from '@/components/ui/ControlPopover';
+import { Copy, Download, ImageIcon } from 'lucide-react';
 import {
   chartImagePath,
   chartSharePath,
@@ -10,7 +12,7 @@ import {
   type ChartShareState,
 } from '@shared/chart-share';
 
-/** Touch devices get the system share sheet; desktop browsers copy, matching the page's other Share buttons. */
+/** Image sharing uses the system sheet on touch devices; links explicitly copy. */
 function prefersShareSheet(): boolean {
   return window.matchMedia('(pointer: coarse)').matches;
 }
@@ -19,9 +21,17 @@ function prefersShareSheet(): boolean {
 export default function ChartShareControls({
   state,
   stationName,
+  exportCsv,
+  canExport,
+  allowImages,
+  children,
 }: {
   state: ChartShareState | null;
   stationName?: string | null;
+  exportCsv: () => void;
+  canExport: boolean;
+  allowImages: boolean;
+  children: ReactNode;
 }) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,12 +57,8 @@ export default function ChartShareControls({
     setMessage('');
     try {
       const url = new URL(chartSharePath(state), window.location.origin).href;
-      if (prefersShareSheet() && navigator.share)
-        await navigator.share({ title: chartShareTitle(stationName, state), url });
-      else {
-        await navigator.clipboard.writeText(url);
-        setMessage('Chart link copied.');
-      }
+      await navigator.clipboard.writeText(url);
+      setMessage('Chart link copied.');
     } catch (error) {
       if (!(error instanceof Error && error.name === 'AbortError'))
         setMessage('Could not share the link. Please try again.');
@@ -126,16 +132,26 @@ export default function ChartShareControls({
     }
   }
   return (
-    <div className="px-5 py-3 text-xs text-neutral-600">
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" disabled={!state} onClick={shareLink}>
-          Share chart link
-        </Button>
-        <Button size="sm" variant="outline" disabled={!state || busy} onClick={prepareImage}>
-          {busy ? 'Preparing image…' : 'Preview share image'}
-        </Button>
+    <div className="border-t border-neutral-200 px-5 py-2 text-xs text-neutral-600">
+      <div className="flex items-start justify-between gap-3">
+        {children}
+        <ControlPopover label="Share">
+          {(close) => <div className="grid gap-1">
+            {allowImages && <>
+              <Button variant="ghost" className="min-h-11 !justify-start !text-sm" disabled={!state} onClick={() => { void shareLink(); close(); }}>
+                <Copy className="h-4 w-4" aria-hidden="true" />Copy chart link
+              </Button>
+              <Button variant="ghost" className="min-h-11 !justify-start !text-sm" disabled={!state || busy} onClick={() => { void prepareImage(); close(); }}>
+                <ImageIcon className="h-4 w-4" aria-hidden="true" />{busy ? 'Preparing image…' : 'Preview share image'}
+              </Button>
+            </>}
+            <Button variant="ghost" className="min-h-11 !justify-start !text-sm" disabled={!canExport} onClick={() => { exportCsv(); close(); }}>
+              <Download className="h-4 w-4" aria-hidden="true" />Download CSV
+            </Button>
+          </div>}
+        </ControlPopover>
       </div>
-      <p role="status">{message}</p>
+      <p role="status" className={message || busy ? 'py-1' : undefined}>{busy ? 'Preparing image…' : message}</p>
       {preview && (
         <div className="mt-3 rounded-lg border border-neutral-200 p-3">
           <Image

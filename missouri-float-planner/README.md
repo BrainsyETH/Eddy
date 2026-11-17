@@ -389,9 +389,13 @@ Screenshots go to `/tmp/eddy-river-sections` (override with `SECTIONS_SMOKE_OUTP
 
 ## River and gauge history
 
-Desktop reports (1024px and wider) show the full chart tools inline: all supported
-history ranges, Custom dates, comparison, zoom, CSV export, and a collapsed data
-table. Mobile web keeps Expand, preserving the selected range and units on open
+Desktop reports (1024px and wider) show all supported history ranges and Custom
+dates in one segmented control, with matching units beside the title. Rain stays
+visible; Options holds scale, typical range, median and last-year comparison.
+Dragging the plot still zooms, with Reset zoom shown only when needed; there is
+no separate Zoom in button. Share beside the collapsed data table offers Copy
+chart link, Preview share image (USGS), and Download CSV (all sources).
+Mobile web keeps Expand, preserving the selected range and units on open
 and close. A selected long or custom range stays highlighted in the compact
 control. Resizing to desktop closes the dialog until the next Expand tap.
 Both layouts share `GaugeHistoryChart`; iOS is unchanged. See
