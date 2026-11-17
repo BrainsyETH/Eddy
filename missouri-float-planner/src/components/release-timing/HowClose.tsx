@@ -89,7 +89,7 @@ export default function HowClose({ results, onPlay }: {
           <p aria-label={`Gauge near Norfork${contextDate === null ? '' : `. ${featured ? 'Recorded rise' : 'Release'} ${datedDay(contextDate)}`}. Central time.`}>
             Gauge near Norfork{contextDate !== null && ` · ${shortDate(contextDate)}`} · Central time
           </p>
-          {featured && <Button variant="outline" size="sm" className="min-h-11" aria-label="Replay release" onClick={() => onPlay(featured)}><Play size={14} aria-hidden="true" />Replay</Button>}
+          {featured && <Button variant="outline" size="sm" className="min-h-11 shrink-0" aria-label="Replay release" onClick={() => onPlay(featured)}><Play size={14} aria-hidden="true" />Replay</Button>}
         </div>
       </div>
       <div className={styles.cardBody}>
