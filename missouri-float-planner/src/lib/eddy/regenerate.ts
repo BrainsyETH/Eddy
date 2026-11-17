@@ -98,7 +98,7 @@ export async function regenerateEddyForRiver(
 
   for (const target of riverTargets) {
     try {
-      const update = await generateEddyUpdate(target, model);
+      const update = await generateEddyUpdate(target, model, { trigger: triggerReason });
       if (!update) continue;
 
       const { error: insertError } = await supabase.from('eddy_updates').insert({

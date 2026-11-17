@@ -99,6 +99,7 @@ It does not approve a boundary or update live gauge metadata.
 | `verify-river-directions.ts` | `npm run db:verify-directions` | Heuristic headwaters-first check; prints suggested `UPDATE` SQL, never runs it. |
 | `calibrate-float-times.ts` | direct | Compares the float-time model against published outfitter/NPS times; prints residuals. |
 | `check-eddy-knowledge.ts` | `npm run check:eddy-knowledge` | Asserts `EDDY_KNOWLEDGE.md` has a section per active river. |
+| `audit-eddy-reads.ts` | `npm run audit:eddy-reads` (`-- --days N` for the log window, default 14) | How Eddy's Read is being produced: model-written versus code-written Reads per river and section, fallback causes from `eddy_generation_log` (once that table exists), `EDDY_KNOWLEDGE.md` reach coverage against `river_sections`, and rivers whose prompt gets a malformed note or no rain lag. Read-only (`getScriptClient({ write: false })`). |
 | `check-tailwind-tokens.ts` | `npm run lint:tokens` (part of `lint`) | Undefined-token and theme-drift gate. |
 | `check-dead-links.ts` | `npm run test:links` | Playwright crawl of a running server; ≥400 same-origin links fail. |
 | `mosw-smoke.ts` | direct (CI: `mosw-smoke.yml`) | Fixture-backed `/river-map` smoke suite; writes screenshots to `.smoke/` only. |

@@ -17,7 +17,9 @@ import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { getRiverContext } from '@/lib/rivers/context';
 import { parseEddyResponse, stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
-import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts } from './report-facts';
+import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts } from './report-facts';
+import { buildGenerationRecord, type GenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
+import { recordGeneration } from './generation-log';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 import { EDDY_VOICE } from '@/lib/eddy/voice';
 
@@ -105,10 +107,15 @@ export interface GeneratedUpdate {
  *
  * `model` is resolved once per pass by the caller rather than looked up here,
  * so every row a pass writes provably shares one model.
+ *
+ * Every way out of this function writes one generation record first, including
+ * the ones that return null: see generation-record.ts. `trigger` is required
+ * so a new caller has to say what started it.
  */
 export async function generateEddyUpdate(
   target: UpdateTarget,
   model: ResolvedModel,
+  options: { trigger: GenerationTrigger },
 ): Promise<GeneratedUpdate | null> {
   const sourcesUsed: string[] = [];
 
@@ -152,6 +159,30 @@ export async function generateEddyUpdate(
   };
   if (facts.gaugeHeightFt != null || facts.dischargeCfs != null) sourcesUsed.push('USGS gauge');
 
+  // What this attempt was handed, filled in as it is gathered, so an early
+  // exit records what it had reached.
+  const capture: GenerationCapture = {
+    target,
+    trigger: options.trigger,
+    model: { id: model.id, maxTokens: model.maxTokens, thinking: model.thinking, cacheSystemPrompt: model.cacheSystemPrompt, source: model.source },
+    facts,
+    usgsSiteId: gaugeResult?.usgsSiteId ?? null,
+    readingTimestamp: gaugeContext.readingTimestamp,
+    gaugeNotes: gaugeContext.notes,
+    riverCtx,
+    alerts,
+    weather: null,
+    forecast: null,
+    precipitation: null,
+    trajectory: null,
+    rainLag: null,
+    localKnowledge: null,
+    systemPrompt: EDDY_SYSTEM_PROMPT,
+    userPrompt: null,
+  };
+  const record = (result: GenerationResult) =>
+    recordGeneration(buildGenerationRecord(capture, result, { gitSha: process.env.VERCEL_GIT_COMMIT_SHA }));
+
   // --- 3. Fetch weather (current + 3-day forecast) ---
   let weather: WeatherData | null = null;
   let forecast: ForecastData | null = null;
@@ -172,6 +203,15 @@ export async function generateEddyUpdate(
     }
   }
 
+  capture.weather = weather;
+  capture.forecast = forecast;
+  capture.precipitation = precipitation;
+
+  if (fallback) await record({
+    outcome: 'fallback',
+    reason: preflightFallbackReason(facts),
+    published: { ...fallback, sourcesUsed },
+  });
   if (fallback) return {
     riverSlug: target.riverSlug,
     sectionSlug: target.sectionSlug,
@@ -212,11 +252,16 @@ export async function generateEddyUpdate(
 
   // --- 7. Build the prompt ---
   const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag, riverCtx);
+  capture.localKnowledge = localKnowledge || null;
+  capture.trajectory = trajectory;
+  capture.rainLag = rainLag;
+  capture.userPrompt = prompt;
 
   // --- 8. Call the model ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     console.error('[EddyGen] ANTHROPIC_API_KEY not configured');
+    await record({ outcome: 'error', reason: 'missing_api_key' });
     return null;
   }
 
@@ -240,22 +285,27 @@ export async function generateEddyUpdate(
     }));
 
     const textBlock = message.content.find((block) => block.type === 'text');
+    // Recorded exactly as returned; the cleanup below is not part of the evidence.
+    const modelText = textBlock?.text ?? null;
+    const usage = extractUsage(model.id, message.usage);
+    const stopReason = message.stop_reason ?? null;
     // Strip em dashes that slip through despite prompt instructions
-    const rawText = textBlock?.text ? replaceEmDashes(textBlock.text.trim()) || null : null;
+    const rawText = modelText ? replaceEmDashes(modelText.trim()) || null : null;
 
     if (!rawText) {
       console.error(`[EddyGen] Empty response for ${target.riverSlug}/${target.sectionSlug}`);
+      await record({ outcome: 'error', reason: 'empty_response', rawResponse: modelText, stopReason, usage });
       return null;
     }
 
     // Parse summary and full text from the model output
-    const { report, usedFallback } = prepareGeneratedReport(rawText, facts);
+    const { report, usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(rawText, facts);
     const { summaryText, eddyRead, quoteText } = report;
     const publishedSources = !usedFallback ? sourcesUsed
       : sourcesUsed.filter(source => source === 'USGS gauge' || source === 'OpenWeather'
         || (source === 'NWS alerts' && !!facts.floodAlerts?.length));
 
-    return {
+    const update: GeneratedUpdate = {
       riverSlug: target.riverSlug,
       sectionSlug: target.sectionSlug,
       conditionCode: facts.conditionCode,
@@ -266,10 +316,26 @@ export async function generateEddyUpdate(
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
       sourcesUsed: publishedSources,
       weather: buildWeatherSummary(weather, forecast),
-      usage: extractUsage(model.id, message.usage),
+      usage,
     };
+    await record({
+      outcome: usedFallback ? 'fallback' : 'model',
+      reason: fallbackReason,
+      contradictions,
+      rawResponse: modelText,
+      stopReason,
+      usage,
+      published: {
+        summaryText: update.summaryText,
+        eddyRead: update.eddyRead,
+        quoteText: update.quoteText,
+        sourcesUsed: update.sourcesUsed,
+      },
+    });
+    return update;
   } catch (e) {
     console.error(`[EddyGen] ${model.id} call failed for ${target.riverSlug}:`, e);
+    await record({ outcome: 'error', reason: 'model_error', errorMessage: e instanceof Error ? e.message : String(e) });
     return null;
   }
 }

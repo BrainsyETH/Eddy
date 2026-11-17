@@ -116,9 +116,44 @@ const FALLBACK_MEANING: Record<ConditionCode, string> = {
   unknown: '',
 };
 
+/**
+ * Why a report was written by code instead of by the model.
+ *
+ * The first four are decided before the model is called, and they are four
+ * different situations that publish similar sentences:
+ *
+ *   no_gauge             no reporting station resolved for this target at all
+ *   no_reading           a station, but neither a height nor a discharge
+ *   no_rating            a reading, but nothing to rate it against (no
+ *                        thresholds, or none in the measurement's unit)
+ *   unsupported_section  a rated reading, from a station that does not sit on
+ *                        the requested stretch
+ *
+ * The last two are decided after it: the model's [CLAIMS] line disagreed with
+ * the computed facts, or its prose tripped the contradiction guard.
+ *
+ * Recorded so the fallback rate can be read by cause. "Eddy has a reading but
+ * no calibrated rating" and "Eddy has no reading" are separate problems with
+ * separate fixes, and until this existed both were just rows with no model.
+ */
+export type PreflightFallbackReason = 'no_gauge' | 'no_reading' | 'no_rating' | 'unsupported_section';
+export type GuardFallbackReason = 'claims_mismatch' | 'contradiction';
+export type ReportFallbackReason = PreflightFallbackReason | GuardFallbackReason;
+
+/** Null when the model may write this report. */
+export function preflightFallbackReason(f: ReportFacts): PreflightFallbackReason | null {
+  if (f.conditionCode === 'unknown') {
+    if (!f.gaugeName) return 'no_gauge';
+    return f.gaugeHeightFt == null && f.dischargeCfs == null ? 'no_reading' : 'no_rating';
+  }
+  // An unrated station is the more basic gap, so it is named first when a
+  // section is also unsupported.
+  if (f.requestedSection && !f.supportedSection) return 'unsupported_section';
+  return null;
+}
+
 export function preflightReportFallback(f: ReportFacts): ParsedEddyResponse | null {
-  return f.conditionCode === 'unknown' || (f.requestedSection && !f.supportedSection)
-    ? factualReportFallback(f) : null;
+  return preflightFallbackReason(f) ? factualReportFallback(f) : null;
 }
 
 /** Narrow contradiction guard, not a general natural-language fact checker.
@@ -221,19 +256,32 @@ export function reportClaimsLine(f: ReportFacts): string {
   return `[CLAIMS] condition=${f.conditionCode} relation=${f.relation}`;
 }
 
+export interface PreparedReport {
+  report: ParsedEddyResponse;
+  usedFallback: boolean;
+  /** Set exactly when usedFallback is. */
+  fallbackReason: GuardFallbackReason | null;
+  /** The guard's error codes when fallbackReason is 'contradiction'. */
+  contradictions: string[];
+}
+
 /** Only this entry point publishes generated prose. The model's own text is
  * published as written once it passes the contradiction guard; the factual
  * fallback is used only when the guard rejects it. The claims line is
  * optional: a missing one is not a failure, a wrong one is, and it is always
  * removed before parsing so it can never be published. */
-export function prepareGeneratedReport(raw: string, f: ReportFacts): { report: ParsedEddyResponse; usedFallback: boolean } {
+export function prepareGeneratedReport(raw: string, f: ReportFacts): PreparedReport {
   const lines = raw.trim().split(/\r?\n/);
   const claims = lines.filter(line => /\[CLAIMS\]/i.test(line));
   if (claims.some(line => line.trim() !== reportClaimsLine(f))) {
     console.warn(`[EddyFacts] Mismatched claims for ${f.gaugeName ?? f.locationName}`);
-    return { report: factualReportFallback(f), usedFallback: true };
+    return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'claims_mismatch', contradictions: [] };
   }
   const parsed = parseEddyResponse(lines.filter(line => !/\[CLAIMS\]/i.test(line)).join('\n'));
-  const checked = guardReport(parsed, f);
-  return { report: checked, usedFallback: checked !== parsed };
+  const contradictions = reportContradictions(parsed, f);
+  if (contradictions.length) {
+    console.warn(`[EddyFacts] Replacing contradictory report for ${f.gaugeName}: ${contradictions.join(', ')}`);
+    return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'contradiction', contradictions };
+  }
+  return { report: parsed, usedFallback: false, fallbackReason: null, contradictions: [] };
 }
