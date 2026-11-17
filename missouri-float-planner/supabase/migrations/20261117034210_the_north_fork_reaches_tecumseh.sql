@@ -1,8 +1,11 @@
 -- Eddy's North Fork stops 4.3 miles above its own last take-out. Extend it.
 --
--- NOT YET APPLIED to production. Listed under [pending] in
--- supabase/production-migrations.txt; rename to the version production records
--- when it is applied.
+-- APPLIED to production (ilefwfpvphadsbptiaur) on 2026-11-17 as version
+-- 20261117034210, the version the recording assigned, not the 20261117160000
+-- this file was authored as. Renamed to match. The ledger is
+-- supabase/production-migrations.txt. Read back after applying: one simple
+-- LineString of 260 vertices and 62.74 mi, Tecumseh snapped at 90 m at mile
+-- 64.05, the other seven access points unchanged, validate_river_data() clean.
 --
 -- ── What was wrong ──────────────────────────────────────────────────────
 --
