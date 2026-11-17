@@ -21,15 +21,15 @@ import LakeMovement from '@/components/lake/LakeMovement';
 
 type Detail = 'lake' | 'turbines' | 'downstream';
 const areas: Array<{ id: Detail; label: string }> = [
-  { id: 'lake', label: 'Lake' }, { id: 'turbines', label: 'Turbines' }, { id: 'downstream', label: 'Below the dam' },
+  { id: 'lake', label: 'Lake' }, { id: 'turbines', label: 'Turbines' }, { id: 'downstream', label: 'River' },
 ];
 const cfs = (value: number) => `${Math.round(value).toLocaleString('en-US')} cfs`;
 const outdated = (metric: DamMetricValue, now: number) => readingStaleness(metric.at, now) !== 'fresh';
 
-function ReadingNote({ metric, now }: { metric: DamMetricValue; now: number }) {
+function ReadingNote({ metric, now, showTime = true }: { metric: DamMetricValue; now: number; showTime?: boolean }) {
   return <div className="dam-water-note">
     {metric.dailyMean && <p>Daily average</p>}
-    <ReadingTime at={metric.at} now={now} className="" />
+    {showTime && <ReadingTime at={metric.at} now={now} className="" />}
     {outdated(metric, now) && <p className="dam-water-outdated">Outdated reading</p>}
   </div>;
 }
@@ -139,12 +139,12 @@ export default function DamWaterIllustration({ dam, now, lake, source }: {
 
     <div className="dam-water-breakdown">
       <div><span>Through turbines</span>{' '}<strong className={turbine && outdated(turbine, now) ? 'opacity-70' : ''}>{turbine ? cfs(turbine.value) : 'Unavailable'}</strong>
-        {turbine && (!commonAt || turbine.dailyMean || outdated(turbine, now)) && <ReadingNote metric={turbine} now={now} />}
+        {turbine && (!commonAt || turbine.dailyMean || outdated(turbine, now)) && <ReadingNote metric={turbine} now={now} showTime={!commonAt} />}
       </div>
       <div><span>Spillway</span>{' '}<strong className={spillway && outdated(spillway, now) ? 'opacity-70' : ''}>{spillway ? cfs(spillway.value) : 'Unavailable'}</strong>
-        {spillway && (!commonAt || spillway.dailyMean || outdated(spillway, now)) && <ReadingNote metric={spillway} now={now} />}
+        {spillway && (!commonAt || spillway.dailyMean || outdated(spillway, now)) && <ReadingNote metric={spillway} now={now} showTime={!commonAt} />}
       </div>
-      <Button variant="ghost" size="sm" className="dam-water-motion-toggle" disabled={!view.releaseActive || reducedMotion !== false} aria-pressed={paused} onClick={() => setPaused(!paused)}>
+      <Button variant="ghost" size="sm" className="dam-water-motion-toggle" disabled={!view.releaseActive || reducedMotion !== false} onClick={() => setPaused(!paused)}>
         {paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}{reducedMotion || !view.releaseActive ? 'Motion off' : paused ? 'Play motion' : 'Pause motion'}
       </Button>
     </div>

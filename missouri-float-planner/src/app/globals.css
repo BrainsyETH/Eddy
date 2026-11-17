@@ -1959,10 +1959,15 @@ select.input {
   .dam-water-breakdown strong { display: inline; margin-left: .4rem; }
   .dam-water-motion-toggle { grid-column: auto; }
 }
+/* Paired values share a baseline even when one phone label wraps. */
+@container (max-width: 20rem) {
+  .dam-water-readings .dam-water-label, .dam-water-detail-readings .dam-water-label { min-height: 3em; }
+}
 /* Also reflow when a reader enlarges their default text size. */
 @container (max-width: 13rem) {
   .dam-water-readings, .dam-water-explore, .dam-water-detail-readings { grid-template-columns: 1fr; }
   .dam-water-level { border-right: 0; padding-right: 0; }
+  .dam-water-readings .dam-water-label, .dam-water-detail-readings .dam-water-label { min-height: 0; }
 }
 /* Static by default. Only transform animates; no frame loop, layout or dash repaint.
    Pause persists through clock updates; hidden/offscreen documents also stop. */

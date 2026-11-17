@@ -601,7 +601,7 @@ Turbine and spillway paths require their own fresh, positive reported flow
 and a fresh positive total release; no spillway is inferred from the difference.
 Missing spillway data reads “Unavailable”, not zero. Reading times and outdated
 states stay visible, daily averages stay labeled, and generator detail is
-expandable through Lake / Turbines / Below the dam in one shared panel. The
+expandable through Lake / Turbines / River in one shared panel. The
 screen-reader generation summary stays available with that panel closed. Old
 release readings are dimmed and marked directly beneath the number.
 

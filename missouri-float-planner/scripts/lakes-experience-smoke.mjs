@@ -117,7 +117,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
         assert.equal(await page.getByRole('link', { name: /photo credit/i }).count(), 0, 'credits remain on the central credits page');
         if (kind === 'dam' && !variant) {
           await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
-          await page.screenshot({ path: `${out}/illustration-initial-${width}.png`, fullPage: true });
         }
         if (kind === 'lake') {
           assert(await page.locator('.lake-launch-filter button').evaluateAll(nodes => nodes.every(n => n.scrollWidth <= n.clientWidth)), 'filter labels fit their controls');
@@ -169,13 +168,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             assert(await turbines.evaluate(el => el === document.activeElement), 'Escape returns focus to the trigger');
             assert.equal(await illustrated.locator('[data-generation-summary]').count(), 1, 'generation summary remains outside the closed panel');
             assert(!(await illustrated.locator('[data-generation-summary]').evaluate(el => Boolean(el.closest('[hidden]')))));
-            await illustrated.getByRole('button', { name: 'Below the dam', exact: true }).click();
+            await illustrated.getByRole('button', { name: 'River', exact: true }).click();
             assert.match(await details.innerText(), /704.12 ft/);
             assert.match(await details.innerText(), /56.0 °F/);
-            await page.screenshot({ path: `${out}/illustration-downstream-${width}.png`, fullPage: true });
             await illustrated.getByRole('button', { name: 'Lake', exact: true }).click();
             assert.equal(await details.locator('figure').count(), 1, 'lake opens measured history in the shared panel');
-            await page.screenshot({ path: `${out}/illustration-lake-detail-${width}.png`, fullPage: true });
             await details.getByRole('button', { name: 'Close reading details' }).click();
             await illustrated.locator('.dam-water-scene').scrollIntoViewIfNeeded();
             await page.clock.runFor(100);
@@ -199,6 +196,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             await page.clock.runFor(100);
             await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'paused');
             await page.evaluate(() => window.scrollTo(0, 0));
+            await page.clock.runFor(100);
+            await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'running', undefined, { timeout: 5000 });
+            assert(await illustrated.locator('.dam-motion').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).animationPlayState === 'running')), 'motion resumes on returning to the panel');
+            // Full-page captures temporarily change viewport geometry. Exercise
+            // motion before taking screenshots, then capture the detail states.
+            await illustrated.getByRole('button', { name: 'River', exact: true }).click();
+            await page.screenshot({ path: `${out}/illustration-downstream-${width}.png`, fullPage: true });
+            await illustrated.getByRole('button', { name: 'Lake', exact: true }).click();
+            await page.screenshot({ path: `${out}/illustration-lake-detail-${width}.png`, fullPage: true });
+            await details.getByRole('button', { name: 'Close reading details' }).click();
             assert.match(await page.locator('[data-lake-section]').innerText(), /2.6 ft below the 917.0 ft seasonal pool/);
             if (width === 390) {
               await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
