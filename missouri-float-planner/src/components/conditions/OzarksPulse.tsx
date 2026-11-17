@@ -41,9 +41,9 @@ export default function OzarksPulse({ initialRivers, renderedAt, compact = false
 
   return <Card as="section" variant="panel" aria-labelledby={headingId} className={compact ? 'mb-5' : 'w-full text-left'}>
     <div className="flex items-center gap-3 p-4 sm:p-5">
-      <EddyIcon name="gauge" size={32} className="shrink-0" />
+      <EddyIcon name="today" size={32} className="shrink-0" />
       <div className="min-w-0 flex-1">
-        <h2 id={headingId} className="font-display text-sm font-semibold text-primary-700">Ozarks Pulse</h2>
+        <h2 id={headingId} className="font-display text-sm font-semibold text-accent-700">Ozarks Pulse</h2>
         <p className={`mt-1 font-display font-semibold leading-snug text-primary-900 ${compact ? 'text-lg' : 'text-2xl'}`}>{count}</p>
       </div>
       {compact && <Button variant="ghost" className="min-h-11 min-w-11 shrink-0 px-2"
