@@ -13,6 +13,7 @@ Status: **released on web on 2026-11-11**, enabled by the owner. The historical 
 | Cache | Version + arrival + departure. 60-second bounded per-instance memo, 100-entry ceiling; no stale-on-error values. River/name/types filter compact site buckets in the browser. |
 | Endpoints | GET `/api/camping/stay` and `/api/camping/sites`, shared 60/min/IP, fail closed on configured limiter failure. Rate limiter executes on cache hits. Free; outside x402. |
 | Read budget | Five-second abort shared by all DB requests; ≤200 facilities, ≤5,000 catalog sites, ≤14 nights. Ordered pages of 900; site-night ceiling derived from catalog × nights. Errors return 503 rather than partial totals. |
+| River context | A selected river shows a "River now" panel (current condition, trend, links to the river page and the planner) and lists campgrounds upstream to downstream. With all rivers, each card carries its river's current condition and openings lead. See "Rivers and camping" below. |
 | Scope deferred | Nearby/radius, No hookup/Walk-in/Group, new untracked-place URL model, dedicated campground pages, overnight route planning, new alerts. |
 
 ## Phase 0 evidence — 2026-11-10
@@ -61,6 +62,57 @@ unknown.” A `?` means a section's aggregate is missing or expired.
 Filters update local UI state immediately, then synchronize the share URL.
 Back/Forward, external URL changes and Clear filters restore the same controls;
 an older router update cannot overwrite newer typing or checkbox changes.
+
+### Rivers and camping
+
+The hub and the river pages hand off to each other. A river page's Campgrounds
+list links to `/camping?river=<slug>` ("Find campsites") when the Camping page
+is enabled and the river has a campground the hub lists: a `campground`-type
+service or one with tracked availability. A business that only also has sites
+is not on the hub, so it does not produce a link to an empty list.
+
+In the hub, the selected river has one compact summary labelled "Now", with
+the river name linking to conditions and a secondary "Plan a float" link.
+Individual campground cards do not repeat condition chips. Conditions are
+never tied to stay dates. Ratings expire after six hours, including on an open
+or resumed tab; missing, invalid and future observation ages are unavailable.
+The observation timestamp takes precedence over the relative age, so a cached
+response cannot make an old reading fresh. Older responses age from receipt,
+including HTTP cache age. Conditions are requested only while a river is
+selected; they then refresh every five minutes and on return to the tab. A
+failed refresh does not extend the last reading's lifetime.
+
+River identity and canonical links travel with the campground overview,
+independently of live conditions. On a condition-load failure the summary says
+"Conditions unavailable" and keeps both links and the selected river name.
+The shared river loaders used by the planner and Find a Float use the same
+browser-compatible deadline as Camping, without requiring AbortSignal statics.
+
+With a river selected, browsing without dates defaults to "Along the river";
+entering dates defaults to "Available first". The compact sort control stores
+an explicit choice in the URL and retains it across date, filter and view
+changes. "Available for my stay" remains a filter, not a sort. River order and
+the sort control exist only when at least two of the river's tracked
+campgrounds have a river mile; otherwise the list keeps openings-then-name
+order, as on Big River, whose two tracked campgrounds have no mile.
+
+Cards and calendar rows say "River mile 26". The mile is the access point's
+`river_mile_downstream`, the river page's ruler, carried on the overview as
+`accessDestination.riverMile`. It applies only to the river the access point is
+on. In river order, unknown positions follow under "More campgrounds" when
+there are measured positions; they do not imply a location farther downstream.
+The heading says "Upstream to downstream" only when at least two campgrounds
+are measured and river order is selected. On 2026-11-17, 31 of 36 tracked
+facilities had a mile (read-only query); five had no linked access point.
+
+The order, mile label and "now" rules live in `shared/camping-rivers.ts`, pure
+and tested, so the iOS Camping screen can adopt the same behavior. iOS is
+unchanged by this release.
+
+A `?river=` link for a river with no listed campgrounds keeps that river's name
+in the control and shows its panel above the empty result. A slug that names
+no river (not in the overview's rivers, the live list or any campground) is
+ignored: the control reads "All rivers" and every campground is listed.
 
 ### Scope: new web hub only
 
@@ -124,7 +176,9 @@ include all errors/timeouts in the report. Use five actual clients within the
 
 `src/lib/camping/web-search.test.ts` covers stay/date bounds, incomplete catalogs, filtered zero uncertainty, continuation nights, mixed status, per-filter gates, freshness and campground identity. `web-route.test.ts` exercises the real route with mocked database responses: flag, validation, cache reuse, limiter, and 503 failures. The web tests cover catalog completeness and paging; existing read/stay tests continue to validate unchanged legacy behavior.
 
-`npm run test:camping-browser` creates a temporary development-only page, tests the real CampingHub at desktop and 390px widths, and removes it. Screenshots are labelled fixtures, never live observations. No credentials are required. It checks immediate checkbox state, rapid typing/caret position, URL state, Back/Forward, Clear filters, whole-stay state, dialog focus/Escape, overflow and the 14-night cap.
+`shared/camping-rivers.test.ts` covers river-mile order, the one-river rule for miles and when a condition may be shown as current.
+
+`npm run test:camping-browser` creates a temporary development-only page, tests the real CampingHub at desktop and 390px widths, and removes it. Screenshots are labelled fixtures, never live observations. No credentials are required. It checks failed-load navigation, date-aware and explicit ordering, unknown-mile groups, calendar mile labels, polling and open-tab expiry, immediate checkbox state, rapid typing/caret position, URL state, Back/Forward, Clear filters, whole-stay state, dialog focus/Escape, overflow and the 14-night cap.
 
 Keep `CAMPING_WEB_ENABLED` unset. Run deployment benchmarks and the coverage audit again, then decide on a regional launch or a separately scoped cohort. Rollback: unset the flag; header/sitemap/page/API disappear together. Existing campsite APIs and mobile stay support remain available.
 

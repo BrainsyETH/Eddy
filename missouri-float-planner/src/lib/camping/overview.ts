@@ -1,4 +1,5 @@
 import { withReviewedPlacePhoto } from '../photos/reviewed';
+import { riverPath } from '../navigation/river-path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseNpsImages, parseJsonish } from '../services/npsCampground';
 import { facilityBookingUrl } from './booking';
@@ -55,6 +56,8 @@ export interface AccessRow {
   id: string;
   river_id: string;
   nps_campground_id: string | null;
+  /** PostgREST may return numeric as a string. */
+  river_mile_downstream?: number | string | null;
 }
 export interface IdentityRow {
   access_point_id: string;
@@ -74,7 +77,7 @@ export interface OverviewInput {
     river_id: string;
     is_primary: boolean;
   }[];
-  rivers: { id: string; slug: string; name: string }[];
+  rivers: { id: string; slug: string; name: string; state?: string | null }[];
 }
 export function safeCampingUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -106,6 +109,12 @@ function location(p: PlaceRow | undefined): CampingPlace['location'] {
     Math.abs(lng) <= 180
     ? { lat, lng }
     : null;
+}
+/** Mile 0 is a position; only a missing or unreadable value is null. */
+function riverMile(raw: number | string | null | undefined): number | null {
+  if (raw == null || raw === '') return null;
+  const mile = Number(raw);
+  return Number.isFinite(mile) ? mile : null;
 }
 export function buildCampingOverview(
   input: OverviewInput,
@@ -211,7 +220,11 @@ export function buildCampingOverview(
             : 'none',
       accessDestination:
         a && rivers.get(a.river_id)
-          ? { riverSlug: rivers.get(a.river_id)!.slug, accessId: a.id }
+          ? {
+              riverSlug: rivers.get(a.river_id)!.slug,
+              accessId: a.id,
+              riverMile: riverMile(a.river_mile_downstream),
+            }
           : null,
     };
   }
@@ -358,6 +371,9 @@ export function buildCampingOverview(
   }
   return {
     schemaVersion: 1,
+    rivers: input.rivers.map(({ slug, name, state }) => ({
+      slug, name, path: state ? riverPath(state, slug) : `/rivers/${encodeURIComponent(slug)}`,
+    })),
     generatedAt: now.toISOString(),
     maxObservationAgeSeconds: MAX_AGE_MS / 1000,
     timeZone: 'America/Chicago',
@@ -456,7 +472,7 @@ export async function loadCampingOverview(
     allRows<AccessRow>((a, b) =>
       db
         .from('access_points')
-        .select('id,river_id,nps_campground_id,location_orig')
+        .select('id,river_id,nps_campground_id,location_orig,river_mile_downstream')
         .eq('approved', true)
         .order('id')
         .range(a, b),
@@ -480,7 +496,7 @@ export async function loadCampingOverview(
         .range(a, b),
     ),
     allRows<OverviewInput['rivers'][number]>((a, b) =>
-      db.from('rivers').select('id,slug,name').order('id').range(a, b),
+      db.from('rivers').select('id,slug,name,state').order('id').range(a, b),
     ),
   ]);
   return buildCampingOverview(
