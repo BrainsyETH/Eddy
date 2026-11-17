@@ -114,7 +114,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
   const { campaign, dam: promotion, destination } = appLandingContext(await searchParams);
   if (destination) return <ContextAppLanding destination={destination} campaign={campaign} />;
   const dam = promotion ? getUsaceDam(promotion.id) : undefined;
-  const qr = dam ? await appQrImage(campaign, dam.id) : null;
+  const qr = await appQrImage(campaign);
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -152,20 +152,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
             </div>
 
             <AppAvailability />
-            <AppPromotion>{qr ? <AppQrPrompt {...qr} className={styles.qrPrompt} frameClassName={styles.qrFrame} /> : <div className={styles.qrPrompt}>
-              <span className={styles.qrFrame}>
-                <Image
-                  src="/app-store/eddy-guide-qr.svg"
-                  alt="QR code for eddy.guide/app"
-                  width={92}
-                  height={92}
-                />
-              </span>
-              <span>
-                <strong>Open Eddy on your iPhone</strong>
-                Scan to visit eddy.guide/app
-              </span>
-            </div>}</AppPromotion>
+            <AppPromotion><AppQrPrompt {...qr} size={dam ? 124 : 92} className={styles.qrPrompt} frameClassName={styles.qrFrame} /></AppPromotion>
 
             {!dam && <p className={styles.microcopy}>
               Designed for Missouri and Ozarks float rivers. More water is on the way.

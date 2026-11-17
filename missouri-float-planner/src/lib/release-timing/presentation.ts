@@ -38,9 +38,15 @@ export const RESULTS_NEEDED = 60;
 
 /** Collection progress is not an accuracy score or a passing verdict. */
 export function studyProgress(compared: number): string {
-  return compared < RESULTS_NEEDED
-    ? `${compared} of ${RESULTS_NEEDED} compared`
-    : `${compared} compared · Study target reached`;
+  return `${compared < RESULTS_NEEDED ? 'Early results' : 'Recent results'} · ${compared} release${compared === 1 ? '' : 's'} checked`;
+}
+
+/** Display a rough difference, not minute-level accuracy from 15-minute readings. */
+export function riseDifference(estimateAt: string, roseAt: string): string {
+  const delta = Date.parse(roseAt) - Date.parse(estimateAt);
+  if (delta === 0) return 'At the estimated time';
+  const amount = Math.abs(delta) < 5 * 60_000 ? 'Less than 5 min' : `About ${elapsedText(Math.abs(delta) / 3_600_000)}`;
+  return `${amount} ${delta < 0 ? 'earlier' : 'later'} than estimated`;
 }
 
 export interface LogEntry {

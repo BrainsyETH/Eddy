@@ -7,6 +7,7 @@ import { fetchWeather, fetchForecast } from '@/lib/weather/openweather';
 import { getCoordinates } from '@/lib/api-utils';
 import { groupForecastByDay } from '@/lib/river-outlook';
 import type { ConditionThresholds } from '@/lib/conditions';
+import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { applyFloodStageOverride } from '@/lib/conditions';
 import type { RiverAlert } from '@/types/api';
 import { freshness, localDate, memoizeAsync, type Status } from './contracts';
@@ -306,7 +307,7 @@ export function createSources(
             ? applyFloodStageOverride(
                 day.conditionCode,
                 day.valueFt,
-                numeric(link.flood_stage_ft),
+                linkFloodStageFt(link),
               )
             : null,
       }));

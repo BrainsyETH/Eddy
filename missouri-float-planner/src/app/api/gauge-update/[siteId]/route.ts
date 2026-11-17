@@ -72,7 +72,7 @@ export async function GET(
     // stored report unavailable.
     const thresholdQuery = supabase
       .from('river_gauges')
-      .select('level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft, threshold_unit, is_primary, rivers!inner(slug)')
+      .select('level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft, threshold_unit, is_primary, rivers!inner(slug), gauge_stations(nwps_flood_stage_ft)')
       .eq('gauge_station_id', data.gauge_station_id);
 
     const [{ data: reading }, { data: thresholdRow }] = await Promise.all([

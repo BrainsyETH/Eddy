@@ -25,7 +25,7 @@
 // river with no discharge reading must come back 'unknown' rather than have its
 // stage in feet compared against cfs thresholds.
 
-import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
+import { classifyReading } from '@eddy/conditions/condition-ladder';
 import type { ConditionCode } from '@eddy/conditions';
 import { conditionColor } from '@/theme/conditions';
 
@@ -173,11 +173,12 @@ export function gradeGauge(
     thresholdUnit: unit,
     floodStageFt: gauge.flood_stage_ft,
   };
-  // No ladder means no opinion. Colouring an unrated river green because its
-  // gauge happens to read a number would be worse than leaving it grey.
-  if (!hasLadder(thresholds)) return 'unknown';
+  // No ladder means no opinion, and classifyReading holds that rule itself:
+  // it answers 'unknown' for an unrated gauge AFTER its flood-stage check, so
+  // an unrated gauge at or above its official flood stage still reads
+  // 'dangerous'. A hasLadder guard here used to return before that check.
 
-  // ...but fall back to the site alone when the readings payload carries no row
+  // Fall back to the site alone when the readings payload carries no row
   // for this river. It happens: Courtois Creek's primary gauge IS Huzzah
   // Creek's (USGS 07014000), and the statewide readings emit that site only
   // under Huzzah, which left Courtois grey on the map while every other surface

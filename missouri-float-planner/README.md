@@ -488,8 +488,11 @@ in the registry. That site answers 200 for any path, so run
 
 Bull Shoals links to `/dams/swl-bull-shoals-dam/release-timing`, a findings
 page on how long measured release increases took to reach the USGS gauge near
-Norfork. A short introduction gives the study's extent and a visible warning
-that this is not a forecast or a guide to when to wade or launch.
+Norfork. “Based on 695 historical releases” opens the study's period, reach,
+matched sample, sources and research reports in an anchored desktop dialog or
+mobile bottom sheet. The count and period come from the findings export. A
+visible cream-and-coral notice with Eddy's hazard icon says this is not a
+forecast or a guide to when to wade or launch.
 
 - **How long does it take?** The gauge's typical time leads the map, labelled
   with the selected release size, normal-river context and “Historical timing ·
@@ -499,13 +502,17 @@ that this is not a forecast or a guide to when to wade or launch.
   mile without claiming an arrival time there. Rounded, unmeasured upstream
   times live under “Rough guide upstream”. Nothing is timed below the gauge.
 - **How close was Eddy?** The latest completed comparison leads with the
-  difference from Eddy's estimate and a quiet window-status label. The timeline
-  labels the estimate and recorded rise directly. One progress line follows;
-  readings, pending releases, history and methodology live under Details.
+  approximate difference from Eddy's estimate and a quiet window-status label.
+  Headline differences round to five minutes; sub-five-minute differences stay
+  labelled as such, and only identical timestamps say “At the estimated time”.
+  The timeline labels the estimate, recorded rise and both window edges.
+  Readings, pending releases, history and methodology
+  live under “Readings and previous releases”.
   The header date is the recorded-rise date; other dates are shown when needed
   to distinguish overnight timings. Waiting releases reveal no estimate.
-  Collection progress toward 60 comparisons follows the results; reaching the
-  target does not imply a passing verdict. Replaying a completed result uses
+  “Early results” counts recent checked releases separately from the historical
+  sample; pending releases are named separately. The study panel explains the
+  review after 60 comparisons, which does not imply a passing verdict. Replaying a completed result uses
   its recorded dam-to-gauge delay and Central clock, with no historical band.
   “Back to timing” restores the historical view.
 - **What changes it?** Charts compare release size and starting river conditions.

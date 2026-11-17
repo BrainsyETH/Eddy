@@ -23,7 +23,6 @@ export default function AppCta({ destination, title, detail, label, variant = 'c
   if (device === 'android') return null;
   const landingUrl = appLandingUrl(campaign, undefined, destination);
   const query = landingUrl.split('?')[1] ?? '';
-  const noun = destination.kind === 'plan' ? 'plan' : destination.kind === 'access' ? 'access point' : destination.kind;
   return (
     <aside ref={ref} data-app-cta={label} aria-label={title}
       className={variant === 'inline' ? 'app-cta app-cta--inline' : 'app-cta card-panel'}>
@@ -45,13 +44,15 @@ export default function AppCta({ destination, title, detail, label, variant = 'c
             </> : <AppLink store={landing} destination={destination} campaign={campaign} trackView={false}
               className="app-cta__link" data-ga-label={label}>Get Eddy for iPhone <ArrowRight className="size-4" aria-hidden="true" /></AppLink>}
           </div>
-          {device === 'ios' && destination.kind === 'plan' && <p className="text-xs text-neutral-500">After installing, return here to open your plan.</p>}
+          {device === 'ios' && (destination.kind === 'plan' || landing) && <p className="text-xs text-neutral-500">
+            {destination.kind === 'plan' ? 'After installing, return here to open your plan.' : 'After installing, return here and choose Open.'}
+          </p>}
         </div>
       </div>
       {device === 'other' && <details className="app-cta__qr" open={landing}>
         <summary>Send to iPhone</summary>
         <div>
-          <Image src={`/api/app/qr?${query}`} width={112} height={112} alt={`Scan to open this ${noun} on your iPhone`} unoptimized />
+          <Image src={`/api/app/qr?${query}`} width={112} height={112} alt="Scan to get Eddy from the App Store" unoptimized />
           <p>Scan with your iPhone</p>
         </div>
       </details>}

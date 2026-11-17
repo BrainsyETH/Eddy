@@ -34,7 +34,7 @@ export default async function HomeBaseBoardPage({ params }: Params) {
       })
     )
   );
-  const appQr = await appQrImage(config.campaign, undefined, { margin: 1 });
+  const appQr = await appQrImage(config.campaign, { margin: 1 });
 
   return <HomeBaseBoard boardId={config.id} riverQrs={riverQrs} appQr={appQr} />;
 }

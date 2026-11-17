@@ -183,20 +183,22 @@ landing retains its full, labeled App Store illustration. Generic iOS downloads
 skip `/app`.
 
 Desktop visitors can expand **Send to iPhone** beside a contextual invitation.
-The QR encodes the same first-party `/app` context and campaign as the link. The
-contextual landing page keeps that QR expanded, provides the store link, and
-supplies the existing native route to Safari's banner. On iPhone it offers download
-first, with a secondary Open link.
-A saved-plan landing page also links back to the complete web plan. After a fresh
-install users return to the retained page/link; automatic deferred deep linking
+Every app QR code (contextual invitations, `/app`, the river-map wall and
+home-base boards) encodes the App Store listing with the context's campaign, so
+a scan goes straight to the install step instead of reopening the same page on
+the phone. The contextual landing page keeps that QR expanded, provides the
+store link, and supplies the existing native route to Safari's banner. Visited
+on iPhone, it offers download first, with a secondary Open link.
+A saved-plan landing page also links back to the complete web plan. A scan does
+not carry the plan, river or Read into the app; someone who already has Eddy
+opens the app's home screen from the App Store. Automatic deferred deep linking
 is not implemented. Existing universal-link claims remain unchanged.
 
 `app-destination.ts` accepts only bounded plan, river, gauge and river/access
 identifiers. Conflicting/repeated parameters and arbitrary return URLs are not
-accepted. `/api/app/qr` renders only these destinations or the existing promoted
-dams. QR generation stays on the server, without a third-party service. QR URLs
-always use `https://eddy.guide`, including from a preview; scanning one does not
-verify preview-only code or test-database plans.
+accepted. `/api/app/qr` accepts only these destinations or the existing promoted
+dams, and uses them only to choose the campaign. QR generation stays on the
+server, without a third-party service.
 
 Android hides install invitations, not report sections. Public compact Read
 summaries and dam teasers remain; the existing noncompact Read stays blurred,

@@ -32,6 +32,7 @@ const variants = {
   early: { results: [{ ...compared, roseAt: '2026-11-13T05:30:00Z' }], tally: { ...emptyTally, compared: 1 } },
   late: { results: [{ ...compared, roseAt: '2026-11-14T04:30:00Z', peakCfs: null }], tally: { ...emptyTally, compared: 1 } },
   exact: { results: [{ ...compared, roseAt: compared.estimateAt }], tally: { ...emptyTally, compared: 1, insideWindow: 1 } },
+  precision: { results: [{ ...compared, estimateAt: '2026-11-13T09:43:45Z', roseAt: '2026-11-13T09:30:00Z' }], tally: { ...emptyTally, compared: 1, insideWindow: 1 } },
   near: { results: [{ ...compared, roseAt: '2026-11-13T09:29:40Z' }], tally: { ...emptyTally, compared: 1, insideWindow: 1 } },
   overnight: { results: [{ ...compared, releasedAt: '2026-11-13T17:30:00Z', estimateAt: '2026-11-14T07:00:00Z', earlyAt: '2026-11-14T05:30:00Z', lateAt: '2026-11-14T08:30:00Z', roseAt: '2026-11-14T07:05:00Z' }], tally: { ...emptyTally, compared: 1, insideWindow: 1 } },
   history: { results: [compared, { ...compared, id: 'earlier', releasedAt: '2026-11-11T20:30:00Z', estimateAt: '2026-11-12T09:30:00Z', earlyAt: '2026-11-12T07:30:00Z', lateAt: '2026-11-12T11:30:00Z', roseAt: '2026-11-12T09:45:00Z' }], tally: { ...emptyTally, compared: 2, insideWindow: 2 } },
@@ -56,13 +57,14 @@ try {
 import ReleaseTimingIntro from '@/components/release-timing/ReleaseTimingIntro';
 import ReleaseTimingReport from '@/components/release-timing/ReleaseTimingReport';
 import ResearchLog from '@/components/release-timing/ResearchLog';
+import DamInfoTip from '@/components/dam/DamInfoTip';
 import type { PublicResults } from '@/lib/arrival-trial/public-results';
 const variants: Record<string, PublicResults | null> = ` + JSON.stringify(variants) + `;
 export default async function Page({ searchParams }: { searchParams: Promise<{ variant?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_RELEASE_TIMING_SMOKE !== '1') notFound();
   const { variant = 'results' } = await searchParams;
   const results = variants[variant] ?? null;
-  return <main className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:px-8" data-timing-check><ReleaseTimingIntro /><ReleaseTimingReport results={results} /><ResearchLog results={results} /></main>;
+  return <main className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:px-8" data-timing-check><ReleaseTimingIntro /><ReleaseTimingReport results={results} /><ResearchLog results={results} /><div data-default-info><DamInfoTip title="Dam readings"><p>Readings supplied by the Corps.</p></DamInfoTip></div></main>;
 }`);
   assert.equal(spawnSync('git', ['check-ignore', '--quiet', route + '/page.tsx']).status, 0, 'Fixture must stay out of Git');
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
@@ -85,6 +87,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   }
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}), args: ['--no-sandbox'] });
   const errors = [];
+  const layoutIssues = [];
+  const checkLayout = (condition, message) => { if (!condition) layoutIssues.push(message); };
   for (const width of [1440, 768, 390, 320]) {
     const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 900 });
     activePage = page;
@@ -95,8 +99,44 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     const map = page.locator('#release-map');
     const slider = map.getByRole('slider');
     const sizes = map.getByRole('group', { name: 'Release size, in generators', exact: true });
-    assert.match(await intro.innerText(), /Bull Shoals release timing[\s\S]*695 measured releases[\s\S]*Not a forecast/);
-    assert((await intro.boundingBox()).height < 350, width + ': the introduction stays compact');
+    assert.match(await intro.innerText(), /Bull Shoals release timing[\s\S]*Based on 695 historical releases[\s\S]*Not a forecast/);
+    const studyTrigger = intro.getByRole('button', { name: 'Based on 695 historical releases. About the timing study' });
+    assert((await studyTrigger.boundingBox()).height >= 44);
+    await studyTrigger.focus();
+    await studyTrigger.press('Enter');
+    const study = page.getByRole('dialog', { name: 'The timing study' });
+    await study.waitFor({ state: 'visible' });
+    assert.match(await study.innerText(), /2019–2026[\s\S]*41.5 river miles[\s\S]*15 minutes[\s\S]*975[\s\S]*separate check[\s\S]*60 comparisons/);
+    assert(await study.getByRole('link', { name: 'Read the research reports' }).getAttribute('href'));
+    const studyBounds = await study.boundingBox();
+    assert(studyBounds.x >= 0 && studyBounds.x + studyBounds.width <= width, 'study panel stays in the viewport');
+    assert(studyBounds.y >= 0 && studyBounds.y + studyBounds.height <= 1001, 'study panel fits vertically');
+    if (width < 640) assert(Math.abs(studyBounds.y + studyBounds.height - 1000) < 2, 'phone study opens as a bottom sheet');
+    await capture(study, 'study-' + width);
+    await study.getByRole('link').focus();
+    await page.keyboard.press('Tab');
+    assert(await study.getByRole('button', { name: 'Close explanation' }).evaluate(el => el === document.activeElement), 'dialog contains keyboard focus');
+    await capture(study, 'study-' + width);
+    await page.keyboard.press('Escape');
+    assert(await studyTrigger.evaluate(el => el === document.activeElement), 'Escape restores focus to the study label');
+    await studyTrigger.click();
+    await study.getByRole('button', { name: 'Close explanation' }).click();
+    assert.equal(await study.isVisible(), false);
+    await studyTrigger.click();
+    await page.mouse.click(width - 4, 4);
+    assert.equal(await study.isVisible(), false, 'outside click dismisses the explanation');
+    // Native dialog's close event and React's effect cleanup follow the click.
+    await page.waitForFunction(() => document.body.style.overflow === '');
+    const defaultTip = page.locator('[data-default-info]');
+    // The dev-only Next indicator can cover this fixture at the page bottom.
+    const defaultTrigger = defaultTip.getByRole('button', { name: 'About dam readings' });
+    await defaultTrigger.focus();
+    await defaultTrigger.press('Enter');
+    const defaultDialog = page.getByRole('dialog', { name: 'Dam readings' });
+    assert(await defaultDialog.isVisible(), 'existing icon-only dam explanations still open');
+    await defaultDialog.getByRole('button', { name: 'Close explanation' }).click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    checkLayout((await intro.boundingBox()).height < 350, width + ': introduction height ' + (await intro.boundingBox()).height);
     assert.match(await map.getByRole('heading', { level: 2 }).innerText(), /About 12¾ hours/);
     assert.match(await map.innerText(), /4 generators · normal river/);
     assert.match(await map.innerText(), /Historical timing · Not live/);
@@ -166,12 +206,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     await capture(map, 'arrival-' + width);
     // The comparison reads at a glance; full readings and pending dates are disclosure-only.
     const close = page.locator('#how-close');
-    assert.match(await close.innerText(), /Norfork · Nov 13 · CT/);
-    assert.match(await close.innerText(), /1 of 60 compared · 1 waiting/);
-    assert.match(await close.getByRole('heading', { level: 3 }).innerText(), /15 min after estimate/);
-    assert.match(await close.innerText(), /Within window/);
+    assert.match(await close.innerText(), /Gauge near Norfork · Nov 13 · Central time/);
+    assert.match(await close.innerText(), /Early results · 1 release checked · 1 pending/);
+    assert.match(await close.getByRole('heading', { level: 3 }).innerText(), /About 15 min later than estimated/);
+    assert.match(await close.innerText(), /Within the estimated window/);
     assert.doesNotMatch(await close.innerText(), /Released|Waiting for gauge readings|Dashed mark|Study in progress|Couldn’t compare/);
-    assert((await close.boundingBox()).height < 450, width + ': the result card stays compact');
+    checkLayout((await close.boundingBox()).height < 450, width + ': result card height ' + (await close.boundingBox()).height);
     assert.equal(await close.locator('details').count(), 1);
     const details = close.locator('details');
     assert.equal(await details.getAttribute('open'), null);
@@ -181,6 +221,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     const riseLabel = await labels.nth(1).boundingBox();
     assert(estimateLabel.y + estimateLabel.height < riseLabel.y, 'nearby times have separate label rows');
     const graphicBounds = await close.getByRole('img').boundingBox();
+    const clippedText = await close.getByRole('img').evaluate(svg => {
+      const bounds = svg.getBoundingClientRect();
+      return [...svg.querySelectorAll('text')].filter(label => {
+        const box = label.getBoundingClientRect();
+        return box.left < bounds.left || box.right > bounds.right;
+      }).map(label => label.textContent);
+    });
+    assert.deepEqual(clippedText, [], width + ': window edges and reading labels fit');
     for (const bounds of [estimateLabel, riseLabel]) {
       assert(bounds.x >= graphicBounds.x && bounds.x + bounds.width <= graphicBounds.x + graphicBounds.width, 'timeline labels fit');
     }
@@ -238,22 +286,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   activePage = page;
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('**/*', (request) => new URL(request.request().url()).origin === origin ? request.continue() : request.abort());
-  for (const [variant, text] of [['empty', 'No results yet'], ['waiting', 'Waiting for gauge readings'], ['unmatched', 'Couldn’t compare'], ['unavailable', 'Results can’t be loaded'], ['early', 'Before window'], ['late', 'After window'], ['exact', 'Matched estimate'], ['near', '<1 min before estimate'], ['overnight', '5 min after estimate']]) {
+  for (const [variant, text] of [['empty', 'No results yet'], ['waiting', 'Waiting for gauge readings'], ['unmatched', 'Couldn’t compare'], ['unavailable', 'Results can’t be loaded'], ['early', 'Before the estimated window'], ['late', 'After the estimated window'], ['exact', 'At the estimated time'], ['near', 'Less than 5 min earlier than estimated'], ['precision', 'About 15 min earlier than estimated'], ['overnight', 'About 5 min later than estimated']]) {
     await page.goto(url + '?variant=' + variant, { waitUntil: 'networkidle' });
     assert((await page.locator('#how-close').innerText()).includes(text), variant);
     if (variant === 'unavailable') {
       assert.equal(await page.locator('#how-close [data-slot]').count(), 0, 'no progress shown when results cannot be read');
-      assert.equal(await page.getByText(/of 60 compared/).count(), 0);
+      assert.equal(await page.getByText(/releases checked/).count(), 0);
     }
-    if (variant === 'empty') assert.match(await page.locator('#how-close').innerText(), /0 of 60 compared/);
+    if (variant === 'empty') assert.match(await page.locator('#how-close').innerText(), /Early results · 0 releases checked/);
     if (['waiting', 'unmatched', 'unavailable', 'empty'].includes(variant)) assert.equal(await page.getByRole('button', { name: 'Replay release' }).count(), 0);
     const close = page.locator('#how-close');
     if (['waiting', 'unmatched', 'unavailable', 'empty'].includes(variant)) assert.equal(await close.getByRole('img').count(), 0, 'no estimate is exposed without a comparison');
     if (variant === 'early') {
-      assert.match(await close.innerText(), /Norfork · Nov 12 · CT/);
+      assert.match(await close.innerText(), /Gauge near Norfork · Nov 12 · Central time/);
       assert.match(await close.locator('[data-reading-label=estimate]').textContent(), /Nov 13/);
     }
-    if (variant === 'overnight') assert.match(await close.innerText(), /Nov 13, 11:30 PM–Nov 14, 2:30 AM/);
+    if (variant === 'overnight') {
+      assert.match(await close.locator('[data-window-edge]').nth(0).textContent(), /11:30 PM.*Nov 13/);
+      assert.match(await close.locator('[data-window-edge]').nth(1).textContent(), /2:30 AM/);
+    }
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), variant + ': no overflow');
     if (variant === 'late') {
       await page.getByRole('button', { name: 'Replay release' }).click();
@@ -272,6 +323,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   await history.getByRole('button', { name: 'Replay release from Nov 11, 2026', exact: true }).click();
   assert.match(await page.locator('#release-map').innerText(), /Recorded release · Nov 11, 2026/);
   assert.deepEqual(errors, []);
+  assert.deepEqual(layoutIssues, [], 'compact layout checks');
   console.log('PASS timing model, observed release, controls, viewport and publication-state checks');
 } catch (error) {
   if (activePage && !activePage.isClosed()) {
