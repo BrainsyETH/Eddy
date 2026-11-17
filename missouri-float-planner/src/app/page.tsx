@@ -28,7 +28,7 @@ export default async function Home() {
   });
   const catalogue = conditionsDamCatalogue(damSummaries);
   const featuredDams = DAM_DISCOVERY_ORDER.flatMap(id => catalogue.dams.filter(dam => dam.id === id));
-  return <HomePage riverGuides={riverGuides} featuredReports={featuredReports} featuredDams={featuredDams}
+  return <HomePage pulseRivers={rivers} riverGuides={riverGuides} featuredReports={featuredReports} featuredDams={featuredDams}
     renderedAt={Date.now()} damsUnavailable={catalogue.damsUnavailable}
     damUnsupported={Object.fromEntries(featuredDams.map(dam => [dam.id, unsupportedDamReadings(dam.id)]))} floatSearchEnabled={floatSearchLaunch().web} />;
 }
