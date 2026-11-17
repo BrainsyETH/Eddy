@@ -1,6 +1,6 @@
 // src/lib/ai/model-registry.ts
-// The allowlist. Which Anthropic models may serve which workload, and the
-// request parameters each pairing must carry.
+// The allowlist. Which models, from which provider, may serve which workload,
+// and the request parameters each pairing must carry.
 //
 // ── Why an allowlist rather than a free-text model field ────────────────────
 //
@@ -21,8 +21,30 @@
 // that carried only the id would move that failure into production the first
 // time someone used the dropdown.
 //
+// OpenAI's models have the same trap under a different name: max_output_tokens
+// covers reasoning tokens and visible text together, the default effort is
+// `medium`, and a response that spends its budget reasoning comes back
+// `incomplete` with no text at all. So an OpenAI profile must name its
+// reasoning effort; there is no "omit it" form.
+//
+// ── Approved, and testable ─────────────────────────────────────────────────
+//
+// `approved` is what an operator may select for production. `testable` is what
+// /admin/ai-models may call from its test panel and nothing else: the panel
+// replays a recorded prompt and publishes nothing, so it is how a model's
+// output gets read BEFORE it is approved. Moving an id from `testable` to
+// `approved` is the code change that says someone did.
+//
 // SDK-free and DB-free on purpose: the compatibility rules are the part worth
-// testing, and nothing in this repo mocks the Anthropic SDK or Supabase.
+// testing, and nothing in this repo mocks a model SDK or Supabase.
+
+/** Who serves a model. Decides the SDK, the API key and the request shape. */
+export type Provider = 'anthropic' | 'openai';
+
+export const PROVIDERS: Record<Provider, { label: string; envVar: string }> = {
+  anthropic: { label: 'Anthropic', envVar: 'ANTHROPIC_API_KEY' },
+  openai: { label: 'OpenAI', envVar: 'OPENAI_API_KEY' },
+};
 
 /** A workload whose model is switchable from /admin/ai-models. */
 export type Workload = 'river_update' | 'gauge_update' | 'global_summary' | 'social_caption';
@@ -44,11 +66,22 @@ export interface ThinkingConfig {
   type: 'disabled';
 }
 
-export interface ModelProfile {
+/**
+ * `reasoning.effort` on an OpenAI request. Only the two lowest forms are used
+ * here, for the reason ThinkingConfig gives: short-form output under a tight
+ * cap. `none` where the model accepts it, `low` where it does not.
+ */
+export type OpenAIReasoningEffort = 'none' | 'low';
+
+interface ProfileBase {
   /** Exact API model id. */
   id: string;
   /** Shown in the admin dropdown. */
   label: string;
+}
+
+export interface AnthropicProfile extends ProfileBase {
+  provider: 'anthropic';
   /**
    * Sent as `thinking` on every request for this model. Undefined means "omit
    * the parameter", which is correct for models that do not think by default.
@@ -63,15 +96,32 @@ export interface ModelProfile {
   minCacheablePrefixTokens: number;
 }
 
+export interface OpenAIProfile extends ProfileBase {
+  provider: 'openai';
+  /**
+   * Sent as `reasoning.effort` on every request. Required: every current
+   * OpenAI model reasons at `medium` when it is omitted. `none` is rejected
+   * with a 400 by the models that cannot switch reasoning off, so the value is
+   * a fact about the model, taken from its model page.
+   */
+  reasoningEffort: OpenAIReasoningEffort;
+  // No cache field. OpenAI caches a repeated prefix of 1,024 tokens or more on
+  // its own; there is no marker for a call site to attach or to get wrong.
+}
+
+export type ModelProfile = AnthropicProfile | OpenAIProfile;
+
 export const MODELS: Record<string, ModelProfile> = {
   'claude-sonnet-4-6': {
     id: 'claude-sonnet-4-6',
     label: 'Claude Sonnet 4.6',
+    provider: 'anthropic',
     minCacheablePrefixTokens: 1024,
   },
   'claude-sonnet-5': {
     id: 'claude-sonnet-5',
     label: 'Claude Sonnet 5',
+    provider: 'anthropic',
     // Not optional. Omitting `thinking` on Sonnet 5 runs adaptive thinking
     // inside the same max_tokens budget as the answer.
     thinking: { type: 'disabled' },
@@ -80,7 +130,31 @@ export const MODELS: Record<string, ModelProfile> = {
   'claude-haiku-4-5-20251001': {
     id: 'claude-haiku-4-5-20251001',
     label: 'Claude Haiku 4.5',
+    provider: 'anthropic',
     minCacheablePrefixTokens: 4096,
+  },
+
+  // OpenAI. Ids and supported reasoning efforts read from each model's page on
+  // developers.openai.com on 2026-11-17.
+  'gpt-6.2-sol': {
+    id: 'gpt-6.2-sol',
+    label: 'GPT-6.2 Sol',
+    provider: 'openai',
+    // Rejects `none`. `low` is the lowest effort its family is documented to
+    // share, so its budgets below carry room for reasoning tokens.
+    reasoningEffort: 'low',
+  },
+  'gpt-6.1-terra': {
+    id: 'gpt-6.1-terra',
+    label: 'GPT-6.1 Terra',
+    provider: 'openai',
+    reasoningEffort: 'none',
+  },
+  'gpt-6-luna': {
+    id: 'gpt-6-luna',
+    label: 'GPT-6 Luna',
+    provider: 'openai',
+    reasoningEffort: 'none',
   },
 };
 
@@ -89,6 +163,13 @@ export interface WorkloadSpec {
   label: string;
   /** One-line description of what this workload writes. */
   description: string;
+  /**
+   * Providers this workload's generator can call. A workload joins a provider
+   * when its call site goes through src/lib/ai/generate-text.ts; until then its
+   * generator builds an Anthropic request directly, and handing it another
+   * provider's model id would send that id to the wrong API.
+   */
+  providers: Provider[];
   /** Used when llm_config holds NULL for this workload. Must match production today. */
   default: string;
   /**
@@ -97,7 +178,12 @@ export interface WorkloadSpec {
    * the list is a code change on purpose.
    */
   approved: string[];
-  /** Output cap per model id. Every approved model needs an entry. */
+  /**
+   * Models the admin test panel may call for this workload, in addition to the
+   * approved ones. Never selectable for production. See the header.
+   */
+  testable: string[];
+  /** Output cap per model id. Every approved or testable model needs an entry. */
   maxTokens: Record<string, number>;
   /**
    * Whether this workload may attach a cache_control breakpoint to its system
@@ -119,19 +205,33 @@ export interface WorkloadSpec {
 // Before treating them as product limits, run each workload once on Sonnet 5 and
 // compare the recorded output_tokens against the cap. Adjust here, and delete
 // this paragraph when they have actually been checked.
+//
+// The OpenAI numbers are PROVISIONAL in the same way. With reasoning off the cap
+// is the Sonnet 4.6 value with margin for an unmeasured tokenizer. GPT-6.2 Sol
+// cannot switch reasoning off, and its cap has to hold the reasoning tokens as
+// well as the report, so it is several times larger; a cap is a ceiling, not a
+// spend. The test panel reports output and reasoning tokens for every run,
+// which is the measurement these numbers are waiting on.
 export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
   river_update: {
     label: 'River and section updates',
     description: 'The per-river condition report, generated daily and on condition changes.',
+    providers: ['anthropic', 'openai'],
     default: 'claude-sonnet-4-6',
     // Haiku cannot cache this workload's ~1.6k-token system prompt because its
     // cache floor is 4096 tokens. resolve-models disables the breakpoint for
     // that pairing while preserving prompt caching for Sonnet.
     approved: ['claude-sonnet-4-6', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
+    // Callable from the test panel, not selectable. Nobody has read their
+    // river reports yet; that is what the panel is for.
+    testable: ['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6-luna'],
     maxTokens: {
       'claude-sonnet-4-6': 800,
       'claude-sonnet-5': 1040, // provisional
       'claude-haiku-4-5-20251001': 800,
+      'gpt-6.2-sol': 4000, // provisional; includes reasoning tokens
+      'gpt-6.1-terra': 1000, // provisional
+      'gpt-6-luna': 1000, // provisional
     },
     cacheSystemPrompt: true,
     systemPromptTokens: 1900,
@@ -139,9 +239,11 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
   gauge_update: {
     label: 'Secondary gauge updates',
     description: 'Per-gauge commentary for gauges other than a river’s primary.',
+    providers: ['anthropic'],
     default: 'claude-haiku-4-5-20251001',
     // Haiku is approved here because it is what this workload already runs.
     approved: ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-sonnet-5'],
+    testable: [],
     maxTokens: {
       'claude-haiku-4-5-20251001': 600,
       'claude-sonnet-4-6': 600,
@@ -152,11 +254,13 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
   global_summary: {
     label: 'Statewide summary',
     description: 'The one-paragraph overview across all covered rivers.',
+    providers: ['anthropic'],
     default: 'claude-sonnet-4-6',
     // Haiku is deliberately absent: this is the copy that leads with flood and
     // safety framing when conditions are dangerous, and no one has read Haiku
     // output for it.
     approved: ['claude-sonnet-4-6', 'claude-sonnet-5'],
+    testable: [],
     maxTokens: {
       'claude-sonnet-4-6': 200,
       'claude-sonnet-5': 260, // provisional
@@ -166,11 +270,13 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
   social_caption: {
     label: 'Social captions',
     description: 'Captions for clip reels and the weekday river-guide Facebook post, behind the deterministic accuracy lint.',
+    providers: ['anthropic'],
     default: 'claude-sonnet-4-6',
     // Haiku is deliberately absent for now. The accuracy lint would catch
     // fabrication, but nobody has read Haiku captions, and "the lint will catch
     // it" is not the same as having looked.
     approved: ['claude-sonnet-4-6', 'claude-sonnet-5'],
+    testable: [],
     maxTokens: {
       'claude-sonnet-4-6': 400,
       'claude-sonnet-5': 520, // provisional
@@ -189,7 +295,23 @@ export function approvedProfiles(workload: Workload): ModelProfile[] {
   return WORKLOAD_SPECS[workload].approved.map((id) => MODELS[id]).filter(Boolean);
 }
 
-/** Whether this workload/model pairing can use its system-prompt cache marker. */
+/** True when the admin test panel may call `modelId` for `workload`. */
+export function isTestable(workload: Workload, modelId: string): boolean {
+  const spec = WORKLOAD_SPECS[workload];
+  return spec.approved.includes(modelId) || spec.testable.includes(modelId);
+}
+
+/** Everything the test panel may call for a workload: approved first, then test-only. */
+export function testableProfiles(workload: Workload): ModelProfile[] {
+  const spec = WORKLOAD_SPECS[workload];
+  return [...spec.approved, ...spec.testable].map((id) => MODELS[id]).filter(Boolean);
+}
+
+/**
+ * Whether this workload/model pairing attaches a cache marker to its system
+ * prompt. Anthropic only: the marker is Anthropic's mechanism, and OpenAI
+ * caches a long enough prefix without being asked.
+ */
 export function shouldCacheSystemPrompt(workload: Workload, modelId: string): boolean {
   const spec = WORKLOAD_SPECS[workload];
   const profile = MODELS[modelId];
@@ -197,6 +319,20 @@ export function shouldCacheSystemPrompt(workload: Workload, modelId: string): bo
     spec.cacheSystemPrompt &&
       spec.systemPromptTokens &&
       profile &&
+      profile.provider === 'anthropic' &&
       profile.minCacheablePrefixTokens <= spec.systemPromptTokens,
   );
 }
+
+/** Shortest prefix OpenAI caches, for every model registered here. */
+export const OPENAI_MIN_CACHEABLE_PREFIX_TOKENS = 1024;
+
+/** How a pairing's system prompt is cached, for the admin UI. */
+export function promptCacheMode(workload: Workload, modelId: string): 'marker' | 'automatic' | 'off' {
+  if (shouldCacheSystemPrompt(workload, modelId)) return 'marker';
+  const spec = WORKLOAD_SPECS[workload];
+  return MODELS[modelId]?.provider === 'openai' && (spec.systemPromptTokens ?? 0) >= OPENAI_MIN_CACHEABLE_PREFIX_TOKENS
+    ? 'automatic'
+    : 'off';
+}
+

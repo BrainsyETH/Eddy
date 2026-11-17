@@ -98,7 +98,7 @@ Collection is OFF by default. Configure:
 | `UPSTREAM_TELEMETRY_DAILY_COMMAND_BUDGET=2000` | Conservative per-environment recording-operation budget |
 
 Cron measurements are buffered per invocation (maximum 2,000), batched in groups
-of 50, and unsampled. Anthropic logical calls and errors are unsampled; ordinary
+of 50, and unsampled. Model calls (Anthropic and OpenAI) and errors are unsampled; ordinary
 successful request-path operations are sampled. All collection is best-effort.
 The budget counts operations within recording scripts; EVAL overhead, rejected
 probes, summary reads and rollup reads are additional. It is **not a hard billing
@@ -131,6 +131,13 @@ until UTC midnight. New instances can still incur rejected budget probes.
   Recorded tokens and standard-model cost estimates are not an invoice. The
   versioned price table excludes discounts/region modifiers and assumes the
   five-minute cache TTL used by current call sites. Unknown models are unpriced.
+- OpenAI: logical SDK operations from river and section updates when an OpenAI
+  model is selected, and from the `/admin/ai-models` test panel under the
+  operation `model_test`. Its token counts are converted to the same four
+  disjoint buckets as Anthropic's before recording. Cost estimates are list
+  price at the default 30-minute cache lifetime; they are not an invoice and do
+  not reflect a prepaid credit balance. AI feature costs are reported per
+  provider.
 - MCP: all 13 registered tools, including tool-level `isError` results. HTTP
   handshake requests are not tool calls. Defaults are 600 requests/IP/minute,
   60 heavy calls/IP/minute and 120 heavy calls/minute globally, with separate

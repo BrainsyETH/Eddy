@@ -1,7 +1,7 @@
 'use client';
 
 // src/app/admin/ai-models/page.tsx
-// Per-workload Anthropic model selection.
+// Per-workload model selection, and the panel for trying a model first.
 //
 // ── Why the confirmation is a panel and not confirm() ──────────────────────
 //
@@ -18,13 +18,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { Bot, AlertTriangle, Check } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { adminFetch } from '@/hooks/useAdminAuth';
+import ModelTestPanel from '@/components/admin/ai-models/ModelTestPanel';
 
 interface ModelOption {
   id: string;
   label: string;
+  provider: string;
+  configured: boolean;
   maxTokens: number;
   thinkingDisabled: boolean;
-  promptCacheEnabled: boolean;
+  promptCache: 'marker' | 'automatic' | 'off';
 }
 
 interface WorkloadRow {
@@ -38,6 +41,7 @@ interface WorkloadRow {
   stored: string | null;
   defaultModel: string;
   defaultLabel: string;
+  fallbackLabel: string | null;
   options: ModelOption[];
 }
 
@@ -133,13 +137,13 @@ export default function AiModelsPage() {
   return (
     <AdminLayout
       title="AI Models"
-      description="Which Claude model writes each kind of generated copy"
+      description="Which model writes each kind of generated copy"
     >
       {loading ? (
         <p className="text-neutral-400">Loading…</p>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900/60 p-4 text-sm text-neutral-300">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4 text-sm text-neutral-300">
             <p className="mb-2 flex items-center gap-2 font-medium text-white">
               <Bot className="h-4 w-4" /> What a change does
             </p>
@@ -162,7 +166,15 @@ export default function AiModelsPage() {
                 Social captions record no model or token usage yet, so a caption switch leaves no
                 trace after the fact.
               </li>
-              <li>Only models approved for a workload are listed. Widening that list is a code change.</li>
+              <li>
+                A model from a different provider than the code default falls back to that default
+                when its call fails, such as when a prepaid balance runs out. Each row records the
+                model that wrote it.
+              </li>
+              <li>
+                Only models approved for a workload are listed. Widening that list is a code change;
+                the panel below is for reading a model&apos;s reports before approving it.
+              </li>
             </ul>
           </div>
 
@@ -176,6 +188,12 @@ export default function AiModelsPage() {
                 </span>
               </div>
               <p className="mb-3 text-sm text-neutral-400">{row.description}</p>
+
+              {row.fallbackLabel && (
+                <p className="mb-3 text-xs text-neutral-400">
+                  Falls back to {row.fallbackLabel} if a call fails.
+                </p>
+              )}
 
               {row.rejected && (
                 <p className="mb-3 flex items-start gap-2 rounded border border-yellow-700/60 bg-yellow-900/20 p-2 text-xs text-yellow-200">
@@ -195,12 +213,19 @@ export default function AiModelsPage() {
               >
                 <option value={USE_DEFAULT}>Code default ({row.defaultLabel})</option>
                 {row.options.map((option) => (
-                  <option key={option.id} value={option.id}>
+                  <option
+                    key={option.id}
+                    value={option.id}
+                    // Still selectable when it is the stored value, so a key
+                    // removed after the fact does not hide what is configured.
+                    disabled={!option.configured && option.id !== row.stored}
+                  >
                     {option.label} — {option.maxTokens} max tokens
                     {option.thinkingDisabled ? ', thinking off' : ''}
-                    {row.workload === 'river_update' && !option.promptCacheEnabled
+                    {row.workload === 'river_update' && option.promptCache === 'off'
                       ? ', prompt cache off'
                       : ''}
+                    {option.configured ? '' : `, no ${option.provider} key`}
                   </option>
                 ))}
               </select>
@@ -245,6 +270,8 @@ export default function AiModelsPage() {
               {dirty ? 'Review changes' : 'No changes'}
             </button>
           )}
+
+          <ModelTestPanel />
         </div>
       )}
 

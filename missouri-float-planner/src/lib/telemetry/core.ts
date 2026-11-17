@@ -70,12 +70,19 @@ export function makeTrackedFetch(
     }
   };
 }
+type Tokens = NonNullable<Observation['tokens']>;
+/**
+ * `tokensOf` reads the four token buckets from a provider's response. Omitted,
+ * the response is read as Anthropic's usage block, which already holds them
+ * as disjoint counts. A provider that counts differently passes its own.
+ */
 export async function measure<T>(
-  provider: 'anthropic' | 'mcp',
+  provider: 'anthropic' | 'openai' | 'mcp',
   operation: string,
   model: string | undefined,
   run: () => PromiseLike<T>,
   record: Recorder,
+  tokensOf?: (value: T) => Tokens | undefined,
 ): Promise<T> {
   const started = performance.now(),
     at = Date.now();
@@ -99,7 +106,9 @@ export async function measure<T>(
       outcome: result?.isError ? '5xx' : '2xx',
       durationMs: performance.now() - started,
       at,
-      tokens: usage
+      tokens: tokensOf
+        ? tokensOf(value)
+        : usage
         ? {
             input: usage.input_tokens ?? 0,
             output: usage.output_tokens ?? 0,

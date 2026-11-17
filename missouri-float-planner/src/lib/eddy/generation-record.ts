@@ -42,7 +42,8 @@ export type GenerationErrorReason = 'missing_api_key' | 'empty_response' | 'mode
 export interface GenerationCapture {
   target: UpdateTarget;
   trigger: GenerationTrigger;
-  model: { id: string; maxTokens: number; thinking?: unknown; cacheSystemPrompt: boolean; source: string };
+  /** The model this attempt asks. Replaced when an attempt falls back to another. */
+  model: { id: string; provider?: string; maxTokens: number; thinking?: unknown; reasoningEffort?: string; cacheSystemPrompt: boolean; source: string };
   facts: ReportFacts;
   usgsSiteId: string | null;
   readingTimestamp: string | null;

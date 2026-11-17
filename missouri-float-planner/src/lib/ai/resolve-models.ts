@@ -14,6 +14,20 @@
 // model calls — but so that a switch landing mid-pass cannot split one run
 // across two models, leaving half the rows recording one model_used and half
 // another with nothing marking the boundary.
+//
+// ── The fallback ───────────────────────────────────────────────────────────
+//
+// An override served by a different provider than the code default carries
+// that default as `fallback`. The reason is specific: the OpenAI account runs
+// on a prepaid balance with auto-reload off, so when the balance reaches zero
+// every request fails until the next grant. Without a fallback, selecting an
+// OpenAI model would mean a river pass that writes nothing for the rest of the
+// month. With it, the generator retries once on the default and the row
+// records which model actually wrote it.
+//
+// Same-provider overrides get no fallback on purpose. If Sonnet 5 fails because
+// Anthropic is failing, Sonnet 4.6 fails too, and the retry only doubles the
+// time a pass spends finding that out.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -21,7 +35,10 @@ import {
   WORKLOADS,
   WORKLOAD_SPECS,
   isApproved,
+  isTestable,
   shouldCacheSystemPrompt,
+  type OpenAIReasoningEffort,
+  type Provider,
   type ThinkingConfig,
   type Workload,
 } from '@/lib/ai/model-registry';
@@ -44,14 +61,26 @@ export interface ResolvedModel {
   workload: Workload;
   /** Exact API model id to send. */
   id: string;
+  /** Which API the id belongs to. */
+  provider: Provider;
   /** Output cap for this (workload, model) pairing. */
   maxTokens: number;
-  /** Passed through as `thinking`; undefined means omit the parameter. */
+  /** Anthropic: passed through as `thinking`; undefined means omit the parameter. */
   thinking?: ThinkingConfig;
+  /** OpenAI: sent as `reasoning.effort`. Always set for an OpenAI model. */
+  reasoningEffort?: OpenAIReasoningEffort;
   /** Whether this pairing can attach a live cache marker to its system prompt. */
   cacheSystemPrompt: boolean;
-  /** Whether the id came from llm_config or from the registry default. */
-  source: 'override' | 'default';
+  /**
+   * Whether the id came from llm_config, from the registry default, or from the
+   * admin test panel. `test` never reaches a generator that publishes.
+   */
+  source: 'override' | 'default' | 'test';
+  /**
+   * The workload's code default, set only when this model is served by a
+   * different provider. Tried once if this model's call fails. See the header.
+   */
+  fallback?: ResolvedModel;
   /**
    * Set when llm_config held a value that was not honoured. The row keeps the
    * bad value (so it is visible in the admin UI and fixable) while production
@@ -62,19 +91,28 @@ export interface ResolvedModel {
 
 export type ResolvedModels = Record<Workload, ResolvedModel>;
 
+/** The request parameters one (workload, model) pairing carries. */
+function pairing(workload: Workload, id: string, source: ResolvedModel['source']): ResolvedModel {
+  const profile = MODELS[id];
+  return {
+    workload,
+    id,
+    provider: profile.provider,
+    maxTokens: WORKLOAD_SPECS[workload].maxTokens[id],
+    ...(profile.provider === 'anthropic' && profile.thinking ? { thinking: profile.thinking } : {}),
+    ...(profile.provider === 'openai' ? { reasoningEffort: profile.reasoningEffort } : {}),
+    cacheSystemPrompt: shouldCacheSystemPrompt(workload, id),
+    source,
+  };
+}
+
 function resolveOne(workload: Workload, override: string | null | undefined): ResolvedModel {
   const spec = WORKLOAD_SPECS[workload];
 
   const base = (id: string, source: ResolvedModel['source']): ResolvedModel => {
-    const profile = MODELS[id];
-    return {
-      workload,
-      id,
-      maxTokens: spec.maxTokens[id],
-      thinking: profile?.thinking,
-      cacheSystemPrompt: shouldCacheSystemPrompt(workload, id),
-      source,
-    };
+    const resolved = pairing(workload, id, source);
+    const fallback = pairing(workload, spec.default, 'default');
+    return fallback.provider === resolved.provider ? resolved : { ...resolved, fallback };
   };
 
   const trimmed = typeof override === 'string' ? override.trim() : '';
@@ -90,6 +128,23 @@ function resolveOne(workload: Workload, override: string | null | undefined): Re
   }
 
   return base(trimmed, 'override');
+}
+
+/**
+ * The pairing the admin test panel may call, or null when the model is not one
+ * it is allowed to. Wider than resolveOne on purpose: it admits the workload's
+ * test-only models, which is the point of the panel. No fallback, because a
+ * test that quietly answered from a different model would be reporting on the
+ * wrong one.
+ */
+export function resolveTestModel(workload: Workload, modelId: string): ResolvedModel | null {
+  if (!MODELS[modelId] || !isTestable(workload, modelId)) return null;
+  return pairing(workload, modelId, 'test');
+}
+
+/** The models a generator should try, in order: the resolved one, then its fallback. */
+export function modelAttempts(model: ResolvedModel): ResolvedModel[] {
+  return model.fallback ? [model, model.fallback] : [model];
 }
 
 /**

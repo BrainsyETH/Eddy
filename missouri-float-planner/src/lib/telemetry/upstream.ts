@@ -2,7 +2,8 @@ import { observationContext } from './buffer';
 import { after } from 'next/server';
 import { makeTrackedFetch, measure } from './core';
 import { recordBatch, telemetryConfig } from './redis';
-import type { Observation } from './model';
+import { AI_PROVIDERS, type Observation } from './model';
+import { openAITokenCounts, type OpenAIUsage } from '@/lib/ai/usage';
 import { noteUsgsQuota } from './usgs-quota';
 /** Request-lifetime scheduling. No raw URLs, query strings, arguments, or bodies leave the caller. */
 export function recordObservation(event: Observation): void {
@@ -11,7 +12,7 @@ export function recordObservation(event: Observation): void {
   const buffer = observationContext.getStore();
   const rate =
     buffer ||
-    event.provider === 'anthropic' ||
+    AI_PROVIDERS.includes(event.provider) ||
     ['4xx', '5xx', '429', 'network', 'timeout'].includes(event.outcome)
       ? 1
       : config.sampleRate;
@@ -40,6 +41,20 @@ export function trackedAnthropic<T>(
   run: () => PromiseLike<T>,
 ): Promise<T> {
   return measure('anthropic', feature, model, run, recordObservation);
+}
+/**
+ * An OpenAI Responses call. Its usage block counts cached input inside
+ * input_tokens, so the buckets are separated before they are recorded; the
+ * counters and pricing.ts then mean the same thing for both providers.
+ */
+export function trackedOpenAI<T extends { usage?: OpenAIUsage | null }>(
+  feature: string,
+  model: string,
+  run: () => PromiseLike<T>,
+): Promise<T> {
+  return measure('openai', feature, model, run, recordObservation, (value) =>
+    value?.usage ? openAITokenCounts(value.usage) : undefined,
+  );
 }
 export function trackedMcp<T>(
   tool: string,

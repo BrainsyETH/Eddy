@@ -7,7 +7,20 @@ export type Provider =
   | 'openweather'
   | 'mapbox'
   | 'anthropic'
+  | 'openai'
   | 'mcp';
+/** Every provider a stored field may name. decodeHash drops anything else. */
+export const PROVIDERS: readonly Provider[] = [
+  'usgs',
+  'nws',
+  'openweather',
+  'mapbox',
+  'anthropic',
+  'openai',
+  'mcp',
+];
+/** The providers whose calls are model calls: unsampled, with token counts. */
+export const AI_PROVIDERS: readonly Provider[] = ['anthropic', 'openai'];
 export type Outcome =
   | '2xx'
   | '3xx'
@@ -106,9 +119,7 @@ export function decodeHash(
     const rate = Number(rateText),
       value = Number(raw);
     if (
-      !['usgs', 'nws', 'openweather', 'mapbox', 'anthropic', 'mcp'].includes(
-        provider,
-      ) ||
+      !(PROVIDERS as readonly string[]).includes(provider) ||
       !Number.isFinite(value) ||
       value < 0 ||
       !(rate > 0 && rate <= 1) ||

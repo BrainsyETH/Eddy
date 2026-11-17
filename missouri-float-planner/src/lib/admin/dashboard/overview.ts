@@ -124,6 +124,16 @@ export function serviceRegistry(
       href: '/admin/ai-models',
     },
     {
+      id: 'openai',
+      name: 'OpenAI',
+      purpose: 'Eddy Reads, when selected',
+      configuration: configured('OPENAI_API_KEY'),
+      provider: 'openai',
+      detail:
+        'Recorded logical calls and list-price token estimates, not an invoice or a credit balance. See AI feature costs in Diagnostics.',
+      href: '/admin/ai-models',
+    },
+    {
       id: 'supabase',
       name: 'Supabase',
       purpose: 'Database & accounts',

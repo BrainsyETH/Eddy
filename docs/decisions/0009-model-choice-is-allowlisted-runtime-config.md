@@ -1,8 +1,9 @@
 # 0009 — Model choice is runtime config, bounded by a code-side allowlist
 
-Status: **accepted — implemented** · 2026-08
+Status: **accepted — implemented** · 2026-08 · amended 2026-11 (second provider,
+test-only models, cross-provider fallback)
 
-Which Claude model writes each kind of generated copy is stored in a private
+Which model writes each kind of generated copy is stored in a private
 `llm_config` row and edited from `/admin/ai-models`, but the set of models that
 may be stored — and the request parameters each one carries — lives in code, at
 [`src/lib/ai/model-registry.ts`](../../missouri-float-planner/src/lib/ai/model-registry.ts).
@@ -67,6 +68,58 @@ result into every call it makes. Not to save reads. A switch landing mid-pass
 would otherwise leave half a run's rows recording one `model_used` and half
 another, with nothing marking the boundary, and the first question anyone asks
 about a suspicious report is which model wrote it.
+
+The cross-provider fallback below is the one way a pass can hold two models. It
+is marked: the failed attempt writes its own `eddy_generation_log` row under the
+model that was asked, and the published row's `model_used` names the model that
+answered.
+
+## More than one provider (2026-11)
+
+OpenAI models joined the registry so river Reads can run on a prepaid OpenAI
+balance. Three things follow from that, and each is a rule rather than a detail.
+
+1. **The provider is part of the profile, and so are its parameters.** OpenAI's
+   models repeat the Sonnet 5 trap under another name: `max_output_tokens` covers
+   reasoning tokens and visible text together, every current model reasons at
+   `medium` when the effort is omitted, and a response that spends its cap
+   reasoning comes back with no text. An OpenAI profile therefore has to state
+   its `reasoning.effort`: `none` where the model accepts it, `low` with a larger
+   cap where it does not.
+2. **A workload offers a provider only once its generator can call it.** The
+   request is phrased in one place,
+   [`src/lib/ai/generate-text.ts`](../../missouri-float-planner/src/lib/ai/generate-text.ts).
+   A generator that still builds an Anthropic request itself would send any other
+   provider's id to Anthropic, so each workload declares its `providers` and
+   `no-hardcoded-models.test.ts` checks that declaration against the code. Today
+   only river and section updates go through the adapter.
+3. **Token counts are stored in one convention.** Anthropic's `input_tokens`
+   excludes cache reads and writes; OpenAI's includes them. `src/lib/ai/usage.ts`
+   converts OpenAI's to four disjoint buckets before anything is stored or
+   priced, and `pricing.ts` carries each model's own cache rates.
+
+## Testable before approved (2026-11)
+
+"Approved" still means someone has read a model's output for that workload. The
+registry now has a second list per workload, `testable`: models the test panel on
+`/admin/ai-models` may call and nothing else may. The panel replays a prompt
+recorded in `eddy_generation_log` on the chosen model, runs the answer through
+the same guard production runs, and shows it beside what was published. It
+publishes nothing, accepts no free-text prompt, and does not fall back. Moving an
+id from `testable` to `approved` remains a code change, and is the record that
+the reading happened.
+
+## The cross-provider fallback (2026-11)
+
+An override served by a different provider than the workload's code default
+carries that default as a fallback, tried once when the override's call fails or
+returns no text. The OpenAI balance is prepaid with auto-reload off: at zero,
+every request fails until the next grant, and without a fallback a river pass
+would write nothing for the rest of the month.
+
+Same-provider overrides get none. If Sonnet 5 fails because Anthropic is failing,
+Sonnet 4.6 fails too, and the retry only doubles how long a pass takes to find
+that out.
 
 ## What this does not cover
 
