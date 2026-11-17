@@ -413,6 +413,13 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     method:
       'Without one, Eddy writes about the river from the General Ozarks primer alone — confidently, and with no error. That is how Gasconade shipped knowledge-less.',
   },
+  river_note_malformed: {
+    kind: 'judgment',
+    action: 'Replace river_characteristics.river_note with one or two plain sentences about the river, or set it to NULL.',
+    where: 'river_characteristics.river_note',
+    method:
+      'The note is injected into every Read prompt as "Gauge notes:". The usual cause is the pre-2026-11 dossier ingest, which wrote "Per-section hydro types: ..." there. The loader already ignores it; this finding is the river running without a note.',
+  },
   knowledge_file_missing: {
     kind: 'check_bug',
     action: 'EDDY_KNOWLEDGE.md did not load. Check the deployment bundle, not the data.',

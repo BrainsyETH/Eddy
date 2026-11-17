@@ -9,6 +9,7 @@
 
 import { DEFAULT_TIMEZONE } from './defaults';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { usableRiverNote } from '@/lib/eddy/river-note';
 
 export type RiverType =
   | 'spring_fed_float'
@@ -89,7 +90,8 @@ function mapRow(row: any): RiverContext {
           rainLagHours: rc.rain_lag_hours !== null && rc.rain_lag_hours !== undefined ? Number(rc.rain_lag_hours) : null,
           rainLagNote: rc.rain_lag_note ?? null,
           dropRateNote: rc.drop_rate_note ?? null,
-          riverNote: rc.river_note ?? null,
+          // Dropped when it is ingest bookkeeping rather than a note; see river-note.ts.
+          riverNote: usableRiverNote(rc.river_note),
           speedCurve: rc.speed_curve ?? null,
         }
       : null,

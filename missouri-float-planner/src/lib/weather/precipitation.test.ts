@@ -65,3 +65,29 @@ test('small measured amounts and traces never become zero in the Read prompt', (
   assert.match(prompt, /Last 1h: 0\.03 in \| Last 3h: <0\.01 in/);
   assert.doesNotMatch(prompt, /0\.0+ in/);
 });
+
+// ── zero is a measurement; missing is not ───────────────────────────
+
+test('a measured zero says where and over what window it was measured', () => {
+  const prompt = buildPrompt(target, gauge, weather, null, [], '', null,
+    fetchPrecipitationFromWeather(weather));
+  assert.match(prompt, /Recent rain: none reported at Eminence in the past 3 hours/);
+  assert.match(prompt, /one weather point, not the watershed upstream/);
+  assert.doesNotMatch(prompt, /no measurement is available/);
+});
+
+test('missing rain data is stated as missing, never as dry', () => {
+  // Both this and a measured zero used to produce no block at all, so the
+  // model could not tell "it has not rained" from "we do not know".
+  const prompt = buildPrompt(target, gauge, null, null, [], '', null,
+    fetchPrecipitationFromWeather(null));
+  assert.match(prompt, /Recent rain: no measurement is available for this report/);
+  assert.doesNotMatch(prompt, /none reported/);
+});
+
+test('a measured amount names its weather point', () => {
+  const observed = { ...weather, rain1hInches: 0.2, rain3hInches: 0.5 };
+  const prompt = buildPrompt(target, gauge, observed, null, [], '', null,
+    fetchPrecipitationFromWeather(observed));
+  assert.match(prompt, /\[RECENT PRECIPITATION\]\nLast 1h: 0\.20 in \| Last 3h: 0\.50 in\nMeasured at Eminence: one weather point/);
+});
