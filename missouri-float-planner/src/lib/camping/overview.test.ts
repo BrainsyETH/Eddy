@@ -154,6 +154,21 @@ test('verified place aliases deduplicate and provide a navigable access destinat
   assert.equal(r.tracked[0].firstCome, 'present');
   assert.equal(r.untracked.length, 0);
 });
+test('the access destination carries its river mile; mile 0 is a position and a missing mile is null', () => {
+  const destination = (mile: number | string | null | undefined) => {
+    const i = input();
+    i.access = [{ id: 'a', river_id: 'r', nps_campground_id: null, river_mile_downstream: mile }];
+    i.facilities[0].access_point_id = 'a';
+    i.rivers = [{ id: 'r', slug: 'current', name: 'Current River' }];
+    return buildCampingOverview(i, now).tracked[0].accessDestination;
+  };
+  assert.deepEqual(destination(26.23), { riverSlug: 'current', accessId: 'a', riverMile: 26.23 });
+  // PostgREST may send numeric as a string.
+  assert.equal(destination('9.59')?.riverMile, 9.59);
+  assert.equal(destination(0)?.riverMile, 0);
+  for (const missing of [null, undefined, '', 'unknown'])
+    assert.equal(destination(missing)?.riverMile, null);
+});
 test('nearby or unverified associations never transfer campground identity', () => {
   const i = input();
   i.access = [{ id: 'a', river_id: 'r', nps_campground_id: null }];

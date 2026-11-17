@@ -23,7 +23,11 @@ export interface CampingPlace {
   website: string | null;
   reservationUrl: string | null;
   firstCome: 'present' | 'none' | 'unknown';
-  accessDestination: { riverSlug: string; accessId: string } | null;
+  /**
+   * riverMile is the access point's mile on riverSlug, the river page's ruler.
+   * Absent on older cached responses; null when the access has no mile.
+   */
+  accessDestination: { riverSlug: string; accessId: string; riverMile?: number | null } | null;
 }
 export interface TrackedCampground extends CampingPlace {
   facilityId: string;

@@ -13,6 +13,7 @@
 // note in eddy-ios river/[slug].tsx and src/lib/service-tiers.ts). Lodging-only
 // places join Campgrounds, since the question they answer is where to stay.
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { Phone, Globe, ExternalLink } from 'lucide-react';
 import AvailabilityChip from '@/components/ui/AvailabilityChip';
@@ -77,24 +78,33 @@ function ServiceRow({ service, camping }: { service: NearbyServiceDirectory; cam
   );
 }
 
-function ServiceList({ id, title, icon, services, camping, className }: {
+function ServiceList({ id, title, icon, services, camping, className, action }: {
   id: string;
   title: string;
   icon: EddyIconName;
   services: NearbyServiceDirectory[];
   camping: boolean;
   className: string;
+  /** Where this list continues, e.g. the Camping page for this river. */
+  action?: { href: string; label: string };
 }) {
   const [showAll, setShowAll] = useState(false);
   if (services.length === 0) return null;
   const shown = showAll ? services : services.slice(0, INITIAL_ROWS);
   return (
     <section id={id} className={className} aria-labelledby={`${id}-heading`}>
-      <h2 id={`${id}-heading`} className="mb-4 flex items-center gap-2 font-display text-xl font-bold text-neutral-900 md:text-2xl">
-        <EddyIcon name={icon} size={28} />
-        {title}
-        <span className="font-sans text-sm font-medium text-neutral-500">{services.length}</span>
-      </h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4">
+        <h2 id={`${id}-heading`} className="flex items-center gap-2 font-display text-xl font-bold text-neutral-900 md:text-2xl">
+          <EddyIcon name={icon} size={28} />
+          {title}
+          <span className="font-sans text-sm font-medium text-neutral-500">{services.length}</span>
+        </h2>
+        {action && (
+          <Link href={action.href} className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary-700 hover:text-primary-800">
+            {action.label} <span aria-hidden="true">→</span>
+          </Link>
+        )}
+      </div>
       <div className="card-panel">
         <ul className="m-0 list-none p-0">
           {shown.map((service) => <ServiceRow key={service.id} service={service} camping={camping} />)}
@@ -114,7 +124,12 @@ function ServiceList({ id, title, icon, services, camping, className }: {
   );
 }
 
-export default function RiverServices({ riverSlug, sectionClassName }: { riverSlug: string; sectionClassName: string }) {
+export default function RiverServices({ riverSlug, sectionClassName, campingEnabled = false }: {
+  riverSlug: string;
+  sectionClassName: string;
+  /** The Camping page is live (CAMPING_WEB_ENABLED), so this list can hand off to it. */
+  campingEnabled?: boolean;
+}) {
   const { data: services } = useNearbyServices(riverSlug);
   const eligible = [...(services ?? [])]
     .filter(serviceEligible)
@@ -125,10 +140,23 @@ export default function RiverServices({ riverSlug, sectionClassName }: { riverSl
     return tiers.includes('camping') || (tiers.includes('lodging') && !tiers.includes('rentals'));
   });
   const outfitters = eligible.filter((s) => serviceTiers(s).includes('rentals'));
+  // The Camping page lists campgrounds and places with tracked availability,
+  // not every business that also has sites. Link only when it has this river.
+  const onCampingPage = campgrounds.some((s) => s.type === 'campground' || s.availability);
 
   return (
     <>
-      <ServiceList id="campgrounds" title="Campgrounds" icon="campground" services={campgrounds} camping className={sectionClassName} />
+      <ServiceList
+        id="campgrounds"
+        title="Campgrounds"
+        icon="campground"
+        services={campgrounds}
+        camping
+        className={sectionClassName}
+        action={campingEnabled && onCampingPage
+          ? { href: `/camping?river=${encodeURIComponent(riverSlug)}`, label: 'Find campsites' }
+          : undefined}
+      />
       <ServiceList id="outfitters" title="Outfitters" icon="outfitter" services={outfitters} camping={false} className={sectionClassName} />
     </>
   );

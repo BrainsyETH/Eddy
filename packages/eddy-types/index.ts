@@ -3234,7 +3234,8 @@ export interface CampingPlace {
   riverSlugs: string[]; displayGroup: { key: string; label: string };
   managingAgency: string | null; website: string | null; reservationUrl: string | null;
   firstCome: 'present' | 'none' | 'unknown';
-  accessDestination: { riverSlug: string; accessId: string } | null;
+  /** riverMile: the access point's mile on riverSlug. Absent on older responses. */
+  accessDestination: { riverSlug: string; accessId: string; riverMile?: number | null } | null;
 }
 export interface TrackedCampground extends CampingPlace {
   facilityId: string; serviceId: string | null; loopName: string | null;

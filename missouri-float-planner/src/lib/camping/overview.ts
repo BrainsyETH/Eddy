@@ -55,6 +55,8 @@ export interface AccessRow {
   id: string;
   river_id: string;
   nps_campground_id: string | null;
+  /** PostgREST may return numeric as a string. */
+  river_mile_downstream?: number | string | null;
 }
 export interface IdentityRow {
   access_point_id: string;
@@ -106,6 +108,12 @@ function location(p: PlaceRow | undefined): CampingPlace['location'] {
     Math.abs(lng) <= 180
     ? { lat, lng }
     : null;
+}
+/** Mile 0 is a position; only a missing or unreadable value is null. */
+function riverMile(raw: number | string | null | undefined): number | null {
+  if (raw == null || raw === '') return null;
+  const mile = Number(raw);
+  return Number.isFinite(mile) ? mile : null;
 }
 export function buildCampingOverview(
   input: OverviewInput,
@@ -211,7 +219,11 @@ export function buildCampingOverview(
             : 'none',
       accessDestination:
         a && rivers.get(a.river_id)
-          ? { riverSlug: rivers.get(a.river_id)!.slug, accessId: a.id }
+          ? {
+              riverSlug: rivers.get(a.river_id)!.slug,
+              accessId: a.id,
+              riverMile: riverMile(a.river_mile_downstream),
+            }
           : null,
     };
   }
@@ -456,7 +468,7 @@ export async function loadCampingOverview(
     allRows<AccessRow>((a, b) =>
       db
         .from('access_points')
-        .select('id,river_id,nps_campground_id,location_orig')
+        .select('id,river_id,nps_campground_id,location_orig,river_mile_downstream')
         .eq('approved', true)
         .order('id')
         .range(a, b),

@@ -189,6 +189,71 @@
   height: 16px;
   accent-color: var(--color-primary-700);
 }
+.riverNow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  min-height: 76px;
+  margin-top: 16px;
+  padding: 12px 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+.riverReading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.riverReading .eyebrow {
+  margin-bottom: 2px;
+}
+.riverName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+.riverName strong {
+  font-family: var(--font-heading), sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.riverLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+}
+.riverLinks a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--color-primary-700);
+  font-size: 13px;
+  font-weight: 650;
+}
+.riverLinks a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cardRiver {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  margin-bottom: 6px;
+}
+.cardRiver .eyebrow {
+  margin: 0;
+}
 .resultHeading {
   display: flex;
   align-items: center;
