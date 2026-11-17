@@ -1,6 +1,7 @@
 // src/lib/eddy/update-targets.ts
 // DB-driven Eddy update targets: one whole-river target per active river,
-// plus one per row in river_sections. Replaces the hardcoded RIVER_SECTIONS
+// plus one per row in river_sections while stretch Reads are enabled. They are
+// paused; see stretch-reads.ts. Replaces the hardcoded RIVER_SECTIONS
 // array in src/data/river-sections.ts (kept as a fallback for environments
 // that predate migration 00146).
 
@@ -9,6 +10,8 @@ import {
   getUpdateTargets as getLegacyUpdateTargets,
   type UpdateTarget,
 } from '@/data/river-sections';
+
+import { STRETCH_READS_ENABLED, withoutPausedStretches } from './stretch-reads';
 
 export type { UpdateTarget };
 
@@ -30,16 +33,19 @@ export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
     const supabase = createAdminClient();
     const [riversResult, sectionsResult] = await Promise.all([
       supabase.from('rivers').select('slug, name').eq('active', true).order('name'),
-      supabase
-        .from('river_sections')
-        .select('section_slug, name, description, sort_order, river_type, low_water_meaning, rising_water_hazards, rivers!inner(slug, name, active)')
-        .eq('rivers.active', true)
-        .order('sort_order'),
+      // Not read at all while stretch Reads are paused.
+      STRETCH_READS_ENABLED
+        ? supabase
+            .from('river_sections')
+            .select('section_slug, name, description, sort_order, river_type, low_water_meaning, rising_water_hazards, rivers!inner(slug, name, active)')
+            .eq('rivers.active', true)
+            .order('sort_order')
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (riversResult.error || !riversResult.data || riversResult.data.length === 0) {
       console.warn('[UpdateTargets] rivers query failed; using legacy hardcoded list:', riversResult.error);
-      return getLegacyUpdateTargets();
+      return withoutPausedStretches(getLegacyUpdateTargets());
     }
 
     const targets: UpdateTarget[] = [];
@@ -82,10 +88,10 @@ export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
       console.warn('[UpdateTargets] river_sections query failed (pre-migration DB?):', sectionsResult.error);
     }
 
-    cached = { targets, loadedAt: Date.now() };
-    return targets;
+    cached = { targets: withoutPausedStretches(targets), loadedAt: Date.now() };
+    return withoutPausedStretches(targets);
   } catch (e) {
     console.error('[UpdateTargets] Failed to load targets from DB; using legacy list:', e);
-    return getLegacyUpdateTargets();
+    return withoutPausedStretches(getLegacyUpdateTargets());
   }
 }
