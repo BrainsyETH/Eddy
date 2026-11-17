@@ -43,12 +43,8 @@ vessel instead of forwarding an old URL value. The map's URL is the source of
 its river/gauge selection and condition filters, including browser history and
 query-only navigation. Loading catalogue data never replaces an incoming deep link.
 
-The homepage hero shows **Ozarks Pulse** beside Eddy: the full river catalogue's
-floatable count, the public regional summary and its own written time. The former
-rotating per-river hero bubble is removed. Pulse uses the same count helper and
-public summary as iOS. The count is independent of the prose; failed or withheld
-summaries never turn the count into zero. Missing/unknown conditions show an
-unavailable state, and failed refreshes do not present old prose as current.
+The homepage hero shows Eddy’s rotating river Read in a speech bubble beside
+Eddy, skipping the river already featured in the reports below.
 
 The homepage shows **River and Dam Conditions**, the two route actions, river
 guides, and the iPhone app. Its two report columns reuse the Conditions directory's
@@ -153,7 +149,11 @@ Both entry points use the “Conditions” heading, Eddy's canoe artwork and the
 same search and filters. On All and Rivers, a compact **Ozarks Pulse** sits
 beneath the filters and above results. Its disclosure opens the regional prose;
 the whole-catalogue count remains visible and never follows search/state filters.
-Lakes & Dams omits Pulse. The duplicated header summary is removed.
+Pulse uses Eddy’s orange heading and sun-and-river icon. It shares the count
+helper and public summary with iOS. Failed or withheld prose never turns the
+count into zero; unknown conditions show an unavailable state, and failed
+refreshes do not present old prose as current. Lakes & Dams omits Pulse. The
+duplicated header summary is removed.
 A compact A–Z link directory keeps every destination
 reachable before JavaScript, including when live gauge metadata is unavailable.
 `/dams` keeps its own search title, canonical URL and initial Lakes & Dams filter.

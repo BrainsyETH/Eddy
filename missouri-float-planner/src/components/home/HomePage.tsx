@@ -8,7 +8,7 @@ import { ArrowRight, Search } from 'lucide-react';
 import BuildRouteIcon from '@/components/ui/BuildRouteIcon';
 import type { RiverGuide } from '@/lib/data/rivers';
 import RiverMapFeature from '@/components/home/RiverMapFeature';
-import OzarksPulse from '@/components/conditions/OzarksPulse';
+import EddyHeroBubble from '@/components/home/EddyHeroBubble';
 import SiteFooter from '@/components/ui/SiteFooter';
 import HomeRiverReports from '@/components/home/HomeRiverReports';
 import type { DamCardReading } from '@/components/dam/DamCardParts';
@@ -34,9 +34,8 @@ const SIDE_RIVERS = [
 ];
 export const FEATURED_RIVER_SLUGS = [FEATURE_RIVER.slug, ...SIDE_RIVERS.map((r) => r.slug)];
 
-export default function HomePage({ riverGuides, pulseRivers, featuredReports, featuredDams, renderedAt, damsUnavailable, damUnsupported, floatSearchEnabled }: {
+export default function HomePage({ riverGuides, featuredReports, featuredDams, renderedAt, damsUnavailable, damUnsupported, floatSearchEnabled }: {
   riverGuides: Record<string, RiverGuide | null>;
-  pulseRivers: RiverListItem[];
   featuredReports: RiverListItem[];
   featuredDams: DamSnapshot[];
   renderedAt: number;
@@ -49,6 +48,8 @@ export default function HomePage({ riverGuides, pulseRivers, featuredReports, fe
     return guide ? `/blog/${guide.postSlug}` : `/rivers/${slug}`;
   };
   const featureImage = riverGuides[FEATURE_RIVER.slug]?.image ?? null;
+  // The river the conditions section opens on; the hero skips it.
+  const leadReport = featuredReports[0] ? [featuredReports[0].slug] : [];
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
@@ -104,9 +105,10 @@ export default function HomePage({ riverGuides, pulseRivers, featuredReports, fe
               </div>
             </div>
 
-            {/* Regional conditions beside Eddy */}
+            {/* Eddy mascot + live quote bubble */}
             <div className="relative flex flex-col items-center gap-3 md:gap-2">
-              {/* Otter on a coral sun — beneath the regional summary. The sun echoes the iOS Today tab's mark. */}
+              {/* Otter on a coral sun — below the bubble so the caret points
+                  down at Eddy. The sun echoes the iOS Today tab's mark. */}
               <div className="order-2 relative mt-3 flex justify-center md:self-end md:mr-3">
                 <span
                   aria-hidden="true"
@@ -121,9 +123,9 @@ export default function HomePage({ riverGuides, pulseRivers, featuredReports, fe
                   priority
                 />
               </div>
-              {/* One regional summary; individual reports follow below. */}
+              {/* Live quote bubble */}
               <div className="order-1 w-full max-w-sm md:max-w-none z-20">
-                <OzarksPulse initialRivers={pulseRivers} renderedAt={renderedAt} />
+                <EddyHeroBubble excludeRiverSlugs={leadReport} />
               </div>
             </div>
           </div>

@@ -102,7 +102,7 @@ try {
   export default async function Page({ searchParams }: { searchParams: Promise<{ disabled?: string }> }) {
     if (process.env.NODE_ENV !== 'development' || process.env.EDDY_NAV_SMOKE !== '1') notFound();
     const params = await searchParams;
-    return <HomePage riverGuides={{}} pulseRivers={${JSON.stringify(reports)}} featuredReports={${JSON.stringify(reports)}} featuredDams={${JSON.stringify(dams)}} renderedAt={Date.now()} floatSearchEnabled={params.disabled !== '1'} />;
+    return <HomePage riverGuides={{}} featuredReports={${JSON.stringify(reports)}} featuredDams={${JSON.stringify(dams)}} renderedAt={Date.now()} floatSearchEnabled={params.disabled !== '1'} />;
   }
   `);
     await mkdir(sharedFixtureDir, { recursive: true });
@@ -175,11 +175,12 @@ try {
       const readCta = activeRiver.locator('[data-river-app-cta] a');
       assert.equal(new URL(await readCta.getAttribute('href'), origin).searchParams.get('river'), 'current');
       assert.equal(new URL(await readCta.getAttribute('href'), origin).searchParams.get('feature'), 'read');
-      const pulse = page.getByRole('region', { name: 'Ozarks Pulse', exact: true });
-      assert(await pulse.getByText('3 of 3 rivers are floatable right now', { exact: true }).isVisible());
-      assert(await pulse.getByText('Spring-fed rivers are holding steady across the Ozarks.', { exact: true }).isVisible());
-      assert(await pulse.locator('time').isVisible());
-      assert.equal(await pulse.getByRole('link', { name: 'View conditions' }).getAttribute('href'), '/rivers');
+      assert.equal(await page.getByRole('region', { name: 'Ozarks Pulse', exact: true }).count(), 0);
+      const heroRead = page.locator('a[data-ga-event="bubble_river"]');
+      await heroRead.waitFor();
+      assert.notEqual(await heroRead.getAttribute('data-ga-label'), 'current', 'hero skips the featured river');
+      const heroSlug = await heroRead.getAttribute('data-ga-label');
+      assert.equal(new URL(await heroRead.getAttribute('href'), origin).pathname, reports.find(report => report.slug === heroSlug).path);
       assert(await activeDam.getByText('10,500 cfs', { exact: true }).isVisible());
       assert(await activeDam.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
       assert(await activeDam.getByRole('region', { name: 'Today’s generation schedule', exact: true }).getByRole('img').isVisible());
