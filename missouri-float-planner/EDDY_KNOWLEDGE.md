@@ -171,10 +171,11 @@ stunning when conditions are right. It joins the Current River at Two Rivers.
 - **Rain-dependent**: Unlike the Current, the Jacks Fork has no massive spring inputs in the upper reaches. 
 - Rises and falls faster than any other Ozarks float stream. Flash floods are a serious concern.
 - Alley Spring (with the iconic red mill) is one of the most photographed spots in the Ozarks.
-- When it's running right it's arguably the most beautiful float in Missouri. All three Jacks Fork gauges — Mountain View, **Alley Spring (07065495, Eddy's primary)**, and Eminence — read in cfs and sit on very different amounts of drainage, so quote the one nearest the put-in.
+- When it's running right it's arguably the most beautiful float in Missouri.
+- **Gauges**: Eddy's primary is **Eminence (07066000)**, read in cfs. It sits below Alley Spring and speaks for the river from Alley Spring down to Two Rivers. The **Alley Spring gauge (07065495)** sits just ABOVE the spring's inflow, so its reading does not include the spring's water: it speaks for the upper river, as does Mountain View farther up. A low reading at the Alley Spring gauge says nothing about the river below the spring.
 - The upper Jacks Fork above Alley Spring is narrow, twisty, and technical. Not for beginners.
 - Below Alley Spring is more manageable. Eminence to Two Rivers is the classic stretch.
-- **Alley Spring is the line between two different rivers.** Above it the Jacks Fork is rain-dependent and can be unfloatable for weeks. Below it, Alley Spring's roughly 81 million gallons a day carry the river, and Alley Spring → Eminence → Two Rivers is usually good to go even when the upper river is done for the season. Treat "the Jacks Fork is too low" as a statement about the upper river unless the gauge being quoted is Eminence.
+- **Alley Spring is the line between two different rivers.** Above it the Jacks Fork is rain-dependent and can be unfloatable for weeks. Below it, Alley Spring's roughly 81 million gallons a day carry the river, and Alley Spring → Eminence → Two Rivers is usually good to go even when the upper river is done for the season. A Too Low reading at the Alley Spring or Mountain View gauge is a statement about the upper river only.
 - The outfitters' rule of thumb at Eminence is a gauge-height average, and below that average you may drag in spots with a loaded boat — that is a lighter-boat day, not a cancelled trip.
 - Check conditions the day of — the Jacks Fork can go from floatable to unfloatable in 24 hours during dry spells.
 

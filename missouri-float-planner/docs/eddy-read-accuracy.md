@@ -51,6 +51,21 @@ gauge or the closest. A gauge below a stretch can read floatable while the
 stretch is thin; the stretch's block in `EDDY_KNOWLEDGE.md` is where that is
 said.
 
+A spring or tributary between a gauge and a put-in is the other thing position
+cannot see. The planner takes the nearest gauge at or above a put-in, so a
+gauge just above a large spring grades everything below it from water that has
+not met the spring. The Jacks Fork was that case: the Alley Spring gauge sits
+above the spring's inflow, and the put-ins from the spring to Eminence read
+Too Low on the days the stretch floated. `20261117221408` adds a stretch from
+the spring to Two Rivers graded by Eminence, and `20261117230100` makes
+Eminence the river's main gauge. Check a suspected case with the readings
+before writing anything: where gauges sit either side of an inflow, the gain
+between them at low water is the inflow. The Niangua has the same shape at
+Windyville and Bennett Spring. `20261117230200` is drafted for it and held:
+its header gives the open question about the lower gauge's ladder, and shows
+how two stretches can be right on a river whose stored access miles are offset
+from its line.
+
 While stretch Reads are paused, an assignment has one live effect: the
 planner's gauge for put-ins inside the stretch.
 
