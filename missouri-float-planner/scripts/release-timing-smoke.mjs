@@ -128,7 +128,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     // Native dialog's close event and React's effect cleanup follow the click.
     await page.waitForFunction(() => document.body.style.overflow === '');
     const defaultTip = page.locator('[data-default-info]');
-    await defaultTip.getByRole('button', { name: 'About dam readings' }).click();
+    // The dev-only Next indicator can cover this fixture at the page bottom.
+    const defaultTrigger = defaultTip.getByRole('button', { name: 'About dam readings' });
+    await defaultTrigger.focus();
+    await defaultTrigger.press('Enter');
     const defaultDialog = page.getByRole('dialog', { name: 'Dam readings' });
     assert(await defaultDialog.isVisible(), 'existing icon-only dam explanations still open');
     await defaultDialog.getByRole('button', { name: 'Close explanation' }).click();
