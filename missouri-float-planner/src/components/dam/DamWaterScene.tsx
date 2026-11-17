@@ -29,7 +29,7 @@ export default function DamWaterScene({ surfaceY, turbine, spillway, release }: 
         <path d="M655 211 V151 M635 186 L655 137 L677 186Z M640 165 L655 126 L671 165Z" />
         <path d="M692 216 V178 M678 199 L692 165 L707 199Z" />
       </g>
-      <path d="M10 231 Q140 264 335 241 H711 V261 Q565 272 387 262 Q173 278 10 249Z" fill="var(--color-secondary-200)" />
+      <path d="M10 218 Q140 242 335 233 H711 V261 Q565 272 387 262 Q173 278 10 249Z" fill="var(--color-secondary-200)" />
       <g clipPath={`url(#${id}-lake)`}>
         <g className="dam-water-level-shift" style={{ transform: `translateY(${surfaceY - 98}px)` }}>
           <path d="M-30 116 Q-10 110 10 116 T50 116 T90 116 T130 116 T170 116 T210 116 T250 116 T290 116 T330 116 T370 116 V300 H-30Z" fill="var(--color-primary-300)" />

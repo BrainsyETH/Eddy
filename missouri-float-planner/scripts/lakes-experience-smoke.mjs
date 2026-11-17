@@ -174,7 +174,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             assert.equal(await details.locator('figure').count(), 1, 'lake opens measured history in the shared panel');
             await page.screenshot({ path: `${out}/illustration-lake-detail-${width}.png`, fullPage: true });
             await details.getByRole('button', { name: 'Close reading details' }).click();
-            await illustrated.scrollIntoViewIfNeeded();
+            await illustrated.locator('.dam-water-scene').scrollIntoViewIfNeeded();
+            await page.clock.runFor(100);
             await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'running');
             await illustrated.getByRole('button', { name: 'Pause motion', exact: true }).click();
             assert.equal(await illustrated.getAttribute('data-motion'), 'paused');
@@ -188,9 +189,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
             await page.emulateMedia({ reducedMotion: 'no-preference' });
             await illustrated.getByRole('button', { name: 'Pause motion', exact: true }).waitFor();
             await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await page.clock.runFor(100);
             await page.waitForFunction(() => document.querySelector('[data-dam-water-illustration]').dataset.motion === 'paused');
             await page.evaluate(() => window.scrollTo(0, 0));
             assert.match(await page.locator('[data-lake-section]').innerText(), /2.6 ft below the 917.0 ft seasonal pool/);
+            if (width === 390) {
+              await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+              assert(await illustrated.evaluate(el => el.scrollWidth <= el.clientWidth), 'illustration reflows with enlarged text');
+              assert(await buttons.evaluateAll(nodes => nodes.every(node => node.scrollWidth <= node.clientWidth)), 'enlarged detail labels fit');
+              await page.screenshot({ path: `${out}/illustration-large-text-${width}.png`, fullPage: true });
+              await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+            }
             assert(!(await page.locator('[data-dam-measurements]').innerText()).includes('Lake level'), 'the illustration owns the lake reading');
             const tip = await generation.getByRole('button', { name: 'About generation and schedule', exact: true }).boundingBox();
             const headings = illustrated.locator('.dam-water-readings .dam-water-label');
