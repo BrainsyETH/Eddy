@@ -8,16 +8,27 @@ const fur = '#2D3975';
 const furLight = '#46528E';
 const ink = colors.primary[900];
 
+function PaddlingArm({ arm, near = false }: { arm: ReturnType<typeof paddlePose>['nearArm']; near?: boolean }) {
+  const { shoulder, elbow, paw } = arm;
+  const before = { x: (shoulder.x + 3 * elbow.x) / 4, y: (shoulder.y + 3 * elbow.y) / 4 };
+  const after = { x: (paw.x + 3 * elbow.x) / 4, y: (paw.y + 3 * elbow.y) / 4 };
+  const limb = `M${shoulder.x} ${shoulder.y} L${before.x} ${before.y} Q${elbow.x} ${elbow.y} ${after.x} ${after.y} L${paw.x} ${paw.y}`;
+  return <g fill="none">
+    <path d={limb} strokeWidth={near ? 10 : 8.5} />
+    <path d={limb} stroke={near ? furLight : fur} strokeWidth={near ? 6.8 : 5.3} />
+  </g>;
+}
+
 export function EddyCanoe({ frame }: { frame: number }) {
   const id = useId();
   const boat = canoePose(frame);
   const paddle = paddlePose(frame);
   const headTilt = Math.sin(frame / 360 * Math.PI * 2 - 0.3) * 1.4;
-  const paddleShape = <g transform={`translate(0 ${paddle.lift}) rotate(${paddle.angle} 27 -32)`}>
-    <path d="M24 -40 H30 M27 -39 V4" fill="none" stroke={ink} strokeWidth="5" />
-    <path d="M27 -38 V4" fill="none" stroke={colors.secondary[400]} strokeWidth="2.4" />
-    <path d="M24 0 Q20 6 21 14 Q27 20 33 14 Q34 6 30 0Z" fill={colors.secondary[400]} strokeWidth="2" />
-    <path d="M27 4 V14" stroke={colors.secondary[200]} strokeWidth="1.3" />
+  const paddleShape = <g transform={`translate(0 ${paddle.lift}) rotate(${paddle.angle} ${paddle.pivot.x} ${paddle.pivot.y})`}>
+    <path d="M25 -33 H31 M28 -32 V0" fill="none" stroke={ink} strokeWidth="4.5" />
+    <path d="M28 -31 V0" fill="none" stroke={colors.secondary[400]} strokeWidth="2.4" />
+    <path d="M25 -3 Q21 2 22 9 Q28 13 34 9 Q35 2 31 -3Z" fill={colors.secondary[400]} strokeWidth="2" />
+    <path d="M28 1 V8" stroke={colors.secondary[200]} strokeWidth="1.3" />
   </g>;
   return <g data-dam-canoe transform={`translate(${boat.x} ${boat.y}) rotate(${boat.roll})`} stroke={ink} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
     <defs>
@@ -46,8 +57,8 @@ export function EddyCanoe({ frame }: { frame: number }) {
       <path d="M-9 -40 Q-6 -43 -2 -40 Q-5 -38 -9 -40Z" fill={colors.accent[300]} stroke="none" />
       <path d="M-21 -47 L-31 -49 M-20 -44 L-30 -44 M10 -47 L20 -49 M9 -44 L19 -44" fill="none" strokeWidth="1.05" />
     </g>
-    <path d={`M-23 -29 Q-12 -22 4 -30 L${paddle.upperHand.x} ${paddle.upperHand.y}`} fill="none" strokeWidth="8" />
-    <path d={`M-23 -29 Q-12 -22 4 -30 L${paddle.upperHand.x} ${paddle.upperHand.y}`} fill="none" stroke={fur} strokeWidth="4" />
+    <PaddlingArm arm={paddle.farArm} />
+    <PaddlingArm arm={paddle.nearArm} near />
     {/* Front hull hides the lower body, so Eddy sits inside the boat. */}
     <path data-canoe-hull d="M-56 -15 Q-35 -4 2 -4 Q40 -4 57 -18 Q55 -1 39 6 Q0 14 -34 6 Q-50 1 -56 -15Z" fill={colors.primary[400]} />
     <path d="M-46 -5 Q-34 6 -1 7 Q26 8 41 1 Q3 7 -28 1Z" fill={colors.primary[600]} stroke="none" />
@@ -57,10 +68,8 @@ export function EddyCanoe({ frame }: { frame: number }) {
       <g clipPath={`url(#${id}-water)`} opacity="0.34">{paddleShape}</g>
       <g clipPath={`url(#${id}-air)`}>{paddleShape}</g>
     </g>
-    <path d={`M8 -31 Q12 -20 18 -20 L${paddle.lowerHand.x} ${paddle.lowerHand.y}`} fill="none" strokeWidth="9" />
-    <path d={`M8 -31 Q12 -20 18 -20 L${paddle.lowerHand.x} ${paddle.lowerHand.y}`} fill="none" stroke={fur} strokeWidth="5" />
-    <circle cx={paddle.upperHand.x} cy={paddle.upperHand.y} r="3.2" fill={fur} strokeWidth="1.7" />
-    <circle cx={paddle.lowerHand.x} cy={paddle.lowerHand.y} r="3.6" fill={fur} strokeWidth="1.7" />
+    <ellipse cx={paddle.upperHand.x} cy={paddle.upperHand.y} rx="3.7" ry="2.8" fill={fur} strokeWidth="1.6" />
+    <ellipse cx={paddle.lowerHand.x} cy={paddle.lowerHand.y} rx="4.1" ry="3.2" fill={furLight} strokeWidth="1.6" />
     <g data-paddle-ripple transform={`translate(${paddle.contact} 1)`} opacity={paddle.ripple * 0.7} stroke={colors.primary[50]} strokeWidth="1.6" fill="none">
       <path d={`M${-4 - paddle.pull * 4} 0 Q-3 3 4 1 M${-7 - paddle.pull * 6} 4 Q-3 8 ${8 + paddle.pull * 4} 4`} />
     </g>

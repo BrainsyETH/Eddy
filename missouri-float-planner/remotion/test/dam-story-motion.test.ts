@@ -35,9 +35,26 @@ test('hands follow a continuous paddle stroke, including entry, recovery and loo
       assert.ok(Math.hypot(next[hand].x - now[hand].x, next[hand].y - now[hand].y) < 2.1, `${hand} jumps at ${frame}`);
     }
     assert.ok(now.ripple >= 0 && now.ripple <= 1);
-    if (now.lift < -19) assert.equal(now.ripple, 0, 'no splash while the paddle is out of the water');
+    if (now.bladeDepth < 0) assert.equal(now.ripple, 0, 'no splash while the paddle is out of the water');
   }
-  assert.ok(paddlePose(126).lift < -19, 'blade lifts on recovery');
+  assert.ok(paddlePose(45).bladeDepth > 0, 'blade enters the water during the pull');
+  assert.ok(paddlePose(126).bladeDepth < 0, 'blade clears the water on recovery');
+});
+
+test('arms bend at the elbows and keep their length through the stroke', () => {
+  const initial = paddlePose(0);
+  for (const side of ['farArm', 'nearArm'] as const) {
+    const lengths = ({ shoulder, elbow, paw }: typeof initial[typeof side]) => [
+      Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y),
+      Math.hypot(paw.x - elbow.x, paw.y - elbow.y),
+    ];
+    const startingLengths = lengths(initial[side]);
+    for (let frame = 1; frame < DAM_LOOP_FRAMES; frame++) {
+      lengths(paddlePose(frame)[side]).forEach((length, segment) => {
+        assert.ok(Math.abs(length - startingLengths[segment]) < 0.001, `${side} stretches at frame ${frame}`);
+      });
+    }
+  }
 });
 
 test('flow patterns and turbine complete whole cycles at the seam', () => {

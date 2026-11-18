@@ -32,18 +32,44 @@ export function canoePose(frame: number) {
   return { x, y: (stern + bow) / 2, roll: Math.atan2(bow - stern, 84) * 180 / Math.PI };
 }
 
+type Point = { x: number; y: number };
+
+// Find the elbow below the shoulder-to-paw line using two fixed limb lengths.
+// The paw tracks its grip on the paddle while the elbow takes up the bend.
+function armPose(shoulder: Point, paw: Point, upperLength: number, forearmLength: number) {
+  const dx = paw.x - shoulder.x;
+  const dy = paw.y - shoulder.y;
+  const reach = Math.hypot(dx, dy);
+  const along = (upperLength ** 2 - forearmLength ** 2 + reach ** 2) / (2 * reach);
+  const perpendicular = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
+  const elbow = {
+    x: shoulder.x + (along * dx - perpendicular * dy) / reach,
+    y: shoulder.y + (along * dy + perpendicular * dx) / reach,
+  };
+  return { shoulder, elbow, paw };
+}
+
 export function paddlePose(frame: number) {
   const phase = (loopFrame(frame) % 180) / 180;
   const pull = smooth((phase - 0.12) / 0.34);
   const recovery = smooth((phase - 0.50) / 0.40);
-  const angle = -25 + 48 * pull - 48 * recovery;
+  const angle = -23 + 45 * pull - 45 * recovery;
   // Lift first, return above the water, then ease the blade back in.
-  const lift = -20 * smooth((phase - 0.46) / 0.12) * (1 - smooth((phase - 0.88) / 0.12));
+  const lift = -13.5 * smooth((phase - 0.46) / 0.12) * (1 - smooth((phase - 0.88) / 0.12));
+  const pivot = { x: 28, y: -25 };
   const radians = angle * Math.PI / 180;
-  const point = (y: number) => ({ x: 27 - (y + 32) * Math.sin(radians), y: -32 + lift + (y + 32) * Math.cos(radians) });
-  const contact = 27 - (32 - lift) * Math.tan(radians);
-  const ripple = smooth((phase - 0.08) / 0.10) * (1 - smooth((phase - 0.46) / 0.13)) * smooth(point(16).y / 6);
-  return { angle, lift, upperHand: point(-36), lowerHand: point(-17), contact, ripple, pull };
+  const point = (y: number) => ({
+    x: pivot.x - (y - pivot.y) * Math.sin(radians),
+    y: pivot.y + lift + (y - pivot.y) * Math.cos(radians),
+  });
+  const bladeDepth = point(12).y;
+  const contact = pivot.x + (pivot.y + lift) * Math.tan(radians);
+  const ripple = smooth((phase - 0.08) / 0.10) * (1 - smooth((phase - 0.46) / 0.13)) * smooth(bladeDepth / 6);
+  const upperHand = point(-29);
+  const lowerHand = point(-12);
+  const farArm = armPose({ x: -16, y: -26 }, upperHand, 25.5, 24);
+  const nearArm = armPose({ x: 11, y: -25 }, lowerHand, 14.5, 13);
+  return { angle, lift, pivot, upperHand, lowerHand, farArm, nearArm, bladeDepth, contact, ripple, pull };
 }
 
 export function damMotion(frame: number) {

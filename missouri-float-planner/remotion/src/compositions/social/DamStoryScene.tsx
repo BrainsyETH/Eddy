@@ -22,8 +22,9 @@ export function DamStoryScene({ frame, active }: { frame: number; active: boolea
   const surface = lakeSurfacePath(motion.frame, 20, 358);
   const westShore = lakeSurface(20, motion.frame);
   const lakeBasin = `${surface} L335 233 C259 238 188 246 115 233 C64 225 39 208 21 186 C10 173 5 158 5 144 C5 129 8 ${westShore - 1} 20 ${westShore}Z`;
-  const pipe = 'M350 181 H378 C398 181 408 204 425 211 C435 215 449 216 482 216';
-  const flow = `${pipe} C507 216 510 228 540 229 C584 230 608 222 639 229 S681 233 702 227`;
+  const penstock = 'H369 C383 181 389 187 404 200 C427 220 450 209 472 218 Q480 222 490 224';
+  const pipe = `M341 181 ${penstock}`;
+  const flow = `M307 179 Q324 181 341 181 ${penstock} C532 232 576 227 610 232 S661 231 692 227`;
   const id = useId();
   return <svg data-dam-scene viewBox="0 0 720 280" width="100%" height="100%" aria-hidden="true" focusable="false">
     <defs>
@@ -33,7 +34,14 @@ export function DamStoryScene({ frame, active }: { frame: number; active: boolea
         <stop stopColor={water[200]} /><stop offset="0.7" stopColor={water[400]} />
       </linearGradient>
       <linearGradient id={`${id}-release`}>
-        <stop stopColor={water[100]} /><stop offset="1" stopColor={water[100]} stopOpacity="0" />
+        <stop stopColor={water[200]} /><stop offset="1" stopColor={water[200]} stopOpacity="0" />
+      </linearGradient>
+      <linearGradient id={`${id}-intake`}>
+        <stop stopColor={water[200]} stopOpacity="0" /><stop offset="0.8" stopColor={water[200]} />
+      </linearGradient>
+      <linearGradient id={`${id}-flow`} gradientUnits="userSpaceOnUse" x1="307" x2="692">
+        <stop stopColor={water[50]} stopOpacity="0" /><stop offset="0.09" stopColor={water[50]} />
+        <stop offset="0.84" stopColor={water[50]} /><stop offset="1" stopColor={water[50]} stopOpacity="0" />
       </linearGradient>
     </defs>
 
@@ -88,10 +96,14 @@ export function DamStoryScene({ frame, active }: { frame: number; active: boolea
       <path d="M349 47 Q374 39 405 47 V61 Q383 65 349 61Z" fill={sand[100]} />
       <path d="M350 54 Q376 50 403 54 M353 94 H367 M351 102 H357 M347 146 H364 M425 174 L432 185" fill="none" stroke={sand[500]} strokeWidth="2.1" />
     </g>
-    {active && <path data-water-path="release" d="M478 210 C508 210 514 219 536 219 C553 219 569 214 597 225 C567 227 549 240 530 237 C508 234 503 223 478 222Z" clipPath={`url(#${id}-river)`} fill={`url(#${id}-release)`} />}
-    <path d={pipe} fill="none" stroke={water[700]} strokeWidth="18" strokeLinecap="round" />
-    <path d={pipe} fill="none" stroke={active ? water[200] : sand[300]} strokeWidth="12" strokeLinecap="round" />
-    {active && <path data-water-path="turbine" d={flow} fill="none" stroke={water[50]} strokeWidth="2.5" strokeLinecap="round" opacity="0.78" strokeDasharray="10 26" strokeDashoffset={motion.flowOffset} />}
+    {/* Leave the pipe ends open so the moving current meets the lake and river. */}
+    <path d={pipe} fill="none" stroke={water[700]} strokeWidth="17" />
+    <path d={pipe} fill="none" stroke={active ? water[200] : sand[300]} strokeWidth="12" />
+    {active && <g>
+      <path d="M303 166 C318 173 330 175 348 175 V187 C331 187 319 190 303 195Z" fill={`url(#${id}-intake)`} />
+      <path data-water-path="release" d="M487 217 C507 222 526 220 548 222 C576 226 587 224 606 228 C585 232 558 241 530 238 C515 237 504 233 486 229Z" clipPath={`url(#${id}-river)`} fill={`url(#${id}-release)`} />
+      <path data-water-path="turbine" d={flow} fill="none" stroke={`url(#${id}-flow)`} strokeWidth="2.5" strokeLinecap="round" opacity="0.78" strokeDasharray="10 26" strokeDashoffset={motion.flowOffset} />
+    </g>}
     <g stroke={ink} strokeWidth="2.25" strokeLinecap="round">
       <circle cx="404" cy="200" r="20" fill={sand[50]} />
       <circle cx="404" cy="200" r="15.5" fill={active ? colors.accent[400] : sand[300]} />
