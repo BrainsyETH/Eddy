@@ -10,7 +10,7 @@ import { DEFAULT_TIMEZONE } from '@/lib/rivers/defaults';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { buildConditionSemantics } from './condition-semantics';
 import { reportFactsPrompt, type ReportFacts } from './report-facts';
-import { getOutlookDates } from '@/lib/river-outlook';
+import { materialOutlookLines } from './material-outlook';
 
 export interface GaugeContext {
   facts: ReportFacts;
@@ -157,31 +157,14 @@ export function buildPrompt(
     lines.push(`Recovery rate: ${rainLag.dropRateFtPerDay}`);
   }
 
-  // Weather (current)
-  if (weather) {
+  // No current weather and no three-day forecast. Weather belongs in the app's
+  // Weather section, which is rebuilt on every view; a Read is stored for the
+  // day. The days ahead reach the Read only when rain is likely. See
+  // material-outlook.ts.
+  const outlook = materialOutlookLines(forecast);
+  if (outlook.length) {
     lines.push('');
-    lines.push(`Current weather: ${weather.condition}, ${weather.temp}°F, wind ${weather.windSpeed} mph, humidity ${weather.humidity}%`);
-  }
-
-  // 3-day forecast
-  if (forecast && forecast.days.length > 0) {
-    // The same local days the app's Weather section shows (today and the next
-    // two), matched by date rather than sliced, so the Read cannot describe a
-    // day the Weather section beside it does not.
-    const [today, ...rest] = getOutlookDates();
-    const outlookDates = new Set([today, ...rest]);
-    const upcoming = forecast.days.filter((day) => outlookDates.has(day.date));
-    if (upcoming.length > 0) {
-      lines.push('');
-      lines.push('[3-DAY FORECAST]');
-      for (const day of upcoming) {
-        const rainNote = day.precipitation >= 20
-          ? ` (${day.precipitation}% chance of rain)`
-          : '';
-        const label = day.date === today ? `Today (${day.dayOfWeek})` : day.dayOfWeek;
-        lines.push(`${label}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, wind ${day.windSpeed} mph${rainNote}`);
-      }
-    }
+    lines.push(...outlook);
   }
 
   // NWS alerts

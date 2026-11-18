@@ -32,7 +32,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | Web page / component / interaction | `missouri-float-planner/src/` | `missouri-float-planner/AGENTS.md`, then the feature/design docs it names | `make check-web` + relevant browser checks and visual inspection |
 | API route / server logic | `missouri-float-planner/src/` | relevant sections of `missouri-float-planner/README.md` | `make check-web` + affected integration checks |
 | Embed widgets (`/embed`, images, loader) | `missouri-float-planner/src/components/embed/v2/`, `src/lib/embed/` | `missouri-float-planner/docs/embeds.md` | `make check-web` |
-| iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/AGENTS.md`, then the `eddy-ios/README.md` sections it names | `make check-mobile` + `make bundle-mobile` + `make check-web` (iOS logic is tested there; register new test files in its `test` script) |
+| iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/AGENTS.md`, then the `eddy-ios/README.md` sections it names | `make check-mobile` + `make bundle-mobile` + `make check-web` (iOS logic is tested there; register new test files in `missouri-float-planner/test-files.txt`) |
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
@@ -56,8 +56,12 @@ it must not be reported as applied or production-verified.
 Web tests intentionally cover iOS-app and `packages/` logic (neither has its
 own runner), so a mobile or package change can fail `make check-web` — that is
 by design, not flake. See the comment block at the top of `app-ci.yml`. The
-web `test` script lists every file explicitly (no glob); a test that is not
-listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
+web tests are listed explicitly, one file per line, in
+`missouri-float-planner/test-files.txt` (no glob); `npm test` runs that list. A
+test that is not listed never runs, and `src/lib/trust/registered-tests.test.ts`
+fails on it. Add a new test on its own line. The list is one path per line, and
+marked `merge=union`, so two branches that each add a test combine; when
+resolving a conflict in it by hand, keep both sides.
 
 App CI runs on every pull request so required checks cannot remain pending
 because of a path filter. Its `lint-and-typecheck` and `mobile-app` jobs run

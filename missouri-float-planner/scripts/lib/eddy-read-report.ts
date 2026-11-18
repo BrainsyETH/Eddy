@@ -33,6 +33,7 @@ const COLUMN: Record<ReadCheckId, string> = {
   read_length: 'read<=240',
   read_measurements: 'no-nums',
   read_forecast_talk: 'no-fcst',
+  weather_talk: 'no-wx',
   flat_forecast: 'no-will',
   numbers_match_inputs: 'in-inputs',
   numbers_from_knowledge: 'not-file',
@@ -42,6 +43,23 @@ const KIND_TITLE: Record<ReadKind, string> = {
   river: 'RIVER READS (eddy_generation_log, model-written, whole river)',
   gauge: 'GAUGE READS (secondary gauges, model-written)',
 };
+
+/**
+ * Whether a gauge_updates row is the published half of a Read the log already
+ * holds. The generator writes its log row and the cron inserts the published
+ * row moments apart, so the same station within a few minutes is the same
+ * Read. Matching by day instead dropped every gauge Read written earlier on
+ * the day logging began.
+ */
+export function alreadyLogged(
+  siteId: string,
+  generatedAt: string,
+  loggedAt: ReadonlyMap<string, number[]>,
+  windowMs = 10 * 60_000,
+): boolean {
+  const at = Date.parse(generatedAt);
+  return (loggedAt.get(siteId) ?? []).some((logged) => Math.abs(logged - at) <= windowMs);
+}
 
 /** The Monday that starts a day's week, so a week has one stable name. */
 export function weekOf(day: string): string {

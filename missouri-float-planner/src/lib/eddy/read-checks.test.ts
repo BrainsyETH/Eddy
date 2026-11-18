@@ -138,3 +138,20 @@ test('a number copied from the knowledge file is reported apart from an invented
   assert.equal(s.find((r) => r.id === 'numbers_match_inputs')?.status, 'pass');
   assert.deepEqual(s.find((r) => r.id === 'numbers_from_knowledge'), { id: 'numbers_from_knowledge', status: 'fail', detail: '1.5 ft' });
 });
+
+test('a Read that describes the weather is counted; the river and its rain are not weather', () => {
+  const weather = (text: string) => status({ full: text }).weather_talk;
+  // Current and Spring River, 2026-11-17, written when the prompt still carried weather.
+  assert.equal(weather('Good floating near Van Buren, with calm, steady water and a clear November sky.'), 'fail');
+  assert.equal(weather('The Spring River at Hardy is floating well on a clear, cold November week, steady water and no crowds.'), 'fail');
+  assert.equal(weather('Expect 58 degrees and a light breeze by afternoon.'), 'fail');
+  assert.equal(weather('Highs near 60 make it a comfortable day on the water.'), 'fail');
+
+  // Cold water and clear water are the river.
+  assert.equal(weather('The water runs cold and clear below the spring, and the riffles are shallow.'), 'pass');
+  // Rain that fell, or could, is river news.
+  assert.equal(weather('Rain could bring it up fast on a creek this size.'), 'pass');
+  assert.equal(weather('It has dropped steadily since the last rain moved through.'), 'pass');
+  // A dry spell is a pattern, not a sky.
+  assert.equal(weather('Up around Akers, a dry spell can leave a lot less water than this gauge suggests.'), 'pass');
+});

@@ -31,11 +31,15 @@ const forecast: ForecastData = {
   }],
 };
 
-test('an 80% rain forecast stays a probability in the actual Read prompt', () => {
+// Since 2026-11-18 the Read prompt carries no forecast: weather belongs in the
+// app's Weather section. A forecast at or past the Watch for section's "likely"
+// threshold reaches the prompt as words in an [OUTLOOK] block, and these tests
+// keep what they always guarded: a forecast never turns into a measured amount.
+test('an 80% rain forecast reaches the Read prompt as "likely", never as an amount', () => {
   const prompt = buildPrompt(target, gauge, weather, forecast, [], '', null,
     fetchPrecipitationFromWeather(weather));
-  assert.match(prompt, /80% chance of rain/);
-  assert.doesNotMatch(prompt, /Today's forecast rain:|0\.8 in|\[RECENT PRECIPITATION\]/);
+  assert.match(prompt, /\[OUTLOOK\]\nRain is likely today\./);
+  assert.doesNotMatch(prompt, /80%|chance of rain|Today's forecast rain:|0\.8 in|\[RECENT PRECIPITATION\]/);
   assert.deepEqual(fetchPrecipitationFromWeather(weather), { rain1h: 0, rain3h: 0 });
 });
 
@@ -43,18 +47,18 @@ test('a weather outage cannot manufacture a zero or forecast rainfall amount', (
   const precipitation = fetchPrecipitationFromWeather(null);
   assert.equal(precipitation, null);
   const prompt = buildPrompt(target, gauge, null, forecast, [], '', null, precipitation);
-  assert.match(prompt, /80% chance of rain/);
-  assert.doesNotMatch(prompt, /Today's forecast rain:|\[RECENT PRECIPITATION\]/);
+  assert.match(prompt, /Rain is likely today\./);
+  assert.doesNotMatch(prompt, /80%|Today's forecast rain:|\[RECENT PRECIPITATION\]/);
 });
 
-test('observed local amounts retain their windows alongside forecast probability', () => {
+test('observed local amounts retain their windows alongside the outlook', () => {
   const observed = { ...weather, rain1hInches: 0.2, rain3hInches: 0.5 };
   const precipitation = fetchPrecipitationFromWeather(observed);
   assert.deepEqual(precipitation, { rain1h: 0.2, rain3h: 0.5 });
   const prompt = buildPrompt(target, gauge, observed, forecast, [], '', null, precipitation);
   assert.match(prompt, /Last 1h: 0\.20 in \| Last 3h: 0\.50 in/);
-  assert.match(prompt, /80% chance of rain/);
-  assert.doesNotMatch(prompt, /Today's forecast rain:/);
+  assert.match(prompt, /Rain is likely today\./);
+  assert.doesNotMatch(prompt, /80%|Today's forecast rain:/);
 });
 
 
