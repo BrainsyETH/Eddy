@@ -111,6 +111,10 @@ export const PINE_VALLEY: HomeBaseConfig = {
     '07014000': { at: [-91.204, 37.9748], side: 'right' }, // Huzzah Creek near Steelville
     '07061500': { at: [-90.7888, 37.3381], side: 'right' }, // Black River near Annapolis
     '07065495': { at: [-91.4431, 37.1482], side: 'right' }, // Jacks Fork at Alley Spring
+    // The Jacks Fork's main gauge since 20261117225734. A pin is drawn only for
+    // the site a river reports as its main gauge, so the Alley Spring entry
+    // above is inert and stays for a database that has not been switched.
+    '07066000': { at: [-91.3582, 37.1541], side: 'right' }, // Jacks Fork at Eminence
     '07067000': { at: [-91.0135, 36.9914], side: 'right' }, // Current River at Van Buren
   },
   labels: {

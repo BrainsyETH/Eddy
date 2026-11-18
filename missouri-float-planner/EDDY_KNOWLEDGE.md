@@ -1,14 +1,33 @@
 # Eddy's Knowledge Base
 
 This file is Eddy's local knowledge — the stuff you can't get from a gauge reading.
-Add to it anytime. The AI update generator parses this by section and injects only
-the relevant parts into each Haiku call, so it stays efficient even as it grows.
+Add to it anytime. The generator parses this by section and hands each Read only the
+parts about the water its gauge speaks for (`src/lib/eddy/knowledge.ts`).
 
 ## Format Rules
 
-- **General** section: loaded into every prompt call (keep it concise)
-- **River sections**: only loaded when generating updates for that specific river
-- **Subsections** (e.g., `### Upper Current`): matched to `river_sections.section_slug`
+- **General** section: loaded into every river Read and every chat (keep it concise).
+- **River sections** (`## Name {#slug}`): the text straight under the heading must be
+  true along the WHOLE river. It goes to every Read on that river, at every gauge. A
+  fact about one place does not belong there, however famous the place.
+- **Gauge blocks** (`### Gauge: Van Buren {@07067000}`): what one gauge sits on and
+  speaks for. The tag is the site id in `gauge_stations`. Every gauge block starts with
+  two lines:
+  - `- **Sits**:` where the gauge is, what enters the river ABOVE it and what enters
+    BELOW it. A spring just below a gauge is not in that gauge's reading; say so.
+  - `- **Speaks for**:` the stretch of water this gauge's reading describes.
+
+  Then any fact that is about that water. A river's Read gets the block of the gauge it
+  reports from, in full. It gets the other gauges' `Sits` and `Speaks for` lines only,
+  under a header that says they are patterns and not today's conditions.
+- **`{unconfirmed}`** on a gauge heading keeps a drafted block out of every prompt.
+  Remove it once the geography has been checked by someone who knows the river.
+  Where two gauges sit either side of an inflow, check the draft against their readings
+  first: the gain between them at low water is the inflow.
+- **Reach notes** (`### Upper Current {#upper-current} {@07064533}`): matched to
+  `river_sections.section_slug`. Tag each with the gauge or gauges that speak for it. A
+  gauge's Read gets the reach notes tagged with it.
+- **`### Towns`**: food, fuel and supplies for the river. Chat only; no Read gets it.
 - **Anchor every river and subsection heading** with `{#slug}`. The slug must match
   `rivers.slug` / `river_sections.section_slug` exactly. Without an anchor the slug is
   guessed from the heading text, and the guess strips a trailing "River"/"Creek" —
@@ -17,6 +36,8 @@ the relevant parts into each Haiku call, so it stays efficient even as it grows.
   Eddy writes the river up from the General primer alone and sounds just as sure.
 - Use bullet points for individual knowledge items
 - Keep each item to 1-3 sentences — Eddy synthesizes, he doesn't recite
+- **Don't send a reader to another river.** The Read prompt forbids suggesting a river
+  it has no gauge data for, and chat only names another river for safety.
 - **Don't restate numeric thresholds** (optimal ranges, danger levels) here. The float
   ladder is already in the prompt from `river_gauges`, it gets recalibrated, and a
   stale copy in this file just gives Eddy two numbers to choose between. Say what the
@@ -40,7 +61,8 @@ like a rainfall-driven stream above Alley Spring but is stabilized by springs be
 - Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).
 - Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.
 - After heavy rain, rivers may become less clear and turn muddy. 
-- Weekends in June and July are the busiest. For a quieter float, go mid-week or choose Eleven Point or Big Piney over Current or Meramec.
+- Weekends in June and July are the busiest. For a quieter float, go mid-week.
+- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.
 - Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.
 - Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.
 - Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.
@@ -49,54 +71,50 @@ like a rainfall-driven stream above Alley Spring but is stabilized by springs be
 - **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.
 - **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.
 
-### Nearest Towns to Access Points
-
-The Ozarks are rural. Most river access points have no services (no restaurants, gas, groceries). Here are the nearest towns for food, fuel, and supplies:
-
-- **Current River (upper)**: Montauk, Cedar Grove, Akers Ferry → nearest town is **Salem** (20-30 min west). Baptist Camp is near Licking.
-- **Current River (middle)**: Pulltite, Round Spring → nearest town is **Eminence** (30-40 min south). Akers Ferry is about 40 min north of Eminence.
-- **Current River (lower)**: Two Rivers, Big Spring → nearest town is **Van Buren** (10-15 min).
-- **Jacks Fork**: Alley Spring, Eminence, Two Rivers → **Eminence** is the hub.
-- **Eleven Point**: Greer Spring, Turner Mill, Riverton → nearest town is **Alton** (15-30 min).
-- **Meramec River**: → **Steelville** and **Sullivan** are the main towns. Meramec State Park is between them.
-- **Huzzah / Courtois Creeks**: → **Steelville** is the hub for both.
-- **Big Piney River**: → **Licking** (north) and **Houston** (south). Fort Leonard Wood / **Waynesville** is nearby.
-- **Gasconade River**: → **Waynesville** and **Dixon** for the upper. **Gasconade** (town) for the lower.
-- **Niangua River**: → **Lebanon** and **Bennett Spring** area.
-- **Black River**: → **Lesterville** and **Annapolis** for the upper float; **Poplar Bluff** below Clearwater Dam.
-- **Bourbeuse River**: → **Union** on the lower river. The upper river runs through farm country with almost no services.
-- **Big River**: → **De Soto**, **Potosi**, and **Bonne Terre**. Washington State Park is the float hub.
-- **St. Francis River**: → **Fredericktown** for the shut-ins; **Piedmont** and Sam A. Baker State Park lower down.
-- **Bryant Creek**: → **Ava** to the north, **Gainesville** to the south. Nothing along the creek itself.
-- **North Fork River**: → **West Plains**, **Gainesville**, **Dora**, **Tecumseh**. Cell service through the corridor is patchy.
-- **James River**: → **Galena** and **Crane** at the take-out end; **Springfield** and **Nixa** upstream.
-- **Spring River (Missouri)**: → **Carthage** and **Sarcoxie**; **Joplin** is the nearest city.
-- **Buffalo National River**: → **Ponca** and **Jasper** up top, **Harrison** as the regional hub, **Yellville** and Gilbert lower down.
-- **Kings River**: → **Berryville**, **Eureka Springs**, **Marble**.
-- **War Eagle Creek**: → **Huntsville**, **Springdale**, **Rogers**.
-- **Crooked Creek**: → **Yellville**, **Harrison**, **Cotter**.
-- **Spring River (Arkansas)**: → **Mammoth Spring**, **Hardy**, **Cherokee Village**.
-- **Mulberry River**: → **Ozark**, **Cass**, **Oark**. Turner Bend is the store-and-shuttle hub.
-- **Caddo River**: → **Glenwood**, **Caddo Gap**, **Norman**, **Mount Ida**.
-
 ---
 
 ## Current River {#current}
 
 The Current is the crown jewel of Ozarks floating — spring-fed, scenic, and reliable.
-Fed primarily by Montauk Spring, Welch Spring, Blue Spring, and Big Spring (one of the
-largest springs in the US). It holds water better than almost any river in the state.
+A chain of big springs feeds it from top to bottom, so it holds water better than almost
+any river in the state. Where each spring enters decides which gauge sees its water.
 
 - Best all-around river for beginners and experienced paddlers alike.
-- Blue Spring (river mile ~48) is worth a stop — one of the deepest springs in Missouri.
-- The stretch from Akers to Pulltite is considered one of the finest float trips in the Midwest.
-- Big Spring near Van Buren adds massive flow to the lower river.
-- Cave Spring, Round Spring, and Pulltite Spring are all accessible from the river.
 - NPS manages most access points. Akers Ferry, Pulltite, Round Spring, and Two Rivers have developed campgrounds.
 - Current River is part of the Ozark National Scenic Riverways (ONSR) — the first national park area to protect a river system.
-- Eddy's primary gauge is **Van Buren (07067000)**, well down the river. Akers, Montauk, and Powder Mill are the upstream references, and they can disagree with Van Buren by a lot in a dry spell.
+- The gauges sit far apart, on very different amounts of water. In a dry spell the upper gauges can read thin while the lower ones read fine, so quote the gauge nearest the put-in.
 
-### Upper Current {#upper-current}
+### Gauge: Van Buren {@07067000}
+
+- **Sits**: At Van Buren, well down the river. Above it: the Jacks Fork, which joins at Two Rivers, and the springs of the upper and middle river. Below it: Big Spring, which enters a few miles downstream, so this gauge does NOT include Big Spring's water.
+- **Speaks for**: The lower Current around Van Buren, below Two Rivers and above Big Spring.
+- Eddy's primary gauge for the river, read in cfs.
+- Akers, Montauk, and Powder Mill are the upstream references, and they can disagree with Van Buren by a lot in a dry spell.
+
+### Gauge: Montauk {@07064440} {unconfirmed}
+
+- **Sits**: At Montauk State Park, line mile 1.6 of 174, between the park access and Tan Vat. Drains 59 sq mi. Draft: Montauk Springs enter above it. To confirm.
+- **Speaks for**: Draft: the headwaters stretch below Montauk. To confirm.
+- Read in gauge height (feet), not cfs.
+
+### Gauge: Akers {@07064533} {unconfirmed}
+
+- **Sits**: At Akers Ferry, line mile 17.2 of 174. Drains 295 sq mi. To confirm: does Welch Spring enter above or below this gauge?
+- **Speaks for**: Draft: Cedar Grove to Akers, and the float from Akers toward Pulltite. To confirm.
+- Read in cfs. The staff-gauge numbers outfitters quote at Akers Ferry are a different reading.
+
+### Gauge: Powder Mill {@07066510} {unconfirmed}
+
+- **Sits**: Just above Powder Mill, line mile 60.3 of 174, about 7 miles below Two Rivers. Drains 1,340 sq mi. Draft: the Jacks Fork enters above it. To confirm: is Blue Spring above or below?
+- **Speaks for**: Draft: Two Rivers down past Powder Mill. To confirm.
+- Read in gauge height (feet), not cfs.
+
+### Gauge: Doniphan {@07068000} {unconfirmed}
+
+- **Sits**: At Doniphan, line mile 125.1 of 174, about 38 miles below Van Buren. Drains 2,038 sq mi. Draft: Big Spring enters above it. To confirm.
+- **Speaks for**: Draft: the Current below Big Spring, which is wide and deep, more like a slow river than a float stream. To confirm.
+
+### Upper Current {#upper-current} {@07064440} {@07064533}
 
 - **Montauk to Cedar Grove** (~7 miles): Narrow, riffley, needs slightly more water than lower sections. Great half-day in a kayak.
 - **Baptist Camp to Cedar Grove** (~8 miles): Opens up a bit. A few fun riffles. Good for canoes.
@@ -105,14 +123,20 @@ largest springs in the US). It holds water better than almost any river in the s
 - **Cedar Grove is the year-round line on the Current.** From Cedar Grove down the river floats every month of the year — Welch Spring and the springs below it hold the base flow up even in a drought September. It is the upper river ABOVE Cedar Grove, the Montauk and Baptist Camp stretches, that goes scrapy and walk-it first. If the upper gauge is thin, move the put-in down to Cedar Grove rather than calling the Current off.
 - Note the units before quoting a level: Eddy reads **Current above Akers in cfs**, while Montauk and Powder Mill are gauge height in feet, and the staff-gauge numbers outfitters quote at Akers Ferry are a third reading again. Don't mix them.
 
-### Lower Current {#lower-current}
+### Lower Current {#lower-current} {@07064533}
 
-- **Akers to Pulltite** (~10 miles): The signature stretch. Big bluffs, deep pools, springs. Full-day float.
+- **Akers to Pulltite** (~10 miles): The signature stretch, and one of the finest float trips in the Midwest. Big bluffs, deep pools, springs. Full-day float.
 - **Pulltite to Round Spring** (~9 miles): More remote. Good overnight trip.
 - **Round Spring to Two Rivers** (~18 miles): Long section, often done as a 2-day. Two Rivers is the take-out where Jacks Fork joins.
-- The lower river handles low water better due to spring inputs along the way.
-- Big Spring (near Van Buren) is below Two Rivers — the Current below Big Spring is wide and deep, more like a slow river than a float stream.
-- Cave Spring and Round Spring are both right on the river and worth exploring.
+- This stretch handles low water better than the river above Akers, thanks to spring inputs along the way.
+- Cave Spring, Pulltite Spring and Round Spring are all right on the river and worth exploring.
+- Blue Spring, below Two Rivers near Powder Mill, is worth a stop — one of the deepest springs in Missouri.
+
+### Towns
+
+- Upper river: Montauk, Cedar Grove, Akers Ferry → nearest town is **Salem** (20-30 min west). Baptist Camp is near Licking.
+- Middle river: Pulltite, Round Spring → nearest town is **Eminence** (30-40 min south). Akers Ferry is about 40 min north of Eminence.
+- Lower river: Two Rivers, Big Spring → nearest town is **Van Buren** (10-15 min).
 
 ---
 
@@ -145,6 +169,30 @@ floating; below the park it widens and slows.
 - Multiple outfitters operate in this stretch.
 - Can get crowded on summer weekends — especially the Meramec State Park area.
 
+### Gauge: Cook Station {@07010350} {unconfirmed}
+
+- **Sits**: Line mile 34.0 of 224. Nearest put-ins on the line: Cook Station (32.7) above, Wesco (37.4) below. Drains 199 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Steelville {@07013000} {unconfirmed}
+
+- **Sits**: Line mile 72.5 of 224. Nearest put-ins on the line: Lucky Clover Resort (69.9) above, Bird's Nest Access (72.5) below. Drains 781 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Sullivan {@07014500} {unconfirmed}
+
+- **Sits**: Line mile 105.2 of 224. Nearest put-ins on the line: Blue Springs Creek Conservation Area (100.4) above, Sappington Bridge (105.2) below. Drains 1,475 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Eureka {@07019000} {unconfirmed}
+
+- **Sits**: Line mile 188.4 of 224. Nearest put-ins on the line: Allenton Access (182.1) above, Meramec Landing (Valley Park) (201.9) below. Drains 3,788 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Steelville** and **Sullivan** are the main towns. Meramec State Park is between them.
+
 ---
 
 ## Eleven Point River {#eleven-point}
@@ -161,37 +209,81 @@ Rivers system. Excellent for paddlers who want solitude.
 - Great for multi-day camping trips. Less developed, more wilderness feel.
 - Wildlife is abundant — bald eagles, herons, otters are commonly spotted.
 
+### Gauge: Bardley {@07071500} {unconfirmed}
+
+- **Sits**: Line mile 41.0 of 97. Nearest put-ins on the line: Riverton (41.0) above, Morgan Spring Float Camp (49.0) below. Drains 793 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- Greer Spring, Turner Mill, Riverton → nearest town is **Alton** (15-30 min).
+
 ---
 
 ## Jacks Fork River {#jacks-fork}
 
-The Jacks Fork is the wild card of Ozarks floating — rain-dependent, flashy, and
-stunning when conditions are right. It joins the Current River at Two Rivers.
+The Jacks Fork is the wild card of Ozarks floating — two different rivers either side of
+Alley Spring. It joins the Current River at Two Rivers.
 
-- **Rain-dependent**: Unlike the Current, the Jacks Fork has no massive spring inputs in the upper reaches. 
-- Rises and falls faster than any other Ozarks float stream. Flash floods are a serious concern.
+- **Alley Spring is the line between two different rivers.** Above it the Jacks Fork is rain-dependent and can be unfloatable for weeks. Below it, Alley Spring's roughly 81 million gallons a day carry the river, and Alley Spring → Eminence → Two Rivers floats all year, even when the upper river is done for the season.
+- Rises and falls faster than any other Ozarks float stream after rain. Flash floods are a serious concern.
 - Alley Spring (with the iconic red mill) is one of the most photographed spots in the Ozarks.
-- When it's running right it's arguably the most beautiful float in Missouri. All three Jacks Fork gauges — Mountain View, **Alley Spring (07065495, Eddy's primary)**, and Eminence — read in cfs and sit on very different amounts of drainage, so quote the one nearest the put-in.
-- The upper Jacks Fork above Alley Spring is narrow, twisty, and technical. Not for beginners.
-- Below Alley Spring is more manageable. Eminence to Two Rivers is the classic stretch.
-- **Alley Spring is the line between two different rivers.** Above it the Jacks Fork is rain-dependent and can be unfloatable for weeks. Below it, Alley Spring's roughly 81 million gallons a day carry the river, and Alley Spring → Eminence → Two Rivers is usually good to go even when the upper river is done for the season. Treat "the Jacks Fork is too low" as a statement about the upper river unless the gauge being quoted is Eminence.
+- When it's running right it's arguably the most beautiful float in Missouri.
+- All three gauges read in cfs and sit on very different amounts of water, so quote the one that speaks for the put-in.
+
+### Gauge: Eminence {@07066000}
+
+- **Sits**: At Eminence, about six miles below Alley Spring. Above it: Alley Spring's inflow. Below it: Two Rivers, where the Jacks Fork joins the Current.
+- **Speaks for**: Alley Spring to Two Rivers, the stretch the spring carries.
+- Eddy's primary gauge for the river.
+- Alley Spring to Eminence and Eminence to Two Rivers are the classic floats, and more manageable than the upper river.
 - The outfitters' rule of thumb at Eminence is a gauge-height average, and below that average you may drag in spots with a loaded boat — that is a lighter-boat day, not a cancelled trip.
-- Check conditions the day of — the Jacks Fork can go from floatable to unfloatable in 24 hours during dry spells.
+
+### Gauge: Alley Spring {@07065495}
+
+- **Sits**: At Alley Spring, just ABOVE where the spring's water enters the river. Above it: the rain-fed upper river only. Below it: Alley Spring's inflow, so this gauge does NOT include the spring's water.
+- **Speaks for**: The upper Jacks Fork, above Alley Spring.
+- A low reading here says nothing about the river below the spring. The Eminence gauge speaks for that.
+- The upper Jacks Fork is narrow, twisty, and technical. Not for beginners.
+- It can go from floatable to unfloatable in 24 hours during dry spells.
+
+### Gauge: Mountain View {@07065200} {unconfirmed}
+
+- **Sits**: Near Mountain View, line mile 6.8 of 45, far up the canyon. Drains 185 sq mi, against 298 at the Alley Spring gauge. To confirm what enters between them.
+- **Speaks for**: Draft: the upper canyon from the Prongs down past Buck Hollow. To confirm.
+
+### Towns
+
+- Alley Spring, Eminence, Two Rivers → **Eminence** is the hub.
 
 ---
 
 ## Niangua River {#niangua}
 
-Fed by Bennett Spring — one of Missouri's largest springs. Consistent flows make it a
-reliable choice when other rivers are running low.
+Two rivers in one, split at Bennett Spring — one of Missouri's largest springs. From the
+spring down the Niangua holds a steady base flow through dry spells; above it the river
+depends on rain.
 
-- Bennett Spring State Park is a major trout fishing destination. The upper Niangua below the spring is cold and clear.
-- Reliable base flow thanks to Bennett Spring. A good fallback when rain-fed rivers are too low.
+- Bennett Spring State Park is a major trout fishing destination. The river below the spring is cold and clear.
 - Moderate difficulty — suitable for most skill levels.
 - Less dramatic bluffs than the Current or Eleven Point, but pleasant scenery.
-- Can be a good alternative when more popular rivers are crowded.
-- Several outfitters operate in the area with good shuttle service.
-- Tunnel Dam sits on the lower river below Windyville — the Niangua is not a wholly free-flowing float below that point.
+- Several outfitters operate around Bennett Spring with good shuttle service.
+- Tunnel Dam, a hydroelectric diversion, sits on the lower river — the Niangua is not a wholly free-flowing float below that point.
+
+### Gauge: Windyville {@06923250}
+
+- **Sits**: At Windyville, about 14 river miles ABOVE Bennett Spring. Above it: the rain-fed upper river only. Below it: Bennett Spring's inflow, so this gauge does NOT include the spring's water.
+- **Speaks for**: The Niangua above Bennett Spring.
+- A low reading here says nothing about the floats from Bennett Spring down, which the spring carries. The Tunnel Dam gauge is the only one below the spring.
+
+### Gauge: Tunnel Dam {@06923950}
+
+- **Sits**: At Tunnel Dam near Macks Creek, about 37 river miles below Bennett Spring. Above it: Bennett Spring's inflow and everything that joins the river below the spring.
+- **Speaks for**: The Niangua from Bennett Spring down. It is the only gauge below the spring, and it sits well below the popular floats, so it can read more water than they carry.
+
+### Towns
+
+- **Lebanon** and **Bennett Spring** area.
 
 ---
 
@@ -208,6 +300,15 @@ the Mark Twain National Forest.
 - Best floated in spring and early summer when water levels are higher.
 - Check conditions before you go — there's less margin for error than on the bigger rivers.
 - The Big Piney is the Gasconade's largest tributary and joins it near Devils Elbow, so a big rise here shows up on the Gasconade below Jerome.
+
+### Gauge: Big Piney {@06930000} {unconfirmed}
+
+- **Sits**: Line mile 74.8 of 108. Nearest put-ins on the line: Horse Camp Access (68.7) above, Wilderness Ridge Resort (74.9) below. Drains 560 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Licking** (north) and **Houston** (south). Fort Leonard Wood / **Waynesville** is nearby.
 
 ---
 
@@ -240,6 +341,25 @@ The Gasconade is the longest river entirely within Missouri (~280 miles) and the
 - On this bigger lower river, low water mainly affects your speed rather than whether you can float.
 - Rises here arrive from the whole upstream drainage, so the gauge can climb even when local weather is dry.
 
+### Gauge: Hazelgreen {@06928000} {unconfirmed}
+
+- **Sits**: Line mile 77.6 of 261. Nearest put-ins on the line: Gasconade Hills Resort (73.4) above, Hazelgreen Access (77.7) below. Drains 1,250 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Jerome {@06933500} {unconfirmed}
+
+- **Sits**: Line mile 155.4 of 261. Nearest put-ins on the line: Jerome Access (154.8) above, Whitehouse Ford (158.4) below. Drains 2,840 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Rich Fountain {@06934000} {unconfirmed}
+
+- **Sits**: Line mile 209.2 of 261. Nearest put-ins on the line: Paydown Access (192.1) above, Rollins Ferry Access (209.5) below. Drains 3,180 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Waynesville** and **Dixon** for the upper. **Gasconade** (town) for the lower.
+
 ---
 
 ## Huzzah Creek {#huzzah}
@@ -256,6 +376,15 @@ a weekend of floating. Upper sections usually only floatable in early spring.
 - Nice bluffs and clear water when conditions are right.
 - **Gauge note**: Huzzah Creek near Steelville (**07014000**) also serves as the proxy gauge for Courtois Creek. Both creeks will show similar conditions, so do not recommend Courtois as an alternative when Huzzah is low.
 
+### Gauge: Steelville {@07014000} {unconfirmed}
+
+- **Sits**: Line mile 26.4 of 33. Nearest put-ins on the line: Highway 8 Bridge (Lower) (26.4) above, Huzzah Conservation Area (31.3) below. Drains 259 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Steelville** is the hub for both.
+
 ---
 
 ## Courtois Creek {#courtois}
@@ -270,7 +399,15 @@ the weekend crowds. Upper sections usually only floatable in early spring.
 - Pairs well with Huzzah for a weekend float trip.
 - Beautiful bluffs and gravel bars. Great for wading and swimming when the water is up.
 - Steelville area outfitters serve both Courtois and Huzzah.
-- If Huzzah is too crowded, Courtois is almost always less busy.
+
+### Gauge: Steelville {@07014000} {unconfirmed}
+
+- **Sits**: This gauge is on Huzzah Creek near Steelville, not on the Courtois. The Courtois has no gauge of its own. To confirm how well the Huzzah stands in for it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Steelville** is the hub for both.
 
 ---
 
@@ -293,6 +430,25 @@ A clear southeast-Missouri Ozark float below the St. Francois Mountains, with tw
 - Below Clearwater Dam: a dam-influenced tailwater reach where levels reflect the release schedule and can change independent of local rain.
 - The Poplar Bluff gauge is the live reference but reads about a quarter high for this reach — lean on it for the high-water ceiling, not for fine floatability calls.
 
+### Gauge: Annapolis {@07061500} {unconfirmed}
+
+- **Sits**: Line mile 11.4 of 195. Nearest put-ins on the line: Lesterville Access (2.6) above, Highway K Recreation Area (Clearwater Lake) (14.4) below. Drains 484 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Clearwater Dam {@swl-clearwater-dam} {unconfirmed}
+
+- **Sits**: Line mile 32.1 of 195. Nearest put-ins on the line: Black River Bottoms Access (19.8) above, River Road Park (below Clearwater Dam) (32.4) below. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Poplar Bluff {@07063000} {unconfirmed}
+
+- **Sits**: Line mile 81.4 of 195. Nearest put-ins on the line: Sportsman's Park Access (Poplar Bluff) (80.7) above, Dan River Access (88.9) below. Drains 1,245 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Lesterville** and **Annapolis** for the upper float; **Poplar Bluff** below Clearwater Dam.
+
 ---
 
 ## Bourbeuse River {#bourbeuse}
@@ -313,6 +469,20 @@ The slowest large stream in the Ozarks and one of its crookedest — it winds ab
 
 - Spring Creek enters about ten miles below Noser Mill and can nearly double the flow. Below that confluence the river is almost always floatable even when the upper half is not.
 - Union reads this reach well — except the Noser Mill to Spring Creek stretch above the confluence, which runs lower than Union shows.
+
+### Gauge: High Gate {@07015720} {unconfirmed}
+
+- **Sits**: Line mile 13.5 of 149. Nearest put-in on the line: Mint Spring MDC Access (26.0) below; none above. Drains 135 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Union {@07016500} {unconfirmed}
+
+- **Sits**: Line mile 132.7 of 149. Nearest put-ins on the line: Union MDC Access (132.6) above, Dr. Henry A. and Amalia Uhlemeyer MDC Access (141.9) below. Drains 808 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Union** on the lower river. The upper river runs through farm country with almost no services.
 
 ---
 
@@ -339,6 +509,35 @@ The Buffalo National River — America's first National River (1972) — is a fr
 - Calmer, holds water nearly year-round, and reads more like flatwater than float. Low water here mostly costs speed rather than ending the trip.
 - Rush is the lowest gauge before the White River confluence.
 
+### Gauge: Boxley {@07055646} {unconfirmed}
+
+- **Sits**: Line mile 13.5 of 148. Nearest put-in on the line: Boxley (15.2) below; none above. Drains 57 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Ponca {@07055660} {unconfirmed}
+
+- **Sits**: Line mile 21.2 of 148. Nearest put-ins on the line: Ponca (21.1) above, Steel Creek (23.7) below. Drains 116 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Pruitt {@07055680} {unconfirmed}
+
+- **Sits**: Line mile 45.0 of 148. Nearest put-ins on the line: Ozark (43.1) above, Pruitt (45.1) below. Drains 190 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: St. Joe {@07056000} {unconfirmed}
+
+- **Sits**: Line mile 88.9 of 148. Nearest put-ins on the line: Tyler Bend (87.6) above, Grinders Ferry (89.1) below. Drains 829 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Harriet {@07056700} {unconfirmed}
+
+- **Sits**: Line mile 115.3 of 148. Nearest put-ins on the line: Dillards Ferry (115.3) above, Buffalo Point (116.9) below. Drains 1,070 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Ponca** and **Jasper** up top, **Harrison** as the regional hub, **Yellville** and Gilbert lower down.
+
 ---
 
 ## St. Francis River {#st-francis}
@@ -358,6 +557,20 @@ Missouri's only whitewater river. The upper St. Francis through Millstream Garde
 
 - Silver Mines down toward Sam A. Baker State Park and Wappapello: a normal-stream float, much calmer than the shut-ins.
 - On this reach low water mainly affects your speed rather than whether you can float.
+
+### Gauge: Roselle {@07034000} {unconfirmed}
+
+- **Sits**: Line mile 40.5 of 123. Nearest put-ins on the line: Syenite Access (Hwy H bridge) (29.7) above, Roselle Access (40.6) below. Drains 234 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Patterson {@07037500} {unconfirmed}
+
+- **Sits**: Line mile 93.4 of 123. Nearest put-ins on the line: Hwy 34 bridge (Patterson gauge) (93.4) above, Greenville Recreation Area (Wappapello Lake, COE) (100.6) below. Drains 956 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Fredericktown** for the shut-ins; **Piedmont** and Sam A. Baker State Park lower down.
 
 ---
 
@@ -388,6 +601,20 @@ A slow, long-pool Class I float rising in the St. Francois Mountains and winding
 - Dam country: Morse Mill at the top (portage right) and the Cedar Hill mill dam at the bottom (portage left, where the MDC Cedar Hill Access is also the best take-out in the stretch). Portage both at every level.
 - Byrnesville is the nearest gauge to this reach and the right one to read here.
 
+### Gauge: Richwoods {@07018100} {unconfirmed}
+
+- **Sits**: Line mile 86.1 of 142. Nearest put-ins on the line: Mammoth Access (80.2) above, Merrill Horse Access (86.4) below. Drains 735 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Byrnesville {@07018500} {unconfirmed}
+
+- **Sits**: Line mile 127.2 of 142. Nearest put-ins on the line: Cedar Hill Access (121.2) above, Rockford Beach Park (131.4) below. Drains 917 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **De Soto**, **Potosi**, and **Bonne Terre**. Washington State Park is the float hub.
+
 ---
 
 ## Bryant Creek {#bryant-creek}
@@ -415,6 +642,15 @@ A wild, spring-influenced Ozark stream running south through Douglas and Ozark c
 
 - Norfork Lake backwater when the lake is up: flat water rather than float, and the current quits well before the take-out does. Plan for paddling, and for wind.
 
+### Gauge: Tecumseh {@07058000} {unconfirmed}
+
+- **Sits**: Line mile 59.4 of 64. Nearest put-ins on the line: Warren Bridge Access (54.1) above, Florence C. Cook Access (61.9) below. Drains 570 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Ava** to the north, **Gainesville** to the south. Nothing along the creek itself.
+
 ---
 
 ## North Fork White River {#north-fork-white}
@@ -433,6 +669,15 @@ The North Fork of the White is a cold, clear, spring-fed float and one of Missou
 
 - The popular float, and the reach the Tecumseh gauge actually represents. Class I–II with two things to plan around: The Falls above River of Life Farm, and Dawt Mill Dam near the take-out.
 - Cold water year-round is a feature of this reach, not a seasonal caveat — dress for immersion even in midsummer.
+
+### Gauge: Tecumseh {@07057500} {unconfirmed}
+
+- **Sits**: Line mile 57.3 of 63. Nearest put-ins on the line: Patrick Bridge Access (55.3) above, Highway PP bridge (North Fork high bridge) (58.4) below. Drains 561 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **West Plains**, **Gainesville**, **Dora**, **Tecumseh**. Cell service through the corridor is patchy.
 
 ---
 
@@ -458,6 +703,20 @@ A southwest-Missouri smallmouth stream draining the Springfield Plateau to Table
 - Hwy 125 down to Hootentown: urban runoff and wastewater-treatment influence, flashy and rain-driven, floatable only at medium-to-high water. Not a summer trip.
 - Portage the Kissick low-head dam. Read Boaz or Springfield here — never the Galena number.
 
+### Gauge: Boaz {@07052250} {unconfirmed}
+
+- **Sits**: Line mile 59.7 of 93. Nearest put-ins on the line: Delaware Town Access (55.0) above, Shelvin Rock Access (60.7) below. Drains 462 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Galena {@07052500} {unconfirmed}
+
+- **Sits**: Line mile 88.3 of 93. Nearest put-in on the line: Galena Y-Bridge Access (Ralph Cox Memorial Access) (88.2) above; none below. Drains 987 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Galena** and **Crane** at the take-out end; **Springfield** and **Nixa** upstream.
+
 ---
 
 ## Spring River (Missouri) {#spring-river-mo}
@@ -471,6 +730,20 @@ A western-edge Ozark stream running from Lawrence County through Carthage and on
 - **Two gauges, very different drainages.** Carthage (07185765, ~425 sq mi) sits mid-reach and is the representative gauge. Waco (07186000, ~1,164 sq mi) is well downstream near the Kansas line, on nearly three times the drainage — it is not a substitute for Carthage.
 - Public accesses sit roughly 3–7 miles apart down to Kafir Bridge, the last Missouri access above the state line. Below the line you are in Kansas, where floating requires landowner permission.
 - Carthage has dammed and milled this river since the 1840s, and the industrial legacy around the old millrace still affects water quality on that stretch. Nearest towns are Carthage and Sarcoxie; Joplin is the nearest city.
+
+### Gauge: Carthage {@07185765} {unconfirmed}
+
+- **Sits**: Line mile 31.2 of 101. Nearest put-ins on the line: Civil War Road Access (31.2) above, Route O Bridge Access (38.8) below. Drains 425 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Waco {@07186000} {unconfirmed}
+
+- **Sits**: Line mile 52.8 of 101. Nearest put-ins on the line: Maple Lane Bridge (52.8) above, Kafir Bridge (56.2) below. Drains 1,164 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Carthage** and **Sarcoxie**; **Joplin** is the nearest city.
 
 ---
 
@@ -494,6 +767,20 @@ Arkansas's Spring River rises at Mammoth Spring and runs cold, clear, and remark
 
 - Below Hardy the river grows, warms, and slows toward the Black River confluence. The Imboden gauge covers it, but this reach has no vetted float key — be more hedged here than on the Hardy run.
 
+### Gauge: Hardy {@07069305} {unconfirmed}
+
+- **Sits**: Line mile 18.4 of 58. Nearest put-ins on the line: Bayou Access (5.9) above, Hardy (Spring Street Bridge) Access (18.4) below. Drains 845 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Gauge: Imboden {@07069500} {unconfirmed}
+
+- **Sits**: Line mile 45.7 of 58. Nearest put-ins on the line: Ravenden Access (38.2) above, Imboden Access (45.8) below. Drains 1,180 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Mammoth Spring**, **Hardy**, **Cherokee Village**.
+
 ---
 
 ## Kings River {#kings-river}
@@ -506,6 +793,15 @@ A free-flowing, undammed Ozark stream running about 90 miles north out of the Bo
 - **Low-water bridges must be portaged.** One near the end of the Trigger Gap–to–US 62 stretch has its center blasted out; outfitters advise the middle line or a portage left. Never run a submerged crossing.
 - **The bottom reach outlasts the rest.** Hwy 62 down to MO 86 holds water into August thanks to Table Rock backwater — but expect slack water, wind, and motorboats down there, not a moving float.
 - Access is a mix of road crossings and private/fee accesses through the Berryville and Eureka Springs outfitters. Nearest towns: Berryville, Eureka Springs, Marble.
+
+### Gauge: Berryville {@07050500} {unconfirmed}
+
+- **Sits**: Line mile 77.8 of 111. Nearest put-ins on the line: J.D. Fletcher Access (Hwy 62) (72.0) above, Stoney Point / Summers Ford (85.0) below. Drains 527 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Berryville**, **Eureka Springs**, **Marble**.
 
 ---
 
@@ -533,6 +829,15 @@ A scenic Class I northwest-Arkansas float running past Withrow Springs State Par
 - Ends at the War Eagle Mill low-head dam — a required portage with steep banks on both sides, just above Beaver Lake backwater.
 - When Beaver Lake is up, the last of this reach is flat lake water rather than creek.
 
+### Gauge: Hindsville {@07049000} {unconfirmed}
+
+- **Sits**: Line mile 43.6 of 68. Nearest put-ins on the line: War Eagle Creek Walk-in Access ('Chicken House Access') (37.4) above, Hwy 45 Bridge (Hindsville) Access (43.7) below. Drains 263 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Huntsville**, **Springdale**, **Rogers**.
+
 ---
 
 ## Crooked Creek {#crooked-creek}
@@ -554,6 +859,15 @@ A clear, gravel-bottomed Ozark stream crossing north-central Arkansas to the Whi
 
 - Starts at the named hazard: Kelly's Slab, the concrete low-water crossing at the Fred Berry Conservation Education Center. Scout and portage — water moving over the slab is dangerous.
 - The gauge sits right here, so this is the reach its reading describes most honestly.
+
+### Gauge: Yellville {@07055607} {unconfirmed}
+
+- **Sits**: Line mile 59.3 of 87. Nearest put-ins on the line: Crooked Creek Gravel Bar Camping Area (58.0) above, Kelley's Slab Access (59.4) below. Drains 398 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Yellville**, **Harrison**, **Cotter**.
 
 ---
 
@@ -581,6 +895,15 @@ A clear Ouachita Mountain stream — **not** an Ozark river — and one of Arkan
 
 - Easier and slower than the run above, trending toward DeGray Lake. The long version of this reach holds an isolated Class III hole and wave train that only shows up at high water.
 
+### Gauge: Caddo Gap {@07359610} {unconfirmed}
+
+- **Sits**: Line mile 19.8 of 75. Nearest put-ins on the line: Swinging Bridge Access (Caddo Gap) (17.8) above, Glenwood Access (City Park Boat Ramp) (27.7) below. Drains 136 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Glenwood**, **Caddo Gap**, **Norman**, **Mount Ida**.
+
 ---
 
 ## Mulberry River {#mulberry}
@@ -605,6 +928,15 @@ Arkansas's premier whitewater float and a National Wild and Scenic River, runnin
 ### Turner Bend to Campbell Cemetery {#turner-bend-to-campbell-cemetery}
 
 - Below the hub the river mellows to I–II — the gentler end of the Mulberry, though still flashy and still not a beginner river on a rising gauge.
+
+### Gauge: Mulberry {@07252000} {unconfirmed}
+
+- **Sits**: Line mile 58.6 of 70. Nearest put-ins on the line: Campbell Cemetery access (46.4) above, Mill Creek access (59.2) below. Drains 373 sq mi. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+
+### Towns
+
+- **Ozark**, **Cass**, **Oark**. Turner Bend is the store-and-shuttle hub.
 
 ---
 
@@ -653,3 +985,9 @@ Twenty-three miles of the White River between Table Rock Dam and Powersite Dam a
 - Shadow Lake Dam separates upper and lower trips. Do not describe a through-float as verified without a confirmed portage and land access. The Trestle Park area also has a low-water crossing.
 - The live Noel gauge is USGS 07188925 and currently supplies stage only. The former Tiff City gauge is inactive. Never apply Tiff City stage thresholds to Noel or infer a discharge from its stage.
 - Bluff Dwellers Cave is a drive-to attraction south of Noel, not a riverside cave stop. Named springs documented on Indian Creek, Big Sugar Creek and Mill Creek are not established Elk mainstem stops.
+
+### Gauge: Noel {@07188925} {unconfirmed}
+
+- **Sits**: Line mile 11.3 of 35. Nearest put-ins on the line: Mount Shira Access (7.6) above, Wayside Campground River Access (11.3) below. To confirm: what enters above it and what enters below it.
+- **Speaks for**: To confirm.
+

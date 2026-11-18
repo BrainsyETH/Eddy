@@ -80,6 +80,9 @@ export const RIVER_GEOMETRY_RULES = [
 export const EDDY_KNOWLEDGE_RULES = [
   'knowledge_file_missing',
   'knowledge_missing_section',
+  // The file names a gauge the river does not have, or leaves the river's main
+  // gauge without a block once its other gauges have one.
+  'knowledge_gauge_mismatch',
   // Not the knowledge file, but the same class of defect: something Eddy is
   // told about a river that is not knowledge. See src/lib/eddy/river-note.ts.
   'river_note_malformed',
@@ -344,6 +347,7 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   missing_alert_terms: 'low',
   knowledge_file_missing: 'low',
   knowledge_missing_section: 'low',
+  knowledge_gauge_mismatch: 'low',
   // The loader drops a malformed note before it reaches a prompt, so what is
   // left is a river with no gauge note at all: thinner prose, not wrong prose.
   river_note_malformed: 'low',

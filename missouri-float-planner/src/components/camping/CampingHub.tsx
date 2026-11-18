@@ -60,7 +60,7 @@ export default function CampingHub({
   const [query, setQuery] = useState(() => urlParams.toString());
   const params = useMemo(() => new URLSearchParams(query), [query]);
   const [clock, setClock] = useState(() => Date.parse(overview.generatedAt));
-  const { horizon } = useMemo(() => webPlanningWindow(clock), [clock]);
+  const { horizon, weekend } = useMemo(() => webPlanningWindow(clock), [clock]);
   const [arrival, setArrival] = useState(params.get("arrival") ?? "");
   const [departure, setDeparture] = useState(params.get("departure") ?? "");
   const [error, setError] = useState("");
@@ -71,6 +71,23 @@ export default function CampingHub({
   const detail = useRef<HTMLDialogElement>(null);
   const lastFocus = useRef<HTMLElement | null>(null);
   const detailPushed = useRef(false);
+  // A select keeps focus after a mouse or touch pick, so its focus ring stayed
+  // on screen like a lasting state. Release it then; a keyboard pick keeps focus.
+  const pointerPick = useRef(false);
+  const releaseAfterPointer = {
+    onPointerDown: () => {
+      pointerPick.current = true;
+    },
+    onKeyDown: () => {
+      pointerPick.current = false;
+    },
+    onBlur: () => {
+      pointerPick.current = false;
+    },
+  };
+  const released = (select: HTMLSelectElement) => {
+    if (pointerPick.current) select.blur();
+  };
   const groups = useMemo(() => groupCampgrounds(overview.tracked), [overview]);
   const requestedRiver = params.get("river") ?? "";
   // Conditions arrive after the campgrounds; the hub is complete without them.
@@ -114,6 +131,11 @@ export default function CampingHub({
     horizon,
   );
   const hasDates = Boolean(appliedArrival || appliedDeparture);
+  const tonightSelected =
+    appliedArrival === horizon.startDate &&
+    appliedDeparture === nextCampingDate(horizon.startDate);
+  const weekendSelected =
+    appliedArrival === weekend.startDate && appliedDeparture === weekend.endDate;
   const calendar = params.get("view") === "calendar";
   // An explicit choice survives date/filter changes and shared URLs. With no
   // choice, dates prioritise openings; browsing one river follows its course.
@@ -396,7 +418,11 @@ export default function CampingHub({
             </span>
             <select
               value={river}
-              onChange={(e) => update({ river: e.target.value })}
+              {...releaseAfterPointer}
+              onChange={(e) => {
+                update({ river: e.target.value });
+                released(e.currentTarget);
+              }}
             >
               <option value="">All rivers</option>
               {rivers.map(([slug, name]) => (
@@ -437,6 +463,7 @@ export default function CampingHub({
         <div className={styles.shortcuts}>
           <button
             type="button"
+            aria-pressed={tonightSelected}
             onClick={() => {
               const tonight = webPlanningWindow(Date.now()).horizon.startDate;
               applyDates(tonight, nextCampingDate(tonight));
@@ -446,6 +473,7 @@ export default function CampingHub({
           </button>
           <button
             type="button"
+            aria-pressed={weekendSelected}
             onClick={() => {
               const weekend = webPlanningWindow(Date.now()).weekend;
               applyDates(weekend.startDate, weekend.endDate);
@@ -584,7 +612,14 @@ export default function CampingHub({
           {riverOrderable && (
             <label className={styles.sort}>
               <span className="sr-only">Sort campgrounds</span>
-              <select value={sort} onChange={(e) => update({ sort: e.target.value })}>
+              <select
+                value={sort}
+                {...releaseAfterPointer}
+                onChange={(e) => {
+                  update({ sort: e.target.value });
+                  released(e.currentTarget);
+                }}
+              >
                 <option value="available">Available first</option>
                 <option value="river">Along the river</option>
               </select>
