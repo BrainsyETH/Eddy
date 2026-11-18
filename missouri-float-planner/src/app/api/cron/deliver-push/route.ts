@@ -1,5 +1,5 @@
 // src/app/api/cron/deliver-push/route.ts
-// GET/POST /api/cron/deliver-push — drains the alert outbox to Expo push.
+// GET/POST /api/cron/deliver-push — drains the alert outboxes to Expo push.
 //
 // A SEPARATE route from update-gauges on purpose. That cron already spends up
 // to 30s on enrichment plus awaited LLM regens inside a 60s ceiling, so an
@@ -24,6 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { tryCronLockDetailed, releaseCronLock } from '@/lib/social/cron-lock';
 import { deliverGaugeAlerts } from '@/lib/alerts/gauge-delivery';
+import { deliverDamGenerationAlerts } from '@/lib/alerts/dam-generation-delivery';
 import { drainRiverEvents, MAX_ATTEMPTS, type RiverPassResult } from '@/lib/alerts/river-delivery';
 import { pushDisabledReason } from '@/lib/push/kill-switch';
 import { logger } from '@/lib/logger';
@@ -87,10 +88,10 @@ async function run(request: NextRequest) {
   }
 
   try {
-    // The two outboxes are drained INDEPENDENTLY. They share this route because
+    // The outboxes are drained INDEPENDENTLY. They share this route because
     // they share a cron lock, a transport and a ledger — but a river pass that
     // finds nothing, or fails outright, must not stop gauge alerts going out.
-    // Both are inside the one lock so the two passes can never overlap and
+    // All are inside the one lock so the passes can never overlap and
     // double-send to the same device.
     let river: RiverPassResult;
     try {
@@ -101,10 +102,13 @@ async function run(request: NextRequest) {
     }
 
     const gauge = await deliverGaugeAlerts(supabase);
-    // A gauge pass that could not read what it needed sent nothing and drained
-    // nothing; the run is failed even when the river pass was fine.
-    const status = river.status >= 400 ? river.status : gauge.error ? 500 : river.status;
-    return NextResponse.json({ ...river.body, gauge }, { status });
+    // Dam generation alerts, last: they queue their own due notices and drain
+    // them in the one pass (see dam-generation-delivery.ts), and never throw.
+    const dam = await deliverDamGenerationAlerts(supabase);
+    // A gauge or dam pass that could not read what it needed sent nothing and
+    // drained nothing; the run is failed even when the river pass was fine.
+    const status = river.status >= 400 ? river.status : gauge.error || dam.error ? 500 : river.status;
+    return NextResponse.json({ ...river.body, gauge, dam }, { status });
   } catch (error) {
     logger.error('[deliver-push] pass failed', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -114,7 +118,7 @@ async function run(request: NextRequest) {
 }
 
 /**
- * How many events both outboxes are holding, for the kill-switch warning.
+ * How many events the outboxes are holding, for the kill-switch warning.
  *
  * `head: true` so this costs a count and no rows. Never throws and answers 0 on
  * failure: this exists to make a suppressed run visible, and it must not be the
@@ -123,7 +127,7 @@ async function run(request: NextRequest) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function countPendingOutbox(supabase: any): Promise<number> {
   try {
-    const [river, gauge] = await Promise.all([
+    const [river, gauge, dam] = await Promise.all([
       supabase
         .from('river_condition_events')
         .select('id', { count: 'exact', head: true })
@@ -135,8 +139,14 @@ async function countPendingOutbox(supabase: any): Promise<number> {
         .select('id', { count: 'exact', head: true })
         .is('push_delivered_at', null)
         .lt('push_attempts', MAX_ATTEMPTS),
+      // Counts null (so 0) on a database that does not have the table yet.
+      supabase
+        .from('dam_generation_alert_events')
+        .select('id', { count: 'exact', head: true })
+        .is('push_delivered_at', null)
+        .lt('push_attempts', MAX_ATTEMPTS),
     ]);
-    return (river.count ?? 0) + (gauge.count ?? 0);
+    return (river.count ?? 0) + (gauge.count ?? 0) + (dam.count ?? 0);
   } catch {
     return 0;
   }

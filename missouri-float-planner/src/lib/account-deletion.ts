@@ -11,8 +11,9 @@
 // removing the auth user removes them: profiles, entitlements, starred_rivers,
 // starred_gauges, device_tokens, alert_subscriptions, alert_push_deliveries,
 // and — added with per-gauge alerting — gauge_alert_subscriptions,
-// gauge_alert_events, notification_preferences, float_archive and
-// float_archive_preferences.
+// gauge_alert_events, notification_preferences, float_archive,
+// float_archive_preferences, and the dam generation alerts
+// (dam_generation_alerts, dam_generation_alert_events).
 //
 // alert_push_deliveries is worth a second look, because migration 00203 dropped
 // its FK to river_condition_events so the ledger could serve both outboxes. Its

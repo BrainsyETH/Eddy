@@ -6,6 +6,7 @@ import { guideEditorialDate } from '@/lib/guides/editorial-date';
 import { MetadataRoute } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
+import { REPORT_PATH } from '@/lib/condition-days/study';
 import { RELEASE_TIMING_PATH } from '@/lib/release-timing/findings';
 import { listDamIds } from '@/lib/data/dams';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
@@ -41,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     { url: `${BASE_URL}${RELEASE_TIMING_PATH}`, changeFrequency: 'weekly' as const, priority: 0.5 },
     ...publishedLakes().map(lake => ({ url: `${BASE_URL}/lakes/${lake.slug}`, changeFrequency: 'daily' as const, priority: 0.6 })),
+    { url: `${BASE_URL}${REPORT_PATH}`, changeFrequency: 'daily', priority: 0.6 },
     { url: `${BASE_URL}/blog`, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/about`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/coverage`, changeFrequency: 'monthly', priority: 0.5 },

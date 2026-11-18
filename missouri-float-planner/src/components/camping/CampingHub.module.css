@@ -67,6 +67,18 @@
   width: 100%;
   font-size: 15px;
 }
+/* The native arrow sits flush against the border and ignores padding; draw
+   the site's chevron at the text's inset instead (globals.css select.input). */
+.hub select {
+  appearance: none;
+  padding-right: 2.75rem;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 1.25rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
 .hub button,
 .hub a {
   touch-action: manipulation;
@@ -81,12 +93,19 @@
 }
 .hub button:focus-visible,
 .hub a:focus-visible,
-.hub input:focus-visible,
-.hub select:focus-visible,
+.hub input[type="checkbox"]:focus-visible,
 .hub summary:focus-visible,
 .calendarScroll:focus-visible {
   outline: 3px solid var(--color-accent-600);
   outline-offset: 3px;
+}
+/* Fields use the site's input focus (globals.css .input:focus). A field stays
+   focused while it is in use, where the coral ring read as an error. */
+.hub input:not([type="checkbox"]):focus-visible,
+.hub select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--color-primary-100);
 }
 .primary {
   background: var(--color-primary-700);
@@ -118,6 +137,11 @@
 }
 .shortcuts button:not(.clear):hover {
   background: var(--color-secondary-100);
+}
+.shortcuts button[aria-pressed="true"]:not(.clear) {
+  color: var(--color-primary-800);
+  background: var(--color-primary-50);
+  box-shadow: inset 0 0 0 1px var(--color-primary-600);
 }
 .shortcuts > span {
   margin-left: auto;
@@ -278,7 +302,9 @@
   min-height: 44px;
   max-width: 180px;
   font-size: 13px;
-  padding: 8px;
+  padding: 8px 2.125rem 8px 10px;
+  background-position: right 0.5rem center;
+  background-size: 1.125rem;
 }
 .moreHeading {
   grid-column: 1 / -1;
@@ -337,6 +363,28 @@
 .card:focus-within,
 .card:hover {
   border-color: var(--color-primary-400);
+}
+/* The whole card, photo included, opens the campground. The title button's
+   hit area is stretched over the card, so keyboards and screen readers still
+   meet one control per card rather than a clickable container. */
+.card,
+.untracked article {
+  position: relative;
+}
+.card h3 button::after,
+.untracked a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.card h3 button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* The footer button keeps its own hover and focus above the stretched area. */
+.card .outline {
+  position: relative;
+  z-index: 1;
 }
 .campPhoto {
   position: relative;
@@ -666,6 +714,33 @@
   .nameSearch {
     max-width: none;
     flex-basis: 100%;
+  }
+  .chips {
+    row-gap: 12px;
+  }
+  .chips > button:not(.clear),
+  .availabilityFilter {
+    position: relative;
+    min-height: 32px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+  }
+  /* Compact visible pills keep a 44px touch area, with space between rows. */
+  .chips > button:not(.clear)::before,
+  .availabilityFilter::before {
+    content: "";
+    position: absolute;
+    inset: -6px 0;
+  }
+  .availabilityFilter {
+    gap: 6px;
+  }
+  .chips input {
+    position: relative;
+    width: 14px;
+    height: 14px;
   }
   .riverReading { display: block; }
   .riverStatus { padding-left: 26px; }

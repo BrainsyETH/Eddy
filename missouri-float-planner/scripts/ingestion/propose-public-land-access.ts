@@ -63,7 +63,8 @@ import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson
 import { getScriptClient } from '../lib/db';
 import { type LngLat, PADUS_NON_FEE, agencyFromPadus, csvCell, mapLink, parseCsv } from './access-enrichment-2026-11';
 import { type ArcFeature, arcgis, envelope, envelopeFilter, featureUrl, fetchAll, selectAll } from './arcgis-fetch';
-import { type RoadKind, type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, nhdNameFor, offMvumNote, rankRoadEnd, reviewedVerdict, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
+import { buildMileIndex } from '../../src/lib/geo/mile-index';
+import { type RoadKind, type RoadSource, alongRiverKm, approachPoints, bankOf, channelIndex, channelLocator, deadEnds, gapAround, metresApart, mileAtFraction, nearestMouth, nhdNameFor, offMvumNote, otherRoadsNearby, rankRoadEnd, reviewedVerdict, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer';
 const MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer';
@@ -81,6 +82,12 @@ const REACH_M = 200; // a road end this close to the real channel reaches the wa
 const TRUSTED_PIN_M = 300; // a known access pinned farther than this from the channel is suspect
 const KNOWN_KM = 1.0;
 const NEAR_PARCEL_M = 30;
+const AGENCY_REACH_M = 300; // an agency ramp this close to the channel is on this river
+const AGENCY_KNOWN_M = 750; // ...and is "missing" when no Eddy access is this close
+const AGENCY_LAUNCH_TYPES = new Set(['Boat Ramps', 'Boating Access', 'Canoe-Kayak Access']);
+
+/** A satellite view centred on the spot, for checking the bank and the track by eye. */
+const satelliteLink = (p: LngLat) => `https://www.google.com/maps/@?api=1&map_action=map&center=${p[1].toFixed(6)},${p[0].toFixed(6)}&zoom=18&basemap=satellite`;
 
 interface Road { source: RoadSource; kind: RoadKind; name: string; fourWd: boolean; maintLevel: number | null; paths: number[][][]; url: string }
 
@@ -105,6 +112,7 @@ async function main() {
   const features: unknown[] = [];
   const summary: Record<string, unknown>[] = [];
   const suspects: Record<string, unknown>[] = [];
+  const agencyLeads: Record<string, unknown>[] = [];
   const holdoutReport: string[] = [];
 
   for (const slug of slugs) {
@@ -125,24 +133,50 @@ async function main() {
     if (!nhdName) throw new Error(`${slug}: no NHD flowline named like "${river.name}" in the river's box; check the name`);
     const channel = nhd.features.filter((f) => String(f.attributes.gnis_name) === nhdName).flatMap((f) => f.geometry?.paths ?? []).filter((p) => p.length > 1);
     const toWater = channelIndex(channel);
+    // Which bank: the nearest channel segment, turned to point downstream. Eddy's
+    // line runs upstream to downstream, so a path whose last vertex sits farther
+    // along it is already downstream-first; NHD normally is, and a tie keeps it.
+    const locate = channelLocator(channel);
+    const pathRunsDownstream = channel.map((p) => alongRiverKm(eddyLine, p[p.length - 1] as LngLat).km >= alongRiverKm(eddyLine, p[0] as LngLat).km);
+    const bankAt = (p: LngLat): 'left' | 'right' | null => {
+      const hit = locate(p);
+      if (!hit) return null;
+      return pathRunsDownstream[hit.path] ? bankOf(p, hit.a, hit.b) : bankOf(p, hit.b, hit.a);
+    };
     const mouths = nhd.features.filter((f) => String(f.attributes.gnis_name) !== nhdName)
       .flatMap((f) => (f.geometry?.paths ?? []).filter((p) => p.length > 1).map((p) => ({ name: String(f.attributes.gnis_name), at: p[p.length - 1] as LngLat })))
       .filter((m) => toWater(m.at) <= 60);
 
     // ── Known accesses: approved and pinned near the real channel ────────────
-    const aps = await selectAll<{ slug: string; name: string; approved: boolean | null; is_float_endpoint: boolean; location_orig: { coordinates?: number[] } | null }>(
-      (a, b) => db.from('access_points').select('slug, name, approved, is_float_endpoint, location_orig').eq('river_id', river.id).order('slug').range(a, b));
+    const aps = await selectAll<{ id: string; slug: string; name: string; approved: boolean | null; is_float_endpoint: boolean; river_mile_downstream: number | string | null; location_orig: { coordinates?: number[] } | null }>(
+      (a, b) => db.from('access_points').select('id, slug, name, approved, is_float_endpoint, river_mile_downstream, location_orig').eq('river_id', river.id).order('slug').range(a, b));
     const located = aps.flatMap((ap) => {
       const c = ap.location_orig?.coordinates;
       if (!c) return [];
       const at: LngLat = [c[0], c[1]];
-      return [{ ...ap, at, km: alongRiverKm(eddyLine, at).km, offChannelM: Math.round(toWater(at)) }];
+      return [{ ...ap, at, km: alongRiverKm(eddyLine, at).km, offChannelM: Math.round(toWater(at)), bank: bankAt(at) }];
     });
     for (const k of located) {
-      if (k.offChannelM > TRUSTED_PIN_M) suspects.push({ river: slug, slug: k.slug, name: k.name, approved: !!k.approved, pin_to_channel_m: Number.isFinite(k.offChannelM) ? k.offChannelM : '>500', map: mapLink(k.at) });
+      if (k.offChannelM > TRUSTED_PIN_M) suspects.push({ river: slug, slug: k.slug, name: k.name, approved: !!k.approved, reason: 'pinned off the channel', pin_to_channel_m: Number.isFinite(k.offChannelM) ? k.offChannelM : '>500', map: mapLink(k.at), satellite: satelliteLink(k.at) });
     }
     const trusted = located.filter((k) => k.approved && k.offChannelM <= TRUSTED_PIN_M);
     const known = trusted.filter((k) => !holdout.has(k.slug));
+    // Existing records to compare a spot against: everything Eddy has here, approved or not.
+    const existing = located.filter((k) => !holdout.has(k.slug));
+    const nearestExisting = (p: LngLat) => existing.reduce<{ k: (typeof existing)[number]; m: number } | null>((best, k) => {
+      const m = metresApart(k.at, p);
+      return !best || m < best.m ? { k, m } : best;
+    }, null);
+    // The river's own mile scale, from the accesses that carry a mile.
+    const riverMiles = riverKm / 1.609344;
+    const mileIndex = buildMileIndex(known.flatMap((k) => {
+      const mile = k.river_mile_downstream == null ? NaN : Number(k.river_mile_downstream);
+      return Number.isFinite(mile) ? [{ mile, fraction: k.km / riverKm }] : [];
+    }));
+    const eddyMile = (km: number) => {
+      const m = mileAtFraction(mileIndex.controls, km / riverKm, riverMiles);
+      return m == null ? '' : m.toFixed(1);
+    };
 
     // ── Public land (PAD-US, refined by USFS ownership on national forests) ──
     const { data: lands, error: landsError } = await db.rpc('public_lands_in_bbox', {
@@ -231,6 +265,34 @@ async function main() {
     const launches = trusted.filter((k) => k.is_float_endpoint);
     const missed = launches.filter((k) => !roadServed.includes(k));
     if (missed.length) console.log(`  ${slug}: launches with no road candidate within 0.5 km: ${missed.map((k) => k.slug).join(', ')}`);
+    const agencyRows = await selectAll<{ provider: string; source_type: string; name: string | null; latitude: number; longitude: number; source_feature_url: string | null; access_point_id: string | null }>(
+      (a, b) => db.from('agency_gis_features').select('provider, source_type, name, latitude, longitude, source_feature_url, access_point_id')
+        .gte('longitude', box.xmin).lte('longitude', box.xmax).gte('latitude', box.ymin).lte('latitude', box.ymax)
+        .order('provider').order('source_id').range(a, b));
+    // A launch no road reaches is walk-in or boat-in, or its pin is wrong: Mineral
+    // Springs, Sandy Shoals Ford and Bay Creek were all on this list. A pin that
+    // sits on its own linked agency ramp is not in doubt, so it is left off.
+    for (const k of missed) {
+      const agencyConfirmed = agencyRows.some((f) => f.access_point_id === k.id && AGENCY_LAUNCH_TYPES.has(f.source_type) && metresApart([Number(f.longitude), Number(f.latitude)], k.at) <= 150);
+      if (!agencyConfirmed) suspects.push({ river: slug, slug: k.slug, name: k.name, approved: true, reason: 'no road reaches this pin', pin_to_channel_m: k.offChannelM, map: mapLink(k.at), satellite: satelliteLink(k.at) });
+    }
+
+    // ── Agency ramps Eddy has no record near ─────────────────────────────────
+    for (const f of agencyRows) {
+      if (f.access_point_id || !AGENCY_LAUNCH_TYPES.has(f.source_type)) continue;
+      const at: LngLat = [Number(f.longitude), Number(f.latitude)];
+      const d = toWater(at);
+      if (!(d <= AGENCY_REACH_M)) continue;
+      const near = nearestExisting(at);
+      if (near && near.m <= AGENCY_KNOWN_M) continue;
+      if (reviewedVerdict(slug, at, reviewed)) continue;
+      agencyLeads.push({
+        river: slug, name: f.name ?? '', agency: f.provider.toUpperCase(), type: f.source_type, to_water_m: Math.round(d),
+        bank: bankAt(at) ? `river ${bankAt(at)}` : '', eddy_mile: eddyMile(alongRiverKm(eddyLine, at).km),
+        nearest_access: near ? near.k.name : '', nearest_access_m: near ? Math.round(near.m) : '',
+        lat: at[1].toFixed(6), lon: at[0].toFixed(6), map: mapLink(at), satellite: satelliteLink(at), agency_record: f.source_feature_url ?? '',
+      });
+    }
     for (const h of holdout) {
       const k = trusted.find((t) => t.slug === h);
       if (!k) { holdoutReport.push(`${slug}/${h}: not a trusted access on this river`); continue; }
@@ -255,12 +317,17 @@ async function main() {
       else kept.push(c);
     }
 
-    for (const c of kept) {
+    const byRoad = fresh.map((c) => ({ at: c.at, road: c.road.name, score: c.score, toWaterM: c.toWaterM }));
+    kept.forEach((c, i) => {
       const g = gapAround(c.km, known.map((k) => k.km), riverKm);
       const up = known.find((k) => k.km === g.upKm);
       const down = known.find((k) => k.km === g.downKm);
       const place = nearestMouth(c.at, mouths);
+      const bank = bankAt(c.at);
+      const near = nearestExisting(c.at);
+      const others = otherRoadsNearby(byRoad[fresh.indexOf(c)], byRoad);
       const row = {
+        n: i + 1,
         tier: c.tier,
         score: c.score,
         river: slug,
@@ -272,25 +339,33 @@ async function main() {
         four_wd: c.road.fourWd ? 'yes' : '',
         usfs_maint_level: c.road.maintLevel ?? '',
         to_water_m: c.toWaterM,
+        bank: bank ? `river ${bank}` : '',
+        eddy_mile: eddyMile(c.km),
         land: c.land ?? 'not shown public',
         between: `${up?.name ?? '(river start)'} → ${down?.name ?? '(river end)'}`,
         gap_km: g.gapKm.toFixed(1),
+        nearest_access: near ? `${near.k.name}${near.k.approved ? '' : ' (unapproved)'}` : '',
+        nearest_access_m: near ? Math.round(near.m) : '',
+        nearest_access_bank: near && bank && near.k.bank ? (near.k.bank === bank ? 'same bank' : 'opposite bank') : '',
+        also_nearby: others.map((o) => `${o.road} (${o.toWaterM} m to water) ${o.at[1].toFixed(5)}, ${o.at[0].toFixed(5)}`).join(' | '),
         notes: c.notes.join('; '),
         search: `"${(place ?? c.road.name).replace(/ mouth$/, '')}" ${river.name} access`,
         lat: c.at[1].toFixed(6),
         lon: c.at[0].toFixed(6),
         map: mapLink(c.at),
+        satellite: satelliteLink(c.at),
         road_record: c.road.url,
       };
       rows.push(row);
       features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: c.at }, properties: row });
-    }
+    });
     summary.push({
       river: slug, roads: roads.length, road_ends_at_water: raw.filter((c) => c.kind !== 'crosses river').length,
       crossings: raw.filter((c) => c.kind === 'crosses river').length,
       already_reviewed: alreadyReviewed, candidates: kept.length, tier_A: kept.filter((c) => c.tier === 'A').length,
       recall: `${roadServed.length}/${launches.length} trusted launches have a road candidate within 0.5 km`,
-      suspect_records: located.filter((k) => k.offChannelM > TRUSTED_PIN_M).length,
+      suspect_records: suspects.filter((x) => x.river === slug).length,
+      agency_leads: agencyLeads.filter((x) => x.river === slug).length,
     });
   }
 
@@ -301,10 +376,11 @@ async function main() {
   };
   write('candidates.csv', rows);
   write('suspect-records.csv', suspects);
+  write('agency-leads.csv', agencyLeads);
   writeFileSync(join(outDir, 'candidates.geojson'), `${JSON.stringify({ type: 'FeatureCollection', features }, null, 1)}\n`);
   console.table(summary);
   for (const h of holdoutReport) console.log(`holdout ${h}`);
-  console.log(`Wrote ${rows.length} candidates and ${suspects.length} suspect records to ${outDir}. Nothing was written to the database.`);
+  console.log(`Wrote ${rows.length} candidates, ${agencyLeads.length} agency leads and ${suspects.length} suspect records to ${outDir}. Nothing was written to the database.`);
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

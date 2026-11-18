@@ -159,7 +159,7 @@ function FacilitySites({ facility: f, campName, multiple, arrival, departure, fi
             </div>
           </>}
       {f.booking && <a className={styles.provider} href={f.booking.url} target="_blank" rel="noopener noreferrer" data-ga-event="camping_provider_click">
-        {f.loopName ? 'Check district permit' : f.source === 'mo_state_parks' ? 'Missouri State Parks' : 'Recreation.gov'} <ExternalLink size={15} aria-hidden />
+        Book on {f.source === 'mo_state_parks' ? 'Missouri State Parks' : 'Recreation.gov'} <ExternalLink size={15} aria-hidden />
       </a>}
     </section>
   );

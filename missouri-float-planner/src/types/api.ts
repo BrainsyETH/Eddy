@@ -1217,6 +1217,39 @@ export interface StarredDamsResponse {
   starred: StarredDamEntry[];
 }
 
+/**
+ * A dam generation alert (/api/me/dam-alerts): push when generation is posted
+ * to start at a dam.
+ *
+ * One per dam. `atStart` and `hourBefore` are the two times it can notify, and
+ * at least one is true — switching both off deletes the alert, so there is no
+ * paused state to draw. It follows the POSTED schedule and does not confirm
+ * that generation began; see ADR 0020.
+ */
+export interface DamGenerationAlert {
+  /** The USACE registry slug, as in StarredDamEntry. */
+  damId: string;
+  damName: string;
+  /** Notify at the posted start time. */
+  atStart: boolean;
+  /** Notify an hour before the posted start time. */
+  hourBefore: boolean;
+  createdAt: string;
+}
+
+/** Response for GET /api/me/dam-alerts */
+export interface DamGenerationAlertsResponse {
+  alerts: DamGenerationAlert[];
+}
+
+/**
+ * Response for PUT /api/me/dam-alerts: the alert as the server now holds it,
+ * after merging the one switch that was sent. Null when both times are off.
+ */
+export interface DamGenerationAlertResponse {
+  alert: DamGenerationAlert | null;
+}
+
 export interface StarredRiverEntry {
   riverId: string;
   riverName: string;
