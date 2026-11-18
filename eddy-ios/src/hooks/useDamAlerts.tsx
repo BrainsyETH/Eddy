@@ -29,15 +29,21 @@ import {
   damAlertTimes,
   NO_DAM_ALERT,
   reconcileDamAlert,
+  statusAfterLoad,
   type DamAlertChange,
+  type DamAlertsStatus,
 } from '@/lib/damAlerts';
 import { useSession } from '@/hooks/useSession';
 
 interface DamAlertsValue {
-  /** Null when signed out, or before the first load answers. */
+  /** Null when signed out, before the first load answers, or when it failed. */
   alerts: DamGenerationAlert[] | null;
-  /** True once the first load has answered, whatever it said. */
-  ready: boolean;
+  /**
+   * Whether `alerts` can be believed. Only `loaded` and `signed-out` confirm
+   * anything; see DamAlertsStatus for why `failed` is its own state.
+   */
+  status: DamAlertsStatus;
+  /** Ask again. From `failed` this is the Retry. */
   refresh: () => Promise<void>;
   /**
    * Move one of a dam's two switches, with a token already in hand. Resolves
@@ -62,7 +68,7 @@ interface DamAlertsValue {
 
 const DamAlertsContext = createContext<DamAlertsValue>({
   alerts: null,
-  ready: false,
+  status: 'loading',
   refresh: async () => {},
   save: async () => null,
   remove: async () => {},
@@ -70,7 +76,7 @@ const DamAlertsContext = createContext<DamAlertsValue>({
 
 export function DamAlertsProvider({ children }: { children: ReactNode }) {
   const [alerts, setAlerts] = useState<DamGenerationAlert[] | null>(null);
-  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<DamAlertsStatus>('loading');
   const { session, isAnonymous, getAccessToken } = useSession();
 
   // Bumped by every write, so a load that started before a switch was flicked
@@ -80,28 +86,59 @@ export function DamAlertsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     alertsRef.current = alerts;
   }, [alerts]);
+  // Whether the server has confirmed the list for this account at least once.
+  const confirmed = useRef(false);
 
   const load = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal): Promise<void> => {
       // An anonymous session cannot hold an alert (the server requires a
       // permanent account to write one), so there is nothing to ask for.
       const token = isAnonymous ? null : await getAccessToken();
       if (!token) {
+        confirmed.current = false;
         setAlerts(null);
-        setReady(true);
+        setStatus(statusAfterLoad('signed-out', false));
         return;
       }
-      const gen = mutationGen.current;
-      try {
-        const next = await fetchDamAlerts(token, signal);
-        if (mutationGen.current === gen) setAlerts(next);
-      } catch (err) {
-        if (err instanceof ApiError && err.message === 'Request cancelled') return;
-        // A failed refresh keeps what is held. The switches then show the last
-        // known state rather than reading off for an alert that is still set.
-      } finally {
-        setReady(true);
+      // Asking with nothing confirmed: say so, including on a Retry after a
+      // failure. A refresh of a confirmed list stays `loaded` throughout.
+      if (!confirmed.current) setStatus('loading');
+
+      // A loop, not a single request: an answer that raced a switch being
+      // flicked is asked for again (see below). Bounded, so a burst of taps
+      // cannot keep it spinning; past the bound it is a failed load.
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const gen = mutationGen.current;
+        try {
+          const next = await fetchDamAlerts(token, signal);
+          if (next === null) {
+            // The server refused a token this app believed in (an expired
+            // session). That is not "signed out, so no alerts": the account
+            // may hold one. Nothing was confirmed, so it is a failed load.
+            setStatus(statusAfterLoad('failed', confirmed.current));
+            return;
+          }
+          if (mutationGen.current !== gen) {
+            // A switch was flicked while this was in flight, so the answer
+            // may predate it. A confirmed list is already right (the save
+            // reconciled it); an unconfirmed one still has to be fetched.
+            if (confirmed.current) return;
+            continue;
+          }
+          confirmed.current = true;
+          setAlerts(next);
+          setStatus(statusAfterLoad('loaded', true));
+          return;
+        } catch (err) {
+          if (err instanceof ApiError && err.message === 'Request cancelled') return;
+          // NOT "ready". With nothing confirmed this is `failed`, and the card
+          // offers Retry instead of drawing switches it cannot vouch for. A
+          // failed refresh of a confirmed list keeps that list.
+          setStatus(statusAfterLoad('failed', confirmed.current));
+          return;
+        }
       }
+      setStatus(statusAfterLoad('failed', confirmed.current));
     },
     [getAccessToken, isAnonymous],
   );
@@ -126,9 +163,9 @@ export function DamAlertsProvider({ children }: { children: ReactNode }) {
         // The server's answer replaces the guess, including the switch that
         // was not sent.
         setAlerts((current) => reconcileDamAlert(current ?? [], dam.id, saved));
-        // Saved before the list was known (a first tap, or straight after
-        // signing in): the answer is one dam, so fetch the rest.
-        if (before === null) void load();
+        // Saved before the list was confirmed (straight after signing in):
+        // the answer is one dam, so fetch the rest.
+        if (!confirmed.current) void load();
         return saved;
       } catch (err) {
         setAlerts(before);
@@ -156,8 +193,8 @@ export function DamAlertsProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ alerts, ready, refresh, save, remove }),
-    [alerts, ready, refresh, save, remove],
+    () => ({ alerts, status, refresh, save, remove }),
+    [alerts, status, refresh, save, remove],
   );
 
   return <DamAlertsContext.Provider value={value}>{children}</DamAlertsContext.Provider>;

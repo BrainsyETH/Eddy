@@ -9,7 +9,6 @@ import {
   buildDamGenerationNotification,
   dueNotices,
   freshPostedSchedule,
-  mergeAlertTimes,
   postedStarts,
   pushTtlSeconds,
   scheduleDayIsFresh,
@@ -128,51 +127,24 @@ test('a dam with no known schedule this pass has nothing due', () => {
   assert.deepEqual(dueNotices([{ ...ALERT, dam_id: 'swl-norfork-dam' }], STARTS, START_3PM), []);
 });
 
-// ── Saving one switch ────────────────────────────────────────────────────────
-
-test('saving one switch leaves the other as the server holds it', () => {
-  const atStartOnly = { atStart: true, hourBefore: false };
-  // The reported bug: "at the start" saved, then "an hour before" switched on.
-  assert.deepEqual(mergeAlertTimes(atStartOnly, { hourBefore: true }), { atStart: true, hourBefore: true });
-  assert.deepEqual(mergeAlertTimes(atStartOnly, { atStart: false }), { atStart: false, hourBefore: false });
-  assert.deepEqual(mergeAlertTimes({ atStart: true, hourBefore: true }, { hourBefore: false }), atStartOnly);
-  // No alert yet: the switch not sent starts off.
-  assert.deepEqual(mergeAlertTimes(null, { hourBefore: true }), { atStart: false, hourBefore: true });
-  // Both sent: both taken.
-  assert.deepEqual(mergeAlertTimes(atStartOnly, { atStart: false, hourBefore: true }), { atStart: false, hourBefore: true });
-});
-
 // ── Copy ─────────────────────────────────────────────────────────────────────
 
-const bodyAt = (leadMinutes: 0 | 60, minutesFromStart: number) =>
-  buildDamGenerationNotification({
-    damName: 'Table Rock Dam',
-    startAt: START_3PM,
-    leadMinutes,
-    now: START_3PM + minutesFromStart * MINUTE,
-  }).body;
-
-test('the clock time leads, and the wait is measured when the push is sent', () => {
-  assert.equal(bodyAt(60, -60), '3 PM Central: generation is posted to start at the dam. About an hour from now.');
-  // The same "hour before" notice, sent twenty-five minutes late.
-  assert.equal(bodyAt(60, -35), '3 PM Central: generation is posted to start at the dam. In about 35 minutes.');
-  assert.equal(bodyAt(0, 0), '3 PM Central: generation is posted to start at the dam. That is now.');
-  assert.equal(bodyAt(0, 20), '3 PM Central: generation was posted to start at the dam.');
+test('the push is the dam and one sentence, with no countdown to go stale', () => {
+  const { title, body } = buildDamGenerationNotification({ damName: 'Table Rock Dam', startAt: START_3PM });
+  assert.equal(title, 'Table Rock Dam');
+  assert.equal(body, '3 PM Central: generation is posted to start at the dam.');
+  // Nothing relative: a push sent at 2:00 can arrive at 2:25, or be read at 5.
+  assert.doesNotMatch(body, /\bnow\b|from now|minutes|hour|ago|soon|shortly/i);
+  // And nothing that claims generation began.
+  assert.doesNotMatch(body, /has started|is running|generating|units|water (is )?(on|off)/i);
 });
 
-test('every push says posted, at the dam, and Central, and never claims generation began', () => {
-  for (const [lead, offset] of [[60, -60], [60, -35], [0, 0], [0, 20]] as const) {
-    const { title, body } = buildDamGenerationNotification({
-      damName: 'Table Rock Dam',
-      startAt: START_3PM,
-      leadMinutes: lead,
-      now: START_3PM + offset * MINUTE,
-    });
-    assert.equal(title, 'Table Rock Dam');
-    // Read hours later in Notification Center, the first sentence still stands.
-    assert.match(body, /^3 PM Central: generation (is|was) posted to start at the dam\./);
-    assert.doesNotMatch(body, /has started|is running|generating now|units|water (is )?(on|off)/i);
-  }
+test('the time is the dam\u2019s, whatever the season', () => {
+  // 3 PM CDT in July and 3 PM CST in January are different instants, one label.
+  assert.equal(buildDamGenerationNotification({ damName: 'D', startAt: Date.parse('2026-01-15T21:00:00.000Z') }).body,
+    '3 PM Central: generation is posted to start at the dam.');
+  assert.equal(buildDamGenerationNotification({ damName: 'D', startAt: Date.parse('2026-07-25T05:00:00.000Z') }).body,
+    '12 AM Central: generation is posted to start at the dam.');
 });
 
 test('a push expires with its send window, so an offline phone is not told late', () => {
@@ -257,8 +229,8 @@ test('one push an hour before and one at the posted time, each sent once across 
   assert.equal(t.messages.length, 2);
 
   assert.equal(t.messages[0].title, 'Table Rock Dam');
-  assert.match(String(t.messages[0].body), /^3 PM Central: .*About an hour from now\.$/);
-  assert.match(String(t.messages[1].body), /^3 PM Central: .*That is now\.$/);
+  // The same sentence an hour before and at the start: the clock time, no countdown.
+  assert.deepEqual(t.messages.map((m) => m.body), Array(2).fill('3 PM Central: generation is posted to start at the dam.'));
   // Each push dies with its own half-hour window.
   assert.deepEqual(t.messages.map((m) => m.ttl), [30 * 60, 30 * 60]);
   // One routing key, and no river or gauge for an older build to follow.
@@ -396,7 +368,7 @@ test('a failed send is retried on the next pass, inside the window', async () =>
   t.failing.clear();
   await run(db, '2026-07-25T19:05:00.000Z', t);
   assert.equal(t.messages.length, 1);
-  assert.match(String(t.messages[0].body), /In about 55 minutes|About an hour from now/);
+  assert.equal(t.messages[0].body, '3 PM Central: generation is posted to start at the dam.');
   assert.equal(events(db)[0].push_outcome, 'sent');
 });
 

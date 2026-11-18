@@ -22,10 +22,19 @@
 // Flicking a switch sends that one time; the server keeps the other. The card
 // used to send both from its own copy of the alert, and while that copy was
 // loading both read off — so switching "an hour before" on silently cleared a
-// saved "at the start". Two guards now: the switches wait for the saved
-// settings before they accept a tap, and a tap could not clear the other
-// switch even if they did not. The change that opened the sign-in sheet is
-// kept as that same single switch and finished after signing in.
+// saved "at the start". Two guards now: a tap could not clear the other switch
+// even on a wrong guess, and the card does not guess. The change that opened
+// the sign-in sheet is kept as that same single switch and finished after
+// signing in.
+//
+// ── Only confirmed settings are drawn ───────────────────────────────────────
+//
+// A switch that reads off is a claim that no alert is set. The card makes it
+// only when it knows: the server answered, or there is no account to hold an
+// alert. While the settings are loading it says so, and when they could not be
+// loaded it says that and offers Try again — it used to treat a failed request
+// as an answer, and drew both switches off, and editable, over an alert that
+// was still on.
 //
 // ── An alert that is on, on a phone that can receive it ─────────────────────
 //
@@ -39,7 +48,7 @@
 // primer is opened from there, not by useAlertGate; two paths would show two.
 
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import type { DamGenerationAlert } from '@eddy/types';
 import { ApiError } from '@/api/client';
 import { AlertNotificationSetup } from '@/components/AlertNotificationSetup';
@@ -48,8 +57,10 @@ import { useAlertGate } from '@/hooks/useAlertGate';
 import { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
 import { useDamAlerts } from '@/hooks/useDamAlerts';
 import {
+  DAM_ALERT_LOAD_FAILED,
   DAM_ALERT_NOTE,
   DAM_ALERT_PROMISE,
+  damAlertCardView,
   damAlertTimes,
   hasDamAlert,
   turnsDamAlertOn,
@@ -65,7 +76,7 @@ interface Props {
 
 export function DamGenerationAlerts({ dam }: Props) {
   const { colors, elevation } = useTheme();
-  const { alerts, ready, save } = useDamAlerts();
+  const { alerts, status, refresh, save } = useDamAlerts();
   const gate = useAlertGate();
   const notificationSetup = useAlertNotificationSetup();
   const { afterSave: checkNotifications, dismiss: dismissNotifications } = notificationSetup;
@@ -73,14 +84,13 @@ export function DamGenerationAlerts({ dam }: Props) {
   // The one switch waiting on a sign-in. A ref: nothing renders from it.
   const pending = useRef<DamAlertChange | null>(null);
 
+  // 'switches' only when the settings are confirmed; see the header.
+  const view = damAlertCardView(status);
   const times = damAlertTimes(alerts, dam.id);
   const alertOn = hasDamAlert(times);
   // The notice draws nothing when this iPhone can receive the alert, so the
   // gap above it is only added when there is something to separate.
   const showsSetup = alertOn && Boolean(notificationSetup.notice || notificationSetup.busy || notificationSetup.error);
-  // Until the saved settings answer, the switches would show "off" for an
-  // alert that may be on. They wait rather than invite a tap on a guess.
-  const loading = !ready;
 
   const apply = useCallback(
     async (change: DamAlertChange) => {
@@ -125,11 +135,11 @@ export function DamGenerationAlerts({ dam }: Props) {
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
       <Switch
         value={value}
-        disabled={gate.busy || loading}
+        disabled={gate.busy}
         onValueChange={() => void apply(change)}
         trackColor={{ true: colors.interactive, false: colors.border }}
         accessibilityLabel={a11y}
-        accessibilityState={{ disabled: gate.busy || loading, busy: gate.busy || loading }}
+        accessibilityState={{ disabled: gate.busy, busy: gate.busy }}
       />
     </View>
   );
@@ -138,27 +148,48 @@ export function DamGenerationAlerts({ dam }: Props) {
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.titleRow}>
         <Text style={[styles.title, { color: colors.text }]}>Alert me about posted generation</Text>
-        {gate.busy || loading ? (
-          <ActivityIndicator
-            size="small"
-            color={colors.textMuted}
-            accessibilityLabel={loading ? 'Loading your alert settings' : 'Saving'}
-          />
+        {gate.busy ? (
+          <ActivityIndicator size="small" color={colors.textMuted} accessibilityLabel="Saving" />
         ) : null}
       </View>
 
-      {row(
-        '1 hour before it starts',
-        times.hourBefore,
-        { hourBefore: !times.hourBefore },
-        `Notify me 1 hour before generation is posted to start at ${dam.name}`,
-      )}
-      <View style={[styles.rule, { backgroundColor: colors.border }]} />
-      {row(
-        'When it’s posted to start',
-        times.atStart,
-        { atStart: !times.atStart },
-        `Notify me when generation is posted to start at ${dam.name}`,
+      {view === 'switches' ? (
+        <>
+          {row(
+            '1 hour before it starts',
+            times.hourBefore,
+            { hourBefore: !times.hourBefore },
+            `Notify me 1 hour before generation is posted to start at ${dam.name}`,
+          )}
+          <View style={[styles.rule, { backgroundColor: colors.border }]} />
+          {row(
+            'When it’s posted to start',
+            times.atStart,
+            { atStart: !times.atStart },
+            `Notify me when generation is posted to start at ${dam.name}`,
+          )}
+        </>
+      ) : view === 'loading' ? (
+        // STILL ASKING. No switches: off would be a guess.
+        <View style={styles.status} accessibilityLiveRegion="polite">
+          <ActivityIndicator size="small" color={colors.textMuted} />
+          <Text style={[styles.statusText, { color: colors.textMuted }]}>Loading your alert settings…</Text>
+        </View>
+      ) : (
+        // ASKED AND FAILED. An alert may be on; say so rather than show off.
+        <View style={styles.status}>
+          <Text accessibilityRole="alert" style={[styles.statusText, { color: colors.text }]}>
+            {DAM_ALERT_LOAD_FAILED}
+          </Text>
+          <Pressable
+            onPress={() => void refresh()}
+            accessibilityRole="button"
+            accessibilityLabel="Try loading alert settings again"
+            style={styles.retry}
+          >
+            <Text style={[styles.retryText, { color: colors.interactive }]}>Try again</Text>
+          </Pressable>
+        </View>
       )}
 
       <Text style={[styles.note, { color: colors.textMuted }]}>{DAM_ALERT_NOTE}</Text>
@@ -208,4 +239,10 @@ const styles = StyleSheet.create({
   note: { ...t.xs, fontFamily: fonts.body, marginTop: 8, lineHeight: 17 },
   // The notice carries its own bottom margin; this is only the gap above it.
   setup: { marginTop: 10 },
+  // Stands where the two switch rows would, at about one row's height, so the
+  // card does not jump much when the settings arrive.
+  status: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: 48 },
+  statusText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
+  retry: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  retryText: { ...t.sm, fontFamily: fonts.semibold },
 });

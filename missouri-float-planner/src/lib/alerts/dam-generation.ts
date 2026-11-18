@@ -195,24 +195,6 @@ export function leadsOf(alert: Pick<DamAlertRow, 'notify_at_start' | 'notify_hou
   return leads;
 }
 
-/**
- * An alert's two times after ONE switch moved: what was sent replaces what is
- * saved, and what was not sent keeps it.
- *
- * This is the rule /api/me/dam-alerts saves by, kept here so it is tested. The
- * app first sent both times from its own copy of the alert; before that copy
- * loaded both read off, so switching one time on cleared the other.
- */
-export function mergeAlertTimes(
-  saved: { atStart: boolean; hourBefore: boolean } | null,
-  change: { atStart?: boolean; hourBefore?: boolean },
-): { atStart: boolean; hourBefore: boolean } {
-  return {
-    atStart: change.atStart ?? saved?.atStart ?? false,
-    hourBefore: change.hourBefore ?? saved?.hourBefore ?? false,
-  };
-}
-
 /** A notice to queue: one alert, one posted start, one lead time. */
 export interface DueNotice {
   alertId: string;
@@ -283,9 +265,10 @@ export function startTimeLabel(startAt: number): string {
  * end of its send window, and never less than a minute.
  *
  * Without it Apple holds an undelivered push for weeks, so a phone that came
- * back into signal that evening would be told generation starts "about an hour
- * from now" hours after it had. The server stops SENDING at the end of the
- * window; this stops the push ARRIVING after it.
+ * back into signal that evening would be buzzed about a 3 PM start long past.
+ * The server stops SENDING at the end of the window; this stops the push
+ * ARRIVING after it. Inside the window a push can still arrive late, which is
+ * why its wording carries no countdown — see buildDamGenerationNotification.
  */
 export function pushTtlSeconds(startAt: number, leadMinutes: number, now: number): number {
   const windowEnd = dueAt(startAt, leadMinutes) + SEND_WINDOW_MINUTES * MINUTE_MS;
@@ -293,22 +276,25 @@ export function pushTtlSeconds(startAt: number, leadMinutes: number, now: number
 }
 
 /**
- * The push itself.
+ * The push itself: the dam, and one sentence.
  *
- * ── The clock time leads ────────────────────────────────────────────────────
- * "3 PM Central: generation is posted to start at the dam." is true whenever
- * it is read. The wait comes after it, as its own short sentence, because a
- * push sits in Notification Center long after it arrives: someone opening it
- * at five must still be able to read off when the start was posted for.
+ * ── Why there is no "about an hour from now" ────────────────────────────────
+ * There was, twice. First worked out from the lead time, then from the clock
+ * when the push was SENT. Both were wrong for the same reason: a push is read
+ * when it ARRIVES, or later. One sent at 2:00 for a 3 PM start may be delivered
+ * at 2:25 — still inside its window, so pushTtlSeconds lets it through — and
+ * then says "about an hour" with thirty-five minutes left. That is the wrong
+ * direction to be wrong in: it is the sentence someone times getting out of the
+ * water against.
  *
- * ── The wait is computed when the push is SENT ──────────────────────────────
- * A notice can go out up to SEND_WINDOW_MINUTES after it fell due. "About an
- * hour from now" on a push that left twenty-five minutes late would be wrong
- * by nearly half, and this is a sentence someone times getting out of the
- * water against. So the relative part is worked out from the clock at send,
- * and pushTtlSeconds keeps it from arriving after its window.
+ * A clock time cannot go stale. "3 PM Central: generation is posted to start
+ * at the dam." is true when it is sent, when it arrives, and when it is opened
+ * from Notification Center that evening. The phone's own timestamp says when
+ * it came in. So the "hour before" push and the "at the start" push read the
+ * same, by design: each states the one fact, and neither makes a claim about
+ * how long is left that delivery could falsify.
  *
- * ── Every sentence names the place and the source ───────────────────────────
+ * ── Every word names the place and the source ───────────────────────────────
  * "Posted" because this reads a schedule and has not looked at the powerhouse;
  * "at the dam" because the water reaches an access downstream later, and
  * nothing here knows how much later; "Central" because the schedule is in the
@@ -317,22 +303,9 @@ export function pushTtlSeconds(startAt: number, leadMinutes: number, now: number
 export function buildDamGenerationNotification(input: {
   damName: string;
   startAt: number;
-  leadMinutes: LeadMinutes;
-  now: number;
 }): { title: string; body: string } {
-  const time = `${startTimeLabel(input.startAt)} Central`;
-  const minutesUntil = Math.round((input.startAt - input.now) / MINUTE_MS);
-
-  let body: string;
-  if (minutesUntil >= 50) {
-    body = `${time}: generation is posted to start at the dam. About an hour from now.`;
-  } else if (minutesUntil >= 10) {
-    body = `${time}: generation is posted to start at the dam. In about ${Math.round(minutesUntil / 5) * 5} minutes.`;
-  } else if (minutesUntil > -10) {
-    body = `${time}: generation is posted to start at the dam. That is now.`;
-  } else {
-    body = `${time}: generation was posted to start at the dam.`;
-  }
-
-  return { title: input.damName, body };
+  return {
+    title: input.damName,
+    body: `${startTimeLabel(input.startAt)} Central: generation is posted to start at the dam.`,
+  };
 }

@@ -404,12 +404,7 @@ export async function deliverDamGenerationAlerts(
         continue;
       }
 
-      const notification = buildDamGenerationNotification({
-        damName: dam.name,
-        startAt,
-        leadMinutes: row.lead_minutes as LeadMinutes,
-        now: nowMs,
-      });
+      const notification = buildDamGenerationNotification({ damName: dam.name, startAt });
 
       for (const token of tokensByUser.get(row.user_id) ?? []) {
         planned.push({
@@ -419,8 +414,8 @@ export async function deliverDamGenerationAlerts(
             body: notification.body,
             sound: 'default',
             priority: 'default',
-            // Dies with its send window, so a phone that was offline is not
-            // told "about an hour from now" after the start.
+            // Dies with its send window, so a phone that was offline all
+            // afternoon is not buzzed that evening about a start long past.
             ttl: pushTtlSeconds(startAt, row.lead_minutes, nowMs),
             data: {
               eventId: row.id,

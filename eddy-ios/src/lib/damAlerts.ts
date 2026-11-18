@@ -27,7 +27,8 @@ export const NO_DAM_ALERT: DamAlertTimes = { atStart: false, hourBefore: false }
  * While that copy was still loading both read off, so switching "an hour
  * before" on sent `atStart: false` with it and silently cleared a saved "at
  * the start". The server holds the truth, so the app now says only what the
- * person changed and the server keeps the rest (mergeAlertTimes there).
+ * person changed and the server keeps the rest, in one atomic database call
+ * (set_dam_generation_alert there).
  */
 export type DamAlertChange = Partial<DamAlertTimes>;
 
@@ -54,7 +55,52 @@ export const DAM_ALERT_NOTE =
 /** What the push primer promises, completing "Eddy sends a notification …". */
 export const DAM_ALERT_PROMISE = 'when generation is posted to start at the dam';
 
-/** The times set for one dam; both false when it has no alert, or the list has not loaded. */
+/**
+ * What the app knows about the caller's dam alerts.
+ *
+ * - `loading`: asked, not answered. Nothing is known yet.
+ * - `signed-out`: no account, so no alert can exist. Both switches off is the
+ *   truth, and a tap opens sign-in.
+ * - `loaded`: the server answered. What is held is confirmed.
+ * - `failed`: the server could not be asked. NOTHING is known — an alert may
+ *   well be on.
+ *
+ * `failed` used to be folded into "ready": the provider marked itself ready
+ * whatever the first request said, so a dropped request drew both switches
+ * off and editable over an alert that was still set on the server. Off is a
+ * claim, and only `signed-out` and `loaded` can make it.
+ */
+export type DamAlertsStatus = 'loading' | 'signed-out' | 'loaded' | 'failed';
+
+/**
+ * The status after a load ends.
+ *
+ * A failure AFTER a successful load keeps `loaded`: the held list was
+ * confirmed and a failed refresh does not unconfirm it. A failure with nothing
+ * confirmed is `failed`.
+ */
+export function statusAfterLoad(
+  outcome: 'signed-out' | 'loaded' | 'failed',
+  confirmedBefore: boolean,
+): DamAlertsStatus {
+  if (outcome === 'failed') return confirmedBefore ? 'loaded' : 'failed';
+  return outcome;
+}
+
+/**
+ * What the dam card draws: the two switches only when their values are
+ * confirmed. Otherwise it says which it is — still asking, or could not ask.
+ */
+export function damAlertCardView(status: DamAlertsStatus): 'switches' | 'loading' | 'failed' {
+  if (status === 'loading') return 'loading';
+  if (status === 'failed') return 'failed';
+  return 'switches';
+}
+
+/** Said in place of the switches when the settings could not be loaded. */
+export const DAM_ALERT_LOAD_FAILED = 'Couldn’t load alert settings.';
+
+/** The times set for one dam; both false when it has no alert. Read it only for a confirmed list. */
 export function damAlertTimes(
   alerts: readonly DamGenerationAlert[] | null,
   damId: string,

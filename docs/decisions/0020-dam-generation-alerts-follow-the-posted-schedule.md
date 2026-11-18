@@ -33,11 +33,26 @@ first two rows.
    "Not decided here").
 2. **Two times, either or both:** at the posted start, and one hour before it.
    One alert per person per dam, shown as two switches on the dam screen. There
-   is no paused state: both off deletes the alert. **A switch saves only
-   itself.** The app sends the one time that moved and the server keeps the
-   other (`mergeAlertTimes`); the switches also wait for the saved settings
-   before accepting a tap. Sending both from the app's own copy let a tap made
-   before that copy loaded clear the other switch.
+   is no paused state: both off deletes the alert.
+   - **A switch saves only itself.** The app sends the one time that moved.
+     Sending both from the app's own copy let a tap made before that copy
+     loaded clear the other switch.
+   - **The merge is one atomic database call.** `PUT /api/me/dam-alerts` calls
+     `set_dam_generation_alert`, which reads, merges and writes (or deletes) in
+     one transaction behind an advisory lock on (user, dam). The route first
+     did the merge itself in three round trips, and two simultaneous requests
+     enabling different switches lost one. Checked on Postgres 16.15 when
+     written: with the old shape a switch was lost in 20 of 20 simultaneous
+     rounds, with the function in 0 of 200, and a second call waited for the
+     first transaction to commit. `src/lib/dam-alerts-route.test.ts` fires
+     simultaneous requests through the real handler and fails if a save makes
+     any database call but that one; it runs on PGlite, which is a single
+     connection, so the parallel-connection check above is not repeated in CI.
+   - **Only confirmed settings are drawn.** The card shows the switches when
+     the server has answered or there is no account. While loading it says so;
+     when the settings could not be loaded it says "Couldn't load alert
+     settings." with Try again, and never draws switches off over an alert that
+     may be on.
 3. **Every posted start, not only the day's first.** A start is an hour with
    generation scheduled that follows a known hour without it, tested through
    `scheduledGeneration()` so minimum-flow hours are neither a start nor hide
@@ -48,11 +63,14 @@ first two rows.
 5. **Late is dropped, on the server and on the phone.** A notice may go out up
    to 30 minutes after it falls due (slack for a failed pass); after that it is
    not sent. The push carries a `ttl` that ends with the same window, so a
-   phone that was offline is not handed it afterwards. The clock time leads
-   ("3 PM Central: generation is posted to start at the dam.") so the push
-   still reads correctly in Notification Center later; the wait that follows
-   ("About an hour from now.", "In about 35 minutes.") is computed when it is
-   sent.
+   phone that was offline is not handed it afterwards.
+   - **The push is one sentence with a clock time and no countdown:** "3 PM
+     Central: generation is posted to start at the dam." A wait ("about an hour
+     from now") was tried twice, computed from the lead and then from the send
+     time, and was wrong both ways: a push sent at 2:00 can be delivered at
+     2:25, inside its window, and would overstate the time left. A clock time
+     is true when sent, when delivered and when read later. The "hour before"
+     and "at the start" pushes therefore read the same.
 6. **Free**, like the rest of alerting. The schedule is free data; a permanent
    account is needed only so there is a device to push to.
 7. **Only dams SWPA schedules.** The dam screen shows the switches where the

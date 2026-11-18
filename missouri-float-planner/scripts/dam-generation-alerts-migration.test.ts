@@ -119,6 +119,60 @@ test('a person reads and changes only their own alert, and needs a permanent acc
   assert.equal(removed.rows.length, 1);
 });
 
+const setAlert = (atStart: boolean | null, hourBefore: boolean | null) =>
+  `SELECT notify_at_start, notify_hour_before FROM set_dam_generation_alert('${DAM}', ${atStart}, ${hourBefore})`;
+
+test('set_dam_generation_alert changes the switch it is given and keeps the other', async () => {
+  const db = await fixture();
+  const times = (rows: Array<Record<string, unknown>>) => rows.map((r) => [r.notify_at_start, r.notify_hour_before]);
+
+  assert.deepEqual(times((await as(db, USER_A, true, setAlert(true, null))).rows), [[true, false]]);
+  // The reported sequence: "at the start" saved, then "an hour before" on.
+  assert.deepEqual(times((await as(db, USER_A, true, setAlert(null, true))).rows), [[true, true]]);
+  assert.deepEqual(times((await as(db, USER_A, true, setAlert(false, null))).rows), [[false, true]]);
+  // Both sent: both taken.
+  assert.deepEqual(times((await as(db, USER_A, true, setAlert(true, false))).rows), [[true, false]]);
+
+  // Both end up off: no row comes back and none is left. Never a row with neither time.
+  assert.deepEqual((await as(db, USER_A, true, setAlert(false, null))).rows, []);
+  const left = await db.query<{ n: number }>('SELECT count(*)::int AS n FROM dam_generation_alerts');
+  assert.equal(left.rows[0].n, 0);
+  // Switching off an alert that does not exist is a no-op, not an error.
+  assert.deepEqual((await as(db, USER_A, true, setAlert(null, false))).rows, []);
+});
+
+test('set_dam_generation_alert acts only on the caller, under the same policies', async () => {
+  const db = await fixture();
+  await as(db, USER_B, true, setAlert(true, true));
+  await as(db, USER_A, true, setAlert(null, true));
+  const rows = await db.query<{ user_id: string; a: boolean; b: boolean }>(
+    'SELECT user_id, notify_at_start AS a, notify_hour_before AS b FROM dam_generation_alerts ORDER BY user_id',
+  );
+  assert.deepEqual(rows.rows, [
+    { user_id: USER_A, a: false, b: true },
+    { user_id: USER_B, a: true, b: true },
+  ]);
+
+  // An anonymous session cannot switch a time on, and can switch its last one off.
+  await assert.rejects(as(db, USER_A, false, setAlert(true, null)), /row-level security/);
+  assert.deepEqual((await as(db, USER_A, false, setAlert(null, false))).rows, []);
+
+  // Nothing to change, and nobody to change it for, are refused.
+  await assert.rejects(as(db, USER_A, true, setAlert(null, null)), /nothing to change/);
+  await db.exec(`SET test.uid = ''; SET ROLE authenticated;`);
+  try {
+    await assert.rejects(db.query(setAlert(true, null)), /not authenticated/);
+  } finally {
+    await db.exec('RESET ROLE;');
+  }
+  await db.exec('SET ROLE anon;');
+  try {
+    await assert.rejects(db.query(setAlert(true, null)), /permission denied/);
+  } finally {
+    await db.exec('RESET ROLE;');
+  }
+});
+
 test('the outbox is server-only', async () => {
   const db = await fixture();
   await assert.rejects(as(db, USER_A, true, 'SELECT * FROM dam_generation_alert_events'), /permission denied/);

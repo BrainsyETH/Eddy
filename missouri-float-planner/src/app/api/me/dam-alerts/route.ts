@@ -12,7 +12,16 @@
 // THAT MOVED. The other keeps whatever the server holds. It first sent both,
 // read from its own copy of the alert — and before that copy had loaded, both
 // read off, so switching "an hour before" on silently cleared a saved "at the
-// start". The server holds the truth, so the server does the merge.
+// start".
+//
+// ── The merge is one database call, not three ──────────────────────────────
+// This route then did the merge itself: read both times, combine, write both
+// back. Two requests enabling different switches at once each read before the
+// other wrote, and the second write cleared the first. So PUT makes exactly ONE
+// call, set_dam_generation_alert (migration 20261117230000), which reads,
+// merges and writes — or deletes, when both end up off — in one transaction
+// behind a lock on (user, dam). Do not add a read or a second write around it:
+// src/lib/dam-alerts-route.test.ts fires simultaneous requests and counts.
 //
 // Both ending up off deletes the row — an alert with no time to fire at is not
 // a paused alert, it is nothing — and the response says so with `alert: null`.
@@ -34,7 +43,6 @@ import { jsonPrivate } from '@/lib/api-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import { requirePermanentUser, requireUser } from '@/lib/supabase/request';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
-import { mergeAlertTimes } from '@/lib/alerts/dam-generation';
 import type { DamGenerationAlert, DamGenerationAlertResponse, DamGenerationAlertsResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
@@ -128,77 +136,41 @@ export async function PUT(request: NextRequest) {
       return jsonPrivate({ error: 'Send atStart, hourBefore or both, as true or false' }, { status: 400 });
     }
     const damId = body.damId;
+    const atStart = typeof body.atStart === 'boolean' ? body.atStart : null;
+    const hourBefore = typeof body.hourBefore === 'boolean' ? body.hourBefore : null;
 
-    // What is saved now. The switch that was not sent keeps this value.
-    const { data: existing, error: readError } = await supabase
-      .from('dam_generation_alerts')
-      .select(SELECT)
-      .eq('user_id', user.id)
-      .eq('dam_id', damId)
-      .maybeSingle();
-    if (readError) {
-      if (tableMissing(readError)) {
+    // Checked only when a time is being switched ON. Switching off must work
+    // for a dam that has since left the registry, as DELETE does.
+    if (atStart === true || hourBefore === true) {
+      const dam = getUsaceDam(damId);
+      if (!dam) return jsonPrivate({ error: 'Dam not found' }, { status: 404 });
+      if (!dam.swpaCode) {
+        return jsonPrivate(
+          { error: 'This dam has no posted generation schedule to alert on.' },
+          { status: 422 },
+        );
+      }
+    }
+
+    // The one database call. A null argument leaves that switch as it is.
+    const { data, error } = await supabase.rpc('set_dam_generation_alert', {
+      p_dam_id: damId,
+      p_at_start: atStart,
+      p_hour_before: hourBefore,
+    });
+
+    if (error) {
+      // Deployed ahead of its migration: the function is not there yet.
+      if (error.code === 'PGRST202' || error.code === '42883' || tableMissing(error)) {
         return jsonPrivate({ error: 'Dam alerts are not available yet. Try again soon.' }, { status: 503 });
       }
-      console.error('Error reading dam alert:', readError);
-      return jsonPrivate({ error: 'Could not change that alert' }, { status: 500 });
-    }
-    const current = existing as unknown as Row | null;
-    const { atStart, hourBefore } = mergeAlertTimes(
-      current ? { atStart: current.notify_at_start, hourBefore: current.notify_hour_before } : null,
-      {
-        ...(typeof body.atStart === 'boolean' ? { atStart: body.atStart } : {}),
-        ...(typeof body.hourBefore === 'boolean' ? { hourBefore: body.hourBefore } : {}),
-      },
-    );
-
-    // Both off: there is no alert. Not validated against the registry, for the
-    // reason DELETE is not — removing must work for a dam that has since left.
-    if (!atStart && !hourBefore) {
-      if (current) {
-        const { error } = await supabase
-          .from('dam_generation_alerts')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('dam_id', damId);
-        if (error) {
-          console.error('Error removing dam alert:', error);
-          return jsonPrivate({ error: 'Could not change that alert' }, { status: 500 });
-        }
-      }
-      return jsonPrivate({ alert: null } satisfies DamGenerationAlertResponse);
-    }
-
-    const dam = getUsaceDam(damId);
-    if (!dam) return jsonPrivate({ error: 'Dam not found' }, { status: 404 });
-    if (!dam.swpaCode) {
-      return jsonPrivate(
-        { error: 'This dam has no posted generation schedule to alert on.' },
-        { status: 422 },
-      );
-    }
-
-    const { data, error } = await supabase
-      .from('dam_generation_alerts')
-      .upsert(
-        {
-          user_id: user.id,
-          dam_id: damId,
-          notify_at_start: atStart,
-          notify_hour_before: hourBefore,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,dam_id' },
-      )
-      .select(SELECT)
-      .single();
-
-    if (error || !data) {
       console.error('Error saving dam alert:', error);
       return jsonPrivate({ error: 'Could not save that alert' }, { status: 500 });
     }
 
-    return jsonPrivate({ alert: toAlert(data as unknown as Row) } satisfies DamGenerationAlertResponse);
+    // setof: one row when an alert remains, none when both times are off.
+    const row = (Array.isArray(data) ? data[0] : data) as Row | null | undefined;
+    return jsonPrivate({ alert: row ? toAlert(row) : null } satisfies DamGenerationAlertResponse);
   } catch (error) {
     console.error('Error saving dam alert:', error);
     return jsonPrivate({ error: 'Internal server error' }, { status: 500 });

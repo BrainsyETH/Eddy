@@ -214,7 +214,12 @@ function AlertsContent() {
   } = useAlertRules();
   // Dam generation alerts: "Mine" too, but not AlertRules — see useDamAlerts.
   // They follow the rules in the list and are counted with them.
-  const { alerts: damAlerts, refresh: refreshDamAlerts, remove: removeDamAlert } = useDamAlerts();
+  const {
+    alerts: damAlerts,
+    status: damAlertsStatus,
+    refresh: refreshDamAlerts,
+    remove: removeDamAlert,
+  } = useDamAlerts();
   const notificationSetup = useAlertNotificationSetup();
   const { afterSave: checkSavedNotifications, dismiss: dismissNotifications } = notificationSetup;
   const rulesList = useRef<FlatList<AlertRuleGroup>>(null);
@@ -409,6 +414,9 @@ function AlertsContent() {
   // for what was wrong with four cards all called "Current River".
   const ruleGroups = useMemo(() => groupAlertRules(rules ?? []), [rules]);
   const damRows = damAlerts ?? [];
+  // The dam alerts could not be asked for. Their rows are then missing, not
+  // absent, and a list that simply left them out would say "none set".
+  const damAlertsUnknown = damAlertsStatus === 'failed';
 
   /** Delete a dam alert from the swipe. The hook puts the row back on failure. */
   const removeDam = useCallback(
@@ -516,7 +524,9 @@ function AlertsContent() {
           so the second word was the title again, and the three labels only
           have to differ from each other. */}
       <View style={styles.toggleRow} accessibilityRole="tablist">
-        {segmentButton('rules', 'Mine', rulesReady && rules ? rules.length + damRows.length : null)}
+        {/* No count while the dam alerts are unknown: it would be a total with a
+            part missing, and "null is not zero" (see segmentButton). */}
+        {segmentButton('rules', 'Mine', rulesReady && rules && !damAlertsUnknown ? rules.length + damRows.length : null)}
         {segmentButton('high-water', 'Running high', highWater?.length ?? null)}
         {segmentButton('notices', 'Notices', notices?.length ?? null)}
       </View>
@@ -582,8 +592,23 @@ function AlertsContent() {
           // Dam alerts follow the rules. With only dam alerts the list is not
           // empty, so "No alerts yet" must not sit above them.
           ListFooterComponent={
-            damRows.length > 0 ? (
+            damRows.length > 0 || damAlertsUnknown ? (
               <View>
+                {damAlertsUnknown ? (
+                  <View style={styles.damAlertsFailed}>
+                    <Text accessibilityRole="alert" style={[styles.caption, { color: colors.textMuted }]}>
+                      Couldn’t load your dam alerts. Any you set are still on.
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Try loading dam alerts again"
+                      style={styles.emptyRetry}
+                      onPress={() => void refreshDamAlerts()}
+                    >
+                      <Text style={[styles.emptyRetryText, { color: colors.interactive }]}>Try again</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
                 {damRows.map((alert) => (
                   <SwipeRow
                     key={alert.damId}
@@ -902,6 +927,7 @@ const styles = StyleSheet.create({
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
   // 44pt, so the one control on a failed load is a real tap target.
   emptyRetry: { marginTop: 14, minHeight: 44, justifyContent: 'center' },
+  damAlertsFailed: { marginHorizontal: 20, marginBottom: 10, alignItems: 'flex-start' },
   emptyRetryText: { ...t.sm, fontFamily: fonts.semibold },
   sectionHeader: {
     flexDirection: 'row',

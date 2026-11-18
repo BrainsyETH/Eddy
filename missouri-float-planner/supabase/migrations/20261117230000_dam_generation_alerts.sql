@@ -8,7 +8,8 @@
 -- One row per person per dam, with the two times they can be told about a
 -- posted start: at the posted time, an hour before it, or both. There is no
 -- `enabled` column. A row with neither time would be an alert that can never
--- fire, so the route deletes the row instead and the CHECK refuses it.
+-- fire, so set_dam_generation_alert deletes the row instead and the CHECK
+-- refuses it.
 --
 -- ── Why dam_id is text with no foreign key ──────────────────────────────────
 -- Same reason as starred_dams (00206): dams are read through from CWMS and
@@ -62,6 +63,84 @@ create policy dam_generation_alerts_update_own on public.dam_generation_alerts
 
 create policy dam_generation_alerts_delete_own on public.dam_generation_alerts
   for delete to authenticated using (user_id = (select auth.uid()));
+
+-- ── Changing an alert is ONE database call ──────────────────────────────────
+-- The dam screen has two switches and the app sends only the one that moved.
+-- Something has to combine that with the switch that did not move, and it has
+-- to be here. The route first did it in three round trips (read both, merge,
+-- write both), and two requests enabling different switches at the same moment
+-- each read the alert before the other wrote: the second write put the first
+-- switch back off.
+--
+-- So the read, the merge and the write (or the delete, when both end up off)
+-- happen in this function, in one transaction, behind a lock on (user, dam).
+-- The advisory lock rather than SELECT ... FOR UPDATE because the case that
+-- matters most has no row to lock yet: two first-ever switches at once.
+--
+-- A NULL argument means "leave that switch as it is". Returns the saved row,
+-- or no row when the alert is gone.
+--
+-- SECURITY INVOKER: it runs as the caller, so the policies above still decide
+-- what may be written. An anonymous session can switch its last time off (the
+-- delete policy allows it) and cannot switch one on (the insert and update
+-- policies do not).
+create function public.set_dam_generation_alert(
+  p_dam_id      text,
+  p_at_start    boolean default null,
+  p_hour_before boolean default null
+)
+returns setof public.dam_generation_alerts
+language plpgsql
+security invoker
+set search_path = public, pg_temp
+as $$
+declare
+  v_user        uuid := (select auth.uid());
+  v_saved       public.dam_generation_alerts;
+  v_at_start    boolean;
+  v_hour_before boolean;
+begin
+  if v_user is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+  if p_at_start is null and p_hour_before is null then
+    raise exception 'nothing to change: pass p_at_start, p_hour_before or both' using errcode = '22023';
+  end if;
+
+  -- Held to the end of the transaction. A second call for the same person and
+  -- dam waits here, and reads the alert only after this one has committed.
+  perform pg_advisory_xact_lock(hashtextextended('dam_generation_alert:' || v_user::text || ':' || p_dam_id, 0));
+
+  select * into v_saved
+    from public.dam_generation_alerts
+   where user_id = v_user and dam_id = p_dam_id;
+
+  v_at_start    := coalesce(p_at_start, v_saved.notify_at_start, false);
+  v_hour_before := coalesce(p_hour_before, v_saved.notify_hour_before, false);
+
+  -- Both off: there is no alert. Never a row with neither time.
+  if not v_at_start and not v_hour_before then
+    delete from public.dam_generation_alerts
+     where user_id = v_user and dam_id = p_dam_id;
+    return;
+  end if;
+
+  return query
+    insert into public.dam_generation_alerts as alert (user_id, dam_id, notify_at_start, notify_hour_before)
+    values (v_user, p_dam_id, v_at_start, v_hour_before)
+    on conflict (user_id, dam_id) do update
+      set notify_at_start    = excluded.notify_at_start,
+          notify_hour_before = excluded.notify_hour_before,
+          updated_at         = now()
+    returning alert.*;
+end;
+$$;
+
+comment on function public.set_dam_generation_alert(text, boolean, boolean) is
+  'Change one or both times of the caller''s dam generation alert atomically; NULL leaves a time unchanged, both off deletes. Called by PUT /api/me/dam-alerts. See ADR 0020.';
+
+revoke all on function public.set_dam_generation_alert(text, boolean, boolean) from public, anon;
+grant execute on function public.set_dam_generation_alert(text, boolean, boolean) to authenticated, service_role;
 
 -- ── The outbox ──────────────────────────────────────────────────────────────
 -- One row per (alert, posted start, lead time). The unique constraint is the

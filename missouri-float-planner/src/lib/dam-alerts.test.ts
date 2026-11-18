@@ -4,12 +4,15 @@ import type { DamGenerationAlert } from '@eddy/types';
 import {
   applyDamAlert,
   changedDamAlertTimes,
+  DAM_ALERT_LOAD_FAILED,
   DAM_ALERT_NOTE,
+  damAlertCardView,
   damAlertSummary,
   damAlertTimes,
   hasDamAlert,
   NO_DAM_ALERT,
   reconcileDamAlert,
+  statusAfterLoad,
   turnsDamAlertOn,
 } from '../../../eddy-ios/src/lib/damAlerts';
 import { notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
@@ -58,6 +61,27 @@ test('switching both times off removes the alert rather than pausing it', () => 
   const other = alert({ damId: 'swl-norfork-dam', damName: 'Norfork Dam' });
   const next = applyDamAlert([alert(), other], TABLE_ROCK, NO_DAM_ALERT, NOW);
   assert.deepEqual(next.map((a) => a.damId), ['swl-norfork-dam']);
+});
+
+test('a failed first load is not an answer: the card offers retry instead of switches', () => {
+  // The reported bug: the request failed, the provider called itself ready,
+  // and both switches read off and editable over an alert still on.
+  assert.equal(statusAfterLoad('failed', false), 'failed');
+  assert.equal(damAlertCardView('failed'), 'failed');
+  assert.equal(DAM_ALERT_LOAD_FAILED, 'Couldn’t load alert settings.');
+});
+
+test('switches are drawn only for confirmed settings', () => {
+  assert.equal(damAlertCardView('loading'), 'loading');
+  assert.equal(damAlertCardView('loaded'), 'switches');
+  // No account can hold no alert, so off is the truth and a tap opens sign-in.
+  assert.equal(damAlertCardView('signed-out'), 'switches');
+  assert.equal(statusAfterLoad('loaded', false), 'loaded');
+  assert.equal(statusAfterLoad('signed-out', true), 'signed-out');
+});
+
+test('a failed refresh keeps a list the server already confirmed', () => {
+  assert.equal(statusAfterLoad('failed', true), 'loaded');
 });
 
 test('a switch changes only its own time in what the app shows', () => {
