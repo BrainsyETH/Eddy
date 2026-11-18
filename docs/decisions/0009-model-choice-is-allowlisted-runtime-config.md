@@ -1,7 +1,8 @@
 # 0009 — Model choice is runtime config, bounded by a code-side allowlist
 
 Status: **accepted — implemented** · 2026-08 · amended 2026-11 (second provider,
-test-only models, cross-provider fallback)
+test-only models, cross-provider fallback, per-pass cut-off, OpenAI models
+approved for every workload)
 
 Which model writes each kind of generated copy is stored in a private
 `llm_config` row and edited from `/admin/ai-models`, but the set of models that
@@ -91,8 +92,8 @@ balance. Three things follow from that, and each is a rule rather than a detail.
    [`src/lib/ai/generate-text.ts`](../../missouri-float-planner/src/lib/ai/generate-text.ts).
    A generator that still builds an Anthropic request itself would send any other
    provider's id to Anthropic, so each workload declares its `providers` and
-   `no-hardcoded-models.test.ts` checks that declaration against the code. Today
-   only river and section updates go through the adapter.
+   `no-hardcoded-models.test.ts` checks that declaration against the code. All
+   four workloads go through the adapter as of 2026-11-18.
 3. **Token counts are stored in one convention.** Anthropic's `input_tokens`
    excludes cache reads and writes; OpenAI's includes them. `src/lib/ai/usage.ts`
    converts OpenAI's to four disjoint buckets before anything is stored or
@@ -164,23 +165,64 @@ three in ten stored rows lack one when this was written), so requiring them
 there would replace reports that are published today. Bringing that workload
 under the rule is a separate decision about its prompt.
 
-## Not yet done, and required before approving another provider's model
+## A failing provider is dropped for the rest of the pass (2026-11-18)
 
-The fallback has no deadline for the whole pass. An OpenAI call may take its full
-timeout and one retry before the code default is tried, the daily pass runs three
-targets at a time inside a five-minute limit, and a sustained OpenAI outage could
-spend that limit on timeouts and leave most rivers unwritten. An exhausted balance
-is refused at once and does not have this problem; a hang does. Before any OpenAI
-model is approved for production: a per-pass cut-off that sends remaining targets
-straight to the code default after repeated failures, shorter bounded call
-deadlines, and a simulated-outage test. A successful live pass does not establish
-this.
+The fallback alone has no deadline for the whole pass. An exhausted balance is
+refused at once, so it costs nothing to fall back from. A provider that hangs is
+different: each target waits out the call timeout before its fallback starts, the
+daily pass runs three targets at a time inside a five-minute limit, and a
+sustained outage would spend that limit on timeouts and leave most rivers
+unwritten.
 
-The panel offers only the newest recorded report per river or section. Choosing a
-model on that is choosing it on whatever the water was doing that day. A saved set
-covering low, normal, high, dangerous, flood-alert and sparse-knowledge cases is
-also owed before approval; it has to outlive the generation log's 180-day pruning,
-so it needs its own storage.
+So a pass counts consecutive failed calls per provider
+([`pass-health.ts`](../../missouri-float-planner/src/lib/ai/pass-health.ts)), and
+after two stops calling that provider: every remaining target goes straight to its
+fallback. An OpenAI call is bounded at thirty seconds with no retry, because the
+fallback is the retry. Together these cap what an outage costs a pass at about one
+timeout. `attempts.test.ts` simulates the outage: thirty-one targets, three at a
+time, OpenAI hanging; at most four OpenAI calls are made and every river is
+written by the code default.
+
+Three choices in that rule are deliberate.
+
+- **Only a failed call counts.** A timeout, a network error, a 4xx or 5xx. An
+  answer the generator judged unusable (empty, cut off, missing a block) is about
+  one answer from a provider that is plainly up, and it resets the count.
+- **Two, not one.** A single transient error costs one fallback, not the provider
+  for the whole pass.
+- **For the rest of the pass, with no timer.** A pass is short. The next one
+  starts with a fresh record and tries the provider again.
+
+Every generator runs its attempts through one loop
+([`attempts.ts`](../../missouri-float-planner/src/lib/ai/attempts.ts)), because a
+generator with its own loop would fall back and still wait out a timeout on every
+target. `no-hardcoded-models.test.ts` checks that none does.
+
+## The OpenAI models are approved on the owner's decision (2026-11-18)
+
+GPT-6.2 Sol, GPT-6.1 Terra and GPT-6 Luna are approved for all four workloads.
+That is a different basis from the Claude entries, which were approved after
+someone read their output for that workload: the owner asked for them to be
+selectable everywhere, so each can be judged on real output in production rather
+than only replayed in the panel. The registry records this above
+`WORKLOAD_SPECS` so the list does not imply a reading that did not happen.
+
+What stands behind it: every OpenAI selection falls back to the workload's Claude
+default, a failing provider is dropped for the rest of the pass, river reports
+must be whole to be published, and captions still pass the accuracy lint.
+
+Two things are knowingly not in place.
+
+- The test panel replays river and section reports only. There is no replay for
+  gauge updates, the statewide summary or captions, so an OpenAI model's first
+  output for those is seen in production.
+- GPT-6 Luna is OpenAI's smallest tier and is selectable for the statewide
+  summary and captions, where Haiku, Anthropic's smallest, is deliberately absent.
+  That exclusion was not found wrong; the two are simply not consistent today.
+
+A saved sample set covering low, normal, high, dangerous, flood-alert and
+sparse-knowledge cases was proposed as a condition of approval and was not built.
+The panel still offers only the newest recorded report per river or section.
 
 ## What this does not cover
 

@@ -49,7 +49,8 @@ test('the test panel baseline follows production config, including its safe defa
     ['claude-sonnet-5', 'claude-sonnet-5'],
     ['claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001'],
     ['unrecognised-model', defaultId],
-    ['gpt-6.2-sol', defaultId],
+    // An OpenAI selection is the production model, so it is the baseline.
+    ['gpt-6.2-sol', 'gpt-6.2-sol'],
   ]) {
     stored = selection;
     const response = await GET(new NextRequest('http://localhost/api/admin/ai-models/test', {

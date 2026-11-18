@@ -33,7 +33,9 @@
 // /admin/ai-models may call from its test panel and nothing else: the panel
 // replays a recorded prompt and publishes nothing, so it is how a model's
 // output gets read BEFORE it is approved. Moving an id from `testable` to
-// `approved` is the code change that says someone did.
+// `approved` is the code change that says someone did, or that the owner chose
+// to approve it on another basis; the note above WORKLOAD_SPECS says which.
+// Every `testable` list is empty today. The tier is kept for the next model.
 //
 // SDK-free and DB-free on purpose: the compatibility rules are the part worth
 // testing, and nothing in this repo mocks a model SDK or Supabase.
@@ -165,9 +167,10 @@ export interface WorkloadSpec {
   description: string;
   /**
    * Providers this workload's generator can call. A workload joins a provider
-   * when its call site goes through src/lib/ai/generate-text.ts; until then its
-   * generator builds an Anthropic request directly, and handing it another
-   * provider's model id would send that id to the wrong API.
+   * when its call site goes through src/lib/ai/generate-text.ts. All four do
+   * now. The field stays because the rule does: a new workload whose generator
+   * builds one provider's request itself must say so here, or handing it
+   * another provider's model id would send that id to the wrong API.
    */
   providers: Provider[];
   /** Used when llm_config holds NULL for this workload. Must match production today. */
@@ -212,6 +215,23 @@ export interface WorkloadSpec {
 // well as the report, so it is several times larger; a cap is a ceiling, not a
 // spend. The test panel reports output and reasoning tokens for every run,
 // which is the measurement these numbers are waiting on.
+//
+// ── The OpenAI models are approved on the owner's decision ─────────────────
+//
+// On 2026-11-18 the three OpenAI models were approved for all four workloads at
+// the owner's request, so each can be selected and judged in production rather
+// than only replayed in the test panel. That is a different basis from the
+// Claude entries, which were approved after someone read their output for that
+// workload, and the difference is recorded here so the list does not imply
+// more than happened. What stands behind an OpenAI selection instead: every one
+// falls back to the workload's Claude default when its call fails or returns
+// nothing usable, and a failing provider is dropped for the rest of the pass
+// (src/lib/ai/pass-health.ts).
+//
+// GPT-6 Luna is OpenAI's smallest tier. Haiku, Anthropic's, is still absent
+// from the statewide summary and the captions for the reason given at each;
+// Luna is listed there because the owner asked for no gaps, not because that
+// reasoning was found wrong.
 export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
   river_update: {
     label: 'River and section updates',
@@ -221,10 +241,15 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
     // Haiku cannot cache this workload's ~1.6k-token system prompt because its
     // cache floor is 4096 tokens. resolve-models disables the breakpoint for
     // that pairing while preserving prompt caching for Sonnet.
-    approved: ['claude-sonnet-4-6', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
-    // Callable from the test panel, not selectable. Nobody has read their
-    // river reports yet; that is what the panel is for.
-    testable: ['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6-luna'],
+    approved: [
+      'claude-sonnet-4-6',
+      'claude-sonnet-5',
+      'claude-haiku-4-5-20251001',
+      'gpt-6.2-sol',
+      'gpt-6.1-terra',
+      'gpt-6-luna',
+    ],
+    testable: [],
     maxTokens: {
       'claude-sonnet-4-6': 800,
       'claude-sonnet-5': 1040, // provisional
@@ -239,47 +264,63 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
   gauge_update: {
     label: 'Secondary gauge updates',
     description: 'Per-gauge commentary for gauges other than a river’s primary.',
-    providers: ['anthropic'],
+    providers: ['anthropic', 'openai'],
     default: 'claude-haiku-4-5-20251001',
     // Haiku is approved here because it is what this workload already runs.
-    approved: ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-sonnet-5'],
+    approved: [
+      'claude-haiku-4-5-20251001',
+      'claude-sonnet-4-6',
+      'claude-sonnet-5',
+      'gpt-6.2-sol',
+      'gpt-6.1-terra',
+      'gpt-6-luna',
+    ],
     testable: [],
     maxTokens: {
       'claude-haiku-4-5-20251001': 600,
       'claude-sonnet-4-6': 600,
       'claude-sonnet-5': 780, // provisional
+      'gpt-6.2-sol': 3000, // provisional; includes reasoning tokens
+      'gpt-6.1-terra': 750, // provisional
+      'gpt-6-luna': 750, // provisional
     },
     cacheSystemPrompt: false,
   },
   global_summary: {
     label: 'Statewide summary',
     description: 'The one-paragraph overview across all covered rivers.',
-    providers: ['anthropic'],
+    providers: ['anthropic', 'openai'],
     default: 'claude-sonnet-4-6',
     // Haiku is deliberately absent: this is the copy that leads with flood and
     // safety framing when conditions are dangerous, and no one has read Haiku
     // output for it.
-    approved: ['claude-sonnet-4-6', 'claude-sonnet-5'],
+    approved: ['claude-sonnet-4-6', 'claude-sonnet-5', 'gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6-luna'],
     testable: [],
     maxTokens: {
       'claude-sonnet-4-6': 200,
       'claude-sonnet-5': 260, // provisional
+      'gpt-6.2-sol': 1500, // provisional; includes reasoning tokens
+      'gpt-6.1-terra': 300, // provisional
+      'gpt-6-luna': 300, // provisional
     },
     cacheSystemPrompt: false,
   },
   social_caption: {
     label: 'Social captions',
     description: 'Captions for clip reels and the weekday river-guide Facebook post, behind the deterministic accuracy lint.',
-    providers: ['anthropic'],
+    providers: ['anthropic', 'openai'],
     default: 'claude-sonnet-4-6',
     // Haiku is deliberately absent for now. The accuracy lint would catch
     // fabrication, but nobody has read Haiku captions, and "the lint will catch
     // it" is not the same as having looked.
-    approved: ['claude-sonnet-4-6', 'claude-sonnet-5'],
+    approved: ['claude-sonnet-4-6', 'claude-sonnet-5', 'gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6-luna'],
     testable: [],
     maxTokens: {
       'claude-sonnet-4-6': 400,
       'claude-sonnet-5': 520, // provisional
+      'gpt-6.2-sol': 2000, // provisional; includes reasoning tokens
+      'gpt-6.1-terra': 500, // provisional
+      'gpt-6-luna': 500, // provisional
     },
     cacheSystemPrompt: false,
   },
