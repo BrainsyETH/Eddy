@@ -230,10 +230,17 @@ test('the rivers whose gauge lines are confirmed are exactly these', () => {
   const confirmed = listKnowledgeRiverSlugs()
     .filter((slug) => listKnowledgeGauges(slug).some((g) => g.confirmed))
     .sort();
-  assert.deepEqual(confirmed, ['current', 'jacks-fork', 'niangua']);
+  assert.deepEqual(confirmed, ['black', 'current', 'gasconade', 'jacks-fork', 'meramec', 'niangua']);
   assert.deepEqual(
     Object.fromEntries(confirmed.map((slug) => [slug, listKnowledgeGauges(slug).filter((g) => g.confirmed).map((g) => g.siteId)])),
-    { current: [VAN_BUREN], 'jacks-fork': [EMINENCE, ALLEY], niangua: [WINDYVILLE, '06923950'] },
+    {
+      black: ['07061500', 'swl-clearwater-dam', '07063000'],
+      current: [VAN_BUREN, '07064440', '07064533', '07066510', '07068000'],
+      gasconade: ['06928000', '06933500', '06934000'],
+      'jacks-fork': [EMINENCE, ALLEY],
+      meramec: ['07010350', '07013000', '07014500', '07019000'],
+      niangua: [WINDYVILLE, '06923950'],
+    },
   );
 });
 
@@ -276,7 +283,7 @@ test("a gauge's Read gets its own block and nothing of the others", () => {
 test('each spring is placed on the right side of its gauge', () => {
   // The three errors of 2026-11-17, as the file now states them.
   const vanBuren = getKnowledgeForTarget('current', null, VAN_BUREN);
-  assert.match(vanBuren, /Below it: Big Spring, which enters a few miles downstream, so this gauge does NOT include Big Spring's water/);
+  assert.match(vanBuren, /Below it: Big Spring, which enters about four miles downstream, so this gauge does NOT include Big Spring's water/);
   // The line that put it upstream is gone from everything Van Buren is told.
   assert.doesNotMatch(vanBuren, /Big Spring near Van Buren adds massive flow/);
   assert.equal(riverBlock('current').match(/Big Spring/g), null, 'the river-wide block must not place Big Spring');
@@ -290,16 +297,16 @@ test('each spring is placed on the right side of its gauge', () => {
 });
 
 test('a river with no confirmed block for the gauge is selected as it always was', () => {
-  // Meramec's blocks are drafts, so naming its gauge changes nothing.
-  assert.equal(getKnowledgeForTarget('meramec', null, '07013000'), getKnowledgeForTarget('meramec', null));
+  // Big River's blocks are drafts, so naming its gauge changes nothing.
+  assert.equal(getKnowledgeForTarget('big-river', null, '07018100'), getKnowledgeForTarget('big-river', null));
   assert.equal(
-    getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO', '07019000'),
-    getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO'),
+    getRiverKnowledgeForGauge('big-river', 'Big River at Byrnesville, MO', '07018500'),
+    getRiverKnowledgeForGauge('big-river', 'Big River at Byrnesville, MO'),
   );
-  // And a confirmed river asked about a gauge it has only a draft for.
-  const akers = getRiverKnowledgeForGauge('current', 'Current River above Akers, MO', '07064533');
-  assert.doesNotMatch(akers, /This gauge:/);
-  assert.match(akers, /Section upper-current:/);
+  // And a confirmed river asked about a gauge it has only a draft for: the
+  // older rule, a reach note that names the gauge's town.
+  const mountainView = getRiverKnowledgeForGauge('jacks-fork', 'Jacks Fork near Mountain View, MO', '07065200');
+  assert.doesNotMatch(mountainView, /This gauge:/);
 });
 
 test('chat is told everything about the river in view, towns included, and no Read is told the towns', () => {
@@ -322,4 +329,72 @@ test('no knowledge sends a reader to another river', () => {
   assert.doesNotMatch(getGeneralKnowledge(), /choose Eleven Point|over Current or Meramec/);
   assert.doesNotMatch(getKnowledgeForChat('niangua'), /good fallback|good alternative/);
   assert.doesNotMatch(getKnowledgeForChat('courtois'), /If Huzzah is too crowded/);
+});
+
+test("the Current's gauges each say which springs they do and do not carry", () => {
+  // Checked against the Park Service's spring points on the river line and the
+  // 2026 readings, and confirmed by the owner on 2026-11-18.
+  const akers = getRiverKnowledgeForGauge('current', 'Current River above Akers, MO', '07064533');
+  assert.match(akers, /This gauge: Akers \(07064533\)/);
+  assert.match(akers, /Above it: Montauk Springs and Welch Spring/);
+  assert.match(akers, /Speaks for\*\*: Cedar Grove to Pulltite\./);
+  assert.match(akers, /Section upper-current:[\s\S]*Section lower-current:/);
+
+  const montauk = getRiverKnowledgeForGauge('current', 'Current River at Montauk State Park, MO', '07064440');
+  assert.match(montauk, /Below it: Welch Spring and every other spring/);
+  assert.match(montauk, /Section upper-current:/);
+  assert.doesNotMatch(montauk, /Section lower-current:/);
+
+  assert.match(getRiverKnowledgeForGauge('current', 'Current River at Doniphan, MO', '07068000'), /Above it: Big Spring/);
+
+  // Van Buren's Read is told where the others sit, one line each.
+  const elsewhere = getKnowledgeForTarget('current', null, VAN_BUREN).split('=== Elsewhere on this river')[1];
+  for (const name of ['Montauk', 'Akers', 'Powder Mill', 'Doniphan']) assert.match(elsewhere, new RegExp(`- ${name} gauge: `));
+  // Blue Spring sits between the Powder Mill gauge and Van Buren.
+  assert.match(elsewhere, /Powder Mill gauge: .*Below it: Blue Spring, which enters a mile and a half downstream/);
+  assert.match(getKnowledgeForTarget('current', null, VAN_BUREN), /Speaks for\*\*: The lower Current around Van Buren, from Blue Spring down to Big Spring\./);
+});
+
+test("the Meramec's four gauges are split at Maramec Spring, the Huzzah and the Bourbeuse", () => {
+  // Confirmed by the owner on 2026-11-18. The confluences are measured on the
+  // river lines; Maramec Spring's side is the owner's, and the readings agree
+  // (about 147 cfs gained between Cook Station and Steelville at low water).
+  const steelville = getKnowledgeForTarget('meramec', null, '07013000');
+  assert.match(steelville, /=== This gauge: Steelville \(07013000\) ===/);
+  assert.match(steelville, /Speaks for\*\*: Maramec Spring down to the Huzzah\./);
+  assert.match(steelville, /=== Section: upper-meramec ===/);
+  assert.doesNotMatch(steelville, /=== Section: lower-meramec ===/);
+  const elsewhere = steelville.split('=== Elsewhere on this river')[1];
+  assert.match(elsewhere, /Cook Station gauge: .*does NOT include the spring's water/);
+  assert.match(elsewhere, /Eureka gauge: /);
+
+  const eureka = getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO', '07019000');
+  assert.match(eureka, /the Big River, which joins about three miles upstream/);
+  assert.match(eureka, /Section lower-meramec:/);
+  // The upper river's reach note is not Eureka's.
+  assert.doesNotMatch(eureka, /Steelville outfitters run rafts/);
+});
+
+test('the Gasconade and the Black say what joins between their gauges', () => {
+  // Confirmed by the owner on 2026-11-18.
+  const hazelgreen = getKnowledgeForTarget('gasconade', null, '06928000');
+  assert.match(hazelgreen, /Above it: the Osage Fork, which joins just upstream of the gauge/);
+  assert.match(hazelgreen, /=== Section: upper-hazelgreen ===/);
+  // The file used to say a Big Piney rise shows up "below Jerome". The river
+  // line puts the confluence nine miles above the Jerome gauge.
+  const jerome = getRiverKnowledgeForGauge('gasconade', 'Gasconade River at Jerome, MO', '06933500');
+  assert.match(jerome, /this gauge DOES include the Big Piney's water/);
+  assert.doesNotMatch(getKnowledgeForChat('big-piney'), /shows up on the Gasconade below Jerome/);
+
+  const annapolis = getKnowledgeForTarget('black', null, '07061500');
+  assert.match(annapolis, /Speaks for\*\*: The upper float, from Lesterville down to the lake\./);
+  const elsewhere = annapolis.split('=== Elsewhere on this river')[1];
+  assert.match(elsewhere, /Clearwater Dam gauge: .*It reports what the dam is releasing/);
+  assert.match(elsewhere, /Poplar Bluff gauge: .*about 49 miles below Clearwater Dam/);
+});
+
+test('the Buffalo names its lowest gauge for where it is', () => {
+  // The file called it "Rush". The station is near Harriet, at Highway 14.
+  assert.doesNotMatch(getKnowledgeForChat('buffalo'), /\*\*Rush\*\* is the lowest|Rush is the lowest gauge/);
+  assert.match(getKnowledgeForChat('buffalo'), /Harriet\*\*, at the Highway 14 bridge, is the lowest/);
 });
