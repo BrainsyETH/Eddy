@@ -61,7 +61,7 @@ let warnedMissingOutcome = false;
 export async function recordOutcomes(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  table: 'river_condition_events' | 'gauge_alert_events',
+  table: 'river_condition_events' | 'gauge_alert_events' | 'dam_generation_alert_events',
   outcomes: Map<string, DrainOutcome>,
 ): Promise<void> {
   const byOutcome = new Map<DrainOutcome, string[]>();
