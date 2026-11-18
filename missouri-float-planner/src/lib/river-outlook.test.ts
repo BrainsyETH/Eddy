@@ -461,20 +461,43 @@ test('the gauge advice stays where there is a reason for it', () => {
   assert.match(rising, /The gauge is already rising, which matters more here than anything in the sky\. Read it again right before you launch\./);
 });
 
-test('a gauge with a measured lag says how long past rains took to crest, and only when rain is in the outlook', () => {
+test('a gauge with a measured lag adds one sentence of record, and only when rain is in the outlook', () => {
   const wet = [novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 80 })];
-  const lag = (crestHours: [number, number]): MeasuredLag => ({ crestHours, storms: 16 });
+  const patterson = measuredLag('07037500')!;
   assert.equal(
-    watch(wet, { rainLag: lag([20, 44]) }),
-    'Rain is likely tomorrow, highs 61–66°. Rain upstream is what would change this river. When rain has brought it up, this gauge has usually crested 20 to 44 hours after the heaviest of it, so keep checking for a day or two after it moves through.',
+    watch(wet, { rainLag: patterson }),
+    'Rain is likely tomorrow, highs 61–66°. Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in. ' +
+      "In 16 past storms that raised the St. Francis, flow near Patterson usually peaked 20–44 hours after half the storm's rain had fallen upstream.",
   );
-  // How long to keep checking follows the slow end of the range.
-  assert.match(watch(wet, { rainLag: lag([9, 24]) }), /crested 9 to 24 hours after the heaviest of it, so keep checking for a day after/);
-  assert.match(watch(wet, { rainLag: lag([27, 70]) }), /crested 27 to 70 hours after the heaviest of it, so keep checking for two or three days after/);
+  // The count of storms is always beside the range, and the clock is named for what the study measured from.
+  for (const lag of Object.values(RAIN_LAG_RELEASE)) {
+    const text = watch(wet, { rainLag: lag });
+    assert.ok(text.includes(`In ${lag.storms} past storms that raised ${lag.river}, flow ${lag.place} usually peaked ${lag.crestHours[0]}–${lag.crestHours[1]} hours after half the storm's rain had fallen upstream.`));
+    assert.doesNotMatch(text, /heaviest|keep checking|a day or two/);
+  }
   // No rain in the outlook: nothing about timing, whatever the gauge has measured.
-  assert.doesNotMatch(watch([novemberDay(0), novemberDay(1)], { rainLag: lag([20, 44]) }), /crested|hours/);
+  assert.doesNotMatch(watch([novemberDay(0), novemberDay(1)], { rainLag: patterson }), /past storms|hours/);
   // A dam-controlled reach follows the release schedule, not the rain.
-  assert.doesNotMatch(watch(wet, { rainLag: lag([20, 44]), damControlled: true }), /crested|hours after/);
+  assert.doesNotMatch(watch(wet, { rainLag: patterson, damControlled: true }), /past storms|hours after|Rain upstream/);
+});
+
+test('a rise the gauge is showing outranks rain that has not fallen', () => {
+  const rising = { direction: 'rising', delta: 0.4, windowHours: 6, qualifier: null, label: 'Rising' } as const;
+  const maybe = [novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 20 })];
+  const likely = [novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 80 })];
+  const says = /The gauge is already rising, which matters more here than anything in the sky\. Read it again right before you launch\./;
+  // Below a dam, rising, with a chance of rain: this used to say "Rain upstream is what would change this river" and nothing about the rise.
+  for (const days of [maybe, likely]) {
+    for (const damControlled of [true, false]) {
+      const text = watch(days, { trend: rising, damControlled, rainLag: measuredLag('07037500') });
+      assert.match(text, says);
+      assert.doesNotMatch(text, /Rain upstream is what would change|follows what the dam releases|past storms/);
+      // The sky is still described; only the closing advice changes.
+      assert.match(text, /^Rain is (possible|likely) tomorrow/);
+    }
+  }
+  // Below a dam and not rising, rain or no rain, it is the release that matters.
+  assert.match(watch(likely, { damControlled: true }), /follows what the dam releases more than the rain/);
 });
 
 test('a gauge with no measured lag never gets a time, in any outlook', () => {
@@ -482,7 +505,7 @@ test('a gauge with no measured lag never gets a time, in any outlook', () => {
   for (const rainLag of [null, undefined, measuredLag('07066000'), measuredLag(null), measuredLag('no-such-gauge')]) {
     const text = watch(wet, { rainLag });
     assert.match(text, /look at the gauge again once it has moved through/);
-    assert.doesNotMatch(text, /crested|\d+ hours|\d+ to \d+/);
+    assert.doesNotMatch(text, /past storms|peaked|\d+ hours|\d+–\d+ hours/);
   }
   // The lookup answers only for the release list.
   assert.equal(measuredLag('07066000'), null);

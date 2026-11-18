@@ -37,6 +37,7 @@ scripts/lib/no-unguarded-clients.test.ts
 scripts/lib/tailwater-continuation.test.ts
 scripts/migration-ledger.test.ts
 scripts/negative-evidence.test.ts
+scripts/rain-lag-estimates-migration.test.ts
 scripts/rainfall/source-contract.test.ts
 scripts/research/rain-lag-2026-11/lag.test.ts
 scripts/research/rain-lag-2026-11/results.test.ts

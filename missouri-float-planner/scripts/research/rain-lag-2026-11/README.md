@@ -24,14 +24,15 @@ storms, typically from an hour or two to most of a day.
 Eight rivers carried a hand-set "hours from local rain to gauge response"
 (3 to 10 hours) with no recorded source. They fed Eddy's Read and one chat
 hint. Measured, the river typically began rising 4 to 21 hours after the rain
-started and crested 13 to 67 hours after its heaviest part, and at most gauges
+started and crested 13 to 67 hours after half of it had fallen, and at most gauges
 on those rivers the time was too variable to state. The estimates are deleted:
 the code no longer reads them, and migration
 `20261118180000_remove_unsourced_rain_lag_estimates.sql` clears the columns.
 
 The 12 ranges live in `src/lib/rainfall/lag-release.ts`. A test holds that list
 to `results/results.json` entry for entry. The weather section adds a sentence
-for those gauges only, when rain is in the outlook.
+for those gauges only, when rain is in the outlook. It always gives the number
+of storms behind the range and says what the hours are counted from.
 
 ## How it was done
 
@@ -118,6 +119,15 @@ different answer.
 ## Limits
 
 - Two years. A gauge's range is from 8 to 24 storms.
+- The clock starts when half the storm's rain had fallen over the watershed,
+  not at the heaviest hour and not when the rain ended. The two usually sit
+  within an hour or two of each other; in one of Patterson's 16 storms they
+  were seven hours apart.
+- A range is the middle eight in ten storms, so one storm in five fell outside
+  it. At Jacks Fork at Eminence, which earned no range, the 21 timed storms
+  ran from 2.4 to 51.3 hours against a 10th-to-90th span of 10 to 45.
+- The storm count is storms that raised the river. Many did not: above Akers,
+  8 of 29 counted storms produced the rise its 14 to 32 hours comes from.
 - A range describes past storms. It does not say the next rain will raise the
   river, and it is not evidence that rain has arrived or passed.
 - Rain is one average over the whole watershed. Rain near the gauge reaches it

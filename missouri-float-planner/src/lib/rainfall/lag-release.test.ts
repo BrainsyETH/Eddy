@@ -11,8 +11,19 @@ const study = JSON.parse(readFileSync(join(root, RAIN_LAG_STUDY, 'results', 'res
 test('the release list is exactly the gauges the study gave a range, with the study\'s numbers', () => {
   const earned = Object.fromEntries(study.gauges.filter(gauge => gauge.result === 'range')
     .map(gauge => [gauge.site, { crestHours: gauge.verdict!.publish!.crestHours, storms: gauge.verdict!.publish!.storms }]));
-  assert.deepEqual(RAIN_LAG_RELEASE, earned);
+  assert.deepEqual(Object.fromEntries(Object.entries(RAIN_LAG_RELEASE).map(([site, lag]) => [site, { crestHours: lag.crestHours, storms: lag.storms }])), earned);
   assert.ok(Object.keys(earned).length > 0);
+});
+
+test('each released gauge is worded with its own river and place', () => {
+  const names = new Map(study.gauges.map(gauge => [gauge.site, (gauge as unknown as { name: string }).name]));
+  for (const [site, lag] of Object.entries(RAIN_LAG_RELEASE)) {
+    const name = names.get(site)!;
+    // "the St. Francis" must be the river the gauge is on, and "near Patterson" a place in the gauge's own name.
+    assert.ok(name.startsWith(lag.river.replace(/^the /, '')), `${site}: ${lag.river} is not the river in "${name}"`);
+    assert.ok(name.includes(lag.place.replace(/^(at|near|above) (the town of )?/, '')), `${site}: ${lag.place} is not in "${name}"`);
+    assert.match(lag.place, /^(at|near|above) /);
+  }
 });
 
 test('a gauge the study gave a reason instead of a range has no lag', () => {
