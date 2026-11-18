@@ -41,7 +41,8 @@ export async function regenerateGaugeUpdate(
     return 0;
   }
 
-  const update = await generateGaugeUpdate(target, model);
+  // Only the gauge cron calls this, when a secondary gauge's condition changed.
+  const update = await generateGaugeUpdate(target, model, { trigger: 'condition_change' });
   if (!update) return 0;
 
   const expiresAt = new Date(Date.now() + EVENT_TTL_HOURS * 60 * 60 * 1000).toISOString();

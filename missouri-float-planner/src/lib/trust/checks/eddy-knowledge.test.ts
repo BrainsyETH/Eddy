@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deriveKnowledgeFindings, deriveRiverNoteFindings } from './eddy-knowledge';
+import { deriveKnowledgeFindings, deriveKnowledgeGaugeFindings, deriveRiverNoteFindings } from './eddy-knowledge';
 
 const GENERAL = 'Strainers are the number one hazard. Spring-fed rivers recover slowly.';
 
@@ -136,4 +136,40 @@ test('omitting riverNotes leaves the knowledge-file rules unchanged', () => {
     generalKnowledge: GENERAL,
   });
   assert.deepEqual(findings, []);
+});
+
+// ── gauges named in the file against river_gauges ───────────────────
+
+test('a gauge the river is not linked to is reported, once per river', () => {
+  const findings = deriveKnowledgeGaugeFindings([{
+    slug: 'current',
+    linkedSiteIds: ['07067000', '07064533'],
+    primarySiteId: '07067000',
+    fileGauges: [{ siteId: '07067000', confirmed: true }, { siteId: '07099999', confirmed: false }],
+    reachTagSiteIds: ['07064533', '07088888'],
+  }]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'knowledge_gauge_mismatch');
+  assert.match(findings[0].detail ?? '', /names 07088888, 07099999, which river_gauges does not link to this river/);
+});
+
+test('a river with confirmed blocks but none for its main gauge is reported', () => {
+  // The state the Jacks Fork would be in if Eminence became the main gauge
+  // and only the Alley Spring block had been confirmed.
+  const findings = deriveKnowledgeGaugeFindings([{
+    slug: 'jacks-fork',
+    linkedSiteIds: ['07065495', '07066000'],
+    primarySiteId: '07066000',
+    fileGauges: [{ siteId: '07065495', confirmed: true }, { siteId: '07066000', confirmed: false }],
+    reachTagSiteIds: [],
+  }]);
+  assert.match(findings[0].detail ?? '', /has confirmed gauge blocks but none for its main gauge 07066000/);
+});
+
+test('drafts alone, no blocks at all, and a covered main gauge are all quiet', () => {
+  assert.deepEqual(deriveKnowledgeGaugeFindings([
+    { slug: 'meramec', linkedSiteIds: ['07013000', '07019000'], primarySiteId: '07013000', fileGauges: [{ siteId: '07013000', confirmed: false }], reachTagSiteIds: [] },
+    { slug: 'elk', linkedSiteIds: ['07188925'], primarySiteId: '07188925', fileGauges: [], reachTagSiteIds: [] },
+    { slug: 'niangua', linkedSiteIds: ['06923250', '06923950'], primarySiteId: '06923250', fileGauges: [{ siteId: '06923250', confirmed: true }, { siteId: '06923950', confirmed: true }], reachTagSiteIds: [] },
+  ]), []);
 });

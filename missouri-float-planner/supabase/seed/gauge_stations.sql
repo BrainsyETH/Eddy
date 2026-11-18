@@ -74,7 +74,7 @@ VALUES (
     active = EXCLUDED.active;
 
 -- Jacks Fork River Gauges (USGS official names)
--- 07065200 = upper (Mountain View); 07065495 = Alley Spring (primary); 07066000 = Eminence (lower)
+-- 07065200 = upper (Mountain View); 07065495 = Alley Spring (above the spring's inflow); 07066000 = Eminence (primary since 20261117225734)
 INSERT INTO gauge_stations (usgs_site_id, name, location, active)
 VALUES (
     '07065200',
@@ -396,8 +396,8 @@ ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
     level_high = EXCLUDED.level_high,
     level_dangerous = EXCLUDED.level_dangerous;
 
--- Jacks Fork River - three gauges: Mountain View (upper), Alley Spring (primary), Eminence (lower)
--- 07065200 = Mountain View (upper); 07065495 = Alley Spring (primary); 07066000 = Eminence
+-- Jacks Fork River - three gauges: Mountain View (upper), Alley Spring (upper, above the spring's inflow), Eminence (primary)
+-- 07065200 = Mountain View; 07065495 = Alley Spring; 07066000 = Eminence. Eminence became the main gauge in 20261117225734.
 INSERT INTO river_gauges (
     river_id, gauge_station_id, is_primary, distance_from_section_miles, threshold_unit,
     level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous
@@ -415,7 +415,7 @@ INSERT INTO river_gauges (
     river_id, gauge_station_id, is_primary, distance_from_section_miles, threshold_unit,
     level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous
 )
-SELECT r.id, gs.id, true, 0.0, 'ft', 1.5, 2.0, 2.5, 3.0, 3.5, 4.0
+SELECT r.id, gs.id, false, 0.0, 'ft', 1.5, 2.0, 2.5, 3.0, 3.5, 4.0
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'jacks-fork' AND gs.usgs_site_id = '07065495'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET
@@ -428,7 +428,7 @@ INSERT INTO river_gauges (
     river_id, gauge_station_id, is_primary, distance_from_section_miles, threshold_unit,
     level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous
 )
-SELECT r.id, gs.id, false, 0.0, 'ft', 1.0, 1.5, 2.0, 3.0, 3.5, 4.0
+SELECT r.id, gs.id, true, 0.0, 'ft', 1.0, 1.5, 2.0, 3.0, 3.5, 4.0
 FROM rivers r, gauge_stations gs
 WHERE r.slug = 'jacks-fork' AND gs.usgs_site_id = '07066000'
 ON CONFLICT (river_id, gauge_station_id) DO UPDATE SET

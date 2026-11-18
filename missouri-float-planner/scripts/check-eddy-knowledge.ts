@@ -31,8 +31,10 @@ import { listKnowledgeRiverSlugs, getGeneralKnowledge } from '../src/lib/eddy/kn
   if (!/strainer/i.test(general) || !/spring[- ]?fed|spring input/i.test(general)) {
     fail('General knowledge is missing the hydrology/safety primer — the parser may be dropping it (see knowledge.ts flushBuffer).');
   }
-  if (!/nearest town|food, fuel/i.test(general)) {
-    fail('General knowledge is missing the nearest-towns content.');
+  // Towns moved out of General into each river's "### Towns" block, so a Read
+  // on one river no longer carries every river's towns.
+  if (/nearest town/i.test(general)) {
+    fail('General knowledge holds a nearest-towns list again; towns belong in each river\'s "### Towns" block.');
   }
 
   // (2) Active-river knowledge gate (DB-dependent; skip when no creds).

@@ -5,7 +5,7 @@
 // now assembled from the rivers table instead of a hardcoded 9-river list.
 // Dynamic block changes per request (river context, knowledge, date).
 
-import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
+import { getKnowledgeForChat } from '@/lib/eddy/knowledge';
 import {
   getActiveRiverContexts,
   getRiverContext,
@@ -194,17 +194,12 @@ export async function buildDynamicContext(riverSlug?: string): Promise<string> {
   }
 
   // Local knowledge
-  if (riverSlug) {
-    const knowledge = getKnowledgeForTarget(riverSlug, null);
-    if (knowledge) {
-      parts.push(`\n[LOCAL KNOWLEDGE]\n${knowledge}`);
-    }
-  } else {
-    // Load general knowledge for non-river-specific conversations
-    const knowledge = getKnowledgeForTarget('', null);
-    if (knowledge) {
-      parts.push(`\n[LOCAL KNOWLEDGE]\n${knowledge}`);
-    }
+  // Everything the file holds about the river in view, gauge blocks, reach
+  // notes and towns included: a person may ask about any stretch. General
+  // alone when no river is in view.
+  const knowledge = getKnowledgeForChat(riverSlug || null);
+  if (knowledge) {
+    parts.push(`\n[LOCAL KNOWLEDGE]\n${knowledge}`);
   }
 
   return parts.join('\n');
