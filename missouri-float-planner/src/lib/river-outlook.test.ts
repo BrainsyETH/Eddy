@@ -168,12 +168,11 @@ test('builds a decision-led Bottom line, Eddy read, and Watch from the selected-
   assert.equal(sections.bottomLine, 'Floatable today. Levels are about as good as this gauge gets.');
   assert.match(sections.eddyRead, /holding steady/i);
   assert.doesNotMatch(sections.eddyRead, /no official river forecast/i);
-  // The Weather section describes the weather — the fixture's 84° high and its
-  // dry forecast — and then closes on the gauge. It used to do only the last of
-  // those, in a panel labelled WEATHER.
-  assert.match(sections.watchFor, /dry/i);
-  assert.match(sections.watchFor, /84°/);
-  assert.match(sections.watchFor, /read the gauge again/i);
+  // The Weather section describes the weather: the fixture's 84° high and its
+  // dry forecast. With nothing expected to move the river it stops there. It
+  // used to close on "read the gauge again the morning you go" every time,
+  // which made the advice mean nothing on the days it mattered.
+  assert.equal(sections.watchFor, 'Dry today, highs around 84°.');
 });
 
 test('uses a valid generated Eddy read without changing live Bottom line or Watch guidance', () => {
@@ -186,7 +185,7 @@ test('uses a valid generated Eddy read without changing live Bottom line or Watc
 
   assert.equal(sections.bottomLine, 'Floatable today. Levels are about as good as this gauge gets.');
   assert.equal(sections.eddyRead, 'Spring influence makes this reach less reactive than nearby rain-fed creeks.');
-  assert.match(sections.watchFor, /read the gauge again/i);
+  assert.equal(sections.watchFor, 'Dry today, highs around 84°.');
 });
 
 test('matches all requested weather dates before choosing the three-day outlook', () => {
@@ -373,4 +372,88 @@ test('Bottom line states the call without restating the condition band', () => {
   assert.match(high.bottomLine, /^Use caution today/);
   assert.match(flood.bottomLine, /^Stay off the river today/);
   assert.doesNotMatch(`${high.bottomLine} ${flood.bottomLine}`, /is in the .* range/i);
+});
+
+// ── cold, wind, and saying nothing when nothing is expected ─────────
+// Owner's wording and thresholds, 2026-11-18: a high under 50° is a cold day,
+// a low at or under 32° a freezing morning, and a daily average of 15 mph is
+// windy. The section had a heat rule and nothing for the other half of the
+// year, though every day's low and wind were already handed to it.
+
+const NOVEMBER = new Date('2026-11-18T18:00:00Z'); // a Wednesday
+const novemberDay = (offset: number, over: Partial<(typeof baseOutlookInput.weatherDays)[number]> = {}) => {
+  const date = new Date(Date.UTC(2026, 10, 18 + offset, 12));
+  return {
+    ...baseOutlookInput.weatherDays[0],
+    date: date.toISOString().slice(0, 10),
+    dayOfWeek: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getUTCDay()],
+    tempHigh: 56, tempLow: 40, precipitation: 0, windSpeed: 6,
+    ...over,
+  };
+};
+const watch = (
+  weatherDays: ReturnType<typeof novemberDay>[],
+  options: { trend?: Parameters<typeof buildRiverOutlookState>[0]['trend'] } = {},
+) =>
+  buildEddyTakeSections({
+    outlook: buildRiverOutlookState({ ...baseOutlookInput, now: NOVEMBER, weatherDays, trend: options.trend ?? null }),
+    currentCondition: 'good',
+  }).watchFor;
+
+test('a dry, mild outlook is one sentence', () => {
+  assert.equal(watch([novemberDay(0, { tempHigh: 52 }), novemberDay(1), novemberDay(2, { tempHigh: 58 })]), 'Dry through Friday, highs 52–58°.');
+});
+
+test('cold days get the advice, and own the temperatures', () => {
+  const text = watch([novemberDay(0, { tempHigh: 45 }), novemberDay(1, { tempHigh: 43 }), novemberDay(2, { tempHigh: 55 })]);
+  assert.equal(
+    text,
+    'Dry through Friday. Cold today and tomorrow, with highs only around 45°. Bring a change of clothes in a dry bag in case you get wet.',
+  );
+  // 49° is cold and 50° is not.
+  assert.match(watch([novemberDay(0, { tempHigh: 49 })]), /^Dry today\. Cold today, with highs only around 49°\./);
+  assert.doesNotMatch(watch([novemberDay(0, { tempHigh: 50 })]), /Cold/);
+});
+
+test('freezing mornings on a mild day say to wait, and leave the highs in the sky sentence', () => {
+  const text = watch([novemberDay(0, { tempLow: 30 }), novemberDay(1, { tempLow: 31 }), novemberDay(2, { tempLow: 32 })]);
+  assert.equal(text, 'Dry through Friday, highs around 56°. Mornings start near freezing through Friday, so give it time to warm up before you put in.');
+  // 33° is not freezing.
+  assert.doesNotMatch(watch([novemberDay(0, { tempLow: 33 })]), /freezing/);
+});
+
+test('cold days with freezing mornings are one line, not two', () => {
+  const text = watch([novemberDay(0, { tempHigh: 41, tempLow: 28 }), novemberDay(1, { tempHigh: 47, tempLow: 30 }), novemberDay(2, { tempHigh: 44, tempLow: 35 })]);
+  assert.equal(
+    text,
+    'Dry through Friday. Cold through Friday, with highs only around 47° and mornings near freezing. Bring a change of clothes in a dry bag in case you get wet.',
+  );
+  assert.doesNotMatch(text, /give it time to warm up/);
+});
+
+test('wind is named as a daily average, at two strengths', () => {
+  assert.equal(
+    watch([novemberDay(0), novemberDay(1, { windSpeed: 18.2 })]),
+    'Dry through tomorrow, highs around 56°. Windy tomorrow, averaging around 18 mph. Paddling into it on the long pools is slow work.',
+  );
+  const strong = watch([novemberDay(0, { windSpeed: 16 }), novemberDay(1, { windSpeed: 27 })]);
+  // The strongest tier present, and only its days.
+  assert.match(strong, /Strong wind tomorrow, averaging around 27 mph\. Canoes get pushed around in that, so it may be a day to skip\./);
+  assert.doesNotMatch(strong, /Windy/);
+  // 14 mph is not windy, and a day the source gave no wind for is not either.
+  assert.doesNotMatch(watch([novemberDay(0, { windSpeed: 14 })]), /wind/i);
+  assert.doesNotMatch(watch([novemberDay(0, { windSpeed: null as unknown as number })]), /wind/i);
+});
+
+test('the gauge advice stays where there is a reason for it', () => {
+  // Rain possible: still told when to look again, after the wind line.
+  const rain = watch([novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 45, windSpeed: 18 })]);
+  assert.equal(
+    rain,
+    'Rain is possible tomorrow without being a sure thing, highs 61–66°. Windy tomorrow, averaging around 18 mph. Paddling into it on the long pools is slow work. ' +
+      'Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in.',
+  );
+  // A rising gauge: likewise.
+  const rising = watch([novemberDay(0)], { trend: { direction: 'rising', delta: 0.4, windowHours: 6, qualifier: null, label: 'Rising' } });
+  assert.match(rising, /The gauge is already rising, which matters more here than anything in the sky\. Read it again right before you launch\./);
 });
