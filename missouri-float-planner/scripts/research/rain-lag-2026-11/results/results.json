@@ -1,0 +1,2107 @@
+{
+ "study": "Rain to river: how long after rain upstream each gauge rises and crests",
+ "window": "2024-11-01T00:00:00Z/2026-11-01T00:00:00Z",
+ "lockedOn": "2026-11-18",
+ "totals": {
+  "inScope": 42,
+  "ranges": 12,
+  "noRange": {
+   "dam_controlled": 3,
+   "no_flow_record": 2,
+   "too_variable": 25
+  }
+ },
+ "gauges": [
+  {
+   "site": "06923950",
+   "name": "Niangua River at Tunnel Dam near Macks Creek, MO",
+   "squareMiles": 596.6,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17513,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 23,
+    "responded": 16,
+    "perYear": [
+     7,
+     9
+    ],
+    "perSeason": {
+     "fall": 3,
+     "spring": 7,
+     "summer": 5,
+     "winter": 1
+    },
+    "bigStorms": 12,
+    "bigResponded": 12,
+    "setAside": {
+     "long_rain": 8,
+     "no_crest_in_window": 4,
+     "wet_before": 16,
+     "rain_again_before_crest": 9
+    },
+    "crest": {
+     "p10": 18.8,
+     "median": 37.1,
+     "p90": 52.2,
+     "yearMedians": [
+      39,
+      33.8
+     ]
+    },
+    "rise": {
+     "p10": 3.1,
+     "median": 9.1,
+     "p90": 30.1,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      18,
+      53
+     ],
+     "riseHours": null,
+     "storms": 16
+    }
+   }
+  },
+  {
+   "site": "06928000",
+   "name": "Gasconade River near Hazelgreen, MO",
+   "squareMiles": 1254.2,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17510,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 24,
+    "responded": 21,
+    "perYear": [
+     9,
+     12
+    ],
+    "perSeason": {
+     "fall": 7,
+     "winter": 3,
+     "spring": 7,
+     "summer": 4
+    },
+    "bigStorms": 13,
+    "bigResponded": 12,
+    "setAside": {
+     "long_rain": 9,
+     "rain_again_before_crest": 11,
+     "wet_before": 10,
+     "rising_before_rain": 1
+    },
+    "crest": {
+     "p10": 27.8,
+     "median": 43.9,
+     "p90": 69.9,
+     "yearMedians": [
+      44.3,
+      38.4
+     ]
+    },
+    "rise": {
+     "p10": 2.4,
+     "median": 14,
+     "p90": 31.7,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      27,
+      70
+     ],
+     "riseHours": null,
+     "storms": 21
+    }
+   }
+  },
+  {
+   "site": "06930000",
+   "name": "Big Piney River near Big Piney, MO",
+   "squareMiles": 550.9,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17477,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 23,
+    "responded": 16,
+    "perYear": [
+     6,
+     10
+    ],
+    "perSeason": {
+     "fall": 2,
+     "winter": 4,
+     "spring": 7,
+     "summer": 3
+    },
+    "bigStorms": 4,
+    "bigResponded": 4,
+    "setAside": {
+     "long_rain": 8,
+     "rain_again_before_crest": 10,
+     "wet_before": 13,
+     "rising_before_rain": 1
+    },
+    "crest": {
+     "p10": 21.2,
+     "median": 35.8,
+     "p90": 45.2,
+     "yearMedians": [
+      41.9,
+      34
+     ]
+    },
+    "rise": {
+     "p10": 1.7,
+     "median": 21.4,
+     "p90": 34.8,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      21,
+      46
+     ],
+     "riseHours": null,
+     "storms": 16
+    }
+   }
+  },
+  {
+   "site": "06933500",
+   "name": "Gasconade River at Jerome, MO",
+   "squareMiles": 2832.4,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 168,
+   "hoursWithFlow": 17063,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable",
+     "years_disagree"
+    ],
+    "counted": 23,
+    "responded": 13,
+    "perYear": [
+     6,
+     7
+    ],
+    "perSeason": {
+     "fall": 4,
+     "winter": 3,
+     "spring": 4,
+     "summer": 2
+    },
+    "bigStorms": 8,
+    "bigResponded": 7,
+    "setAside": {
+     "long_rain": 7,
+     "rain_again_before_crest": 14,
+     "wet_before": 15,
+     "no_crest_in_window": 1
+    },
+    "crest": {
+     "p10": 13,
+     "median": 64.6,
+     "p90": 91.3,
+     "yearMedians": [
+      71.7,
+      47.6
+     ]
+    },
+    "rise": {
+     "p10": 3.6,
+     "median": 14.3,
+     "p90": 50.1,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "06934000",
+   "name": "Gasconade River near Rich Fountain, MO",
+   "squareMiles": 3189.2,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 168,
+   "hoursWithFlow": 17398,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable",
+     "years_disagree"
+    ],
+    "counted": 19,
+    "responded": 13,
+    "perYear": [
+     6,
+     7
+    ],
+    "perSeason": {
+     "fall": 3,
+     "winter": 2,
+     "spring": 4,
+     "summer": 4
+    },
+    "bigStorms": 8,
+    "bigResponded": 7,
+    "setAside": {
+     "long_rain": 9,
+     "rain_again_before_crest": 13,
+     "wet_before": 13,
+     "no_crest_in_window": 2,
+     "flow_record_incomplete": 2,
+     "rising_before_rain": 1
+    },
+    "crest": {
+     "p10": 20.6,
+     "median": 88,
+     "p90": 114.6,
+     "yearMedians": [
+      91.7,
+      45.8
+     ]
+    },
+    "rise": {
+     "p10": 3.8,
+     "median": 24.5,
+     "p90": 68.9,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07010350",
+   "name": "Meramec River at Cook Station, MO",
+   "squareMiles": 199.3,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17399,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 27,
+    "responded": 24,
+    "perYear": [
+     12,
+     12
+    ],
+    "perSeason": {
+     "fall": 5,
+     "winter": 2,
+     "spring": 6,
+     "summer": 11
+    },
+    "bigStorms": 11,
+    "bigResponded": 11,
+    "setAside": {
+     "long_rain": 4,
+     "rain_again_before_crest": 8,
+     "wet_before": 15,
+     "flow_record_incomplete": 1,
+     "no_crest_in_window": 4
+    },
+    "crest": {
+     "p10": 6.8,
+     "median": 18.2,
+     "p90": 40.5,
+     "yearMedians": [
+      22.2,
+      17.7
+     ]
+    },
+    "rise": {
+     "p10": 0.2,
+     "median": 4.3,
+     "p90": 15.4,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07013000",
+   "name": "Meramec River near Steelville, MO",
+   "squareMiles": 781.3,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17471,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 30,
+    "responded": 23,
+    "perYear": [
+     11,
+     12
+    ],
+    "perSeason": {
+     "fall": 4,
+     "winter": 3,
+     "spring": 9,
+     "summer": 7
+    },
+    "bigStorms": 11,
+    "bigResponded": 11,
+    "setAside": {
+     "long_rain": 6,
+     "rain_again_before_crest": 12,
+     "wet_before": 11
+    },
+    "crest": {
+     "p10": 11.4,
+     "median": 27.8,
+     "p90": 45,
+     "yearMedians": [
+      27.8,
+      26
+     ]
+    },
+    "rise": {
+     "p10": 2.7,
+     "median": 7.8,
+     "p90": 25.6,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07014000",
+   "name": "Huzzah Creek near Steelville, MO",
+   "squareMiles": 256.3,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17380,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 28,
+    "responded": 21,
+    "perYear": [
+     11,
+     10
+    ],
+    "perSeason": {
+     "fall": 4,
+     "winter": 2,
+     "spring": 7,
+     "summer": 8
+    },
+    "bigStorms": 12,
+    "bigResponded": 12,
+    "setAside": {
+     "long_rain": 4,
+     "rain_again_before_crest": 6,
+     "wet_before": 14,
+     "no_crest_in_window": 7,
+     "rising_before_rain": 1
+    },
+    "crest": {
+     "p10": 11,
+     "median": 20.1,
+     "p90": 33.3,
+     "yearMedians": [
+      24.8,
+      16.9
+     ]
+    },
+    "rise": {
+     "p10": 1.4,
+     "median": 10.3,
+     "p90": 18.8,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07014500",
+   "name": "Meramec River near Sullivan, MO",
+   "squareMiles": 1486.7,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17014,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 27,
+    "responded": 20,
+    "perYear": [
+     10,
+     10
+    ],
+    "perSeason": {
+     "winter": 3,
+     "spring": 7,
+     "summer": 7,
+     "fall": 3
+    },
+    "bigStorms": 13,
+    "bigResponded": 13,
+    "setAside": {
+     "long_rain": 6,
+     "flow_record_incomplete": 1,
+     "rain_again_before_crest": 10,
+     "wet_before": 9,
+     "no_crest_in_window": 1
+    },
+    "crest": {
+     "p10": 10.2,
+     "median": 32.9,
+     "p90": 61.3,
+     "yearMedians": [
+      39.6,
+      32.6
+     ]
+    },
+    "rise": {
+     "p10": 3.3,
+     "median": 10.6,
+     "p90": 28.2,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07015720",
+   "name": "Bourbeuse River near High Gate, MO",
+   "squareMiles": 135.7,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17417,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 33,
+    "responded": 27,
+    "perYear": [
+     13,
+     14
+    ],
+    "perSeason": {
+     "fall": 4,
+     "winter": 3,
+     "spring": 12,
+     "summer": 8
+    },
+    "bigStorms": 14,
+    "bigResponded": 14,
+    "setAside": {
+     "long_rain": 4,
+     "flow_record_incomplete": 1,
+     "rain_again_before_crest": 7,
+     "wet_before": 12
+    },
+    "crest": {
+     "p10": 8,
+     "median": 12.4,
+     "p90": 24.1,
+     "yearMedians": [
+      12.5,
+      12.1
+     ]
+    },
+    "rise": {
+     "p10": 3.6,
+     "median": 8.5,
+     "p90": 21.5,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07016500",
+   "name": "Bourbeuse River at Union, MO",
+   "squareMiles": 803.4,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17519,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 25,
+    "responded": 21,
+    "perYear": [
+     11,
+     10
+    ],
+    "perSeason": {
+     "fall": 5,
+     "winter": 1,
+     "spring": 7,
+     "summer": 8
+    },
+    "bigStorms": 11,
+    "bigResponded": 11,
+    "setAside": {
+     "long_rain": 5,
+     "rain_again_before_crest": 6,
+     "no_crest_in_window": 5,
+     "wet_before": 9,
+     "rising_before_rain": 2
+    },
+    "crest": {
+     "p10": 2.9,
+     "median": 38.3,
+     "p90": 71.7,
+     "yearMedians": [
+      48.9,
+      35.8
+     ]
+    },
+    "rise": {
+     "p10": 2.3,
+     "median": 6.4,
+     "p90": 24.2,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07018100",
+   "name": "Big River near Richwoods, MO",
+   "squareMiles": 738.7,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 16790,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 22,
+    "responded": 22,
+    "perYear": [
+     12,
+     10
+    ],
+    "perSeason": {
+     "winter": 5,
+     "spring": 8,
+     "summer": 5,
+     "fall": 4
+    },
+    "bigStorms": 8,
+    "bigResponded": 8,
+    "setAside": {
+     "long_rain": 5,
+     "rain_again_before_crest": 10,
+     "wet_before": 16,
+     "no_crest_in_window": 2,
+     "flow_record_incomplete": 3
+    },
+    "crest": {
+     "p10": 12.5,
+     "median": 22.5,
+     "p90": 38,
+     "yearMedians": [
+      22.5,
+      21.1
+     ]
+    },
+    "rise": {
+     "p10": 4.8,
+     "median": 9.8,
+     "p90": 19.2,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07018500",
+   "name": "Big River at Byrnesville, MO",
+   "squareMiles": 917.4,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17486,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 24,
+    "responded": 21,
+    "perYear": [
+     13,
+     8
+    ],
+    "perSeason": {
+     "winter": 6,
+     "spring": 7,
+     "summer": 6,
+     "fall": 2
+    },
+    "bigStorms": 9,
+    "bigResponded": 9,
+    "setAside": {
+     "long_rain": 4,
+     "rain_again_before_crest": 10,
+     "wet_before": 14,
+     "no_crest_in_window": 2,
+     "flow_record_incomplete": 1
+    },
+    "crest": {
+     "p10": 4.2,
+     "median": 34.7,
+     "p90": 58.9,
+     "yearMedians": [
+      39.4,
+      32.8
+     ]
+    },
+    "rise": {
+     "p10": 2.9,
+     "median": 11,
+     "p90": 47.4,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07019000",
+   "name": "Meramec River near Eureka, MO",
+   "squareMiles": 3786.9,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 168,
+   "hoursWithFlow": 17325,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 23,
+    "responded": 16,
+    "perYear": [
+     9,
+     7
+    ],
+    "perSeason": {
+     "fall": 4,
+     "spring": 6,
+     "summer": 5,
+     "winter": 1
+    },
+    "bigStorms": 10,
+    "bigResponded": 9,
+    "setAside": {
+     "long_rain": 4,
+     "rain_again_before_crest": 15,
+     "wet_before": 14,
+     "flow_record_incomplete": 1,
+     "no_crest_in_window": 2
+    },
+    "crest": {
+     "p10": 20.9,
+     "median": 66.8,
+     "p90": 85.9,
+     "yearMedians": [
+      65.4,
+      68.9
+     ]
+    },
+    "rise": {
+     "p10": 6.8,
+     "median": 9.6,
+     "p90": 44.2,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07037500",
+   "name": "St. Francis River near Patterson, MO",
+   "squareMiles": 948.3,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 16477,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 21,
+    "responded": 16,
+    "perYear": [
+     7,
+     9
+    ],
+    "perSeason": {
+     "winter": 6,
+     "spring": 3,
+     "summer": 6,
+     "fall": 1
+    },
+    "bigStorms": 8,
+    "bigResponded": 8,
+    "setAside": {
+     "rain_again_before_crest": 12,
+     "wet_before": 14,
+     "long_rain": 5,
+     "flow_record_incomplete": 5,
+     "no_crest_in_window": 2
+    },
+    "crest": {
+     "p10": 20.2,
+     "median": 28.1,
+     "p90": 43.8,
+     "yearMedians": [
+      27.9,
+      28.3
+     ]
+    },
+    "rise": {
+     "p10": 3.9,
+     "median": 12.2,
+     "p90": 23.3,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      20,
+      44
+     ],
+     "riseHours": null,
+     "storms": 16
+    }
+   }
+  },
+  {
+   "site": "07049000",
+   "name": "War Eagle Creek near Hindsville, AR",
+   "squareMiles": 264.7,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17514,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 36,
+    "responded": 28,
+    "perYear": [
+     13,
+     15
+    ],
+    "perSeason": {
+     "fall": 7,
+     "winter": 3,
+     "spring": 8,
+     "summer": 10
+    },
+    "bigStorms": 14,
+    "bigResponded": 13,
+    "setAside": {
+     "long_rain": 6,
+     "rain_again_before_crest": 7,
+     "wet_before": 16,
+     "no_crest_in_window": 2,
+     "outside_window": 1
+    },
+    "crest": {
+     "p10": 10.6,
+     "median": 17,
+     "p90": 40.5,
+     "yearMedians": [
+      19.2,
+      15.7
+     ]
+    },
+    "rise": {
+     "p10": 3.7,
+     "median": 10.3,
+     "p90": 27.5,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07050500",
+   "name": "Kings River near Berryville, AR",
+   "squareMiles": 529,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17480,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 25,
+    "responded": 21,
+    "perYear": [
+     9,
+     12
+    ],
+    "perSeason": {
+     "fall": 6,
+     "winter": 3,
+     "spring": 7,
+     "summer": 5
+    },
+    "bigStorms": 10,
+    "bigResponded": 10,
+    "setAside": {
+     "long_rain": 8,
+     "rain_again_before_crest": 11,
+     "wet_before": 18,
+     "rising_before_rain": 1,
+     "no_crest_in_window": 2
+    },
+    "crest": {
+     "p10": 18.6,
+     "median": 31.8,
+     "p90": 77.9,
+     "yearMedians": [
+      31.8,
+      33.8
+     ]
+    },
+    "rise": {
+     "p10": 3.3,
+     "median": 10.2,
+     "p90": 30,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07052250",
+   "name": "James River near Boaz, MO",
+   "squareMiles": 458.3,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17338,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 30,
+    "responded": 29,
+    "perYear": [
+     11,
+     18
+    ],
+    "perSeason": {
+     "fall": 9,
+     "winter": 3,
+     "spring": 7,
+     "summer": 10
+    },
+    "bigStorms": 17,
+    "bigResponded": 17,
+    "setAside": {
+     "long_rain": 7,
+     "no_crest_in_window": 4,
+     "wet_before": 14,
+     "flow_record_incomplete": 2,
+     "rain_again_before_crest": 4
+    },
+    "crest": {
+     "p10": 9.3,
+     "median": 16.8,
+     "p90": 32.7,
+     "yearMedians": [
+      16.9,
+      15.9
+     ]
+    },
+    "rise": {
+     "p10": 4.9,
+     "median": 10.3,
+     "p90": 15.8,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07052500",
+   "name": "James River at Galena, MO",
+   "squareMiles": 991.5,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17511,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 26,
+    "responded": 24,
+    "perYear": [
+     10,
+     14
+    ],
+    "perSeason": {
+     "fall": 8,
+     "winter": 3,
+     "spring": 6,
+     "summer": 7
+    },
+    "bigStorms": 14,
+    "bigResponded": 14,
+    "setAside": {
+     "long_rain": 7,
+     "rain_again_before_crest": 9,
+     "wet_before": 15,
+     "no_crest_in_window": 2
+    },
+    "crest": {
+     "p10": 20,
+     "median": 32.4,
+     "p90": 51.5,
+     "yearMedians": [
+      37.4,
+      29
+     ]
+    },
+    "rise": {
+     "p10": 2.3,
+     "median": 17.6,
+     "p90": 26.5,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      20,
+      52
+     ],
+     "riseHours": null,
+     "storms": 24
+    }
+   }
+  },
+  {
+   "site": "07055607",
+   "name": "Crooked Creek at Kelly Crossing at Yellville, AR",
+   "squareMiles": 402.3,
+   "result": "range",
+   "reason": null,
+   "windowHours": 72,
+   "hoursWithFlow": 17387,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 27,
+    "responded": 22,
+    "perYear": [
+     8,
+     14
+    ],
+    "perSeason": {
+     "winter": 3,
+     "spring": 6,
+     "summer": 6,
+     "fall": 7
+    },
+    "bigStorms": 12,
+    "bigResponded": 12,
+    "setAside": {
+     "long_rain": 8,
+     "rain_again_before_crest": 5,
+     "wet_before": 20,
+     "no_crest_in_window": 6
+    },
+    "crest": {
+     "p10": 12.7,
+     "median": 21.7,
+     "p90": 31.4,
+     "yearMedians": [
+      22,
+      21.7
+     ]
+    },
+    "rise": {
+     "p10": 1.3,
+     "median": 4.4,
+     "p90": 9.3,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      12,
+      32
+     ],
+     "riseHours": null,
+     "storms": 22
+    }
+   }
+  },
+  {
+   "site": "07055660",
+   "name": "Buffalo River at Ponca, AR",
+   "squareMiles": 116.6,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17475,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 35,
+    "responded": 27,
+    "perYear": [
+     10,
+     17
+    ],
+    "perSeason": {
+     "fall": 7,
+     "winter": 2,
+     "spring": 10,
+     "summer": 8
+    },
+    "bigStorms": 19,
+    "bigResponded": 17,
+    "setAside": {
+     "long_rain": 8,
+     "rain_again_before_crest": 9,
+     "wet_before": 13,
+     "no_crest_in_window": 3
+    },
+    "crest": {
+     "p10": 6.4,
+     "median": 12.8,
+     "p90": 31.3,
+     "yearMedians": [
+      13,
+      12.8
+     ]
+    },
+    "rise": {
+     "p10": 2.3,
+     "median": 5.6,
+     "p90": 15.8,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07055680",
+   "name": "Buffalo River at Pruitt, AR",
+   "squareMiles": 190.9,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17497,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 33,
+    "responded": 24,
+    "perYear": [
+     10,
+     14
+    ],
+    "perSeason": {
+     "fall": 6,
+     "winter": 3,
+     "spring": 9,
+     "summer": 6
+    },
+    "bigStorms": 13,
+    "bigResponded": 12,
+    "setAside": {
+     "long_rain": 8,
+     "rain_again_before_crest": 9,
+     "wet_before": 15,
+     "no_crest_in_window": 2
+    },
+    "crest": {
+     "p10": 11.1,
+     "median": 22.2,
+     "p90": 46.3,
+     "yearMedians": [
+      18,
+      23.7
+     ]
+    },
+    "rise": {
+     "p10": 3.8,
+     "median": 11.2,
+     "p90": 25.3,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07056000",
+   "name": "Buffalo River near St. Joe, AR",
+   "squareMiles": 829.3,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17349,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable",
+     "years_disagree"
+    ],
+    "counted": 27,
+    "responded": 23,
+    "perYear": [
+     9,
+     14
+    ],
+    "perSeason": {
+     "fall": 6,
+     "winter": 3,
+     "spring": 8,
+     "summer": 6
+    },
+    "bigStorms": 10,
+    "bigResponded": 10,
+    "setAside": {
+     "long_rain": 8,
+     "rain_again_before_crest": 11,
+     "wet_before": 16,
+     "flow_record_incomplete": 1
+    },
+    "crest": {
+     "p10": 8.1,
+     "median": 31,
+     "p90": 67.5,
+     "yearMedians": [
+      19.9,
+      36.5
+     ]
+    },
+    "rise": {
+     "p10": 4.4,
+     "median": 8.8,
+     "p90": 29.6,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07056700",
+   "name": "Buffalo River near Harriet, AR",
+   "squareMiles": 1072.4,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17512,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable",
+     "years_disagree"
+    ],
+    "counted": 31,
+    "responded": 25,
+    "perYear": [
+     10,
+     15
+    ],
+    "perSeason": {
+     "fall": 6,
+     "winter": 4,
+     "spring": 8,
+     "summer": 7
+    },
+    "bigStorms": 11,
+    "bigResponded": 11,
+    "setAside": {
+     "long_rain": 7,
+     "no_crest_in_window": 3,
+     "wet_before": 15,
+     "rain_again_before_crest": 9
+    },
+    "crest": {
+     "p10": 14.3,
+     "median": 34.6,
+     "p90": 78.4,
+     "yearMedians": [
+      26.9,
+      44.1
+     ]
+    },
+    "rise": {
+     "p10": 2.3,
+     "median": 10.4,
+     "p90": 42.1,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07057370",
+   "name": "White River near Norfork, AR",
+   "squareMiles": 8035.3,
+   "result": "no_range",
+   "reason": "dam_controlled",
+   "windowHours": null,
+   "hoursWithFlow": null,
+   "verdict": null
+  },
+  {
+   "site": "07057500",
+   "name": "North Fork River near Tecumseh, MO",
+   "squareMiles": 562,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17452,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 22,
+    "responded": 10,
+    "perYear": [
+     5,
+     5
+    ],
+    "perSeason": {
+     "winter": 2,
+     "spring": 3,
+     "summer": 5
+    },
+    "bigStorms": 12,
+    "bigResponded": 8,
+    "setAside": {
+     "long_rain": 12,
+     "wet_before": 12,
+     "rain_again_before_crest": 9,
+     "no_crest_in_window": 1,
+     "flow_record_incomplete": 2
+    },
+    "crest": {
+     "p10": 15.3,
+     "median": 26.5,
+     "p90": 36.6,
+     "yearMedians": [
+      22.9,
+      27
+     ]
+    },
+    "rise": {
+     "p10": 2.3,
+     "median": 7,
+     "p90": 18.5,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      15,
+      37
+     ],
+     "riseHours": null,
+     "storms": 10
+    }
+   }
+  },
+  {
+   "site": "07058000",
+   "name": "Bryant Creek near Tecumseh, MO",
+   "squareMiles": 568.5,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17506,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable",
+     "years_disagree"
+    ],
+    "counted": 26,
+    "responded": 18,
+    "perYear": [
+     7,
+     11
+    ],
+    "perSeason": {
+     "winter": 3,
+     "spring": 6,
+     "summer": 5,
+     "fall": 4
+    },
+    "bigStorms": 13,
+    "bigResponded": 12,
+    "setAside": {
+     "long_rain": 7,
+     "rain_again_before_crest": 12,
+     "wet_before": 16,
+     "no_crest_in_window": 3
+    },
+    "crest": {
+     "p10": 10.9,
+     "median": 19.9,
+     "p90": 39,
+     "yearMedians": [
+      15.1,
+      26.6
+     ]
+    },
+    "rise": {
+     "p10": 1.4,
+     "median": 3.7,
+     "p90": 18,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07060500",
+   "name": "White River at Calico Rock, AR",
+   "squareMiles": 9959.7,
+   "result": "no_range",
+   "reason": "dam_controlled",
+   "windowHours": null,
+   "hoursWithFlow": null,
+   "verdict": null
+  },
+  {
+   "site": "07061500",
+   "name": "Black River near Annapolis, MO",
+   "squareMiles": 492.6,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17463,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 30,
+    "responded": 19,
+    "perYear": [
+     12,
+     7
+    ],
+    "perSeason": {
+     "fall": 2,
+     "winter": 5,
+     "spring": 3,
+     "summer": 9
+    },
+    "bigStorms": 8,
+    "bigResponded": 7,
+    "setAside": {
+     "long_rain": 7,
+     "rain_again_before_crest": 7,
+     "wet_before": 12,
+     "no_crest_in_window": 4
+    },
+    "crest": {
+     "p10": 10.4,
+     "median": 26.5,
+     "p90": 37.7,
+     "yearMedians": [
+      27.7,
+      26
+     ]
+    },
+    "rise": {
+     "p10": 2,
+     "median": 7.8,
+     "p90": 16.4,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07063000",
+   "name": "Black River at Poplar Bluff, MO",
+   "squareMiles": 1252.4,
+   "result": "no_range",
+   "reason": "dam_controlled",
+   "windowHours": null,
+   "hoursWithFlow": null,
+   "verdict": null
+  },
+  {
+   "site": "07064533",
+   "name": "Current River above Akers, MO",
+   "squareMiles": 294.6,
+   "result": "range",
+   "reason": null,
+   "windowHours": 72,
+   "hoursWithFlow": 17219,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 29,
+    "responded": 8,
+    "perYear": [
+     5,
+     3
+    ],
+    "perSeason": {
+     "winter": 3,
+     "spring": 2,
+     "summer": 3
+    },
+    "bigStorms": 6,
+    "bigResponded": 3,
+    "setAside": {
+     "long_rain": 5,
+     "wet_before": 17,
+     "rain_again_before_crest": 6,
+     "no_crest_in_window": 1,
+     "flow_record_incomplete": 1
+    },
+    "crest": {
+     "p10": 14.1,
+     "median": 25.3,
+     "p90": 32,
+     "yearMedians": [
+      25.7,
+      19.2
+     ]
+    },
+    "rise": {
+     "p10": 1,
+     "median": 4.3,
+     "p90": 32.2,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      14,
+      32
+     ],
+     "riseHours": null,
+     "storms": 8
+    }
+   }
+  },
+  {
+   "site": "07065200",
+   "name": "Jacks Fork near Mountain View, MO",
+   "squareMiles": 185.2,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17469,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 29,
+    "responded": 25,
+    "perYear": [
+     12,
+     13
+    ],
+    "perSeason": {
+     "winter": 3,
+     "spring": 9,
+     "summer": 7,
+     "fall": 6
+    },
+    "bigStorms": 15,
+    "bigResponded": 15,
+    "setAside": {
+     "long_rain": 6,
+     "wet_before": 16,
+     "rain_again_before_crest": 6,
+     "no_crest_in_window": 2
+    },
+    "crest": {
+     "p10": 7.7,
+     "median": 12.7,
+     "p90": 27,
+     "yearMedians": [
+      12.7,
+      12.1
+     ]
+    },
+    "rise": {
+     "p10": 1.8,
+     "median": 8.2,
+     "p90": 12.6,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07065495",
+   "name": "Jacks Fork at Alley Spring, MO",
+   "squareMiles": 303.5,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17471,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 36,
+    "responded": 25,
+    "perYear": [
+     14,
+     11
+    ],
+    "perSeason": {
+     "fall": 4,
+     "winter": 3,
+     "spring": 10,
+     "summer": 8
+    },
+    "bigStorms": 18,
+    "bigResponded": 18,
+    "setAside": {
+     "long_rain": 6,
+     "wet_before": 14,
+     "no_crest_in_window": 4,
+     "rain_again_before_crest": 3
+    },
+    "crest": {
+     "p10": 10.7,
+     "median": 22.3,
+     "p90": 40.8,
+     "yearMedians": [
+      23.7,
+      20.8
+     ]
+    },
+    "rise": {
+     "p10": 5.6,
+     "median": 15.6,
+     "p90": 28.6,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07066000",
+   "name": "Jacks Fork at Eminence, MO",
+   "squareMiles": 403.8,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 72,
+   "hoursWithFlow": 17334,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 29,
+    "responded": 21,
+    "perYear": [
+     12,
+     9
+    ],
+    "perSeason": {
+     "winter": 3,
+     "spring": 7,
+     "summer": 8,
+     "fall": 3
+    },
+    "bigStorms": 13,
+    "bigResponded": 13,
+    "setAside": {
+     "long_rain": 7,
+     "flow_record_incomplete": 2,
+     "rain_again_before_crest": 3,
+     "wet_before": 14,
+     "no_crest_in_window": 4,
+     "rising_before_rain": 2
+    },
+    "crest": {
+     "p10": 10.4,
+     "median": 23.6,
+     "p90": 44.7,
+     "yearMedians": [
+      24.9,
+      19.4
+     ]
+    },
+    "rise": {
+     "p10": 2.9,
+     "median": 7.8,
+     "p90": 18.2,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07066510",
+   "name": "Current River above Powder Mill, MO",
+   "squareMiles": 1336,
+   "result": "no_range",
+   "reason": "no_flow_record",
+   "windowHours": null,
+   "hoursWithFlow": 0,
+   "verdict": null
+  },
+  {
+   "site": "07067000",
+   "name": "Current River at Van Buren, MO",
+   "squareMiles": 1669.9,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17510,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 29,
+    "responded": 10,
+    "perYear": [
+     7,
+     3
+    ],
+    "perSeason": {
+     "fall": 1,
+     "winter": 4,
+     "spring": 2,
+     "summer": 3
+    },
+    "bigStorms": 5,
+    "bigResponded": 4,
+    "setAside": {
+     "long_rain": 5,
+     "rain_again_before_crest": 10,
+     "wet_before": 17,
+     "no_crest_in_window": 1
+    },
+    "crest": {
+     "p10": 17.7,
+     "median": 40.9,
+     "p90": 51.5,
+     "yearMedians": [
+      43.2,
+      38.6
+     ]
+    },
+    "rise": {
+     "p10": 4.8,
+     "median": 12.1,
+     "p90": 22.2,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      17,
+      52
+     ],
+     "riseHours": null,
+     "storms": 10
+    }
+   }
+  },
+  {
+   "site": "07069305",
+   "name": "Spring River at Spring Street Bridge at Hardy, AR",
+   "squareMiles": 844.6,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17520,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable",
+     "years_disagree"
+    ],
+    "counted": 30,
+    "responded": 15,
+    "perYear": [
+     9,
+     6
+    ],
+    "perSeason": {
+     "winter": 4,
+     "spring": 4,
+     "summer": 5,
+     "fall": 2
+    },
+    "bigStorms": 7,
+    "bigResponded": 7,
+    "setAside": {
+     "long_rain": 6,
+     "wet_before": 9,
+     "rain_again_before_crest": 10,
+     "no_crest_in_window": 3
+    },
+    "crest": {
+     "p10": 5.3,
+     "median": 8.9,
+     "p90": 27.4,
+     "yearMedians": [
+      10,
+      6.2
+     ]
+    },
+    "rise": {
+     "p10": 1.8,
+     "median": 5.1,
+     "p90": 10.7,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07069500",
+   "name": "Spring River at Imboden, AR",
+   "squareMiles": 1160.5,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17378,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 25,
+    "responded": 19,
+    "perYear": [
+     9,
+     10
+    ],
+    "perSeason": {
+     "winter": 5,
+     "spring": 4,
+     "summer": 6,
+     "fall": 4
+    },
+    "bigStorms": 8,
+    "bigResponded": 8,
+    "setAside": {
+     "long_rain": 6,
+     "wet_before": 9,
+     "rain_again_before_crest": 10,
+     "no_crest_in_window": 3
+    },
+    "crest": {
+     "p10": 9.1,
+     "median": 17.2,
+     "p90": 23.6,
+     "yearMedians": [
+      17.2,
+      16.8
+     ]
+    },
+    "rise": {
+     "p10": 2.1,
+     "median": 7,
+     "p90": 12.6,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      9,
+      24
+     ],
+     "riseHours": null,
+     "storms": 19
+    }
+   }
+  },
+  {
+   "site": "07071500",
+   "name": "Eleven Point River near Bardley, MO",
+   "squareMiles": 785.3,
+   "result": "range",
+   "reason": null,
+   "windowHours": 120,
+   "hoursWithFlow": 17516,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 30,
+    "responded": 12,
+    "perYear": [
+     7,
+     5
+    ],
+    "perSeason": {
+     "winter": 5,
+     "spring": 2,
+     "summer": 4,
+     "fall": 1
+    },
+    "bigStorms": 7,
+    "bigResponded": 6,
+    "setAside": {
+     "long_rain": 8,
+     "rain_again_before_crest": 9,
+     "wet_before": 8,
+     "no_crest_in_window": 3
+    },
+    "crest": {
+     "p10": 19.7,
+     "median": 23.8,
+     "p90": 38.1,
+     "yearMedians": [
+      23.3,
+      26.5
+     ]
+    },
+    "rise": {
+     "p10": 2.9,
+     "median": 6.4,
+     "p90": 23.9,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      19,
+      39
+     ],
+     "riseHours": null,
+     "storms": 12
+    }
+   }
+  },
+  {
+   "site": "07186000",
+   "name": "Spring River near Waco, MO",
+   "squareMiles": 1165.6,
+   "result": "no_range",
+   "reason": "too_variable",
+   "windowHours": 120,
+   "hoursWithFlow": 17298,
+   "verdict": {
+    "released": false,
+    "reason": "too_variable",
+    "failed": [
+     "too_variable"
+    ],
+    "counted": 21,
+    "responded": 18,
+    "perYear": [
+     8,
+     10
+    ],
+    "perSeason": {
+     "fall": 5,
+     "spring": 5,
+     "summer": 5,
+     "winter": 3
+    },
+    "bigStorms": 10,
+    "bigResponded": 10,
+    "setAside": {
+     "long_rain": 11,
+     "wet_before": 15,
+     "no_crest_in_window": 5,
+     "rain_again_before_crest": 7,
+     "flow_record_incomplete": 1,
+     "rising_before_rain": 1
+    },
+    "crest": {
+     "p10": 15.1,
+     "median": 29.8,
+     "p90": 76,
+     "yearMedians": [
+      26.8,
+      32.4
+     ]
+    },
+    "rise": {
+     "p10": 2.5,
+     "median": 9.7,
+     "p90": 23.2,
+     "steady": false
+    },
+    "publish": null
+   }
+  },
+  {
+   "site": "07188925",
+   "name": "Elk Rv at MO-59, Noel, MO",
+   "squareMiles": 801.1,
+   "result": "no_range",
+   "reason": "no_flow_record",
+   "windowHours": null,
+   "hoursWithFlow": 0,
+   "verdict": null
+  },
+  {
+   "site": "07252000",
+   "name": "Mulberry River near Mulberry, AR",
+   "squareMiles": 373.7,
+   "result": "range",
+   "reason": null,
+   "windowHours": 72,
+   "hoursWithFlow": 17506,
+   "verdict": {
+    "released": true,
+    "reason": null,
+    "failed": [],
+    "counted": 33,
+    "responded": 22,
+    "perYear": [
+     9,
+     13
+    ],
+    "perSeason": {
+     "fall": 7,
+     "winter": 3,
+     "spring": 7,
+     "summer": 5
+    },
+    "bigStorms": 16,
+    "bigResponded": 15,
+    "setAside": {
+     "long_rain": 9,
+     "no_crest_in_window": 5,
+     "wet_before": 15,
+     "rain_again_before_crest": 9,
+     "outside_window": 1
+    },
+    "crest": {
+     "p10": 12.5,
+     "median": 19.5,
+     "p90": 33.5,
+     "yearMedians": [
+      19.5,
+      20.9
+     ]
+    },
+    "rise": {
+     "p10": 6.4,
+     "median": 12.1,
+     "p90": 19.6,
+     "steady": false
+    },
+    "publish": {
+     "crestHours": [
+      12,
+      34
+     ],
+     "riseHours": null,
+     "storms": 22
+    }
+   }
+  }
+ ],
+ "notStudied": [
+  {
+   "site": "06923250",
+   "reason": "watershed_not_reviewed"
+  },
+  {
+   "site": "06928900",
+   "reason": "watershed_not_reviewed"
+  },
+  {
+   "site": "07034000",
+   "reason": "watershed_not_reviewed"
+  },
+  {
+   "site": "07055646",
+   "reason": "watershed_not_reviewed"
+  },
+  {
+   "site": "07064440",
+   "reason": "watershed_not_reviewed"
+  },
+  {
+   "site": "07068000",
+   "reason": "watershed_not_reviewed"
+  },
+  {
+   "site": "07185765",
+   "reason": "watershed_not_reviewed"
+  },
+  {
+   "site": "07359610",
+   "reason": "watershed_not_reviewed"
+  }
+ ]
+}
