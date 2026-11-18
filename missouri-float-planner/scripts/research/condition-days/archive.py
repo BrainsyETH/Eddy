@@ -1,5 +1,6 @@
 """Fetch the study's approved USGS daily mean discharge. One value per calendar day."""
 import argparse
+import ast
 import calendar
 import csv
 import io
@@ -36,7 +37,11 @@ def fetch_site(site):
             if day in seen or not START <= day.year <= END:
                 raise ValueError(f"Unexpected date for {site}: {day}")
             seen.add(day)
-            if row["approval_status"] != "Approved" or row["qualifier"] or not row["value"]:
+            if row["approval_status"] != "Approved" or not row["value"]:
+                continue
+            # USGS CSV encodes qualifiers as lists, e.g. "['ESTIMATED', 'REVISED']".
+            qualifiers = ast.literal_eval(row["qualifier"]) if row["qualifier"] else []
+            if qualifiers not in ([], ["REVISED"]):
                 continue
             value = float(row["value"])
             if math.isfinite(value) and value >= 0:

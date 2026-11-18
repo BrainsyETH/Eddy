@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { closingStreak, grade, pairedDays, stations, summarize, type Archive } from './study';
 import data from '@/data/condition-days/archive/07065495.json';
+import stJoe from '@/data/condition-days/archive/07056000.json';
 import observed from '@/data/condition-days/observations.json';
 
 const station = stations.find(s => s.site === '07065495')!;
@@ -20,6 +21,17 @@ test('monthly counts conserve every measured daily flow including zero and leap 
   assert.equal(grade(thresholds.levelDangerous, thresholds), 'dangerous');
   assert.equal(grade(0, thresholds), 'too_low');
   assert.equal(observed[station.site as keyof typeof observed].filter(v => v !== null).length, 295);
+});
+test('St. Joe seasonal counts include USGS days marked only as revised', () => {
+  const buffalo = stations.find(s => s.site === '07056000')!;
+  const { months, fullYears } = summarize(stJoe, buffalo.thresholds, '2026-11-17');
+  assert.equal(fullYears, 20);
+  assert.equal(months.reduce((total, month) => total + month.total, 0), 7233);
+  for (const [month, floatDays, recorded] of [[4, 386, 600], [6, 446, 594], [8, 221, 616]]) {
+    const { levels, total } = months[month - 1];
+    assert.equal(levels.good + levels.flowing, floatDays);
+    assert.equal(total, recorded);
+  }
 });
 test('comparisons require the same measured date and enough observations in each seven-day window', () => {
   const a: Archive = [Array(365).fill(null), Array(365).fill(null)];

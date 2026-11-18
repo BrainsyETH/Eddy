@@ -81,7 +81,7 @@ export default function ConditionDaysReport({ station, summary, thresholds, read
       })}</div></> : <p>There are too few complete years for an annual comparison.</p>}
     </section>
     <details className={styles.method}><summary>About the data</summary>
-      <p><b>{station.gauge}</b> · USGS {station.site}. {recorded.toLocaleString('en-US')} approved daily mean flows from 2006–2025. Missing and qualified days are left out. A daily average can hide a short rise.</p>
+      <p><b>{station.gauge}</b> · USGS {station.site}. {recorded.toLocaleString('en-US')} approved daily mean flows from 2006–2025. We include USGS revisions and skip estimates and other flagged readings. A daily average can hide a short rise.</p>
       <p>We apply {archived ? 'the November 17, 2026 study copy of' : 'the current'} Eddy flow ranges to the measurements. “Flood” in the historical charts means a flow reached Eddy’s upper threshold. Official flood stage is measured in feet.</p>
       <p>Each year square uses the median flow in the seven days centered on {dayLabel(today)}, with at least four readings. Today’s rating uses a fresh observation and includes official flood stage where available.</p>
       <p>The {season.year} strip uses each completed Central day’s median Eddy reading. A missing day breaks a streak. Annual counts scale each year with at least 90% coverage to 365 days, then average those years.</p>
