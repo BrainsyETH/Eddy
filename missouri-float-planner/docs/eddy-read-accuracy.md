@@ -182,8 +182,8 @@ file's own Format Rules say how to write it. In short:
 `{unconfirmed}` on a gauge heading keeps a drafted block out of every prompt. A
 river with no confirmed block for a gauge is selected as it was before gauge
 blocks existed: the river-wide block, plus, for a gauge Read, any reach note
-that names the gauge's town. Four rivers are confirmed: the Current, the Jacks
-Fork, the Meramec and the Niangua. The other gauges
+that names the gauge's town. Six rivers are confirmed: the Black, the Current,
+the Gasconade, the Jacks Fork, the Meramec and the Niangua. The other gauges
 carry drafts built from the river line and access points, with the inflows
 left for the owner to state. `knowledge.test.ts` lists the confirmed rivers, so
 confirming one is a deliberate change.

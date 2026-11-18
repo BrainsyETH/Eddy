@@ -303,7 +303,7 @@ the Mark Twain National Forest.
 - Fort Leonard Wood is nearby — military training areas are adjacent but don't impact the river.
 - Best floated in spring and early summer when water levels are higher.
 - Check conditions before you go — there's less margin for error than on the bigger rivers.
-- The Big Piney is the Gasconade's largest tributary and joins it near Devils Elbow, so a big rise here shows up on the Gasconade below Jerome.
+- The Big Piney is the Gasconade's largest tributary and joins it near Devils Elbow, so a big rise here shows up at the Gasconade's Jerome gauge, about nine miles below the confluence.
 
 ### Gauge: Big Piney {@06930000} {unconfirmed}
 
@@ -327,38 +327,39 @@ The Gasconade is the longest river entirely within Missouri (~280 miles) and the
 - **Rockslide Bluff**: a section of cliff collapsed into the river in 1971 and is now an interesting little rapid; springs bubble up from the riverbed here and the flow, and the floating, picks up noticeably below it.
 - Strainers (downed trees) and low-water bridges are the main hazards. The gradient is gentle, so trouble comes from wood and structures more than from rapids.
 
-### Upper Hazelgreen {#upper-hazelgreen}
+### Upper Hazelgreen {#upper-hazelgreen} {@06928000}
 
 - Represented by the Hazelgreen gauge, the upper-river reference. Winding, spring-influenced, good smallmouth water.
 - Watch the losing reach above Schlict Spring in low water (see the river notes above) — the Hazelgreen reading can overstate what you will actually find through the Narrows.
 - Floatable from around Highway E downstream; the highest put-ins need more water and can be scrapy.
 
-### Mid Jerome {#mid-jerome}
+### Mid Jerome {#mid-jerome} {@06933500}
 
 - The popular middle float around Jerome and Waynesville, represented by the Jerome gauge, the most-cited Gasconade float gauge and the best single reference for a typical trip.
 - High-quality smallmouth fishery, and where most outfitted trips run.
 - Low-water bridges and strainers are the hazards to watch as water rises.
 
-### Lower Richfountain {#lower-richfountain}
+### Lower Richfountain {#lower-richfountain} {@06934000}
 
 - Represented by the Rich Fountain gauge, toward the Missouri River confluence. Larger, slower water.
 - On this bigger lower river, low water mainly affects your speed rather than whether you can float.
 - Rises here arrive from the whole upstream drainage, so the gauge can climb even when local weather is dry.
 
-### Gauge: Hazelgreen {@06928000} {unconfirmed}
+### Gauge: Hazelgreen {@06928000}
 
-- **Sits**: Line mile 77.6 of 261. Nearest put-ins on the line: Gasconade Hills Resort (73.4) above, Hazelgreen Access (77.7) below. Drains 1,250 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Hazelgreen, on the upper river. Above it: the Osage Fork, which joins just upstream of the gauge. Below it: Roubidoux Creek, which joins near Waynesville, and then the Big Piney, so the river carries far more water by Jerome than this gauge reads.
+- **Speaks for**: The upper Gasconade, from the Osage Fork down to Roubidoux Creek.
+- Eddy's primary gauge for the river.
 
-### Gauge: Jerome {@06933500} {unconfirmed}
+### Gauge: Jerome {@06933500}
 
-- **Sits**: Line mile 155.4 of 261. Nearest put-ins on the line: Jerome Access (154.8) above, Whitehouse Ford (158.4) below. Drains 2,840 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Jerome, on the middle river. Above it: Roubidoux Creek and the Big Piney, which joins about nine miles upstream, so this gauge DOES include the Big Piney's water.
+- **Speaks for**: The middle Gasconade from the Big Piney down past Jerome.
 
-### Gauge: Rich Fountain {@06934000} {unconfirmed}
+### Gauge: Rich Fountain {@06934000}
 
-- **Sits**: Line mile 209.2 of 261. Nearest put-ins on the line: Paydown Access (192.1) above, Rollins Ferry Access (209.5) below. Drains 3,180 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Rich Fountain, on the lower river, about 54 miles below Jerome. Above it: everything the Jerome gauge carries. Below it: the Missouri River, about 50 miles on.
+- **Speaks for**: The lower Gasconade toward the Missouri River.
 
 ### Towns
 
@@ -424,30 +425,31 @@ A clear southeast-Missouri Ozark float below the St. Francois Mountains, with tw
 - **Clearwater Dam** sits below the upper reach: its normal pool floods only a few miles of channel, but the flood pool can back up about ten miles toward the Highway K area, so the effective bottom of the float reach moves with lake level.
 - The East Fork (Taum Sauk / Johnson's Shut-Ins / Bell Mountain) is not floatable; West Fork floats from around Centerville, Middle Fork from the Hwy 21-72 bridge.
 
-### Upper Lesterville {#upper-lesterville}
+### Upper Lesterville {#upper-lesterville} {@07061500}
 
 - The clear, gravel-bar summer float from Lesterville down toward Clearwater Lake. Read the Annapolis gauge for this reach.
 - Watch where Clearwater's flood pool reaches in high water — the lower end can be slack, backed-up lake rather than moving river.
 
-### Lower Markham Hammer {#lower-markham-hammer}
+### Lower Markham Hammer {#lower-markham-hammer} {@swl-clearwater-dam} {@07063000}
 
 - Below Clearwater Dam: a dam-influenced tailwater reach where levels reflect the release schedule and can change independent of local rain.
 - The Poplar Bluff gauge is the live reference but reads about a quarter high for this reach — lean on it for the high-water ceiling, not for fine floatability calls.
 
-### Gauge: Annapolis {@07061500} {unconfirmed}
+### Gauge: Annapolis {@07061500}
 
-- **Sits**: Line mile 11.4 of 195. Nearest put-ins on the line: Lesterville Access (2.6) above, Highway K Recreation Area (Clearwater Lake) (14.4) below. Drains 484 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Annapolis, above Clearwater Lake. Above it: the three forks, which meet near Lesterville. Below it: Clearwater Lake and its dam.
+- **Speaks for**: The upper float, from Lesterville down to the lake.
+- Eddy's primary gauge for the river, and the only real-time gauge for the upper float.
 
-### Gauge: Clearwater Dam {@swl-clearwater-dam} {unconfirmed}
+### Gauge: Clearwater Dam {@swl-clearwater-dam}
 
-- **Sits**: Line mile 32.1 of 195. Nearest put-ins on the line: Black River Bottoms Access (19.8) above, River Road Park (below Clearwater Dam) (32.4) below. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Clearwater Dam. It reports what the dam is releasing, not a river gauge's reading. Above it: the lake. Below it: the tailwater.
+- **Speaks for**: The river just below the dam, where the level follows the release and can change with no local rain.
 
-### Gauge: Poplar Bluff {@07063000} {unconfirmed}
+### Gauge: Poplar Bluff {@07063000}
 
-- **Sits**: Line mile 81.4 of 195. Nearest put-ins on the line: Sportsman's Park Access (Poplar Bluff) (80.7) above, Dan River Access (88.9) below. Drains 1,245 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Poplar Bluff, about 49 miles below Clearwater Dam, on a much larger drainage than the upper river. Above it: the dam's release and everything that joins the river below the dam.
+- **Speaks for**: The lower river around Poplar Bluff.
 
 ### Towns
 
@@ -495,7 +497,7 @@ The slowest large stream in the Ozarks and one of its crookedest — it winds ab
 The Buffalo National River — America's first National River (1972) — is a free-flowing, rain-driven stream draining the Boston Mountains of northwest Arkansas, managed by the National Park Service. Its personality changes sharply top to bottom: the upper river is flashy and seasonal, floatable mainly spring into early summer, while the lower river holds water nearly year-round and reads more like flatwater.
 
 - **Ponca to Pruitt** is the classic upper float and the most level-sensitive reach on the river — too low and you drag, too high and the bluffs turn hazardous. Season is typically March through June, sometimes into July with rain.
-- Read the gauge that matches your reach: **Ponca** is the canonical upper-river floatability gauge, **St. Joe** (Tyler Bend) is the middle-district reference and Eddy's primary for the river, and **Rush** is the lowest before the White River confluence.
+- Read the gauge that matches your reach: **Ponca** is the canonical upper-river floatability gauge, **St. Joe** (Tyler Bend) is the middle-district reference and Eddy's primary for the river, and **Harriet**, at the Highway 14 bridge, is the lowest before the White River confluence.
 - When it's too low to launch at Ponca, outfitters shift the put-in about two miles down to Steel Creek — there's no published numeric cutoff, it's a daily operational call.
 - Flash floods and strainers are the serious hazards on the flashy upper reaches; the lower river below Gilbert is calmer, where low water mostly affects speed rather than whether you can float.
 
@@ -511,7 +513,7 @@ The Buffalo National River — America's first National River (1972) — is a fr
 ### Lower (Gilbert to Buffalo City) {#lower-gilbert-buffalocity}
 
 - Calmer, holds water nearly year-round, and reads more like flatwater than float. Low water here mostly costs speed rather than ending the trip.
-- Rush is the lowest gauge before the White River confluence.
+- The Harriet gauge, at the Highway 14 bridge, is the lowest before the White River confluence.
 
 ### Gauge: Boxley {@07055646} {unconfirmed}
 
@@ -535,8 +537,9 @@ The Buffalo National River — America's first National River (1972) — is a fr
 
 ### Gauge: Harriet {@07056700} {unconfirmed}
 
-- **Sits**: Line mile 115.3 of 148. Nearest put-ins on the line: Dillards Ferry (115.3) above, Buffalo Point (116.9) below. Drains 1,070 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Highway 14 bridge (Dillards Ferry) near Harriet, about 26 miles below the St. Joe gauge. Above it: everything the St. Joe gauge carries and the creeks that join below Gilbert. Below it: Buffalo Point and Rush, then the White River.
+- **Speaks for**: The lower Buffalo, from Gilbert down.
+- The owner approved these two lines on 2026-11-18. The block stays out of prompts until the river's main gauge, St. Joe, has a confirmed block too.
 
 ### Towns
 
