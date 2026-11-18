@@ -1,8 +1,13 @@
--- 20261117230200_niangua_below_bennett_spring_reads_tunnel_dam.sql
+-- 20261118214137_niangua_below_bennett_spring_reads_tunnel_dam.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt. The
--- owner decided the top of Tunnel Dam's ladder on 2026-11-18; see "The top of
--- the ladder". Applying to production is a separate, authorized step.
+-- Applied to production 2026-11-18 as 20261118214137 (drafted as
+-- 20261117230200). Before applying, the same block ran on production inside a
+-- statement that always rolled back: every check below held, 15 put-ins
+-- resolved to Tunnel Dam and 5 to Windyville. After applying, the md5 of the
+-- statement production recorded equals this file's do-block, both ladders and
+-- both stretches read back as written, and the river's headline read Good at
+-- 181 cfs from Tunnel Dam. The owner decided the top of Tunnel Dam's ladder
+-- the same day; see "The top of the ladder".
 --
 -- The Niangua from Bennett Spring down is graded by the Tunnel Dam gauge
 -- (06923950), and that gauge becomes the river's main gauge. Put-ins above the

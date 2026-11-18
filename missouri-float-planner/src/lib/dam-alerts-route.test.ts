@@ -34,7 +34,7 @@ const SUPABASE = 'http://supabase.test';
 process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE;
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
 
-const migration = readFileSync('supabase/migrations/20261117230000_dam_generation_alerts.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261118215519_dam_generation_alerts.sql', 'utf8');
 const DAM = 'swl-table-rock-dam';
 const UNSCHEDULED = Object.values(USACE_DAMS).find((dam) => !dam.swpaCode)!.id;
 

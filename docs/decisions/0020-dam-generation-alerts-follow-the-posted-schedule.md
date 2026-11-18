@@ -1,9 +1,9 @@
 # 0020 — Dam generation alerts follow the posted schedule
 
-Status: active · 2026-11 · implemented in code; the tables are pending in
-`missouri-float-planner/supabase/production-migrations.txt`
-(`20261117230000_dam_generation_alerts.sql`) until applied. Device
-verification of the iOS screens and of a delivered push is unconfirmed.
+Status: active · 2026-11 · implemented in code; the tables were applied to
+production on 2026-11-18 (`20261118215519_dam_generation_alerts.sql`, listed
+under `[applied]` in `missouri-float-planner/supabase/production-migrations.txt`).
+Device verification of the iOS screens and of a delivered push is unconfirmed.
 
 ## Context
 
