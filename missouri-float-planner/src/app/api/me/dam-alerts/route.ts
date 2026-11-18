@@ -18,7 +18,7 @@
 // This route then did the merge itself: read both times, combine, write both
 // back. Two requests enabling different switches at once each read before the
 // other wrote, and the second write cleared the first. So PUT makes exactly ONE
-// call, set_dam_generation_alert (migration 20261117230000), which reads,
+// call, set_dam_generation_alert (migration 20261118215519), which reads,
 // merges and writes — or deletes, when both end up off — in one transaction
 // behind a lock on (user, dam). Do not add a read or a second write around it:
 // src/lib/dam-alerts-route.test.ts fires simultaneous requests and counts.

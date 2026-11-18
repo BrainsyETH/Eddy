@@ -3,14 +3,14 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 
-// 20261117230000 creates the dam generation alert tables (ADR 0020). It is
+// 20261118215519 creates the dam generation alert tables (ADR 0020). It is
 // applied to production separately from the code that uses it, so these tests
 // run the real file against a fixture of the objects it depends on and check
 // the promises the code leans on: an alert with no time cannot exist, a notice
 // is queued once, the outbox is server-only, and a person reads and writes only
 // their own alert.
 
-const migration = readFileSync('supabase/migrations/20261117230000_dam_generation_alerts.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261118215519_dam_generation_alerts.sql', 'utf8');
 
 const USER_A = '00000000-0000-0000-0000-00000000000a';
 const USER_B = '00000000-0000-0000-0000-00000000000b';

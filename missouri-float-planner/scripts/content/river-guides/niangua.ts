@@ -31,7 +31,7 @@ export default {
       },
       {
         "q": "How do I check Niangua water levels?",
-        "a": "Windyville (USGS 06923250) is the main gauge; Eddy’s river report rates it best between about 100 and 400 cfs. For the lower river, use the Tunnel Dam gauge (06923950)."
+        "a": "Tunnel Dam (USGS 06923950) is the main gauge, and it reads the river from Bennett Spring down; Eddy’s river report rates it best between about 230 and 750 cfs. Above the spring, use the Windyville gauge (06923250), which does not carry the spring’s water."
       },
       {
         "q": "Can I camp along the Niangua?",
@@ -72,7 +72,7 @@ export default {
       "title_accent": "Float Trip Guide."
     },
     "tldr": {
-      "primary_gauge": "Windyville · USGS 06923250",
+      "primary_gauge": "Tunnel Dam · USGS 06923950",
       "typical_distance": "7.9–16.1 mi featured routes",
       "best_for_beginners": "Bennett Spring → Prosperine (9.8 mi, about 4 hr)",
       "route_label": "Start here"
@@ -369,7 +369,7 @@ export default {
     "sources": [
       {
         "label": "USGS: gauge and observation information",
-        "url": "https://waterdata.usgs.gov/monitoring-location/06923250/"
+        "url": "https://waterdata.usgs.gov/monitoring-location/06923950/"
       },
       {
         "label": "Missouri State Parks: Bennett Spring fishing rules",
@@ -388,7 +388,7 @@ export default {
         "url": "https://ferc.gov/news-events/news/summaries-december-2025-commission-meeting"
       }
     ],
-    "editorial_updated_at": "2026-11-10",
+    "editorial_updated_at": "2026-11-18",
     "checked_at": "2026-11-10"
   },
   "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/1773883574106-Screenshot_2026-03-18_at_8.26.06_PM-KvQqnT3PZJtQeXmQ2woqigz7Jnui8B.png"
