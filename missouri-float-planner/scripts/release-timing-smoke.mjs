@@ -16,6 +16,16 @@ const serveOnly = process.argv.includes('--serve');
 // of the image. Hide it only for the capture, not for interaction checks.
 const screenshotStyle = 'header.sticky, nextjs-portal { visibility: hidden !important; }';
 const capture = (element, name) => element.screenshot({ path: out + '/' + name + '.png', style: screenshotStyle });
+function localRequest(route) {
+  const url = new URL(route.request().url());
+  if (url.origin !== origin) return route.abort();
+  const image = url.pathname === '/_next/image' && url.searchParams.get('url');
+  if (image && /^https?:/.test(image)) {
+    if (image.endsWith('/Eddy_favicon.png')) return route.fulfill({ path: 'src/app/favicon.ico', contentType: 'image/x-icon' });
+    return route.abort();
+  }
+  return route.continue();
+}
 const compared = {
   id: 'compared', kind: 'compared', peakCfs: 13200,
   releasedAt: '2026-11-12T20:30:00Z', estimateAt: '2026-11-13T09:30:00Z',
@@ -93,8 +103,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 900 });
     activePage = page;
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.route('**/*', (request) => new URL(request.request().url()).origin === origin ? request.continue() : request.abort());
+    await page.route('**/*', localRequest);
     await page.goto(url, { waitUntil: 'networkidle' });
+    // A cold dev build can paint the study button before React attaches its handlers.
+    await page.waitForFunction(() => {
+      const map = document.querySelector('#release-map svg[role="group"]');
+      return map && Math.abs(map.viewBox.baseVal.width - map.getBoundingClientRect().width) < 1;
+    });
     const intro = page.locator('[data-timing-check] > header');
     const map = page.locator('#release-map');
     const slider = map.getByRole('slider');
@@ -309,7 +324,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   activePage = page;
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.route('**/*', (request) => new URL(request.request().url()).origin === origin ? request.continue() : request.abort());
+  await page.route('**/*', localRequest);
   for (const [variant, text] of [['empty', 'No results yet'], ['waiting', 'Waiting for gauge readings'], ['unmatched', 'Couldn’t compare'], ['unavailable', 'Results can’t be loaded'], ['early', 'Before the estimated window'], ['late', 'After the estimated window'], ['exact', 'At the estimated time'], ['near', 'Less than 5 min earlier than estimated'], ['precision', 'About 15 min earlier than estimated'], ['overnight', 'About 5 min later than estimated']]) {
     await page.goto(url + '?variant=' + variant, { waitUntil: 'networkidle' });
     assert((await page.locator('#how-close').innerText()).includes(text), variant);
