@@ -297,11 +297,12 @@ async function waitForContainer(
   return { success: false, error: 'Container processing timed out' };
 }
 
-// Publish a video (Reel) to Instagram (3-step container flow with longer polling)
+// Publish a video to Instagram (3-step container flow with longer polling)
 export async function publishVideoToInstagram(params: {
   caption: string;
   videoUrl: string;
   coverUrl?: string;
+  placement?: 'story' | 'reel';
   onContainer?: (containerId: string) => void | Promise<void>;
 }): Promise<MetaPublishResult> {
   const { accessToken, instagramAccountId } = getCredentials();
@@ -313,17 +314,15 @@ export async function publishVideoToInstagram(params: {
   try {
     console.log(`[MetaClient] Instagram video_url: ${params.videoUrl}`);
 
-    // Step 1: Create video container (Reel)
+    const story = params.placement === 'story';
     const containerBody = new URLSearchParams({
       video_url: params.videoUrl,
-      media_type: 'REELS',
-      caption: params.caption,
+      media_type: story ? 'STORIES' : 'REELS',
       access_token: accessToken,
     });
-
-    // Use the OG image as the Reel cover (prevents black first-frame)
-    if (params.coverUrl) {
-      containerBody.set('cover_url', params.coverUrl);
+    if (!story) {
+      containerBody.set('caption', params.caption);
+      if (params.coverUrl) containerBody.set('cover_url', params.coverUrl);
     }
 
     const containerResponse = await fetch(

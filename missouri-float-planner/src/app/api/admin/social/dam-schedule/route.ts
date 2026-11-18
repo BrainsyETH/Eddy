@@ -2,20 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { withAdminMutation } from '@/lib/admin/mutation-audit';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchDamSummary } from '@/lib/data/dams';
+import { loadDamStorySchedule } from '@/lib/social/dam-story';
 import { triggerVideoRender } from '@/lib/social/video-renderer';
 import { centralDayKey, nextDayKey } from '@shared/dam-schedule-copy';
-import { DAM_STORY_ID, damStoryCaption, damStoryRender, damStorySnapshot, type DamStoryPlatform } from '@shared/social-dam-schedule';
+import { damStoryCaption, damStoryRender, type DamStoryPlatform } from '@shared/social-dam-schedule';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-async function load(date: string) {
-  const now = Date.now();
-  if (date !== centralDayKey(now) && date !== nextDayKey(centralDayKey(now))) throw new Error('Choose today or tomorrow in Central time.');
-  const dam = await fetchDamSummary(DAM_STORY_ID, { scheduleDays: 2 });
-  return damStorySnapshot(dam?.schedule.find(day => day.scheduleDate === date), date);
-}
 
 export async function GET(request: NextRequest) {
   const denied = await requireAdminAuth(request);
@@ -23,7 +16,7 @@ export async function GET(request: NextRequest) {
   const today = centralDayKey();
   const date = request.nextUrl.searchParams.get('date') || today;
   try {
-    const snapshot = await load(date);
+    const snapshot = await loadDamStorySchedule(date);
     return NextResponse.json({ today, tomorrow: nextDayKey(today), snapshot, caption: damStoryCaption(snapshot) }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return NextResponse.json({ today, tomorrow: nextDayKey(today), error: error instanceof Error ? error.message : 'Could not check the schedule.' }, { status: 409 });
@@ -37,7 +30,7 @@ async function handlePOST(request: NextRequest) {
   }
   // Never trust a preview snapshot sent by the browser. Read the source again.
   let snapshot;
-  try { snapshot = await load(body.date); }
+  try { snapshot = await loadDamStorySchedule(body.date); }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not check the schedule.' }, { status: 409 }); }
   const supabase = createAdminClient();
   const results: { platform: DamStoryPlatform; id?: string; error?: string }[] = [];

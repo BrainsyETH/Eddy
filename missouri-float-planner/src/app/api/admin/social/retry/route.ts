@@ -6,14 +6,16 @@ import { triggerReportRender } from '@/lib/social/daily-report-dispatch';
 // Review, retry publication, or rerender the saved composition without changing media type.
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { getAdminIdentity, requireAdminAuth } from '@/lib/admin-auth';
 import { getAdapter } from '@/lib/social/adapters';
 import { triggerVideoRender, destinationRenderRequest } from '@/lib/social/video-renderer';
+import { loadDamStorySchedule } from '@/lib/social/dam-story';
 import { savedPostMedia } from '@/lib/social/review';
 import type { SocialPlatform } from '@/lib/social/types';
 import { outcomeFields, providerAttemptRecorder, thrownFields } from '@/lib/social/publish-outcome';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 async function handlePOST(request: NextRequest) {
   const authError = await requireAdminAuth(request);
   if (authError) return authError;
@@ -24,6 +26,10 @@ async function handlePOST(request: NextRequest) {
   const supabase = createAdminClient();
   const { data: post } = await supabase.from('social_posts').select('*').eq('id', body.id).single();
   if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+  const damRender = isDamStory(post.render_request) ? post.render_request : null;
+  if (damRender && getAdminIdentity(request)?.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can send a dam video.' }, { status: 403 });
+  }
   const expected = action === 'approve' ? 'review' : action === 'resolve' ? 'unknown' : 'failed';
   if (post.status !== expected) return NextResponse.json({ error: `Post is no longer ${expected}. Refresh its status.` }, { status: 409 });
 
@@ -75,7 +81,12 @@ async function handlePOST(request: NextRequest) {
   }
 
   let media;
-  try { media = savedPostMedia(post); }
+  try {
+    const currentSchedule = damRender
+      ? await loadDamStorySchedule(damRender.inputProps?.snapshot?.scheduleDate)
+      : undefined;
+    media = savedPostMedia(post, currentSchedule);
+  }
   catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 409 }); }
   const adapter = getAdapter(post.platform as SocialPlatform);
   if (!adapter) return NextResponse.json({ error: 'Platform is not connected' }, { status: 400 });

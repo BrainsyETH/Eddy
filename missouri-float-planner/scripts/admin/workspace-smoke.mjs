@@ -5,6 +5,7 @@ import { createHmac } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
+import { checkSocialReview } from './social-review-smoke.mjs';
 import { checkModelTests } from './ai-models-smoke.mjs';
 const require = createRequire(import.meta.url);
 const origin = 'http://127.0.0.1:3152';
@@ -411,6 +412,7 @@ try {
   await page.goto(origin + '/admin/lakes');
   await page.getByRole('button', { name: 'Try again' }).waitFor();
   await checkAccessChanges(browser, origin, post, reports);
+  await checkSocialReview(browser, origin, out);
   await checkModelTests(browser, origin, out);
   assert.deepEqual(pageErrors, []);
   console.log(
