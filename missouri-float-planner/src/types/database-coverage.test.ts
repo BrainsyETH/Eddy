@@ -31,6 +31,11 @@ const KNOWN_MISSING = new Map<string, string>([
   ['release_arrival_passes', 'exists in production; database.ts not regenerated since 20261113033326'],
   ['release_arrival_predictions', 'exists in production; database.ts not regenerated since 20261113033326'],
   ['release_arrival_outcomes', 'exists in production; database.ts not regenerated since 20261113033326'],
+  // NOT in production yet: 20261117230000_dam_generation_alerts.sql is pending (ADR 0020), so there is no
+  // schema to regenerate from. After it is applied, run `npm run db:gen-types` and remove these entries;
+  // this test fails once it has.
+  ['dam_generation_alerts', 'pending migration 20261117230000; regenerate database.ts once applied'],
+  ['dam_generation_alert_events', 'pending migration 20261117230000; regenerate database.ts once applied'],
 ]);
 
 function sourceFiles(dir: string): string[] {

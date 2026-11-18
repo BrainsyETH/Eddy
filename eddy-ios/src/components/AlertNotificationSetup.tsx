@@ -1,13 +1,22 @@
+import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PushPrimer } from './PushPrimer';
 import type { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-/** The same recovery stays visible in Mine and alongside the editor's switch. */
-export function AlertNotificationSetup({ setup, active }: {
+/**
+ * The same recovery stays visible in Mine, alongside the editor's switch, and
+ * under the dam screen's generation alert switches.
+ *
+ * `primer` lets a caller that knows what was just set say so on the sheet
+ * shown before the iOS prompt. The dam card passes its own promise and
+ * caveat; without it the sheet makes the general case, as it always has.
+ */
+export function AlertNotificationSetup({ setup, active, primer }: {
   setup: ReturnType<typeof useAlertNotificationSetup>;
   active: boolean;
+  primer?: Pick<ComponentProps<typeof PushPrimer>, 'riverName' | 'promise' | 'schedule'>;
 }) {
   const { colors } = useTheme();
   if (!active) return null;
@@ -27,7 +36,7 @@ export function AlertNotificationSetup({ setup, active }: {
           style={styles.action}
         ><Text style={[styles.actionText, { color: colors.interactive }]}>{actionLabel}</Text></Pressable> : null}
     </View> : null}
-    <PushPrimer visible={setup.primerOpen} onAllow={() => { void setup.act(true); }} onDismiss={setup.dismiss} />
+    <PushPrimer visible={setup.primerOpen} {...primer} onAllow={() => { void setup.act(true); }} onDismiss={setup.dismiss} />
   </>;
 }
 

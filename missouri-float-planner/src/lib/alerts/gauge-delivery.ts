@@ -103,7 +103,7 @@ function one<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
-function toPreferences(row: {
+export function toPreferences(row: {
   quiet_hours_enabled: boolean;
   quiet_start_minute: number | null;
   quiet_end_minute: number | null;

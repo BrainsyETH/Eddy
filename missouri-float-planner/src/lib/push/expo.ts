@@ -29,6 +29,14 @@ export interface ExpoMessage {
   sound?: 'default' | null;
   priority?: 'default' | 'normal' | 'high';
   channelId?: string;
+  /**
+   * Seconds the push services may hold the message for a device that is
+   * offline. Omitted, each provider keeps it for weeks. Set it on anything
+   * whose wording goes wrong with time (see pushTtlSeconds in
+   * alerts/dam-generation.ts). `ttl` rather than Expo's `expiration`: its unit
+   * is documented, and it takes precedence when both are sent.
+   */
+  ttl?: number;
 }
 
 export interface ExpoTicket {
