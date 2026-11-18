@@ -233,7 +233,9 @@ test('the rivers whose gauge lines are confirmed are exactly these', () => {
   assert.deepEqual(confirmed, ['current', 'jacks-fork', 'niangua']);
   assert.deepEqual(
     Object.fromEntries(confirmed.map((slug) => [slug, listKnowledgeGauges(slug).filter((g) => g.confirmed).map((g) => g.siteId)])),
-    { current: [VAN_BUREN], 'jacks-fork': [EMINENCE, ALLEY], niangua: [WINDYVILLE, '06923950'] },
+    // The Current's Powder Mill block stays a draft: the owner and the Park
+    // Service's point for Blue Spring disagree about which side of it the spring is.
+    { current: [VAN_BUREN, '07064440', '07064533', '07068000'], 'jacks-fork': [EMINENCE, ALLEY], niangua: [WINDYVILLE, '06923950'] },
   );
 });
 
@@ -276,7 +278,7 @@ test("a gauge's Read gets its own block and nothing of the others", () => {
 test('each spring is placed on the right side of its gauge', () => {
   // The three errors of 2026-11-17, as the file now states them.
   const vanBuren = getKnowledgeForTarget('current', null, VAN_BUREN);
-  assert.match(vanBuren, /Below it: Big Spring, which enters a few miles downstream, so this gauge does NOT include Big Spring's water/);
+  assert.match(vanBuren, /Below it: Big Spring, which enters about four miles downstream, so this gauge does NOT include Big Spring's water/);
   // The line that put it upstream is gone from everything Van Buren is told.
   assert.doesNotMatch(vanBuren, /Big Spring near Van Buren adds massive flow/);
   assert.equal(riverBlock('current').match(/Big Spring/g), null, 'the river-wide block must not place Big Spring');
@@ -297,9 +299,9 @@ test('a river with no confirmed block for the gauge is selected as it always was
     getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO'),
   );
   // And a confirmed river asked about a gauge it has only a draft for.
-  const akers = getRiverKnowledgeForGauge('current', 'Current River above Akers, MO', '07064533');
-  assert.doesNotMatch(akers, /This gauge:/);
-  assert.match(akers, /Section upper-current:/);
+  const powderMill = getRiverKnowledgeForGauge('current', 'Current River above Powder Mill, MO', '07066510');
+  assert.doesNotMatch(powderMill, /This gauge:/);
+  assert.match(powderMill, /Section lower-current:/);
 });
 
 test('chat is told everything about the river in view, towns included, and no Read is told the towns', () => {
@@ -322,4 +324,26 @@ test('no knowledge sends a reader to another river', () => {
   assert.doesNotMatch(getGeneralKnowledge(), /choose Eleven Point|over Current or Meramec/);
   assert.doesNotMatch(getKnowledgeForChat('niangua'), /good fallback|good alternative/);
   assert.doesNotMatch(getKnowledgeForChat('courtois'), /If Huzzah is too crowded/);
+});
+
+test("the Current's gauges each say which springs they do and do not carry", () => {
+  // Checked against the Park Service's spring points on the river line and the
+  // 2026 readings, and confirmed by the owner on 2026-11-18.
+  const akers = getRiverKnowledgeForGauge('current', 'Current River above Akers, MO', '07064533');
+  assert.match(akers, /This gauge: Akers \(07064533\)/);
+  assert.match(akers, /Above it: Montauk Springs and Welch Spring/);
+  assert.match(akers, /Speaks for\*\*: Cedar Grove to Pulltite\./);
+  assert.match(akers, /Section upper-current:[\s\S]*Section lower-current:/);
+
+  const montauk = getRiverKnowledgeForGauge('current', 'Current River at Montauk State Park, MO', '07064440');
+  assert.match(montauk, /Below it: Welch Spring and every other spring/);
+  assert.match(montauk, /Section upper-current:/);
+  assert.doesNotMatch(montauk, /Section lower-current:/);
+
+  assert.match(getRiverKnowledgeForGauge('current', 'Current River at Doniphan, MO', '07068000'), /Above it: Big Spring/);
+
+  // Van Buren's Read is told where the others sit, one line each.
+  const elsewhere = getKnowledgeForTarget('current', null, VAN_BUREN).split('=== Elsewhere on this river')[1];
+  for (const name of ['Montauk', 'Akers', 'Doniphan']) assert.match(elsewhere, new RegExp(`- ${name} gauge: `));
+  assert.doesNotMatch(elsewhere, /Powder Mill gauge/);
 });

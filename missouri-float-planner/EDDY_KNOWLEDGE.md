@@ -86,33 +86,33 @@ any river in the state. Where each spring enters decides which gauge sees its wa
 
 ### Gauge: Van Buren {@07067000}
 
-- **Sits**: At Van Buren, well down the river. Above it: the Jacks Fork, which joins at Two Rivers, and the springs of the upper and middle river. Below it: Big Spring, which enters a few miles downstream, so this gauge does NOT include Big Spring's water.
+- **Sits**: At Van Buren, well down the river. Above it: the Jacks Fork, which joins at Two Rivers, and the springs of the upper and middle river. Below it: Big Spring, which enters about four miles downstream, so this gauge does NOT include Big Spring's water.
 - **Speaks for**: The lower Current around Van Buren, below Two Rivers and above Big Spring.
 - Eddy's primary gauge for the river, read in cfs.
 - Akers, Montauk, and Powder Mill are the upstream references, and they can disagree with Van Buren by a lot in a dry spell.
 
-### Gauge: Montauk {@07064440} {unconfirmed}
+### Gauge: Montauk {@07064440}
 
-- **Sits**: At Montauk State Park, line mile 1.6 of 174, between the park access and Tan Vat. Drains 59 sq mi. Draft: Montauk Springs enter above it. To confirm.
-- **Speaks for**: Draft: the headwaters stretch below Montauk. To confirm.
-- Read in gauge height (feet), not cfs.
+- **Sits**: At Montauk State Park, a mile and a half below the head of the river. Above it: Montauk Springs. Below it: Welch Spring and every other spring on the Current, so it reads far less water than any gauge downstream.
+- **Speaks for**: The headwaters stretch, from Montauk down to Cedar Grove.
+- Eddy reads it in gauge height (feet), not cfs.
 
-### Gauge: Akers {@07064533} {unconfirmed}
+### Gauge: Akers {@07064533}
 
-- **Sits**: At Akers Ferry, line mile 17.2 of 174. Drains 295 sq mi. To confirm: does Welch Spring enter above or below this gauge?
-- **Speaks for**: Draft: Cedar Grove to Akers, and the float from Akers toward Pulltite. To confirm.
+- **Sits**: At Akers Ferry. Above it: Montauk Springs and Welch Spring, which enters about two and a half miles upstream. Below it: Cave Spring, Pulltite Spring, Round Spring and the springs beyond, so the river keeps gaining water below this gauge.
+- **Speaks for**: Cedar Grove to Pulltite.
 - Read in cfs. The staff-gauge numbers outfitters quote at Akers Ferry are a different reading.
 
 ### Gauge: Powder Mill {@07066510} {unconfirmed}
 
-- **Sits**: Just above Powder Mill, line mile 60.3 of 174, about 7 miles below Two Rivers. Drains 1,340 sq mi. Draft: the Jacks Fork enters above it. To confirm: is Blue Spring above or below?
+- **Sits**: Just above Powder Mill, line mile 60.3 of 174, about 7 miles below Two Rivers. Drains 1,340 sq mi. The Jacks Fork enters above it. To confirm: Blue Spring. The Park Service's point for it sits at line mile 61.8, a mile and a half BELOW this gauge; the owner recalls it above. The gauge reads height only, so the readings cannot settle it.
 - **Speaks for**: Draft: Two Rivers down past Powder Mill. To confirm.
 - Read in gauge height (feet), not cfs.
 
-### Gauge: Doniphan {@07068000} {unconfirmed}
+### Gauge: Doniphan {@07068000}
 
-- **Sits**: At Doniphan, line mile 125.1 of 174, about 38 miles below Van Buren. Drains 2,038 sq mi. Draft: Big Spring enters above it. To confirm.
-- **Speaks for**: Draft: the Current below Big Spring, which is wide and deep, more like a slow river than a float stream. To confirm.
+- **Sits**: At Doniphan, about 38 miles below Van Buren. Above it: Big Spring, which enters about 34 miles upstream, and everything above Van Buren.
+- **Speaks for**: The Current below Big Spring, which is wide and deep, more like a slow river than a float stream.
 
 ### Upper Current {#upper-current} {@07064440} {@07064533}
 
