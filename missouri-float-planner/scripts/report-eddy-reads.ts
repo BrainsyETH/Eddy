@@ -7,8 +7,8 @@
  * Read, with the rules in src/lib/eddy/read-checks.ts, and prints the pass rate
  * per rule per day (or per week over a long window).
  *
- * Gauge Reads come from eddy_generation_log on the days it holds them, and
- * from gauge_updates before that. gauge_updates keeps the published text but
+ * Gauge Reads come from eddy_generation_log where it holds them, and from
+ * gauge_updates otherwise. gauge_updates keeps the published text but
  * not the prompt, so the two number rules show "-" for those days.
  *
  * Run it before and after a change to the prompt or to EDDY_KNOWLEDGE.md. The
@@ -20,7 +20,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getScriptClient } from './lib/db';
-import { readReport, type ScoredRead } from './lib/eddy-read-report';
+import { alreadyLogged, readReport, type ScoredRead } from './lib/eddy-read-report';
 import { checkRead } from '../src/lib/eddy/read-checks';
 
 const PAGE = 500;
@@ -92,7 +92,8 @@ async function main() {
 
   const log = await loadLog(supabase, since);
   const rows: ScoredRead[] = [];
-  const gaugeDaysInLog = new Set<string>();
+  /** When each station's gauge Reads were logged, to avoid counting one twice. */
+  const gaugeLoggedAt = new Map<string, number[]>();
 
   for (const row of log) {
     if (!row.published) continue;
@@ -100,7 +101,9 @@ async function main() {
     // Stretch Reads are paused and no screen shows them; they are not scored.
     if (!isGauge && row.section_slug != null) continue;
     const day = dayOf(row.created_at);
-    if (isGauge) gaugeDaysInLog.add(day);
+    if (isGauge && row.usgs_site_id) {
+      gaugeLoggedAt.set(row.usgs_site_id, [...(gaugeLoggedAt.get(row.usgs_site_id) ?? []), Date.parse(row.created_at)]);
+    }
     rows.push({
       day,
       kind: isGauge ? 'gauge' : 'river',
@@ -122,8 +125,8 @@ async function main() {
       .range(from, to));
   for (const row of gaugeUpdates) {
     const day = dayOf(row.generated_at);
-    // The log has this day's gauge Reads, with their prompts. Do not count them twice.
-    if (gaugeDaysInLog.has(day)) continue;
+    // The log already holds this Read, with its prompt. Do not count it twice.
+    if (alreadyLogged(row.usgs_site_id, row.generated_at, gaugeLoggedAt)) continue;
     rows.push({
       day,
       kind: 'gauge',

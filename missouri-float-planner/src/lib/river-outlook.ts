@@ -223,7 +223,7 @@ const FULL_WEEKDAY: Record<string, string> = {
  * strip is a table with seven characters of width per column; this is a
  * sentence.
  */
-function spokenDay(index: number, dayOfWeek: string | null | undefined): string {
+export function spokenDay(index: number, dayOfWeek: string | null | undefined): string {
   if (index === 0) return 'today';
   if (index === 1) return 'tomorrow';
   if (!dayOfWeek) return 'later this week';
@@ -231,7 +231,7 @@ function spokenDay(index: number, dayOfWeek: string | null | undefined): string 
 }
 
 /** "today", "today and Thursday", "today, Thursday and Friday". */
-function listDays(names: string[]): string {
+export function listDays(names: string[]): string {
   if (names.length <= 1) return names[0] ?? '';
   if (names.length === 2) return `${names[0]} and ${names[1]}`;
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;

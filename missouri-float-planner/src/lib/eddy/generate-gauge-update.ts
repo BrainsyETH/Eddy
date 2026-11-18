@@ -29,6 +29,7 @@ import type { RiverContext } from '@/lib/rivers/context';
 import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import { buildGaugeGenerationRecord, type GaugeGenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
+import { materialOutlookLines } from './material-outlook';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 // The model is resolved once per pass from llm_config and threaded in, so a
@@ -403,10 +404,10 @@ Your response MUST begin with the exact [CLAIMS] line supplied in the authoritat
 One sentence, under 120 characters, for chips and share cards. Answer "can I float it here, and what will it be like?" in plain words.
 
 [EDDY_READ]
-One or two sentences, under 240 characters. Give the local insight: what makes THIS reporting stretch different at this level. When supplied local knowledge supports it, pick one useful detail about its channel, pools, riffles, landmarks, or response to changing water and connect it to the float. A tip such as "travel light" or a restatement of the chart is not a local insight. Describe established local patterns as patterns, not as observations made today. Do not invent a feature, its location, or a cause to make the writing colorful; when local detail is unavailable, stay useful and honest about the supplied facts. Leave out gauge readings, temperatures and rain percentages. Do not restate the summary. Never invent a future river level.
+One or two sentences, under 240 characters. Give the local insight: what makes THIS reporting stretch different at this level. When supplied local knowledge supports it, pick one useful detail about its channel, pools, riffles, landmarks, or response to changing water and connect it to the float. A tip such as "travel light" or a restatement of the chart is not a local insight. Describe established local patterns as patterns, not as observations made today. Do not invent a feature, its location, or a cause to make the writing colorful; when local detail is unavailable, stay useful and honest about the supplied facts. Leave out gauge readings. No weather and no forecast here: the app's Weather section owns both. Do not restate the summary. Never invent a future river level.
 
 [FULL]
-3 to 5 concise sentences. Each sentence must add useful information; do not pad the report to reach the minimum. Lead with the most useful supported takeaway: what the water is like, a meaningful measured change, or what to do about it. Work the reporting location into the condition claim it qualifies. Include the measured trend and forecast only when they add useful information for the decision. Cite the reading or the optimal range later, only here, and only when it helps.
+3 to 5 concise sentences. Each sentence must add useful information; do not pad the report to reach the minimum. Lead with the most useful supported takeaway: what the water is like, a meaningful measured change, or what to do about it. Work the reporting location into the condition claim it qualifies. Include the measured trend only when it adds useful information for the decision. Cite the reading or the optimal range later, only here, and only when it helps.
 
 RULES:
 - Prefer the practical meaning over repeating the badge. Name the condition level only when it clarifies the advice. If you do, use the exact capitalized label from the facts, never as a field like "condition: Good". Good is not Flowing; Flowing is the best float level.
@@ -415,6 +416,7 @@ RULES:
 - Default to leaving out "spring-fed" and "rain-fed". A river type in the supplied context is not a reason to mention it. Use either term only when a supplied local detail makes it useful for understanding this stretch at this level; the type label alone is not enough. Local character does not need to explain the cause of today's gauge movement. Never use it as a stock opening or repeat it across the three blocks. Do not substitute a routine explanation about springs or rainfall just to avoid the label; omit that background when it adds nothing.
 - Do not invent a cause for an observed change or steady reading. General river character alone does not establish today's cause; qualify a supported possible explanation and omit it when the evidence is insufficient.
 - Cite only the readings supplied. Never invent numbers or predict gauge heights.
+- Do not describe the weather: no sky, temperature, wind or rain chance, today or ahead. The app's Weather section owns all of it. The days ahead reach you only as an [OUTLOOK] block, and only when rain is likely. Without one, say nothing about the days ahead. With one, say once in [FULL] that rain could change this reading and that it is worth another look, and leave it there.
 - Every statement about later days must be conditional (if, should, likely). Never say conditions will stay, remain or be a certain way, and do not call conditions predictable or reliable.
 - Describe how unusual a level is in plain words such as "lower than usual for early October". Never print a percentile number or the word percentile.
 - AUTHORITATIVE GAUGE FACTS control the condition and the optimal-range comparison. Do not reclassify, mix feet with cfs, or make current condition claims at other locations.
@@ -479,12 +481,12 @@ function buildGaugePrompt(
     if (trajectory.percentileContext) lines.push(`Context: ${trajectory.percentileContext}`);
   }
 
-  if (forecast?.days?.length) {
+  // No weather outlook. The days ahead reach the Read only when rain is likely:
+  // see material-outlook.ts.
+  const outlook = materialOutlookLines(forecast);
+  if (outlook.length) {
     lines.push('');
-    lines.push('[3-DAY WEATHER OUTLOOK]');
-    for (const day of forecast.days.slice(0, 3)) {
-      lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, ${day.precipitation}% rain`);
-    }
+    lines.push(...outlook);
   }
 
   return lines.join('\n');
