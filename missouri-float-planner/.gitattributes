@@ -1,0 +1,2 @@
+# Keep both sides when two branches each add a test file. See test-files.txt.
+test-files.txt merge=union

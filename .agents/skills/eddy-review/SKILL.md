@@ -47,8 +47,9 @@ run" is a finding to state, never a pass to imply.
 
 Go through each that the diff touches. Each names how to check it.
 
-- **Tests that never run.** New `*.test.ts` files must be listed in the web
-  `test` script (`missouri-float-planner/package.json`, no glob).
+- **Tests that never run.** New `*.test.ts` files must be listed, one per line, in
+  `missouri-float-planner/test-files.txt` (no glob). A merge that drops lines from
+  that file drops tests: when it conflicts, keep both sides.
   `missouri-float-planner/src/lib/trust/registered-tests.test.ts` fails on a missing one under
   `src/`, `shared/`, `scripts/` — confirm it ran.
 - **iOS logic has no runner of its own.** Pure iOS logic is tested from
