@@ -420,15 +420,15 @@ function buildWeatherWatch(
     sentences.push(
       'Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in.',
     );
-    // A gauge with a measured range adds one sentence of record: how many past
-    // storms, where, and what the hours run from. The clock in the study starts
-    // when half the storm's rain had fallen over the watershed, so the sentence
-    // says that, not "the heaviest rain" (in one of Patterson's sixteen storms
-    // the two were seven hours apart). It names no deadline and says nothing
-    // about the rain ahead.
+    // A gauge with a measured range adds what past storms did, in days, with
+    // the number of storms behind it (owner's wording, 2026-11-18; the version
+    // in hours and "half the storm's rain had fallen" was accurate and
+    // unreadable). The study's clock starts when half the storm's rain had
+    // fallen over the watershed, which is "the middle of the storm": not the
+    // heaviest hour and not the end. It says nothing about the rain ahead.
     if (rainLag) {
       sentences.push(
-        `In ${rainLag.storms} past storms that raised ${rainLag.river}, flow ${rainLag.place} usually peaked ${rainLag.crestHours[0]}–${rainLag.crestHours[1]} hours after half the storm's rain had fallen upstream.`,
+        `When rain raises this river, it usually peaks here ${crestSpan(rainLag.crestHours)} the middle of the storm. Based on ${rainLag.storms} past storms.`,
       );
     }
   }
@@ -441,6 +441,21 @@ function buildWeatherWatch(
   if (sentences.length === 0) return 'Nothing in the outlook is set to move this river much.';
 
   return sentences.join(' ');
+}
+
+/**
+ * A measured range of hours as plain days, ending in "of" or "after".
+ *
+ * The slow end sets the number of days, with six hours' grace so 52 hours is
+ * still "two". A range whose fast end is well under a day says "within", so
+ * nobody reads a 12-hour crest as a day's warning.
+ */
+export function crestSpan([fastest, slowest]: readonly [number, number]): string {
+  const days = Math.max(1, Math.ceil((slowest - 6) / 24));
+  const count = ['a day', 'a day or two', 'one to three days'][days - 1];
+  if (!count) throw new Error(`No wording for a crest ${slowest} hours after the storm`);
+  if (days === 1) return 'within a day of';
+  return fastest >= 18 ? `${count} after` : `within ${days === 2 ? 'a day or two' : 'three days'} of`;
 }
 
 /** Build the live decision hierarchy shown in the compact and fallback report. */

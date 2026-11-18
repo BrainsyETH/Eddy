@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEddyTakeSections, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
+import { buildEddyTakeSections, buildRiverOutlookState, crestSpan, getRainPresentation, groupForecastByDay } from './river-outlook';
 import { measuredLag, RAIN_LAG_RELEASE, type MeasuredLag } from './rainfall/lag-release';
 import { nwsRiverForecastUrl, weatherDestination } from '../../../eddy-ios/src/lib/weatherDestination';
 import { weatherSymbol } from '../../../eddy-ios/src/theme/weather';
@@ -461,24 +461,46 @@ test('the gauge advice stays where there is a reason for it', () => {
   assert.match(rising, /The gauge is already rising, which matters more here than anything in the sky\. Read it again right before you launch\./);
 });
 
-test('a gauge with a measured lag adds one sentence of record, and only when rain is in the outlook', () => {
+test('a gauge with a measured lag adds what past storms did, and only when rain is in the outlook', () => {
   const wet = [novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 80 })];
   const patterson = measuredLag('07037500')!;
   assert.equal(
     watch(wet, { rainLag: patterson }),
     'Rain is likely tomorrow, highs 61–66°. Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in. ' +
-      "In 16 past storms that raised the St. Francis, flow near Patterson usually peaked 20–44 hours after half the storm's rain had fallen upstream.",
+      'When rain raises this river, it usually peaks here a day or two after the middle of the storm. Based on 16 past storms.',
   );
-  // The count of storms is always beside the range, and the clock is named for what the study measured from.
-  for (const lag of Object.values(RAIN_LAG_RELEASE)) {
-    const text = watch(wet, { rainLag: lag });
-    assert.ok(text.includes(`In ${lag.storms} past storms that raised ${lag.river}, flow ${lag.place} usually peaked ${lag.crestHours[0]}–${lag.crestHours[1]} hours after half the storm's rain had fallen upstream.`));
-    assert.doesNotMatch(text, /heaviest|keep checking|a day or two/);
-  }
   // No rain in the outlook: nothing about timing, whatever the gauge has measured.
-  assert.doesNotMatch(watch([novemberDay(0), novemberDay(1)], { rainLag: patterson }), /past storms|hours/);
+  assert.doesNotMatch(watch([novemberDay(0), novemberDay(1)], { rainLag: patterson }), /past storms|peaks here/);
   // A dam-controlled reach follows the release schedule, not the rain.
-  assert.doesNotMatch(watch(wet, { rainLag: patterson, damControlled: true }), /past storms|hours after|Rain upstream/);
+  assert.doesNotMatch(watch(wet, { rainLag: patterson, damControlled: true }), /past storms|peaks here|Rain upstream/);
+});
+
+test('every released gauge reads in plain days, with its storm count, from the middle of the storm', () => {
+  const wet = [novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 80 })];
+  // The whole list, so a new gauge or a changed range shows its wording here before it ships.
+  const expected: Record<string, string> = {
+    '06923950': 'a day or two after the middle of the storm. Based on 16 past storms.', // 18 to 53 hours
+    '06928000': 'one to three days after the middle of the storm. Based on 21 past storms.', // 27 to 70
+    '06930000': 'a day or two after the middle of the storm. Based on 16 past storms.', // 21 to 46
+    '07037500': 'a day or two after the middle of the storm. Based on 16 past storms.', // 20 to 44
+    '07052500': 'a day or two after the middle of the storm. Based on 24 past storms.', // 20 to 52
+    '07055607': 'within a day or two of the middle of the storm. Based on 22 past storms.', // 12 to 32
+    '07057500': 'within a day or two of the middle of the storm. Based on 10 past storms.', // 15 to 37
+    '07064533': 'within a day or two of the middle of the storm. Based on 8 past storms.', // 14 to 32
+    '07067000': 'within a day or two of the middle of the storm. Based on 10 past storms.', // 17 to 52
+    '07069500': 'within a day of the middle of the storm. Based on 19 past storms.', // 9 to 24
+    '07071500': 'a day or two after the middle of the storm. Based on 12 past storms.', // 19 to 39
+    '07252000': 'within a day or two of the middle of the storm. Based on 22 past storms.', // 12 to 34
+  };
+  assert.deepEqual(Object.keys(expected).sort(), Object.keys(RAIN_LAG_RELEASE).sort());
+  for (const [site, ending] of Object.entries(expected)) {
+    const text = watch(wet, { rainLag: RAIN_LAG_RELEASE[site] });
+    assert.ok(text.endsWith(`When rain raises this river, it usually peaks here ${ending}`), `${site}: ${text}`);
+    assert.doesNotMatch(text, /heaviest|keep checking|\d+ hours|half the storm/);
+  }
+  // A fast end well under a day never reads as a day's warning.
+  assert.equal(crestSpan([12, 60]), 'within three days of');
+  assert.throws(() => crestSpan([40, 100]), /No wording/);
 });
 
 test('a rise the gauge is showing outranks rain that has not fallen', () => {
@@ -505,7 +527,7 @@ test('a gauge with no measured lag never gets a time, in any outlook', () => {
   for (const rainLag of [null, undefined, measuredLag('07066000'), measuredLag(null), measuredLag('no-such-gauge')]) {
     const text = watch(wet, { rainLag });
     assert.match(text, /look at the gauge again once it has moved through/);
-    assert.doesNotMatch(text, /past storms|peaked|\d+ hours|\d+–\d+ hours/);
+    assert.doesNotMatch(text, /past storms|peaks here|middle of the storm/);
   }
   // The lookup answers only for the release list.
   assert.equal(measuredLag('07066000'), null);

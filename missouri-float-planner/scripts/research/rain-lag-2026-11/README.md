@@ -31,8 +31,9 @@ the code no longer reads them, and migration
 
 The 12 ranges live in `src/lib/rainfall/lag-release.ts`. A test holds that list
 to `results/results.json` entry for entry. The weather section adds a sentence
-for those gauges only, when rain is in the outlook. It always gives the number
-of storms behind the range and says what the hours are counted from.
+for those gauges only, when rain is in the outlook. It gives the range in
+plain days ("a day or two after the middle of the storm"), always with the
+number of storms behind it. The hours stay here and in the release list.
 
 ## How it was done
 
