@@ -1,45 +1,56 @@
-.page {background:var(--color-secondary-50,#faf8f4);color:var(--color-primary-900,#0f2d35);min-height:75vh}
+.page {background:var(--color-background);color:var(--color-text-primary);min-height:75vh}
 .inner {width:min(100% - 40px,1000px);margin:auto;padding:20px 0 40px}
 .crumb a,.gaugeLink,.method a {font-size:.88rem;font-weight:650;color:var(--color-primary-700,#1d525f);text-underline-offset:4px}
 .hero {display:flex;align-items:center;justify-content:space-between;gap:18px;margin:16px 0 20px}
 .hero h1,.panel h2 {font-family:var(--font-display),sans-serif;line-height:1.09;font-weight:650;letter-spacing:-.025em}
-.hero h1 {font-size:clamp(2.5rem,6vw,4.2rem);margin:0 0 8px}
+.hero h1 {font-size:clamp(2.05rem,5vw,3.65rem);text-wrap:balance;margin:0 0 8px}
 .hero p {font-size:1.04rem;max-width:54ch;line-height:1.45}
-.picker {display:flex;flex-wrap:wrap;gap:10px 16px;padding:15px 18px;margin:0 0 16px;border:1px solid #c9d8d9;border-radius:12px;background:#ebf5f7}
+.picker {display:flex;flex-wrap:wrap;gap:12px 16px;padding:14px 18px;margin:0 0 16px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+.picker label {min-width:0;flex:1 1 12rem}
 .picker label,.monthPicker {display:grid;gap:4px;font-size:.8rem;font-weight:700}
-.picker select,.monthPicker select {width:100%;min-height:42px;max-width:100%;padding:5px 25px 5px 10px;font:inherit;font-size:.91rem;color:#163f4a;background-color:white;border:1px solid #91acaf;border-radius:7px}
-.picker select:disabled {opacity:.85}
+.picker select,.monthPicker select {width:100%;min-width:0;min-height:44px;padding-block:6px;padding-left:10px;font:inherit;font-size:.91rem;border-width:1px;border-radius:8px;text-overflow:ellipsis}
+.picker select:disabled {color:var(--color-text-secondary);background-image:none;cursor:default}
 .report {display:grid;gap:16px}
-.panel {padding:clamp(16px,3vw,27px);background:white;border:1px solid #d8d8d0;border-radius:14px;min-width:0}
+.panel {padding:clamp(16px,3vw,27px);background:var(--color-surface);border:1px solid var(--color-border);border-radius:14px;min-width:0}
 .panel h2 {font-size:clamp(1.45rem,2.5vw,1.95rem);margin:0}
-.panel h3 {font-size:.88rem;font-weight:700;margin-bottom:7px}
-.panel p,.method p {margin:8px 0;color:#45575a;font-size:.93rem;line-height:1.55}
-.panel small {display:block;color:#506266;font-size:.77rem;line-height:1.5}
+.panel h3 {font-size:.94rem;font-weight:700;margin-bottom:7px}
+.panel p,.method p {margin:8px 0;color:var(--color-text-secondary);font-size:.93rem;line-height:1.55}
+.panel small {display:block;color:var(--color-text-secondary);font-size:.77rem;line-height:1.5}
 .panelTop,.chartTools {display:flex;justify-content:space-between;align-items:center;gap:12px}
-.period {white-space:nowrap;font-size:.79rem;font-weight:600;color:#4a5a5c;font-variant-numeric:tabular-nums}
+.period {white-space:nowrap;font-size:.79rem;font-weight:600;color:var(--color-text-secondary);font-variant-numeric:tabular-nums}
 .chartTools {margin:20px 0 16px;flex-wrap:wrap}
 .monthPicker {display:flex;align-items:center;gap:6px}
 .monthPicker select {width:auto}
-.segment {display:inline-flex;background:#f0f4f3;border-radius:9px;padding:3px}
+.segment {display:inline-flex;background:var(--color-surface-pressed);border-radius:9px;padding:3px}
 .segment button,.legend button {font-size:.79rem;font-weight:650;border-radius:6px;min-height:38px;padding:5px 10px}
-.segment button[aria-pressed=true] {background:#1d525f;color:white}
+.segment button {min-height:42px}
+.segment button[aria-pressed=true] {background:var(--color-primary-800);color:white}
 .plot {display:flex;gap:5px}
 .axis {display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding-bottom:26px;color:#536366;font-size:.65rem;width:32px}
 .columns {display:grid;grid-template-columns:repeat(12,minmax(0,1fr));width:100%;gap:clamp(2px,.6vw,7px);background:linear-gradient(transparent calc(50% - 14px),#d5dedc calc(50% - 14px),#d5dedc calc(50% - 13px),transparent calc(50% - 13px))}
 .column {min-width:0;background:transparent;text-align:center;border-radius:4px}
-.stack {display:flex;flex-direction:column-reverse;height:clamp(120px,15vw,170px);overflow:hidden;border-radius:4px 4px 0 0;background:repeating-linear-gradient(135deg,#ebece9 0 2px,#f8f8f6 2px 5px)}
+.stack {display:flex;flex-direction:column-reverse;height:clamp(120px,15vw,170px);overflow:hidden;border-radius:4px 4px 0 0;background:var(--color-surface-hover)}
+.stack[data-missing] {background:repeating-linear-gradient(135deg,var(--color-border) 0 2px,var(--color-surface) 2px 5px)}
 .stack > span {display:block;box-shadow:inset 0 1px 0 rgba(255,255,255,.83)}
 .monthName {display:block;font-size:clamp(.64rem,1.35vw,.8rem);padding:4px 0 3px;border-bottom:3px solid transparent}
-.column[aria-pressed=true] .monthName {font-weight:800;border-color:#1d525f;color:#163f4a}
+.column[aria-pressed=true] .monthName {font-weight:800;border-color:var(--color-accent-600);color:var(--color-text-primary)}
 .compareName {margin-top:16px}
 .legend {display:flex;flex-wrap:wrap;gap:0 3px;margin:10px 0 4px}
 .legend button {display:flex;align-items:center;gap:5px;padding:4px 7px;font-weight:500}
-.legend button[aria-pressed=true],.frequency button[aria-pressed=true],.yearGrid button[aria-pressed=true] {background:#ebf5f7;outline:1px solid #347485;outline-offset:-1px}
+.legend button[aria-pressed=true],.frequency button[aria-pressed=true],.yearGrid button[aria-pressed=true] {background:var(--color-surface-pressed);outline:1px solid var(--color-border-strong);outline-offset:-1px}
 .legend i,.frequency span:first-child i {display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
-.finding {padding:10px 14px;border-left:3px solid #2d7889;background:#f1f6f6;display:grid;gap:2px;font-size:.9rem;line-height:1.45}
-.finding b {font-size:.81rem}
-.details summary,.method summary,.daysDetail summary {cursor:pointer;min-height:44px;align-content:center;color:#1d525f;font-size:.86rem;font-weight:650}
-.details {margin:4px 0 -10px}
+.finding {padding:14px 16px;border-left:3px solid var(--color-accent-500);border-radius:0 8px 8px 0;background:var(--color-surface-hover)}
+.results {display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px}
+.monthResult h4 {font-size:.84rem;font-weight:700;line-height:1.3}
+.monthResult p {margin:2px 0;font-weight:600;color:var(--color-text-primary)}
+.monthResult strong {font:700 1.85rem/1.15 var(--font-display),sans-serif;font-variant-numeric:tabular-nums;margin-right:3px}
+.paired {border-top:1px solid var(--color-border);padding-top:9px}
+.paired a {color:var(--color-text-link);font-weight:650;text-decoration:underline;text-underline-offset:3px}
+.details summary,.method summary,.daysDetail summary {display:flex;align-items:center;gap:6px;list-style:none;cursor:pointer;min-height:44px;color:#1d525f;font-size:.86rem;font-weight:650}
+.inner summary::-webkit-details-marker {display:none}
+.inner summary::before {content:"";width:1.1rem;height:1.1rem;flex:none;background:var(--select-chevron) center/contain no-repeat;transform:rotate(-90deg)}
+.inner details[open]>summary::before {transform:none}
+.details {margin-top:4px}
 .tableScroll,.dayList {overflow:auto}
 .tableScroll table {width:100%;font-size:.78rem;text-align:right;border-collapse:collapse}
 .tableScroll th,.tableScroll td {padding:6px;border-bottom:1px solid #e5e7e4}
@@ -61,9 +72,9 @@
 .dayList {max-height:190px}
 .dayList div {display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;border-top:1px solid #e1e7e6;padding:5px 0;font-size:.78rem}
 .frequency {display:grid;margin-top:10px}
-.frequency button {display:grid;grid-template-columns:minmax(78px,1fr) 4fr minmax(76px,.8fr);align-items:center;text-align:left;gap:3px 14px;border-top:1px solid #e4e8e7;min-height:44px;padding:7px 8px;font-size:.88rem}
+.frequency button {display:grid;grid-template-columns:minmax(78px,1fr) 4fr minmax(80px,1fr);align-items:center;text-align:left;gap:3px 14px;border-top:1px solid #e4e8e7;min-height:44px;padding:7px 8px;font-size:.88rem}
 .frequency span:first-child {display:flex;align-items:center;gap:7px}
-.frequency b {white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.frequency b {text-align:right;font-variant-numeric:tabular-nums}
 .frequency small {grid-column:1/-1}
 .track {height:8px;background:#edf0ed;overflow:hidden;border-radius:6px}
 .track i {display:block;height:100%;border-radius:inherit}
@@ -78,15 +89,15 @@
   .twins {grid-template-columns:1fr;gap:12px}
   .picker {display:grid;gap:5px;padding:9px 12px}
   .picker label {display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;gap:6px}
-  .picker select {min-height:39px;font-weight:550;padding-right:16px;font-size:.86rem}
+  .picker select {font-weight:550;font-size:.88rem}
   .report {gap:12px}
   .panelTop {align-items:baseline;flex-wrap:wrap;gap:4px 10px}
-  .chartTools {gap:4px;margin:14px 0;flex-wrap:nowrap}
-  .monthPicker {display:block;font-size:0}
-  .monthPicker select {font-size:.83rem;padding:4px 13px 4px 6px;width:104px;min-height:39px}
+  .chartTools {gap:6px 10px;margin:14px 0;flex-wrap:wrap}
+  .monthPicker > span {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .monthPicker select {font-size:.86rem}
   .segment button {padding-inline:7px}
-  .legend {display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
-  .legend button {min-height:36px;justify-content:flex-start}
+  .legend {column-gap:2px}
+  .legend button {min-height:42px;justify-content:flex-start}
   .axis {width:26px}
   .legend {gap:0}
   .frequency button {gap:4px 8px}
@@ -94,5 +105,17 @@
 @media(max-width:390px) {
   .panel {padding:14px 12px}
   .segment button {padding-inline:7px}
-  .monthPicker select {width:88px}
+  .results {gap:10px}
+  .finding {padding:12px}
+}
+
+@media(max-width:365px) {
+  .column:nth-child(even):not([aria-pressed=true]) .monthName {visibility:hidden}
+  .segment button {font-size:.76rem;padding-inline:6px}
+  .picker label {grid-template-columns:minmax(0,1fr);gap:2px}
+  .picker {gap:8px}
+}
+@media(forced-colors:active) {
+  .inner select {appearance:auto;background-image:none}
+  .inner summary::before {background:CanvasText;clip-path:polygon(20% 35%,50% 60%,80% 35%,80% 50%,50% 75%,20% 50%)}
 }

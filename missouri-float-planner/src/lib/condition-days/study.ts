@@ -2,6 +2,7 @@ import { classifyReading, type ConditionThresholds } from '@shared/condition-lad
 import { CONDITION_SYSTEM, type ConditionCode } from '@shared/condition-system';
 import catalog from '@/data/condition-days/stations.json';
 
+export const REPORT_TITLE = 'River Conditions by Month';
 export const REPORT_PATH = '/blog/research/river-conditions';
 export const stations = catalog;
 export type Station = (typeof stations)[number];

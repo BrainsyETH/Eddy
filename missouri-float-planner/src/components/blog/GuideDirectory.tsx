@@ -24,7 +24,7 @@ export default function GuideDirectory({ entries, research = [] }: { entries: Gu
         </span>
       </label>
       <label className="text-sm font-semibold text-primary-800">State
-        <select value={state} onChange={event => setState(event.target.value)} className="mt-2 block min-h-11 w-full rounded-lg border-2 border-primary-700 bg-white px-3 py-2 sm:w-44">
+        <select value={state} onChange={event => setState(event.target.value)} className="input mt-2 block min-h-11 w-full sm:w-44">
           <option value="">All states</option><option value="MO">Missouri</option><option value="AR">Arkansas</option>
         </select>
       </label>

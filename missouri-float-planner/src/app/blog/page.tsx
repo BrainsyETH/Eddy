@@ -129,7 +129,7 @@ export default async function BlogPage() {
                 const cover = guideCover(post);
                 return { slug: post.slug, state: post.river_slug ? riverNames[post.river_slug]?.state ?? null : null,
                   search: [riverName, post.title, post.description, post.river_slug].filter(Boolean).join(' '), card: (
-                  <article key={post.slug} className="group flex flex-col overflow-hidden bg-white border-2 border-neutral-200 rounded-xl shadow-sm hover:border-primary-400 hover:shadow-md transition-all">
+                  <article key={post.slug} className="group flex flex-col overflow-hidden bg-surface border-2 border-neutral-200 rounded-xl shadow-sm hover:border-accent-600 hover:shadow-md transition-all">
                     <Link href={`/blog/${post.slug}`} className="flex flex-col flex-1 p-4 sm:p-6 no-underline">
                       {cover.src && (
                         <div className="relative h-44 -mt-4 -mx-4 sm:-mt-6 sm:-mx-6 mb-4 overflow-hidden bg-neutral-100">
@@ -144,7 +144,7 @@ export default async function BlogPage() {
                         </div>
                       )}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-                        <span className="inline-flex max-w-full items-center justify-center px-3 py-1 rounded-full text-center text-xs leading-snug font-semibold bg-primary-100 text-primary-700">
+                        <span className="inline-flex max-w-full items-center justify-center px-3 py-1 rounded-full text-center text-xs leading-snug font-semibold bg-secondary-100 text-text-secondary">
                           {riverName ?? post.category}
                         </span>
                         {post.read_time_minutes && (

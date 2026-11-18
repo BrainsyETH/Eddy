@@ -27,13 +27,14 @@ import accesses from '../../../scripts/fixtures/guide-accesses.json';
 import lines from '../../../scripts/fixtures/guide-overview-current.json';
 import { RiverGuideView } from '@/components/blog/RiverGuideLayout';
 import GuideDirectory from '@/components/blog/GuideDirectory';
+import { researchEntries } from '@/components/blog/ResearchEntries';
 import { guideOverview } from '@/lib/guides/overview';
 import { resolveGuideHero } from '@/lib/photos/guides';
 import { guideDam } from '@/lib/guides/dam';
 export default async function Page({ searchParams }: { searchParams: Promise<{ river?: string; view?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_GUIDE_SMOKE !== '1') notFound();
   const params = await searchParams;
-  if (params.view === 'directory') return <main className="mx-auto max-w-5xl p-4"><h1>River guides</h1><GuideDirectory entries={reviewedRiverGuides.map(seed => ({ slug: seed.slug, state: seed.slug.endsWith('arkansas') ? 'AR' : 'MO', search: seed.title + ' ' + seed.description, card: <article><a href={'/blog/' + seed.slug}>{seed.title}</a></article> }))} /></main>;
+  if (params.view === 'directory') return <main className="mx-auto max-w-5xl p-4"><h1>River guides</h1><GuideDirectory research={researchEntries} entries={reviewedRiverGuides.map(seed => ({ slug: seed.slug, state: seed.slug.endsWith('arkansas') ? 'AR' : 'MO', search: seed.title + ' ' + seed.description, card: <article><a href={'/blog/' + seed.slug}>{seed.title}</a></article> }))} /></main>;
   const seed = reviewedRiverGuides.find(seed => seed.river_slug === (params.river || 'current'));
   if (!seed) notFound();
   const aps = new Map(accesses.filter(a => a.river_slug === seed.river_slug).map(a => [a.slug, { id: a.id, riverId: a.river_id, imageUrl: null, npsImageUrl: null, endpoint: a.is_float_endpoint !== false, mile: Number(a.river_mile_downstream) }]));
@@ -43,7 +44,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
 }
 `);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
-    env: { ...process.env, EDDY_GUIDE_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only', FLOAT_SEARCH_ENABLED: 'true' }, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, EDDY_GUIDE_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only', SUPABASE_SERVICE_ROLE_KEY: '', FLOAT_SEARCH_ENABLED: 'true' }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout.on('data', d => { serverLog += d; }); server.stderr.on('data', d => { serverLog += d; });
   console.log('Starting guide preview');
@@ -138,11 +139,33 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     assert.equal(await page.locator('article:visible').count(),0);
     await page.getByRole('button',{name:'Clear search and filters'}).click();
     assert.equal(await page.locator('article:visible').count(),28);
+    const research = page.getByRole('region', { name: 'Research', exact: true });
+    assert.equal(await research.getByRole('link').count(), 2);
+    await research.screenshot({path:`${out}/research-${name}.png`});
+    await research.getByRole('link', {name: /River Conditions by Month/}).click();
+    await page.getByRole('heading', {name: 'River Conditions by Month', exact: true}).waitFor();
+    const monthPicker = page.getByRole('combobox', {name: 'Month', exact: true});
+    assert.equal(await monthPicker.inputValue(), '5', 'Open on the historical peak at Alley Spring');
+    await page.getByText('457 of 600 recorded days · 20 years').waitFor();
+    await page.getByRole('combobox', {name: 'Compare stretches'}).selectOption('07066000');
+    await page.getByText(/On 16 of 60 shared dates/).waitFor();
+    await page.getByText('491 of 600 recorded days · 20 years').waitFor();
+    await page.getByRole('button', {name: 'All levels', exact: true}).click();
+    await page.getByRole('button', {name: 'Flood', exact: true}).first().click();
+    await monthPicker.selectOption('10');
+    await page.waitForURL(url => url.searchParams.get('month') === '11');
+    await page.reload();
+    await page.getByRole('heading', {name: 'Good or Flowing in November'}).waitFor();
+    assert.equal(await monthPicker.inputValue(), '10');
+    await page.getByText('Monthly counts · Alley Spring (upper river)', {exact:true}).click();
+    await page.getByRole('table', {name:/Recorded days by month and condition at Alley Spring/}).waitFor();
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1), `${name} report overflow`);
+    await page.screenshot({path:`${out}/report-${name}.png`});
     await page.close(); console.log(`${name}: layout, map, estimates, empty states and search passed`);
   }
   const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();
   await page.goto(`${origin}/guides-layout-check?view=directory`);
-  assert.equal(await page.locator('a[href^="/blog/"]').count(),28,'Crawlable links without JavaScript');
+  assert.equal(await page.locator('article a[href^="/blog/"]').count(),28,'Crawlable links without JavaScript');
   await context.close(); assert.deepEqual(errors,[]);
   await writeFile(`${out}/result.json`,JSON.stringify({passed:true,widths:[1440,390,320],browserErrors:errors,fixtures:'Reviewed copy; public endpoint/geometry snapshot; mocked live embeds and planner responses.'},null,2));
   console.log('Guide smoke passed; screenshots: '+out);
