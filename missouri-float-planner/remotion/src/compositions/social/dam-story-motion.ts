@@ -7,16 +7,19 @@ const smooth = (n: number) => { const t = Math.max(0, Math.min(1, n)); return t 
 
 export function lakeSurface(x: number, frame: number) {
   const t = loopFrame(frame) / DAM_LOOP_FRAMES;
-  return 116 + 1.4 * Math.sin(tau * (x / 180 - t * 2)) + 0.45 * Math.sin(tau * (x / 90 + t));
+  // Keep the broad curve anchored at the banks and let smaller ripples travel across it.
+  return 116 + 3.8 * Math.sin(tau * (x / 224 - 0.12)) + 1.5 * Math.sin(tau * (x / 149 - t)) + 0.55 * Math.sin(tau * (x / 106 - t * 2 + 0.15));
 }
 
 /** Smooth cubic samples of the same surface the hull rests on. */
-export function lakeSurfacePath(frame: number) {
+export function lakeSurfacePath(frame: number, from: number, to: number, depth = 0) {
+  const height = (x: number) => lakeSurface(x, frame) + depth;
   const slope = (x: number) => (lakeSurface(x + 0.01, frame) - lakeSurface(x - 0.01, frame)) / 0.02;
-  let path = `M-32 ${lakeSurface(-32, frame)}`;
-  for (let x = -32; x < 388; x += 20) {
-    const y = lakeSurface(x, frame), end = lakeSurface(x + 20, frame);
-    path += ` C${x + 20 / 3} ${y + slope(x) * 20 / 3} ${x + 40 / 3} ${end - slope(x + 20) * 20 / 3} ${x + 20} ${end}`;
+  let path = `M${from} ${height(from)}`;
+  for (let x = from; x < to; x += 20) {
+    const end = Math.min(x + 20, to);
+    const handle = (end - x) / 3;
+    path += ` C${x + handle} ${height(x) + slope(x) * handle} ${end - handle} ${height(end) - slope(end) * handle} ${end} ${height(end)}`;
   }
   return path;
 }
