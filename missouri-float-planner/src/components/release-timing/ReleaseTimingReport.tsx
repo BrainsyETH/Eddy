@@ -6,7 +6,7 @@
 // One release size drives the answer, the map and the size chart together, and
 // picking a live result replays that release on the map.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Segmented from '@/components/ui/Segmented';
 import type { PublicResult, PublicResults } from '@/lib/arrival-trial/public-results';
 import { FINDINGS, hoursOf, hoursText, sizeHours, sizeIndexFor, spread } from '@/lib/release-timing/findings';
@@ -24,7 +24,7 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
   const [size, setSize] = useState(() => sizeIndexFor(F.example.peakCfs));
   const [view, setView] = useState<View>('height');
   const [shown, setShown] = useState<ShownRelease | null>(null);
-  const [playRequest, setPlayRequest] = useState(0);
+  const replayTrigger = useRef<HTMLButtonElement | null>(null);
 
   const bySize = useMemo(() => F.size.map((band, i) => ({ ...band, label: SIZE_LABELS[i], values: sizeHours(i) })), [F]);
   const spreads = useMemo(() => bySize.map((row) => spread(row.values)), [bySize]);
@@ -37,22 +37,36 @@ export default function ReleaseTimingReport({ results }: { results: PublicResult
     [F],
   );
 
-  const play = (result: Extract<PublicResult, { kind: 'compared' }>) => {
-    const sizeIndex = result.peakCfs === null ? size : sizeIndexFor(result.peakCfs);
+  const play = (result: Extract<PublicResult, { kind: 'compared' }>, trigger: HTMLButtonElement) => {
+    replayTrigger.current = trigger;
     setShown({ onsetMs: Date.parse(result.releasedAt), riseMs: Date.parse(result.roseAt) });
-    setSize(sizeIndex);
-    setPlayRequest((n) => n + 1);
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const map = document.getElementById('release-map');
-    map?.querySelector('h2')?.focus({ preventScroll: true });
-    map?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
   };
 
+  // Move focus after the view has changed. An earlier comparison may be deep
+  // inside the open history, so return to its actual button.
+  useEffect(() => {
+    if (!replayTrigger.current) return;
+    const target = shown ? document.querySelector<HTMLElement>('#release-map h2') : replayTrigger.current;
+    const history = !shown && target?.closest('details');
+    if (history) history.open = true;
+    target?.focus({ preventScroll: true });
+    const scrollTarget = shown ? target?.closest('section') : target;
+    scrollTarget?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: shown ? 'start' : 'center',
+    });
+    if (!shown) replayTrigger.current = null;
+  }, [shown]);
+
   const high = F.height[F.height.length - 1];
-  const changeSize = (index: number) => { setSize(index); setShown(null); };
+  const changeSize = (index: number) => {
+    replayTrigger.current = null;
+    setSize(index);
+    setShown(null);
+  };
   return (
     <div className={styles.report}>
-      <ReleaseMap size={size} onSize={changeSize} spreads={spreads} shown={shown} onClear={() => setShown(null)} playRequest={playRequest} />
+      <ReleaseMap size={size} onSize={changeSize} spreads={spreads} shown={shown} onClear={() => setShown(null)} />
 
       <HowClose results={results} onPlay={play} />
 

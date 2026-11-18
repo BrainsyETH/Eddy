@@ -69,7 +69,7 @@ function WindowGraphic({ result, compact = false }: { result: Compared; compact?
 
 export default function HowClose({ results, onPlay }: {
   results: PublicResults | null;
-  onPlay: (result: Compared) => void;
+  onPlay: (result: Compared, trigger: HTMLButtonElement) => void;
 }) {
   const shown = results?.results.filter((r) => r.kind !== 'no-estimate') ?? [];
   const featured = shown.find((r): r is Compared => r.kind === 'compared');
@@ -89,7 +89,7 @@ export default function HowClose({ results, onPlay }: {
           <p aria-label={`Gauge near Norfork${contextDate === null ? '' : `. ${featured ? 'Recorded rise' : 'Release'} ${datedDay(contextDate)}`}. Central time.`}>
             Gauge near Norfork{contextDate !== null && ` · ${shortDate(contextDate)}`} · Central time
           </p>
-          {featured && <Button variant="outline" size="sm" className="min-h-11 shrink-0" aria-label="Replay release" onClick={() => onPlay(featured)}><Play size={14} aria-hidden="true" />Replay</Button>}
+          {featured && <Button variant="outline" size="sm" className="min-h-11 shrink-0" onClick={(event) => onPlay(featured, event.currentTarget)}><Play size={14} aria-hidden="true" />Replay on map</Button>}
         </div>
       </div>
       <div className={styles.cardBody}>
@@ -133,7 +133,7 @@ export default function HowClose({ results, onPlay }: {
             <ul className={styles.earlier} aria-label="Other releases">
               {earlier.map((r) => <li key={r.id}>
                 {r.kind === 'compared'
-                  ? <button type="button" onClick={() => onPlay(r)} aria-label={`Replay release from ${datedDay(Date.parse(r.releasedAt))}`}>{shortDate(Date.parse(r.releasedAt))}</button>
+                  ? <button type="button" onClick={(event) => onPlay(r, event.currentTarget)} aria-label={`Replay ${datedDay(Date.parse(r.releasedAt))} on map`}>{shortDate(Date.parse(r.releasedAt))}</button>
                   : <span>{shortDate(Date.parse(r.releasedAt))}</span>}
                 {r.kind === 'compared' ? <WindowGraphic result={r} compact /> : <div />}
                 <span>{r.kind === 'compared' ? <><b>{riseDifference(r.estimateAt, r.roseAt)}</b><small>{shortOutcome(r)}</small></> : r.kind === 'not-compared' ? r.why : ''}</span>
