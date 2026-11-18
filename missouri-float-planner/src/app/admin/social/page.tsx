@@ -10,7 +10,8 @@ import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
 import { videoSafeInsets } from '@shared/social-brand';
-import { useEffect, useState, useCallback } from 'react';
+import styles from './review.module.css';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { adminFetch, useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
@@ -341,7 +342,18 @@ export default function SocialAdminPage() {
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [videoPreviewPost, setVideoPreviewPost] = useState<SocialPost | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState('');
+  const videoPreviewPost = posts.find(post => post.id === reviewId);
+  const reviewDialog = useRef<HTMLDialogElement>(null);
+  const reviewOpen = Boolean(videoPreviewPost);
+  useEffect(() => {
+    const dialog = reviewDialog.current;
+    if (!reviewOpen || !dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, [reviewOpen]);
   const damPreview = isDamStory(videoPreviewPost?.render_request);
   const previewSafe = videoSafeInsets(videoPreviewPost?.platform, damPreview && videoPreviewPost?.platform === 'instagram' ? 'story' : 'reel');
 
@@ -634,30 +646,32 @@ export default function SocialAdminPage() {
     action: 'retry' | 'approve' | 'render' | 'resolve' = 'retry',
     outcome?: 'published' | 'failed',
   ) => {
+    if (sendingId) return;
+    setSendingId(postId);
+    setReviewError('');
     try {
       const res = await adminFetch('/api/admin/social/retry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: postId, action, outcome }),
       });
-      if (res.ok) {
-        fetchPosts();
-        setVideoPreviewPost(null);
-        showToast(
-          action === 'render'
-            ? 'Rendering a new draft for review'
-            : action === 'resolve'
-              ? outcome === 'published' ? 'Marked as published' : 'Marked as not published — it can be retried'
-              : 'Delivery complete — check the post status',
-          'success',
-        );
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || `Retry failed (${res.status})`, 'error');
-      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not confirm delivery. Check Post History.');
+      reviewDialog.current?.close();
+      const receipt = data.delivery === 'inbox' ? 'Sent to the TikTok inbox' : 'Published';
+      showToast(
+        action === 'render' ? 'Rendering a new draft for review'
+          : action === 'resolve' ? (outcome === 'published' ? 'Marked as published' : 'Marked as not published')
+          : receipt,
+        'success',
+      );
     } catch (err) {
-      console.error('Failed to retry post:', err);
-      showToast('Network error — could not retry', 'error');
+      const message = err instanceof Error ? err.message : 'Could not confirm delivery. Check Post History.';
+      setReviewError(message);
+      showToast(message, 'error');
+    } finally {
+      await fetchPosts();
+      setSendingId(null);
     }
   };
 
@@ -887,7 +901,7 @@ export default function SocialAdminPage() {
   return (
     <AdminLayout
       title="Social Media"
-      description="Manage Instagram and Facebook posting for Eddy"
+      description="Review and publish posts for Instagram, Facebook and TikTok."
     >
       {/* Toast notification */}
       {toast && (
@@ -927,7 +941,7 @@ export default function SocialAdminPage() {
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
                             {post.platform}
                           </span>
-                          <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
                             {post.postType === 'daily_digest' ? 'Daily Report' : post.postType === 'river_highlight' ? 'Eddy’s Read' : post.postType}
                           </span>
                           {post.postType === 'daily_digest' && <span className="text-xs text-primary-300">Carousel</span>}
@@ -970,27 +984,29 @@ export default function SocialAdminPage() {
 
       {/* Video Preview Modal */}
       {videoPreviewPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-neutral-800 border border-neutral-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b border-neutral-700">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-white">Review Post</h3>
+        <dialog ref={reviewDialog} aria-labelledby="social-review-title"
+          onClose={event => { if (!event.currentTarget.open) setReviewId(null); }}
+          className={`${styles.dialog} bg-neutral-800 border border-neutral-700 rounded-xl`}>
+          <div className={styles.reviewFrame}>
+            <div className="flex items-center justify-between gap-2 p-4 border-b border-neutral-700">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 id="social-review-title" className="text-lg font-semibold text-white">Review Post</h3>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
                   {videoPreviewPost.platform}
                 </span>
-                <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
+                <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
                   {damPreview ? 'Dam schedule' : POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
                 </span>
               </div>
-              <button onClick={() => setVideoPreviewPost(null)} className="text-neutral-400 hover:text-white">
+              <button aria-label="Close review" onClick={() => reviewDialog.current?.close()} className="text-neutral-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4">
+            <div className={`${styles.reviewBody} ${damPreview ? styles.damReview : 'p-4'}`}>
               {/* The cover beside the video: on Instagram the OG image IS the
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
-              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${damPreview ? 'grid-cols-1 max-w-sm mx-auto' : videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${damPreview ? styles.damPlayer : videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
                 {videoPreviewPost.video_url && <div>
                   <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">{damPreview && videoPreviewPost.platform === 'instagram' ? 'Instagram Story' : 'Video'}</p>
                   <div className="relative bg-black rounded-lg overflow-hidden aspect-[9/16]">
@@ -1018,21 +1034,39 @@ export default function SocialAdminPage() {
                 />}
               </div>
               }
-              <p className="mt-4 text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
-              {!damPreview && videoPreviewPost.platform === 'tiktok' && <p className="mt-3 text-sm text-neutral-400">Inbox delivery requires finishing the post in TikTok. Check the resulting status after delivery.</p>}
-              {damPreview && videoPreviewPost.video_url && <DamVideoDownload id={videoPreviewPost.id} />}
-              {!damPreview && videoPreviewPost.status === 'review' && <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>}
-              <p className="text-xs text-neutral-500 mt-2">
-                {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}
-              </p>
+              <div className="min-w-0">
+                <p className="text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
+                {videoPreviewPost.platform === 'tiktok' && tiktokStatus?.directPost === false && (
+                  <p className="mt-3 text-sm text-neutral-400">Finish posting from the TikTok inbox.</p>
+                )}
+                {!damPreview && videoPreviewPost.status === 'review' && (
+                  <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} disabled={sendingId !== null} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>
+                )}
+                {!damPreview && reviewError && <p role="alert" className="mt-3 text-sm text-red-400">{reviewError}</p>}
+                <p className="text-xs text-neutral-500 mt-2">
+                  {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}
+                </p>
+              </div>
             </div>
+            {damPreview && isOwner && videoPreviewPost.video_url && (
+              <footer className={styles.reviewActions}>
+                {reviewError && <p role="alert" className="w-full text-sm text-red-400">{reviewError}</p>}
+                <DamVideoDownload id={videoPreviewPost.id} />
+                {['review', 'failed'].includes(videoPreviewPost.status) && (
+                  <button className="admin-primary" disabled={sendingId !== null}
+                    onClick={() => retryPost(videoPreviewPost.id, videoPreviewPost.status === 'failed' ? 'retry' : 'approve')}>
+                    {sendingId === videoPreviewPost.id ? 'Sending…' : 'Approve & send'}
+                  </button>
+                )}
+              </footer>
+            )}
           </div>
-        </div>
+        </dialog>
       )}
 
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className={`w-full min-w-0 p-4 sm:p-6 ${activeTab === 'history' ? '' : 'max-w-5xl mx-auto'}`}>
         {/* Action buttons */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-6">
           <button
             onClick={() => { setShowQuickPost(!showQuickPost); setShowCompose(false); }}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
@@ -1381,14 +1415,14 @@ export default function SocialAdminPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-neutral-700 pb-2 overflow-x-auto">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-6 border-b border-neutral-700 pb-2">
           {tabs.filter(tab => isOwner || tab.key === 'content' || tab.key === 'history').map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'bg-primary-600 text-white'
                     : 'text-neutral-400 hover:text-white hover:bg-neutral-700'
@@ -1909,7 +1943,7 @@ export default function SocialAdminPage() {
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
                                 {item.content_type}
                               </span>
                               <span className="text-xs text-neutral-500">
@@ -1951,10 +1985,11 @@ export default function SocialAdminPage() {
 
             {/* Post History Tab */}
             {activeTab === 'history' && (
-              <div className="space-y-4">
+              <div className={`space-y-4 ${styles.history}`}>
                 {/* Filters */}
-                <div className="flex gap-3 items-center">
+                <div className={styles.filters}>
                   <select
+                    aria-label="Filter by platform"
                     value={postFilter.platform}
                     onChange={(e) => setPostFilter({ ...postFilter, platform: e.target.value })}
                     className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
@@ -1962,8 +1997,10 @@ export default function SocialAdminPage() {
                     <option value="">All Platforms</option>
                     <option value="instagram">Instagram</option>
                     <option value="facebook">Facebook</option>
+                    <option value="tiktok">TikTok</option>
                   </select>
                   <select
+                    aria-label="Filter by status"
                     value={postFilter.status}
                     onChange={(e) => setPostFilter({ ...postFilter, status: e.target.value })}
                     className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
@@ -1973,10 +2010,12 @@ export default function SocialAdminPage() {
                     <option value="failed">Failed</option>
                     <option value="rendering">Rendering</option>
                     <option value="review">Ready for review</option>
+                    <option value="inbox">Sent to TikTok inbox</option>
                     <option value="pending">Pending</option>
                     <option value="skipped">Skipped</option>
                   </select>
                   <button
+                    aria-label="Refresh post history"
                     onClick={fetchPosts}
                     className="p-2 text-neutral-400 hover:text-white transition-colors"
                   >
@@ -1992,14 +2031,12 @@ export default function SocialAdminPage() {
                 ) : (
                   <div className="bg-neutral-800 border border-neutral-700 rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full">
+                      <table aria-label="Post history" className={styles.table}>
                         <thead>
                           <tr className="border-b border-neutral-700">
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Date</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Platform</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Type</th>
-                            <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Media</th>
-                            <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">River</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Status</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Caption</th>
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Actions</th>
@@ -2008,8 +2045,10 @@ export default function SocialAdminPage() {
                         <tbody>
                           {posts.map((post) => {
                             const badge = STATUS_BADGES[post.status] || STATUS_BADGES.pending;
+                            const dam = isDamStory(post.render_request);
+                            const reviewable = dam && isOwner && post.video_url && ['review', 'failed'].includes(post.status);
                             return (
-                              <tr key={post.id} className="border-b border-neutral-700/50 hover:bg-neutral-700/30">
+                              <tr key={post.id} className="border-b border-neutral-700/50">
                                 <td className="px-4 py-3 text-sm text-neutral-300 whitespace-nowrap">
                                   {new Date(post.created_at).toLocaleDateString('en-US', {
                                     month: 'short',
@@ -2018,20 +2057,16 @@ export default function SocialAdminPage() {
                                     minute: '2-digit',
                                   })}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{post.platform}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{dam && post.platform === 'instagram' ? 'Instagram Story' : post.platform === 'tiktok' ? 'TikTok' : post.platform}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
-                                  {isDamStory(post.render_request) ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}
+                                  <strong>{dam ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
+                                  <span className="block text-xs text-neutral-400">
+                                    {post.media_type === 'video' ? 'Video' : isDailyReport(post.render_request) ? `Carousel · ${post.render_request.slides.length}` : 'Image'}
+                                    {post.river_slug && ` · ${post.river_slug}`}
+                                  </span>
                                 </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {post.media_type === 'video' ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">Video</span>
-                                  ) : (
-                                    <span className="text-neutral-400">{isDailyReport(post.render_request) ? `Carousel · ${post.render_request.slides.length}` : 'Image'}</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-neutral-300">{post.river_slug || '-'}</td>
                                 <td className="px-4 py-3">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${badge.className}`}>
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border whitespace-nowrap ${badge.className}`}>
                                     {post.status === 'published' && <CheckCircle className="w-3 h-3" />}
                                     {post.status === 'failed' && <XCircle className="w-3 h-3" />}
                                     {post.status === 'pending' && <AlertCircle className="w-3 h-3" />}
@@ -2043,31 +2078,34 @@ export default function SocialAdminPage() {
                                     </p>
                                   )}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-neutral-400 max-w-xs truncate">
-                                  {(post.caption || '').slice(0, 80)}...
+                                <td className="px-4 py-3 text-sm text-neutral-400">
+                                  <span className="line-clamp-2 [overflow-wrap:anywhere]">{post.caption}</span>
                                 </td>
                                 <td className="px-4 py-3">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
                                     {(post.video_url || post.image_url || post.caption) && (
                                       <button
-                                        onClick={() => setVideoPreviewPost(post)}
-                                        className="flex items-center gap-1 px-2 py-1 text-xs text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 rounded transition-colors"
+                                        onClick={() => {
+                                          setReviewError('');
+                                          setReviewId(post.id);
+                                        }}
+                                        className="admin-secondary flex items-center gap-1.5 px-3 py-1 text-sm rounded"
                                       >
                                         <Play className="w-3 h-3" />
-                                        Preview
+                                        {reviewable ? 'Review & send' : 'Preview'}
                                       </button>
                                     )}
                                     {post.platform === 'tiktok' && post.caption && (
                                       <button
                                         onClick={() => copyCaption(post)}
-                                        className="flex items-center gap-1 px-2 py-1 text-xs text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 rounded transition-colors"
+                                        className="admin-link flex items-center gap-1.5 px-2 py-1 text-sm"
                                         title="Copy the generated caption to paste when finishing the TikTok draft"
                                       >
                                         <Copy className="w-3 h-3" />
                                         Copy caption
                                       </button>
                                     )}
-                                    {post.status === 'unknown' && (
+                                    {post.status === 'unknown' && (!dam || isOwner) && (
                                       <>
                                         <button
                                           onClick={() => retryPost(post.id, 'resolve', 'published')}
@@ -2087,7 +2125,7 @@ export default function SocialAdminPage() {
                                         </button>
                                       </>
                                     )}
-                                    {post.status === 'failed' && !isDamStory(post.render_request) && (
+                                    {post.status === 'failed' && !dam && (
                                       <button
                                         onClick={() => retryPost(post.id, reportNeedsRender(post) ? 'render' : 'retry')}
                                         className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors"

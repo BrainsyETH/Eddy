@@ -35,13 +35,13 @@ export default function DamScheduleExport({ onQueued }: { onQueued: () => void }
       const response = await adminFetch('/api/admin/social/dam-schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: snapshot.scheduleDate, platforms }) });
       const data = await response.json();
       const errors = data.results?.filter((r: { error?: string }) => r.error).map((r: { platform: string; error: string }) => `${r.platform}: ${r.error}`).join(' ');
-      setMessage(response.ok ? `Making your video. Preview and download it in History when it’s ready.${errors ? ` ${errors}` : ''}` : data.error || errors || 'Could not start the video.');
+      setMessage(response.ok ? `Making your video. Open Post History to review and send it.${errors ? ` ${errors}` : ''}` : data.error || errors || 'Could not start the video.');
       onQueued();
     } catch { setMessage('Could not confirm whether the video started. Check History before trying again.'); }
     finally { setRendering(false); }
   }
   return <section aria-labelledby="dam-export-title" className="bg-neutral-800 border border-neutral-700 rounded-xl p-6 mb-6 space-y-4">
-    <div><h3 id="dam-export-title" className="text-lg font-semibold text-white">Dam schedule video</h3><p className="text-sm text-neutral-400">Table Rock · 12-second animation · Download and post manually.</p></div>
+    <div><h3 id="dam-export-title" className="text-lg font-semibold text-white">Dam schedule video</h3><p className="text-sm text-neutral-400">Table Rock · 12-second animation · Review before sending.</p></div>
     <div className="flex flex-wrap gap-4 items-end">
       <label className="text-sm text-neutral-300">Schedule date (Central)<select disabled={rendering} value={date || dates[0] || ''} onChange={e => { setSnapshot(null); setDate(e.target.value); }} className="block mt-1 px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white">{dates.map(d => <option key={d} value={d}>{scheduleDayLabel(d)}</option>)}</select></label>
       <button disabled={checking || rendering} onClick={() => setRefresh(n => n + 1)} className="px-3 py-2 text-sm text-primary-300 disabled:opacity-50">Check schedule</button>

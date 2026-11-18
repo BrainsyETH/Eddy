@@ -132,6 +132,7 @@ export interface PublishParams {
   imageUrls?: string[];
   videoUrl?: string;
   coverUrl?: string;
+  instagramPlacement?: 'story' | 'reel';
   mediaType?: MediaType;
   /**
    * Called with the platform's id for this attempt as soon as it exists (an

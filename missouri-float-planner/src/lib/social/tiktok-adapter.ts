@@ -37,6 +37,7 @@ export class TikTokAdapter implements PlatformAdapter {
       delivery: isTikTokDirectPost() ? 'published' : 'inbox',
       platformPostId: result.postId,
       error: result.error,
+      ambiguous: result.ambiguous,
     };
   }
 

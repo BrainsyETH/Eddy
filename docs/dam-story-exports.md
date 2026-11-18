@@ -2,9 +2,11 @@
 
 The Table Rock pilot lives in **Admin → Social → Quick Post → Dam schedule video**.
 Choose today or tomorrow (Central time), Instagram Story and/or TikTok, then
-Create video. History shows each render separately. Preview the finished
-video, optionally enable the safe-area guide, and Download MP4. Upload manually
-in the destination app. No social connection is needed to generate an export.
+Create video. In Post History, owners open **Review & send** for each finished
+video and select **Approve & send**. Instagram publishes a Story. TikTok follows
+the connected account’s posting mode: inbox drafts are finished in TikTok;
+direct posting sends to the profile. **Download MP4** also works after delivery.
+Rendering and downloading work without a connected social account.
 
 This adds no public dam-page or iOS UI and does not schedule automatic posting.
 The daily workflow is one checked, dated export per chosen destination. A failed
@@ -50,9 +52,11 @@ normalization adds the social music bed; the preview fixture is silent and all
 information remains readable without audio.
 
 Drafts use the existing `manual` post type with `auto_publish: false` and a saved
-`social-dam-schedule` render request. Both callback and generic publishing/retry
-paths enforce download-only behavior; an Instagram Story cannot accidentally
-be published as a Reel. Downloads require admin auth and proxy only a saved
+`social-dam-schedule` render request. The callback leaves the video in review.
+Each owner-initiated send checks the latest complete schedule for the rendered
+date and destination before claiming the row for delivery. A changed schedule
+requires a new video. Background retries skip dam videos. Downloads require
+owner access and proxy only a saved
 Vercel Blob `social-videos/` output. No migration or new environment variable.
 
 Static exports cannot update after posting. Check the burned-in date and source

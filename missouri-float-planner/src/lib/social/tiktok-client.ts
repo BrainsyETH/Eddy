@@ -239,6 +239,31 @@ interface InboxInitResponse {
   error?: { code?: string; message?: string };
 }
 
+type TikTokUploadResult = { success: boolean; postId?: string; error?: string; ambiguous?: boolean };
+
+/** TikTok may have accepted the last chunk even if its receipt never arrives. */
+async function finishTikTokUpload(uploadUrl: string, publishId: string, bytes: Buffer<ArrayBuffer>): Promise<TikTokUploadResult> {
+  const size = bytes.byteLength;
+  try {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'video/mp4',
+        'Content-Length': String(size),
+        'Content-Range': `bytes 0-${size - 1}/${size}`,
+      },
+      body: bytes,
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (response.ok) return { success: true, postId: publishId };
+    const detail = await response.text().catch(() => '');
+    return { success: false, postId: publishId, ambiguous: response.status >= 500 || response.status === 408,
+      error: `TikTok upload failed (${response.status}): ${detail.slice(0, 200)}` };
+  } catch {
+    return { success: false, postId: publishId, ambiguous: true, error: 'TikTok did not confirm the upload. Check the account before retrying.' };
+  }
+}
+
 /**
  * Upload a rendered reel to the creator's TikTok inbox as a DRAFT.
  * Flow: get token → download the mp4 from its public URL → init a single-chunk
@@ -248,7 +273,7 @@ interface InboxInitResponse {
 export async function publishVideoToTikTok(
   params: { videoUrl: string },
   supabase: Supabase,
-): Promise<{ success: boolean; postId?: string; error?: string }> {
+): Promise<TikTokUploadResult> {
   try {
     const accessToken = await getValidAccessToken(supabase);
     if (!accessToken) {
@@ -293,24 +318,7 @@ export async function publishVideoToTikTok(
       };
     }
 
-    // PUT the whole file as one chunk.
-    const putRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'video/mp4',
-        'Content-Length': String(size),
-        'Content-Range': `bytes 0-${size - 1}/${size}`,
-      },
-      body: bytes,
-    });
-    if (!putRes.ok) {
-      const text = await putRes.text().catch(() => '');
-      return { success: false, error: `TikTok upload PUT failed (${putRes.status}): ${text.slice(0, 200)}` };
-    }
-
-    // Success — the draft is now in the creator's TikTok inbox. publish_id is
-    // stored as the platform_post_id for traceability.
-    return { success: true, postId: publishId };
+    return await finishTikTokUpload(uploadUrl, publishId, bytes);
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Unknown TikTok error' };
   }
@@ -334,7 +342,7 @@ interface CreatorInfoResponse {
 export async function publishVideoToTikTokDirect(
   params: { videoUrl: string; caption?: string },
   supabase: Supabase,
-): Promise<{ success: boolean; postId?: string; error?: string }> {
+): Promise<TikTokUploadResult> {
   try {
     const accessToken = await getValidAccessToken(supabase);
     if (!accessToken) {
@@ -399,23 +407,7 @@ export async function publishVideoToTikTokDirect(
       };
     }
 
-    // 4. PUT the whole file as one chunk (same upload as the draft flow).
-    const putRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'video/mp4',
-        'Content-Length': String(size),
-        'Content-Range': `bytes 0-${size - 1}/${size}`,
-      },
-      body: bytes,
-    });
-    if (!putRes.ok) {
-      const text = await putRes.text().catch(() => '');
-      return { success: false, error: `TikTok direct upload PUT failed (${putRes.status}): ${text.slice(0, 200)}` };
-    }
-
-    // publish_id is stored as platform_post_id for traceability.
-    return { success: true, postId: publishId };
+    return await finishTikTokUpload(uploadUrl, publishId, bytes);
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Unknown TikTok error' };
   }
