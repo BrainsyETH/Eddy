@@ -1,5 +1,5 @@
 // src/lib/social/caption-generator.ts
-// AI-powered caption generation using Anthropic Claude.
+// AI-powered caption generation, on the model selected for social captions.
 // Ported from ClawsifiedInfo generate-caption.sh
 //
 // Two callers share one model call, one accuracy lint and one dedup pass:
@@ -9,14 +9,14 @@
 //     as the river updates, grounded ONLY on the published guide's points.
 // Pass `guide` for the second; everything else is the clip path.
 
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
-import Anthropic from '@anthropic-ai/sdk';
+import { generateText, MissingApiKeyError, providerConfigured, type ChatMessage } from '@/lib/ai/generate-text';
+import { tryModels } from '@/lib/ai/attempts';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { EDDY_VOICE } from '@/lib/eddy/voice';
 import { clipCreditLine } from './clip-credit';
 import { getLocalParts, getLocalDateStrings } from './local-time';
 import type { HookStyle, ContentCategory } from './types';
-import type { ResolvedModel } from '@/lib/ai/resolve-models';
+import { modelAttempts, type ResolvedModel } from '@/lib/ai/resolve-models';
 
 const LOG_PREFIX = '[CaptionGen]';
 
@@ -147,7 +147,7 @@ function ctaRule(ctaLine: string | undefined): string {
 }
 
 /**
- * Generate a caption using Claude.
+ * Generate a caption with the resolved model.
  *
  * Accuracy is enforced in two layers: the prompt states hard rules (season,
  * conditions data, location, no invented specifics), and every draft is then
@@ -157,10 +157,10 @@ function ctaRule(ctaLine: string | undefined): string {
  * publish an inaccurate caption. Also falls back if the API errors.
  */
 export async function generateCaption(params: CaptionParams): Promise<GeneratedCaption> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-
-  if (!apiKey) {
-    console.warn(`${LOG_PREFIX} ANTHROPIC_API_KEY not set, using template fallback`);
+  // No key for any model this caption could be asked of: skip the prompt
+  // building and its database reads, and use the template.
+  if (!modelAttempts(params.model).some((model) => providerConfigured(model.provider))) {
+    console.warn(`${LOG_PREFIX} No API key for ${params.model.id}, using template fallback`);
     return generateTemplateFallback(params);
   }
 
@@ -317,67 +317,72 @@ async function draftWithLint(
   model: ResolvedModel,
   fallback: () => GeneratedCaption,
 ): Promise<GeneratedCaption> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallback();
+  // The resolved model, then its fallback when it has one (see
+  // src/lib/ai/attempts.ts). Each model gets the same two tries: a draft, then
+  // one rewrite with the lint's complaints fed back.
+  const drafted = await tryModels<GeneratedCaption>(
+    model,
+    async ({ model: attempt, hasNext }) => {
+      let lastDraft: GeneratedCaption | null = null;
+      for (let round = 0; round < 2; round++) {
+        const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
+        if (round > 0 && lastDraft) {
+          const violations = findAccuracyViolations(lastDraft, ctx);
+          messages.push(
+            { role: 'assistant', content: renderDraft(lastDraft) },
+            {
+              role: 'user',
+              content: `That draft violates these accuracy rules:\n- ${violations.join(
+                '\n- ',
+              )}\nRewrite the caption so none of these occur. Keep the same format (HOOK / CAPTION / HASHTAGS).`,
+            },
+          );
+        }
 
-  try {
-    const client = new Anthropic({ apiKey });
+        const response = await generateText({ feature: 'social_caption', model: attempt, messages });
 
-    // Up to two attempts: draft, then a single regeneration that feeds the
-    // lint's complaints back to the model. If both trip the lint, use the
-    // deterministic template — never ship a caption we know is inaccurate.
-    let lastDraft: GeneratedCaption | null = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt }];
-      if (attempt > 0 && lastDraft) {
-        const violations = findAccuracyViolations(lastDraft, ctx);
-        messages.push(
-          { role: 'assistant', content: renderDraft(lastDraft) },
-          {
-            role: 'user',
-            content: `That draft violates these accuracy rules:\n- ${violations.join(
-              '\n- ',
-            )}\nRewrite the caption so none of these occur. Keep the same format (HOOK / CAPTION / HASHTAGS).`,
-          },
+        // A draft cut off at the output cap can lose its hashtags or half its
+        // caption and still parse. With another model waiting, ask that one.
+        if (!response.finished && hasNext) {
+          console.warn(`${LOG_PREFIX} Unfinished ${attempt.id} draft (${response.stopReason}), trying the next model`);
+          return null;
+        }
+
+        const draft = parseDraft(response.text ?? '');
+        const violations = findAccuracyViolations(draft, ctx);
+
+        if (draft.hook.length > 125) {
+          console.warn(`${LOG_PREFIX} Hook exceeds 125 chars (${draft.hook.length})`);
+        }
+
+        if (violations.length === 0) {
+          console.log(
+            `${LOG_PREFIX} Generated caption (${attempt.id}, attempt ${round + 1}): hook="${draft.hook.slice(0, 60)}..." (${draft.hook.length} chars)`,
+          );
+          return draft;
+        }
+
+        console.warn(
+          `${LOG_PREFIX} Draft failed accuracy lint (${attempt.id}, attempt ${round + 1}): ${violations.join('; ')}`,
         );
+        lastDraft = draft;
       }
 
-      const response = await trackedAnthropic('social_caption', model.id, () => client.messages.create({
-        model: model.id,
-        max_tokens: model.maxTokens,
-        // Omitted entirely unless the model needs it. A thinking model left
-        // un-disabled would spend this budget reasoning about a caption.
-        ...(model.thinking ? { thinking: model.thinking } : {}),
-        messages,
-      }));
+      // Two drafts, both inaccurate. Another model may do better; if there is
+      // none, the deterministic template is used below, never a caption known
+      // to be wrong.
+      console.warn(`${LOG_PREFIX} ${attempt.id} failed the accuracy lint twice`);
+      return null;
+    },
+    (attempt, error) => {
+      if (error instanceof MissingApiKeyError) console.warn(`${LOG_PREFIX} ${error.message}`);
+      else console.error(`${LOG_PREFIX} ${attempt.id} API error:`, error);
+    },
+  );
 
-      const text = response.content[0].type === 'text' ? response.content[0].text : '';
-      const draft = parseDraft(text);
-      const violations = findAccuracyViolations(draft, ctx);
-
-      if (draft.hook.length > 125) {
-        console.warn(`${LOG_PREFIX} Hook exceeds 125 chars (${draft.hook.length})`);
-      }
-
-      if (violations.length === 0) {
-        console.log(
-          `${LOG_PREFIX} Generated caption (attempt ${attempt + 1}): hook="${draft.hook.slice(0, 60)}..." (${draft.hook.length} chars)`,
-        );
-        return draft;
-      }
-
-      console.warn(
-        `${LOG_PREFIX} Draft failed accuracy lint (attempt ${attempt + 1}): ${violations.join('; ')}`,
-      );
-      lastDraft = draft;
-    }
-
-    console.warn(`${LOG_PREFIX} Caption failed accuracy lint twice, using template fallback`);
-    return fallback();
-  } catch (error) {
-    console.error(`${LOG_PREFIX} Claude API error:`, error);
-    return fallback();
-  }
+  if (drafted) return drafted;
+  console.warn(`${LOG_PREFIX} No accurate caption from a model, using template fallback`);
+  return fallback();
 }
 
 /** Parse the HOOK/CAPTION/HASHTAGS block the model is asked to return. */

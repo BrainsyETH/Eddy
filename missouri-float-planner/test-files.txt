@@ -116,6 +116,7 @@ src/lib/agent-tools/budget.test.ts
 src/lib/agent-tools/limits.test.ts
 src/lib/agent-tools/recommendation.test.ts
 src/lib/agent-tools/search.test.ts
+src/lib/ai/attempts.test.ts
 src/lib/ai/model-registry.test.ts
 src/lib/ai/model-test-route.test.ts
 src/lib/ai/model-test.test.ts

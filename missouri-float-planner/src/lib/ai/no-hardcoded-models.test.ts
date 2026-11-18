@@ -28,14 +28,17 @@ const ADAPTER = 'src/lib/ai/generate-text.ts';
 /** Generators whose model call goes through the adapter, by workload. */
 const ADAPTER_GENERATORS: Partial<Record<Workload, string>> = {
   river_update: 'src/lib/eddy/generate-update.ts',
-};
-
-/** Generators that still build an Anthropic request themselves. */
-const DIRECT_GENERATORS: Partial<Record<Workload, string>> = {
   gauge_update: 'src/lib/eddy/generate-gauge-update.ts',
   global_summary: 'src/lib/eddy/generate-global-update.ts',
   social_caption: 'src/lib/social/caption-generator.ts',
 };
+
+/**
+ * Generators that build one provider's request themselves. None today. The
+ * list stays so that a new workload written that way has somewhere to be
+ * declared, and is then held to Anthropic-only by the check below.
+ */
+const DIRECT_GENERATORS: Partial<Record<Workload, string>> = {};
 
 /**
  * A quoted model id from either provider. Prose mentions in comments are fine
@@ -91,10 +94,25 @@ test('a workload offers another provider only once its generator uses the adapte
       /@anthropic-ai\/sdk|from 'openai'|messages\.create|responses\.create/,
       `${file} must not build a provider request itself`,
     );
-    // Every attempt, including the fallback, is the model the resolver chose.
-    assert.match(text, /modelAttempts\(model\)/, `${file} must take its attempts from the resolved model`);
+    // Every attempt, including the fallback, is a model the resolver chose,
+    // and comes from the shared loop: that loop is what drops a failing
+    // provider for the rest of the pass. A generator with its own loop would
+    // fall back, and would also wait out a timeout on every target.
+    assert.match(text, /await tryModels(?:<[^>]*>)?\(\s*(?:params\.)?model,/, `${file} must run its attempts through tryModels`);
     assert.match(text, /model:\s*attempt,/, `${file} must hand the adapter the resolved model unchanged`);
+    assert.doesNotMatch(text, /for \(const \w+ of modelAttempts\(/, `${file} must not run its own attempt loop`);
   }
+});
+
+test('an OpenAI call cannot outlast a pass', () => {
+  // The fallback only starts once the first call gives up. The SDK's defaults
+  // are ten minutes and two retries, which is longer than any cron here runs.
+  const text = withoutComments(ADAPTER);
+  const timeout = Number(text.match(/OPENAI_TIMEOUT_MS = ([\d_]+)/)?.[1].replace(/_/g, ''));
+  const retries = Number(text.match(/OPENAI_MAX_RETRIES = (\d+)/)?.[1]);
+  assert.ok(timeout > 0 && timeout <= 30_000, `OpenAI timeout is ${timeout} ms`);
+  assert.equal(retries, 0);
+  assert.match(text, /new OpenAI\(\{ apiKey, timeout: OPENAI_TIMEOUT_MS, maxRetries: OPENAI_MAX_RETRIES \}\)/);
 });
 
 test('the adapter applies every resolved parameter for both providers', () => {

@@ -1,6 +1,6 @@
 // src/lib/ai/generate-text.ts
-// One system prompt and one user message in, text out, on whichever provider
-// the resolved model belongs to.
+// A system prompt and a conversation in, text out, on whichever provider the
+// resolved model belongs to.
 //
 // ── Why this exists ────────────────────────────────────────────────────────
 //
@@ -24,26 +24,32 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { trackedAnthropic, trackedOpenAI } from '@/lib/telemetry/upstream';
+import { MissingApiKeyError } from '@/lib/ai/errors';
 import { PROVIDERS, type Provider } from '@/lib/ai/model-registry';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 import { extractOpenAIUsage, extractUsage, openAIReasoningTokens, type UsageStats } from '@/lib/ai/usage';
 
-/** The provider's API key is not in the environment. Nothing was sent. */
-export class MissingApiKeyError extends Error {
-  readonly provider: Provider;
-  constructor(provider: Provider) {
-    super(`${PROVIDERS[provider].envVar} not configured`);
-    this.name = 'MissingApiKeyError';
-    this.provider = provider;
-  }
+// Defined in an SDK-free module so the attempt loop can be tested without one.
+export { MissingApiKeyError };
+
+/** One turn of the conversation sent to the model. */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface TextRequest {
   /** Telemetry operation name: the workload, or `model_test` from the admin panel. */
   feature: string;
   model: Pick<ResolvedModel, 'id' | 'provider' | 'maxTokens' | 'thinking' | 'reasoningEffort' | 'cacheSystemPrompt'>;
-  system: string;
-  user: string;
+  /** Omitted by a workload whose whole prompt is its first user message. */
+  system?: string;
+  /**
+   * The conversation, ending on a user turn. One user message for most
+   * workloads; captions add their own rejected draft and the reasons, to ask
+   * for a rewrite.
+   */
+  messages: ChatMessage[];
 }
 
 export interface TextResult {
@@ -72,9 +78,16 @@ export interface TextResult {
  * A stalled OpenAI call must not hold a cron slot until the function is
  * killed, because the fallback to the code default only runs if this one
  * gives up first. The SDK's own default is ten minutes with two retries.
+ *
+ * Thirty seconds, once. Measured calls for these workloads take two to six
+ * seconds, so this is several times the slow case. No retry, because every
+ * OpenAI model here is either an override with a fallback that IS the retry,
+ * on a provider that is working, or a test-panel run that should report the
+ * failure. Together with pass-health.ts this bounds what an outage can cost a
+ * pass: about one timeout, not one per river.
  */
-const OPENAI_TIMEOUT_MS = 60_000;
-const OPENAI_MAX_RETRIES = 1;
+const OPENAI_TIMEOUT_MS = 30_000;
+const OPENAI_MAX_RETRIES = 0;
 
 /** True when the provider's key is present. The admin UI reports this; it never sees the key. */
 export function providerConfigured(provider: Provider): boolean {
@@ -88,7 +101,7 @@ export async function generateText(request: TextRequest): Promise<TextResult> {
   return model.provider === 'openai' ? callOpenAI(request, apiKey) : callAnthropic(request, apiKey);
 }
 
-async function callAnthropic({ feature, model, system, user }: TextRequest, apiKey: string): Promise<TextResult> {
+async function callAnthropic({ feature, model, system, messages }: TextRequest, apiKey: string): Promise<TextResult> {
   const client = new Anthropic({ apiKey });
   const message = await trackedAnthropic(feature, model.id, () => client.messages.create({
     model: model.id,
@@ -96,12 +109,16 @@ async function callAnthropic({ feature, model, system, user }: TextRequest, apiK
     // Omitted entirely unless the model needs it. Sonnet 5 thinks by default
     // and would spend max_tokens doing it; Sonnet 4.6 does not.
     ...(model.thinking ? { thinking: model.thinking } : {}),
-    messages: [{ role: 'user', content: user }],
+    messages,
     // A marker on a prompt shorter than the model's cache floor is silently a
     // no-op, so the resolver decides per pairing whether to attach one.
-    system: model.cacheSystemPrompt
-      ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-      : system,
+    ...(system === undefined
+      ? {}
+      : {
+          system: model.cacheSystemPrompt
+            ? [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' as const } }]
+            : system,
+        }),
   }));
 
   const textBlock = message.content.find((block) => block.type === 'text');
@@ -114,7 +131,7 @@ async function callAnthropic({ feature, model, system, user }: TextRequest, apiK
   };
 }
 
-async function callOpenAI({ feature, model, system, user }: TextRequest, apiKey: string): Promise<TextResult> {
+async function callOpenAI({ feature, model, system, messages }: TextRequest, apiKey: string): Promise<TextResult> {
   if (!model.reasoningEffort) {
     // The registry types make this unreachable. Checked anyway because the
     // alternative is a request that reasons at `medium` inside a cap sized for
@@ -126,8 +143,8 @@ async function callOpenAI({ feature, model, system, user }: TextRequest, apiKey:
     model: model.id,
     // `instructions` leads the prompt, so the static system prompt is the
     // prefix OpenAI's automatic cache matches on.
-    instructions: system,
-    input: user,
+    ...(system === undefined ? {} : { instructions: system }),
+    input: messages,
     // Covers reasoning tokens and visible text together.
     max_output_tokens: model.maxTokens,
     reasoning: { effort: model.reasoningEffort },

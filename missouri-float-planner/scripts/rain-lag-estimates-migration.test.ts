@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { PGlite } from '@electric-sql/pglite';
 
-const migration = readFileSync(join(__dirname, '..', 'supabase', 'migrations', '20261118180000_remove_unsourced_rain_lag_estimates.sql'), 'utf8');
+const migration = readFileSync(join(__dirname, '..', 'supabase', 'migrations', '20261118230000_remove_unsourced_rain_lag_estimates.sql'), 'utf8');
 const LEGACY: [string, number][] = [['big-piney', 6], ['courtois', 3], ['current', 8], ['eleven-point', 8], ['huzzah', 3], ['jacks-fork', 4], ['meramec', 6], ['niangua', 10]];
 
 async function database(rows: [slug: string, hours: number | null, note: string | null][]) {

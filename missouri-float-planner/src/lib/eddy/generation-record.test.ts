@@ -187,28 +187,33 @@ test('every exit from the generator writes a record, and every caller names its 
   const fn = generator.slice(generator.indexOf('export async function generateEddyUpdate('), generator.indexOf('// The parser lives in its own SDK-free module'));
   // A null return publishes nothing, so the record is the only trace of it.
   const nullReturns = [...fn.matchAll(/return null;/g)];
-  assert.equal(nullReturns.length, 2);
+  assert.equal(nullReturns.length, 3);
 
-  // The first is reached only when every model attempt produced nothing. The
-  // attempts run in a loop (the resolved model, then its fallback), and each
-  // one that fails records itself there, under the model that was asked: no
-  // text, no API key, or a call that threw.
-  assert.match(fn.slice(nullReturns[0].index - 30, nullReturns[0].index), /if \(!completion\) $/);
-  const attempts = fn.slice(fn.indexOf('for (const attempt of modelAttempts(model))'), nullReturns[0].index);
+  // The attempts run in the shared loop (src/lib/ai/attempts.ts): the resolved
+  // model, then its fallback. Each one that yields nothing records itself, in
+  // the attempt or in the error handler beside it, under the model that was
+  // asked: no text, an incomplete report, no API key, or a call that threw.
+  const loopEnd = fn.indexOf('if (!completion) return null;');
+  const attempts = fn.slice(fn.indexOf('const completion = await tryModels'), loopEnd);
+  assert.ok(attempts.length > 0 && loopEnd > 0);
   for (const reason of ['empty_response', 'incomplete_response', 'missing_api_key', 'model_error']) {
     assert.match(attempts, new RegExp(`await record\\(\\{ outcome: 'error', reason: '${reason}'`));
   }
   assert.match(attempts, /capture\.model = captureModel\(attempt\);/);
-  // The only way out of an attempt without a record is the one that is
-  // accepted. Accepted means a WHOLE report: the guard is told whether the
-  // model finished, and an incomplete answer is accepted only from the last
-  // model, where the guard has already replaced it with the code-written one.
-  assert.equal([...attempts.matchAll(/\b(?:break|continue);|\breturn /g)].length, 1);
+  // An attempt has two ways out. Accepted, which means a WHOLE report: the
+  // guard is told whether the model finished, and an incomplete answer is
+  // accepted only when no other model is waiting, where the guard has already
+  // replaced it with the code-written one. Or null, after a record.
+  assert.equal([...attempts.matchAll(/\breturn /g)].length, 2);
   assert.match(attempts, /prepareGeneratedReport\(rawText, facts, \{ finished: result\.finished \}\)/);
-  assert.match(attempts, /if \(prepared && !\(prepared\.incomplete && attempt\.fallback\)\) \{\s*completion = \{ result, prepared \};\s*break;/);
+  assert.match(attempts, /if \(prepared && !\(prepared\.incomplete && hasNext\)\) return \{ result, prepared \};/);
+  const refused = attempts.slice(attempts.indexOf('return { result, prepared };'), attempts.indexOf('return null;'));
+  assert.equal([...refused.matchAll(/await record\(\{ outcome: 'error'/g)].length, 2);
 
-  // The second is the failure to prepare a report from text that did arrive.
-  assert.match(fn.slice(Math.max(0, nullReturns[1].index - 260), nullReturns[1].index), /await record\(\{ outcome: 'error'/);
+  // Then nothing came back from any model, and last, the failure to prepare a
+  // report from text that did arrive.
+  assert.equal(nullReturns[1].index, loopEnd + 'if (!completion) '.length);
+  assert.match(fn.slice(Math.max(0, nullReturns[2].index - 260), nullReturns[2].index), /await record\(\{ outcome: 'error'/);
   assert.match(fn, /if \(fallback\) await record\(\{\s*outcome: 'fallback',\s*reason: preflightFallbackReason\(facts\)/);
   assert.match(fn, /outcome: usedFallback \? 'fallback' : 'model'/);
 
@@ -278,10 +283,33 @@ test('every exit from the gauge generator writes a record, and every caller name
   // Past the point the facts exist, a return is either a recorded early exit
   // or the recorded update.
   const afterFacts = body.slice(body.indexOf('const record = '));
-  const returns = afterFacts.match(/^\s+(?:if \(fallback\) )?return\b.*$/gm) ?? [];
-  const records = afterFacts.match(/await record\(/g) ?? [];
-  assert.equal(returns.length, 5, 'preflight fallback, missing key, empty response, the update, a thrown call');
-  assert.equal(records.length, returns.length);
+  const loopStart = afterFacts.indexOf('const completion = await tryModels');
+  const loopEnd = afterFacts.indexOf('if (!completion) return null;');
+  assert.ok(loopStart > 0 && loopEnd > loopStart);
+  const count = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).length;
+
+  // Before any model is asked: the fallback decided from the facts.
+  const before = afterFacts.slice(0, loopStart);
+  assert.equal(count(before, /^\s+(?:if \(fallback\) )?return\b.*$/gm), 1, 'the preflight fallback');
+  assert.equal(count(before, /await record\(/g), 1);
+
+  // The attempts, in the shared loop (src/lib/ai/attempts.ts). Each one that
+  // yields nothing records itself under the model that was asked.
+  const attempts = afterFacts.slice(loopStart, loopEnd);
+  for (const reason of ['empty_response', 'incomplete_response', 'missing_api_key', 'model_error']) {
+    assert.match(attempts, new RegExp(`await record\\(\\{ outcome: 'error', reason: '${reason}'`));
+  }
+  assert.match(attempts, /capture\.model = captureModel\(attempt\);/);
+  // Accepted, or null after a record. An unfinished response is accepted only
+  // when no other model is waiting.
+  assert.equal(count(attempts, /\breturn /g), 2);
+  assert.match(attempts, /if \(rawText && \(result\.finished \|\| !hasNext\)\) return \{ result, rawText \};/);
+
+  // After them: nothing came back from any model, the recorded update, and a
+  // recorded failure to prepare a report from text that did arrive.
+  const after = afterFacts.slice(loopEnd);
+  assert.equal(count(after, /\breturn\b/g), 3);
+  assert.equal(count(after, /await record\(/g), 2);
 
   for (const [file, trigger] of [
     ['src/app/api/cron/generate-gauge-updates/route.ts', 'scheduled'],

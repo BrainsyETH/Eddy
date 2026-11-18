@@ -131,9 +131,11 @@ until UTC midnight. New instances can still incur rejected budget probes.
   Recorded tokens and standard-model cost estimates are not an invoice. The
   versioned price table excludes discounts/region modifiers and assumes the
   five-minute cache TTL used by current call sites. Unknown models are unpriced.
-- OpenAI: logical SDK operations from river and section updates when an OpenAI
-  model is selected, and from the `/admin/ai-models` test panel under the
-  operation `model_test`. Its token counts are converted to the same four
+- OpenAI: logical SDK operations from any of the four generated-copy workloads
+  when an OpenAI model is selected for it, and from the `/admin/ai-models` test
+  panel under the operation `model_test`. A failed call that fell back to the
+  Claude default is recorded here as an error and under Anthropic as the call
+  that wrote the row. Its token counts are converted to the same four
   disjoint buckets as Anthropic's before recording. Cost estimates are list
   price at the default 30-minute cache lifetime; they are not an invoice and do
   not reflect a prepaid credit balance. AI feature costs are reported per

@@ -16,9 +16,10 @@ import { getRiverContext } from '@/lib/rivers/context';
 import { parseEddyResponse, stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
 import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type PreparedReport } from './report-facts';
-import { buildGenerationRecord, type GenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
+import { buildGenerationRecord, captureModel, type GenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
-import { modelAttempts, type ResolvedModel } from '@/lib/ai/resolve-models';
+import type { ResolvedModel } from '@/lib/ai/resolve-models';
+import { tryModels } from '@/lib/ai/attempts';
 import type { UsageStats } from '@/lib/ai/usage';
 import { EDDY_VOICE } from '@/lib/eddy/voice';
 
@@ -235,10 +236,13 @@ export async function generateEddyUpdate(
   // until its last line, so "non-empty" is not the test. An incomplete answer
   // from a model with a fallback is a failed attempt; from the last model, the
   // guard replaces it with the code-written report.
-  let completion: { result: TextResult; prepared: PreparedReport } | null = null;
-  for (const attempt of modelAttempts(model)) {
-    capture.model = captureModel(attempt);
-    try {
+  //
+  // The loop itself, and when a failing provider is dropped for the rest of
+  // the pass, live in src/lib/ai/attempts.ts.
+  const completion = await tryModels<{ result: TextResult; prepared: PreparedReport }>(
+    model,
+    async ({ model: attempt, hasNext }) => {
+      capture.model = captureModel(attempt);
       const result = await generateText({
         feature: 'river_update',
         model: attempt,
@@ -246,17 +250,15 @@ export async function generateEddyUpdate(
         // what makes it cacheable. River-specific semantics live in the user
         // prompt.
         system: EDDY_SYSTEM_PROMPT,
-        user: prompt,
+        messages: [{ role: 'user', content: prompt }],
       });
       // Strip em dashes that slip through despite prompt instructions. The
       // record keeps result.text exactly as returned; the cleanup is not part
       // of the evidence.
       const rawText = result.text ? replaceEmDashes(result.text.trim()) || null : null;
       const prepared = rawText ? prepareGeneratedReport(rawText, facts, { finished: result.finished }) : null;
-      if (prepared && !(prepared.incomplete && attempt.fallback)) {
-        completion = { result, prepared };
-        break;
-      }
+      if (prepared && !(prepared.incomplete && hasNext)) return { result, prepared };
+
       if (prepared) {
         console.error(`[EddyGen] Incomplete ${attempt.id} report for ${target.riverSlug}/${target.sectionSlug}: ${prepared.incomplete} (${result.stopReason})`);
         await record({ outcome: 'error', reason: 'incomplete_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
@@ -264,7 +266,9 @@ export async function generateEddyUpdate(
         console.error(`[EddyGen] Empty ${attempt.id} response for ${target.riverSlug}/${target.sectionSlug}`);
         await record({ outcome: 'error', reason: 'empty_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
       }
-    } catch (e) {
+      return null;
+    },
+    async (attempt, e) => {
       if (e instanceof MissingApiKeyError) {
         console.error(`[EddyGen] ${e.message}`);
         await record({ outcome: 'error', reason: 'missing_api_key' });
@@ -272,11 +276,8 @@ export async function generateEddyUpdate(
         console.error(`[EddyGen] ${attempt.id} call failed for ${target.riverSlug}:`, e);
         await record({ outcome: 'error', reason: 'model_error', errorMessage: e instanceof Error ? e.message : String(e) });
       }
-    }
-    if (attempt.fallback) {
-      console.warn(`[EddyGen] ${attempt.id} produced nothing for ${target.riverSlug}; falling back to ${attempt.fallback.id}`);
-    }
-  }
+    },
+  );
   if (!completion) return null;
 
   const modelText = completion.result.text;
@@ -327,19 +328,6 @@ export async function generateEddyUpdate(
     await record({ outcome: 'error', reason: 'model_error', rawResponse: modelText, stopReason, usage, errorMessage: e instanceof Error ? e.message : String(e) });
     return null;
   }
-}
-
-/** The model fields a generation record keeps. */
-function captureModel(model: ResolvedModel): GenerationCapture['model'] {
-  return {
-    id: model.id,
-    provider: model.provider,
-    maxTokens: model.maxTokens,
-    thinking: model.thinking,
-    reasoningEffort: model.reasoningEffort,
-    cacheSystemPrompt: model.cacheSystemPrompt,
-    source: model.source,
-  };
 }
 
 // The parser lives in its own SDK-free module so it stays unit-testable.

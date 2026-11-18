@@ -36,13 +36,41 @@ export type GenerationOutcome = 'model' | 'fallback' | 'error';
 
 export type GenerationErrorReason = 'missing_api_key' | 'empty_response' | 'incomplete_response' | 'model_error';
 
+/** The model fields a generation record keeps. */
+export interface CapturedModel {
+  id: string;
+  provider?: string;
+  maxTokens: number;
+  thinking?: unknown;
+  reasoningEffort?: string;
+  cacheSystemPrompt: boolean;
+  source: string;
+}
+
+/**
+ * Picks those fields from a resolved model. Named field by field, because the
+ * resolved model also carries its fallback and the pass's health record, and
+ * neither belongs in a row of evidence about one attempt.
+ */
+export function captureModel(model: CapturedModel): CapturedModel {
+  return {
+    id: model.id,
+    provider: model.provider,
+    maxTokens: model.maxTokens,
+    thinking: model.thinking,
+    reasoningEffort: model.reasoningEffort,
+    cacheSystemPrompt: model.cacheSystemPrompt,
+    source: model.source,
+  };
+}
+
 /** Everything the generator gathered. Filled in as it goes, so an early exit
  * records what it had reached and nulls for the rest. */
 export interface GenerationCapture {
   target: UpdateTarget;
   trigger: GenerationTrigger;
   /** The model this attempt asks. Replaced when an attempt falls back to another. */
-  model: { id: string; provider?: string; maxTokens: number; thinking?: unknown; reasoningEffort?: string; cacheSystemPrompt: boolean; source: string };
+  model: CapturedModel;
   facts: ReportFacts;
   usgsSiteId: string | null;
   readingTimestamp: string | null;
@@ -204,7 +232,8 @@ export interface GaugeGenerationCapture {
     coordinates: { lat: number; lon: number } | null;
   };
   trigger: GenerationTrigger;
-  model: { id: string; maxTokens: number; thinking?: unknown; cacheSystemPrompt: boolean; source: string };
+  /** The model this attempt asks. Replaced when an attempt falls back to another. */
+  model: CapturedModel;
   facts: ReportFacts;
   readingTimestamp: string | null;
   alerts: NWSAlert[];

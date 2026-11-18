@@ -1,7 +1,13 @@
--- 20261117230200_niangua_below_bennett_spring_reads_tunnel_dam.sql
+-- 20261118214137_niangua_below_bennett_spring_reads_tunnel_dam.sql
 --
--- NOT YET APPLIED, AND HELD FOR AN OWNER DECISION. Listed under [pending] in
--- production-migrations.txt. Read "The open question" before applying.
+-- Applied to production 2026-11-18 as 20261118214137 (drafted as
+-- 20261117230200). Before applying, the same block ran on production inside a
+-- statement that always rolled back: every check below held, 15 put-ins
+-- resolved to Tunnel Dam and 5 to Windyville. After applying, the md5 of the
+-- statement production recorded equals this file's do-block, both ladders and
+-- both stretches read back as written, and the river's headline read Good at
+-- 181 cfs from Tunnel Dam. The owner decided the top of Tunnel Dam's ladder
+-- the same day; see "The top of the ladder".
 --
 -- The Niangua from Bennett Spring down is graded by the Tunnel Dam gauge
 -- (06923950), and that gauge becomes the river's main gauge. Put-ins above the
@@ -20,21 +26,64 @@
 -- not look like dam operation: the largest reading in a day was a median 1.06
 -- times the smallest (Windyville: 1.10).
 --
--- ── The open question ───────────────────────────────────────────────────────
--- Tunnel Dam's ladder was never reviewed by the owner (threshold_source
--- 'usgs'): too low under 90 cfs, low under 142, optimal 234 to 441, high from
--- 754, dangerous at 1,508. Daily means for 2026, each gauge on its own ladder:
+-- ── The top of the ladder ───────────────────────────────────────────────────
+-- Tunnel Dam's ladder came from flow percentiles (00167, threshold_source
+-- 'usgs') and nobody had reviewed it: too low under 90 cfs, low under 142,
+-- flowing 234 to 441, a High field of 754, dangerous at 1,508. That danger
+-- line was double the 90th percentile of July flow, lower than Windyville's
+-- (2,000 cfs on 377 square miles, against 598 here), and with it the headline
+-- would have read High or Dangerous on 118 of 295 days.
 --
---                Too Low   Low   Good   Flowing   High   Dangerous
---   Windyville        50    89      2        89     47          16
---   Tunnel Dam         0    18     91        68     88          30
+-- Owner decision, 2026-11-18: Dangerous is the official flood action line, and
+-- High is a cautious figure for now.
 --
--- The low end is what this migration is for. The high end is the question:
--- the headline would read High or Dangerous on 118 of 295 days, and its danger
--- line (1,508 cfs on 598 square miles) is lower than Windyville's (2,000 cfs
--- on 377). Applying this as written puts that ladder on the river's card and
--- on fifteen put-ins. The owner should either accept it or set the top of the
--- ladder first.
+--   Dangerous  7,900 cfs. NWS action stage for TUDM7 (Niangua River at Tunnel
+--     Dam near Macks Creek) is 10 ft, published with a flow of 7,900 cfs;
+--     minor flood is 11 ft and 9,700 cfs, and there is no moderate or major
+--     category. Read from api.water.noaa.gov/nwps/v1/gauges/TUDM7 on
+--     2026-11-18. The two agencies disagree about the flow at 10 ft: the USGS
+--     rating in use (9.2, shift dated 2026-09-11) gives 9,575 cfs there, and
+--     the gauge reported 9,580 cfs at 10.00 ft on 2026-06-14; that rating
+--     puts 7,900 cfs at 9.12 ft. The gauge is graded in cfs, so the line is
+--     NWS's 7,900 cfs, the lower of the two readings of "action stage". Flood
+--     stage (11 ft, already on the pairing) still reads Dangerous by stage
+--     whatever the flow says.
+--   High       above 750 cfs. PROVISIONAL, not a measured line. High begins
+--     just above Optimal Max (shared/condition-ladder.ts), so until now it
+--     began at 441 cfs and the High field's 754 was never read; both fields
+--     become 750. The figure follows Windyville, whose High line (400 cfs) is
+--     from trip reports: on the 12 days of 2026 Windyville averaged 300 to
+--     400 cfs, Tunnel Dam averaged 498 to 1,055, median 784. 750 is under
+--     that median, so it warns a little before the upstream gauge would.
+--
+-- The stage ladder (alt_level_*) was left over from before the gauge was
+-- graded in cfs and described different water (its Flowing band began at
+-- 2.5 ft, which is about 800 cfs). Every rung is now the cfs rung read off
+-- USGS rating 9.2, so the two views of "What the levels mean" agree:
+--
+--                   too low   low   flowing from   high above   dangerous
+--   cfs                  90   142            234          750       7,900
+--   ft                 0.86  1.13           1.45         2.43        9.12
+--
+-- Daily means for 2026 (UTC days through 2026-11-17), each gauge on its own
+-- ladder, Tunnel Dam on the old one and on this one:
+--
+--                     Too Low   Low   Good   Flowing   High   Dangerous
+--   Windyville             50    89      2        89     47          16
+--   Tunnel Dam, old         0    18     91        68     88          30
+--   Tunnel Dam, new         0    18     91       115     69           2
+--
+-- What that costs, and why High is the rung to revisit: 28 days that read
+-- Dangerous on the old ladder read High on this one, and on 18 of them Tunnel
+-- Dam averaged 2,000 cfs or more, the flow at which Windyville reads
+-- Dangerous on a smaller river. High now spans 750 to 7,900 cfs, 2.4 ft to
+-- 9.1 ft of stage. Action stage is where the NWS starts preparing for a
+-- flood, which is well past the level at which a paddler should stay off.
+--
+-- threshold_source becomes 'editorial' (an owner decision; the three low rungs
+-- are still the 00167 percentiles) and threshold_source_url points at the NWS
+-- gauge page. The migration refuses to run unless the ladder it replaces is
+-- exactly the one described above.
 --
 -- ── Why two stretches, and why they are bounded as they are ─────────────────
 -- Two mile scales reach the planner: an access point's stored
@@ -70,15 +119,18 @@
 -- Tonka move from Windyville to Tunnel Dam; five above the spring stay. By map
 -- point, the eight from Bennett Spring Access to Mountain Creek move; the
 -- seven from Lead Mine down already resolved to Tunnel Dam by distance.
+-- Tunnel Dam's ladder changes as described under "The top of the ladder".
 -- last_condition_code and the pending-change columns are cleared on both rows
--- so the switch posts no condition-change alert (see 20261117225734).
+-- so neither the switch nor the new ladder posts a condition-change alert (see
+-- 20261117225734).
 -- rivers.float_summary is NULL for the Niangua and stays NULL.
 --
 -- ── What it checks, in one statement ────────────────────────────────────────
 -- Before: Windyville is the main gauge, Tunnel Dam is linked, active and
--- rated in cfs, and the river has no stretches. After: exactly one main gauge,
--- Tunnel Dam; every approved put-in stored below mile 30 resolves to
--- Windyville and every other one to Tunnel Dam; exactly fifteen moved.
+-- rated in cfs on the ladder this was written against, and the river has no
+-- stretches. After: exactly one main gauge, Tunnel Dam, on the new ladder;
+-- every approved put-in stored below mile 30 resolves to Windyville and every
+-- other one to Tunnel Dam; exactly fifteen moved.
 
 do $$
 declare
@@ -127,6 +179,17 @@ begin
     raise exception 'niangua gauges: % is not linked, active and fully rated in cfs', lower_site;
   end if;
 
+  -- The ladder being replaced. Anything else means somebody has edited it
+  -- since 2026-11-18, and their edit is not this migration's to overwrite.
+  if not exists (
+    select 1 from public.river_gauges
+    where id = lower_link
+      and level_too_low = 90 and level_low = 142 and level_optimal_min = 234
+      and level_optimal_max = 441 and level_high = 754 and level_dangerous = 1508
+  ) then
+    raise exception 'niangua gauges: the % ladder is not the one this was written against; set it by hand', lower_site;
+  end if;
+
   create temporary table niangua_put_ins_before on commit drop as
   select ap.name, ap.river_mile_downstream as mile, c.gauge_usgs_id as site
   from public.access_points ap
@@ -158,8 +221,23 @@ begin
       pending_reading_at = null
   where id = upper_link;
 
+  -- High begins just above level_optimal_max; level_high is kept equal to it
+  -- so the chart's High line and the grade agree. alt_level_* is the same
+  -- ladder in feet, off USGS rating 9.2.
   update public.river_gauges
   set is_primary = true,
+      level_optimal_max = 750,
+      level_high = 750,
+      level_dangerous = 7900,
+      alt_level_too_low = 0.86,
+      alt_level_low = 1.13,
+      alt_level_optimal_min = 1.45,
+      alt_level_optimal_max = 2.43,
+      alt_level_high = 2.43,
+      alt_level_dangerous = 9.12,
+      threshold_source = 'editorial',
+      threshold_source_url = 'https://water.noaa.gov/gauges/tudm7',
+      threshold_updated_at = now(),
       last_condition_code = null,
       pending_condition_code = null,
       pending_count = default,
@@ -171,6 +249,21 @@ begin
   select count(*) into found from public.river_gauges where river_id = niangua and is_primary;
   if found <> 1 or not exists (select 1 from public.river_gauges where id = lower_link and is_primary) then
     raise exception 'niangua gauges: expected exactly one main gauge, %', lower_site;
+  end if;
+
+  if not exists (
+    select 1 from public.river_gauges
+    where id = lower_link
+      and level_too_low < level_low and level_low < level_optimal_min
+      and level_optimal_min < level_optimal_max and level_optimal_max = level_high
+      and level_high < level_dangerous
+      and alt_level_too_low < alt_level_low and alt_level_low < alt_level_optimal_min
+      and alt_level_optimal_min < alt_level_optimal_max and alt_level_optimal_max = alt_level_high
+      and alt_level_high < alt_level_dangerous
+      -- The flow line must trip before the stage one, not after it.
+      and alt_level_dangerous < flood_stage_ft
+  ) then
+    raise exception 'niangua gauges: the % ladder is out of order after the change', lower_site;
   end if;
 
   select string_agg(b.name, ', ' order by b.mile) into bad
