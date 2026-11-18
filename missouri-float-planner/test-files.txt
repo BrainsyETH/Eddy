@@ -114,8 +114,11 @@ src/lib/agent-tools/limits.test.ts
 src/lib/agent-tools/recommendation.test.ts
 src/lib/agent-tools/search.test.ts
 src/lib/ai/model-registry.test.ts
+src/lib/ai/model-test-route.test.ts
+src/lib/ai/model-test.test.ts
 src/lib/ai/no-hardcoded-models.test.ts
 src/lib/ai/resolve-models.test.ts
+src/lib/ai/usage.test.ts
 src/lib/alert-copy.test.ts
 src/lib/alert-groups.test.ts
 src/lib/alerts/dam-generation.test.ts
@@ -444,6 +447,7 @@ src/lib/social/workflow-inputs.test.ts
 src/lib/spring-shape-parity.test.ts
 src/lib/star-sync.test.ts
 src/lib/stays-search.test.ts
+src/lib/telemetry/pricing.test.ts
 src/lib/telemetry/telemetry.test.ts
 src/lib/telemetry/usgs-quota.test.ts
 src/lib/today-fold.test.ts

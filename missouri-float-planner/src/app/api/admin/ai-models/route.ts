@@ -1,6 +1,6 @@
 import { withAdminMutation } from '@/lib/admin/mutation-audit';
 // src/app/api/admin/ai-models/route.ts
-// GET + POST for the per-workload Anthropic model overrides in llm_config.
+// GET + POST for the per-workload model overrides in llm_config.
 //
 // POST rather than PUT for saves, for the reason /api/admin/social/config gives:
 // it keeps write operations off any edge or CDN cache path.
@@ -23,13 +23,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import {
   MODELS,
+  PROVIDERS,
   WORKLOADS,
   WORKLOAD_SPECS,
   approvedProfiles,
   isApproved,
-  shouldCacheSystemPrompt,
+  promptCacheMode,
   type Workload,
 } from '@/lib/ai/model-registry';
+import { providerConfigured } from '@/lib/ai/generate-text';
 import { resolveConfiguredModels, type LlmConfigRow } from '@/lib/ai/resolve-models';
 
 export const dynamic = 'force-dynamic';
@@ -86,12 +88,23 @@ function buildPayload(row: (LlmConfigRow & { id: string }) | null) {
         stored: row?.[workload] ?? null,
         defaultModel: spec.default,
         defaultLabel: MODELS[spec.default]?.label ?? spec.default,
+        // The model a cross-provider override retries on when its call fails.
+        fallbackLabel: active.fallback ? MODELS[active.fallback.id]?.label ?? active.fallback.id : null,
         options: approvedProfiles(workload).map((profile) => ({
           id: profile.id,
           label: profile.label,
+          provider: PROVIDERS[profile.provider].label,
+          // Whether the provider's key is present, never the key. Selecting a
+          // model whose provider has none would fail every call.
+          configured: providerConfigured(profile.provider),
           maxTokens: spec.maxTokens[profile.id],
-          thinkingDisabled: Boolean(profile.thinking),
-          promptCacheEnabled: shouldCacheSystemPrompt(workload, profile.id),
+          thinkingDisabled:
+            profile.provider === 'anthropic'
+              ? Boolean(profile.thinking)
+              : profile.reasoningEffort === 'none',
+          // marker: an Anthropic cache breakpoint is attached. automatic:
+          // OpenAI caches the prefix unasked. off: the prompt is too short.
+          promptCache: promptCacheMode(workload, profile.id),
         })),
       };
     }),

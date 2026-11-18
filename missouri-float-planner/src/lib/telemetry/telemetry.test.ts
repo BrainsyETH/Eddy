@@ -12,6 +12,7 @@ import {
   type Observation,
 } from './model';
 import { telemetryConfig, recordBatch } from './redis';
+import { openAITokenCounts } from '@/lib/ai/usage';
 const base: Observation = {
   provider: 'usgs',
   operation: 'latest',
@@ -131,6 +132,40 @@ test('SDK usage and MCP tool-level failures are measured without inspecting cont
     (e) => events.push(e),
   );
   assert.equal(events[1].outcome, '5xx');
+});
+test('an OpenAI call records disjoint token buckets through its own reader', async () => {
+  // OpenAI's input_tokens includes the cached prefix. Read as Anthropic's
+  // usage block it would record 2,300 uncached input tokens and no cache hit.
+  const events: Observation[] = [];
+  const response = {
+    usage: {
+      input_tokens: 2300,
+      input_tokens_details: { cached_tokens: 1900, cache_write_tokens: 0 },
+      output_tokens: 240,
+    },
+    output_text: 'secret',
+  };
+  await measure(
+    'openai',
+    'river_update',
+    'gpt-6.1-terra',
+    async () => response,
+    (e) => events.push(e),
+    (value) => openAITokenCounts(value.usage),
+  );
+  assert.equal(events[0].provider, 'openai');
+  assert.equal(events[0].kind, 'sdk');
+  assert.deepEqual(events[0].tokens, { input: 400, output: 240, cacheRead: 1900, cacheWrite: 0 });
+  assert.ok(!JSON.stringify(events).includes('secret'));
+  // And the stored field decodes back under its provider rather than being dropped.
+  const [row] = decodeHash(
+    Object.fromEntries(fields(events[0], 1)),
+    '2026-11-17',
+    'production',
+  );
+  assert.equal(row.provider, 'openai');
+  assert.equal(row.cache_read_tokens, 1900);
+  assert.equal(row.input_tokens, 400);
 });
 test('sampling weights and combined histograms preserve a meaningful 7-day percentile', () => {
   const hash = Object.fromEntries([

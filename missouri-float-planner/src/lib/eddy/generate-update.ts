@@ -1,9 +1,8 @@
 // src/lib/eddy/generate-update.ts
-// Orchestrates data gathering and calls the configured Claude model to generate Eddy updates.
+// Orchestrates data gathering and calls the configured model to generate Eddy updates.
 // Used by the cron job to produce per-river (or per-section) condition quotes.
 
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
-import Anthropic from '@anthropic-ai/sdk';
+import { generateText, MissingApiKeyError, type TextResult } from '@/lib/ai/generate-text';
 import type { ConditionCode } from '@/types/api';
 import { RIVER_NOTES } from '@/data/eddy-quotes';
 import type { UpdateTarget } from '@/data/river-sections';
@@ -17,10 +16,11 @@ import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { getRiverContext } from '@/lib/rivers/context';
 import { parseEddyResponse, stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
-import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts } from './report-facts';
+import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type PreparedReport } from './report-facts';
 import { buildGenerationRecord, type GenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
-import type { ResolvedModel } from '@/lib/ai/resolve-models';
+import { modelAttempts, type ResolvedModel } from '@/lib/ai/resolve-models';
+import type { UsageStats } from '@/lib/ai/usage';
 import { EDDY_VOICE } from '@/lib/eddy/voice';
 
 
@@ -31,40 +31,10 @@ export { buildPrompt, type GaugeContext } from './build-update-prompt';
 // llm_config and threaded in, so a switch cannot split one run across two
 // models. See src/lib/ai/resolve-models.ts.
 
-/**
- * Token/cost accounting for a single model call, persisted alongside the update
- * so spend and prompt-cache hit rates are queryable. Fields are nullable to
- * tolerate SDK responses that omit a usage block.
- */
-export interface UsageStats {
-  modelUsed: string;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  cacheReadTokens: number | null;
-  cacheCreationTokens: number | null;
-}
-
-/** Extracts a UsageStats from a Claude message's `usage` block. */
-export function extractUsage(
-  modelUsed: string,
-  usage:
-    | {
-        input_tokens?: number | null;
-        output_tokens?: number | null;
-        cache_read_input_tokens?: number | null;
-        cache_creation_input_tokens?: number | null;
-      }
-    | null
-    | undefined,
-): UsageStats {
-  return {
-    modelUsed,
-    inputTokens: usage?.input_tokens ?? null,
-    outputTokens: usage?.output_tokens ?? null,
-    cacheReadTokens: usage?.cache_read_input_tokens ?? null,
-    cacheCreationTokens: usage?.cache_creation_input_tokens ?? null,
-  };
-}
+// UsageStats and its extractors live in src/lib/ai/usage.ts, which holds the
+// one token convention every provider is normalised to. Re-exported because
+// callers already import them from this path.
+export { extractUsage, type UsageStats } from '@/lib/ai/usage';
 
 /**
  * Maps a UsageStats onto the shared eddy_updates / gauge_updates token columns.
@@ -164,7 +134,7 @@ export async function generateEddyUpdate(
   const capture: GenerationCapture = {
     target,
     trigger: options.trigger,
-    model: { id: model.id, maxTokens: model.maxTokens, thinking: model.thinking, cacheSystemPrompt: model.cacheSystemPrompt, source: model.source },
+    model: captureModel(model),
     facts,
     usgsSiteId: gaugeResult?.usgsSiteId ?? null,
     readingTimestamp: gaugeContext.readingTimestamp,
@@ -260,48 +230,72 @@ export async function generateEddyUpdate(
   capture.userPrompt = prompt;
 
   // --- 8. Call the model ---
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) {
-    console.error('[EddyGen] ANTHROPIC_API_KEY not configured');
-    await record({ outcome: 'error', reason: 'missing_api_key' });
-    return null;
+  // The resolved model first, then its fallback when it has one (an override
+  // on another provider carries the code default; see resolve-models.ts). Each
+  // attempt that publishes nothing writes its own record, under the model that
+  // was actually asked, so a fallback is visible as two rows rather than as a
+  // row whose model quietly changed.
+  //
+  // An attempt is accepted on a WHOLE report, not on any text: the response
+  // must have finished and hold all three blocks. A model that spends its
+  // output cap part-way through returns text that parses and reads as a report
+  // until its last line, so "non-empty" is not the test. An incomplete answer
+  // from a model with a fallback is a failed attempt; from the last model, the
+  // guard replaces it with the code-written report.
+  let completion: { result: TextResult; prepared: PreparedReport } | null = null;
+  for (const attempt of modelAttempts(model)) {
+    capture.model = captureModel(attempt);
+    try {
+      const result = await generateText({
+        feature: 'river_update',
+        model: attempt,
+        // Every river/section call shares this static system prompt, which is
+        // what makes it cacheable. River-specific semantics live in the user
+        // prompt.
+        system: EDDY_SYSTEM_PROMPT,
+        user: prompt,
+      });
+      // Strip em dashes that slip through despite prompt instructions. The
+      // record keeps result.text exactly as returned; the cleanup is not part
+      // of the evidence.
+      const rawText = result.text ? replaceEmDashes(result.text.trim()) || null : null;
+      const prepared = rawText ? prepareGeneratedReport(rawText, facts, { finished: result.finished }) : null;
+      if (prepared && !(prepared.incomplete && attempt.fallback)) {
+        completion = { result, prepared };
+        break;
+      }
+      if (prepared) {
+        console.error(`[EddyGen] Incomplete ${attempt.id} report for ${target.riverSlug}/${target.sectionSlug}: ${prepared.incomplete} (${result.stopReason})`);
+        await record({ outcome: 'error', reason: 'incomplete_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
+      } else {
+        console.error(`[EddyGen] Empty ${attempt.id} response for ${target.riverSlug}/${target.sectionSlug}`);
+        await record({ outcome: 'error', reason: 'empty_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
+      }
+    } catch (e) {
+      if (e instanceof MissingApiKeyError) {
+        console.error(`[EddyGen] ${e.message}`);
+        await record({ outcome: 'error', reason: 'missing_api_key' });
+      } else {
+        console.error(`[EddyGen] ${attempt.id} call failed for ${target.riverSlug}:`, e);
+        await record({ outcome: 'error', reason: 'model_error', errorMessage: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    if (attempt.fallback) {
+      console.warn(`[EddyGen] ${attempt.id} produced nothing for ${target.riverSlug}; falling back to ${attempt.fallback.id}`);
+    }
   }
+  if (!completion) return null;
 
-  const client = new Anthropic({ apiKey: anthropicKey });
+  const modelText = completion.result.text;
+  // usage.modelUsed is the model that answered, which after a fallback is not
+  // the one that was selected.
+  const usage = completion.result.usage;
+  const stopReason = completion.result.stopReason;
 
   try {
-    const message = await trackedAnthropic('river_update', model.id, () => client.messages.create({
-      model: model.id,
-      max_tokens: model.maxTokens,
-      // Omitted entirely unless the model needs it. Sonnet 5 thinks by default
-      // and would spend max_tokens doing it; Sonnet 4.6 does not.
-      ...(model.thinking ? { thinking: model.thinking } : {}),
-      messages: [{ role: 'user', content: prompt }],
-      // Every river/section call shares this static system prompt. Sonnet can
-      // cache its ~1.6k tokens; Haiku's 4096-token minimum is too high, so the
-      // resolver omits the otherwise ineffective breakpoint for that pairing.
-      // River-specific semantics live in the user prompt.
-      system: model.cacheSystemPrompt
-        ? [{ type: 'text', text: EDDY_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }]
-        : EDDY_SYSTEM_PROMPT,
-    }));
-
-    const textBlock = message.content.find((block) => block.type === 'text');
-    // Recorded exactly as returned; the cleanup below is not part of the evidence.
-    const modelText = textBlock?.text ?? null;
-    const usage = extractUsage(model.id, message.usage);
-    const stopReason = message.stop_reason ?? null;
-    // Strip em dashes that slip through despite prompt instructions
-    const rawText = modelText ? replaceEmDashes(modelText.trim()) || null : null;
-
-    if (!rawText) {
-      console.error(`[EddyGen] Empty response for ${target.riverSlug}/${target.sectionSlug}`);
-      await record({ outcome: 'error', reason: 'empty_response', rawResponse: modelText, stopReason, usage });
-      return null;
-    }
-
-    // Parse summary and full text from the model output
-    const { report, usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(rawText, facts);
+    // The guard has already run on this text, inside the attempt that
+    // accepted it. What it decided is what is published.
+    const { report, usedFallback, fallbackReason, contradictions } = completion.prepared;
     const { summaryText, eddyRead, quoteText } = report;
     const publishedSources = !usedFallback ? sourcesUsed
       : sourcesUsed.filter(source => source === 'USGS gauge' || source === 'OpenWeather'
@@ -336,10 +330,23 @@ export async function generateEddyUpdate(
     });
     return update;
   } catch (e) {
-    console.error(`[EddyGen] ${model.id} call failed for ${target.riverSlug}:`, e);
-    await record({ outcome: 'error', reason: 'model_error', errorMessage: e instanceof Error ? e.message : String(e) });
+    console.error(`[EddyGen] Preparing the ${usage.modelUsed} report failed for ${target.riverSlug}:`, e);
+    await record({ outcome: 'error', reason: 'model_error', rawResponse: modelText, stopReason, usage, errorMessage: e instanceof Error ? e.message : String(e) });
     return null;
   }
+}
+
+/** The model fields a generation record keeps. */
+function captureModel(model: ResolvedModel): GenerationCapture['model'] {
+  return {
+    id: model.id,
+    provider: model.provider,
+    maxTokens: model.maxTokens,
+    thinking: model.thinking,
+    reasoningEffort: model.reasoningEffort,
+    cacheSystemPrompt: model.cacheSystemPrompt,
+    source: model.source,
+  };
 }
 
 // The parser lives in its own SDK-free module so it stays unit-testable.
@@ -358,7 +365,7 @@ export { RIVER_TYPE_GUIDANCE, buildConditionSemantics };
 // selected model supports a prefix this short. River
 // region and low/rising-water framing are injected into the user prompt's
 // [CONDITION SEMANTICS] block by buildConditionSemantics().
-const EDDY_SYSTEM_PROMPT = `You are Eddy, the otter guide in a float trip planning app. You write condition updates for float rivers. The user message names the river, its region, its hydrology semantics, and the authoritative gauge facts.
+export const EDDY_SYSTEM_PROMPT = `You are Eddy, the otter guide in a float trip planning app. You write condition updates for float rivers. The user message names the river, its region, its hydrology semantics, and the authoritative gauge facts.
 
 WHO READS THIS: someone deciding whether to float this river soon. Beside your text the app already shows the condition badge, the gauge reading, a trend chart, and a separate "Watch for" panel covering the weather outlook. Your job is what those cannot say: what the water is like out there and what it means for a floater.
 
