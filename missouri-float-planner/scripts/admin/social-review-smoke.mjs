@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict';
 
 export async function checkSocialReview(browser, origin, out) {
-  for (const width of [1600, 390]) {
-    const context = await browser.newContext({ viewport: { width, height: 900 } });
+  for (const width of [1600, 390, 320]) {
+    const context = await browser.newContext({ viewport: { width, height: width < 400 ? 720 : 900 } });
     const page = await context.newPage();
     const posts = ['instagram', 'tiktok'].map(platform => ({
       id: platform, post_type: 'manual', media_type: 'video', platform, status: 'review',
@@ -58,6 +58,8 @@ export async function checkSocialReview(browser, origin, out) {
           await dialog.waitFor({ state: 'hidden' });
           assert.equal(await review.evaluate(el => el === document.activeElement), true);
           await review.click();
+          const sendBounds = await dialog.getByRole('button', { name: 'Approve & send' }).boundingBox();
+          assert.ok(sendBounds.y + sendBounds.height <= page.viewportSize().height, 'Approval fits without scrolling');
           await page.screenshot({ path: out + '/social-review-' + width + '.png' });
           await dialog.getByRole('button', { name: 'Approve & send' }).click();
           await dialog.getByRole('alert').filter({ hasText: /schedule has changed/ }).waitFor();

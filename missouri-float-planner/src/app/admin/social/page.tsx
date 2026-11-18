@@ -901,7 +901,7 @@ export default function SocialAdminPage() {
   return (
     <AdminLayout
       title="Social Media"
-      description="Manage Instagram and Facebook posting for Eddy"
+      description="Review and publish posts for Instagram, Facebook and TikTok."
     >
       {/* Toast notification */}
       {toast && (
@@ -987,8 +987,8 @@ export default function SocialAdminPage() {
         <dialog ref={reviewDialog} aria-labelledby="social-review-title"
           onClose={event => { if (!event.currentTarget.open) setReviewId(null); }}
           className={`${styles.dialog} bg-neutral-800 border border-neutral-700 rounded-xl`}>
-          <div>
-            <div className="flex items-center justify-between p-4 border-b border-neutral-700">
+          <div className={styles.reviewFrame}>
+            <div className="flex items-center justify-between gap-2 p-4 border-b border-neutral-700">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 id="social-review-title" className="text-lg font-semibold text-white">Review Post</h3>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
@@ -1002,7 +1002,7 @@ export default function SocialAdminPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className={damPreview ? styles.damReview : 'p-4'}>
+            <div className={`${styles.reviewBody} ${damPreview ? styles.damReview : 'p-4'}`}>
               {/* The cover beside the video: on Instagram the OG image IS the
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
@@ -1039,25 +1039,27 @@ export default function SocialAdminPage() {
                 {videoPreviewPost.platform === 'tiktok' && tiktokStatus?.directPost === false && (
                   <p className="mt-3 text-sm text-neutral-400">Finish posting from the TikTok inbox.</p>
                 )}
-                {damPreview ? (
-                  <div className="mt-4 space-y-2">
-                    {isOwner && videoPreviewPost.video_url && ['review', 'failed'].includes(videoPreviewPost.status) && (
-                      <button className="admin-primary" disabled={sendingId !== null}
-                        onClick={() => retryPost(videoPreviewPost.id, videoPreviewPost.status === 'failed' ? 'retry' : 'approve')}>
-                        {sendingId === videoPreviewPost.id ? 'Sending…' : 'Approve & send'}
-                      </button>
-                    )}
-                    {isOwner && videoPreviewPost.video_url && <DamVideoDownload id={videoPreviewPost.id} />}
-                  </div>
-                ) : videoPreviewPost.status === 'review' && (
+                {!damPreview && videoPreviewPost.status === 'review' && (
                   <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} disabled={sendingId !== null} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>
                 )}
-                {reviewError && <p role="alert" className="mt-3 text-sm text-red-400">{reviewError}</p>}
+                {!damPreview && reviewError && <p role="alert" className="mt-3 text-sm text-red-400">{reviewError}</p>}
                 <p className="text-xs text-neutral-500 mt-2">
                   {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}
                 </p>
               </div>
             </div>
+            {damPreview && isOwner && videoPreviewPost.video_url && (
+              <footer className={styles.reviewActions}>
+                {reviewError && <p role="alert" className="w-full text-sm text-red-400">{reviewError}</p>}
+                <DamVideoDownload id={videoPreviewPost.id} />
+                {['review', 'failed'].includes(videoPreviewPost.status) && (
+                  <button className="admin-primary" disabled={sendingId !== null}
+                    onClick={() => retryPost(videoPreviewPost.id, videoPreviewPost.status === 'failed' ? 'retry' : 'approve')}>
+                    {sendingId === videoPreviewPost.id ? 'Sending…' : 'Approve & send'}
+                  </button>
+                )}
+              </footer>
+            )}
           </div>
         </dialog>
       )}
@@ -1413,14 +1415,14 @@ export default function SocialAdminPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-neutral-700 pb-2 overflow-x-auto">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-6 border-b border-neutral-700 pb-2">
           {tabs.filter(tab => isOwner || tab.key === 'content' || tab.key === 'history').map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'bg-primary-600 text-white'
                     : 'text-neutral-400 hover:text-white hover:bg-neutral-700'
@@ -1985,7 +1987,7 @@ export default function SocialAdminPage() {
             {activeTab === 'history' && (
               <div className={`space-y-4 ${styles.history}`}>
                 {/* Filters */}
-                <div className="flex flex-wrap gap-3 items-center">
+                <div className={styles.filters}>
                   <select
                     aria-label="Filter by platform"
                     value={postFilter.platform}
@@ -2046,7 +2048,7 @@ export default function SocialAdminPage() {
                             const dam = isDamStory(post.render_request);
                             const reviewable = dam && isOwner && post.video_url && ['review', 'failed'].includes(post.status);
                             return (
-                              <tr key={post.id} className="border-b border-neutral-700/50 hover:bg-neutral-700/30">
+                              <tr key={post.id} className="border-b border-neutral-700/50">
                                 <td className="px-4 py-3 text-sm text-neutral-300 whitespace-nowrap">
                                   {new Date(post.created_at).toLocaleDateString('en-US', {
                                     month: 'short',
@@ -2055,7 +2057,7 @@ export default function SocialAdminPage() {
                                     minute: '2-digit',
                                   })}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{dam && post.platform === 'instagram' ? 'Instagram Story' : post.platform}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{dam && post.platform === 'instagram' ? 'Instagram Story' : post.platform === 'tiktok' ? 'TikTok' : post.platform}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
                                   <strong>{dam ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
                                   <span className="block text-xs text-neutral-400">
@@ -2064,7 +2066,7 @@ export default function SocialAdminPage() {
                                   </span>
                                 </td>
                                 <td className="px-4 py-3">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${badge.className}`}>
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border whitespace-nowrap ${badge.className}`}>
                                     {post.status === 'published' && <CheckCircle className="w-3 h-3" />}
                                     {post.status === 'failed' && <XCircle className="w-3 h-3" />}
                                     {post.status === 'pending' && <AlertCircle className="w-3 h-3" />}
@@ -2087,7 +2089,7 @@ export default function SocialAdminPage() {
                                           setReviewError('');
                                           setReviewId(post.id);
                                         }}
-                                        className="flex items-center gap-1 px-2 py-1 text-xs text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 rounded transition-colors"
+                                        className="admin-secondary flex items-center gap-1.5 px-3 py-1 text-sm rounded"
                                       >
                                         <Play className="w-3 h-3" />
                                         {reviewable ? 'Review & send' : 'Preview'}
@@ -2096,7 +2098,7 @@ export default function SocialAdminPage() {
                                     {post.platform === 'tiktok' && post.caption && (
                                       <button
                                         onClick={() => copyCaption(post)}
-                                        className="flex items-center gap-1 px-2 py-1 text-xs text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 rounded transition-colors"
+                                        className="admin-link flex items-center gap-1.5 px-2 py-1 text-sm"
                                         title="Copy the generated caption to paste when finishing the TikTok draft"
                                       >
                                         <Copy className="w-3 h-3" />

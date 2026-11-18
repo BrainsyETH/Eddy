@@ -9,14 +9,45 @@
 
 .dialog {
   width: min(92vw, 74rem);
-  max-height: 90dvh;
   margin: auto;
-  overflow: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
 }
 
 .dialog::backdrop {
   background: rgb(0 0 0 / 60%);
+}
+
+.reviewFrame {
+  display: flex;
+  flex-direction: column;
+  max-height: 90dvh;
+}
+
+.reviewBody {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.reviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: start;
+  gap: .75rem;
+  padding: .75rem 1rem;
+  border-top: 1px solid var(--admin-line);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.filters select {
+  min-width: 0;
 }
 
 .damReview {
@@ -64,6 +95,9 @@
 }
 
 @media (max-width: 640px) {
-  .dialog { width: calc(100% - 1rem); max-height: 96dvh; }
+  .dialog { width: calc(100% - 1rem); }
+  .reviewFrame { max-height: 94dvh; }
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .filters select { padding-inline: .375rem; }
   .damReview { grid-template-columns: minmax(0, 1fr); }
 }

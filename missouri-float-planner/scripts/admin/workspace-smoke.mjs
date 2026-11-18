@@ -66,6 +66,7 @@ try {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
+  await checkSocialReview(browser, origin, out);
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
   });
@@ -412,7 +413,6 @@ try {
   await page.goto(origin + '/admin/lakes');
   await page.getByRole('button', { name: 'Try again' }).waitFor();
   await checkAccessChanges(browser, origin, post, reports);
-  await checkSocialReview(browser, origin, out);
   await checkModelTests(browser, origin, out);
   assert.deepEqual(pageErrors, []);
   console.log(
