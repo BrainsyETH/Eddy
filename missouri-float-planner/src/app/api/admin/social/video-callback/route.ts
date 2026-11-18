@@ -8,6 +8,7 @@ import { outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } fr
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform } from '@/lib/social/types';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
+import { isDamStory } from '@shared/social-dam-schedule';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    if (post.auto_publish === false) {
+    if (post.auto_publish === false || isDamStory(post.render_request)) {
       const { error: reviewError } = await supabase.from('social_posts')
         .update({ video_url: videoUrl, status: 'review', error_message: null, updated_at: new Date().toISOString() })
         .eq('id', postId).eq('status', 'rendering');

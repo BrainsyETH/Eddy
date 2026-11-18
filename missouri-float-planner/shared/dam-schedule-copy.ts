@@ -41,13 +41,25 @@ export function hourEndingLabel(hourEnding: number): string {
 }
 
 /** A window given as hour-ending bounds -> "midnight – 6 AM". */
-export function windowLabel(from: number, to: number): string {
+export function windowLabel(from: number, to: number, options?: { compact?: boolean }): string {
   // Every hour of the day: "midnight – midnight" makes the reader work out
   // that it means the whole day.
-  if (from === 1 && to === 24) return 'all day';
-  const start = hourEndingLabel(from);
-  const end = hourEndingLabel(to + 1);
-  return `${start === '12 AM' ? 'midnight' : start} – ${end === '12 AM' ? 'midnight' : end}`;
+  if (from === 1 && to === 24) return options?.compact ? 'All day' : 'all day';
+  const clockLabel = (label: string) => label === '12 AM' ? 'midnight' : options?.compact && label === '12 PM' ? 'noon' : label;
+  let start = clockLabel(hourEndingLabel(from));
+  const end = clockLabel(hourEndingLabel(to + 1));
+  if (options?.compact) {
+    // The video needs a short label, with the same hour-ending arithmetic.
+    const suffix = start.match(/ (AM|PM)$/)?.[0];
+    if (suffix && end.endsWith(suffix)) start = start.slice(0, -suffix.length);
+    return `${start[0].toUpperCase()}${start.slice(1)}–${end}`;
+  }
+  return `${start} – ${end}`;
+}
+
+/** Minimum flow remains distinct from a day with no generation scheduled. */
+export function idleScheduleLabel(minimumFlow = false): string {
+  return minimumFlow ? 'Only minimum flow scheduled' : 'No generation scheduled';
 }
 
 /**
@@ -108,7 +120,7 @@ export function idleWindowSentence(
   const windows = idle.map((w) => windowLabel(w.from, w.to)).join(', ');
   // At a minimum-flow project a break is not "no generation": a unit keeps
   // passing the minimum release at low output, and the Corps calls it that.
-  return options?.minimumFlow ? `Only minimum flow scheduled: ${windows}` : `No generation scheduled: ${windows}`;
+  return `${idleScheduleLabel(options?.minimumFlow)}: ${windows}`;
 }
 
 /**
@@ -403,8 +415,8 @@ export function scheduledHoursSummary(
   const total = hours.length;
 
   if (running === 0) {
-    if (hours.some((h) => h.minimumFlow === true)) return compact ? 'min flow' : 'Only minimum flow scheduled';
-    return compact ? 'idle' : 'No generation scheduled';
+    const minimumFlow = hours.some((h) => h.minimumFlow === true);
+    return compact ? minimumFlow ? 'min flow' : 'idle' : idleScheduleLabel(minimumFlow);
   }
   if (running === total) return compact ? 'all day' : 'Scheduled to generate all day';
   return compact
@@ -426,7 +438,7 @@ export function scheduleDayHeadline(
 ): string {
   const running = hours.filter(scheduledGeneration).length;
   if (running === 0) {
-    return hours.some((h) => h.minimumFlow === true) ? 'Only minimum flow scheduled' : 'No generation scheduled';
+    return idleScheduleLabel(hours.some((h) => h.minimumFlow === true));
   }
   if (running === hours.length && hours.length === 24) return 'Generation scheduled all day';
   return `Generation scheduled for ${running} ${running === 1 ? 'hour' : 'hours'}`;
