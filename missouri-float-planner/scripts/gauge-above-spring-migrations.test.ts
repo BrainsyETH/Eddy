@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { deriveFloatSummaryFindings } from '../src/lib/trust/checks/float-summary';
+import { classifyReading } from '../shared/condition-ladder';
 
 // Two rivers had a main gauge that sits above the spring that carries the
 // float: the Jacks Fork at Alley Spring and the Niangua at Windyville. Three
@@ -54,7 +55,10 @@ async function fixture() {
     CREATE TABLE gauge_stations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), usgs_site_id text UNIQUE, active boolean NOT NULL DEFAULT true);
     CREATE TABLE river_gauges (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), river_id uuid REFERENCES rivers,
       gauge_station_id uuid REFERENCES gauge_stations, is_primary boolean NOT NULL DEFAULT false, threshold_unit text,
-      level_too_low numeric, level_low numeric, level_optimal_min numeric, level_optimal_max numeric, level_dangerous numeric,
+      level_too_low numeric, level_low numeric, level_optimal_min numeric, level_optimal_max numeric, level_high numeric,
+      level_dangerous numeric, alt_level_too_low numeric, alt_level_low numeric, alt_level_optimal_min numeric,
+      alt_level_optimal_max numeric, alt_level_high numeric, alt_level_dangerous numeric, flood_stage_ft numeric,
+      threshold_source text, threshold_source_url text, threshold_updated_at timestamptz,
       river_mile numeric, last_condition_code text, pending_condition_code text, pending_count int NOT NULL DEFAULT 0,
       pending_first_at timestamptz, pending_reading_at timestamptz, UNIQUE (river_id, gauge_station_id));
     CREATE UNIQUE INDEX river_gauges_one_primary_per_river ON river_gauges (river_id) WHERE is_primary;
@@ -113,6 +117,23 @@ async function fixture() {
   await river('niangua', null, NIANGUA_PUT_INS);
   await gauge('niangua', WINDYVILLE, true, null, 'low');
   await gauge('niangua', TUNNEL_DAM, false, null, 'low');
+  // Production's two Niangua ladders on 2026-11-18, cfs then ft.
+  await db.query(
+    `UPDATE river_gauges rg SET level_too_low = 23, level_low = 95, level_optimal_min = 100, level_optimal_max = 400,
+       level_high = 400, level_dangerous = 2000, alt_level_too_low = 0.86, alt_level_low = 1.42, alt_level_optimal_min = 1.45,
+       alt_level_optimal_max = 2.51, alt_level_high = 2.52, alt_level_dangerous = 5.01, flood_stage_ft = 12,
+       threshold_source = 'editorial'
+     FROM gauge_stations g WHERE g.id = rg.gauge_station_id AND g.usgs_site_id = $1`,
+    [WINDYVILLE],
+  );
+  await db.query(
+    `UPDATE river_gauges rg SET level_too_low = 90, level_low = 142, level_optimal_min = 234, level_optimal_max = 441,
+       level_high = 754, level_dangerous = 1508, alt_level_too_low = 1.5, alt_level_low = 2, alt_level_optimal_min = 2.5,
+       alt_level_optimal_max = 5, alt_level_high = 7, alt_level_dangerous = 10, flood_stage_ft = 11,
+       threshold_source = 'usgs'
+     FROM gauge_stations g WHERE g.id = rg.gauge_station_id AND g.usgs_site_id = $1`,
+    [TUNNEL_DAM],
+  );
   return db;
 }
 
@@ -122,6 +143,27 @@ async function gaugeAt(db: PGlite, slug: string, mile: number): Promise<string |
     [slug, mile],
   );
   return result.rows[0]?.gauge_usgs_id;
+}
+
+const LADDER_COLUMNS = `rg.level_too_low, rg.level_low, rg.level_optimal_min, rg.level_optimal_max, rg.level_high,
+  rg.level_dangerous, rg.alt_level_too_low, rg.alt_level_low, rg.alt_level_optimal_min, rg.alt_level_optimal_max,
+  rg.alt_level_high, rg.alt_level_dangerous, rg.flood_stage_ft, rg.threshold_source, rg.threshold_source_url`;
+
+/** A gauge's ladder as numbers, cfs rungs then ft rungs, in ladder order. */
+async function ladder(db: PGlite, site: string) {
+  const row = (await db.query<Record<string, string | null>>(
+    `SELECT ${LADDER_COLUMNS} FROM river_gauges rg JOIN gauge_stations g ON g.id = rg.gauge_station_id WHERE g.usgs_site_id = $1`,
+    [site],
+  )).rows[0];
+  const rungs = (prefix: string) =>
+    ['too_low', 'low', 'optimal_min', 'optimal_max', 'high', 'dangerous'].map((rung) => Number(row[`${prefix}${rung}`]));
+  return {
+    cfs: rungs('level_'),
+    ft: rungs('alt_level_'),
+    floodStageFt: Number(row.flood_stage_ft),
+    source: row.threshold_source,
+    sourceUrl: row.threshold_source_url,
+  };
 }
 
 async function mainGauge(db: PGlite, slug: string) {
@@ -251,6 +293,51 @@ test('the Niangua stretches are also right for a mile read off the river line', 
     if (aboveSpring) assert.ok(claimed === WINDYVILLE || claimed === null, `${name} at line mile ${line}`);
     else assert.equal(claimed, TUNNEL_DAM, `${name} at line mile ${line}`);
   }
+});
+
+test('Tunnel Dam reads Dangerous at the NWS action flow and High above the provisional line', async () => {
+  const db = await fixture();
+  const windyvilleBefore = await ladder(db, WINDYVILLE);
+  await db.exec(niangua);
+
+  const after = await ladder(db, TUNNEL_DAM);
+  // too low, low, flowing from, flowing to, high, dangerous. NWS publishes
+  // 7,900 cfs for TUDM7's 10 ft action stage; 750 is the owner's provisional High.
+  assert.deepEqual(after.cfs, [90, 142, 234, 750, 750, 7900]);
+  // The same rungs in feet, off USGS rating 9.2.
+  assert.deepEqual(after.ft, [0.86, 1.13, 1.45, 2.43, 2.43, 9.12]);
+  assert.equal(after.source, 'editorial');
+  assert.equal(after.sourceUrl, 'https://water.noaa.gov/gauges/tudm7');
+  assert.deepEqual(await ladder(db, WINDYVILLE), windyvilleBefore);
+
+  const [levelTooLow, levelLow, levelOptimalMin, levelOptimalMax, levelHigh, levelDangerous] = after.cfs;
+  const grade = (cfs: number, ft: number | null = null) =>
+    classifyReading(ft, {
+      levelTooLow, levelLow, levelOptimalMin, levelOptimalMax, levelHigh, levelDangerous,
+      thresholdUnit: 'cfs', floodStageFt: after.floodStageFt,
+    }, cfs);
+  assert.equal(grade(750), 'flowing');
+  assert.equal(grade(751), 'high');
+  // 1,508 cfs was the old danger line.
+  assert.equal(grade(1508), 'high');
+  assert.equal(grade(7899), 'high');
+  assert.equal(grade(7900), 'dangerous');
+  // NWS flood stage still wins by stage when the flow line has not tripped.
+  assert.equal(grade(7000, 11), 'dangerous');
+});
+
+test('the Niangua migration refuses, and changes nothing, when the Tunnel Dam ladder was edited since', async () => {
+  const db = await fixture();
+  await db.query(
+    `UPDATE river_gauges rg SET level_dangerous = 3000 FROM gauge_stations g
+     WHERE g.id = rg.gauge_station_id AND g.usgs_site_id = $1`,
+    [TUNNEL_DAM],
+  );
+  const before = await ladder(db, TUNNEL_DAM);
+  await assert.rejects(db.exec(niangua), /ladder is not the one this was written against/);
+  assert.deepEqual(await ladder(db, TUNNEL_DAM), before);
+  assert.equal(await stretchCount(db), 0);
+  assert.deepEqual((await mainGauge(db, 'niangua')).map((g) => g.site), [WINDYVILLE]);
 });
 
 test('the Niangua migration refuses, and changes nothing, when a different set of put-ins would move', async () => {

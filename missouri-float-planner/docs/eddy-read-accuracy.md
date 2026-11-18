@@ -61,10 +61,11 @@ the spring to Two Rivers graded by Eminence, and `20261117225734` makes
 Eminence the river's main gauge. Check a suspected case with the readings
 before writing anything: where gauges sit either side of an inflow, the gain
 between them at low water is the inflow. The Niangua has the same shape at
-Windyville and Bennett Spring. `20261117230200` is drafted for it and held:
-its header gives the open question about the lower gauge's ladder, and shows
-how two stretches can be right on a river whose stored access miles are offset
-from its line.
+Windyville and Bennett Spring. `20261117230200` is drafted for it and not yet
+applied: its header records the owner's decision on the top of the lower
+gauge's ladder (Dangerous at the NWS action flow, a provisional High), and
+shows how two stretches can be right on a river whose stored access miles are
+offset from its line.
 
 While stretch Reads are paused, an assignment has one live effect: the
 planner's gauge for put-ins inside the stretch.
