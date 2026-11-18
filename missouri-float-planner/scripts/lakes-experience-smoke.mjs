@@ -81,7 +81,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   for (let i = 0; i < 120; i++) { try { if ((await fetch(`${origin}/lakes-layout-check`, { signal: AbortSignal.timeout(1500) })).ok) break; } catch {} if (server.exitCode !== null) throw new Error(log.slice(-4000)); await new Promise(r => setTimeout(r, 1000)); }
   browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH, headless: true, args: ['--no-sandbox', '--enable-unsafe-swiftshader'] });
   const errors = [];
-  for (const width of [1440, 768, 390, 320]) {
+  // 360 is the narrowest phone that still gets the two-column release row.
+  for (const width of [1440, 768, 390, 360, 320]) {
     const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 900 });
     page.setDefaultTimeout(60000);
     page.setDefaultNavigationTimeout(90000);

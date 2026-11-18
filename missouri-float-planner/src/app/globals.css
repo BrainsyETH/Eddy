@@ -1900,15 +1900,24 @@ select.input {
 .dam-generation-layout { display: grid; }
 .dam-observed { container-type: inline-size; border-bottom: 1px solid var(--color-neutral-200); background: var(--color-secondary-50); color: var(--color-neutral-900); }
 .dam-release-summary { display: grid; gap: 1rem; }
-/* The card's info button sits in the top-right corner, over whichever heading is there. */
-.dam-release-heading { padding-right: 2rem; }
+/* The card's info button sits in the top-right corner, over whichever heading
+   is there. Its 44px target starts 12px from the card edge, so it reaches 40px
+   into the content while the card pads 16px, and 32px once it pads 24px. */
+.dam-observed { --dam-info-reserve: 2.5rem; }
+@media (min-width: 640px) { .dam-observed { --dam-info-reserve: 2rem; } }
+.dam-release-heading { padding-right: var(--dam-info-reserve); }
 .dam-turbine-summary { border-top: 1px solid var(--color-neutral-200); padding-top: 1rem; }
 .dam-release-note { grid-column: 1 / -1; }
 @container (min-width: 18rem) {
   .dam-release-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .dam-release-heading { padding-right: 0; }
   .dam-turbine-summary { border-top: 0; border-left: 1px solid var(--color-neutral-200); padding-top: 0; padding-left: 1rem; }
-  .dam-turbine-heading { padding-right: 2rem; }
+  .dam-turbine-heading { padding-right: var(--dam-info-reserve); }
+}
+/* On the narrowest two-column phones the status word and its bolt do not both
+   fit beside the info button; the words stay and the decorative bolt goes. */
+@container (min-width: 18rem) and (max-width: 21rem) {
+  .dam-turbine-heading > svg { display: none; }
 }
 @container (min-width: 36rem) {
   .dam-release-summary { column-gap: 2rem; }

@@ -63,16 +63,19 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     }, total);
     console.log(`Planner ${width}: complete ${total}-station source`);
     assert(await page.evaluate(async () => !(await window.plannerMap.getSource('planner-places').getData()).features.some(f => f.properties.key.startsWith('reference:'))), 'Reference gauges never enter the access/POI cluster tree');
-    const access = accessPoints[2];
+    // The planner fixture puts its hazard on accessPoints[2], and hazards group
+    // with places, so that pin is always a numbered group. This check needs an
+    // access point whose only neighbours are reference gauges.
+    const access = accessPoints[3];
     await page.waitForFunction(coordinates => {
       const map = window.plannerMap;
       if (!map || map.isMoving()) return false;
       if (map.getZoom() < 14 || Math.abs(map.getCenter().lng - coordinates.lng) > .001) {
         map.jumpTo({ center: [coordinates.lng, coordinates.lat], zoom: 15 }); return false;
       }
-      return !!document.querySelector('[data-access-point-id="p-0-2"]');
-    }, access.coordinates);
-    const accessPin = page.locator('[data-access-point-id="p-0-2"]');
+      return !!document.querySelector(`.access-point-marker[data-access-point-id="${coordinates.id}"]`);
+    }, { ...access.coordinates, id: access.id });
+    const accessPin = page.locator(`.access-point-marker[data-access-point-id="${access.id}"]`);
     assert.equal(await accessPin.getAttribute('data-cluster-count'), null, 'Nearby reference gauges cannot turn an access pin into a cluster');
     assert(await accessPin.evaluate(element => { const r = element.getBoundingClientRect(); return element.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); }), 'Access pins are above a co-located USGS cluster');
     await accessPin.click();
