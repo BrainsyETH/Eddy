@@ -70,11 +70,18 @@ test('the shared loader keeps the website-compatible classification', () => {
 });
 
 test('both generators preserve alerts before fallback and skip unused trajectory/model work', () => {
-  for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
+  // Where each generator reaches its model: the river one through the
+  // provider adapter, the gauge one through the Anthropic client it builds.
+  const modelCall = new Map([
+    [generateUpdate, 'await generateText({'],
+    [src('src/lib/eddy/generate-gauge-update.ts'), 'const client = new Anthropic('],
+  ]);
+  for (const [generator, call] of modelCall) {
     const fallback = generator.indexOf('const fallback = preflightReportFallback(facts)');
     assert.ok(fallback > generator.indexOf('await fetchNWSAlerts('));
     assert.ok(fallback < generator.indexOf('await buildGaugeTrajectoryForSite('));
-    assert.ok(fallback < generator.indexOf('const client = new Anthropic('));
+    assert.ok(generator.includes(call), `expected the generator to reach its model through ${call}`);
+    assert.ok(fallback < generator.indexOf(call));
     assert.match(generator.slice(fallback), /if \(fallback\) return \{[\s\S]*?usage: null/);
     assert.match(generator, /sourcesUsed: publishedSources/);
   }
@@ -107,7 +114,9 @@ test('missing gauge does not bypass alert gathering or fallback publication', ()
   assert.match(generateUpdate, /conditionCode: gaugeResult\?\.conditionCode \?\? 'unknown'/);
   assert.match(generateUpdate, /gaugeName: gaugeResult\?\.gaugeName \?\? null/);
   for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
-    assert.match(generator, /prepareGeneratedReport\(rawText, facts\)/);
+    // The river generator also tells the guard whether the model finished,
+    // which turns on its completeness check; the gauge one does not.
+    assert.match(generator, /prepareGeneratedReport\(rawText, facts(?:, \{ finished: result\.finished \})?\)/);
     assert.doesNotMatch(generator, /guardReport\(parsed/);
   }
 });

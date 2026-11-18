@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { Metric } from '@/lib/admin/dashboard/model';
 import {
+  AI_PROVIDERS,
+  PROVIDERS,
   decodeHash,
   dayOf,
   mergeHistograms,
@@ -10,7 +12,8 @@ import {
 import { readHash, telemetryConfig } from './redis';
 import { estimatedCost, PRICE_VERSION } from './pricing';
 import { mcpLimits } from '@/lib/agent-tools/limits';
-const providers = ['usgs', 'nws', 'openweather', 'mapbox', 'anthropic', 'mcp'];
+const providers: readonly string[] = PROVIDERS;
+const aiProviders: readonly string[] = AI_PROVIDERS;
 function metric(
   key: string,
   label: string,
@@ -132,7 +135,7 @@ export async function usageMetrics(): Promise<Metric[]> {
     const limited = nowRows.reduce((n, r) => n + r.observed_429s, 0);
     const sample = rows.some((r) => r.sample_rate < 1);
     const days = new Set(rows.map((r) => r.day)).size;
-    const detail = `${sample ? 'Sample-weighted estimates' : 'Recorded operations'}; ${days}/7 UTC days represented. Missing days and dropped events are not zero traffic. ${provider === 'mcp' ? 'Tool invocations, not HTTP requests.' : provider === 'anthropic' ? 'Logical SDK calls; internal retry attempts are not counted separately.' : 'Fetch invocations may include cache hits; latency is to response headers, not full body consumption.'}`;
+    const detail = `${sample ? 'Sample-weighted estimates' : 'Recorded operations'}; ${days}/7 UTC days represented. Missing days and dropped events are not zero traffic. ${provider === 'mcp' ? 'Tool invocations, not HTTP requests.' : aiProviders.includes(provider) ? 'Logical SDK calls; internal retry attempts are not counted separately.' : 'Fetch invocations may include cache hits; latency is to response headers, not full body consumption.'}`;
     const m = metric(
       `upstream_${provider}`,
       provider.toUpperCase(),
@@ -183,15 +186,18 @@ export async function usageMetrics(): Promise<Metric[]> {
         ),
       );
   }
-  const ai = [...history, ...current].filter((r) => r.provider === 'anthropic');
-  for (const feature of [...new Set(ai.map((r) => r.operation))]) {
-    const rows = ai.filter((r) => r.operation === feature);
+  // One metric per provider and feature, so each provider's service card
+  // totals only its own tokens. Anthropic keeps the original `ai_<feature>`
+  // key; OpenAI's are `ai_openai_<feature>`.
+  for (const provider of aiProviders) for (const feature of [...new Set([...history, ...current].filter((r) => r.provider === provider).map((r) => r.operation))]) {
+    const rows = [...history, ...current].filter((r) => r.provider === provider && r.operation === feature);
     const costs = rows.map(estimatedCost);
     const priced = costs.every((n) => n !== null);
+    const openai = provider === 'openai';
     result.push(
       metric(
-        `ai_${feature}`,
-        `AI · ${feature} · 7 UTC days`,
+        openai ? `ai_openai_${feature}` : `ai_${feature}`,
+        `AI · ${openai ? 'OpenAI · ' : ''}${feature} · 7 UTC days`,
         {
           input_tokens: rows.reduce((n, r) => n + r.input_tokens, 0),
           output_tokens: rows.reduce((n, r) => n + r.output_tokens, 0),
@@ -204,7 +210,7 @@ export async function usageMetrics(): Promise<Metric[]> {
             ? '$' + costs.reduce<number>((n, c) => n + (c ?? 0), 0).toFixed(4)
             : 'Unknown model pricing',
         },
-        `Recorded usage only; not an invoice. Price basis ${PRICE_VERSION}; default 5-minute cache writes. Historical coverage ${historyOk ? 'available' : 'unknown'}.`,
+        `Recorded usage only, at list price; not an invoice${openai ? ' and not a credit balance' : ''}. Price basis ${PRICE_VERSION}; default cache lifetimes. Historical coverage ${historyOk ? 'available' : 'unknown'}.`,
       ),
     );
   }

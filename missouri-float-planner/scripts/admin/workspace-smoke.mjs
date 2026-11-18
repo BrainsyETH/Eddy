@@ -5,6 +5,7 @@ import { createHmac } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
+import { checkModelTests } from './ai-models-smoke.mjs';
 const require = createRequire(import.meta.url);
 const origin = 'http://127.0.0.1:3152';
 const out = process.env.ADMIN_SMOKE_OUTPUT || '/tmp/eddy-admin-smoke';
@@ -410,6 +411,7 @@ try {
   await page.goto(origin + '/admin/lakes');
   await page.getByRole('button', { name: 'Try again' }).waitFor();
   await checkAccessChanges(browser, origin, post, reports);
+  await checkModelTests(browser, origin, out);
   assert.deepEqual(pageErrors, []);
   console.log(
     'PASS: direct subpage login, save conflict, discard, session renewal, search history, scoped selections, responsive detail focus, mobile drawer, role changes, revocation, sign-out and network recovery.',

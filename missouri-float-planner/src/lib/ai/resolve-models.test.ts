@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { MODELS, WORKLOADS, WORKLOAD_SPECS } from './model-registry';
-import { resolveConfiguredModels, type LlmConfigRow } from './resolve-models';
+import { modelAttempts, resolveConfiguredModels, resolveTestModel, type LlmConfigRow } from './resolve-models';
 
 // resolveConfiguredModels is the whole ruleset — what a NULL means, what a bad
 // stored value does, which parameters a pairing carries. It is pure precisely so
@@ -65,7 +65,7 @@ test('a model with no thinking requirement omits the parameter entirely', () => 
   // difference on a model that does not think by default.
   const resolved = resolveConfiguredModels({ ...emptyRow(), river_update: 'claude-sonnet-4-6' });
   assert.equal(resolved.river_update.thinking, undefined);
-  assert.equal(MODELS['claude-sonnet-4-6'].thinking, undefined);
+  assert.equal('thinking' in MODELS['claude-sonnet-4-6'], false);
 });
 
 test('an unknown model falls back to the default and reports why', () => {
@@ -127,4 +127,86 @@ test('every resolved workload reports a usable budget', () => {
     assert.equal(typeof resolved[workload].maxTokens, 'number');
     assert.ok(resolved[workload].maxTokens > 0);
   }
+});
+
+// ── Providers and the fallback ──────────────────────────────────────────────
+
+test('every resolved workload names its provider', () => {
+  const resolved = resolveConfiguredModels(null);
+  for (const workload of WORKLOADS) {
+    assert.equal(resolved[workload].provider, MODELS[resolved[workload].id].provider);
+  }
+});
+
+test('an override on the default’s own provider carries no fallback', () => {
+  // If Sonnet 5 fails because Anthropic is failing, Sonnet 4.6 fails too.
+  const resolved = resolveConfiguredModels({ ...emptyRow(), river_update: 'claude-sonnet-5' });
+  assert.equal(resolved.river_update.fallback, undefined);
+  assert.deepEqual(modelAttempts(resolved.river_update).map((m) => m.id), ['claude-sonnet-5']);
+  for (const workload of WORKLOADS) {
+    assert.equal(resolveConfiguredModels(null)[workload].fallback, undefined);
+  }
+});
+
+test('an approved model on another provider falls back to the code default', () => {
+  // No OpenAI model is approved yet, so approve one for the length of this
+  // test. The rule under test is the resolver's, not the registry's contents:
+  // an exhausted prepaid balance must not leave the river pass writing nothing.
+  const spec = WORKLOAD_SPECS.river_update;
+  const approved = spec.approved;
+  spec.approved = [...approved, 'gpt-6.1-terra'];
+  try {
+    const { river_update: model } = resolveConfiguredModels({ ...emptyRow(), river_update: 'gpt-6.1-terra' });
+
+    assert.equal(model.id, 'gpt-6.1-terra');
+    assert.equal(model.provider, 'openai');
+    assert.equal(model.source, 'override');
+    assert.equal(model.reasoningEffort, 'none');
+    assert.equal(model.thinking, undefined);
+    assert.equal(model.cacheSystemPrompt, false);
+    assert.equal(model.maxTokens, spec.maxTokens['gpt-6.1-terra']);
+
+    // The fallback is the default exactly as an unconfigured row resolves it,
+    // so a fallback row is indistinguishable from an ordinary default one.
+    assert.deepEqual(model.fallback, resolveConfiguredModels(null).river_update);
+    assert.equal(model.fallback?.fallback, undefined);
+    assert.deepEqual(modelAttempts(model).map((m) => m.id), ['gpt-6.1-terra', spec.default]);
+  } finally {
+    spec.approved = approved;
+  }
+});
+
+test('a test-only model is rejected as a stored override', () => {
+  // Testable is not approved: llm_config must not be able to route production
+  // to a model the admin panel is only allowed to try.
+  const resolved = resolveConfiguredModels({ ...emptyRow(), river_update: 'gpt-6.1-terra' });
+  assert.equal(resolved.river_update.id, WORKLOAD_SPECS.river_update.default);
+  assert.deepEqual(resolved.river_update.rejected, { value: 'gpt-6.1-terra', reason: 'not_approved' });
+});
+
+// ── The test panel's resolver ───────────────────────────────────────────────
+
+test('the test panel may resolve approved and test-only models, with no fallback', () => {
+  const terra = resolveTestModel('river_update', 'gpt-6.1-terra');
+  assert.equal(terra?.provider, 'openai');
+  assert.equal(terra?.source, 'test');
+  assert.equal(terra?.reasoningEffort, 'none');
+  // A test that answered from the default would be a test of the wrong model.
+  assert.equal(terra?.fallback, undefined);
+
+  const sol = resolveTestModel('river_update', 'gpt-6.2-sol');
+  assert.equal(sol?.reasoningEffort, 'low');
+  assert.equal(sol?.maxTokens, WORKLOAD_SPECS.river_update.maxTokens['gpt-6.2-sol']);
+
+  const sonnet = resolveTestModel('river_update', 'claude-sonnet-4-6');
+  assert.equal(sonnet?.provider, 'anthropic');
+  assert.equal(sonnet?.cacheSystemPrompt, true);
+});
+
+test('the test panel refuses anything outside the workload’s lists', () => {
+  assert.equal(resolveTestModel('river_update', 'gpt-4o'), null);
+  assert.equal(resolveTestModel('river_update', ''), null);
+  // Registered and testable elsewhere, but not for this workload.
+  assert.equal(resolveTestModel('global_summary', 'gpt-6.1-terra'), null);
+  assert.equal(resolveTestModel('global_summary', 'claude-haiku-4-5-20251001'), null);
 });

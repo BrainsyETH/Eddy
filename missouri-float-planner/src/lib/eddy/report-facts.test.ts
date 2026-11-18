@@ -3,7 +3,7 @@ import { matchAlertsByTerms } from '../nws/alert-matching';
 import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, plainRelation, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, plainRelation, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine, reportIncompleteness } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
 
 const input = {
@@ -391,4 +391,88 @@ test('below-optimal guidance does not turn a range comparison into scraping advi
     assert.doesNotMatch(comparison, /expect.*riffles|thin side|pick.*line|may.*touch/);
     assert.ok(reportFactsPrompt(snapshot).includes(comparison));
   }
+});
+
+// ── Completeness ────────────────────────────────────────────────────────────
+
+test('completeness is opt-in: a caller that does not say whether the model finished is unchanged', () => {
+  // Secondary-gauge updates call the guard without it. About three in ten of
+  // their stored rows lack a block and are published today; requiring all
+  // three there would silently replace them with the code-written report.
+  const noRead = `${reportClaimsLine(facts)}\n[SUMMARY]\nGood at Van Buren.\n\n[FULL]\nGood at Van Buren, a little below the optimal range.`;
+  const result = prepareGeneratedReport(noRead, facts);
+  assert.equal(result.usedFallback, false);
+  assert.equal(result.incomplete, null);
+  assert.equal(result.report.eddyRead, null);
+  // Not even a bare claims line is judged without the option.
+  assert.equal(prepareGeneratedReport(reportClaimsLine(facts), facts).usedFallback, false);
+});
+
+test('with completeness on, a response must have finished and hold all three blocks', () => {
+  const whole = modelOutput(facts, 'Good at Van Buren, a little below the optimal range.');
+  const ok = prepareGeneratedReport(whole, facts, { finished: true });
+  assert.equal(ok.usedFallback, false);
+  assert.equal(ok.incomplete, null);
+  assert.equal(ok.written, ok.report);
+
+  // The same text from a response that did not finish.
+  const cut = prepareGeneratedReport(whole, facts, { finished: false });
+  assert.equal(cut.fallbackReason, 'incomplete');
+  assert.equal(cut.incomplete, 'cut_off');
+  // Readers get the code-written report; the model's text is kept beside it.
+  assert.deepEqual(cut.report, factualReportFallback(facts));
+  assert.equal(cut.written?.quoteText, 'Good at Van Buren, a little below the optimal range.');
+
+  for (const partial of [
+    reportClaimsLine(facts),
+    `${reportClaimsLine(facts)}\n[SUMMARY]\nGood at Van Buren.`,
+    `${reportClaimsLine(facts)}\n[SUMMARY]\nGood at Van Buren.\n\n[EDDY_READ]\nLower river.\n\n[FULL]\n`,
+    `${reportClaimsLine(facts)}\n[SUMMARY]\nGood at Van Buren.\n\n[FULL]\nGood at Van Buren, below the optimal range.`,
+  ]) {
+    const result = prepareGeneratedReport(partial, facts, { finished: true });
+    assert.equal(result.fallbackReason, 'incomplete', partial);
+    assert.equal(result.incomplete, 'missing_blocks', partial);
+    assert.deepEqual(result.report, factualReportFallback(facts));
+  }
+});
+
+test('a wrong claims line is still reported as that, not as incomplete', () => {
+  const wrong = modelOutput(facts, 'Good at Van Buren.').replace('condition=good', 'condition=flowing');
+  const result = prepareGeneratedReport(wrong, facts, { finished: false });
+  assert.equal(result.fallbackReason, 'claims_mismatch');
+  assert.equal(result.incomplete, null);
+  assert.equal(result.written, null);
+});
+
+test('completeness requires prose after marker cleanup in every block', () => {
+  for (const [summary, read, full] of [
+    ['[SUMMARY]', 'Lower river.', 'Good at Van Buren.'],
+    ['Good at Van Buren.', '[eddy_read]', 'Good at Van Buren.'],
+    ['Good at Van Buren.', 'Lower river.', '  [FULL]\n[summary]  '],
+  ]) {
+    const raw = `${reportClaimsLine(facts)}\n[SUMMARY]\n${summary}\n[EDDY_READ]\n${read}\n[FULL]\n${full}`;
+    const result = prepareGeneratedReport(raw, facts, { finished: true });
+    assert.equal(result.fallbackReason, 'incomplete', raw);
+    assert.equal(result.incomplete, 'missing_blocks', raw);
+    assert.deepEqual(result.report, factualReportFallback(facts));
+    // Preserve the rejected model's output for generation logs.
+    assert.ok(result.written);
+    assert.match(JSON.stringify(result.written), /\[(?:SUMMARY|eddy_read|FULL)\]/);
+    // This rule remains opt-in for river and section reports.
+    assert.equal(prepareGeneratedReport(raw, facts).usedFallback, false);
+  }
+  assert.equal(reportIncompleteness({
+    summaryText: '[SUMMARY] Good at Van Buren.',
+    eddyRead: '[EDDY_READ] Lower river.',
+    quoteText: '[FULL] Good at Van Buren.',
+  }, true), null);
+});
+
+test('reportIncompleteness asks the stop reason before the text', () => {
+  const whole = { summaryText: 'S.', eddyRead: 'R.', quoteText: 'Q.' };
+  assert.equal(reportIncompleteness(whole, true), null);
+  assert.equal(reportIncompleteness(whole, false), 'cut_off');
+  assert.equal(reportIncompleteness({ ...whole, eddyRead: null }, true), 'missing_blocks');
+  assert.equal(reportIncompleteness({ ...whole, summaryText: '  ' }, true), 'missing_blocks');
+  assert.equal(reportIncompleteness({ ...whole, quoteText: '' }, true), 'missing_blocks');
 });

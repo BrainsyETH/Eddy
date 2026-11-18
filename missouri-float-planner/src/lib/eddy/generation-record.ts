@@ -35,14 +35,15 @@ export type GenerationTrigger = 'scheduled' | 'on_demand' | 'condition_change' |
  * `error` published nothing. */
 export type GenerationOutcome = 'model' | 'fallback' | 'error';
 
-export type GenerationErrorReason = 'missing_api_key' | 'empty_response' | 'model_error';
+export type GenerationErrorReason = 'missing_api_key' | 'empty_response' | 'incomplete_response' | 'model_error';
 
 /** Everything the generator gathered. Filled in as it goes, so an early exit
  * records what it had reached and nulls for the rest. */
 export interface GenerationCapture {
   target: UpdateTarget;
   trigger: GenerationTrigger;
-  model: { id: string; maxTokens: number; thinking?: unknown; cacheSystemPrompt: boolean; source: string };
+  /** The model this attempt asks. Replaced when an attempt falls back to another. */
+  model: { id: string; provider?: string; maxTokens: number; thinking?: unknown; reasoningEffort?: string; cacheSystemPrompt: boolean; source: string };
   facts: ReportFacts;
   usgsSiteId: string | null;
   readingTimestamp: string | null;

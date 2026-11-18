@@ -322,7 +322,10 @@ export default function MetricDetails({
           `errors_${service.provider}`,
           'upstream',
         ].includes(m.key) ||
-        (service.id === 'anthropic' && m.key.startsWith('ai_')) ||
+        (service.id === 'anthropic' &&
+          m.key.startsWith('ai_') &&
+          !m.key.startsWith('ai_openai_')) ||
+        (service.id === 'openai' && m.key.startsWith('ai_openai_')) ||
         (service.id === 'mcp' && m.key.startsWith('mcp_'))
       );
     const sections: Record<string, string> = {
