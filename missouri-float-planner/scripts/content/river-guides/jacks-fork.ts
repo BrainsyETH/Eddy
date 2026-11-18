@@ -23,11 +23,11 @@ export default {
       },
       {
         "q": "When is the upper Jacks Fork too low to float?",
-        "a": "For the canyon above Alley Spring, watch the Jacks Fork near Mountain View gauge (USGS 07065200), not the one at Alley Spring. Eddy rates the upper river best between about 100 and 490 cfs there, and too low under 30. In between, expect to float the pools and walk some riffles."
+        "a": "For the canyon above Alley Spring, watch the Jacks Fork near Mountain View gauge (USGS 07065200), not the one at Eminence, which carries the spring’s water. Eddy rates the upper river best between about 100 and 490 cfs there, and too low under 30. In between, expect to float the pools and walk some riffles."
       },
       {
         "q": "When is the Jacks Fork too high?",
-        "a": "The Park Service closes the river to canoes, kayaks, rafts and tubes when it reaches a set level at the park’s bridge gauges: 4.0 feet at the Highway 17 bridge and 5.4 feet at the Highway 106 bridge at Alley Spring. Eddy’s river report marks the Alley Spring gauge high above about 640 cfs and dangerous at 1,000. The Jacks Fork comes up fast after rain, and the canyon is the wrong place to find that out."
+        "a": "The Park Service closes the river to canoes, kayaks, rafts and tubes when it reaches a set level at the park’s bridge gauges: 4.0 feet at the Highway 17 bridge and 5.4 feet at the Highway 106 bridge at Alley Spring. Eddy’s river report marks the Eminence gauge high above about 900 cfs and dangerous at 1,700. The Jacks Fork comes up fast after rain, and the canyon is the wrong place to find that out."
       },
       {
         "q": "Can I drink the spring water?",
@@ -68,7 +68,7 @@ export default {
       "title_accent": "Float Trip Guide."
     },
     "tldr": {
-      "primary_gauge": "Alley Spring · USGS 07065495",
+      "primary_gauge": "Eminence · USGS 07066000",
       "typical_distance": "6.3–14.8 mi featured routes",
       "best_for_beginners": "Alley Spring → Eminence (6.3 mi, about 3 hr)",
       "route_label": "Start here"
@@ -165,7 +165,7 @@ export default {
     "pro_tips": [
       {
         "strong": "Check the gauge the morning you go.",
-        "body": "Use Mountain View for the canyon and Alley Spring for the lower river. If either is climbing, or rain is coming, pick another day."
+        "body": "Use Mountain View for the canyon and Eminence for the river below Alley Spring. If either is climbing, or rain is coming, pick another day."
       },
       {
         "strong": "By July, float below Alley.",
@@ -398,7 +398,7 @@ export default {
     "sources": [
       {
         "label": "USGS: gauge and observation information",
-        "url": "https://waterdata.usgs.gov/monitoring-location/07065495/"
+        "url": "https://waterdata.usgs.gov/monitoring-location/07066000/"
       },
       {
         "label": "NPS: park regulations (glass, foam, alcohol)",
@@ -425,7 +425,7 @@ export default {
         "url": "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm"
       }
     ],
-    "editorial_updated_at": "2026-11-10",
+    "editorial_updated_at": "2026-11-18",
     "checked_at": "2026-11-10"
   },
   "og_image_url": "https://www.nps.gov/common/uploads/cropped_image/4E240289-EB97-9CDB-81F98A50145B568B.jpg"
