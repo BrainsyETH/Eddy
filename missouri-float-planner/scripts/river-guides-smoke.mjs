@@ -29,11 +29,23 @@ import { RiverGuideView } from '@/components/blog/RiverGuideLayout';
 import GuideDirectory from '@/components/blog/GuideDirectory';
 import { researchEntries } from '@/components/blog/ResearchEntries';
 import { guideOverview } from '@/lib/guides/overview';
+import ConditionDaysReport from '@/components/condition-days/ConditionDaysReport';
+import { archiveFor, seasonFor } from '@/lib/condition-days/data';
+import { DEFAULT_SITE, stations, summarize, seasonHistory } from '@/lib/condition-days/study';
 import { resolveGuideHero } from '@/lib/photos/guides';
 import { guideDam } from '@/lib/guides/dam';
 export default async function Page({ searchParams }: { searchParams: Promise<{ river?: string; view?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_GUIDE_SMOKE !== '1') notFound();
   const params = await searchParams;
+  if (params.view === 'season') {
+    const station = stations.find(s => s.site === DEFAULT_SITE)!;
+    const today = '2026-11-17';
+    const [archive, season] = await Promise.all([archiveFor(station), seasonFor(station.site, null, today)]);
+    return <main style={{maxWidth:1000,margin:'auto'}}><ConditionDaysReport station={station}
+      thresholds={station.thresholds} summary={summarize(archive, station.thresholds, today)} season={season}
+      history={seasonHistory(archive, station.thresholds, season)} today={today} archived compare={null}
+      reading={{cfs:47.3,at:'2026-11-18T01:30:00Z',level:'too_low'}}/></main>;
+  }
   if (params.view === 'directory') return <main className="mx-auto max-w-5xl p-4"><h1>River guides</h1><GuideDirectory research={researchEntries} entries={reviewedRiverGuides.map(seed => ({ slug: seed.slug, state: seed.slug.endsWith('arkansas') ? 'AR' : 'MO', search: seed.title + ' ' + seed.description, card: <article><a href={'/blog/' + seed.slug}>{seed.title}</a></article> }))} /></main>;
   const seed = reviewedRiverGuides.find(seed => seed.river_slug === (params.river || 'current'));
   if (!seed) notFound();
@@ -161,6 +173,58 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     await page.getByRole('table', {name:/Recorded days by month and condition at Alley Spring/}).waitFor();
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1), `${name} report overflow`);
     await page.screenshot({path:`${out}/report-${name}.png`});
+    await page.getByRole('combobox', {name:'Weekend month'}).selectOption('5');
+    await page.getByText('61 of 67 June weekends').waitFor();
+    assert.equal(await monthPicker.inputValue(), '5');
+    await monthPicker.selectOption('8');
+    await page.getByText('5 of 11 September weekends').waitFor();
+    await page.getByText('Flow ranges & days per year', {exact:true}).click();
+    await page.getByRole('table', {name:'Eddy flow ranges and average days per year'}).waitFor();
+
+    const gauge = page.getByRole('combobox', {name:'Gauge',exact:true});
+    const river = page.getByRole('combobox', {name:'River',exact:true});
+    await river.selectOption('current');
+    await page.waitForURL(url => url.searchParams.get('site') === '07064533');
+    assert.deepEqual(await gauge.locator('option').allTextContents(), ['Akers','Montauk State Park','Powder Mill','Van Buren','Doniphan']);
+    assert.equal(await page.getByRole('combobox', {name:'Compare stretches'}).count(), 0);
+    await page.route('**/api/gauges/*/history?**', route => {
+      const readings = [0,1,2].map(i => ({timestamp:new Date(Date.now() - (2-i)*3600000).toISOString(),gaugeHeightFt:2+i/10,dischargeCfs:180+i}));
+      return route.fulfill({json:{readings,forecast:[],typical:[],timeZone:'America/Chicago'}});
+    });
+    for (const [site, label, unit] of [['07066510','Powder Mill','Stage (ft)'],['07067000','Van Buren','Flow (cfs)'],['07064440','Montauk State Park','Stage (ft)'],['07068000','Doniphan','Flow (cfs)']]) {
+      const response = page.waitForResponse(r => r.url().includes('/api/gauges/'+site+'/history?'));
+      await gauge.selectOption(site);
+      await page.getByRole('heading', {name:label,exact:true}).waitFor();
+      await response;
+      await page.getByText(unit,{exact:true}).first().waitFor();
+      assert.equal(await page.getByRole('link',{name:'See '+label+' readings'}).getAttribute('href'),'/gauges/'+site);
+      assert.equal(await page.getByRole('heading',{name:'When does it float well?'}).count(),0);
+    }
+    await page.reload();
+    assert.equal(await gauge.inputValue(),'07068000');
+    await river.selectOption('buffalo');
+    await page.waitForURL(url => url.searchParams.get('site') === '07056000');
+    assert.equal(await gauge.locator('optgroup[label="Seasonal study"] option').count(),4);
+    await page.getByRole('combobox',{name:'Compare stretches'}).selectOption('07055660');
+    await page.waitForURL(url => url.searchParams.get('compare') === '07055660');
+    await page.goto(origin+'/guides-layout-check?view=season', {waitUntil:'networkidle'});
+    const todayCard = page.getByRole('region',{name:'How does today compare?'});
+    await todayCard.getByText('Median 80.5 cfs').waitFor();
+    await todayCard.getByRole('combobox',{name:'Past year'}).selectOption('2007');
+    await todayCard.getByText('47.5 cfs · Too Low').waitFor();
+    const seasonCard = page.getByRole('region',{name:'How has 2026 shaped up?'});
+    await seasonCard.getByText('134 typical by Nov 16').waitFor();
+    await seasonCard.getByRole('combobox',{name:'Through'}).selectOption('4');
+    await seasonCard.getByText('83 typical by May 31').waitFor();
+    await seasonCard.getByText('May daily readings',{exact:true}).click();
+    await seasonCard.getByText('May 31',{exact:true}).last().waitFor();
+    await seasonCard.getByText('May daily readings',{exact:true}).click();
+    await seasonCard.getByRole('combobox',{name:'Through'}).selectOption('10');
+    const captureStyle = 'header.sticky,nextjs-portal{visibility:hidden!important}';
+    await todayCard.screenshot({path:out+'/season-today-'+name+'.png',style:captureStyle});
+    await seasonCard.screenshot({path:out+'/season-curve-'+name+'.png',style:captureStyle});
+    await page.getByRole('region',{name:'Did good conditions last the weekend?'}).screenshot({path:out+'/season-weekend-'+name+'.png',style:captureStyle});
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' research overflow');
     await page.close(); console.log(`${name}: layout, map, estimates, empty states and search passed`);
   }
   const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();

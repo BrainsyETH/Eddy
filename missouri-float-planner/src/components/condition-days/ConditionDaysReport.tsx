@@ -4,21 +4,26 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
-import { buildZones, formatZoneRange } from '@shared/threshold-zones';
 import type { ConditionThresholds } from '@shared/condition-ladder';
-import { FIRST_YEAR, LAST_YEAR, LEVELS, MONTHS, dayLabel, levelName, type Station, type Summary } from '@/lib/condition-days/study';
+import { FIRST_YEAR, LAST_YEAR, LEVELS, MONTHS, dayLabel, levelName, type Season, type SeasonHistory, type Station, type Summary } from '@/lib/condition-days/study';
 import { FLOAT_LEVELS, MonthResult, MonthTable, SeasonalChart, type Highlight } from './SeasonalChart';
-import { SeasonCard, TodayCard, type Reading, type Season } from './YearCards';
+import { SeasonCard, TodayCard, type Reading } from './YearCards';
+import { WeekendCard } from './WeekendCard';
 import styles from './report.module.css';
 
 export interface Comparison {
   site: string; label: string; data: Summary;
   paired: { low: number; floatable: number }[];
 }
+function Coverage({ data }: { data: Summary }) {
+  const years = data.measuredYears;
+  if (!years.length) return null;
+  return <span className={styles.period}>{years[0]}{years.length > 1 && <>–{years.at(-1)}</>}{years.at(-1)! - years[0] + 1 > years.length && <> · {years.length} measured years</>}</span>;
+}
 function percent(n: number, total: number) { return Math.round(100 * n / total) + '%'; }
-export default function ConditionDaysReport({ station, summary, thresholds, reading, season, today, compare, archived }: {
+export default function ConditionDaysReport({ station, summary, thresholds, reading, season, history, today, compare, archived }: {
   station: Station; summary: Summary; thresholds: ConditionThresholds; reading: Reading | null;
-  season: Season; today: string; compare: Comparison | null; archived: boolean;
+  season: Season; history: SeasonHistory; today: string; compare: Comparison | null; archived: boolean;
 }) {
   const params = useSearchParams();
   const monthParam = Number(params.get('month'));
@@ -33,8 +38,6 @@ export default function ConditionDaysReport({ station, summary, thresholds, read
     (m.levels.good + m.levels.flowing) / (m.total || 1) > (all[winner].levels.good + all[winner].levels.flowing) / (all[winner].total || 1) ? i : winner, 0);
   const peak = all[best];
   const month = monthParam >= 1 && monthParam <= 12 && Number.isInteger(monthParam) ? monthParam - 1 : best;
-  const zones = buildZones(thresholds);
-  const maxDays = Math.max(1, ...Object.values(summary.annual));
   const pair = compare?.paired[month];
   const gaugeName = station.label.split(' (')[0];
   const otherName = compare?.label.split(' (')[0];
@@ -42,7 +45,7 @@ export default function ConditionDaysReport({ station, summary, thresholds, read
   const recorded = all.reduce((sum, m) => sum + m.total, 0);
   return <div className={styles.report}>
     <section className={styles.panel} id="seasons">
-      <div className={styles.panelTop}><h2>When does it float well?</h2><span className={styles.period}>{FIRST_YEAR}–{LAST_YEAR}</span></div>
+      <div className={styles.panelTop}><h2>When does it float well?</h2>{!compare && <Coverage data={summary}/>}</div>
       {peak.total > 0 && <p><b>{MONTHS[best]}</b> had the highest share of Good or Flowing days{compare && <> at {gaugeName}</>} ({percent(peak.levels.good + peak.levels.flowing, peak.total)}).</p>}
       <div className={styles.chartTools}>
         <div className={styles.segment} aria-label="Highlight conditions" role="group">
@@ -53,9 +56,9 @@ export default function ConditionDaysReport({ station, summary, thresholds, read
           {MONTHS.map((m, i) => <option key={m} value={i} aria-label={m}>{m.slice(0, 3)}</option>)}
         </select></label>
       </div>
-      {compare && <h3>{station.label}</h3>}
+      {compare && <div className={styles.panelTop}><h3>{station.label}</h3><Coverage data={summary}/></div>}
       <SeasonalChart name={station.label} data={summary} month={month} setMonth={setMonth} highlight={highlight}/>
-      {compare && <><h3 className={styles.compareName}>{compare.label}</h3>
+      {compare && <><div className={styles.panelTop}><h3 className={styles.compareName}>{compare.label}</h3><Coverage data={compare.data}/></div>
         <SeasonalChart name={compare.label} data={compare.data} month={month} setMonth={setMonth} highlight={highlight}/></>}
       <div className={styles.legend} role="group" aria-label="Show a single level">{(highlight === 'float' ? FLOAT_LEVELS : LEVELS).map(l =>
         <button key={l} type="button" aria-pressed={highlight === l} onClick={() => setHighlight(highlight === l ? 'all' : l)}>
@@ -75,28 +78,14 @@ export default function ConditionDaysReport({ station, summary, thresholds, read
       <MonthTable data={summary} name={compare ? station.label : undefined}/>
       {compare && <MonthTable data={compare.data} name={compare.label}/>}
     </section>
-    <div className={styles.twins}><TodayCard years={summary.years} reading={reading} today={today}/>
-      <SeasonCard season={season} thresholds={thresholds}/></div>
-    <section className={styles.panel}><div className={styles.panelTop}><h2>How often does each level happen?</h2></div>
-      {summary.fullYears ? <><p>Average days in a year at this gauge, based on {summary.fullYears} years with enough readings.</p>
-      <div className={styles.frequency}>{LEVELS.map(l => {
-        const zone = zones.find(z => z.key === l);
-        const annualDays = summary.annual[l];
-        const daysLabel = annualDays > 0 && annualDays < 0.5 ? '<1 day' : Math.round(annualDays).toLocaleString('en-US') + (Math.round(annualDays) === 1 ? ' day' : ' days');
-        const noRange = l === 'good' && zone != null && zone.min === zone.max;
-        return <button type="button" key={l} disabled={noRange} aria-pressed={highlight === l} onClick={() => setHighlight(highlight === l ? 'all' : l)}>
-          <span><i style={{ background: CONDITION_SYSTEM[l].solid }}/>{levelName(l)}</span>
-          <span className={styles.track}><i style={{ background: CONDITION_SYSTEM[l].solid, width: summary.annual[l] / maxDays * 100 + '%' }}/></span>
-          <b>{noRange ? 'No separate range' : daysLabel}</b>
-          {highlight === l && zone && !noRange && <small>{formatZoneRange(zone, 'cfs')} · highlighted on the monthly chart</small>}
-        </button>;
-      })}</div></> : <p>There are too few complete years for an annual comparison.</p>}
-    </section>
+    <TodayCard years={summary.years} reading={reading} today={today}/>
+    <SeasonCard season={season} thresholds={thresholds} history={history}/>
+    <WeekendCard summary={summary} thresholds={thresholds} month={month} setMonth={setMonth}/>
     <details className={styles.method}><summary>About the data</summary>
       <p><b>{station.gauge}</b> · USGS {station.site}. {recorded.toLocaleString('en-US')} approved daily mean flows from {FIRST_YEAR}–{LAST_YEAR}. We include USGS revisions and skip estimates and other flagged readings. A daily average can hide a short rise.</p>
       <p>We apply {archived ? 'the November 17, 2026 study copy of' : 'the current'} Eddy flow ranges to the measurements. “Flood” in the historical charts means a flow reached Eddy’s upper threshold. Official flood stage is measured in feet.</p>
-      <p>Each year square uses the median flow in the seven days centered on {dayLabel(today)}, with at least four readings. Today’s rating uses a fresh observation and includes official flood stage where available.</p>
-      <p>The {season.year} strip uses each completed Central day’s median Eddy reading. A missing day breaks a streak. Annual counts scale each year with at least 90% coverage to 365 days, then average those years.</p>
+      <p>Each dot uses the median flow in the seven days centered on {dayLabel(today)}, with at least four readings. Today’s rating uses a fresh observation and includes official flood stage where available.</p>
+      <p>The {season.year} curve counts Good or Flowing days using each completed Central day’s median Eddy reading. The historical line uses only years with USGS readings on every matching calendar date. Gaps break streaks. Weekends belong to the month of their Friday and require readings on Friday, Saturday and Sunday. Annual counts scale each year with at least 90% coverage to 365 days, then average those years.</p>
       <a href={`https://waterdata.usgs.gov/monitoring-location/USGS-${station.site}/`}>USGS gauge record ↗</a>
     </details>
     <Link className={styles.gaugeLink} href={`/gauges/${station.site}`}>See current gauge conditions →</Link>

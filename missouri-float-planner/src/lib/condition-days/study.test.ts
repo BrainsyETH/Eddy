@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { closingStreak, grade, pairedDays, stations, summarize, type Archive } from './study';
+import { closingStreak, grade, offsetDay, pairedDays, seasonHistory, stations, summarize, type Archive } from './study';
 import data from '@/data/condition-days/archive/07065495.json';
 import stJoe from '@/data/condition-days/archive/07056000.json';
 import observed from '@/data/condition-days/observations.json';
@@ -48,4 +48,37 @@ test('a missing day breaks a streak, including a missing final day', () => {
   const days = { '2026-11-12': 10, '2026-11-14': 20, '2026-11-15': 30 };
   assert.deepEqual(closingStreak(days, '2026-11-15', thresholds), { start: '2026-11-14', length: 2, level: 'too_low' });
   assert.equal(closingStreak(days, '2026-11-16', thresholds), null);
+});
+
+test('weekends belong to their Friday and require three consecutive observations', () => {
+  const { weekends } = summarize(data, thresholds, '2026-11-17');
+  assert.deepEqual(weekends[5], { starts: 67, held: 61, dipped: 0, rose: 6 });
+  assert.deepEqual(weekends[8], { starts: 11, held: 5, dipped: 4, rose: 2 });
+  const series: Archive = Array.from({length: 6}, (_, i) => Array(i === 2 ? 366 : 365).fill(null));
+  // Dec 31, 2010 was Friday. Jan 1 dipped, then Jan 2 rose.
+  series[4][364] = 130;
+  series[5][0] = 90;
+  series[5][1] = 1200;
+  assert.deepEqual(summarize(series, thresholds, '2026-11-17').weekends[11], { starts: 1, held: 0, dipped: 1, rose: 0 });
+  series[5][0] = null;
+  assert.equal(summarize(series, thresholds, '2026-11-17').weekends[11].starts, 0);
+});
+test('season totals compare identical dates in one complete historical cohort', () => {
+  const days: Record<string, number> = {};
+  observed[station.site as keyof typeof observed].forEach((value, i) => {
+    if (value != null) days[offsetDay('2026-01-01', i)] = value;
+  });
+  const season = seasonHistory(data, thresholds, { days, through: '2026-11-16', year: 2026 });
+  assert.equal(season.years, 15);
+  assert.equal(season.months.at(-1)?.total, 107);
+  assert.equal(season.months.at(-1)?.typical, 134);
+  assert.equal(season.months[4].typical, 83);
+  assert.equal(season.months[7].lastFloat, '2026-08-11');
+  assert.equal(season.months[8].lastFloat, null);
+  const leap = seasonHistory([Array(365).fill(130), Array(365).fill(130), Array(366).fill(0)], thresholds,
+    { days: { '2024-02-29': 130 }, through: '2024-02-29', year: 2024 });
+  assert.equal(leap.years, 1);
+  assert.equal(leap.months[0].recorded, 0);
+  assert.equal(leap.months[1].typical, null);
+  assert.equal(seasonHistory([], thresholds, { days: {}, through: '2025-12-31', year: 2026 }).months.length, 0);
 });

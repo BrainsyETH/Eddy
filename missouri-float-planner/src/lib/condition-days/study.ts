@@ -53,7 +53,9 @@ function nearDate(archive: Archive, year: number, monthDay: string) {
 }
 export function summarize(archive: Archive, thresholds: ConditionThresholds, day: string) {
   const months = MONTHS.map(() => ({ levels: counts(), total: 0, years: 0 }));
+  const weekends = MONTHS.map(() => ({ starts: 0, held: 0, dipped: 0, rose: 0 }));
   const annual = counts();
+  const measuredYears: number[] = [];
   let fullYears = 0;
   const years = archive.map((days, index) => {
     const year = FIRST_YEAR + index;
@@ -63,7 +65,26 @@ export function summarize(archive: Archive, thresholds: ConditionThresholds, day
       if (value == null) continue;
       const level = grade(value, thresholds);
       if (level === 'unknown') continue;
-      const month = new Date(Date.UTC(year, 0, i + 1)).getUTCMonth();
+      const date = new Date(Date.UTC(year, 0, i + 1));
+      const month = date.getUTCMonth();
+      if (date.getUTCDay() === 5 && isFloatDay(level)) {
+        // A Friday owns its weekend even across month and year boundaries.
+        const nextDay = (offset: number) => i + offset < days.length
+          ? days[i + offset] : archive[index + 1]?.[i + offset - days.length];
+        const saturday = nextDay(1);
+        const sunday = nextDay(2);
+        if (saturday != null && sunday != null) {
+          const rest = [grade(saturday, thresholds), grade(sunday, thresholds)];
+          if (!rest.includes('unknown')) {
+            const weekend = weekends[month];
+            weekend.starts++;
+            const changed = rest.find(l => !isFloatDay(l));
+            if (!changed) weekend.held++;
+            else if (changed === 'too_low' || changed === 'low') weekend.dipped++;
+            else weekend.rose++;
+          }
+        }
+      }
       months[month].levels[level]++;
       months[month].total++;
       recorded[level]++;
@@ -71,7 +92,8 @@ export function summarize(archive: Archive, thresholds: ConditionThresholds, day
     }
     for (const month of seen) months[month].years++;
     const total = Object.values(recorded).reduce((a, b) => a + b, 0);
-    if (total >= days.length * 0.9) {
+    if (total) measuredYears.push(year);
+    if (total && total >= days.length * 0.9) {
       fullYears++;
       for (const level of LEVELS) annual[level] += 365 * recorded[level] / total;
     }
@@ -79,7 +101,7 @@ export function summarize(archive: Archive, thresholds: ConditionThresholds, day
     return { year, cfs, level: cfs == null ? 'unknown' as const : grade(cfs, thresholds) };
   });
   if (fullYears) for (const level of LEVELS) annual[level] /= fullYears;
-  return { months, annual, fullYears, years };
+  return { months, annual, fullYears, years, weekends, measuredYears };
 }
 export type Summary = ReturnType<typeof summarize>;
 
@@ -106,3 +128,44 @@ export function closingStreak(days: Record<string, number>, through: string, thr
   }
   return { start, level, length: Math.round((Date.parse(through) - Date.parse(start)) / 86400000) + 1 };
 }
+
+export interface Season { days: Record<string, number>; through: string; year: number }
+
+// Use one historical cohort for the entire curve. A missing date, including
+// Feb 29 in a non-leap year, disqualifies that year from the comparison.
+export function seasonHistory(archive: Archive, thresholds: ConditionThresholds, season: Season) {
+  const dates = Object.keys(season.days).sort();
+  const months = MONTHS.slice(0, dates.length ? Number(season.through.slice(5, 7)) : 0).map((_, i) => {
+    const last = new Date(Date.UTC(season.year, i + 1, 0)).toISOString().slice(0, 10);
+    return { end: last < season.through ? last : season.through, recorded: 0, floatDays: 0, total: 0, lastFloat: null as string | null, typical: null as number | null };
+  });
+  for (const day of dates) {
+    const month = months[Number(day.slice(5, 7)) - 1];
+    month.recorded++;
+    if (isFloatDay(grade(season.days[day], thresholds))) {
+      month.floatDays++;
+      month.lastFloat = day;
+    }
+  }
+  months.forEach((m, i) => { m.total = (months[i - 1]?.total ?? 0) + m.floatDays; });
+  const cohorts: number[][] = [];
+  if (dates.length) archive.forEach((days, y) => {
+    const year = FIRST_YEAR + y;
+    if (year >= season.year) return;
+    const totals = months.map(() => 0);
+    for (const day of dates) {
+      const month = Number(day.slice(5, 7)) - 1;
+      const date = new Date(Date.UTC(year, month, Number(day.slice(8))));
+      if (date.getUTCMonth() !== month) return;
+      const cfs = days[(date.getTime() - Date.UTC(year, 0, 1)) / 86400000];
+      if (cfs == null) return;
+      if (isFloatDay(grade(cfs, thresholds))) totals[month]++;
+    }
+    for (let i = 1; i < totals.length; i++) totals[i] += totals[i - 1];
+    cohorts.push(totals);
+  });
+  // A single year's total is not a typical season.
+  if (cohorts.length >= 3) months.forEach((m, i) => { m.typical = median(cohorts.map(y => y[i])); });
+  return { months, years: cohorts.length };
+}
+export type SeasonHistory = ReturnType<typeof seasonHistory>;
