@@ -233,6 +233,15 @@
   .featured { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); gap: 24px; align-items: center; }
   .resultMeta p { max-width: none; }
 }
+@media (max-width: 420px) {
+  .resultMeta { column-gap: 6px; }
+  .resultMeta p { font-size: 13px; line-height: 1.4; }
+  .resultMeta button { padding-inline: 6px; gap: 4px; letter-spacing: normal; }
+  .close .cardBody { gap: 8px; }
+}
+@media (max-width: 360px) {
+  .rowHead { display: grid; justify-content: start; }
+}
 .resultDetails h3 { font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
 .resultDetails h3:not(:first-child) { margin-top: 8px; }
 .more .earlier { padding-left: 0; list-style: none; }
