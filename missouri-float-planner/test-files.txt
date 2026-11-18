@@ -38,6 +38,7 @@ scripts/lib/tailwater-continuation.test.ts
 scripts/migration-ledger.test.ts
 scripts/negative-evidence.test.ts
 scripts/rainfall/source-contract.test.ts
+scripts/research/rain-lag-2026-11/lag.test.ts
 scripts/river-guide-review-migration.test.ts
 scripts/security/segment-cache-policy.test.ts
 scripts/security/trust-invariants-public-acl.test.ts
