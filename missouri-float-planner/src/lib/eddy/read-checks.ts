@@ -25,6 +25,7 @@ export type ReadCheckId =
   | 'read_length'
   | 'read_measurements'
   | 'read_forecast_talk'
+  | 'weather_talk'
   | 'flat_forecast'
   | 'numbers_match_inputs'
   | 'numbers_from_knowledge';
@@ -34,6 +35,7 @@ export const READ_CHECK_IDS: readonly ReadCheckId[] = [
   'read_length',
   'read_measurements',
   'read_forecast_talk',
+  'weather_talk',
   'flat_forecast',
   'numbers_match_inputs',
   'numbers_from_knowledge',
@@ -45,6 +47,7 @@ export const READ_CHECK_LABELS: Record<ReadCheckId, string> = {
   read_length: `short Read is ${READ_MAX_CHARS} characters or fewer`,
   read_measurements: 'short Read quotes no reading, temperature or rain percentage',
   read_forecast_talk: 'short Read leaves the forecast to the Watch for panel',
+  weather_talk: 'no block describes the weather; the Weather section owns it',
   flat_forecast: 'no flat forecast ("will", "is coming") about water or weather',
   numbers_match_inputs: 'every measurement appears in the inputs with the same unit',
   numbers_from_knowledge: 'no measurement is copied from the knowledge file',
@@ -209,6 +212,21 @@ const FORECAST_TALK = new RegExp(
   'i',
 );
 
+/**
+ * A description of the weather itself: the sky, the temperature, the wind.
+ *
+ * Since 2026-11-18 neither Read prompt carries weather, because the app's
+ * Weather section is rebuilt on every view and a Read is stored for the day.
+ * This counts the Reads that describe it anyway. "Cold" and "clear" alone are
+ * left out: cold water and clear water are the river, not the sky. Rain that
+ * has fallen, or could, is river news and is not counted here either.
+ */
+const WEATHER_TALK = new RegExp(
+  String.raw`\b(?:sunny|sunshine|cloudy|overcast|skies|blue sky|(?:clear|dry|mild|warm|hot|cool|cold|crisp|chilly|sunny|pleasant)(?:,? (?:and )?[\w-]+){0,2} (?:sky|skies|weather|air|morning|afternoon|day|days|week|weekend|forecast)|` +
+    String.raw`temperatures?|temps|highs? (?:in|near|around|of)|lows? (?:in|near|around|of)|\d+\s*(?:°|degrees)|wind(?:s|y)?|breez(?:e|y)|humid(?:ity)?|frost|freezing (?:air|morning|night|temperatures?))\b`,
+  'i',
+);
+
 /** A sentence that hedges is not a flat forecast, whatever verb it uses. */
 const CONDITIONAL = /\b(?:if|unless|could|may|might|would|should|whether)\b/i;
 
@@ -310,6 +328,9 @@ export function checkRead(text: ReadCheckText, inputs: ReadCheckInputs): ReadChe
 
   const talk = eddyRead?.match(FORECAST_TALK)?.[0] ?? null;
   add('read_forecast_talk', talk, eddyRead != null);
+
+  const weather = all.map((block) => block.match(WEATHER_TALK)?.[0]).find(Boolean) ?? null;
+  add('weather_talk', weather, all.length > 0);
 
   const flat = all.flatMap(flatForecasts);
   add('flat_forecast', flat.length ? quote(flat[0]) : null, all.length > 0);

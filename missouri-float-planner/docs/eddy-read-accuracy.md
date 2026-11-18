@@ -154,6 +154,17 @@ Each input says what it measures, where and over what window, or it is left out.
   The peak and low are labelled with the number of days the returned readings
   span (`GaugeTrajectory.windowDays`), measured from the data, not from the
   number of days requested.
+- **Weather and the days ahead.** Neither Read prompt carries the current
+  weather or a forecast. Weather belongs in the app's Weather section (owner,
+  2026-11-18): that section is rebuilt on every view, and a Read is written
+  once and stored, so a forecast in the Read can be a day old and contradict
+  the section beside it. The one exception is an `[OUTLOOK]` block naming the
+  days rain is likely, at the same 70% threshold the Watch for section uses
+  (`src/lib/eddy/material-outlook.ts`). With it, the Read may say once, in the
+  full text and conditionally, that rain could change the reading. Without it,
+  the Read says nothing about the days ahead. Not included: the NWS river
+  forecast, whose grading lives in the outlook route. Flood alerts still reach
+  both Reads through their own block and still lead.
 - **Recent rain.** Three states, never merged: a measured amount, a measured
   zero ("none reported at <weather point> in the past 3 hours"), and no
   measurement. Each names the weather point. It is one point, not the
@@ -250,6 +261,7 @@ moved. The rules live in `src/lib/eddy/read-checks.ts`:
 | `read<=240` | its short Read is 240 characters or fewer |
 | `no-nums` | its short Read quotes no reading, temperature or rain percentage |
 | `no-fcst` | its short Read leaves the forecast to the Watch for panel |
+| `no-wx` | no block describes the weather: sky, temperature or wind |
 | `no-will` | no sentence states flatly that the water or weather will change or stay |
 | `in-inputs` | every measurement appears in the prompt's facts with the same unit |
 | `not-file` | no measurement appears only in the knowledge block of the prompt |
@@ -264,6 +276,12 @@ persist: a set phrase ("no rain is on its way", "isn't going anywhere"), or
 will / won't / going to with a verb of change or a time ahead. The future
 tense for today's water ("you will be dragging", "the pools will be thin at
 this level") is not a forecast and is not counted.
+
+`no-wx` leaves "cold" and "clear" alone, because cold water and clear water
+are the river, and it does not count rain that fell or could: that is river
+news. On the last days the prompts still carried weather, 2026-11-17 and
+2026-11-18, 20% of river Reads passed it, and 32% of gauge Reads over the nine
+days to 2026-11-17. That is the number the prompt change is meant to move.
 
 The two number rules need the prompt, so they show `-` for gauge Reads written
 before those were logged. They compare value and unit only: a number that is
