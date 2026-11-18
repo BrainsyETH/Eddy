@@ -7,6 +7,11 @@
  * that stops can be started again. A gauge USGS serves no discharge for is
  * recorded as such, not skipped.
  *
+ * This is the service the study read on 2026-11-18. USGS retires it in early
+ * 2027, and usgs-legacy.ts, which names it, goes with it. A rerun after that
+ * needs the `continuous` collection of the current USGS API instead; the
+ * committed hourly series do not depend on it.
+ *
  * node --import tsx scripts/research/rain-lag-2026-11/fetch-flow.ts --work DIR
  */
 import { execFile } from 'node:child_process';
@@ -14,6 +19,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { LEGACY_IV_URL } from '../../../src/lib/flow-providers/usgs-legacy';
 
 const run = promisify(execFile);
 const HOUR = 3_600_000, QUARTER = 92 * 24 * HOUR;
@@ -31,7 +37,7 @@ async function text(url: string): Promise<string> {
   for (let attempt = 0; attempt < 4; attempt++) {
     if (attempt) await new Promise(done => setTimeout(done, attempt * 5000));
     try {
-      const { stdout } = await run('curl', ['-sS', '--compressed', '--max-time', '180', '-A', 'Eddy rainfall research (https://eddy.guide)',
+      const { stdout } = await run('curl', ['-sSL', '--compressed', '--max-time', '180', '-A', 'Eddy rainfall research (https://eddy.guide)',
         '-w', '\n%{http_code}', url], { maxBuffer: 64 * 1024 * 1024 });
       const cut = stdout.lastIndexOf('\n'), status = Number(stdout.slice(cut + 1)), body = stdout.slice(0, cut);
       if (status === 200) return body;
@@ -81,7 +87,7 @@ async function main() {
       // Each request overlaps its neighbours by three hours, because USGS does not cut the answer
       // exactly at the times asked for. A reading that arrives twice is used once.
       const stamp = (at: number) => `${new Date(at).toISOString().slice(0, 16)}Z`;
-      const url = `https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=${site}&parameterCd=00060&startDT=${stamp(from - 3 * HOUR)}&endDT=${stamp(to + 3 * HOUR)}`;
+      const url = `${LEGACY_IV_URL}?format=rdb&sites=${site}&parameterCd=00060&startDT=${stamp(from - 3 * HOUR)}&endDT=${stamp(to + 3 * HOUR)}`;
       const body = await text(url), found = readings(body).filter(reading => !seen.has(reading.at));
       for (const { at, cfs } of found) {
         seen.add(at);

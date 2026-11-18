@@ -26,8 +26,6 @@ const BLACK: RiverContext = {
     primaryHazards: [],
     lowWaterMeaning: 'scraping over the gravel bars between Lesterville and the lake.',
     risingWaterHazards: 'strainers in the shut-ins after a rain.',
-    rainLagHours: null,
-    rainLagNote: null,
     dropRateNote: null,
     riverNote: null,
     speedCurve: null,
@@ -148,7 +146,6 @@ const SECONDARY_CONTEXT: RiverContext = {
   characteristics: {
     ...BLACK.characteristics!,
     riverNote: 'UPPER_REACH_SPRING_NOTE',
-    rainLagNote: 'UPPER_REACH_RAIN_LAG',
   },
 };
 
@@ -160,7 +157,7 @@ test('secondary gauge on a mixed-hydrology river gets neutral guidance only', ()
 
 test('verified ordinary river gets rising guidance and notes exactly once', () => {
   const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, true);
-  for (const phrase of ['strainers in the shut-ins', 'UPPER_REACH_SPRING_NOTE', 'UPPER_REACH_RAIN_LAG']) {
+  for (const phrase of ['strainers in the shut-ins', 'UPPER_REACH_SPRING_NOTE']) {
     assert.equal(out.split(phrase).length - 1, 1, phrase);
   }
 });

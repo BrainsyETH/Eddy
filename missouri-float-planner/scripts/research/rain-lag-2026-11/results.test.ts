@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { analyze, type Results } from './analyze';
+import { analyze, summary, type Results } from './analyze';
 import { REASONS } from './lag';
 
 const read = (...path: string[]) => readFileSync(join(__dirname, ...path));
@@ -18,6 +18,7 @@ test('running the locked rules on the committed series reproduces the recorded r
   const { results, stormRows } = analyze(__dirname);
   assert.deepEqual(JSON.parse(JSON.stringify(results)), recorded);
   assert.equal(`${stormRows.join('\n')}\n`, read('results', 'storms.csv').toString('utf8'));
+  assert.equal(summary(results), read('results', 'summary.md').toString('utf8'));
 });
 
 test('every gauge in scope ends as a range or one named reason', () => {

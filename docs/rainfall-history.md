@@ -117,9 +117,14 @@ There are no feature migrations or public-screen changes to roll back.
   5.5% (Carthage, Boxley, Montauk, Caddo Gap, Roselle).
 - **Released stations:** the three Jacks Fork gauges. Each further station needs
   a reviewed basin, prepared weights and storm evidence.
-- Still open for any wider claim: forecast sampling, partial-coverage behavior
-  in a real outage, and rain lag. Measure lag on separate events and seasons and
-  exclude dam-controlled reaches from natural rain-response claims.
+- Still open for any wider claim: forecast sampling and partial-coverage
+  behavior in a real outage.
+- **Rain lag** was measured on 2026-11-18 from two years of separate storms,
+  with dam-controlled reaches excluded and the rules fixed before any data was
+  read: [the study](../missouri-float-planner/scripts/research/rain-lag-2026-11/README.md).
+  Twelve of the 42 reviewed gauges earned a time-to-crest range; the rest have
+  a recorded reason for none. A range is a record of past storms, not a claim
+  that rain is arriving or has passed.
 
 The dam study's principle applies: compare an upstream signal with downstream
 changes, and publish a lag only when the evidence supports it. Rain has extra

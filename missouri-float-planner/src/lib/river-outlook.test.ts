@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildEddyTakeSections, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
+import { measuredLag, RAIN_LAG_RELEASE, type MeasuredLag } from './rainfall/lag-release';
 import { nwsRiverForecastUrl, weatherDestination } from '../../../eddy-ios/src/lib/weatherDestination';
 import { weatherSymbol } from '../../../eddy-ios/src/theme/weather';
 
@@ -393,11 +394,13 @@ const novemberDay = (offset: number, over: Partial<(typeof baseOutlookInput.weat
 };
 const watch = (
   weatherDays: ReturnType<typeof novemberDay>[],
-  options: { trend?: Parameters<typeof buildRiverOutlookState>[0]['trend'] } = {},
+  options: { trend?: Parameters<typeof buildRiverOutlookState>[0]['trend']; rainLag?: MeasuredLag | null; damControlled?: boolean } = {},
 ) =>
   buildEddyTakeSections({
     outlook: buildRiverOutlookState({ ...baseOutlookInput, now: NOVEMBER, weatherDays, trend: options.trend ?? null }),
     currentCondition: 'good',
+    rainLag: options.rainLag,
+    damControlled: options.damControlled,
   }).watchFor;
 
 test('a dry, mild outlook is one sentence', () => {
@@ -456,4 +459,33 @@ test('the gauge advice stays where there is a reason for it', () => {
   // A rising gauge: likewise.
   const rising = watch([novemberDay(0)], { trend: { direction: 'rising', delta: 0.4, windowHours: 6, qualifier: null, label: 'Rising' } });
   assert.match(rising, /The gauge is already rising, which matters more here than anything in the sky\. Read it again right before you launch\./);
+});
+
+test('a gauge with a measured lag says how long past rains took to crest, and only when rain is in the outlook', () => {
+  const wet = [novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 80 })];
+  const lag = (crestHours: [number, number]): MeasuredLag => ({ crestHours, storms: 16 });
+  assert.equal(
+    watch(wet, { rainLag: lag([20, 44]) }),
+    'Rain is likely tomorrow, highs 61–66°. Rain upstream is what would change this river. When rain has brought it up, this gauge has usually crested 20 to 44 hours after the heaviest of it, so keep checking for a day or two after it moves through.',
+  );
+  // How long to keep checking follows the slow end of the range.
+  assert.match(watch(wet, { rainLag: lag([9, 24]) }), /crested 9 to 24 hours after the heaviest of it, so keep checking for a day after/);
+  assert.match(watch(wet, { rainLag: lag([27, 70]) }), /crested 27 to 70 hours after the heaviest of it, so keep checking for two or three days after/);
+  // No rain in the outlook: nothing about timing, whatever the gauge has measured.
+  assert.doesNotMatch(watch([novemberDay(0), novemberDay(1)], { rainLag: lag([20, 44]) }), /crested|hours/);
+  // A dam-controlled reach follows the release schedule, not the rain.
+  assert.doesNotMatch(watch(wet, { rainLag: lag([20, 44]), damControlled: true }), /crested|hours after/);
+});
+
+test('a gauge with no measured lag never gets a time, in any outlook', () => {
+  const wet = [novemberDay(0, { tempHigh: 61 }), novemberDay(1, { tempHigh: 66, precipitation: 80 })];
+  for (const rainLag of [null, undefined, measuredLag('07066000'), measuredLag(null), measuredLag('no-such-gauge')]) {
+    const text = watch(wet, { rainLag });
+    assert.match(text, /look at the gauge again once it has moved through/);
+    assert.doesNotMatch(text, /crested|\d+ hours|\d+ to \d+/);
+  }
+  // The lookup answers only for the release list.
+  assert.equal(measuredLag('07066000'), null);
+  assert.deepEqual(measuredLag('07067000'), RAIN_LAG_RELEASE['07067000']);
+  assert.equal(measuredLag('constructor'), null);
 });

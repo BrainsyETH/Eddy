@@ -117,8 +117,10 @@ a low watershed average alone does not.
   verify the branch against main before implementation, and do not recreate it.
 - `gauge_readings` already stores gauge history. `gauge_stations` stores
   drainage area and HUC, not a basin polygon.
-- Hand-written river rain lag exists for some rivers; it is not sufficient
-  evidence for a gauge-specific arrival/passed classification.
+- Hand-written river rain lag existed for eight rivers and was deleted on
+  2026-11-18. Twelve gauges have a measured time-to-crest range
+  (`missouri-float-planner/scripts/research/rain-lag-2026-11`); a range is not
+  evidence for a gauge-specific arrival/passed classification either.
 - The two renderers already share chart meaning in
   `missouri-float-planner/shared/`. Rain must extend that shared logic.
 
@@ -343,8 +345,8 @@ with independent range/zoom state.
 
 V1 supplies independently validated observed-rain, forecast-rain and gauge-trend
 facts. Code chooses allowed statements. No `arriving` / `passed` enum, no timing
-countdown and no implied safe-to-float verdict from rainfall. Existing hand-set
-lag does not unlock that wording.
+countdown and no implied safe-to-float verdict from rainfall. A measured lag
+range does not unlock that wording.
 
 Qualitative amount bands must be defined per accumulation window and reviewed
 against fixtures before terms like “heavy” ship. Do not equate heavy over 72 h

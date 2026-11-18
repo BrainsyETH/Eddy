@@ -7,6 +7,7 @@ import {
 import type { GaugeTrend } from '@shared/gauge-trend';
 import type { ConditionCode } from '@/types/api';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
+import type { MeasuredLag } from '@/lib/rainfall/lag-release';
 
 export const OUTLOOK_TIME_ZONE = 'America/Chicago';
 export const SIGNIFICANT_RAIN_CHANCE = 70;
@@ -113,6 +114,12 @@ export interface BuildEddyTakeSectionsInput {
    * tailwater or just Lower Black; Upper Black still follows the rain.
    */
   damControlled?: boolean;
+  /**
+   * The gauge's measured time from rain to crest, when it earned one. Pass
+   * `measuredLag(siteId)` and nothing else: the release list is the only
+   * source, and a gauge without an entry gets no timing at all.
+   */
+  rainLag?: MeasuredLag | null;
 }
 
 export interface BuildRiverOutlookInput {
@@ -288,6 +295,7 @@ function buildWeatherWatch(
   outlook: RiverOutlookState,
   currentCondition: ConditionCode,
   damControlled: boolean,
+  rainLag: MeasuredLag | null = null,
 ): string {
   const dated: DatedDay[] = outlook.days.map((day, index) => ({
     name: spokenDay(index, day.weather?.dayOfWeek),
@@ -400,8 +408,14 @@ function buildWeatherWatch(
     // Deliberately says nothing about what the river will do. Rain upstream of
     // a gauge is a reason to look again; it is not a forecast, and this section
     // has never been allowed to turn one into the other.
+    //
+    // A gauge with a measured lag adds how long past rains took to crest here.
+    // That is a record of earlier storms, worded as one: it does not say this
+    // rain will raise the river, or when.
     sentences.push(
-      'Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in.',
+      rainLag
+        ? `Rain upstream is what would change this river. When rain has brought it up, this gauge has usually crested ${rainLag.crestHours[0]} to ${rainLag.crestHours[1]} hours after the heaviest of it, so keep checking for ${watchSpan(rainLag.crestHours[1])} after it moves through.`
+        : 'Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in.',
     );
   } else if (outlook.trend?.direction === 'rising') {
     sentences.push(
@@ -419,12 +433,20 @@ function buildWeatherWatch(
   return sentences.join(' ');
 }
 
+/** How long to keep checking, from the slow end of a gauge's measured range. */
+function watchSpan(slowestHours: number): string {
+  if (slowestHours <= 24) return 'a day';
+  if (slowestHours <= 48) return 'a day or two';
+  return 'two or three days';
+}
+
 /** Build the live decision hierarchy shown in the compact and fallback report. */
 export function buildEddyTakeSections({
   outlook,
   currentCondition,
   generatedEddyRead,
   damControlled = false,
+  rainLag = null,
 }: BuildEddyTakeSectionsInput): EddyTakeSections {
   const conditionLabel = currentCondition === 'unknown' ? null : getConditionShortLabel(currentCondition);
 
@@ -450,7 +472,7 @@ export function buildEddyTakeSections({
   } else if (outlook.futureUnavailable) {
     watchFor = 'No weather or river forecast came back, so there is nothing to look ahead at here. Read the gauge again right before you launch and treat the rest as unknown.';
   } else {
-    watchFor = buildWeatherWatch(outlook, currentCondition, damControlled);
+    watchFor = buildWeatherWatch(outlook, currentCondition, damControlled, rainLag);
   }
 
   return {

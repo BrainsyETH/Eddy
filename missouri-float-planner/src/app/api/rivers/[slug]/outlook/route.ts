@@ -80,6 +80,7 @@ import { withX402Route } from '@/lib/x402-config';
 import { optionalEntitlement } from '@/lib/entitlement';
 import { premiumText } from '@/lib/eddy/tiered-prose';
 import { outlookIsDamControlled } from '@/lib/river-section-context';
+import { measuredLag } from '@/lib/rainfall/lag-release';
 
 export const dynamic = 'force-dynamic';
 
@@ -558,6 +559,9 @@ async function _GET(
       // Resolve through the actual station, so Lower Black's weather copy
       // describes dam releases without applying that guidance above Clearwater.
       damControlled: outlookIsDamControlled(slug, station?.usgs_site_id, river.controlling_dam_id),
+      // The same station again: a measured rain-to-crest time belongs to one
+      // gauge, and only the gauges on the release list have one.
+      rainLag: measuredLag(station?.usgs_site_id),
     });
 
     return NextResponse.json<RiverOutlookApiResponse>(

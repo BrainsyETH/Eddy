@@ -384,6 +384,7 @@ src/lib/push-opt-out.test.ts
 src/lib/push/device-claim.test.ts
 src/lib/push/expo.test.ts
 src/lib/rainfall/corrected.test.ts
+src/lib/rainfall/lag-release.test.ts
 src/lib/rainfall/public.test.ts
 src/lib/rainfall/research.test.ts
 src/lib/rainfall/storm-evidence.test.ts

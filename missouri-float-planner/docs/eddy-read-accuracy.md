@@ -169,6 +169,18 @@ Each input says what it measures, where and over what window, or it is left out.
   zero ("none reported at <weather point> in the past 3 hours"), and no
   measurement. Each names the weather point. It is one point, not the
   watershed above the gauge, and the prompt says so.
+- **Rain to river.** No Read is told how long rain takes to reach a gauge, and
+  the prompt forbids stating it. Eight rivers used to carry a hand-set "hours
+  from rain to gauge response" with no source; they were deleted on 2026-11-18
+  after lag was measured from two years of storms
+  (`scripts/research/rain-lag-2026-11`). Twelve gauges earned a measured
+  time-to-crest range, held in `src/lib/rainfall/lag-release.ts`; it is used
+  only by the Weather section, for those gauges, when rain is in the outlook,
+  and is worded as what past rains did. Every other studied gauge has a
+  recorded reason for having none, most often that the time varies too much
+  from storm to storm. A gauge joins the list only through a locked study of
+  the same kind. The river's recovery note (`drop_rate_note`) still reaches
+  the river Read, for tone only.
 
 ## Knowledge by gauge
 
