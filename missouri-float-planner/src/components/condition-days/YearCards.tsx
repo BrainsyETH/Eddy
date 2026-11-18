@@ -24,7 +24,7 @@ export function TodayCard({ years, reading, today }: { years: Summary['years']; 
       {years.map(y => <button key={y.year} type="button" aria-pressed={picked === y.year}
         aria-label={y.year + ', ' + (y.level === 'unknown' ? 'No reading' : CONDITION_SYSTEM[y.level].label)} onClick={() => setPicked(y.year)}>
         <i style={y.level === 'unknown' ? undefined : { background: CONDITION_SYSTEM[y.level].solid }} />
-        <span>{String(y.year).slice(-2)}</span>
+        <span>{y.year}</span>
       </button>)}
     </div>
     <small aria-live="polite">{selected ? selected.year + ' · ' + (selected.cfs == null ? 'No reading' : selected.cfs.toLocaleString('en-US') + ' cfs · ' + CONDITION_SYSTEM[selected.level].label) : 'Each square shows one year. Tap to see its flow.'}</small>
@@ -35,7 +35,7 @@ export function SeasonCard({ season, thresholds }: { season: Season; thresholds:
   const [openMonth, setOpenMonth] = useState<number | null>(null);
   const { days, through, year } = season;
   const values = Object.values(days);
-  const percent = values.filter(v => isFloatDay(grade(v, thresholds))).length;
+  const floatDays = values.filter(v => isFloatDay(grade(v, thresholds))).length;
   const streak = closingStreak(days, through, thresholds);
   const months = MONTHS.map((name, index) => {
     const prefix = year + '-' + String(index + 1).padStart(2, '0');
@@ -46,11 +46,11 @@ export function SeasonCard({ season, thresholds }: { season: Season; thresholds:
   return <section className={styles.panel}>
     <h2>{year} so far</h2>
     {values.length ? <>
-      <p className={styles.leadStat}><strong>{percent}</strong> Good or Flowing days</p>
-      <p>Of {values.length} recorded days through {dayLabel(through)}.{streak && streak.length >= 3 && ' ' + CONDITION_SYSTEM[streak.level].label + ' since ' + dayLabel(streak.start) + '.'}</p>
+      <p className={styles.leadStat}><strong>{floatDays}</strong> of {values.length} recorded days were Good or Flowing.</p>
+      <small>Through {dayLabel(through)}{streak && streak.length >= 3 && <> · {streak.length} days in a row rated {CONDITION_SYSTEM[streak.level].label}</>}</small>
       <div className={styles.stripe} role="group" aria-label="Explore daily readings by month">
         {months.filter(m => m.dates[0] <= through).map(({ name, dates }, i) => <button key={name} type="button" style={{ flexGrow: dates.filter(key => key <= through).length }} aria-label={name + ' daily readings'} aria-expanded={openMonth === i} onClick={() => setOpenMonth(openMonth === i ? null : i)}>
-          <span>{dates.filter(key => key <= through).map(key => <i key={key} style={days[key] == null ? undefined : { background: CONDITION_SYSTEM[grade(days[key], thresholds)].solid }} />)}</span><small>{name.slice(0, 1)}</small>
+          <span>{dates.filter(key => key <= through).map(key => <i key={key} style={days[key] == null ? undefined : { background: CONDITION_SYSTEM[grade(days[key], thresholds)].solid }} />)}</span><small aria-hidden="true">{i % 3 === 0 ? name.slice(0, 3) : '\u00a0'}</small>
         </button>)}
       </div>
       {openMonth == null ? <small>Tap a month for daily readings. Stripes mark gaps.</small> :

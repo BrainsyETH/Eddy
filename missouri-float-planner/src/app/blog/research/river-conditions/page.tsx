@@ -5,11 +5,11 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import ConditionDaysReport, { type Comparison } from '@/components/condition-days/ConditionDaysReport';
 import { StudyPicker } from '@/components/condition-days/StudyPicker';
 import { archiveFor, recentReading, resolvePair, seasonFor } from '@/lib/condition-days/data';
-import { DEFAULT_SITE, pairedDays, REPORT_PATH, stations, summarize } from '@/lib/condition-days/study';
+import { DEFAULT_SITE, pairedDays, REPORT_PATH, REPORT_TITLE, stations, summarize } from '@/lib/condition-days/study';
 import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import styles from '@/components/condition-days/report.module.css';
 
-export const metadata = publicPageMetadata('Condition Days | Eddy Research',
+export const metadata = publicPageMetadata(REPORT_TITLE + ' | Eddy Research',
   'Explore when Ozark rivers ran low, good or high across 20 years of USGS flow records. Compare stretches and see how this year stacks up.', REPORT_PATH, SHARE_IMAGES.site);
 
 export default async function ConditionDays({ searchParams }: { searchParams: Promise<{site?: string; compare?: string}> }) {
@@ -20,11 +20,11 @@ export default async function ConditionDays({ searchParams }: { searchParams: Pr
   const [a, pair, b, otherPair] = await Promise.all([archiveFor(station), resolvePair(station),
     other ? archiveFor(other) : null, other ? resolvePair(other) : null]);
   let compare: Comparison | null = null;
-  if (other && b && otherPair && pair) compare = { label: other.label, data: summarize(b, otherPair.thresholds, today), paired: pairedDays(a, b, pair.thresholds, otherPair.thresholds) };
+  if (other && b && otherPair && pair) compare = { label: other.label, site: other.site, data: summarize(b, otherPair.thresholds, today), paired: pairedDays(a, b, pair.thresholds, otherPair.thresholds) };
   const [reading, season] = await Promise.all([pair ? recentReading(pair.id, pair.thresholds, pair.floodStageFt, today) : null, seasonFor(station.site, pair?.id ?? null, today)]);
   return <><div className={styles.page}><div className={styles.inner}>
     <nav className={styles.crumb} aria-label="Breadcrumb"><Link href="/blog#research">← Guides / Research</Link></nav>
-    <header className={styles.hero}><div><h1>Condition Days</h1><p>When does your stretch run low? When does it flow? Explore the gauge record, month by month.</p></div><EddyIcon name="checkingGauge" size={105}/></header>
+    <header className={styles.hero}><div><h1>{REPORT_TITLE}</h1><p>See when your stretch ran low, when it floated well, and how today compares.</p></div><EddyIcon name="checkingGauge" size={105}/></header>
     <StudyPicker station={station} compare={other?.site}/>
     {other && !otherPair && <p>The comparison gauge no longer has reviewed flow ranges.</p>}
     {pair ? <ConditionDaysReport key={station.site} station={station} summary={summarize(a, pair.thresholds, today)} thresholds={pair.thresholds}

@@ -1,4 +1,4 @@
-# Condition Days
+# River Conditions by Month
 
 The report at `/blog/research/river-conditions` grades measured flows on read with the shared Eddy classifier. The archive spans January 1, 2006 through December 31, 2025. It stores discharge in cfs and preserves a null for each missing calendar day. An archive year always has 365 or 366 entries. Browser responses contain the selected summaries, not the archive.
 
