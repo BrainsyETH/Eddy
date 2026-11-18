@@ -19,6 +19,22 @@ export const LOW_RAIN_CHANCE = 20;
  * to mean something in July.
  */
 export const HEAT_ADVISORY_TEMP_F = 95;
+/**
+ * A forecast high below this makes it a cold day on the water, and a low at or
+ * below freezing makes for a cold start. Both set by the owner on 2026-11-18.
+ * The section had a heat rule and nothing for the other half of the year,
+ * though it was already handed every day's low.
+ */
+export const COLD_HIGH_TEMP_F = 50;
+export const FREEZING_LOW_TEMP_F = 32;
+/**
+ * Daily AVERAGE wind, mph, at which a float day gets a wind line, and at which
+ * that line stops describing slow work and suggests skipping the day. The
+ * source reports a day's average, so the line says "averaging": gusts run
+ * higher than the number printed. Owner-set, 2026-11-18.
+ */
+export const WINDY_AVG_MPH = 15;
+export const STRONG_WIND_AVG_MPH = 25;
 
 export type RainPresentation = {
   kind: 'none' | 'unlikely' | 'possible' | 'significant';
@@ -237,6 +253,15 @@ export function listDays(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
+/**
+ * "today and Thursday" for some of the days, "through Friday" when it is every
+ * day of an outlook longer than one: the way the dry sentence already puts it.
+ */
+function daySpan(some: DatedDay[], all: DatedDay[]): string {
+  if (all.length > 1 && some.length === all.length) return `through ${all[all.length - 1].name}`;
+  return listDays(some.map((day) => day.name));
+}
+
 /** "highs around 88°" / "highs 84–91°". Null when no day carries a forecast. */
 function highsClause(days: OutlookWeatherDay[]): string | null {
   if (days.length === 0) return null;
@@ -280,6 +305,11 @@ function buildWeatherWatch(
       day.weather!.precipitation < SIGNIFICANT_RAIN_CHANCE,
   );
   const hot = withWeather.filter((day) => day.weather!.tempHigh >= HEAT_ADVISORY_TEMP_F);
+  const cold = withWeather.filter((day) => day.weather!.tempHigh < COLD_HIGH_TEMP_F);
+  const freezing = withWeather.filter((day) => day.weather!.tempLow <= FREEZING_LOW_TEMP_F);
+  const windOf = (day: DatedDay) => day.weather!.windSpeed ?? 0;
+  const strongWind = withWeather.filter((day) => windOf(day) >= STRONG_WIND_AVG_MPH);
+  const windy = withWeather.filter((day) => windOf(day) >= WINDY_AVG_MPH);
 
   // Compare safety classes, not raw labels. Day one's forecast value is the
   // day's maximum stage, so a raw comparison flagged "watch today" whenever the
@@ -292,9 +322,11 @@ function buildWeatherWatch(
   const sentences: string[] = [];
 
   // ── The sky ───────────────────────────────────────────────────────────────
-  // The temperature rides along here EXCEPT on a heat day, where the sentence
-  // below owns the numbers and printing them twice would read as a stutter.
-  const highs = hot.length > 0 ? null : highsClause(withWeather.map((day) => day.weather!));
+  // The temperature rides along here EXCEPT on a heat day or a cold one, where
+  // the sentence below owns the numbers and printing them twice would read as
+  // a stutter. Freezing mornings alone leave the highs here: that sentence is
+  // about the lows.
+  const highs = hot.length > 0 || cold.length > 0 ? null : highsClause(withWeather.map((day) => day.weather!));
   const withHighs = (lead: string) => (highs ? `${lead}, ${highs}.` : `${lead}.`);
   if (rain.length > 0) {
     sentences.push(withHighs(`Rain is likely ${listDays(rain.map((day) => day.name))}`));
@@ -318,6 +350,36 @@ function buildWeatherWatch(
     const peak = Math.max(...hot.map((day) => day.weather!.tempHigh));
     sentences.push(
       `Hot ${listDays(hot.map((day) => day.name))} — around ${peak}° at the peak, so put in early and carry more water than you think you need.`,
+    );
+  }
+
+  // ── The cold ──────────────────────────────────────────────────────────────
+  // Advice, like the heat line, and the plainest advice there is: the owner
+  // threw out "dress for the water, not the air" as something nobody says.
+  if (cold.length > 0) {
+    const peak = Math.max(...cold.map((day) => day.weather!.tempHigh));
+    const mornings = freezing.length > 0 ? ' and mornings near freezing' : '';
+    sentences.push(
+      `Cold ${daySpan(cold, withWeather)}, with highs only around ${peak}°${mornings}. Bring a change of clothes in a dry bag in case you get wet.`,
+    );
+  } else if (freezing.length > 0) {
+    sentences.push(
+      `Mornings start near freezing ${daySpan(freezing, withWeather)}, so give it time to warm up before you put in.`,
+    );
+  }
+
+  // ── The wind ──────────────────────────────────────────────────────────────
+  // One line, for the strongest tier present. The number is a daily average
+  // and is called one.
+  if (strongWind.length > 0) {
+    const peak = Math.round(Math.max(...strongWind.map(windOf)));
+    sentences.push(
+      `Strong wind ${listDays(strongWind.map((day) => day.name))}, averaging around ${peak} mph. Canoes get pushed around in that, so it may be a day to skip.`,
+    );
+  } else if (windy.length > 0) {
+    const peak = Math.round(Math.max(...windy.map(windOf)));
+    sentences.push(
+      `Windy ${listDays(windy.map((day) => day.name))}, averaging around ${peak} mph. Paddling into it on the long pools is slow work.`,
     );
   }
 
@@ -345,11 +407,14 @@ function buildWeatherWatch(
     sentences.push(
       `The gauge is already ${outlook.trend.label.toLowerCase()}, which matters more here than anything in the sky. Read it again right before you launch.`,
     );
-  } else {
-    sentences.push(
-      'Nothing in the outlook is set to move this river much, but read the gauge again the morning you go.',
-    );
   }
+  // Otherwise nothing is expected to move the river, and the section says no
+  // more. It used to close on "read the gauge again the morning you go" here
+  // too, which made the advice mean nothing on the days it mattered.
+
+  // Reached only with no weather for any day and no forecast change: the
+  // section must still say something, and this is all that is known.
+  if (sentences.length === 0) return 'Nothing in the outlook is set to move this river much.';
 
   return sentences.join(' ');
 }
