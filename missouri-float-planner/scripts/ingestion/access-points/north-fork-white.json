@@ -114,15 +114,15 @@
     "name": "Tecumseh / Norfork Lake Public Access",
     "kind": "access",
     "expected_mile": 49.5,
-    "lat": 36.62303,
-    "lon": -92.24814,
+    "lat": 36.587855,
+    "lon": -92.289537,
     "is_public": true,
-    "ownership": "unknown",
-    "managing_agency": "unknown",
+    "ownership": "USACE",
+    "managing_agency": "COE",
     "official_site_url": null,
-    "facilities": "Public access near Hwy 160 at the upper end of Norfork Lake; final ~2 mi of the float is slackwater lake.",
-    "description": "Pre-confirmed value VERIFIED via USGS. Ownership of the ramp itself unconfirmed (upper Norfork Lake is USACE-managed; may be MDC/USACE/county). Coordinate is the USGS gauge; verify the exact ramp if a distinct launch is needed.",
-    "confidence": "high",
+    "facilities": "Corps of Engineers access at the US 160 bridge, where the North Fork becomes Norfork Lake. The last stretch of the float is slack lake water.",
+    "description": null,
+    "confidence": "high (owner-located on imagery 2026-11-17; the earlier coordinate was the USGS gauge 07057500, 5.3 km upstream)",
     "source_urls": [
       "https://waterdata.usgs.gov/monitoring-location/USGS-07057500/"
     ]

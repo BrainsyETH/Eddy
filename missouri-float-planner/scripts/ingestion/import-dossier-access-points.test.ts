@@ -9,8 +9,10 @@ import {
   dossierExpectationsOf,
   dossierSlugOf,
   endpointIntentOf,
+  parseImportFlags,
   REVIEW_STATE_COLUMNS,
   rolesOf,
+  selectDossierRows,
   type DbPoint,
   type DossierExpectation,
 } from './import-dossier-access-points';
@@ -349,4 +351,39 @@ test('atomic access imports retain private terms without changing review state',
     `);
     assert.deepEqual(grants.rows[0], { service: true, anonymous: false, signed_in: false });
   } finally { await db.close(); }
+});
+
+// ── --only must keep an old dossier file off the rows it also lists ────────
+//
+// --write refreshes every listed row's descriptive columns from the JSON. Adding
+// one new access to a file written before a copy cleanup would put the old text
+// back on every existing record on that river (caught by hand on the Mulberry
+// and the Elk, November 2026).
+
+const row = (name: string, slug?: string) =>
+  ({ name, slug, kind: 'access', expected_mile: null, lat: 37, lon: -91 }) as Parameters<typeof selectDossierRows>[0][number];
+
+test('--only confines a run to the named dossier rows', () => {
+  const rows = [row('Old Access'), row('Another Old One'), row('New Spot', 'new-spot')];
+  assert.deepEqual(selectDossierRows(rows, null).length, 3, 'no --only: the whole dossier');
+  assert.deepEqual(selectDossierRows(rows, ['new-spot']).map((r) => r.name), ['New Spot']);
+  // Approval follows the same narrowed list: an existing row the dossier also
+  // lists, left unapproved by a reviewer, is not nominated.
+  const expectations = dossierExpectationsOf(selectDossierRows(rows, ['new-spot']));
+  const { validated } = classifyPoints(
+    [point({ id: 'old', slug: 'old-access', river_mile_downstream: 1 }), point({ id: 'new', slug: 'new-spot', river_mile_downstream: 2 })],
+    expectations,
+  );
+  assert.deepEqual(validated, ['new']);
+});
+
+test('--only rejects a slug the dossier does not carry, and an empty list', () => {
+  assert.throws(() => selectDossierRows([row('Old Access')], ['new-spto']), /does not have: new-spto/);
+  assert.throws(() => selectDossierRows([row('Old Access')], []), /at least one slug/);
+});
+
+test('import flags: --only parses, and an unknown flag is an error rather than ignored', () => {
+  assert.deepEqual(parseImportFlags(['--write', '--only=a, b']), { write: true, approve: false, only: ['a', 'b'] });
+  assert.deepEqual(parseImportFlags(['--approve']), { write: false, approve: true, only: null });
+  assert.throws(() => parseImportFlags(['--write', '--onyl=a']), /Unknown argument --onyl=a/);
 });

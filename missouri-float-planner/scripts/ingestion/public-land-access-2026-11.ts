@@ -243,34 +243,105 @@ export function nearestMouth(end: LngLat, mouths: { name: string; at: LngLat }[]
   return best ? `${best.name} mouth` : null;
 }
 
+/** The channel segment nearest a point: planar metres to it, its two ends, and the path it belongs to. */
+export interface ChannelHit { d: number; a: number[]; b: number[]; path: number }
+
 /**
- * Fast distance to the channel: a grid index of channel segments (~500 m
- * cells), planar metres. Points farther than the cell neighbourhood return
- * Infinity, which is all a road-to-river test needs.
+ * A grid index of channel segments (~500 m cells). Returns the nearest segment
+ * within the cell neighbourhood, or null when the point is farther than that.
  */
-export function channelIndex(channel: number[][][], cellDeg = 0.005): (p: LngLat) => number {
-  const grid = new Map<string, [number[], number[]][]>();
-  for (const line of channel) {
+export function channelLocator(channel: number[][][], cellDeg = 0.005): (p: LngLat) => ChannelHit | null {
+  const grid = new Map<string, [number[], number[], number][]>();
+  channel.forEach((line, path) => {
     for (let i = 0; i < line.length - 1; i++) {
       const a = line[i], b = line[i + 1];
       const cells = new Set([a, b, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]].map((v) => `${Math.floor(v[0] / cellDeg)},${Math.floor(v[1] / cellDeg)}`));
-      for (const k of cells) (grid.get(k) ?? grid.set(k, []).get(k)!).push([a, b]);
+      for (const k of cells) (grid.get(k) ?? grid.set(k, []).get(k)!).push([a, b, path]);
     }
-  }
+  });
   return (p) => {
     const kx = 89_000, ky = 111_000;
     const [cx, cy] = [Math.floor(p[0] / cellDeg), Math.floor(p[1] / cellDeg)];
-    let best = Infinity;
+    let best: ChannelHit | null = null;
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
-      for (const [a, b] of grid.get(`${cx + dx},${cy + dy}`) ?? []) {
+      for (const [a, b, path] of grid.get(`${cx + dx},${cy + dy}`) ?? []) {
         const ax = (a[0] - p[0]) * kx, ay = (a[1] - p[1]) * ky, bx = (b[0] - p[0]) * kx, by = (b[1] - p[1]) * ky;
         const vx = bx - ax, vy = by - ay, len2 = vx * vx + vy * vy;
         const t = len2 ? Math.max(0, Math.min(1, -(ax * vx + ay * vy) / len2)) : 0;
-        best = Math.min(best, Math.hypot(ax + t * vx, ay + t * vy));
+        const d = Math.hypot(ax + t * vx, ay + t * vy);
+        if (!best || d < best.d) best = { d, a, b, path };
       }
     }
     return best;
   };
+}
+
+/**
+ * Fast distance to the channel, planar metres. Points farther than the cell
+ * neighbourhood return Infinity, which is all a road-to-river test needs.
+ */
+export function channelIndex(channel: number[][][], cellDeg = 0.005): (p: LngLat) => number {
+  const locate = channelLocator(channel, cellDeg);
+  return (p) => locate(p)?.d ?? Infinity;
+}
+
+// ── Review aids (November 2026, after 59 owner-reviewed tier-A spots) ─────────
+//
+// The owner moved the pin on 6 of the 13 spots that became accesses, twice to
+// a different road and twice to the opposite bank; and two "new" spots were
+// existing accesses (Mt. Hersey, Bay Creek). So each row now says which bank
+// it is on, the nearest existing access and its bank, the other roads close by
+// that the one-per-stretch rule hides, and the mile on the river's own scale.
+
+/**
+ * Which bank a point is on, looking downstream along the channel segment
+ * a → b: "left" is river left. Pass the segment already oriented downstream.
+ */
+export function bankOf(p: LngLat, a: number[], b: number[]): 'left' | 'right' {
+  const kx = 89_000, ky = 111_000;
+  const cross = (b[0] - a[0]) * kx * (p[1] - a[1]) * ky - (b[1] - a[1]) * ky * (p[0] - a[0]) * kx;
+  return cross >= 0 ? 'left' : 'right';
+}
+
+/**
+ * The river mile at a fraction of the line, on the river's OWN mile scale:
+ * interpolated between the access points either side (controls sorted by mile
+ * with rising fractions, as buildMileIndex returns them). Beyond the outermost
+ * control it extrapolates at line miles. Several rivers carry a published mile
+ * index that differs from line miles by 10 to 25 (src/lib/geo/mile-index.ts),
+ * which is why a raw geometry mile was wrong on the Black, Buffalo and
+ * Eleven Point.
+ */
+export function mileAtFraction(controls: readonly { mile: number; fraction: number }[], fraction: number, lengthMiles: number): number | null {
+  if (!controls.length) return null;
+  const first = controls[0], last = controls[controls.length - 1];
+  if (fraction <= first.fraction) return first.mile - (first.fraction - fraction) * lengthMiles;
+  if (fraction >= last.fraction) return last.mile + (fraction - last.fraction) * lengthMiles;
+  for (let i = 1; i < controls.length; i++) {
+    const lo = controls[i - 1], hi = controls[i];
+    if (fraction <= hi.fraction) return lo.mile + ((fraction - lo.fraction) / (hi.fraction - lo.fraction)) * (hi.mile - lo.mile);
+  }
+  return last.mile;
+}
+
+/** Straight-line planar metres between two points. */
+export function metresApart(a: LngLat, b: LngLat): number {
+  return Math.hypot((a[0] - b[0]) * 89_000, (a[1] - b[1]) * 111_000);
+}
+
+/**
+ * Other roads reaching the water near a kept spot, best first, one per road
+ * name: the alternatives a one-per-300-m list hides. The real access was on
+ * one of these for the Mulberry's 12425A and County Road 88.
+ */
+export function otherRoadsNearby<T extends { at: LngLat; road: string; score: number }>(kept: T, all: readonly T[], withinM = 600, max = 3): T[] {
+  const out: T[] = [];
+  for (const c of [...all].sort((x, y) => y.score - x.score)) {
+    if (c === kept || c.road === kept.road || out.some((o) => o.road === c.road)) continue;
+    if (metresApart(c.at, kept.at) <= withinM) out.push(c);
+    if (out.length === max) break;
+  }
+  return out;
 }
 
 /**

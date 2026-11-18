@@ -6,12 +6,46 @@ writes nothing to the database). It replaces the v1 list in
 
 | File | What it is |
 | --- | --- |
-| `candidates.csv` / `candidates.geojson` | Places to check, sorted by tier then score, one per 300 m of river. `road_kind` says what the road is (below) |
-| `reviewed.csv` | Input: spots the owner checked by hand, with a verdict. The finder leaves them out of `candidates.csv` |
-| `suspect-records.csv` | Access points pinned more than 300 m from the real channel, not trusted as "known". Empty after the pin fixes below |
+| `candidates.csv` / `candidates.geojson` | Places to check, numbered (`n`) and sorted by tier then score, one per 300 m of river. `road_kind` says what the road is (below). Review columns are described under "Review aids" |
+| `agency-leads.csv` | Agency boat ramps and canoe accesses within 300 m of the channel with no Eddy record within 750 m. Check these before the road leads: an agency lists them as launches |
+| `reviewed.csv` | Input: spots the owner checked by hand, with a verdict. The finder leaves them out of `candidates.csv` and `agency-leads.csv` |
+| `suspect-records.csv` | Existing records to check before trusting a run. `reason` is "pinned off the channel" (more than 300 m from it) or "no road reaches this pin" (a launch with no road candidate within 0.5 km and no linked agency ramp at the pin) |
 
 These are places for a person to look at, not access points. A road reaching
 public ground says nothing about a launch being legal, safe or usable.
+
+## Review aids (2026-11-16)
+
+Added after 59 owner-reviewed tier-A spots on eight rivers, 13 of which became
+accesses:
+
+- **`bank`** and **`nearest_access`** (name, straight-line metres, same or
+  opposite bank). Two "new" spots were existing accesses (Mt. Hersey, Bay
+  Creek), and two real ones sat across the river from the finder's point
+  (County Road F-217 opposite Hickory Landing; County Road 88).
+- **`also_nearby`**: up to three other roads reaching the water within 600 m.
+  The owner moved the pin on 6 of the 13, twice to a different road (12425A on
+  the Mulberry), which the one-per-300-m list had hidden.
+- **`eddy_mile`**: the mile on the river's own scale, interpolated between the
+  accesses either side with the same control-point ladder the app uses
+  (`src/lib/geo/mile-index.ts`). The importer's geometry mile is wrong on rivers
+  with a published mile index (Black, Buffalo, Eleven Point, Meramec, Niangua);
+  set this one instead.
+- **`n`** and **`satellite`**: a number to answer by, and a satellite view of
+  the spot.
+
+Distance to water did not predict a real access in that sample (7 of 31 within
+100 m, 6 of 28 beyond), so it is shown but is not a reason to skip a row.
+
+**Verdicts.** Record every reviewed spot in `reviewed.csv`: `access`,
+`no_access` (with a word why: private, no road, same as an existing record),
+`unconfirmed`, or `not_added` when the owner listed only what to add. Only the
+first three can be used to recalibrate.
+
+**Adding a confirmed spot.** Add it to the river's dossier and import with
+`--only=<slug>` so the file's other rows are not rewritten, set `eddy_mile` and
+the road surface in a guarded SQL record under `../access-points/reviews/`,
+then `--approve --only=<slug>`.
 
 ## Why v2
 
