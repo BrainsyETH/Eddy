@@ -13,7 +13,6 @@ export function EddyCanoe({ frame }: { frame: number }) {
   const boat = canoePose(frame);
   const paddle = paddlePose(frame);
   const headTilt = Math.sin(frame / 360 * Math.PI * 2 - 0.3) * 1.4;
-  const blink = 1 - 0.9 * Math.max(0, 1 - Math.abs(frame - 238) / 5) ** 2;
   const paddleShape = <g transform={`translate(0 ${paddle.lift}) rotate(${paddle.angle} 27 -32)`}>
     <path d="M24 -40 H30 M27 -39 V4" fill="none" stroke={ink} strokeWidth="5" />
     <path d="M27 -38 V4" fill="none" stroke={colors.secondary[400]} strokeWidth="2.4" />
@@ -38,16 +37,10 @@ export function EddyCanoe({ frame }: { frame: number }) {
       <path data-canoe-head d="M-34 -55 C-34 -67 -25 -73 -16 -73 Q-12 -79 -7 -77 Q-5 -77 -8 -73 Q-2 -75 4 -74 Q7 -73 4 -71 C16 -70 22 -63 22 -52 C22 -41 11 -34 -6 -34 C-22 -34 -34 -42 -34 -55Z" fill={fur} />
       <path d="M-30 -53 C-29 -60 -17 -62 -9 -55 Q-6 -53 -3 -55 C7 -62 19 -59 19 -51 C18 -41 8 -36 -6 -36 C-20 -36 -30 -43 -30 -53Z" fill={colors.support[500]} stroke="none" />
       <path d="M-26 -47 Q-17 -53 -7 -47 Q3 -53 14 -47 C12 -40 5 -37 -6 -37 Q-22 -38 -26 -47Z" fill={colors.support[300]} stroke="none" />
-      {/* Eddy pushes his coral shades up so his eyes can read at Story size. */}
-      <path d="M-33 -66 L-27 -68 M-9 -68 Q-6 -70 -2 -68 M16 -67 L21 -66" fill="none" stroke={colors.accent[500]} strokeWidth="2.5" />
-      <rect x="-28" y="-73" width="19" height="10" rx="5" fill={colors.accent[400]} strokeWidth="1.7" />
-      <rect x="-2" y="-73" width="19" height="10" rx="5" fill={colors.accent[400]} strokeWidth="1.7" />
-      <path d="M-22 -71 L-24 -67 M5 -71 L3 -67" stroke={colors.secondary[100]} strokeWidth="1.7" />
-      <g fill={ink} stroke="none">
-        <ellipse cx="-17" cy="-54.5" rx="2.65" ry={3.4 * blink} />
-        <ellipse cx="5" cy="-54.5" rx="2.65" ry={3.4 * blink} />
-        <g fill={colors.secondary[50]} opacity={blink ** 3}><circle cx="-17.6" cy="-55.7" r="0.8" /><circle cx="4.4" cy="-55.7" r="0.8" /></g>
-      </g>
+      <path d="M-33 -55 L-27 -57 M-9 -57 Q-6 -59 -2 -57 M16 -57 L21 -56" fill="none" stroke={colors.accent[500]} strokeWidth="2.5" />
+      <rect x="-28" y="-62" width="19" height="12" rx="6" fill={colors.accent[400]} strokeWidth="1.7" />
+      <rect x="-2" y="-62" width="19" height="12" rx="6" fill={colors.accent[400]} strokeWidth="1.7" />
+      <path d="M-21 -59 L-23 -55 M5 -59 L3 -55" stroke={colors.secondary[100]} strokeWidth="1.7" />
       <path d="M-10 -49 Q-6 -51 -2 -49 Q-2 -46 -6 -46 Q-10 -46 -10 -49Z" fill={ink} stroke="none" />
       <path d="M-14 -45 Q-6 -41 3 -46 Q1 -38 -6 -38 Q-12 -38 -14 -45Z" fill={ink} strokeWidth="0.9" />
       <path d="M-9 -40 Q-6 -43 -2 -40 Q-5 -38 -9 -40Z" fill={colors.accent[300]} stroke="none" />
