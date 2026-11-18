@@ -17,7 +17,8 @@ render should be regenerated from the form, which checks the source again.
   or checks older than the shared 90-minute threshold block export. A missing
   date never borrows yesterday's schedule. Confirmed zero generation is valid.
 - Every generation window stays visible throughout the 12-second clip. The
-  timeline shows all 24 posted hours. Minimum flow is not counted as generation.
+  timeline shows all 24 posted hours, with a diagonal shine over scheduled hours.
+  Minimum flow is not counted as generation.
 - Date, Central time, SWPA attribution and the source-check timestamp are burned
   into the video. No countdown, live cursor, measured cfs, seasonal pool line,
   or downstream arrival estimate. The animation is labelled “not live”; it
@@ -32,8 +33,8 @@ render should be regenerated from the form, which checks the source again.
   his seated body sits behind the canoe's front rim, hands follow the paddle,
   and the blade lifts out of the water during recovery.
 - Shared Eddy fonts, palette and per-platform safe insets. Instagram uses the
-  Story bounds; TikTok leaves space for its action rail. All facts hold still;
-  only the illustration moves. The canoe follows the lake surface at bow and
+  Story bounds; TikTok leaves space for its action rail. The schedule text and
+  times hold still. The canoe follows the lake surface at bow and
   stern; paddle ripples follow water contact. Flow highlights follow one curved
   path through the pipe into the river. Every motion completes whole cycles in
   12 seconds, including the continuous dash patterns and turbine rotation.

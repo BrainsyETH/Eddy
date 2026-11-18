@@ -5,9 +5,10 @@ import { damStoryWindows, type DamStoryProps } from '../../../../shared/social-d
 import { idleScheduleLabel, scheduleDayLabel } from '../../../../shared/dam-schedule-copy';
 import { fontFamilies, loadFonts } from '../../design-tokens/fonts';
 import { DamStoryScene } from './DamStoryScene';
+import { DamScheduleTimeline } from './DamScheduleTimeline';
 
 const ink = colors.primary[900];
-/** All schedule copy holds for 12 seconds. Only the labelled illustration moves. */
+/** All schedule copy holds for 12 seconds. Illustration and bar shine loop. */
 export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, sample = false }) => {
   const frame = useCurrentFrame();
   const [fonts] = useState(() => delayRender('Loading Eddy fonts'));
@@ -43,7 +44,7 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
       </div>
       <section data-dam-region="timeline" style={{ flexShrink: 0 }}>
         <div data-dam-text style={{ fontSize: 29, fontWeight: 700, marginBottom: 14 }}>Hourly schedule</div>
-        <div style={{ display: 'flex', gap: 4, height: 48 }}>{snapshot.hours.map((active, hour) => <div data-dam-hour={hour} key={hour} style={{ flex: 1, borderRadius: 5, background: active ? colors.accent[500] : colors.secondary[200] }} />)}</div>
+        <DamScheduleTimeline hours={snapshot.hours} width={width} frame={frame} />
         <div style={{ position: 'relative', height: 32, marginTop: 9, fontSize: 23, color: colors.neutral[700] }}>{['Midnight', '6 AM', 'Noon', '6 PM', 'Midnight'].map((label, i) => <span data-dam-text key={i} style={{ position: 'absolute', left: `${i * 25}%`, transform: `translateX(${i === 0 ? 0 : i === 4 ? -100 : -50}%)`, whiteSpace: 'nowrap' }}>{label}</span>)}</div>
       </section>
       <footer data-dam-region="footer" style={{ flexShrink: 0, borderTop: `2px solid ${colors.neutral[300]}`, paddingTop: 14 }}>
