@@ -198,7 +198,9 @@ export async function generateEddyUpdate(
   if (alerts.length && !facts.floodAlerts?.length) sourcesUsed.push('NWS alerts');
 
   // --- 4. Load local knowledge ---
-  const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug);
+  // The reporting gauge selects its own block and reach notes, and leaves the
+  // river's other gauges to one "elsewhere" line each. See knowledge.ts.
+  const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug, gaugeResult?.usgsSiteId ?? null);
   if (localKnowledge) sourcesUsed.push('local knowledge');
 
   // --- 5. Fetch gauge trajectory (recent history + percentiles) ---

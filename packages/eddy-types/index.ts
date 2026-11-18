@@ -103,6 +103,8 @@ export interface RiverListItem extends River {
     gaugeHeightFt: number | null;
     dischargeCfs: number | null;
     readingAgeHours: number | null;
+    /** Observation time; optional for older cached responses. */
+    readingTimestamp?: string | null;
     /** Null when there aren't two readings in the window to compare honestly. */
     trend: RiverReadingTrend | null;
   } | null;
@@ -2472,6 +2474,39 @@ export interface StarredDamsResponse {
   starred: StarredDamEntry[];
 }
 
+/**
+ * A dam generation alert (/api/me/dam-alerts): push when generation is posted
+ * to start at a dam.
+ *
+ * One per dam. `atStart` and `hourBefore` are the two times it can notify, and
+ * at least one is true — switching both off deletes the alert, so there is no
+ * paused state to draw. It follows the POSTED schedule and does not confirm
+ * that generation began; see ADR 0020.
+ */
+export interface DamGenerationAlert {
+  /** The USACE registry slug, as in StarredDamEntry. */
+  damId: string;
+  damName: string;
+  /** Notify at the posted start time. */
+  atStart: boolean;
+  /** Notify an hour before the posted start time. */
+  hourBefore: boolean;
+  createdAt: string;
+}
+
+/** Response for GET /api/me/dam-alerts */
+export interface DamGenerationAlertsResponse {
+  alerts: DamGenerationAlert[];
+}
+
+/**
+ * Response for PUT /api/me/dam-alerts: the alert as the server now holds it,
+ * after merging the one switch that was sent. Null when both times are off.
+ */
+export interface DamGenerationAlertResponse {
+  alert: DamGenerationAlert | null;
+}
+
 export interface StarredRiverEntry {
   riverId: string;
   riverName: string;
@@ -3234,7 +3269,8 @@ export interface CampingPlace {
   riverSlugs: string[]; displayGroup: { key: string; label: string };
   managingAgency: string | null; website: string | null; reservationUrl: string | null;
   firstCome: 'present' | 'none' | 'unknown';
-  accessDestination: { riverSlug: string; accessId: string } | null;
+  /** riverMile: the access point's mile on riverSlug. Absent on older responses. */
+  accessDestination: { riverSlug: string; accessId: string; riverMile?: number | null } | null;
 }
 export interface TrackedCampground extends CampingPlace {
   facilityId: string; serviceId: string | null; loopName: string | null;
@@ -3248,6 +3284,8 @@ export interface TrackedCampground extends CampingPlace {
 }
 export interface CampingOverview {
   schemaVersion: 1; generatedAt: string; maxObservationAgeSeconds: number;
+  /** River identity is available even when live conditions cannot be loaded. */
+  rivers?: { slug: string; name: string; path: string }[];
   timeZone: 'America/Chicago';
   horizon: { startDate: string; endDateExclusive: string; nights: string[] };
   weekend: { startDate: string; endDateExclusive: string; nights: string[]; label: string };

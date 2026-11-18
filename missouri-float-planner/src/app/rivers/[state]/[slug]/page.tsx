@@ -33,6 +33,7 @@ import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { jsonLdString } from '@/lib/json-ld';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
+import { campingWebEnabled } from '@/lib/camping/web-launch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -451,7 +452,7 @@ export default async function RiverGuidePage({ params }: Props) {
 
           {river.float_tip && <p className="mt-5 text-sm text-neutral-600">{river.float_tip}</p>}
           {/* Campgrounds and Outfitters as two short lists, as in the app. */}
-          <RiverServices riverSlug={slug} sectionClassName="scroll-mt-28 pt-10" />
+          <RiverServices riverSlug={slug} sectionClassName="scroll-mt-28 pt-10" campingEnabled={campingWebEnabled()} />
 
           {/* ===== River guide (blog) ===== */}
           {guidePost && (

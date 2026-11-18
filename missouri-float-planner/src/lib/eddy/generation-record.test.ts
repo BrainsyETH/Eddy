@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { buildGenerationRecord, knowledgeBlocks, sha256, type GenerationCapture } from './generation-record';
+import {
+  buildGaugeGenerationRecord, buildGenerationRecord, gaugeKnowledgeBlocks, knowledgeBlocks, sha256,
+  type GaugeGenerationCapture, type GenerationCapture,
+} from './generation-record';
+import { getRiverKnowledgeForGauge } from './knowledge';
 import { buildReportFacts, preflightFallbackReason, preflightReportFallback, prepareGeneratedReport, reportClaimsLine } from './report-facts';
 import { getKnowledgeForTarget } from './knowledge';
 import type { UpdateTarget } from '../../data/river-sections';
@@ -212,4 +216,77 @@ test('every exit from the generator writes a record, and every caller names its 
   assert.match(cron, /generateEddyUpdate\(target, models\.river_update, \{[\s\S]*?trigger: singleRiver \? 'on_demand' : 'scheduled'/);
   assert.match(cron, /await pruneGenerationLog\(supabase\)/);
   assert.match(readFileSync('src/lib/eddy/regenerate.ts', 'utf8'), /generateEddyUpdate\(target, model, \{ trigger: triggerReason \}\)/);
+});
+
+// ── gauge Reads ─────────────────────────────────────────────────────
+// Secondary-gauge Reads are what a reader sees beside each gauge, and until
+// 2026-11-17 only their published text was kept. They are recorded in the same
+// table, told apart by `workload`.
+
+const gaugeCapture = (over: Partial<GaugeGenerationCapture> = {}): GaugeGenerationCapture => ({
+  target: { riverSlug: 'meramec', riverName: 'Meramec River', usgsSiteId: '07014500', gaugeName: 'Meramec River near Sullivan, MO', coordinates: { lat: 38.16, lon: -91.11 } },
+  trigger: 'scheduled',
+  model: { id: 'claude-haiku-4-5', maxTokens: 600, cacheSystemPrompt: false, source: 'default' },
+  facts: buildReportFacts({ gaugeName: 'Meramec River near Sullivan, MO', gaugeHeightFt: 2.57, dischargeCfs: 756, thresholds }),
+  readingTimestamp: '2026-11-17T11:00:00Z',
+  alerts: [],
+  forecast: null,
+  trajectory: null,
+  riverBehaviorApplies: true,
+  riverKnowledge: 'The largest Ozarks float river by volume.\n\nSection lower-meramec:\n- Below Meramec State Park to Sullivan area.',
+  systemPrompt: 'gauge system prompt',
+  userPrompt: '[THIS GAUGE]\nReading: 2.57 ft',
+  ...over,
+});
+
+test('a gauge Read is recorded under its own workload, by station, with the same columns', () => {
+  const published = { summaryText: 'S', eddyRead: 'R', quoteText: 'Q', sourcesUsed: ['USGS gauge'] };
+  const row = buildGaugeGenerationRecord(gaugeCapture(), { outcome: 'model', reason: null, rawResponse: 'raw', published }, { gitSha: 'abc' });
+
+  assert.equal(row.workload, 'gauge_update');
+  assert.deepEqual([row.river_slug, row.section_slug, row.usgs_site_id], ['meramec', null, '07014500']);
+  assert.deepEqual([row.outcome, row.model_used, row.git_sha], ['model', 'claude-haiku-4-5', 'abc']);
+  assert.equal(row.system_prompt_hash, sha256('gauge system prompt'));
+  assert.equal(row.user_prompt, '[THIS GAUGE]\nReading: 2.57 ft');
+  assert.deepEqual(row.published, published);
+  assert.deepEqual(row.knowledge_blocks, ['river', 'section:lower-meramec']);
+  assert.equal((row.inputs.facts as { dischargeCfs: number }).dischargeCfs, 756);
+  assert.equal(row.inputs.riverBehaviorApplies, true);
+
+  // One table, one shape: the migration test above covers the river row.
+  const river = buildGenerationRecord(capture(), { outcome: 'model', reason: null });
+  assert.deepEqual(Object.keys(row).sort(), Object.keys(river).sort());
+});
+
+test('a gauge fallback decided from the facts names no model', () => {
+  const row = buildGaugeGenerationRecord(gaugeCapture({ userPrompt: null, riverKnowledge: null }), { outcome: 'fallback', reason: 'no_rating' });
+  assert.deepEqual([row.model_used, row.user_prompt, row.knowledge_hash, row.knowledge_blocks], [null, null, null, []]);
+});
+
+test('gauge knowledge blocks are read from the text that was sent', () => {
+  assert.deepEqual(gaugeKnowledgeBlocks(null), []);
+  assert.deepEqual(gaugeKnowledgeBlocks('River block only.'), ['river']);
+  assert.deepEqual(gaugeKnowledgeBlocks('Section upper-current:\n- Montauk.'), ['section:upper-current']);
+  // The real file: Sullivan is named in the Lower Meramec reach note, Eureka in none.
+  assert.deepEqual(gaugeKnowledgeBlocks(getRiverKnowledgeForGauge('meramec', 'Meramec River near Sullivan, MO')), ['river', 'section:lower-meramec']);
+  assert.deepEqual(gaugeKnowledgeBlocks(getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO')), ['river']);
+});
+
+test('every exit from the gauge generator writes a record, and every caller names its trigger', () => {
+  const generator = readFileSync('src/lib/eddy/generate-gauge-update.ts', 'utf8');
+  const body = generator.slice(generator.indexOf('export async function generateGaugeUpdate'), generator.indexOf('// Prompt assembly'));
+  // Past the point the facts exist, a return is either a recorded early exit
+  // or the recorded update.
+  const afterFacts = body.slice(body.indexOf('const record = '));
+  const returns = afterFacts.match(/^\s+(?:if \(fallback\) )?return\b.*$/gm) ?? [];
+  const records = afterFacts.match(/await record\(/g) ?? [];
+  assert.equal(returns.length, 5, 'preflight fallback, missing key, empty response, the update, a thrown call');
+  assert.equal(records.length, returns.length);
+
+  for (const [file, trigger] of [
+    ['src/app/api/cron/generate-gauge-updates/route.ts', 'scheduled'],
+    ['src/lib/eddy/regenerate-gauge.ts', 'condition_change'],
+  ] as const) {
+    assert.match(readFileSync(file, 'utf8'), new RegExp(`generateGaugeUpdate\\([^)]*\\{ trigger: '${trigger}' \\}\\)`), file);
+  }
 });

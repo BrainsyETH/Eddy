@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { line } from './access-enrichment-2026-11';
-import { alongRiverKm, approachPoints, channelIndex, deadEnds, dedupeAlongRiver, gapAround, nearestMouth, nhdNameFor, offMvumNote, rankRoadEnd, reviewedVerdict, routeEnds, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
+import { alongRiverKm, approachPoints, bankOf, channelIndex, channelLocator, deadEnds, dedupeAlongRiver, gapAround, metresApart, mileAtFraction, nearestMouth, nhdNameFor, offMvumNote, otherRoadsNearby, rankRoadEnd, reviewedVerdict, routeEnds, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 test('vehicleClass reports the most capable vehicle an MVUM route is open to', () => {
   assert.equal(vehicleClass({ passengervehicle: 'open', atv: 'open' }), 'passenger');
@@ -163,4 +163,47 @@ test('nhdNameFor matches Eddy river names to NHD names', () => {
   assert.equal(nhdNameFor('Jacks Fork River', ['Jacks Fork', 'Alley Spring Branch']), 'Jacks Fork');
   assert.equal(nhdNameFor('Buffalo National River', ['Buffalo River']), 'Buffalo River');
   assert.equal(nhdNameFor('Nowhere River', ['Elk River']), null);
+});
+
+test('channelLocator returns the nearest segment and its path; channelIndex is its distance', () => {
+  const channel = [[[-91.0, 37.0], [-90.99, 37.0]], [[-90.99, 37.0], [-90.99, 36.99]]];
+  const hit = channelLocator(channel)([-90.995, 37.0005]);
+  assert.equal(hit?.path, 0);
+  assert.ok(Math.abs((hit?.d ?? 0) - 55.5) < 1);
+  assert.equal(channelLocator(channel)([-90.9895, 36.995])?.path, 1);
+  assert.equal(channelLocator(channel)([-90.0, 37.0]), null);
+  assert.equal(channelIndex(channel)([-90.0, 37.0]), Infinity);
+});
+
+test('bankOf: river left and right looking downstream', () => {
+  // The river flows east along 37.0: north is river left, south is river right.
+  const a = [-91.0, 37.0], b = [-90.99, 37.0];
+  assert.equal(bankOf([-90.995, 37.001], a, b), 'left');
+  assert.equal(bankOf([-90.995, 36.999], a, b), 'right');
+  // The same segment digitised upstream-first flips, so the caller orients it.
+  assert.equal(bankOf([-90.995, 37.001], b, a), 'right');
+});
+
+test('mileAtFraction puts a spot on the mile scale the river uses, not line miles', () => {
+  // The Black: Hammer is mile 62.1 at line 52.59 of 187.0, Hilliard 79.1 at line 69.00.
+  const controls = [{ mile: 62.1, fraction: 52.59 / 187 }, { mile: 79.1, fraction: 69.0 / 187 }];
+  const hendrickson = mileAtFraction(controls, 60.87 / 187, 187);
+  assert.ok(Math.abs((hendrickson ?? 0) - 70.68) < 0.05, `${hendrickson}`); // the importer's line mile was 63.36
+  // Beyond the outermost access it runs on at line miles.
+  assert.ok(Math.abs((mileAtFraction(controls, 77.49 / 187, 187) ?? 0) - 87.59) < 0.05);
+  assert.ok(Math.abs((mileAtFraction(controls, 50.59 / 187, 187) ?? 0) - 60.1) < 0.05);
+  assert.equal(mileAtFraction([], 0.5, 100), null);
+});
+
+test('otherRoadsNearby lists the alternatives a one-per-stretch list hides', () => {
+  const kept = { at: [-93.52506, 35.68102] as [number, number], road: 'Co Rd 195', score: 79 };
+  const all = [
+    kept,
+    { at: [-93.52688, 35.68581] as [number, number], road: '12425A', score: 60 }, // ~560 m: the real access
+    { at: [-93.5269, 35.6859] as [number, number], road: '12425A', score: 50 }, // same road again
+    { at: [-93.5251, 35.6811] as [number, number], road: 'Co Rd 195', score: 70 }, // the kept road
+    { at: [-93.60, 35.68] as [number, number], road: 'Far Rd', score: 99 },
+  ];
+  assert.deepEqual(otherRoadsNearby(kept, all).map((o) => [o.road, o.score]), [['12425A', 60]]);
+  assert.ok(metresApart(kept.at, all[1].at) < 600);
 });

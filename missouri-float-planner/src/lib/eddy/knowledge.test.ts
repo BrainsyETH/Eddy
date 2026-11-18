@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getGeneralKnowledge, getKnowledgeForTarget, getRiverKnowledgeForGauge, gaugeTown, listKnowledgeRiverSlugs } from './knowledge';
+import {
+  getGeneralKnowledge, getKnowledgeForChat, getKnowledgeForTarget, getKnowledgeTowns, getRiverKnowledgeForGauge,
+  gaugeTown, listKnowledgeGauges, listKnowledgeRiverSlugs, listKnowledgeSectionGauges, parseKnowledge,
+} from './knowledge';
 
 // These run against the REAL EDDY_KNOWLEDGE.md (parseKnowledgeFile reads
 // cwd/EDDY_KNOWLEDGE.md, and the test runner's cwd is the web root). That is
@@ -97,12 +100,16 @@ test('general knowledge rides along with every river', () => {
   assert.match(knowledge, /=== Section: redding-to-turner-bend ===/);
 });
 
-test('the General block keeps both the primer and the nearest-towns list', () => {
-  // Regression for the flushBuffer bug where "### Nearest Towns" overwrote the
-  // whole General primer rather than appending to it.
+test('the General block keeps the primer, and towns live with their river', () => {
+  // Regression for the flushBuffer bug where a General subsection overwrote
+  // the whole primer rather than appending to it.
   const general = getGeneralKnowledge();
   assert.match(general, /strainer/i);
-  assert.match(general, /nearest town/i);
+  // The nearest-towns list used to ride in General, so every Read on every
+  // river carried every river's towns. Each river holds its own now.
+  assert.doesNotMatch(general, /nearest town/i);
+  assert.match(getKnowledgeTowns('jacks-fork'), /\*\*Eminence\*\* is the hub/);
+  assert.match(getKnowledgeTowns('current'), /Upper river: .*\*\*Salem\*\*/);
 });
 
 test('no heading anchor leaks into the injected text', () => {
@@ -149,4 +156,245 @@ test('tailwater knowledge does not clear the water or state a stale rule', () =>
       assert.match(line, /\b20\d\d\b/, `${slug}: undated temperature: ${line.slice(0, 80)}`);
     }
   }
+});
+
+// ── gauges ──────────────────────────────────────────────────────────
+// A river's Read is written from one gauge, and a gauge speaks for one stretch
+// of water. On 2026-11-17 three Reads credited a spring to a gauge that sits
+// above it (Big Spring at Van Buren, Bennett Spring at Windyville, Alley
+// Spring at the Alley Spring gauge). Each fact was true and in the river's
+// block; none said where it was. Gauge blocks say where.
+
+const ALLEY = '07065495';
+const EMINENCE = '07066000';
+const VAN_BUREN = '07067000';
+const WINDYVILLE = '06923250';
+
+/** Every text any consumer can be handed for a river. */
+function everySelection(slug: string): string[] {
+  const gauges = listKnowledgeGauges(slug);
+  return [
+    getKnowledgeForTarget(slug, null),
+    getKnowledgeForChat(slug),
+    getRiverKnowledgeForGauge(slug, null),
+    ...gauges.flatMap((g) => [getKnowledgeForTarget(slug, null, g.siteId), getRiverKnowledgeForGauge(slug, `X River near ${g.name}, MO`, g.siteId)]),
+  ];
+}
+
+test('the format is read from the headings', () => {
+  const parsed = parseKnowledge([
+    '## Format Rules', 'not knowledge',
+    '## General', 'Primer.',
+    '## Test River {#test}', 'True everywhere.',
+    '### Gauge: Lower Town {@01234567}', '- **Sits**: At Lower Town.',
+    '### Gauge: Dam {@swl-test-dam} {unconfirmed}', '- **Sits**: Draft.',
+    '### Upper Reach {#upper-reach} {@01234567} {@07654321}', '- A reach note.',
+    '### Towns', '- **Lower Town** has gas.',
+  ].join('\n'));
+  const river = parsed.rivers.test;
+  assert.equal(river.main, 'True everywhere.');
+  assert.deepEqual(river.gauges, [
+    { siteId: '01234567', name: 'Lower Town', text: '- **Sits**: At Lower Town.', confirmed: true },
+    { siteId: 'swl-test-dam', name: 'Dam', text: '- **Sits**: Draft.', confirmed: false },
+  ]);
+  assert.deepEqual(river.subsections, { 'upper-reach': '- A reach note.' });
+  assert.deepEqual(river.sectionGauges, { 'upper-reach': ['01234567', '07654321'] });
+  assert.equal(river.towns, '- **Lower Town** has gas.');
+  assert.deepEqual(Object.keys(parsed.rivers), ['test']);
+});
+
+test('every gauge block is tagged, and a confirmed one says where it sits and what it speaks for', () => {
+  for (const slug of listKnowledgeRiverSlugs()) {
+    const gauges = listKnowledgeGauges(slug);
+    assert.equal(new Set(gauges.map((g) => g.siteId)).size, gauges.length, `${slug}: two blocks for one gauge`);
+    for (const gauge of gauges) {
+      assert.match(gauge.siteId, /^(?:\d{8,}|[a-z]+(?:-[a-z0-9]+)+)$/, `${slug}: "Gauge: ${gauge.name}" needs a {@site} tag`);
+      assert.match(gauge.text, /^- \*\*Sits\*\*: \S/m, `${slug}/${gauge.name}: no "Sits" line`);
+      assert.match(gauge.text, /^- \*\*Speaks for\*\*: \S/m, `${slug}/${gauge.name}: no "Speaks for" line`);
+      if (gauge.confirmed) {
+        assert.doesNotMatch(gauge.text, /to confirm|\bdraft\b/i, `${slug}/${gauge.name}: confirmed, but still reads as a draft`);
+      }
+    }
+    // A reach note may only be tagged with a gauge the river has a block for.
+    const known = new Set(gauges.map((g) => g.siteId));
+    for (const [section, sites] of Object.entries(listKnowledgeSectionGauges(slug))) {
+      for (const site of sites) assert.ok(known.has(site), `${slug}/${section}: tagged with ${site}, which has no gauge block`);
+    }
+  }
+});
+
+test('the rivers whose gauge lines are confirmed are exactly these', () => {
+  // A ratchet. Confirming a river's geography means removing {unconfirmed}
+  // from its headings AND adding it here, so the change is deliberate. A
+  // drafted block reaches no prompt; a confirmed one changes what Eddy writes.
+  const confirmed = listKnowledgeRiverSlugs()
+    .filter((slug) => listKnowledgeGauges(slug).some((g) => g.confirmed))
+    .sort();
+  assert.deepEqual(confirmed, ['black', 'current', 'gasconade', 'jacks-fork', 'meramec', 'niangua']);
+  assert.deepEqual(
+    Object.fromEntries(confirmed.map((slug) => [slug, listKnowledgeGauges(slug).filter((g) => g.confirmed).map((g) => g.siteId)])),
+    {
+      black: ['07061500', 'swl-clearwater-dam', '07063000'],
+      current: [VAN_BUREN, '07064440', '07064533', '07066510', '07068000'],
+      gasconade: ['06928000', '06933500', '06934000'],
+      'jacks-fork': [EMINENCE, ALLEY],
+      meramec: ['07010350', '07013000', '07014500', '07019000'],
+      niangua: [WINDYVILLE, '06923950'],
+    },
+  );
+});
+
+test('no tag and no drafted line reaches any prompt', () => {
+  for (const slug of listKnowledgeRiverSlugs()) {
+    const drafts = listKnowledgeGauges(slug).filter((g) => !g.confirmed);
+    for (const text of everySelection(slug)) {
+      assert.doesNotMatch(text, /\{[#@]|\{unconfirmed\}/, `${slug}: a heading tag leaked`);
+      assert.doesNotMatch(text, /To confirm/, `${slug}: a drafted line leaked`);
+      for (const draft of drafts) assert.ok(!text.includes(draft.text), `${slug}: drafted block for ${draft.name} leaked`);
+    }
+  }
+});
+
+test("a river's Read gets its own gauge in full and every other gauge in one line", () => {
+  const read = getKnowledgeForTarget('jacks-fork', null, EMINENCE);
+  assert.match(read, /=== This gauge: Eminence \(07066000\) ===/);
+  assert.match(read, /Alley Spring to Two Rivers, the stretch the spring carries/);
+  assert.match(read, /outfitters' rule of thumb at Eminence/);
+
+  const elsewhere = read.split("=== Elsewhere on this river: patterns only, never today's conditions ===")[1];
+  assert.ok(elsewhere, 'no elsewhere block');
+  // Where the other gauge sits and what it speaks for, and nothing else of it.
+  assert.match(elsewhere, /- Alley Spring gauge: At Alley Spring, just ABOVE where the spring's water enters/);
+  assert.match(elsewhere, /Speaks for: The upper Jacks Fork, above Alley Spring\./);
+  assert.doesNotMatch(read, /narrow, twisty, and technical/);
+  // Mountain View is drafted, so it is not listed at all.
+  assert.doesNotMatch(read, /Mountain View gauge/);
+});
+
+test("a gauge's Read gets its own block and nothing of the others", () => {
+  const alley = getRiverKnowledgeForGauge('jacks-fork', 'Jacks Fork at Alley Spring, MO', ALLEY);
+  assert.match(alley, /This gauge: Alley Spring \(07065495\)/);
+  assert.match(alley, /does NOT include the spring's water/);
+  assert.match(alley, /narrow, twisty, and technical/);
+  assert.doesNotMatch(alley, /rule of thumb at Eminence|Eddy's primary gauge/);
+  assert.doesNotMatch(alley, /General Ozarks Knowledge|Elsewhere on this river/);
+});
+
+test('each spring is placed on the right side of its gauge', () => {
+  // The three errors of 2026-11-17, as the file now states them.
+  const vanBuren = getKnowledgeForTarget('current', null, VAN_BUREN);
+  assert.match(vanBuren, /Below it: Big Spring, which enters about four miles downstream, so this gauge does NOT include Big Spring's water/);
+  // The line that put it upstream is gone from everything Van Buren is told.
+  assert.doesNotMatch(vanBuren, /Big Spring near Van Buren adds massive flow/);
+  assert.equal(riverBlock('current').match(/Big Spring/g), null, 'the river-wide block must not place Big Spring');
+
+  const windyville = getKnowledgeForTarget('niangua', null, WINDYVILLE);
+  assert.match(windyville, /about 14 river miles ABOVE Bennett Spring/);
+  assert.match(windyville, /this gauge does NOT include the spring's water/);
+  assert.doesNotMatch(riverBlock('niangua'), /Reliable base flow thanks to Bennett Spring/);
+
+  assert.match(getKnowledgeForTarget('jacks-fork', null, ALLEY), /=== This gauge: Alley Spring \(07065495\) ===[\s\S]*just ABOVE where the spring's water enters/);
+});
+
+test('a river with no confirmed block for the gauge is selected as it always was', () => {
+  // Big River's blocks are drafts, so naming its gauge changes nothing.
+  assert.equal(getKnowledgeForTarget('big-river', null, '07018100'), getKnowledgeForTarget('big-river', null));
+  assert.equal(
+    getRiverKnowledgeForGauge('big-river', 'Big River at Byrnesville, MO', '07018500'),
+    getRiverKnowledgeForGauge('big-river', 'Big River at Byrnesville, MO'),
+  );
+  // And a confirmed river asked about a gauge it has only a draft for: the
+  // older rule, a reach note that names the gauge's town.
+  const mountainView = getRiverKnowledgeForGauge('jacks-fork', 'Jacks Fork near Mountain View, MO', '07065200');
+  assert.doesNotMatch(mountainView, /This gauge:/);
+});
+
+test('chat is told everything about the river in view, towns included, and no Read is told the towns', () => {
+  const chat = getKnowledgeForChat('current');
+  assert.match(chat, /=== General Ozarks Knowledge ===/);
+  assert.match(chat, /=== Gauge: Van Buren \(07067000\) ===/);
+  assert.match(chat, /=== Section: upper-current ===/);
+  assert.match(chat, /=== Section: lower-current ===/);
+  assert.match(chat, /=== Towns and services ===[\s\S]*\*\*Van Buren\*\*/);
+  // No river in view: the primer alone.
+  assert.equal(getKnowledgeForChat(null), `=== General Ozarks Knowledge ===\n${getGeneralKnowledge()}`);
+
+  for (const text of [getKnowledgeForTarget('current', null, VAN_BUREN), getRiverKnowledgeForGauge('current', 'Current River at Doniphan, MO', '07068000')]) {
+    assert.doesNotMatch(text, /Towns and services|nearest town is/);
+  }
+});
+
+test('no knowledge sends a reader to another river', () => {
+  // The Read prompt forbids suggesting a river it has no gauge data for.
+  assert.doesNotMatch(getGeneralKnowledge(), /choose Eleven Point|over Current or Meramec/);
+  assert.doesNotMatch(getKnowledgeForChat('niangua'), /good fallback|good alternative/);
+  assert.doesNotMatch(getKnowledgeForChat('courtois'), /If Huzzah is too crowded/);
+});
+
+test("the Current's gauges each say which springs they do and do not carry", () => {
+  // Checked against the Park Service's spring points on the river line and the
+  // 2026 readings, and confirmed by the owner on 2026-11-18.
+  const akers = getRiverKnowledgeForGauge('current', 'Current River above Akers, MO', '07064533');
+  assert.match(akers, /This gauge: Akers \(07064533\)/);
+  assert.match(akers, /Above it: Montauk Springs and Welch Spring/);
+  assert.match(akers, /Speaks for\*\*: Cedar Grove to Pulltite\./);
+  assert.match(akers, /Section upper-current:[\s\S]*Section lower-current:/);
+
+  const montauk = getRiverKnowledgeForGauge('current', 'Current River at Montauk State Park, MO', '07064440');
+  assert.match(montauk, /Below it: Welch Spring and every other spring/);
+  assert.match(montauk, /Section upper-current:/);
+  assert.doesNotMatch(montauk, /Section lower-current:/);
+
+  assert.match(getRiverKnowledgeForGauge('current', 'Current River at Doniphan, MO', '07068000'), /Above it: Big Spring/);
+
+  // Van Buren's Read is told where the others sit, one line each.
+  const elsewhere = getKnowledgeForTarget('current', null, VAN_BUREN).split('=== Elsewhere on this river')[1];
+  for (const name of ['Montauk', 'Akers', 'Powder Mill', 'Doniphan']) assert.match(elsewhere, new RegExp(`- ${name} gauge: `));
+  // Blue Spring sits between the Powder Mill gauge and Van Buren.
+  assert.match(elsewhere, /Powder Mill gauge: .*Below it: Blue Spring, which enters a mile and a half downstream/);
+  assert.match(getKnowledgeForTarget('current', null, VAN_BUREN), /Speaks for\*\*: The lower Current around Van Buren, from Blue Spring down to Big Spring\./);
+});
+
+test("the Meramec's four gauges are split at Maramec Spring, the Huzzah and the Bourbeuse", () => {
+  // Confirmed by the owner on 2026-11-18. The confluences are measured on the
+  // river lines; Maramec Spring's side is the owner's, and the readings agree
+  // (about 147 cfs gained between Cook Station and Steelville at low water).
+  const steelville = getKnowledgeForTarget('meramec', null, '07013000');
+  assert.match(steelville, /=== This gauge: Steelville \(07013000\) ===/);
+  assert.match(steelville, /Speaks for\*\*: Maramec Spring down to the Huzzah\./);
+  assert.match(steelville, /=== Section: upper-meramec ===/);
+  assert.doesNotMatch(steelville, /=== Section: lower-meramec ===/);
+  const elsewhere = steelville.split('=== Elsewhere on this river')[1];
+  assert.match(elsewhere, /Cook Station gauge: .*does NOT include the spring's water/);
+  assert.match(elsewhere, /Eureka gauge: /);
+
+  const eureka = getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO', '07019000');
+  assert.match(eureka, /the Big River, which joins about three miles upstream/);
+  assert.match(eureka, /Section lower-meramec:/);
+  // The upper river's reach note is not Eureka's.
+  assert.doesNotMatch(eureka, /Steelville outfitters run rafts/);
+});
+
+test('the Gasconade and the Black say what joins between their gauges', () => {
+  // Confirmed by the owner on 2026-11-18.
+  const hazelgreen = getKnowledgeForTarget('gasconade', null, '06928000');
+  assert.match(hazelgreen, /Above it: the Osage Fork, which joins just upstream of the gauge/);
+  assert.match(hazelgreen, /=== Section: upper-hazelgreen ===/);
+  // The file used to say a Big Piney rise shows up "below Jerome". The river
+  // line puts the confluence nine miles above the Jerome gauge.
+  const jerome = getRiverKnowledgeForGauge('gasconade', 'Gasconade River at Jerome, MO', '06933500');
+  assert.match(jerome, /this gauge DOES include the Big Piney's water/);
+  assert.doesNotMatch(getKnowledgeForChat('big-piney'), /shows up on the Gasconade below Jerome/);
+
+  const annapolis = getKnowledgeForTarget('black', null, '07061500');
+  assert.match(annapolis, /Speaks for\*\*: The upper float, from Lesterville down to the lake\./);
+  const elsewhere = annapolis.split('=== Elsewhere on this river')[1];
+  assert.match(elsewhere, /Clearwater Dam gauge: .*It reports what the dam is releasing/);
+  assert.match(elsewhere, /Poplar Bluff gauge: .*about 49 miles below Clearwater Dam/);
+});
+
+test('the Buffalo names its lowest gauge for where it is', () => {
+  // The file called it "Rush". The station is near Harriet, at Highway 14.
+  assert.doesNotMatch(getKnowledgeForChat('buffalo'), /\*\*Rush\*\* is the lowest|Rush is the lowest gauge/);
+  assert.match(getKnowledgeForChat('buffalo'), /Harriet\*\*, at the Highway 14 bridge, is the lowest/);
 });

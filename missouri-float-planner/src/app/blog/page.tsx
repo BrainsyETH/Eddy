@@ -1,3 +1,4 @@
+import { researchEntries } from '@/components/blog/ResearchEntries';
 import GuideDirectory from '@/components/blog/GuideDirectory';
 import Link from 'next/link';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
@@ -122,18 +123,13 @@ export default async function BlogPage() {
       {/* Blog Posts */}
       <section className="flex-1 py-10 md:py-14">
         <div className="max-w-5xl mx-auto px-4">
-          {blogPosts.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-neutral-500">No blog posts yet. Check back soon!</p>
-            </div>
-          ) : (
-            <GuideDirectory entries={blogPosts.map((post) => {
+          <GuideDirectory research={researchEntries} entries={blogPosts.map((post) => {
                 const riverName = post.river_slug ? riverNames[post.river_slug]?.name ?? null : null;
                 const displayTitle = stripRiverName(post.title, riverName);
                 const cover = guideCover(post);
                 return { slug: post.slug, state: post.river_slug ? riverNames[post.river_slug]?.state ?? null : null,
                   search: [riverName, post.title, post.description, post.river_slug].filter(Boolean).join(' '), card: (
-                  <article key={post.slug} className="group flex flex-col overflow-hidden bg-white border-2 border-neutral-200 rounded-xl shadow-sm hover:border-primary-400 hover:shadow-md transition-all">
+                  <article key={post.slug} className="group flex flex-col overflow-hidden bg-surface border-2 border-neutral-200 rounded-xl shadow-sm hover:border-accent-600 hover:shadow-md transition-all">
                     <Link href={`/blog/${post.slug}`} className="flex flex-col flex-1 p-4 sm:p-6 no-underline">
                       {cover.src && (
                         <div className="relative h-44 -mt-4 -mx-4 sm:-mt-6 sm:-mx-6 mb-4 overflow-hidden bg-neutral-100">
@@ -148,7 +144,7 @@ export default async function BlogPage() {
                         </div>
                       )}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-                        <span className="inline-flex max-w-full items-center justify-center px-3 py-1 rounded-full text-center text-xs leading-snug font-semibold bg-primary-100 text-primary-700">
+                        <span className="inline-flex max-w-full items-center justify-center px-3 py-1 rounded-full text-center text-xs leading-snug font-semibold bg-secondary-100 text-text-secondary">
                           {riverName ?? post.category}
                         </span>
                         {post.read_time_minutes && (
@@ -181,7 +177,6 @@ export default async function BlogPage() {
                   </article>
                 ) };
               })} />
-          )}
 
           {/* CTA to main app */}
           <div className="mt-12 text-center">

@@ -10,6 +10,11 @@ export function elapsedText(hours: number): string {
   return whole ? whole + ' hr' + (rest ? ' ' + rest + ' min' : '') : minutes + ' min';
 }
 
+/** Match the study’s quarter-hour precision while spelling out the minutes. */
+export function typicalDuration(hours: number): string {
+  return elapsedText(Math.round(hours * 4) / 4);
+}
+
 export function windowPosition(elapsed: number, early: number, late: number): 'before' | 'within' | 'past' {
   return elapsed < early ? 'before' : elapsed > late ? 'past' : 'within';
 }

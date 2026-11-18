@@ -6,7 +6,7 @@
 //
 // MEASURED FIRST. The gauge is the only place a release was timed, so the
 // headline, the typical window and the timeline are all the gauge's. Access
-// points upstream get a rough guide under the map: one rounded time each, from
+// points upstream get one rounded, distance-based time in their caption and guide, from
 // the steady-pace assumption, with no window. Nothing is reported below the
 // gauge. Historical distributions and completed releases are separate views.
 import { useEffect, useId, useMemo, useState } from 'react';
@@ -16,7 +16,7 @@ import { EddyIcon, eddyIconUrl } from '@/components/ui/EddyIcon';
 import Segmented, { type SegmentedOption } from '@/components/ui/Segmented';
 import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
 import { hoursText, type Spread } from '@/lib/release-timing/findings';
-import { elapsedText, playbackHours, roughHours, sizePhrase, windowPosition } from '@/lib/release-timing/presentation';
+import { elapsedText, playbackHours, roughHours, sizePhrase, typicalDuration, windowPosition } from '@/lib/release-timing/presentation';
 import { frontMile, GAUGE_INDEX, GAUGE_MILE, MAP, paceShare, PLACES, riverFrame } from '@/lib/release-timing/river';
 import { clockTime, datedDay, releaseHour, weekdayDate } from '@/lib/release-timing/time';
 import styles from './release-timing.module.css';
@@ -37,19 +37,24 @@ export const SIZE_OPTIONS: SegmentedOption<number>[] = [
 /** Access points with no gauge, upstream of the one that has one. */
 const ROUGH_GUIDE = PLACES.filter((p) => !p.kind && !p.minor && p.mile < GAUGE_MILE);
 
-export default function ReleaseMap({ size, onSize, spreads, shown, onClear, playRequest }: {
+export default function ReleaseMap({ size, onSize, spreads, shown, onClear }: {
   size: number;
   onSize: (index: number) => void;
   spreads: Spread[];
   /** A completed release selected in How close was Eddy; null is the historical model. */
   shown: ShownRelease | null;
   onClear: () => void;
-  playRequest: number;
 }) {
   const q = spreads[size];
-  const [elapsed, setElapsed] = useState(0);
-  const [selected, setSelected] = useState(GAUGE_INDEX);
+  const [historicalElapsed, setHistoricalElapsed] = useState(0);
+  const [historicalPlace, setHistoricalPlace] = useState(GAUGE_INDEX);
+  const [replayElapsed, setReplayElapsed] = useState(0);
+  const [replayPlace, setReplayPlace] = useState(GAUGE_INDEX);
   const [playing, setPlaying] = useState(false);
+  const elapsed = shown ? replayElapsed : historicalElapsed;
+  const selected = shown ? replayPlace : historicalPlace;
+  const setElapsed = shown ? setReplayElapsed : setHistoricalElapsed;
+  const setSelected = shown ? setReplayPlace : setHistoricalPlace;
   const [frame, width] = useMeasuredWidth<HTMLDivElement>(760, 260);
   const ids = useId().replace(/:/g, '');
   const river = useMemo(() => riverFrame(width), [width]);
@@ -58,13 +63,12 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
   const hoursShown = playbackHours(recordedHours ?? q.p90);
   const playUntil = shown ? travelHours : q.p90;
   const place = PLACES[selected];
+  const roughGuide = useMemo(() => ROUGH_GUIDE.map((p) => ({
+    index: PLACES.indexOf(p), name: p.name, time: roughHours(travelHours * paceShare(p)!),
+  })), [travelHours]);
+  const upstream = roughGuide.find((entry) => entry.index === selected);
 
   useEffect(() => { setPlaying(false); }, [size]);
-  useEffect(() => {
-    if (!shown || playRequest === 0) { setPlaying(false); return; }
-    setElapsed(0);
-    setPlaying(true);
-  }, [playRequest, shown]);
   useEffect(() => {
     if (!playing) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -73,18 +77,27 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
     }
     let last = performance.now();
     let request = requestAnimationFrame(function tick(now: number) {
-      setElapsed((t) => Math.min(playUntil, t + ((now - last) / 1000) * (playUntil / PLAY_SECONDS)));
+      const advance = ((now - last) / 1000) * (playUntil / PLAY_SECONDS);
+      setElapsed((t) => Math.min(playUntil, t + advance));
       last = now;
       request = requestAnimationFrame(tick);
     });
     return () => cancelAnimationFrame(request);
-  }, [playing, playUntil]);
+  }, [playing, playUntil, setElapsed]);
   useEffect(() => {
     if (elapsed >= playUntil) {
       setPlaying(false);
       if (elapsed > hoursShown) setElapsed(hoursShown);
     }
-  }, [elapsed, hoursShown, playUntil]);
+  }, [elapsed, hoursShown, playUntil, setElapsed]);
+
+  // A comparison owns its clock and selection. Replaying it again starts
+  // from the dam; returning reveals the historical playhead where it was.
+  useEffect(() => {
+    setReplayElapsed(0);
+    setReplayPlace(GAUGE_INDEX);
+    setPlaying(Boolean(shown));
+  }, [shown]);
 
   const base = useMemo(() => ({
     lakes: Object.values(MAP.lakes).flatMap((rings) => rings.map((ring) => river.line(ring) + 'Z')),
@@ -108,19 +121,15 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
       <div className={styles.answerHead}>
         <div className={styles.modelRow}>
           <span className={styles.modelLabel}>{shown ? 'Recorded release · ' + datedDay(shown.onsetMs) : 'Historical timing · Not live'}</span>
-          {shown && (
-            <Button variant="outline" size="sm" className="min-h-11" onClick={() => {
-              onClear();
-              setElapsed(0);
-              setPlaying(false);
-              document.getElementById(ids + 'answer')?.focus({ preventScroll: true });
-            }}>Back to timing</Button>
-          )}
+          {shown && <Button variant="outline" size="sm" className="min-h-11" onClick={onClear}>Back to comparison</Button>}
         </div>
         <div className={styles.answerRow}>
           <div>
-            <h2 id={ids + 'answer'} tabIndex={-1} className={styles.answerLine} aria-live="polite">About <b>{hoursText(travelHours)} hours</b></h2>
-            <p className={styles.destination}>To the gauge near Norfork{!shown && <> · {sizePhrase(size, spreads.length)} · normal river</>}</p>
+            <h2 id={ids + 'answer'} tabIndex={-1} className={styles.answerLine} aria-live="polite">
+              <span>First rise at the gauge near Norfork</span>
+              About <b>{typicalDuration(travelHours)}</b> <small>after release</small>
+            </h2>
+            {!shown && <p className={styles.destination}>{sizePhrase(size, spreads.length)} · normal river</p>}
           </div>
           {!shown && <div className={styles.sizePick}>
             <span>Generators</span>
@@ -133,9 +142,40 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
         </p>
       </div>
 
+      <div className={styles.deck}>
+        <div className={styles.deckRow}>
+          <div className={styles.transport}>
+            <Button variant="primary" size="sm" className="min-h-11 min-w-24" onClick={() => { if (!playing && elapsed >= playUntil) setElapsed(0); setPlaying(!playing); }}>
+              {playing ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}{playing ? 'Pause' : 'Play'}
+            </Button>
+            <Button variant="outline" size="sm" className="min-h-11" aria-label="Restart from the dam" onClick={() => { setPlaying(false); setElapsed(0); }}><RotateCcw size={16} aria-hidden="true" /><span className="sr-only">Restart</span></Button>
+          </div>
+          <div className={styles.clock}>
+            <b>{elapsedText(elapsed)} <span>after release</span></b>
+            <small role="status" aria-live={playing ? 'off' : 'polite'}>{status}{shown ? ' · ' + weekdayDate(shown.onsetMs + elapsed * HOUR_MS) + ', ' + clockTime(shown.onsetMs + elapsed * HOUR_MS) + ' CT' : ''}</small>
+          </div>
+        </div>
+        <div>
+          <div className={styles.timeline}>
+            <div className={styles.timelineCaption}>Gauge near Norfork · {shown ? 'recorded rise' : 'typical window'}</div>
+            <div className={styles.sliderArea}>
+              <div className={styles.bars} aria-hidden="true">
+                <i data-band="elapsed" style={{ width: percent(elapsed) }} />
+                {!shown && <i data-band="window" style={{ left: percent(q.p10), width: Math.max(0.3, (q.p90 - q.p10) / hoursShown * 100) + '%' }} />}
+                <i data-band={shown ? 'observed' : 'typical'} style={{ left: percent(travelHours) }} />
+              </div>
+              <input type="range" min={0} max={hoursShown * 12} step={1} value={Math.round(elapsed * 12)} aria-label="Time since release"
+                aria-valuetext={elapsedText(elapsed) + ' after release, ' + status.toLowerCase()}
+                onChange={(event) => { setPlaying(false); setElapsed(Number(event.target.value) / 12); }} />
+            </div>
+          </div>
+          <div className={styles.ticks}>{ticks.map((hours) => <span key={hours} style={{ left: percent(hours) }}>{hours === 0 ? 'Release' : '+' + hours + ' hr'}</span>)}</div>
+        </div>
+      </div>
+
       <div className={styles.mapwrap}>
         <div ref={frame} className={styles.mapCanvas}>
-          <svg viewBox={'0 0 ' + river.width + ' ' + river.height} role="group" aria-label="White River map, select a place for river miles" aria-describedby={ids + 'map-note'}>
+          <svg viewBox={'0 0 ' + river.width + ' ' + river.height} role="group" aria-label="White River map, select a place for details" aria-describedby={ids + 'map-note'}>
           <defs><clipPath id={ids + 'frame'}><rect width={river.width} height={river.height} /></clipPath></defs>
           <g clipPath={'url(#' + ids + 'frame)'} fill="none" strokeLinecap="round" strokeLinejoin="round">
             {base.lakes.map((d, i) => <path key={i} d={d} fill="var(--rt-lake)" />)}
@@ -161,7 +201,7 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
             const offset = (river.narrow && p.narrowLabel) || p.label || { dx: 10, dy: 4, anchor: 'start' as const };
             const textX = Math.min(river.width - 8, Math.max(8, x + offset.dx));
             return (
-              <g key={p.name} className={interactive ? styles.hit : undefined} role={interactive ? 'button' : undefined}
+              <g key={p.name} data-place={index} className={interactive ? styles.hit : undefined} role={interactive ? 'button' : undefined}
                 tabIndex={interactive ? 0 : undefined} aria-label={interactive ? `${p.name}, mile ${p.mile}` : undefined}
                 aria-pressed={interactive ? on : undefined} onClick={interactive ? () => setSelected(index) : undefined}
                 onKeyDown={interactive ? (event) => {
@@ -173,7 +213,7 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
                   <circle cx={x} cy={y} r={p.minor ? 2.5 : 4.5} fill="var(--color-surface)" stroke="var(--rt-series)" strokeWidth={2} />}
                 {labelled && <text x={textX} y={y + offset.dy} className={styles.tPlace} textAnchor={offset.anchor}>
                   {(river.narrow && p.short) || p.name}
-                  {p.kind === 'gauge' && <tspan x={textX} dy={16} className={styles.tTiming}>Measured</tspan>}
+                  {p.kind === 'gauge' && <tspan x={textX} dy={16} className={styles.tTiming}>{shown ? 'Recorded rise' : 'Measured'}</tspan>}
                 </text>}
               </g>
             );
@@ -182,44 +222,17 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
         </svg>
         </div>
         <div className={styles.placeCaption} aria-live="polite">
-          <b>{place.name}</b><span>Mile {place.mile} · {place.kind === 'gauge' ? 'Measured gauge' : place.kind === 'dam' ? 'Release starts here' : place.mile > GAUGE_MILE ? 'No timing below the gauge' : 'Timing not measured here'}</span>
-          <span className={styles.mapHint}>Tap a place for river miles</span>
+          <div><b>{place.name}</b> <span>· Mile {place.mile}</span></div>
+          {upstream
+            ? <p><b className={styles.roughTime}>{upstream.time}</b> after release, based on distance. Timing was measured only at the gauge near Norfork.</p>
+            : <p>{place.kind === 'gauge' ? (shown ? 'Recorded rise · ' + clockTime(shown.riseMs) + ' CT' : 'Measured gauge') : place.kind === 'dam' ? 'Release starts here' : 'No timing below the gauge'}</p>}
+
         </div>
         <div className={styles.mapKey}>
-          <span><i />{shown ? 'Replayed first rise' : 'Typical first rise'}</span>
+          <span><i />{shown ? 'Illustrated travel' : 'Typical first rise'}</span>
           {!shown && <span><i data-key="window" />Typical window</span>}
-          <span><EddyIcon name="gaugeStation" size={18} />Measured gauge</span>
+          <span><EddyIcon name="gaugeStation" size={18} />{shown ? 'Recorded rise' : 'Measured gauge'}</span>
           <span id={ids + 'map-note'}>Motion assumes steady travel.</span>
-        </div>
-      </div>
-
-      <div className={styles.deck}>
-        <div className={styles.deckRow}>
-          <div className={styles.transport}>
-            <Button variant="primary" size="sm" className="min-h-11 min-w-24" onClick={() => { if (!playing && elapsed >= playUntil) setElapsed(0); setPlaying(!playing); }}>
-              {playing ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}{playing ? 'Pause' : 'Play'}
-            </Button>
-            <Button variant="outline" size="sm" className="min-h-11" aria-label="Restart from the dam" onClick={() => { setPlaying(false); setElapsed(0); }}><RotateCcw size={16} aria-hidden="true" /><span className="sr-only">Restart</span></Button>
-          </div>
-          <div className={styles.clock}>
-            <b>{elapsedText(elapsed)} <span>after release</span></b>
-            <small role="status" aria-live={playing ? 'off' : 'polite'}>{status}{shown ? ' · ' + weekdayDate(shown.onsetMs + elapsed * HOUR_MS) + ', ' + clockTime(shown.onsetMs + elapsed * HOUR_MS) + ' CT' : ''}</small>
-          </div>
-        </div>
-        <div>
-          <div className={styles.timeline}>
-            <div className={styles.timelineCaption}>Gauge near Norfork · {shown ? 'recorded rise' : 'typical window'}</div>
-            <div className={styles.sliderArea}>
-              <div className={styles.bars} aria-hidden="true">
-                {!shown && <i data-band="window" style={{ left: percent(q.p10), width: Math.max(0.3, (q.p90 - q.p10) / hoursShown * 100) + '%' }} />}
-                <i data-band={shown ? 'observed' : 'typical'} style={{ left: percent(travelHours) }} />
-              </div>
-              <input type="range" min={0} max={hoursShown * 12} step={1} value={Math.round(elapsed * 12)} aria-label="Time since release"
-                aria-valuetext={elapsedText(elapsed) + ' after release, ' + status.toLowerCase()}
-                onChange={(event) => { setPlaying(false); setElapsed(Number(event.target.value) / 12); }} />
-            </div>
-          </div>
-          <div className={styles.ticks}>{ticks.map((hours) => <span key={hours} style={{ left: percent(hours) }}>{hours === 0 ? 'Release' : '+' + hours + ' hr'}</span>)}</div>
         </div>
       </div>
 
@@ -228,7 +241,14 @@ export default function ReleaseMap({ size, onSize, spreads, shown, onClear, play
         <div className={styles.rough}>
           <p>Not measured. These times assume steady travel from the dam.</p>
           <ul>
-            {ROUGH_GUIDE.map((p) => <li key={p.name}><span>{p.name}</span><b>{roughHours(travelHours * paceShare(p)!)}</b></li>)}
+            {roughGuide.map((entry) => <li key={entry.index}>
+              <button type="button" aria-pressed={entry.index === selected} onClick={() => {
+                setSelected(entry.index);
+                const marker = frame.current?.querySelector<SVGElement>(`[data-place="${entry.index}"]`);
+                marker?.focus({ preventScroll: true });
+                marker?.scrollIntoView({ block: 'center', behavior: 'instant' });
+              }}><span>{entry.name}</span><b>{entry.time}</b></button>
+            </li>)}
           </ul>
         </div>
       </details>

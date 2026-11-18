@@ -49,7 +49,8 @@ const camps = names.map((name, i) => ({
   website: "https://www.nps.gov/ozar/",
   reservationUrl: null,
   firstCome: 'unknown',
-  accessDestination: { riverSlug: 'current', accessId: 'fixture-access' },
+  // Out of name order on purpose; the second has no mile, as older responses do.
+  accessDestination: { riverSlug: 'current', accessId: 'fixture-access', riverMile: [51, undefined, 9, 97, 26][i] },
   serviceId: null,
   loopName: null,
   source: "recreation_gov",
@@ -102,6 +103,21 @@ const overview = {
     },
   ],
 };
+const riverReading = (code, label, readingAgeHours) => ({
+  label, code, thresholdUnit: "cfs", gaugeHeightFt: null, dischargeCfs: 900,
+  readingAgeHours, trend: { direction: "falling", label: "Falling", windowHours: 6 },
+});
+// Jacks Fork's reading is a day old: the hub must not present it as "now".
+const rivers = [
+  ["current", "Current River", riverReading("good", "Good", 1)],
+  ["jacks-fork", "Jacks Fork River", riverReading("good", "Good", 30)],
+  ["meramec", "Meramec River", riverReading("high", "High", 1)],
+].map(([slug, name, currentCondition]) => ({
+  id: slug, slug, name, state: "MO", riverType: null, lengthMiles: 100,
+  description: null, difficultyRating: null, region: null, accessPointCount: 0,
+  path: `/rivers/missouri/${slug}`, currentCondition,
+}));
+overview.rivers = rivers.map(({ slug, name, path }) => ({ slug, name, path }));
 const flags = { Tent: null, RV: null, Electric: true };
 const summaries = camps.map((c, i) => ({
   facilityId: c.facilityId,
@@ -209,9 +225,9 @@ try {
     await new Promise(() => {});
   }
   browser = await chromium.launch({
-    executablePath:
-      process.env.CHROMIUM_PATH ||
-      (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : undefined),
+    // CI installs Playwright's matching browser. System Chromium may be a
+    // launcher that cannot start on the runner; local overrides stay explicit.
+    executablePath: process.env.CHROMIUM_PATH || undefined,
     headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage"],
   });
@@ -219,6 +235,10 @@ try {
     viewport: { width: 1440, height: 1100 },
   });
   page.on('pageerror', (e) => errors.push(e.message));
+  // Deliberate image failure must not wait for Next's full 404 page/remote media.
+  await page.route(/camping-missing-photo-fixture/, route => route.fulfill({
+    status: 404, contentType: 'text/plain', body: 'Labelled missing-photo fixture',
+  }));
   // Exercise the client with the AbortSignal statics missing, as on older Safari.
   await page.addInitScript(() => {
     for (const name of ['any', 'timeout']) Object.defineProperty(AbortSignal, name, { value: undefined, configurable: true });
@@ -226,6 +246,13 @@ try {
   await page.route('**/api/campsites?**', (route) => {
     errors.push('The web hub must use its own detail endpoint, not the existing iOS API.');
     return route.abort();
+  });
+  let failRivers = false;
+  let riverRequests = 0;
+  let servedRivers = rivers;
+  await page.route("**/api/rivers", (route) => {
+    riverRequests++;
+    return route.fulfill(failRivers ? { status: 503, json: { error: 'Fixture outage' } } : { json: { rivers: servedRivers } });
   });
   await page.route("**/api/camping/stay?**", (route) => {
     const url = new URL(route.request().url());
@@ -347,6 +374,32 @@ try {
       { url: '/lakes/nwk-truman-dam.jpg', title: 'Second labelled fixture', source: 'Recreation.gov' },
     ] } } });
   });
+  // Even a failed condition request cannot remove the selected river or its links.
+  failRivers = true;
+  await page.goto(`${origin}/camping-layout-check?river=meramec`);
+  const failedRiver = page.getByRole('region', { name: 'Meramec River now' });
+  await failedRiver.getByText('Conditions unavailable', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('combobox', { name: 'River', exact: true }).inputValue(), 'meramec');
+  assert.equal(await failedRiver.getByRole('link', { name: 'Meramec River conditions' }).getAttribute('href'), '/rivers/missouri/meramec');
+  assert.equal(await failedRiver.getByRole('link', { name: 'Plan a float' }).getAttribute('href'), '/plan?river=meramec');
+  failRivers = false;
+  // A link from a river with no campgrounds listed still names that river.
+  await page.goto(`${origin}/camping-layout-check?river=meramec`);
+  const riverSelect = page.getByRole("combobox", { name: "River", exact: true });
+  await page.getByRole("region", { name: "Meramec River now" }).getByText("High", { exact: true }).waitFor();
+  assert.equal(await riverSelect.inputValue(), "meramec");
+  assert.equal(await riverSelect.locator("option:checked").textContent(), "Meramec River");
+  await page.getByText("No campgrounds match this search.", { exact: false }).waitFor();
+  // A slug that names no river is ignored, not shown as an invented river.
+  const unknownRiverRequest = page.waitForResponse((response) => response.url().endsWith("/api/rivers"));
+  await page.goto(`${origin}/camping-layout-check?river=not-a-river`);
+  await page.getByRole("heading", { name: "5 campgrounds", exact: true }).waitFor();
+  // The slug is checked against the live list too; let that request finish.
+  await unknownRiverRequest;
+  assert.equal(await riverSelect.inputValue(), "");
+  assert.equal(await riverSelect.getByRole("option", { name: "Not A River" }).count(), 0);
+  assert.equal(await page.getByRole("region", { name: /now$/ }).count(), 0);
+  const requestsBeforeAllRivers = riverRequests;
   await page.goto(`${origin}/camping-layout-check`);
   await page
     .getByRole("heading", { name: "Find your next campsite." })
@@ -394,6 +447,128 @@ try {
     path: `${out}/desktop-photo-cards-fixture.png`,
     fullPage: true,
   });
+  // Every part of a card lands on its one control; a directory card lands on its link.
+  const hitTarget = (locator, selector) => locator.evaluate((node, css) => {
+    node.scrollIntoView({ block: "center", behavior: "instant" });
+    const box = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return hit?.closest(css)?.textContent ?? `not ${css}: <${hit?.tagName.toLowerCase()} class="${hit?.className}">`;
+  }, selector);
+  for (const name of names) {
+    const card = page.getByRole("article").filter({ hasText: name });
+    assert.equal(await hitTarget(card.locator("[data-campground-photo]"), "button"), name);
+    assert.equal(await hitTarget(card.locator("p").last(), "button"), name, "the card body is clickable too");
+  }
+  const directoryCard = page.getByRole("article").filter({ hasText: "Fixture · Check directly" });
+  assert.equal(await hitTarget(directoryCard.locator("[data-campground-photo]"), "a"), "View campground →");
+  await page.getByRole("heading", { name: "Find your next campsite." }).scrollIntoViewIfNeeded();
+  // All-river cards prioritise campsite availability; conditions appear once for a selected river.
+  assert.equal(riverRequests, requestsBeforeAllRivers, "conditions are not requested until a river is selected");
+  const cards = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("button", { name: "View campground" }) });
+  const openCard = cards.filter({ hasText: "Fixture · Open campground" });
+  assert.equal(await cards.getByText("Good", { exact: true }).count(), 0);
+  assert.equal(await page.getByRole("region", { name: /now$/ }).count(), 0);
+  assert.equal(await page.getByText("Upstream to downstream", { exact: false }).count(), 0);
+  // One river: its condition moves to a panel and campgrounds run downstream.
+  await riverSelect.selectOption("current");
+  const riverNow = page.getByRole("region", { name: "Current River now" });
+  await riverNow.getByText("Good", { exact: true }).waitFor();
+  await riverNow.getByText("Falling", { exact: true }).waitFor();
+  assert.equal(
+    await riverNow.getByRole("link", { name: "Current River conditions" }).getAttribute("href"),
+    "/rivers/missouri/current",
+  );
+  assert.equal(
+    await riverNow.getByRole("link", { name: "Plan a float" }).getAttribute("href"),
+    "/plan?river=current",
+  );
+  assert.deepEqual(
+    await cards.locator("h3").allTextContents(),
+    [2, 4, 0, 3, 1].map((i) => names[i]),
+    "upstream to downstream; a campground without a mile follows",
+  );
+  await openCard.getByText("River mile 51", { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'More campgrounds', exact: true }).waitFor();
+  const sort = page.getByRole('combobox', { name: 'Sort campgrounds' });
+  assert.equal(await sort.inputValue(), 'river');
+  // Dates choose openings first until the person explicitly picks an order.
+  const tonightShortcut = page.getByRole('button', { name: 'Tonight', exact: true });
+  const weekendShortcut = page.getByRole('button', { name: 'This weekend', exact: true });
+  const stayDates = () => ['arrival', 'departure'].map((key) => new URL(page.url()).searchParams.get(key)).join();
+  assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'false');
+  await tonightShortcut.click();
+  await openCard.getByText('40 sites available', { exact: true }).waitFor();
+  assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'true', 'the chosen shortcut stays highlighted');
+  const tonightDates = stayDates();
+  assert.equal(await sort.inputValue(), 'available');
+  assert.equal((await cards.locator('h3').allTextContents())[0], names[0]);
+  assert.equal(await page.getByRole('heading', { name: 'More campgrounds', exact: true }).count(), 0);
+  await sort.selectOption('river');
+  assert.equal(new URL(page.url()).searchParams.get('sort'), 'river');
+  await weekendShortcut.click();
+  assert.equal(await weekendShortcut.getAttribute('aria-pressed'), 'true', 'the chosen shortcut stays highlighted');
+  // On a day when tonight is also the weekend, both describe the stay.
+  if (stayDates() !== tonightDates) {
+    assert.equal(await tonightShortcut.getAttribute('aria-pressed'), 'false');
+    assert.notEqual(
+      await weekendShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
+      await tonightShortcut.evaluate((node) => getComputedStyle(node).backgroundColor),
+      'the highlight is visible, not only announced',
+    );
+  }
+  assert.equal(await sort.inputValue(), 'river', 'date changes retain an explicit sort');
+  await page.getByRole('button', { name: 'Calendar', exact: true }).click();
+  await page.getByRole('table').getByText('River mile 51', { exact: true }).waitFor();
+  await page.getByRole('cell', { name: 'More campgrounds', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Cards', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear dates', exact: true }).click();
+  assert.equal(await weekendShortcut.getAttribute('aria-pressed'), 'false');
+  assert.equal(await sort.inputValue(), 'river');
+  // Chevrons are drawn at the text's inset, not the browser's flush arrow.
+  for (const select of [riverSelect, sort]) {
+    const style = await select.evaluate((node) => {
+      const computed = getComputedStyle(node);
+      return { appearance: computed.appearance, image: computed.backgroundImage, room: parseFloat(computed.paddingRight) };
+    });
+    assert.equal(style.appearance, 'none');
+    assert.match(style.image, /^url\(/);
+    assert.ok(style.room >= 30, 'the label cannot run under the chevron');
+  }
+  // A mouse or touch pick releases the select, so no focus ring lingers on it.
+  await sort.dispatchEvent('pointerdown');
+  await sort.selectOption('available');
+  assert.equal(await sort.evaluate((node) => node === document.activeElement), false);
+  // A keyboard pick keeps focus, shown as the site's field focus, not a coral ring.
+  await sort.focus();
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await sort.inputValue(), 'river');
+  assert.equal(await sort.evaluate((node) => node === document.activeElement), true);
+  const fieldFocus = await sort.evaluate((node) => {
+    const computed = getComputedStyle(node);
+    return { outline: computed.outlineStyle, ring: computed.boxShadow };
+  });
+  assert.equal(fieldFocus.outline, 'none');
+  assert.notEqual(fieldFocus.ring, 'none');
+  assert.equal(await openCard.getByText("Good", { exact: true }).count(), 0, "the panel replaces per-card conditions");
+  await page.getByText("Upstream to downstream", { exact: false }).waitFor();
+  assert.equal(new URL(page.url()).searchParams.get("river"), "current");
+  await page.screenshot({
+    path: `${out}/desktop-river-fixture.png`,
+    fullPage: true,
+  });
+  await riverSelect.selectOption("jacks-fork");
+  await page
+    .getByRole("region", { name: "Jacks Fork River now" })
+    .getByText("Conditions unavailable", { exact: true })
+    .waitFor();
+  assert.deepEqual(await cards.locator("h3").allTextContents(), [names[1]]);
+  assert.equal(await page.getByText("Upstream to downstream", { exact: false }).count(), 0);
+  assert.equal(await sort.count(), 0, "a river with no measured campgrounds offers no river order");
+  await riverSelect.selectOption("");
+  assert.equal(await page.getByRole("region", { name: /now$/ }).count(), 0);
+  assert.equal(new URL(page.url()).searchParams.has("river"), false);
   await page.getByRole("button", { name: "Calendar", exact: true }).click();
   await page.getByRole("table").waitFor();
   await page.screenshot({
@@ -457,9 +632,15 @@ try {
     true,
   );
   const beforeReopen = siteRequests;
-  await page.getByRole('button', { name: 'View campground' }).first().click();
+  // The whole card opens its campground: reopen by clicking the photo.
+  await cards.first().locator('[data-campground-photo]').evaluate((node) => node.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const firstPhoto = await cards.first().locator('[data-campground-photo]').boundingBox();
+  await page.mouse.click(firstPhoto.x + firstPhoto.width / 2, firstPhoto.y + firstPhoto.height / 2);
+  await page.getByRole('dialog').getByRole('heading', { name: names[0], exact: true }).waitFor();
   await page.getByText('Site 01', { exact: true }).waitFor();
   assert.equal(siteRequests, beforeReopen, 'recent details are reused on reopen');
+  const provider = page.getByRole('dialog').getByRole('link', { name: 'Book on Recreation.gov', exact: true });
+  assert.equal(await provider.getAttribute('href'), camps[0].booking.url, 'the booking button says what it does');
   await page.keyboard.press('Escape');
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   const availableOnly = page.getByLabel('Available for my stay');
@@ -556,6 +737,19 @@ try {
     ),
     "mobile has no page overflow",
   );
+  await riverSelect.selectOption("current");
+  await page.getByRole("region", { name: "Current River now" }).getByText("Good", { exact: true }).waitFor();
+  await page.screenshot({
+    path: `${out}/mobile-river-fixture.png`,
+    fullPage: true,
+  });
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    "the river panel fits a phone",
+  );
+  await riverSelect.selectOption("");
   await page.setViewportSize({ width: 320, height: 844 });
   const [arriveBox, leaveBox] = await Promise.all([
     page.getByLabel("Arrive", { exact: true }).boundingBox(),
@@ -571,6 +765,24 @@ try {
     ),
     "320px has no page overflow",
   );
+  // Small visible pills still respond in the extra touch space around them.
+  const electricFilter = page.getByRole('button', { name: /Electric/ });
+  await electricFilter.scrollIntoViewIfNeeded();
+  const electricBox = await electricFilter.boundingBox();
+  const availabilityBox = await availableOnly.locator('..').boundingBox();
+  assert.ok(Math.abs(electricBox.y - availabilityBox.y) < 2, 'both mobile filters fit on one row');
+  await page.mouse.click(electricBox.x + electricBox.width / 2, electricBox.y - 4);
+  assert.equal(await electricFilter.getAttribute('aria-pressed'), 'true', 'Electric responds outside its visible pill');
+  await electricFilter.click();
+  const availableTap = await availableOnly.locator('..').boundingBox();
+  await page.mouse.click(availableTap.x + availableTap.width / 2, availableTap.y - 4);
+  assert.equal(await availableOnly.isChecked(), true, 'availability responds outside its visible pill');
+  assert.equal(await page.getByRole('button', { name: 'View campground' }).count(), 1);
+  await availableOnly.uncheck();
+  await riverSelect.selectOption('current');
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'river summary and sort fit 320px');
+  await page.screenshot({ path: `${out}/small-mobile-river-fixture.png`, fullPage: true });
+  await riverSelect.selectOption('');
   await page.screenshot({
     path: `${out}/small-mobile-cards-fixture.png`,
     fullPage: true,
@@ -641,11 +853,34 @@ try {
     await page.getByLabel("Arrive", { exact: true }).inputValue(),
     tomorrow,
   );
+  await page.clock.install({ time: new Date(at) });
+  servedRivers = rivers.map(r => r.slug === 'current' ? {
+    ...r, currentCondition: { ...r.currentCondition, readingTimestamp: new Date(Date.parse(at) - 5.9 * 3_600_000).toISOString() },
+  } : r);
+  await page.goto(`${origin}/camping-layout-check?river=current`);
+  const agingRiver = page.getByRole('region', { name: 'Current River now' });
+  await agingRiver.getByText('Good', { exact: true }).waitFor();
+  const beforePolling = riverRequests;
+  const pollingResponse = page.waitForResponse(response => response.url().endsWith('/api/rivers'));
+  await page.clock.fastForward(5 * 60_000);
+  await page.waitForFunction(() => document.querySelector('[aria-label="Current River now"]')?.textContent?.includes('Good'));
+  // Allow the scheduled request to finish before simulating an outage.
+  await pollingResponse;
+  assert.ok(riverRequests > beforePolling, 'current conditions refresh periodically');
+  failRivers = true;
+  const failedRefresh = page.waitForResponse(response => response.url().endsWith('/api/rivers') && response.status() === 503);
+  await page.clock.fastForward(5 * 60_000);
+  await failedRefresh;
+  await agingRiver.getByText('Conditions unavailable', { exact: true }).waitFor();
+  assert.equal(await agingRiver.getByText('Good', { exact: true }).count(), 0, 'cached readings expire on the open page');
+  assert.equal(await agingRiver.getByRole('link', { name: 'Plan a float' }).count(), 1);
   assert.deepEqual(errors, []);
   console.log(
-    'Camping browser smoke passed: desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap, missing AbortSignal statics, refresh failure/recovery and expiry.',
+    'Camping browser smoke passed: river panel/order/handoff, desktop calendar/list, unknown state, immediate filters, rapid typing/caret, URL/Back/Forward/clear, modal/Escape/focus, mobile overflow, 14-night cap, missing AbortSignal statics, refresh failure/recovery and expiry.',
   );
 } catch (error) {
+  // First, so a failing diagnostic below cannot replace the real failure.
+  console.error("Camping smoke failure", error);
   const failedPage = browser?.contexts()[0]?.pages()[0];
   if (failedPage) {
     console.error("Page errors", errors);

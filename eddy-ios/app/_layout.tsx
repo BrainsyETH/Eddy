@@ -41,6 +41,7 @@ import { StarredRiversProvider } from '@/hooks/useStarredRivers';
 import { FloatArchiveProvider } from '@/hooks/useFloatArchive';
 import { SavedFloatsProvider } from '@/hooks/useSavedFloats';
 import { AlertRulesProvider } from '@/hooks/useAlertRules';
+import { DamAlertsProvider } from '@/hooks/useDamAlerts';
 import { PushProvider } from '@/hooks/usePush';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { UpgradeGate } from '@/components/UpgradeGate';
@@ -274,6 +275,9 @@ export default function RootLayout() {
                           SessionProvider because it has nothing to read without a
                           token, and signing in with Apple changes the answer. */}
                       <AlertRulesProvider>
+                        {/* Dam generation alerts: server state for the same
+                            reason, held apart because they are not AlertRules. */}
+                        <DamAlertsProvider>
                         {/* Inside SessionProvider: registration needs a token, and the
                             backend only accepts one from a permanent account. */}
                         <PushProvider>
@@ -285,6 +289,7 @@ export default function RootLayout() {
                           <AppShortcutsSync />
                           <ThemedShell />
                         </PushProvider>
+                        </DamAlertsProvider>
                       </AlertRulesProvider>
                     </SavedFloatsProvider>
                     </FloatArchiveProvider>

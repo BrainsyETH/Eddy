@@ -55,6 +55,17 @@ test('hour ending names the hour the water starts moving', () => {
   assert.equal(hourEndingLabel(24), '11 PM');
 });
 
+test('compact windows name noon and midnight without changing existing page labels', () => {
+  assert.equal(windowLabel(13, 20, { compact: true }), 'Noon–8 PM');
+  assert.equal(windowLabel(1, 2, { compact: true }), 'Midnight–2 AM');
+  assert.equal(windowLabel(24, 24, { compact: true }), '11 PM–midnight');
+  assert.equal(windowLabel(12, 12, { compact: true }), '11 AM–noon');
+  assert.equal(windowLabel(14, 16, { compact: true }), '1–4 PM');
+  assert.equal(windowLabel(12, 13, { compact: true }), '11 AM–1 PM');
+  assert.equal(windowLabel(1, 24, { compact: true }), 'All day');
+  assert.equal(windowLabel(13, 20), '12 PM – 8 PM');
+});
+
 test('midnight is spelled, not printed as 12 AM', () => {
   assert.equal(windowLabel(1, 6), 'midnight – 6 AM');
   assert.equal(windowLabel(7, 24), '6 AM – midnight');

@@ -297,6 +297,11 @@ read-through design deliberately does not do. That is a real (small) change to
 `src/lib/data/dams.ts`'s stated contract — worth making explicitly rather than
 by accident.
 
+**Decided 2026-11-17, differently:** [ADR 0020](../../docs/decisions/0020-dam-generation-alerts-follow-the-posted-schedule.md).
+A posted schedule changed after first being seen on 1 of 180 dam-days, so a
+schedule-change alert would almost never fire. The alert built instead pushes
+at a posted start and/or an hour before it, per dam, from the dam screen.
+
 ---
 
 ## Sequence

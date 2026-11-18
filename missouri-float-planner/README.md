@@ -499,9 +499,10 @@ line with Eddy's hazard icon; the panel holds the full wading/launching caveat.
   with the selected release size, normal-river context and “Historical timing ·
   Not live”. One size control drives the headline, map and size chart. The map
   uses a first-rise marker and one historical window; its motion assumes steady
-  travel. Tapping or keyboard-selecting a place highlights its name and river
-  mile without claiming an arrival time there. Rounded, unmeasured upstream
-  times live under “Rough guide upstream”. Nothing is timed below the gauge.
+  travel. Playback sits above the map with the window on the time slider.
+  Map markers and the upstream list select the same places. Upstream captions
+  give the river mile and a rounded distance-based estimate, measured only at
+  the gauge near Norfork. Nothing is timed below the gauge.
 - **How close was Eddy?** The latest completed comparison leads with the
   approximate difference from Eddy's estimate and a quiet window-status label.
   Headline differences round to five minutes; sub-five-minute differences stay
@@ -515,7 +516,8 @@ line with Eddy's hazard icon; the panel holds the full wading/launching caveat.
   sample; pending releases are named separately. The study panel explains the
   review after 60 comparisons, which does not imply a passing verdict. Replaying a completed result uses
   its recorded dam-to-gauge delay and Central clock, with no historical band.
-  “Back to timing” restores the historical view.
+  “Back to comparison” restores the historical selection and playhead, then
+  returns focus to the comparison that opened the replay.
 - **What changes it?** Charts compare release size and starting river conditions.
   The heading and explanation follow the River level / Starting release choice.
 

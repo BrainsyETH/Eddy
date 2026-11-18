@@ -1,0 +1,22 @@
+# River Conditions by Month
+
+The report at `/blog/research/river-conditions` grades measured flows on read with the shared Eddy classifier. The archive spans January 1, 2006 through December 31, 2025. It stores discharge in cfs and preserves a null for each missing calendar day. An archive year always has 365 or 366 entries. Browser responses contain the selected summaries, not the archive.
+
+## Sources and refresh
+
+- From the web app directory, run `python scripts/research/condition-days/archive.py` to fetch the published sites from the USGS OGC Daily collection. A daily mean discharge (00060 / 00003) must be approved, finite, and nonnegative. The archive includes readings with no qualifier and those marked only `REVISED`. Any other qualifier excludes the reading, including `ESTIMATED` alongside `REVISED`. An upstream error or duplicate date fails the fetch. Review the file diff and run the study tests plus `python -m unittest discover -s scripts/research/condition-days` before publishing.
+- `src/data/condition-days/stations.json` identifies the reviewed station/river pair and the November 17, 2026 backup of its production cfs thresholds. The server reads the current pairing when configured. A removed or incomplete pairing disables the report for that station. During a database outage the historical study can still render using the dated thresholds.
+- `completed-days.sql` reproduces the completed 2026 Eddy sample. Bind `:sites` to the reviewed USGS site IDs as a Postgres text array. `observations.json` stores the returned raw daily medians as arrays from January 1 through November 16 inclusive. Later completed days are read by station and Central calendar month. After New Year the page starts from January 1 of the new year. A failed read stops the displayed coverage at the last successful month.
+- A month counts recorded days. The two-gauge detail counts only dates with both measurements. The seasonal comparison uses one seven-day median per year, requiring four valid days. Annual frequencies give equal weight to years with at least 90% of days and normalize them to 365 days. The current observation can include a flood-stage override. Historical classifications use discharge only.
+
+## Coverage review, November 17, 2026
+
+The archive contains 106,609 daily measurements at 15 gauges on 10 rivers. Approved revisions account for 3,948 of the 7,233 days at St. Joe, 1,339 of the 7,215 days at Harriet, and nine of the 7,232 days on the North Fork near Tecumseh. At Alley Spring the USGS gauge is upstream of the spring inflow. Eminence measures the spring-fed river downstream. Closing a gap with the other station’s readings would change the question.
+
+The initial review compared monthly shares against each pairing’s existing thresholds. Big River at Richwoods and Byrnesville reached the top band on roughly 54% and 45% of days in their highest month. Current at Van Buren reached 49%, Spring at Hardy 40%, and Gasconade at Hazelgreen 27%. Those pairings are withheld for threshold review. Other high-water outliers, shared proxy gauges, incomplete ladders and stage-only stations were also left outside this edition. The study changes no production rating. Each additional station needs its own source and threshold review. The picker also lists companion gauges on those rivers under “Live readings only.” These show recent measurements in the appropriate unit or link to the dam release page. In particular, Current River has five selections. Akers has reviewed historical ratings. Montauk and Powder Mill are rated in feet. Van Buren and Doniphan retain recent discharge charts while their historical ranges await review.
+
+## Reading the comparisons
+
+The season curve counts Good or Flowing days at monthly checkpoints. For the dashed median, each historical year must have a USGS daily mean on **every** calendar date recorded so far by Eddy. February 29 requires a leap year. With fewer than three matching years only the observed count is shown. A month without observations breaks the line. The historical median uses daily means, and the current season uses daily medians.
+
+The weekend result counts Fridays rated Good or Flowing with approved measurements on both Saturday and Sunday. A weekend holds when both days also rate Good or Flowing. The first day outside that pair determines whether it dipped or rose. The month is the Friday’s month, including when Sunday falls in a different year.

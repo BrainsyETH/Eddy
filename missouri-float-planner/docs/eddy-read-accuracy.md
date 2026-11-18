@@ -23,11 +23,72 @@ start/end and gauge river miles inside [start, end). No proximity buffer is used
 If curation exists but its station cannot be loaded, a substitute does not inherit
 curated support, even if it lies within the section.
 
+### Connecting a stretch to a gauge
+
+`river_sections.primary_gauge_station_id` is not private to the Read.
+`get_river_condition_segment` uses the same column, with the stretch's mile
+bounds, to choose the gauge that grades a float plan: an assigned stretch
+overrides positional selection for every put-in inside its bounds. Three rules
+follow.
+
+- Set the gauge and both bounds together. An assigned stretch with no bounds
+  matches every mile on its river.
+- Bounds use the stored `river_mile_downstream` of the access points at the
+  stretch's ends, because that is the scale the planner passes in. On the
+  Bourbeuse, Meramec, St. Francis, Buffalo and Black those miles are offset
+  from the river line by 7 to 30 miles, so a caller that passes a map point
+  resolves a different mile from one that passes an access point's stored
+  mile. Bounds on those rivers cannot be right for both until the miles agree.
+- Before assigning, compare the gauge each approved access point resolves to
+  with and without the change, by stored mile and by map point. A change that
+  moves a put-in to another gauge is a planner change and needs its own
+  review. `20261117211017_twenty_one_stretches_read_their_own_gauge.sql` is
+  the pattern: it asserts in the same statement that no put-in changed gauge,
+  and `scripts/stretch-gauge-migration.test.ts` runs it against a fixture.
+
+A stretch with no gauge on it may use the nearest one when that is the only
+gauge or the closest. A gauge below a stretch can read floatable while the
+stretch is thin; the stretch's block in `EDDY_KNOWLEDGE.md` is where that is
+said.
+
+A spring or tributary between a gauge and a put-in is the other thing position
+cannot see. The planner takes the nearest gauge at or above a put-in, so a
+gauge just above a large spring grades everything below it from water that has
+not met the spring. The Jacks Fork was that case: the Alley Spring gauge sits
+above the spring's inflow, and the put-ins from the spring to Eminence read
+Too Low on the days the stretch floated. `20261117221408` adds a stretch from
+the spring to Two Rivers graded by Eminence, and `20261117225734` makes
+Eminence the river's main gauge. Check a suspected case with the readings
+before writing anything: where gauges sit either side of an inflow, the gain
+between them at low water is the inflow. The Niangua has the same shape at
+Windyville and Bennett Spring. `20261117230200` is drafted for it and held:
+its header gives the open question about the lower gauge's ladder, and shows
+how two stretches can be right on a river whose stored access miles are offset
+from its line.
+
+While stretch Reads are paused, an assignment has one live effect: the
+planner's gauge for put-ins inside the stretch.
+
 An unsupported section gets a named station observation, explicitly saying the
 section is not assessed. A river with no usable gauge still gets a location-based
 unavailable fallback with relevant alerts and the separate weather summary. It
-never invents a station or pays for a model call. Section-generation target
-selection and row persistence are unchanged; disabling unused targets is separate.
+never invents a station or pays for a model call.
+
+### Stretch Reads are paused
+
+Eddy does not write a Read per stretch. `STRETCH_READS_ENABLED` in
+`src/lib/eddy/stretch-reads.ts` is `false`, so the daily pass and the
+event-driven rewrites generate whole-river targets only.
+
+They were paused on 2026-11-17 because no screen shows them. Every reader of
+`eddy_updates` on the website and in the iOS app asks for river-level rows, and
+nothing requests `/api/eddy-update/<river>?section=`. The pass had been writing
+58 stretch rows a day, seven of them with a model call. What people see is the
+river Read, each secondary gauge's Read (`generate-gauge-update.ts`), and the
+planner's rating for a put-in.
+
+The stretch code paths below remain, for the day a screen shows a stretch
+Read. Turning them back on is that one constant.
 
 ## Structured claims and prose
 
@@ -98,6 +159,44 @@ Each input says what it measures, where and over what window, or it is left out.
   measurement. Each names the weather point. It is one point, not the
   watershed above the gauge, and the prompt says so.
 
+## Knowledge by gauge
+
+`EDDY_KNOWLEDGE.md` is selected per consumer by `src/lib/eddy/knowledge.ts`,
+so that each fact reaching a Read is about the water its gauge speaks for. The
+file's own Format Rules say how to write it. In short:
+
+- Text straight under a river's heading is true along the whole river and
+  reaches every Read on it.
+- `### Gauge: <name> {@site}` holds what one gauge sits on and speaks for. It
+  starts with a `Sits` line (what enters above the gauge and what enters below
+  it) and a `Speaks for` line.
+- Reach notes carry the `{@site}` of the gauge that speaks for them.
+- `### Towns` is for chat.
+
+| Consumer | Gets |
+| --- | --- |
+| River Read | General, the river-wide block, the reporting gauge's block, reach notes tagged with it, and the other gauges' `Sits` and `Speaks for` lines under an "elsewhere, patterns only" header |
+| Gauge Read | the river-wide block, that gauge's block, reach notes tagged with it |
+| Chat | General and everything about the river in view, towns included |
+
+`{unconfirmed}` on a gauge heading keeps a drafted block out of every prompt. A
+river with no confirmed block for a gauge is selected as it was before gauge
+blocks existed: the river-wide block, plus, for a gauge Read, any reach note
+that names the gauge's town. Six rivers are confirmed: the Black, the Current,
+the Gasconade, the Jacks Fork, the Meramec and the Niangua. The other gauges
+carry drafts built from the river line and access points, with the inflows
+left for the owner to state. `knowledge.test.ts` lists the confirmed rivers, so
+confirming one is a deliberate change.
+
+Confirm a gauge line from the readings where they can speak: with a gauge on
+each side of an inflow, the gain between them at low water is the inflow. That
+is how the Alley Spring and Windyville gauges were shown to sit above their
+springs.
+
+The daily `eddy_knowledge` trust check reports `knowledge_gauge_mismatch` when
+the file tags a gauge the river is not linked to, or when a river has
+confirmed blocks but none for its main gauge.
+
 ## Generation records
 
 `eddy_updates` holds published text only and is pruned after 48 hours. Every
@@ -127,12 +226,60 @@ pre-model causes still publish the same factual fallback.
 The table is created by `20261117041752_eddy_generation_log.sql`. Against a
 database without it the generator logs one warning per process and keeps no
 records.
-Only river and section Reads are recorded; secondary-gauge commentary
-(`generate-gauge-update.ts`) and the statewide summary are not.
+Secondary-gauge Reads (`generate-gauge-update.ts`) are recorded in the same
+table and told apart by `workload`: `river_update` or `gauge_update`. A gauge
+row has no `section_slug`; its station is in `usgs_site_id`, and
+`knowledge_blocks` lists `river` and each `section:<slug>` reach note that was
+attached. The statewide summary is not recorded.
 
 `npm run audit:eddy-reads` prints the current model-written and code-written
 counts, fallback causes from the log, knowledge-file reach coverage and
 malformed prompt inputs. It is read-only.
+
+## Read checks
+
+`npm run report:eddy-reads` scores published Reads against the rules their
+prompts set and prints the pass rate per rule per day, or per week over a long
+window (`-- --days 200 --by week`). It is read-only. Run it before and after a
+change to a prompt or to `EDDY_KNOWLEDGE.md`; the change helped if the columns
+moved. The rules live in `src/lib/eddy/read-checks.ts`:
+
+| Column | A Read passes when |
+| --- | --- |
+| `sum<=120` | its summary is 120 characters or fewer |
+| `read<=240` | its short Read is 240 characters or fewer |
+| `no-nums` | its short Read quotes no reading, temperature or rain percentage |
+| `no-fcst` | its short Read leaves the forecast to the Watch for panel |
+| `no-will` | no sentence states flatly that the water or weather will change or stay |
+| `in-inputs` | every measurement appears in the prompt's facts with the same unit |
+| `not-file` | no measurement appears only in the knowledge block of the prompt |
+
+These are evidence, not a gate. They never change what is published; the
+publish guard above stays narrow. The length limits are targets the owner set
+for readability, not truncation points, so a long Read is counted and still
+published.
+
+`no-will` counts a sentence only when it says something will change or
+persist: a set phrase ("no rain is on its way", "isn't going anywhere"), or
+will / won't / going to with a verb of change or a time ahead. The future
+tense for today's water ("you will be dragging", "the pools will be thin at
+this level") is not a forecast and is not counted.
+
+The two number rules need the prompt, so they show `-` for gauge Reads written
+before those were logged. They compare value and unit only: a number that is
+in the facts for another place still passes.
+
+What no rule here catches is a claim about a place or a cause the inputs do
+not support, such as a spring credited to a gauge that sits above it. That
+needs a model grader, or a knowledge file that tags each fact with its gauge.
+
+Baseline, 2026-11-17. River Reads are the 25 logged that day. Gauge Reads are
+the 182 written from 2026-11-09 to 2026-11-17:
+
+| | `sum<=120` | `read<=240` | `no-nums` | `no-fcst` | `no-will` | `in-inputs` | `not-file` | median Read |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| River | 96% | 48% | 80% | 88% | 76% | 100% | 100% | 250 chars |
+| Gauge | 97% | 68% | 62% | 83% | 93% | - | - | 229 chars |
 
 ## Rollout
 
