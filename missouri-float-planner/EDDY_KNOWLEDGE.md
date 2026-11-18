@@ -86,8 +86,8 @@ any river in the state. Where each spring enters decides which gauge sees its wa
 
 ### Gauge: Van Buren {@07067000}
 
-- **Sits**: At Van Buren, well down the river. Above it: the Jacks Fork, which joins at Two Rivers, and the springs of the upper and middle river. Below it: Big Spring, which enters about four miles downstream, so this gauge does NOT include Big Spring's water.
-- **Speaks for**: The lower Current around Van Buren, below Two Rivers and above Big Spring.
+- **Sits**: At Van Buren, well down the river. Above it: the Jacks Fork, which joins at Two Rivers, and Blue Spring, which enters about 25 miles upstream. Below it: Big Spring, which enters about four miles downstream, so this gauge does NOT include Big Spring's water.
+- **Speaks for**: The lower Current around Van Buren, from Blue Spring down to Big Spring.
 - Eddy's primary gauge for the river, read in cfs.
 - Akers, Montauk, and Powder Mill are the upstream references, and they can disagree with Van Buren by a lot in a dry spell.
 
@@ -103,11 +103,11 @@ any river in the state. Where each spring enters decides which gauge sees its wa
 - **Speaks for**: Cedar Grove to Pulltite.
 - Read in cfs. The staff-gauge numbers outfitters quote at Akers Ferry are a different reading.
 
-### Gauge: Powder Mill {@07066510} {unconfirmed}
+### Gauge: Powder Mill {@07066510}
 
-- **Sits**: Just above Powder Mill, line mile 60.3 of 174, about 7 miles below Two Rivers. Drains 1,340 sq mi. The Jacks Fork enters above it. To confirm: Blue Spring. The Park Service's point for it sits at line mile 61.8, a mile and a half BELOW this gauge; the owner recalls it above. The gauge reads height only, so the readings cannot settle it.
-- **Speaks for**: Draft: Two Rivers down past Powder Mill. To confirm.
-- Read in gauge height (feet), not cfs.
+- **Sits**: Just above Powder Mill, about seven miles below Two Rivers. Above it: the Jacks Fork, which joins at Two Rivers. Below it: Blue Spring, which enters a mile and a half downstream, so this gauge does NOT include Blue Spring's water.
+- **Speaks for**: Two Rivers down to Blue Spring.
+- Eddy reads it in gauge height (feet), not cfs.
 
 ### Gauge: Doniphan {@07068000}
 
@@ -152,9 +152,9 @@ floating; below the park it widens and slows.
 - Onondaga Cave State Park is along the river with cave tours available.
 - Meramec State Park has camping, cabins, and cave tours. Major hub for float access.
 - The Meramec can flood dramatically — it's one of the flashiest rivers in the Ozarks. When it rains hard, expect the gauge to spike 5-10 ft in hours.
-- **Gauges**: Eddy's primary is **Meramec near Steelville (07013000)**, read in cfs. Cook Station, Sullivan, and Eureka are downstream cross-checks read in gauge height (feet), and each covers a very different amount of river — the Meramec at Steelville can be a different river from the Meramec at Eureka on the same afternoon. Check access-point conditions locally.
+- The gauges cover very different amounts of river: the Meramec at Steelville can be a different river from the Meramec at Eureka on the same afternoon. Quote the gauge that speaks for the put-in.
 
-### Upper Meramec {#upper-meramec}
+### Upper Meramec {#upper-meramec} {@07013000}
 
 - Above Meramec State Park. More rapids, narrower channel, scenic bluffs.
 - St. James to Meramec State Park is the classic upper float.
@@ -162,32 +162,36 @@ floating; below the park it widens and slows.
 - More experienced paddlers preferred — some Class II sections when water is up.
 - **The Steelville outfitters run rafts well into the thin part of the season.** A typical late-summer reading here usually means shallow riffles and a lighter boat rather than a cancelled trip — the numbers on this gauge read worse than the water generally is. That is a correction to the numbers, not a promise about any given day: in a genuinely dry spell this stretch does drop too low, and the live condition is what decides.
 
-### Lower Meramec {#lower-meramec}
+### Lower Meramec {#lower-meramec} {@07014500} {@07019000}
 
 - Below Meramec State Park to Sullivan area and beyond.
 - Wider, calmer, more forgiving. Good for tubes, rafts, and large groups.
 - Multiple outfitters operate in this stretch.
 - Can get crowded on summer weekends — especially the Meramec State Park area.
 
-### Gauge: Cook Station {@07010350} {unconfirmed}
+### Gauge: Cook Station {@07010350}
 
-- **Sits**: Line mile 34.0 of 224. Nearest put-ins on the line: Cook Station (32.7) above, Wesco (37.4) below. Drains 199 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Cook Station, in the headwaters. Above it: the rain-fed upper river only. Below it: Maramec Spring, so this gauge does NOT include the spring's water.
+- **Speaks for**: The Meramec above Maramec Spring.
+- Eddy reads it in gauge height (feet), not cfs.
 
-### Gauge: Steelville {@07013000} {unconfirmed}
+### Gauge: Steelville {@07013000}
 
-- **Sits**: Line mile 72.5 of 224. Nearest put-ins on the line: Lucky Clover Resort (69.9) above, Bird's Nest Access (72.5) below. Drains 781 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Steelville. Above it: Maramec Spring. Below it: the Huzzah, carrying the Courtois, which joins about 15 miles downstream.
+- **Speaks for**: Maramec Spring down to the Huzzah.
+- Eddy's primary gauge for the river, read in cfs.
 
-### Gauge: Sullivan {@07014500} {unconfirmed}
+### Gauge: Sullivan {@07014500}
 
-- **Sits**: Line mile 105.2 of 224. Nearest put-ins on the line: Blue Springs Creek Conservation Area (100.4) above, Sappington Bridge (105.2) below. Drains 1,475 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Sullivan. Above it: the Huzzah and Courtois, which join about 17 miles upstream. Below it: the Bourbeuse, which joins about 51 miles downstream.
+- **Speaks for**: The Huzzah down to the Bourbeuse.
+- Eddy reads it in gauge height (feet), not cfs.
 
-### Gauge: Eureka {@07019000} {unconfirmed}
+### Gauge: Eureka {@07019000}
 
-- **Sits**: Line mile 188.4 of 224. Nearest put-ins on the line: Allenton Access (182.1) above, Meramec Landing (Valley Park) (201.9) below. Drains 3,788 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Eureka, on the lower river. Above it: the Bourbeuse, which joins about 32 miles upstream, and the Big River, which joins about three miles upstream.
+- **Speaks for**: The lower Meramec from the Bourbeuse down. No gauge sits between the Bourbeuse and the Big River, so on that stretch this reading includes Big River water the river has not met yet.
+- Eddy reads it in gauge height (feet), not cfs.
 
 ### Towns
 
