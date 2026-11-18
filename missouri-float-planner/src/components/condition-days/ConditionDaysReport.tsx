@@ -36,18 +36,21 @@ export default function ConditionDaysReport({ station, summary, thresholds, read
   const zones = buildZones(thresholds);
   const maxDays = Math.max(1, ...Object.values(summary.annual));
   const pair = compare?.paired[month];
+  const gaugeName = station.label.split(' (')[0];
+  const otherName = compare?.label.split(' (')[0];
+  const metric = highlight === 'all' || highlight === 'float' ? 'Good or Flowing' : levelName(highlight);
   const recorded = all.reduce((sum, m) => sum + m.total, 0);
   return <div className={styles.report}>
     <section className={styles.panel} id="seasons">
       <div className={styles.panelTop}><h2>When does it float well?</h2><span className={styles.period}>{FIRST_YEAR}–{LAST_YEAR}</span></div>
-      {peak.total > 0 && <p><b>{MONTHS[best]}</b> had the highest share of Good or Flowing days{compare && <> at {station.label}</>} ({percent(peak.levels.good + peak.levels.flowing, peak.total)}).</p>}
+      {peak.total > 0 && <p><b>{MONTHS[best]}</b> had the highest share of Good or Flowing days{compare && <> at {gaugeName}</>} ({percent(peak.levels.good + peak.levels.flowing, peak.total)}).</p>}
       <div className={styles.chartTools}>
         <div className={styles.segment} aria-label="Highlight conditions" role="group">
           <button type="button" aria-pressed={highlight === 'float'} onClick={() => setHighlight('float')}>Good + Flowing</button>
           <button type="button" aria-pressed={highlight === 'all'} onClick={() => setHighlight('all')}>All levels</button>
         </div>
-        <label className={styles.monthPicker}>Month <select className="select" value={month} onChange={e => setMonth(Number(e.target.value))}>
-          {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+        <label className={styles.monthPicker}><span>Month</span><select className="select" value={month} onChange={e => setMonth(Number(e.target.value))}>
+          {MONTHS.map((m, i) => <option key={m} value={i} aria-label={m}>{m.slice(0, 3)}</option>)}
         </select></label>
       </div>
       {compare && <h3>{station.label}</h3>}
@@ -58,15 +61,15 @@ export default function ConditionDaysReport({ station, summary, thresholds, read
         <button key={l} type="button" aria-pressed={highlight === l} onClick={() => setHighlight(highlight === l ? 'all' : l)}>
           <i style={{ background: CONDITION_SYSTEM[l].solid }} />{levelName(l)}</button>)}</div>
       <div className={styles.finding} aria-live="polite">
-        {compare && <h3>{MONTHS[month]} by stretch</h3>}
+        {compare && <h3>{metric} in {MONTHS[month]}</h3>}
         <div className={styles.results}>
-          <MonthResult data={all[month]} label={compare ? station.label : MONTHS[month] + ' at this gauge'} highlight={highlight}/>
-          {compare && <MonthResult data={compare.data.months[month]} label={compare.label} highlight={highlight}/>}
+          <MonthResult data={all[month]} label={compare ? gaugeName : MONTHS[month] + ' at this gauge'} highlight={highlight} showMetric={!compare}/>
+          {compare && <MonthResult data={compare.data.months[month]} label={otherName ?? compare.label} highlight={highlight} showMetric={false}/>}
         </div>
         {compare && pair && <p className={styles.paired}>{pair.low
-          ? <>On {pair.floatable} of {pair.low} shared dates when {station.label} was Too Low, {compare.label} was Good or Flowing.</>
-          : <>No shared {MONTHS[month]} dates had a Too Low reading at {station.label}.</>}
-          {' '}<Link href={'/gauges/' + compare.site}>Check {compare.label} now →</Link>
+          ? <>On {pair.floatable} of {pair.low} shared dates when {gaugeName} was Too Low, {otherName} was Good or Flowing.</>
+          : <>No shared {MONTHS[month]} dates had a Too Low reading at {gaugeName}.</>}
+          {' '}<Link href={'/gauges/' + compare.site}>Check {otherName} now →</Link>
         </p>}
       </div>
       <MonthTable data={summary} name={compare ? station.label : undefined}/>

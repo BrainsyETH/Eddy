@@ -8,13 +8,13 @@ export type Highlight = 'all' | 'float' | Level;
 export const FLOAT_LEVELS = ['good', 'flowing'] as const;
 type MonthData = Summary['months'][number];
 
-export function MonthResult({ data, label, highlight }: { data: MonthData; label: string; highlight: Highlight }) {
+export function MonthResult({ data, label, highlight, showMetric }: { data: MonthData; label: string; highlight: Highlight; showMetric: boolean }) {
   const isFloat = highlight === 'float' || highlight === 'all';
   const count = isFloat ? data.levels.good + data.levels.flowing : data.levels[highlight];
   return <div className={styles.monthResult}>
     <h4>{label}</h4>
     {data.total ? <>
-      <p><strong>{Math.round(100 * count / data.total)}%</strong> {isFloat ? 'Good or Flowing' : levelName(highlight)}</p>
+      <p><strong>{Math.round(100 * count / data.total)}%</strong> {showMetric && (isFloat ? 'Good or Flowing' : levelName(highlight))}</p>
       <small>{count.toLocaleString('en-US')} of {data.total.toLocaleString('en-US')} recorded days · {data.years} {data.years === 1 ? 'year' : 'years'}</small>
     </> : <small>No recorded days.</small>}
   </div>;

@@ -155,7 +155,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     await monthPicker.selectOption('10');
     await page.waitForURL(url => url.searchParams.get('month') === '11');
     await page.reload();
-    await page.getByRole('heading', {name: 'November by stretch'}).waitFor();
+    await page.getByRole('heading', {name: 'Good or Flowing in November'}).waitFor();
     assert.equal(await monthPicker.inputValue(), '10');
     await page.getByText('Monthly counts · Alley Spring (upper river)', {exact:true}).click();
     await page.getByRole('table', {name:/Recorded days by month and condition at Alley Spring/}).waitFor();
