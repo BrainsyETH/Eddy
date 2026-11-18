@@ -219,7 +219,7 @@ async function handlePOST(request: NextRequest) {
       feature: 'model_test',
       model,
       system: EDDY_SYSTEM_PROMPT,
-      user: row.user_prompt,
+      messages: [{ role: 'user', content: row.user_prompt }],
     });
     const latencyMs = Math.round(performance.now() - started);
     const evaluation = evaluateRiverReport(result.text, facts, result.finished);

@@ -2,12 +2,12 @@
 // Generates a global "overall Ozarks" Eddy quote by summarizing per-river updates.
 // Called by the cron job after per-river updates are generated.
 
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
-import Anthropic from '@anthropic-ai/sdk';
+import { generateText, MissingApiKeyError } from '@/lib/ai/generate-text';
+import { tryModels } from '@/lib/ai/attempts';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveRiverContexts, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
-import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
+import type { UsageStats } from '@/lib/ai/usage';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 import { replaceEmDashes } from '@/lib/eddy/parse-response';
 
@@ -82,12 +82,6 @@ export async function generateGlobalUpdate(
   options: GlobalUpdateOptions = {},
 ): Promise<GlobalUpdate | null> {
   const windowMinutes = options.windowMinutes ?? GLOBAL_INPUT_WINDOW_MINUTES;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) {
-    console.error('[EddyGlobal] ANTHROPIC_API_KEY not configured');
-    return null;
-  }
-
   const supabase = createAdminClient();
 
   // Per-river whole-river rows from inside the window — written by the same
@@ -156,35 +150,43 @@ export async function generateGlobalUpdate(
 
   const prompt = lines.join('\n');
 
-  const client = new Anthropic({ apiKey: anthropicKey });
+  // The resolved model, then its fallback when it has one (see
+  // src/lib/ai/attempts.ts). A summary that did not finish is refused while
+  // another model is waiting: this is the tightest budget of the four
+  // workloads, so it is the one a reasoning model is most likely to spend
+  // before the last sentence. From the last model it is published as before.
+  const summary = await tryModels<{ quoteText: string; usage: UsageStats }>(
+    model,
+    async ({ model: attempt, hasNext }) => {
+      const result = await generateText({
+        feature: 'global_summary',
+        model: attempt,
+        system: GLOBAL_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const quoteText = result.text ? replaceEmDashes(result.text.trim()) || null : null;
+      if (!quoteText) {
+        console.error(`[EddyGlobal] Empty response from ${attempt.id}`);
+        return null;
+      }
+      if (!result.finished && hasNext) {
+        console.error(`[EddyGlobal] Unfinished ${attempt.id} summary (${result.stopReason})`);
+        return null;
+      }
+      return { quoteText, usage: result.usage };
+    },
+    (attempt, e) => {
+      if (e instanceof MissingApiKeyError) console.error(`[EddyGlobal] ${e.message}`);
+      else console.error(`[EddyGlobal] ${attempt.id} call failed:`, e);
+    },
+  );
+  if (!summary) return null;
 
-  try {
-    const message = await trackedAnthropic('global_summary', model.id, () => client.messages.create({
-      model: model.id,
-      max_tokens: model.maxTokens,
-      // The tightest budget of the four workloads, and so the one where an
-      // un-disabled thinking model would spend the whole allowance reasoning
-      // and return nothing to publish.
-      ...(model.thinking ? { thinking: model.thinking } : {}),
-      messages: [{ role: 'user', content: prompt }],
-      system: GLOBAL_SYSTEM_PROMPT,
-    }));
-
-    const textBlock = message.content.find((block) => block.type === 'text');
-    const quoteText = textBlock?.text ? replaceEmDashes(textBlock.text.trim()) || null : null;
-
-    if (!quoteText) {
-      console.error('[EddyGlobal] Empty response from model');
-      return null;
-    }
-
-    return {
-      quoteText,
-      sourcesUsed: ['per-river updates', 'USGS gauge'],
-      usage: extractUsage(model.id, message.usage),
-    };
-  } catch (e) {
-    console.error(`[EddyGlobal] ${model.id} call failed:`, e);
-    return null;
-  }
+  return {
+    quoteText: summary.quoteText,
+    sourcesUsed: ['per-river updates', 'USGS gauge'],
+    // usage.modelUsed is the model that answered, which after a fallback is
+    // not the one that was selected.
+    usage: summary.usage,
+  };
 }

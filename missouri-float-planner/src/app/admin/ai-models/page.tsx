@@ -167,13 +167,14 @@ export default function AiModelsPage() {
                 trace after the fact.
               </li>
               <li>
-                A model from a different provider than the code default falls back to that default
-                when its call fails, such as when a prepaid balance runs out. Each row records the
-                model that wrote it.
+                An OpenAI model falls back to the Claude default when its call fails or returns
+                nothing usable, such as when the prepaid balance runs out. After two failed calls in
+                a row, the rest of that run goes straight to the default. Each row records the model
+                that wrote it.
               </li>
               <li>
-                Only models approved for a workload are listed. Widening that list is a code change;
-                the panel below is for reading a model&apos;s reports before approving it.
+                Only models approved for a workload are listed. The panel below replays a recorded
+                river report on any of them, so you can read a model&apos;s work before switching.
               </li>
             </ul>
           </div>

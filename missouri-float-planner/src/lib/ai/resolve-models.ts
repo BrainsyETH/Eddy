@@ -30,6 +30,7 @@
 // time a pass spends finding that out.
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { PassHealth } from '@/lib/ai/pass-health';
 import {
   MODELS,
   WORKLOADS,
@@ -81,6 +82,12 @@ export interface ResolvedModel {
    * different provider. Tried once if this model's call fails. See the header.
    */
   fallback?: ResolvedModel;
+  /**
+   * This pass's record of which providers have stopped answering, shared by
+   * every model resolved for the pass. Set by resolveModels(); absent from a
+   * model resolved for the test panel, which never falls back.
+   */
+  health?: PassHealth;
   /**
    * Set when llm_config held a value that was not honoured. The row keeps the
    * bad value (so it is visible in the admin UI and fixable) while production
@@ -142,9 +149,15 @@ export function resolveTestModel(workload: Workload, modelId: string): ResolvedM
   return pairing(workload, modelId, 'test');
 }
 
-/** The models a generator should try, in order: the resolved one, then its fallback. */
+/**
+ * The models a generator should try, in order: the resolved one, then its
+ * fallback. Just the fallback once this pass has stopped calling the resolved
+ * model's provider (see pass-health.ts), so a provider that is down costs the
+ * pass a couple of timeouts rather than one per river.
+ */
 export function modelAttempts(model: ResolvedModel): ResolvedModel[] {
-  return model.fallback ? [model, model.fallback] : [model];
+  if (!model.fallback) return [model];
+  return model.health?.skips(model.provider) ? [model.fallback] : [model, model.fallback];
 }
 
 /**
@@ -153,9 +166,11 @@ export function modelAttempts(model: ResolvedModel): ResolvedModel[] {
  * before this feature existed.
  */
 export function resolveConfiguredModels(row: LlmConfigRow | null): ResolvedModels {
+  // One per call, and callers resolve once per pass, so this is the pass's.
+  const health = new PassHealth();
   const out = {} as ResolvedModels;
   for (const workload of WORKLOADS) {
-    out[workload] = resolveOne(workload, row?.[workload]);
+    out[workload] = { ...resolveOne(workload, row?.[workload]), health };
   }
   return out;
 }

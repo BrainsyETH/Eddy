@@ -104,11 +104,15 @@ test('system-prompt caching is enabled only when the model clears the cache floo
     }
 
     for (const modelId of spec.approved) {
-      const expected = Boolean(
-        spec.cacheSystemPrompt &&
-          spec.systemPromptTokens &&
-          anthropic(modelId).minCacheablePrefixTokens <= spec.systemPromptTokens,
-      );
+      // The marker is Anthropic's mechanism. OpenAI caches without one, and
+      // its own test below covers that.
+      const expected =
+        MODELS[modelId].provider === 'anthropic' &&
+        Boolean(
+          spec.cacheSystemPrompt &&
+            spec.systemPromptTokens &&
+            anthropic(modelId).minCacheablePrefixTokens <= spec.systemPromptTokens,
+        );
       assert.equal(shouldCacheSystemPrompt(workload, modelId), expected);
     }
   }
@@ -223,12 +227,45 @@ test('testableProfiles lists approved models first, then test-only ones', () => 
   }
 });
 
-test('OpenAI models are test-only for river updates until someone has read them', () => {
-  // Approving one is moving its id from `testable` to `approved`. This test is
-  // the one that should make someone say they have read its reports.
-  for (const modelId of ['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6-luna']) {
-    assert.equal(isTestable('river_update', modelId), true);
-    assert.equal(isApproved('river_update', modelId), false, `${modelId} was approved for river updates`);
+const OPENAI_MODELS = ['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6-luna'];
+
+test('the OpenAI models are selectable for every workload', () => {
+  // Approved on the owner's decision on 2026-11-18, not on a reading of their
+  // output for each workload; the registry says so above WORKLOAD_SPECS. This
+  // test is the one that should make someone say it out loud if that changes.
+  for (const workload of WORKLOADS) {
+    for (const modelId of OPENAI_MODELS) {
+      assert.equal(isApproved(workload, modelId), true, `${modelId} is not selectable for ${workload}`);
+    }
   }
-  assert.equal(isTestable('global_summary', 'gpt-6.1-terra'), false);
+});
+
+test('every OpenAI selection has a Claude default to fall back to', () => {
+  // What stands behind approving them without a reading: a selection on
+  // another provider retries on the workload's code default. That only holds
+  // while every default is on the other provider.
+  for (const workload of WORKLOADS) {
+    assert.equal(
+      MODELS[WORKLOAD_SPECS[workload].default].provider,
+      'anthropic',
+      `${workload} defaults to a non-Anthropic model, so an OpenAI selection there has no fallback`,
+    );
+  }
+});
+
+test('the test-only tier still exists, and is empty', () => {
+  for (const workload of WORKLOADS) assert.deepEqual(WORKLOAD_SPECS[workload].testable, []);
+  // Still honoured when a model is put in it.
+  const spec = WORKLOAD_SPECS.river_update;
+  const approved = spec.approved;
+  spec.approved = approved.filter((id) => id !== 'gpt-6.1-terra');
+  spec.testable = ['gpt-6.1-terra'];
+  try {
+    assert.equal(isApproved('river_update', 'gpt-6.1-terra'), false);
+    assert.equal(isTestable('river_update', 'gpt-6.1-terra'), true);
+    assert.deepEqual(testableProfiles('river_update').at(-1)?.id, 'gpt-6.1-terra');
+  } finally {
+    spec.approved = approved;
+    spec.testable = [];
+  }
 });

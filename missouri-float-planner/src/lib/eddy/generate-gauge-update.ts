@@ -1,15 +1,16 @@
 // src/lib/eddy/generate-gauge-update.ts
-// Per-gauge AI commentary using Haiku 4.5. Targeted at secondary gauges on
-// active rivers (the primary gauge is covered by the Sonnet-powered
-// river-level update in generate-update.ts).
+// Per-gauge AI commentary, on the model selected for secondary gauge updates
+// (Haiku 4.5 unless changed). Targeted at secondary gauges on active rivers
+// (the primary gauge is covered by the river-level update in
+// generate-update.ts).
 //
 // A "secondary" gauge sits up- or down-stream of the primary on the same
 // river. Its update is narrower in scope: what does THIS gauge's reading
 // tell a paddler about the segment of river around it?
 
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
-import Anthropic from '@anthropic-ai/sdk';
+import { generateText, MissingApiKeyError, type TextResult } from '@/lib/ai/generate-text';
+import { tryModels } from '@/lib/ai/attempts';
 import type { ConditionCode } from '@/types/api';
 import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { buildSecondaryGaugeSemantics } from '@/lib/eddy/condition-semantics';
@@ -20,14 +21,14 @@ import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import type { ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
-import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
+import type { UsageStats } from '@/lib/ai/usage';
 import { stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
 import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type ReportFacts } from './report-facts';
-import { buildGaugeGenerationRecord, type GaugeGenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
+import { buildGaugeGenerationRecord, captureModel, type GaugeGenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
 import { materialOutlookLines } from './material-outlook';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
@@ -228,7 +229,7 @@ export async function generateGaugeUpdate(
       coordinates: target.coordinates,
     },
     trigger: options.trigger,
-    model,
+    model: captureModel(model),
     facts,
     readingTimestamp,
     alerts,
@@ -313,38 +314,59 @@ export async function generateGaugeUpdate(
   capture.riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName, target.usgsSiteId) || null;
   capture.userPrompt = prompt;
 
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) {
-    console.error('[GaugeUpdates] ANTHROPIC_API_KEY not configured');
-    await record({ outcome: 'error', reason: 'missing_api_key' });
-    return null;
-  }
+  // The resolved model, then its fallback when it has one (see
+  // src/lib/ai/attempts.ts). Each attempt that publishes nothing writes its
+  // own record under the model that was asked.
+  //
+  // This workload does not require all three blocks (see PrepareOptions in
+  // report-facts.ts for why), so it has no completeness check to lean on. What
+  // it does refuse is a response that did not finish, while another model is
+  // still waiting to be asked: text cut off at the output cap can end anywhere.
+  // From the last model it is published as before.
+  const completion = await tryModels<{ result: TextResult; rawText: string }>(
+    model,
+    async ({ model: attempt, hasNext }) => {
+      capture.model = captureModel(attempt);
+      const result = await generateText({
+        feature: 'gauge_update',
+        model: attempt,
+        system: GAUGE_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      // The record keeps result.text exactly as returned; the cleanup is not
+      // part of the evidence.
+      const rawText = result.text ? replaceEmDashes(result.text.trim()) || null : null;
+      if (rawText && (result.finished || !hasNext)) return { result, rawText };
 
-  const client = new Anthropic({ apiKey: anthropicKey });
+      if (rawText) {
+        console.error(`[GaugeUpdates] Unfinished ${attempt.id} response for ${target.usgsSiteId} (${result.stopReason})`);
+        await record({ outcome: 'error', reason: 'incomplete_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
+      } else {
+        console.error(`[GaugeUpdates] Empty ${attempt.id} response for ${target.usgsSiteId}`);
+        await record({ outcome: 'error', reason: 'empty_response', rawResponse: result.text, stopReason: result.stopReason, usage: result.usage });
+      }
+      return null;
+    },
+    async (attempt, e) => {
+      if (e instanceof MissingApiKeyError) {
+        console.error(`[GaugeUpdates] ${e.message}`);
+        await record({ outcome: 'error', reason: 'missing_api_key' });
+      } else {
+        console.error(`[GaugeUpdates] ${attempt.id} call failed for ${target.usgsSiteId}:`, e);
+        await record({ outcome: 'error', reason: 'model_error', errorMessage: e instanceof Error ? e.message : String(e) });
+      }
+    },
+  );
+  if (!completion) return null;
+
+  const { rawText } = completion;
+  const modelText = completion.result.text;
+  // usage.modelUsed is the model that answered, which after a fallback is not
+  // the one that was selected.
+  const usage = completion.result.usage;
+  const stopReason = completion.result.stopReason;
 
   try {
-    const message = await trackedAnthropic('gauge_update', model.id, () => client.messages.create({
-      model: model.id,
-      max_tokens: model.maxTokens,
-      // Omitted entirely unless the model needs it. Sonnet 5 thinks by default
-      // and would spend max_tokens doing it; Haiku 4.5 and Sonnet 4.6 do not.
-      ...(model.thinking ? { thinking: model.thinking } : {}),
-      messages: [{ role: 'user', content: prompt }],
-      system: GAUGE_SYSTEM_PROMPT,
-    }));
-
-    const textBlock = message.content.find((b) => b.type === 'text');
-    // Recorded exactly as returned; the cleanup below is not part of the evidence.
-    const modelText = textBlock?.text ?? null;
-    const usage = extractUsage(model.id, message.usage);
-    const stopReason = message.stop_reason ?? null;
-    const rawText = modelText ? replaceEmDashes(modelText.trim()) || null : null;
-    if (!rawText) {
-      console.error(`[GaugeUpdates] Empty ${model.id} response for ${target.usgsSiteId}`);
-      await record({ outcome: 'error', reason: 'empty_response', rawResponse: modelText, stopReason, usage });
-      return null;
-    }
-
     const { report, usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(rawText, facts);
     const { summaryText, eddyRead, quoteText } = report;
     const publishedSources = !usedFallback ? sourcesUsed
@@ -379,8 +401,8 @@ export async function generateGaugeUpdate(
     });
     return update;
   } catch (e) {
-    console.error(`[GaugeUpdates] ${model.id} call failed for ${target.usgsSiteId}:`, e);
-    await record({ outcome: 'error', reason: 'model_error', errorMessage: e instanceof Error ? e.message : String(e) });
+    console.error(`[GaugeUpdates] Preparing the ${usage.modelUsed} report failed for ${target.usgsSiteId}:`, e);
+    await record({ outcome: 'error', reason: 'model_error', rawResponse: modelText, stopReason, usage, errorMessage: e instanceof Error ? e.message : String(e) });
     return null;
   }
 }
