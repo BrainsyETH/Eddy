@@ -444,6 +444,30 @@ test('a wrong claims line is still reported as that, not as incomplete', () => {
   assert.equal(result.written, null);
 });
 
+test('completeness requires prose after marker cleanup in every block', () => {
+  for (const [summary, read, full] of [
+    ['[SUMMARY]', 'Lower river.', 'Good at Van Buren.'],
+    ['Good at Van Buren.', '[eddy_read]', 'Good at Van Buren.'],
+    ['Good at Van Buren.', 'Lower river.', '  [FULL]\n[summary]  '],
+  ]) {
+    const raw = `${reportClaimsLine(facts)}\n[SUMMARY]\n${summary}\n[EDDY_READ]\n${read}\n[FULL]\n${full}`;
+    const result = prepareGeneratedReport(raw, facts, { finished: true });
+    assert.equal(result.fallbackReason, 'incomplete', raw);
+    assert.equal(result.incomplete, 'missing_blocks', raw);
+    assert.deepEqual(result.report, factualReportFallback(facts));
+    // Preserve the rejected model's output for generation logs.
+    assert.ok(result.written);
+    assert.match(JSON.stringify(result.written), /\[(?:SUMMARY|eddy_read|FULL)\]/);
+    // This rule remains opt-in for river and section reports.
+    assert.equal(prepareGeneratedReport(raw, facts).usedFallback, false);
+  }
+  assert.equal(reportIncompleteness({
+    summaryText: '[SUMMARY] Good at Van Buren.',
+    eddyRead: '[EDDY_READ] Lower river.',
+    quoteText: '[FULL] Good at Van Buren.',
+  }, true), null);
+});
+
 test('reportIncompleteness asks the stop reason before the text', () => {
   const whole = { summaryText: 'S.', eddyRead: 'R.', quoteText: 'Q.' };
   assert.equal(reportIncompleteness(whole, true), null);

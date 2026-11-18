@@ -117,6 +117,18 @@ test('incompleteness is decided before contradictions: half a report has nothing
   assert.deepEqual(result.contradictions, []);
 });
 
+test('marker-only blocks are incomplete even when the model finished', () => {
+  for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
+    const report = { summaryText: 'Good at Van Buren.', eddyRead: 'Lower river.', quoteText: 'Good at Van Buren.' };
+    const markers = { summaryText: '[SUMMARY]', eddyRead: '[EDDY_READ]', quoteText: '[FULL]' };
+    report[field] = markers[field];
+    const result = evaluateRiverReport(output(report.summaryText, report.eddyRead, report.quoteText), facts, true);
+    assert.equal(result.verdict, 'incomplete', field);
+    assert.equal(result.incomplete, 'missing_blocks', field);
+    assert.equal(result.written?.[field], '', field);
+  }
+});
+
 test('a pass is a pass of the automated checks, not a finding that the report is true', () => {
   // Pinned so nobody reads the verdict as more than it is: the checks cover
   // the condition, the measurement and the range. An invented landmark is not

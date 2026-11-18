@@ -122,7 +122,10 @@ Two things about what the panel shows are rules, not presentation.
   system prompt, and the published text may have been written under an older one,
   so a difference between them could be the model or the instructions. The first
   run on a report also re-runs the workload's current model, and that re-run is
-  the default reference. The published text is one click away.
+  the default reference. It follows the resolved production selection, including
+  changes saved on the same page. References are kept per model so changing that
+  selection does not discard earlier results from the session or its export.
+  The published text is one click away.
 
 Runs are not stored. The panel exports them as a file, to go with the change that
 approves a model.
@@ -142,7 +145,8 @@ that out.
 ## A report must be whole to be published (2026-11)
 
 River and section generation accepts a model's answer only when the response
-finished and holds all three blocks. "Returned some text" is not the test: a model
+finished and holds text in all three blocks after marker cleanup. Repeated block
+markers alone are not prose. "Returned some text" is not the test: a model
 that spends its output cap part-way through returns text that parses into three
 tidy blocks and reads as a report until its last line, and a response holding only
 the claims line used to pass the checks and publish an empty report. Whether the

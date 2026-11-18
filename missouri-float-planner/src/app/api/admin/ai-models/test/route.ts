@@ -38,7 +38,7 @@ import {
   testableProfiles,
   type Workload,
 } from '@/lib/ai/model-registry';
-import { resolveTestModel } from '@/lib/ai/resolve-models';
+import { resolveModels, resolveTestModel } from '@/lib/ai/resolve-models';
 import { generateText, MissingApiKeyError, providerConfigured } from '@/lib/ai/generate-text';
 import {
   evaluateRiverReport,
@@ -93,10 +93,10 @@ export async function GET(request: NextRequest) {
     envVar: PROVIDERS[profile.provider].envVar,
   }));
 
-  // The model this workload runs when nothing is selected. The panel re-runs
-  // it beside a candidate, so both answer the same instructions; the published
-  // text may have been written under older ones.
-  const baselineId = WORKLOAD_SPECS[TEST_WORKLOAD].default;
+  // Resolve the saved selection exactly as production does, including its
+  // safe default for missing or invalid config. Both models answer today's
+  // instructions; the published text may have used older ones.
+  const baselineId = (await resolveModels())[TEST_WORKLOAD].id;
   const baseline = models.find((m) => m.id === baselineId) ?? null;
 
   const supabase = createAdminClient();

@@ -3,7 +3,7 @@
 import { classifyReading, type ConditionThresholds } from '@shared/condition-ladder';
 import { CONDITION_SYSTEM, type ConditionCode } from '@shared/condition-system';
 import type { NWSAlert } from '../nws/alerts';
-import { parseEddyResponse, type ParsedEddyResponse } from './parse-response';
+import { parseEddyResponse, stripEddyMarkers, type ParsedEddyResponse } from './parse-response';
 
 export interface ReportFactsInput {
   gaugeName: string | null;
@@ -158,7 +158,11 @@ export type IncompleteReason = 'cut_off' | 'missing_blocks';
  */
 export function reportIncompleteness(parsed: ParsedEddyResponse, finished: boolean): IncompleteReason | null {
   if (!finished) return 'cut_off';
-  return parsed.summaryText?.trim() && parsed.eddyRead?.trim() && parsed.quoteText.trim() ? null : 'missing_blocks';
+  // Judge the prose readers receive. Repeated markers can look like content
+  // to the parser, then disappear during the final cleanup before publishing.
+  return [parsed.summaryText, parsed.eddyRead, parsed.quoteText].every(
+    (text) => text != null && stripEddyMarkers(text).length > 0,
+  ) ? null : 'missing_blocks';
 }
 export type ReportFallbackReason = PreflightFallbackReason | GuardFallbackReason;
 

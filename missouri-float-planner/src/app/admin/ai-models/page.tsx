@@ -271,7 +271,7 @@ export default function AiModelsPage() {
             </button>
           )}
 
-          <ModelTestPanel />
+          <ModelTestPanel productionModelId={rows.find((row) => row.workload === 'river_update')?.effectiveModel} />
         </div>
       )}
 

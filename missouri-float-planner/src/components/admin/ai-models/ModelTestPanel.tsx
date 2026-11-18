@@ -102,10 +102,10 @@ interface RunResult {
 /** Everything gathered for one recorded report. */
 interface ReportRuns {
   info: SampleInfo;
-  /** The workload's current model, re-run under today's instructions. */
-  baseline: RunResult | null;
-  /** Why there is no baseline re-run, when one was attempted. */
-  baselineError: string | null;
+  /** Keep earlier references when the production selection changes mid-session. */
+  baselines: Record<string, RunResult>;
+  /** Failures belong to the model that was attempted, not the current selection. */
+  baselineErrors: Record<string, string>;
   runs: RunResult[];
   selectedKey: number | null;
 }
@@ -269,9 +269,9 @@ function RunCard({ run, heading }: { run: RunResult; heading?: string }) {
 
 const TOGGLE = 'rounded border border-neutral-600 px-2 py-1 text-xs';
 
-export default function ModelTestPanel() {
+export default function ModelTestPanel({ productionModelId }: { productionModelId?: string }) {
   const [models, setModels] = useState<TestModel[]>([]);
-  const [baselineModel, setBaselineModel] = useState<TestModel | null>(null);
+  const [loadedBaseline, setLoadedBaseline] = useState<TestModel | null>(null);
   const [samples, setSamples] = useState<TestSample[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -298,7 +298,7 @@ export default function ModelTestPanel() {
       const nextModels: TestModel[] = data.models ?? [];
       const nextSamples: TestSample[] = data.samples ?? [];
       setModels(nextModels);
-      setBaselineModel(data.baseline ?? null);
+      setLoadedBaseline(data.baseline ?? null);
       setSamples(nextSamples);
       setLoadError(data.samplesError ?? null);
       setSampleId((current) => current || nextSamples[0]?.id || '');
@@ -324,11 +324,16 @@ export default function ModelTestPanel() {
   }, [load]);
 
   const selectedModel = models.find((m) => m.id === modelId);
+  // The parent updates this only after a confirmed save, never for an unsaved
+  // dropdown choice. Do not remount the panel and lose the session's runs.
+  const baselineModel = models.find((m) => m.id === productionModelId) ?? loadedBaseline;
   const current = reports[sampleId];
+  const baseline = baselineModel ? current?.baselines[baselineModel.id] ?? null : null;
+  const baselineError = baselineModel ? current?.baselineErrors[baselineModel.id] : null;
   const selectedRun = current?.runs.find((r) => r.key === current.selectedKey) ?? current?.runs.at(-1) ?? null;
   // Re-run only when it can be: the baseline's provider has a key, and this
-  // report has no usable re-run yet.
-  const willRunBaseline = Boolean(baselineModel?.configured && !current?.baseline);
+  // report has no usable re-run of that model yet.
+  const willRunBaseline = Boolean(baselineModel?.configured && !baseline);
 
   /** One billed call. Resolves to the run, or to the message for a request that failed outright. */
   const call = async (sample: string, model: string): Promise<RunResult | string> => {
@@ -372,20 +377,23 @@ export default function ModelTestPanel() {
         if (!info) return all;
 
         const next: ReportRuns = existing
-          ? { ...existing, info }
-          : { info, baseline: null, baselineError: null, runs: [], selectedKey: null };
+          ? { ...existing, info, baselines: { ...existing.baselines }, baselineErrors: { ...existing.baselineErrors } }
+          : { info, baselines: {}, baselineErrors: {}, runs: [], selectedKey: null };
 
         if (typeof candidate !== 'string') {
           next.runs = [...next.runs, candidate];
           next.selectedKey = candidate.key;
-          if (!next.baseline && candidate.model.id === baselineId && candidate.ok) next.baseline = candidate;
+          if (baselineId && !next.baselines[baselineId] && candidate.model.id === baselineId && candidate.ok) {
+            next.baselines[baselineId] = candidate;
+            delete next.baselineErrors[baselineId];
+          }
         }
-        if (baseline) {
-          if (typeof baseline === 'string') next.baselineError = baseline;
-          else if (!baseline.ok) next.baselineError = baseline.error ?? 'The call failed.';
+        if (baseline && baselineId) {
+          if (typeof baseline === 'string') next.baselineErrors[baselineId] = baseline;
+          else if (!baseline.ok) next.baselineErrors[baselineId] = baseline.error ?? 'The call failed.';
           else {
-            next.baseline = baseline;
-            next.baselineError = null;
+            next.baselines[baselineId] = baseline;
+            delete next.baselineErrors[baselineId];
           }
         }
         return { ...all, [sample]: next };
@@ -431,8 +439,10 @@ export default function ModelTestPanel() {
               report: r.info.published,
               writtenUnderOlderInstructions: r.info.systemPromptChanged,
             },
-            baseline: r.baseline ? strip(r.baseline) : null,
-            baselineError: r.baselineError,
+            baseline: baselineModel && r.baselines[baselineModel.id] ? strip(r.baselines[baselineModel.id]) : null,
+            baselineError: baselineModel ? r.baselineErrors[baselineModel.id] ?? null : null,
+            baselines: Object.values(r.baselines).map(strip),
+            baselineErrors: r.baselineErrors,
             runs: r.runs.map(strip),
           };
         }),
@@ -446,7 +456,6 @@ export default function ModelTestPanel() {
   };
 
   const info = current?.info;
-  const baseline = current?.baseline ?? null;
   const referenceIsPublished = showPublished || !baseline;
 
   return (
@@ -547,7 +556,7 @@ export default function ModelTestPanel() {
             baselineModel &&
             baselineModel.id !== modelId && (
               <p className="mt-2 text-xs text-neutral-400">
-                The first run on a report also re-runs {baselineModel.label}, so both answer the same
+                This test also re-runs {baselineModel.label}, so both answer the same
                 instructions.
               </p>
             )
@@ -608,10 +617,10 @@ export default function ModelTestPanel() {
                           come from the instructions.
                         </p>
                       )}
-                      {current?.baselineError && (
+                      {baselineError && (
                         <p className="mt-3 text-xs text-red-200">
                           {baselineModel?.label ?? 'The current model'} could not be re-run:{' '}
-                          {current.baselineError}
+                          {baselineError}
                         </p>
                       )}
                     </>
