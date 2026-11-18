@@ -9,7 +9,7 @@
 // because running on general knowledge produces confident text rather than an
 // error.
 
-import { getGeneralKnowledge, listKnowledgeRiverSlugs } from '@/lib/eddy/knowledge';
+import { getGeneralKnowledge, listKnowledgeGauges, listKnowledgeRiverSlugs, listKnowledgeSectionGauges } from '@/lib/eddy/knowledge';
 import { riverNoteDefect } from '@/lib/eddy/river-note';
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 
@@ -22,6 +22,60 @@ export interface KnowledgeCoverageInput {
    * Optional so the knowledge-file rules can be exercised on their own.
    */
   riverNotes?: ReadonlyArray<{ slug: string; note: string | null }>;
+  /**
+   * Each active river's gauges as river_gauges links them, and what the
+   * knowledge file says about gauges on that river. Optional so the other
+   * rules can be exercised on their own.
+   */
+  gauges?: ReadonlyArray<KnowledgeGaugeInput>;
+}
+
+export interface KnowledgeGaugeInput {
+  slug: string;
+  /** Site ids linked to the river: usgs_site_id, or the provider's id. */
+  linkedSiteIds: string[];
+  /** The river's main gauge, or null when it has none. */
+  primarySiteId: string | null;
+  /** `### Gauge:` blocks in the file for this river. */
+  fileGauges: ReadonlyArray<{ siteId: string; confirmed: boolean }>;
+  /** Every `{@site}` tag on the river's reach notes. */
+  reachTagSiteIds: string[];
+}
+
+/**
+ * Pure. The knowledge file names gauges by site id, and nothing else makes the
+ * file agree with river_gauges.
+ *
+ *  - A block or reach tag for a site the river is not linked to is never
+ *    selected: it reads as covered and tells Eddy nothing.
+ *  - Once a river has a confirmed gauge block, its Read is told where its own
+ *    gauge sits only if the MAIN gauge has one. Without it the Read falls back
+ *    to the river-wide block alone, which is how a spring got credited to a
+ *    gauge that sits above it. A river with no confirmed blocks at all is not
+ *    reported: that is the state every river started in.
+ */
+export function deriveKnowledgeGaugeFindings(gauges: ReadonlyArray<KnowledgeGaugeInput>): RawFinding[] {
+  return gauges.flatMap((river) => {
+    const linked = new Set(river.linkedSiteIds);
+    const named = [...new Set([...river.fileGauges.map((g) => g.siteId), ...river.reachTagSiteIds])];
+    const unlinked = named.filter((site) => !linked.has(site)).sort();
+    const confirmed = river.fileGauges.filter((g) => g.confirmed).map((g) => g.siteId);
+    const mainUncovered = confirmed.length > 0 && river.primarySiteId != null && !confirmed.includes(river.primarySiteId);
+    if (!unlinked.length && !mainUncovered) return [];
+
+    const problems = [
+      unlinked.length ? `names ${unlinked.join(', ')}, which river_gauges does not link to this river` : null,
+      mainUncovered ? `has confirmed gauge blocks but none for its main gauge ${river.primarySiteId}` : null,
+    ].filter(Boolean);
+    return [{
+      entityType: 'river' as const,
+      entityKey: river.slug,
+      ruleKey: 'knowledge_gauge_mismatch',
+      title: `${river.slug}: knowledge file and river_gauges disagree about gauges`,
+      detail: `EDDY_KNOWLEDGE.md ${problems.join(', and ')}.`,
+      evidence: { unlinked, primarySiteId: river.primarySiteId, confirmed },
+    }];
+  });
 }
 
 /**
@@ -63,7 +117,11 @@ export function deriveRiverNoteFindings(
  * missing file would bury the actual cause under its own symptoms.
  */
 export function deriveKnowledgeFindings(input: KnowledgeCoverageInput): RawFinding[] {
-  return [...deriveFileFindings(input), ...deriveRiverNoteFindings(input.riverNotes ?? [])];
+  return [
+    ...deriveFileFindings(input),
+    ...deriveRiverNoteFindings(input.riverNotes ?? []),
+    ...deriveKnowledgeGaugeFindings(input.gauges ?? []),
+  ];
 }
 
 function deriveFileFindings(input: KnowledgeCoverageInput): RawFinding[] {
@@ -104,7 +162,7 @@ export const eddyKnowledgeCheck: TrustCheck = {
   async run(ctx: TrustCheckContext): Promise<TrustCheckResult> {
     const { data, error } = await ctx.supabase
       .from('rivers')
-      .select('slug, river_characteristics(river_note)')
+      .select('slug, river_characteristics(river_note), river_gauges(is_primary, gauge_stations(usgs_site_id, site_id_external, active))')
       .eq('active', true)
       .order('slug');
 
@@ -129,6 +187,19 @@ export const eddyKnowledgeCheck: TrustCheck = {
         knowledgeSlugs: listKnowledgeRiverSlugs(),
         generalKnowledge: getGeneralKnowledge(),
         riverNotes,
+        gauges: rows.map((r) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const links: any[] = (r.river_gauges ?? []).filter((link: any) => link.gauge_stations?.active !== false);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const siteOf = (link: any): string | null => link.gauge_stations?.usgs_site_id ?? link.gauge_stations?.site_id_external ?? null;
+          return {
+            slug: r.slug as string,
+            linkedSiteIds: links.map(siteOf).filter((site): site is string => site != null),
+            primarySiteId: siteOf(links.find((link) => link.is_primary) ?? {}),
+            fileGauges: listKnowledgeGauges(r.slug).map((g) => ({ siteId: g.siteId, confirmed: g.confirmed })),
+            reachTagSiteIds: Object.values(listKnowledgeSectionGauges(r.slug)).flat(),
+          };
+        }),
       }),
     };
   },

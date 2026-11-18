@@ -413,6 +413,13 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     method:
       'Without one, Eddy writes about the river from the General Ozarks primer alone — confidently, and with no error. That is how Gasconade shipped knowledge-less.',
   },
+  knowledge_gauge_mismatch: {
+    kind: 'judgment',
+    action: 'Make the gauge blocks in EDDY_KNOWLEDGE.md agree with river_gauges: fix the {@site} tag, or write a confirmed "### Gauge:" block for the river\'s main gauge.',
+    where: 'missouri-float-planner/EDDY_KNOWLEDGE.md',
+    method:
+      'A tag names the station by its site id, so a block tagged with a gauge the river does not have is never selected. And once a river has confirmed gauge blocks, its Read is only told where its own gauge sits if the main gauge has one too. Check the geography with the readings before confirming: where two gauges sit either side of an inflow, the gain between them at low water is the inflow.',
+  },
   river_note_malformed: {
     kind: 'judgment',
     action: 'Replace river_characteristics.river_note with one or two plain sentences about the river, or set it to NULL.',

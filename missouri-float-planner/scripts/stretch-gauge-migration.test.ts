@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 
-// 20261117200000 records a gauge and mile bounds for twenty-one stretches.
+// 20261117211017 records a gauge and mile bounds for twenty-one stretches.
 // Stretch Reads are paused, so the Read does not use them yet. The same
 // columns choose the gauge that grades a float plan
 // (get_river_condition_segment), so the migration's own promise is that no
@@ -12,7 +12,7 @@ import { PGlite } from '@electric-sql/pglite';
 // not.
 
 const migration = readFileSync(
-  'supabase/migrations/20261117200000_twenty_one_stretches_read_their_own_gauge.sql',
+  'supabase/migrations/20261117211017_twenty_one_stretches_read_their_own_gauge.sql',
   'utf8',
 );
 

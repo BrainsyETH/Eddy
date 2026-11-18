@@ -145,6 +145,8 @@ test('river prompt asks Eddy to know which stretch a gauge speaks for, without i
 test('secondary prompts carry river knowledge and never a mislabelled river mile', () => {
   const gauge = src('src/lib/eddy/generate-gauge-update.ts');
   assert.doesNotMatch(gauge, /lines\.push\(`Position: river mile/);
-  assert.match(gauge, /getRiverKnowledgeForGauge\(target\.riverSlug, target\.gaugeName\)/);
+  // By station, so a gauge with its own block in the knowledge file gets that
+  // block and not a guess from its town's name.
+  assert.match(gauge, /getRiverKnowledgeForGauge\(target\.riverSlug, target\.gaugeName, target\.usgsSiteId\)/);
   assert.match(gauge, /a detail about the upper river, another town or another section is not a detail about this station/);
 });
