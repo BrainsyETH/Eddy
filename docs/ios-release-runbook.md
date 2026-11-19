@@ -55,10 +55,18 @@ review are in the 1.5 report; these are the gates it adds.
       the time on the bank (finding 2, fixed in code): land 200 m below the
       take-out, wait ten minutes, Finish, and check the recap's elapsed and
       stopped time; then a float that carries on paddling past it.
-- [ ] **Stacked places hide under their numbered mark** (finding 5 now hides
-      them with a Mapbox `in` filter instead of leaving them out of the data):
-      zoom so pins merge and split, and check no member draws under its stack
-      and taps land on the stack.
+- [ ] **Stacked places hide under their numbered mark, and regroup
+      mid-pinch** (finding 5 hides them with a layer filter instead of leaving
+      them out of the data; since #1921 those filters and the stack badges are
+      `step` expressions over `['zoom']` with a `match` per level, which no
+      device has run): on launch the pin layers draw at all (a filter the iOS
+      SDK rejects blanks them); pinch slowly across zoom 7–16 so pins merge and
+      split, and check stacks regroup mid-pinch, no member draws under its
+      stack, no badge lingers after its members split, and taps land on the
+      stack; open a place from "N places here" and close its sheet, with no
+      hitch on open and no loose pin beside its stack on close; with Other
+      USGS gauges on, pan and stop at zoom 6–8 with no hitch after a stop
+      (each refill of that layer regroups every level).
 - [ ] **Sign in on a phone whose push token another account holds** with the
       owed release delivered and with it blocked: registration succeeds with
       the ledger's row id (finding 10).

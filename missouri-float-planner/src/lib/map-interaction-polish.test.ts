@@ -502,6 +502,47 @@ test('stackLevels matches grouping each level on its own, and stops only where n
   for (let level = last.level + 1; level <= STACK_MAX_ZOOM; level++) {
     assert.deepEqual(last.stacks, pinStacks(points, level), `above the last level, at ${level}`);
   }
+
+  // pinStacks shares stackLevels' grouping code, so agreeing with it proves
+  // only the level shortcuts. This is the rule written out the slow way, with
+  // none of that code: project at the zoom itself, and let each unclaimed
+  // place, in ID order, claim every unclaimed place within the radius.
+  const ordered = [...points].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const naive = (subset: typeof points, level: number) => {
+    const scale = 512 * 2 ** level;
+    const xy = subset.map(({ lng, lat }) => {
+      const sin = Math.sin((lat * Math.PI) / 180);
+      return [(lng / 360 + 0.5) * scale, (0.5 - (0.25 * Math.log((1 + sin) / (1 - sin))) / Math.PI) * scale];
+    });
+    const claimed = subset.map(() => false);
+    const groups: string[][] = [];
+    subset.forEach((place, seed) => {
+      if (claimed[seed]) return;
+      const group: string[] = [];
+      subset.forEach((other, index) => {
+        if (claimed[index] || Math.hypot(xy[index][0] - xy[seed][0], xy[index][1] - xy[seed][1]) > STACK_RADIUS) return;
+        claimed[index] = true;
+        group.push(other.id);
+      });
+      groups.push(group.sort());
+    });
+    return groups;
+  };
+  const naiveSplit = (ids: string[], level: number) => {
+    const members = ordered.filter((place) => ids.includes(place.id));
+    for (let zoom = level + 1; zoom <= STACK_MAX_ZOOM; zoom++) if (naive(members, zoom).length > 1) return zoom;
+    return STACK_MAX_ZOOM + 1;
+  };
+  for (let level = 8; level <= STACK_MAX_ZOOM; level++) {
+    const { stacks } = levels.find((entry) => entry.level === level) ?? last;
+    const expected = naive(ordered, level).filter((group) => group.length > 1);
+    const byFirstId = (a: string[], b: string[]) => (a[0] < b[0] ? -1 : 1);
+    assert.deepEqual(stacks.map((stack) => stack.ids).sort(byFirstId), expected.sort(byFirstId), `the rule itself, at ${level}`);
+    for (const stack of stacks.slice(0, 5)) {
+      assert.equal(stack.expansionZoom, naiveSplit(stack.ids, level), `${stack.id} splits where the rule says, from ${level}`);
+    }
+  }
+
   assert.ok(last.stacks.every((stack) => stack.expansionZoom > STACK_MAX_ZOOM));
   for (const stack of levels[0].stacks.slice(0, 40)) {
     const members = points.filter((point) => stack.ids.includes(point.id));

@@ -948,8 +948,9 @@ interface Props {
   placesListOpen?: boolean;
   onClosePlacesList?: () => void;
   /**
-   * The camera as of its last stop. Overlapping places are grouped into
-   * numbered stacks at this zoom, and the places list reads its bounds.
+   * The camera as of its last stop. The places list reads its bounds, and a
+   * tap reads its zoom when the live camera has not reported one. The
+   * numbered stacks do not read it: they are grouped ahead for every zoom.
    */
   visibleViewport?: { bounds: MapBounds; zoom: number };
 }
@@ -1431,7 +1432,10 @@ export function RiverMap({
    *
    * What it costs: one grouping pass per level whenever the PLACES change —
    * a layer toggle, the plan's endpoints, the selection, a national-tier
-   * refill — never on camera movement. The selection and the national tier
+   * refill — and never for the camera itself. The refill is the one a camera
+   * stop can cause: with "Other USGS gauges" on, a stop that moves the padded
+   * area swaps that layer's stations, from its floor at ZOOM.min up, and
+   * every level regroups. The selection and the national tier
    * reach it deferred (useDeferredValue), so a tap or a camera stop renders
    * first and the regroup follows; meanwhile the selected place is drawn on
    * top by its own source, so a stale stack under it does not show.
