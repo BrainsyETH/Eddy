@@ -2554,7 +2554,27 @@ rotates but never tilts: pitch is off, because the compass resets heading only. 
 web planner's rule (`src/map/pinStacks.ts`): marks within 56pt of each other at
 the current whole zoom, across every layer drawn as individual marks at that
 zoom. Hazards stack like every other place; route endpoints and the selected
-place never stack. Tapping a
+place never stack. Like native counts, stacks depend only on the places and
+the whole zoom, so they are grouped ahead for every whole zoom from
+`ZOOM.cluster` up (`stackLevels`). Mapbox switches levels itself: the stack
+badges and each pin layer's "hidden while stacked" filter are `step`
+expressions over `['zoom']`, evaluated at the tile's whole zoom, so a pinch
+regroups at the same moment native counts do and never waits on JavaScript;
+a pan never regroups Eddy's own places. Regrouping runs only when the places
+change (layers, plan endpoints, selection, national-tier refill), with the
+selection and the national tier deferred so a tap renders first. The refill
+is the one case a camera stop causes: with "Other USGS gauges" on, a stop that
+moves the padded area swaps that layer's stations and regroups every level,
+from the layer's floor at zoom 5.5 up. The national tier is deferred
+as one snapshot: its source, the stacks and the tap lookup all read it, so a
+badge never counts a gauge a refill has removed. The statewide index below
+`ZOOM.cluster` uses the same 56pt radius, so for Eddy's own layers crossing
+that rung is an ordinary level change. "Other USGS gauges" is the exception:
+below the rung it keeps its own parchment counts at a 50pt radius, separate
+from every Eddy count, and from the rung up its stations join the cross-layer
+stacks. With that layer on, zooming in across zoom 8 can merge a station and
+a nearby place into one badge that no count below the rung held together.
+Tapping a
 stack below zoom 13 eases in to the zoom where it splits, capped at 15, when
 that is more than half a level away; otherwise it opens "N places here" in the
 places sheet. Cluster taps ask the owning source for its expansion zoom,
@@ -2618,7 +2638,13 @@ rapid tap/pan while a query is pending, POIs near each sheet edge, remembered
 camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and
 10.5, pan responsiveness and fast fling with Other USGS gauges on (fling beyond
 the padded area and check for briefly empty edges before the camera settles),
-failed-first-load/retry, VoiceOver list selection, and largest text sizes.
+failed-first-load/retry, VoiceOver list selection, largest text sizes, and
+stacks regrouping mid-pinch across zoom 8–16 with no badge lingering after its
+members split (the zoom-stepped filters' first device check). With those
+filters, also check that opening a place from "N places here" has no hitch
+(a selection re-sends every pin layer's filter), that closing its sheet shows
+no loose pin beside its stack, and that panning at zoom 6–8 with Other USGS
+gauges on has no hitch after each stop.
 
 Dam Reads and their schedules refresh on focus, foreground and five-minute
 boundaries. An earlier hour's Read or a previous Central day's response is not
