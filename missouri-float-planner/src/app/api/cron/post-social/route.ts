@@ -5,16 +5,17 @@ import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily
 // Runs every 30 min via Vercel Cron.
 //
 // Image posts: published inline.
-// Float Picks render per destination; other video formats share the same file.
-//   Triggers GH Actions workflow → callback publishes to all platforms.
+// Video posts: saved and dispatched through dispatchVideos, which renders
+//   per-destination layouts (Float Pick) separately and shares one file for
+//   other formats. GH Actions renders → video-callback publishes.
 
 import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
+import { getScheduledPosts, getRetryablePosts, postsFromToday, type SchedulerResult } from '@/lib/social/post-scheduler';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, ScheduledPost, PublishResult } from '@/lib/social/types';
-import { triggerVideoRender, getCompositionForPost, videoRenderGroup } from '@/lib/social/video-renderer';
+import { dispatchVideos, fallsBackToImage } from '@/lib/social/dispatch-videos';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { buildPostContext } from '@/lib/social/post-context';
 import { savedPostMedia } from '@/lib/social/review';
@@ -27,7 +28,7 @@ import {
   thrownFields,
   writeOutcome,
 } from '@/lib/social/publish-outcome';
-import type { PostKind } from '@/lib/social/post-types';
+import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
 
 const CRON_LOCK_NAME = 'post_social';
 // Sized to THIS route's runtime, not the render's. triggerVideoRender POSTs a
@@ -193,7 +194,6 @@ async function runSocialPosting(request: NextRequest) {
     diagnostics = result.diagnostics;
     console.log(`${LOG_PREFIX} ${scheduledPosts.length} posts scheduled`);
 
-    // Separate video and image posts
     const videoPosts = scheduledPosts.filter(p => p.mediaType === 'video');
     const imagePosts = scheduledPosts.filter(p => p.mediaType !== 'video' && p.postType !== 'daily_digest');
     const reportPosts = scheduledPosts.filter(p => p.postType === 'daily_digest');
@@ -212,158 +212,92 @@ async function runSocialPosting(request: NextRequest) {
       }
     }
 
-    // Float Picks use their destination's layout; other formats share a render.
-    const videoGroups = new Map<string, ScheduledPost[]>();
+    // ─── Videos: one batch per format and river, sent through dispatchVideos ───
+    // dispatchVideos decides which destinations share a render (same file) and
+    // which render separately (per-destination layouts such as Float Pick).
+    const videoBatches = new Map<string, ScheduledPost[]>();
     for (const post of videoPosts) {
-      const key = videoRenderGroup(post.postType, post.riverSlug, post.platform);
-      const group = videoGroups.get(key) || [];
-      group.push(post);
-      videoGroups.set(key, group);
+      if (!getAdapter(post.platform)) {
+        console.log(`${LOG_PREFIX} No credentials for ${post.platform}, skipping`);
+        skipped++;
+        continue;
+      }
+      const key = `${post.postType}:${post.riverSlug || 'global'}`;
+      videoBatches.set(key, [...(videoBatches.get(key) ?? []), post]);
     }
 
-    for (const [groupKey, groupPosts] of Array.from(videoGroups.entries())) {
-      const first = groupPosts[0];
-      const readingContext = first.postType === 'river_highlight'
-        ? await buildPostContext(supabase, { postType: 'river_highlight', riverSlug: first.riverSlug ?? undefined, eddyUpdateId: first.eddyUpdateId ?? undefined }) : null;
-      if (first.postType === 'river_highlight' && !readingContext) { skipped += groupPosts.length; continue; }
-      if (readingContext) {
-        const { data: snippets } = await supabase.from('social_custom_content').select('*').eq('active', true);
-        for (const post of groupPosts) {
-          Object.assign(post, readingContext.caption(post.platform, snippets ?? []));
-          post.imageUrl = readingContext.imageUrl(post.platform);
-        }
-      }
-
-      const todayStart = new Date();
-      todayStart.setUTCHours(0, 0, 0, 0);
-      const postIds: string[] = [];
-
-      // Insert DB records for all platforms in this group
-      for (const post of groupPosts) {
-        const adapter = getAdapter(post.platform);
-        if (!adapter) {
-          console.log(`${LOG_PREFIX} No credentials for ${post.platform}, skipping`);
-          skipped++;
-          continue;
-        }
-
-        // Clear conflicting records
-        let cleanup = supabase
-          .from('social_posts')
-          .delete()
-          .eq('post_type', post.postType)
-          .eq('platform', post.platform)
-          .eq('auto_publish', true)
-          .in('status', ['failed', 'pending'])
-          .gte('created_at', todayStart.toISOString());
-        if (post.postType === 'river_highlight') cleanup = cleanup.like('image_url', '%type=weekend-read&%');
-        await cleanup;
-
-        const { data: record, error: insertError } = await supabase
-          .from('social_posts')
-          .insert({
-            post_type: post.postType,
-            platform: post.platform,
-            river_slug: post.riverSlug,
-            caption: post.caption,
-            image_url: post.imageUrl,
-            media_type: 'video',
-            hashtags: post.hashtags,
-            eddy_update_id: post.eddyUpdateId,
-            status: 'rendering',
-          })
-          .select('id')
-          .single();
-
-        if (insertError) {
-          console.log(`${LOG_PREFIX} Dedup skip: ${post.postType}/${post.platform}/${post.riverSlug || 'global'} — ${insertError.message}`);
-          skipped++;
-          continue;
-        }
-
-        postIds.push(record.id);
-      }
-
-      if (postIds.length === 0) continue;
-
-      // Dispatch one workflow for this content/destination group.
-      const firstPost = groupPosts[0];
+    for (const [batchKey, batchPosts] of videoBatches) {
+      const first = batchPosts[0];
+      const kind = first.postType as VideoPostKind;
       try {
-        const renderData = readingContext?.renderData ?? await buildRenderData(firstPost, supabase);
-        const { compositionId, inputProps, outputFilename } = getCompositionForPost(
-          firstPost.postType as Parameters<typeof getCompositionForPost>[0],
-          renderData,
-          firstPost.platform,
-        );
-
-        const dispatched = await triggerVideoRender({
-          postIds: postIds.join(','),
-          compositionId,
-          inputProps,
-          outputFilename,
-        });
-
-        if (dispatched) {
-          rendering += postIds.length;
-          console.log(`${LOG_PREFIX} Video render triggered for ${groupKey}: ${postIds.length} platform(s), IDs: ${postIds.join(',')}`);
-        } else {
-          // Dispatch failed — fall back to image for all. Surface the
-          // dispatch failure on each row so a SQL query reveals "why is
-          // everything posting as image" without needing log forensics.
-          // Most common cause: GH_ACTIONS_TOKEN expired or lost scope.
-          const fallbackReason = 'Video dispatch returned non-204 — fell back to image. Check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
-          console.error(`${LOG_PREFIX} GH Actions dispatch failed for ${groupKey}, falling back to image`);
-          errors.push(`${groupKey}: ${fallbackReason}`);
-          for (let i = 0; i < groupPosts.length; i++) {
-            const post = groupPosts[i];
-            const id = postIds[i];
-            if (!id) continue;
-            const adapter = getAdapter(post.platform);
-            if (!adapter) continue;
-
-            const { data: claimedFallback } = await supabase
-              .from('social_posts')
-              .update({
-                media_type: 'image',
-                status: 'publishing',
-                error_message: fallbackReason,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', id)
-              .eq('status', 'rendering')
-              .select('id');
-            if (!claimedFallback?.length) continue;
-
-            let pubResult: PublishResult;
-            try {
-              pubResult = await adapter.publishPost({
-                caption: post.caption,
-                imageUrl: post.imageUrl,
-                mediaType: 'image',
-                onProviderAttempt: providerAttemptRecorder(supabase, id),
-              });
-            } catch (err) {
-              await writeOutcome(supabase, id, thrownFields(err));
-              failed++;
-              errors.push(`${post.platform}/${post.postType}: fallback publish — outcome unknown`);
-              continue;
-            }
-            // Keep the fallback breadcrumb on success too — without it the
-            // published image looks indistinguishable from an intentional image post.
-            await writeOutcome(supabase, id, outcomeFields(pubResult, new Date(), { messageOnSuccess: fallbackReason }));
-
-            if (pubResult.success) published++;
-            else { failed++; errors.push(`${post.platform}/${post.postType}: fallback publish — ${pubResult.error}`); }
+        let renderData = first.renderData;
+        if (!renderData && kind === 'river_highlight') {
+          // Refresh the Read's caption with the same context the video renders.
+          const ctx = await buildPostContext(supabase, { postType: 'river_highlight', riverSlug: first.riverSlug ?? undefined, eddyUpdateId: first.eddyUpdateId ?? undefined });
+          if (!ctx) { skipped += batchPosts.length; continue; }
+          const { data: snippets } = await supabase.from('social_custom_content').select('*').eq('active', true);
+          for (const post of batchPosts) {
+            Object.assign(post, ctx.caption(post.platform, snippets ?? []));
+            post.imageUrl = ctx.imageUrl(post.platform);
           }
+          renderData = ctx.renderData;
+        }
+        renderData ??= await buildRenderData(first, supabase);
+
+        const imageFallback = fallsBackToImage(kind);
+        if (imageFallback) {
+          // Clear today's failed or stuck scheduled rows so History shows the
+          // new attempt only. Formats without an image fallback keep theirs for
+          // Render again, and the scheduler doesn't re-queue them.
+          const stale = (await postsFromToday(supabase, kind, result.timeZone))
+            .filter(row => row.auto_publish && ['failed', 'pending'].includes(row.status)).map(row => row.id);
+          if (stale.length) await supabase.from('social_posts').delete().in('id', stale);
+        }
+
+        const batch = await dispatchVideos(supabase, kind, renderData, batchPosts, true, { keepUndispatched: imageFallback });
+        rendering += batch.rendering;
+        errors.push(...batch.warnings);
+        if (batch.rendering) console.log(`${LOG_PREFIX} Video render triggered for ${batchKey}: ${batch.rendering} post(s)`);
+        if (!imageFallback) { failed += batch.undispatched.length; continue; }
+
+        // Render could not start: publish the cover image instead. The reason
+        // stays on each row so a published image isn't mistaken for an
+        // intentional image post. Most common cause: GH_ACTIONS_TOKEN expired.
+        const fallbackReason = 'Video dispatch returned non-204 — fell back to image. Check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
+        if (batch.undispatched.length) errors.push(`${batchKey}: ${fallbackReason}`);
+        for (const { id, delivery } of batch.undispatched) {
+          const adapter = getAdapter(delivery.platform);
+          const { data: claimedFallback } = await supabase
+            .from('social_posts')
+            .update({ media_type: 'image', status: adapter ? 'publishing' : 'failed', error_message: fallbackReason, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('status', 'rendering')
+            .select('id');
+          if (!adapter || !claimedFallback?.length) { failed++; continue; }
+
+          let pubResult: PublishResult;
+          try {
+            pubResult = await adapter.publishPost({
+              caption: delivery.caption,
+              imageUrl: delivery.imageUrl,
+              mediaType: 'image',
+              onProviderAttempt: providerAttemptRecorder(supabase, id),
+            });
+          } catch (err) {
+            await writeOutcome(supabase, id, thrownFields(err));
+            failed++;
+            errors.push(`${delivery.platform}/${kind}: fallback publish — outcome unknown`);
+            continue;
+          }
+          await writeOutcome(supabase, id, outcomeFields(pubResult, new Date(), { messageOnSuccess: fallbackReason }));
+          if (pubResult.success) published++;
+          else { failed++; errors.push(`${delivery.platform}/${kind}: fallback publish — ${pubResult.error}`); }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        console.error(`${LOG_PREFIX} Video trigger error for ${groupKey}:`, msg);
-        for (const id of postIds) {
-          await supabase.from('social_posts').update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() }).eq('id', id);
-        }
-        failed += postIds.length;
-        errors.push(`${groupKey}: ${msg}`);
+        console.error(`${LOG_PREFIX} Video batch error for ${batchKey}:`, msg);
+        failed += batchPosts.length;
+        errors.push(`${batchKey}: ${msg}`);
       }
     }
 

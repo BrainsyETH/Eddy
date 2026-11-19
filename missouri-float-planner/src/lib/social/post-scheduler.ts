@@ -2,6 +2,9 @@
 // Determines scheduled social posts. Eddy’s Read is one Thursday comparison;
 // Float Pick and other format schedules retain their existing behavior.
 
+import { expandDestinations, savedPlacementChoices } from './placements';
+import { supportsStory } from './post-types';
+import { fallsBackToImage } from './dispatch-videos';
 import { MAY_HAVE_PUBLISHED } from './publish-outcome';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -16,7 +19,7 @@ import { tiktokRemainingBudget } from './tiktok-cap';
 
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
-import { getLocalDay, getLocalMinutes } from './local-time';
+import { getLocalDay, getLocalMinutes, getLocalDateKey } from './local-time';
 import { upcomingHolidayWeekend } from './holiday-weekends';
 import type {
   SocialCustomContent,
@@ -53,6 +56,8 @@ function resolveMedia(
 
 export interface SchedulerResult {
   posts: ScheduledPost[];
+  /** The zone this run read its schedule in; "today" for dedupe means this zone's date. */
+  timeZone: string;
   diagnostics: {
     posting_enabled: boolean;
     digest_enabled: boolean;
@@ -65,7 +70,7 @@ export interface SchedulerResult {
   };
 }
 
-export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): Promise<SchedulerResult> {
+export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; preview?: boolean }): Promise<SchedulerResult> {
   const supabase = createAdminClient();
   const skipTimeCheck = options?.skipTimeCheck ?? false;
   const diag: SchedulerResult['diagnostics'] = {
@@ -85,7 +90,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   if (configError || !config) {
     console.error(`${LOG_PREFIX} Config load error: ${configError}`);
     diag.skipped_reasons.push(`config_error: ${configError}`);
-    return { posts: [], diagnostics: diag };
+    return { posts: [], timeZone: schedulerZone, diagnostics: diag };
   }
 
   schedulerZone = (config as { timezone?: string }).timezone || 'America/Chicago';
@@ -106,7 +111,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   if (!config.posting_enabled) {
     console.log(`${LOG_PREFIX} Posting is disabled`);
     diag.skipped_reasons.push('posting_disabled');
-    return { posts: [], diagnostics: diag };
+    return { posts: [], timeZone: schedulerZone, diagnostics: diag };
   }
 
   // Load custom content
@@ -158,6 +163,10 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   const posts: ScheduledPost[] = [];
+  // A preview of the full day shows what would post even if something already
+  // did; the cron, including a manual skip_time_check run, always dedupes.
+  const alreadyPosted = async (postType: string) =>
+    !(skipTimeCheck && options?.preview) && await hasPostedToday(postType, supabase);
   const baseUrl = 'https://eddy.guide';
 
   // Pre-compute scheduling-zone day-of-week for video/schedule decisions
@@ -196,11 +205,10 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     if ((todayMedia || holidayEarlyCall) && config.weekly_forecast) {
       const { time_cst } = config.weekly_forecast;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
-      const alreadyPosted = await hasPostedToday('weekly_forecast', null, supabase);
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted && !options?.skipTimeCheck) {
+      } else if (await alreadyPosted('weekly_forecast')) {
         console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
       } else if (updates.length === 0) {
         console.log(`${LOG_PREFIX} Weekly forecast: no fresh eddy updates — skipping`);
@@ -251,23 +259,24 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     if (todayMedia && config.section_guide) {
       const { time_cst } = config.section_guide;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
-      const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Float Pick: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted && !options?.skipTimeCheck) {
+      } else if (await alreadyPosted('section_guide')) {
         console.log(`${LOG_PREFIX} Float Pick: already posted today — skipping`);
       } else {
         const ctx = await buildPostContext(supabase, { postType: 'section_guide' });
         if (!ctx) {
           console.log(`${LOG_PREFIX} Float Pick: no live section and no evergreen favorite — skipping`);
         } else {
-          const platforms = platformsForPost();
-          for (const platform of platforms) {
+          const destinations = expandDestinations(platformsForPost(), savedPlacementChoices(config, 'section_guide'), supportsStory('section_guide'));
+          for (const { platform, placement } of destinations) {
             const { caption, hashtags } = ctx.caption(platform, customContent);
             posts.push({
               postType: 'section_guide',
-              platform,
+              platform, placement,
+              // Render exactly the float this caption describes.
+              renderData: ctx.renderData,
               riverSlug: ctx.riverSlug,
               caption,
               imageUrl: ctx.imageUrl(platform),
@@ -296,8 +305,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   } else if (!digestMediaType) {
     console.log(`${LOG_PREFIX} Daily digest: today's matrix cell is off — skipping`);
   } else {
-    const digestAlreadyPosted = await hasPostedToday('daily_digest', null, supabase);
-    if (digestAlreadyPosted && !skipTimeCheck) {
+    if (await alreadyPosted('daily_digest')) {
       console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
     } else if (!isDueNow(config.digest_time_cst) && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_cst} CST), skipping digest`);
@@ -313,7 +321,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // One Eddy’s Read each Thursday, using the existing format on/off cell.
   // Legacy per-river schedules no longer emit separate social Reads.
   if (weekendReadDue(config.media_schedule?.river_highlight?.thu, new Date(), skipTimeCheck, schedulerZone)) {
-    if (skipTimeCheck || !await hasPostedToday('river_highlight', null, supabase)) {
+    if (!await alreadyPosted('river_highlight')) {
       const ctx = await buildPostContext(supabase, { postType: 'river_highlight', config: { ...config, timezone: schedulerZone } });
       if (ctx) {
         diag.eligible_rivers.push(...(ctx.riverSlugs ?? []));
@@ -332,7 +340,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${diag.due_rivers.length} river highlights)`);
-  return { posts, diagnostics: diag };
+  return { posts, timeZone: schedulerZone, diagnostics: diag };
 }
 
 // True when the scheduled Central time falls within the current fire window.
@@ -354,44 +362,44 @@ function isDueNow(scheduledTimeCst: string, windowMinutes: number = 35): boolean
   return adjustedDiff >= 0 && adjustedDiff < windowMinutes;
 }
 
-// Check if a post of this type has already been created today
-async function hasPostedToday(
-  postType: string,
-  riverSlug: string | null,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any
-): Promise<boolean> {
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+type TodayRow = { id: string; created_at: string; status: string; auto_publish: boolean; image_url: string | null };
 
-  let query = supabase
-    .from('social_posts')
-    .select('id')
-    .eq('post_type', postType)
-    .gte('created_at', todayStart.toISOString())
-    // `unknown` blocks too: it may have published, and treating it as absent
-    // would let the scheduler post the same thing again the same day.
-    .in('status', ['pending', 'rendering', ...MAY_HAVE_PUBLISHED]);
+/**
+ * Posts of a type created on today's date in `timeZone` (Central by default).
+ * The scheduler's "today" is the local date, not the UTC date, which rolls
+ * over at 6–7pm Central and would let an evening slot fire twice.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function postsFromToday(supabase: any, postType: string, timeZone: string, now = new Date()): Promise<TodayRow[]> {
+  const since = new Date(now.getTime() - 36 * 3600_000);
+  const today = getLocalDateKey(timeZone, now);
+  const { data, error } = await supabase.from('social_posts')
+    .select('id,created_at,status,auto_publish,image_url')
+    .eq('post_type', postType).gte('created_at', since.toISOString());
+  if (error) throw new Error(`Could not check today's ${postType} posts`);
+  let rows = ((data ?? []) as TodayRow[]).filter(row => getLocalDateKey(timeZone, new Date(row.created_at)) === today);
+  // ClipEngine also uses river_highlight, including clips without a river.
+  // Only a weekend Read counts toward the weekly Read's slot.
+  if (postType === 'river_highlight') rows = rows.filter(row => row.image_url?.includes('type=weekend-read&'));
+  return rows;
+}
 
-  if (riverSlug) {
-    query = query.eq('river_slug', riverSlug);
-  } else if (postType === 'river_highlight') {
-    // ClipEngine also uses river_highlight, including clips without a river.
-    // Only a weekend Read should consume the weekly Read's slot.
-    query = query.like('image_url', '%type=weekend-read&%');
-  }
-  // When riverSlug is null we dedup by post_type + day alone. These types post
-  // once per day regardless of which river they feature — and section_guide /
-  // weekly_trend rows DO carry a river_slug, so the old `.is('river_slug', null)`
-  // never matched them: they were never deduped and fired again on the +30
-  // catch-up tick (the 7:00 + 7:30 double-post).
+/** Whether today's saved row keeps the scheduler from posting this format again. */
+export function blocksRepost(postType: string, row: Pick<TodayRow, 'status' | 'auto_publish'>): boolean {
+  // `unknown` blocks too: it may have published, and treating it as absent
+  // would let the scheduler post the same thing again the same day.
+  if ((['pending', 'rendering', ...MAY_HAVE_PUBLISHED] as string[]).includes(row.status)) return true;
+  // A scheduled post that cannot fall back to an image waits in History for
+  // Render again, even after it fails; the next tick must not queue another.
+  return row.auto_publish && !fallsBackToImage(postType);
+}
 
-  const { data } = await query.limit(1);
-  if (data && data.length > 0) {
-    console.log(`${LOG_PREFIX} hasPostedToday: blocking record found for ${postType}/${riverSlug || 'global'} (id=${data[0].id})`);
-    return true;
-  }
-  return false;
+// One post per format per local day, whichever river it features.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function hasPostedToday(postType: string, supabase: any): Promise<boolean> {
+  const blocking = (await postsFromToday(supabase, postType, schedulerZone)).find(row => blocksRepost(postType, row));
+  if (blocking) console.log(`${LOG_PREFIX} hasPostedToday: blocking record found for ${postType} (id=${blocking.id})`);
+  return !!blocking;
 }
 
 // Get failed posts eligible for retry

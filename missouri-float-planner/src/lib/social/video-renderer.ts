@@ -7,6 +7,7 @@
 //   GH_REPO_OWNER     — GitHub repo owner (default: 'BrainsyETH')
 //   GH_ACTIONS_REF    — Git ref for workflow dispatch (default: 'main')
 
+import type { SocialVideoPlacement } from '../../../shared/social-brand';
 import { prepareTerrainMap } from './terrain-map';
 import type { LngLat } from '../../../shared/social-route-journey';
 import { POST_TYPES, type RenderData, type VideoPostKind } from './post-types';
@@ -29,14 +30,10 @@ interface TriggerRenderParams {
 
 type RenderRequest = Omit<TriggerRenderParams, 'postIds'>;
 
-/** Keep each destination's Float Pick and callback IDs together. */
-export function videoRenderGroup(postType: string, riverSlug: string | null | undefined, platform: SocialPlatform): string {
-  return `${postType}:${riverSlug || 'global'}${postType === 'section_guide' ? `:${platform}` : ''}`;
-}
-
-export function destinationRenderRequest(render: RenderRequest, platform?: SocialPlatform): RenderRequest {
+/** Lay a per-destination composition out for one platform and placement. Shared compositions pass through. */
+export function destinationRenderRequest(render: RenderRequest, platform?: SocialPlatform, requestedPlacement?: SocialVideoPlacement): RenderRequest {
   if (render.compositionId !== 'social-route-portrait' || !platform) return render;
-  const placement = render.inputProps.placement === 'story' ? 'story' : 'reel';
+  const placement = requestedPlacement ?? (render.inputProps.placement === 'story' ? 'story' : 'reel');
   return {
     ...render,
     inputProps: { ...render.inputProps, platform, placement },
@@ -301,6 +298,7 @@ export function getCompositionForPost(
   postType: VideoPostKind,
   data: RenderData,
   platform?: SocialPlatform,
+  placement?: SocialVideoPlacement,
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
   const def = POST_TYPES[postType];
   if (!def?.composition || !def.renderProps || !def.outputFilename) {
@@ -310,5 +308,5 @@ export function getCompositionForPost(
     compositionId: def.composition,
     inputProps: def.renderProps(data),
     outputFilename: def.outputFilename(data),
-  }, platform);
+  }, platform, placement);
 }

@@ -6,6 +6,7 @@ import { withAdminMutation } from '@/lib/admin/mutation-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
+import { validPlacementChoices } from '@/lib/social/placements';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
 import { dailyReportAutoPublishEnabled } from '@/lib/social/daily-report';
 
@@ -97,6 +98,9 @@ async function handleSave(request: NextRequest) {
   if (authError) return authError;
 
   const body = await request.json();
+  if (body.section_guide?.placements !== undefined && !validPlacementChoices(body.section_guide.placements)) {
+    return NextResponse.json({ error: 'Invalid Float Pick placements' }, { status: 400 });
+  }
   const supabase = createAdminClient();
 
   // Self-healing: get config (handles duplicates and missing rows)
@@ -130,7 +134,7 @@ async function handleSave(request: NextRequest) {
     video_features: body.video_features ?? existing.video_features,
     media_schedule: body.media_schedule ?? existing.media_schedule,
     weekly_forecast: body.weekly_forecast ?? existing.weekly_forecast,
-    section_guide: body.section_guide ?? existing.section_guide,
+    section_guide: { ...existing.section_guide, ...body.section_guide },
     weekly_trend: body.weekly_trend ?? existing.weekly_trend,
     updated_at: new Date().toISOString(),
   };

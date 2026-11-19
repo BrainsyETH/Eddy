@@ -8,6 +8,8 @@ import DamVideoDownload from '@/components/admin/social/DamVideoDownload';
 import { isDamStory } from '@shared/social-dam-schedule';
 import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
+import { PlacementFields } from '@/components/admin/social/PlacementFields';
+import { destinationLabel, isStoryRender, renderPlacement, type PlacementChoices } from '@/lib/social/placements';
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
 import { videoSafeInsets } from '@shared/social-brand';
 import styles from './review.module.css';
@@ -103,13 +105,14 @@ interface SocialConfig {
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
-  section_guide: WeeklyReelConfig;
+  section_guide: WeeklyReelConfig & { placements?: PlacementChoices };
   weekly_trend: WeeklyReelConfig;
 }
 
 const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 interface PreviewPost {
+  placement?: 'reel' | 'story';
   postType: string;
   platform: string;
   riverSlug: string | null;
@@ -332,6 +335,7 @@ export default function SocialAdminPage() {
   >('digest');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
+  const [quickPlacements, setQuickPlacements] = useState<PlacementChoices>();
   const [quickPosting, setQuickPosting] = useState(false);
 
   // Preview modal state
@@ -355,7 +359,8 @@ export default function SocialAdminPage() {
     return () => dialog.close();
   }, [reviewOpen]);
   const damPreview = isDamStory(videoPreviewPost?.render_request);
-  const previewSafe = videoSafeInsets(videoPreviewPost?.platform, damPreview && videoPreviewPost?.platform === 'instagram' ? 'story' : 'reel');
+  const storyPreview = (damPreview && videoPreviewPost?.platform === 'instagram') || isStoryRender(videoPreviewPost?.render_request);
+  const previewSafe = videoSafeInsets(videoPreviewPost?.platform, storyPreview ? 'story' : 'reel');
 
   // TikTok connection status
   const [tiktokStatus, setTiktokStatus] = useState<{
@@ -561,7 +566,10 @@ export default function SocialAdminPage() {
               const cooldownOk = verified.highlight_cooldown_hours === config.highlight_cooldown_hours;
               const conditionsOk = JSON.stringify(verified.highlight_conditions?.sort()) === JSON.stringify(config.highlight_conditions?.sort());
 
-              if (!cooldownOk || !conditionsOk) {
+              const placementsOk = (['facebook', 'instagram'] as const).every(platform =>
+                (verified.section_guide?.placements?.[platform] ?? 'regular') === (config.section_guide?.placements?.[platform] ?? 'regular'));
+
+              if (!cooldownOk || !conditionsOk || !placementsOk) {
                 console.error(
                   `[SocialAdmin] SAVE DID NOT PERSIST! ` +
                   `Sent cooldown=${config.highlight_cooldown_hours} but GET returned ${verified.highlight_cooldown_hours}. ` +
@@ -620,6 +628,7 @@ export default function SocialAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: apiType,
+          ...(postType === 'section_guide' && { placements: config.section_guide?.placements }),
           // TikTok supports our reels; the Daily Report is an image carousel.
           platforms: ['facebook', 'instagram', ...(tiktokStatus?.connected && postType !== 'digest' ? ['tiktok'] : [])],
           asVideo,
@@ -628,7 +637,8 @@ export default function SocialAdminPage() {
       if (res.ok) {
         const body = await res.json().catch(() => null);
         const count = body?.rendering ?? body?.results?.filter?.((r: { status: string }) => r.status === 'review')?.length ?? 0;
-        showToast(count ? `Preparing ${count} draft(s) for review` : 'No drafts created', 'success');
+        showToast(body?.warnings?.length ? `Preparing ${count} drafts. Check Post History for failed renders.`
+          : count ? `Preparing ${count} draft(s) for review` : 'No drafts created', body?.warnings?.length ? 'error' : 'success');
         fetchPosts();
       } else {
         const body = await res.json().catch(() => null);
@@ -841,13 +851,15 @@ export default function SocialAdminPage() {
         body: JSON.stringify({
           type: quickPostType,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
+          ...(quickPostType === 'section_guide' && { placements: quickPlacements ?? config?.section_guide?.placements }),
           platforms: quickPostPlatforms.filter(p => quickPostType !== 'digest' || p !== 'tiktok'),
         }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.rendering) {
-          showToast(`Media render dispatched for ${data.rendering} platform(s) — will be ready for review after rendering`, 'success');
+          showToast(data.warnings?.length ? `Preparing ${data.rendering} drafts. Check Post History for failed renders.`
+            : `Preparing ${data.rendering} draft(s) for review`, data.warnings?.length ? 'error' : 'success');
         } else {
           const successes = data.results?.filter((r: { status: string }) => r.status === 'review').length || 0;
           const failures = data.results?.filter((r: { status: string }) => r.status === 'failed') || [];
@@ -939,10 +951,10 @@ export default function SocialAdminPage() {
                       <div key={i} className="bg-neutral-700/50 rounded-lg p-4 border border-neutral-600">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
-                            {post.platform}
+                            {destinationLabel(post.platform, post.placement)}
                           </span>
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
-                            {post.postType === 'daily_digest' ? 'Daily Report' : post.postType === 'river_highlight' ? 'Eddy’s Read' : post.postType}
+                            {post.postType === 'daily_digest' ? 'Daily Report' : POST_TYPE_LABELS[post.postType] ?? post.postType}
                           </span>
                           {post.postType === 'daily_digest' && <span className="text-xs text-primary-300">Carousel</span>}
                           {post.mediaType === 'video' && (
@@ -954,9 +966,9 @@ export default function SocialAdminPage() {
                             <span className="text-xs text-neutral-400">{post.riverSlug}</span>
                           )}
                         </div>
-                        {post.imageUrl && <details className="mb-3 text-sm text-neutral-300"><summary className="cursor-pointer">Inspect cover</summary>{/* eslint-disable-next-line @next/next/no-img-element */}
+                        {post.placement !== 'story' && post.imageUrl && <details className="mb-3 text-sm text-neutral-300"><summary className="cursor-pointer">Inspect cover</summary>{/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={post.imageUrl} alt="Scheduled post cover" className="mt-2 max-h-96 object-contain" /></details>}
-                        <p className="text-sm text-neutral-200 whitespace-pre-line break-words">{post.caption}</p>
+                        {post.placement !== 'story' && <p className="text-sm text-neutral-200 whitespace-pre-line break-words">{post.caption}</p>}
                         {post.postType === 'daily_digest' && <p className="mt-2 text-xs text-neutral-400">Generate a draft to review every widget slide.</p>}
                       </div>
                     ))
@@ -992,7 +1004,7 @@ export default function SocialAdminPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 id="social-review-title" className="text-lg font-semibold text-white">Review Post</h3>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
-                  {videoPreviewPost.platform}
+                  {destinationLabel(videoPreviewPost.platform, storyPreview ? 'story' : renderPlacement(videoPreviewPost.render_request))}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
                   {damPreview ? 'Dam schedule' : POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
@@ -1002,13 +1014,13 @@ export default function SocialAdminPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className={`${styles.reviewBody} ${damPreview ? styles.damReview : 'p-4'}`}>
+            <div className={`${styles.reviewBody} ${damPreview || storyPreview ? styles.verticalReview : 'p-4'}`}>
               {/* The cover beside the video: on Instagram the OG image IS the
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
-              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${damPreview ? styles.damPlayer : videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+              {reportImageUrls(videoPreviewPost.render_request) ? <CarouselPreview key={videoPreviewPost.id} urls={reportImageUrls(videoPreviewPost.render_request)!} /> : isDailyReport(videoPreviewPost.render_request) ? <p className="text-neutral-300">The carousel is still being prepared. All slides will appear here when rendering finishes.</p> : <div className={`grid gap-4 ${damPreview || storyPreview ? styles.verticalPlayer : videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
                 {videoPreviewPost.video_url && <div>
-                  <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">{damPreview && videoPreviewPost.platform === 'instagram' ? 'Instagram Story' : 'Video'}</p>
+                  <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">{storyPreview ? 'Story preview' : 'Video'}</p>
                   <div className="relative bg-black rounded-lg overflow-hidden aspect-[9/16]">
                     <video
                       src={videoPreviewPost.video_url}
@@ -1021,21 +1033,23 @@ export default function SocialAdminPage() {
                   <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Text safe area</option></select></label>
                   <p className="mt-1 text-xs text-neutral-400">Guides are approximate; platform controls and crops vary.</p>
                 </div>}
-                {!damPreview && <CoverPreview
+                {!damPreview && !storyPreview && <CoverPreview
                   key={videoPreviewPost.id}
                   src={videoPreviewPost.image_url}
                   platform={videoPreviewPost.platform}
                   videoUrl={videoPreviewPost.video_url}
                   directPost={tiktokStatus?.directPost}
                   gridNeighbors={posts
-                    .filter(p => p.platform === 'instagram' && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
+                    .filter(p => p.platform === 'instagram' && !isStoryRender(p.render_request) && !isDamStory(p.render_request) && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
                     .sort((a, b) => b.created_at.localeCompare(a.created_at))
                     .map(p => p.image_url as string)}
                 />}
               </div>
               }
               <div className="min-w-0">
-                <p className="text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
+                {storyPreview && !damPreview
+                  ? <p className="text-sm text-neutral-300">Music · Ed-dy Dot Guide</p>
+                  : <p className="text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>}
                 {videoPreviewPost.platform === 'tiktok' && tiktokStatus?.directPost === false && (
                   <p className="mt-3 text-sm text-neutral-400">Finish posting from the TikTok inbox.</p>
                 )}
@@ -1068,7 +1082,7 @@ export default function SocialAdminPage() {
         {/* Action buttons */}
         <div className="flex flex-wrap gap-3 mb-6">
           <button
-            onClick={() => { setShowQuickPost(!showQuickPost); setShowCompose(false); }}
+            onClick={() => { setShowQuickPost(!showQuickPost); setQuickPlacements(undefined); setShowCompose(false); }}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
           >
             <Zap className="w-4 h-4" />
@@ -1105,9 +1119,9 @@ export default function SocialAdminPage() {
 
             {/* Post type selector */}
             <div>
-              <label className="block text-sm text-neutral-300 mb-1">Post Type</label>
+              <label htmlFor="quick-post-type" className="block text-sm text-neutral-300 mb-1">Post Type</label>
               <select
-                value={quickPostType}
+                id="quick-post-type" value={quickPostType}
                 onChange={(e) => {
                   setQuickPostType(e.target.value as typeof quickPostType);
                   setQuickPostContentId('');
@@ -1188,10 +1202,16 @@ export default function SocialAdminPage() {
               )}
             </div>
 
+            {quickPostType === 'section_guide' && <PlacementFields formatLabel="Float Pick"
+              platforms={quickPostPlatforms} value={quickPlacements ?? config?.section_guide?.placements}
+              onChange={setQuickPlacements} />}
+
             {/* Explain what will be ready for review. */}
             <div className="p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg text-xs text-neutral-400">
               {quickPostType === 'digest'
                 ? 'Creates a carousel draft with 2–5 widget slides. Review every slide and the caption in posting history, then publish.'
+                : quickPostType === 'section_guide'
+                ? 'Creates one draft per destination with Eddy’s theme music.'
                 : quickPostType === 'tip'
                 ? 'Creates a static image draft for review.'
                 : 'Creates a video draft. Rendering usually takes 3–5 minutes. Review the finished video and caption in posting history, then publish.'}
@@ -1539,7 +1559,7 @@ export default function SocialAdminPage() {
                   <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
                   {!config.daily_report_auto_publish_enabled && <p className="mb-4 text-sm text-amber-300">Automatic Daily Reports are paused for rollout. Generate and approve a draft on Instagram and Facebook before enabling automation. Your saved days and times are kept.</p>}
                   <p className="text-sm text-neutral-400 mb-4">
-                    Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Carousel for Daily Report, Off / Video for reels</span>.
+                    Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Carousel for Daily Report, Off / Video for Float Picks and other videos</span>.
                     If every day for a row is Off, that post type is disabled. Set the time each type fires, or choose Generate draft to review a manual post.
                   </p>
                   <div className="overflow-x-auto">
@@ -1682,6 +1702,10 @@ export default function SocialAdminPage() {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="mt-4">
+                    <PlacementFields formatLabel="Float Pick" value={config.section_guide?.placements}
+                      onChange={placements => setConfig({ ...config, section_guide: { ...config.section_guide, placements } })} />
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">
                     All times are Central (CST/CDT). Eddy’s Read runs once on Thursday at 5:00 PM when its Thursday cell is enabled. Float Pick keeps its own schedule.
@@ -2057,7 +2081,7 @@ export default function SocialAdminPage() {
                                     minute: '2-digit',
                                   })}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{dam && post.platform === 'instagram' ? 'Instagram Story' : post.platform === 'tiktok' ? 'TikTok' : post.platform}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{destinationLabel(post.platform, dam && post.platform === 'instagram' ? 'story' : renderPlacement(post.render_request))}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
                                   <strong>{dam ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
                                   <span className="block text-xs text-neutral-400">
@@ -2079,7 +2103,7 @@ export default function SocialAdminPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-400">
-                                  <span className="line-clamp-2 [overflow-wrap:anywhere]">{post.caption}</span>
+                                  <span className="line-clamp-2 [overflow-wrap:anywhere]">{isStoryRender(post.render_request) ? '—' : post.caption}</span>
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap items-center gap-2">

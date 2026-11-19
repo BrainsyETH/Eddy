@@ -1,4 +1,5 @@
 import { DAILY_REPORT_KIND, isDailyReport, reportImageUrls, reportIsCurrent } from './daily-report';
+import { isStoryRender } from './placements';
 import type { PublishParams } from './types';
 import { isDamStory, type DamStorySnapshot } from '../../../shared/social-dam-schedule';
 
@@ -33,7 +34,7 @@ export function savedPostMedia(post: {
     }
     return {
       caption: post.caption, mediaType: 'video', videoUrl: post.video_url,
-      ...(props.platform === 'instagram' && { instagramPlacement: 'story' as const }),
+      ...(props.platform === 'instagram' && { placement: 'story' as const }),
     };
   }
   const tagged = post.render_request && typeof post.render_request === 'object' && 'kind' in post.render_request && post.render_request.kind === DAILY_REPORT_KIND;
@@ -48,6 +49,9 @@ export function savedPostMedia(post: {
   }
   if (post.media_type === 'video') {
     if (!post.video_url) throw new Error('No rendered video. Render again before publishing.');
+    if (isStoryRender(post.render_request)) {
+      return { caption: '', mediaType: 'video', videoUrl: post.video_url, placement: 'story' };
+    }
     return { caption: post.caption, mediaType: 'video', videoUrl: post.video_url, coverUrl: post.image_url ?? undefined };
   }
   return { caption: post.caption, mediaType: 'image', imageUrl: post.image_url ?? undefined };

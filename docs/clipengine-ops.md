@@ -285,18 +285,25 @@ Routes without photo reveals keep a 286px compact-card band; photo routes reserv
 redundant header line, nested stat tiles and separate CTA pays for that taller
 photo while retaining useful route space.
 
-Float Picks render separately for Instagram, Facebook and TikTok using each
-platform's existing Reel working bounds. Quick Post saves each destination's
-render request; scheduled posts group Float Picks by platform. A failed manual
-dispatch fails only its own draft. The destination renders of one Quick Post
-share a single prepared terrain snapshot (one provider request, one upload);
-the saved drafts stay provider-free, so a later rerender prepares its own. Rerendering an older saved Float Pick selects
-that draft's destination profile. Other formats continue sharing one master.
-The admin preview guide uses the post's actual destination. Named Remotion
-`social-route-{instagram|facebook|tiktok}-{reel|story}` presets also support
-manual exports, with the same input data. Story presets are exports only; this
-does not add Story publication. Omitted destination props retain the conservative
-shared layout for legacy renders.
+In **Admin → Social → Posting Schedule**, Float Pick has independent Instagram
+and Facebook placements. Choose Story only, the regular Instagram Reel or
+Facebook Page video, or both. Save the settings to apply them to scheduled
+posts. Quick Post can override the placement for one draft batch. Existing
+schedules default to their previous regular placement. TikTok gets one video.
+
+All destinations use the same route selection and Eddy’s “Ed-dy Dot Guide” theme.
+Each placement renders within its own safe area and has a separate Post History
+row, approval and retry. A failed Story stays a video for that destination.
+The terrain snapshot is shared within a batch. Rerenders use the saved route
+and placement. Placement is offered for formats whose composition lays out
+per destination (`destinationLayout` in `post-types.ts`); other formats render
+once and share that file across platforms. Every video, scheduled or manual,
+is saved and dispatched through `dispatchVideos`. If a scheduled render cannot
+start, shared formats publish their cover image instead; Float Picks stay in
+Post History for Render again. The scheduler allows one post per format per
+Central-time day. Instagram publishes Stories with a STORIES container; Facebook
+uses the Page video_stories upload and finish flow. The manual Remotion
+`social-route-{instagram|facebook|tiktok}-{reel|story}` presets remain available.
 
 The terrain snapshot projection is immutable. The display camera, route overlay,
 and image transform receive the selected layout origin together, preserving

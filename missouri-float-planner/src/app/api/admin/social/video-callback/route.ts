@@ -8,6 +8,7 @@ import { outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } fr
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform } from '@/lib/social/types';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
+import { savedPostMedia } from '@/lib/social/review';
 import { isDamStory } from '@shared/social-dam-schedule';
 
 export const dynamic = 'force-dynamic';
@@ -153,10 +154,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const result = await adapter.publishPost({
-        caption: post.caption,
-        videoUrl,
-        coverUrl: post.image_url || undefined,
-        mediaType: 'video',
+        ...savedPostMedia({ ...post, media_type: 'video', video_url: videoUrl }),
         onProviderAttempt: providerAttemptRecorder(supabase, postId),
       });
 
