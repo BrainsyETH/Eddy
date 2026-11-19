@@ -624,6 +624,34 @@ export default function DamDetailScreen() {
         <DamSourceLinks links={standaloneSourceLinks(dam)} style={styles.standaloneSources} />
 
         <View style={styles.actions}>
+          {/* The lake behind this dam, when Eddy has a lake screen for it. The
+              snapshot carries `lake` only once that lake's page is released, so
+              absent means "nothing to open" and draws nothing; `lakeName` in
+              the header still names the water either way.
+
+              navigate, not push: the lake screen's dam row links back here. */}
+          {dam.lake ? (
+            <Pressable
+              onPress={() =>
+                router.navigate({
+                  pathname: '/lake/[slug]',
+                  params: { slug: dam.lake!.slug, name: dam.lake!.name },
+                })
+              }
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`${dam.lake.name}: level, wind and boat launches`}
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                {dam.lake.name} · level, wind and launches
+              </Text>
+              <ControlIcon name="chevron-forward" size={16} color={colors.text} />
+            </Pressable>
+          ) : null}
+
           {/* The reach this dam controls, when Eddy carries it. Absent for most
               projects, and absent is the honest state — a dam whose tailwater
               Eddy does not carry has no river screen to offer. */}

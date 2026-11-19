@@ -1,6 +1,7 @@
 import { uploadFloatArchive, type ArchiveCapabilities } from '@/lib/floatArchiveUpload';
 import { floatVessel, vesselTypeLoader } from '@/lib/vesselTypes';
 import type { CampingStayResult } from '@eddy/conditions/camping-stay';
+import type { LakeSection } from '@eddy/conditions/lake-types';
 import type { CampingOverview } from '@eddy/types';
 import type { RiverGuideSummary } from '@/lib/riverGuides';
 // eddy-ios/src/api/client.ts
@@ -2350,6 +2351,19 @@ export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
  */
 export async function fetchDam(damId: string, signal?: AbortSignal): Promise<DamSnapshot> {
   return get<DamSnapshot>(`/api/dams/${encodeURIComponent(damId)}`, signal);
+}
+
+/**
+ * One published lake (GET /api/lakes/[slug]): level, movement, the week's
+ * history, wind, reviewed launches and the lake's neighbours.
+ *
+ * The body is the same LakeSection the web lake page renders, from the same
+ * server loader. REJECTS on failure, as fetchDam does and for the same reason:
+ * the screen was opened from a dam that named this lake, so a failure is real.
+ * A lake whose page is not released answers 404 here even if a dam names it.
+ */
+export async function fetchLake(slug: string, signal?: AbortSignal): Promise<LakeSection> {
+  return get<LakeSection>(`/api/lakes/${encodeURIComponent(slug)}`, signal);
 }
 
 /**

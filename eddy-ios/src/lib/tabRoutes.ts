@@ -9,6 +9,7 @@ export const DETAIL_TITLES: Record<string, string> = {
   'river/[slug]': 'River',
   'river/[slug]/access/[accessSlug]': 'Access point',
   'dam/[damId]': 'Dam',
+  'lake/[slug]': 'Lake',
   'float/[shortCode]': 'Float',
   floats: 'Saved floats & history',
   'favorite-floats': 'Featured floats',

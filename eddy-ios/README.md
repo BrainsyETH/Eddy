@@ -1598,6 +1598,41 @@ missing readings stay gaps. Larger text retains the full spoken row summaries.
 The shared schedule-change check line reads “Schedule last checked” with the
 check time in Central time (CST/CDT); checks from an earlier day include the date.
 
+## Lake details
+
+`lake/[slug]` is a lake's own screen, separate from the dam that holds it (ADR
+0019). It is one request, `fetchLake` → `GET /api/lakes/[slug]`, whose body is
+the `LakeSection` the web lake page renders. Reading order matches the web:
+level, wind, launches, then "Water in and out".
+
+- **Level:** elevation with its datum and age, signed 24-hour and 7-day change,
+  the conservation-pool sentence and the week as a line. A daily report
+  (Truman) says so and uses the 36-hour limit; an outdated level shows no
+  movement. The chart is not interactive; VoiceOver reads its summary.
+- **Wind & weather:** one observation at a named point, with the gust when
+  reported. A measurement, never advice. No reading draws no card.
+- **Boat launches:** reviewed locations with the directions chooser. A reviewed
+  location is not a report that a ramp is open. The method filter appears only
+  when the lake has both trailer and hand launches. "Nearest first" asks for
+  location on the tap and labels distances straight-line. Six rows show before
+  "Show all". An elevation caution renders only when the server sent one and
+  the level is still current on the device clock.
+- **Water in and out:** feeder rivers, dams above, the lake's own dam and where
+  the release goes. Rows open the existing river and dam screens with
+  `router.navigate`, so the dam and lake screens do not stack copies of each
+  other. Rows state observations only; the schedule stays on the dam screen.
+
+The copy, launch order, freshness rule and chart model are imported from
+`@eddy/conditions` (`lake-system`, `lake-launch-order`, `lake-reading`,
+`lake-status`, `lake-chart`), not restated. The header photo is the web lake
+page's own (`lakeHeaderPhoto`, keys `lake-<slug>` in
+`shared/place-photo-credits.json`).
+
+The only entry point is the dam screen, which shows a lake button when the dam
+snapshot carries `lake` (sent only for a published lake). There is no lake
+favorite, alert, search result, map layer or in-app deep link yet. Status:
+implemented; device verification is unconfirmed (no simulator run recorded).
+
 ## River guides
 
 The bottom of Today features one free **River guide** each local calendar day,

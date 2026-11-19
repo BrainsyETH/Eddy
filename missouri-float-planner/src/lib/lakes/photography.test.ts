@@ -8,8 +8,10 @@ import { existsSync, readdirSync } from 'node:fs';
 import sharp from 'sharp';
 import credits from '../../../shared/place-photo-credits.json';
 import { USACE_DAMS } from '../flow-providers/usace-registry';
-import { damPhoto } from './photography';
+import { damPhoto, lakePhoto } from './photography';
+import { publishedLakes } from './public-pages';
 import { damHeaderPhoto } from '../../../../eddy-ios/src/lib/damHeader';
+import { lakeHeaderPhoto } from '../../../../eddy-ios/src/lib/lakeHeader';
 import { imageUrl } from '../../../../eddy-ios/src/lib/imageUrl';
 
 const DIR = 'public/lakes';
@@ -58,4 +60,17 @@ test('iOS dam headers keep the web selection, crop and attribution together', ()
   for (const id of ['unknown-dam', 'lake-table-rock', 'launch-table-rock-moonshine-beach', 'constructor', '__proto__']) {
     assert.equal(damHeaderPhoto(id), null);
   }
+});
+
+test('the iOS lake screen opens on the web lake page\'s own scenery, credited, for every published lake', () => {
+  for (const lake of publishedLakes()) {
+    const web = lakePhoto(lake.slug);
+    const native = lakeHeaderPhoto(lake.slug);
+    assert.ok(web, `${lake.slug}: a published lake needs its own photograph`);
+    assert.equal(native?.url, `https://eddy.guide${web.src}`);
+    assert.equal(native?.credit?.text, credits[`lake-${lake.slug}` as keyof typeof credits].credit);
+    assert.equal(native?.credit?.url, `https://eddy.guide/photo-credits#lake-${lake.slug}`);
+  }
+  // A lake screen never borrows the dam's photograph, and a stray key is not a lake.
+  for (const slug of ['nowhere', 'swl-table-rock-dam', 'constructor', '__proto__']) assert.equal(lakeHeaderPhoto(slug), null);
 });

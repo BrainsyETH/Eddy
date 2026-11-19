@@ -239,6 +239,43 @@ device, so each check is open. The contract is in
       link is included and the notice clears. A saved float still shares its
       stored link offline.
 
+### Lake screen gates — November 19, 2026
+
+Implemented in JavaScript (`eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/lake/[slug].tsx`,
+`eddy-ios/src/components/lake/`); no native module, plugin or permission
+changed. None of this has been run on a device or simulator, so each check is
+open. The screen needs the web deploy that serves `GET /api/lakes/[slug]` and
+adds `lake` to dam snapshots; until then the dam screen draws no lake button,
+which is the intended order. The rules are ADR 0019 items 8 to 10 and
+`eddy-ios/README.md`, "Lake details".
+
+- [ ] **Entry and return.** Table Rock Dam and Harry S. Truman Dam show the
+      lake button; Bull Shoals does not. Dam → lake → the lake's dam row → the
+      lake button again does not stack repeated screens, and Back returns to
+      the originating tab.
+- [ ] **Level card.** Table Rock shows an hourly observation, signed 24-hour
+      and 7-day change, the conservation-pool sentence and a seven-day line
+      with its dashed pool reference. Truman reads "Daily report" and is not
+      marked outdated at about 20 hours old. Compare both levels with the dam
+      screen's lake level: they match.
+- [ ] **Wind card.** Speed, origin and gust read as on the web page, with the
+      place and age. With weather unavailable the card is absent and the rest
+      of the screen is intact.
+- [ ] **Launches.** Truman lists six rows and "Show all 35 launches"; no
+      method filter appears while every reviewed launch is a trailer ramp.
+      "Nearest first" prompts for location only on the tap, reorders the list
+      and labels distances straight-line; denying location leaves name order
+      and says so. Directions opens the chooser for the tapped launch.
+- [ ] **Water in and out.** Table Rock lists inflow, Beaver Dam, the James and
+      Kings rivers, Table Rock Dam and Lake Taneycomo; Truman lists its dam and
+      Lake of the Ozarks. River and dam rows open the right screens; no row
+      states a schedule.
+- [ ] **Failure and refresh.** A cold open in airplane mode shows "Lake
+      unavailable" with a working Try again. Returning to the screen after the
+      level ages past its limit marks it outdated and removes the movement.
+- [ ] **Accessibility and theme.** Largest Dynamic Type, VoiceOver (chart
+      summary, row labels, 44-point targets) and dark mode.
+
 ### October 13 freshness update candidate
 
 The observation-age, Today gauge refresh, and dam-row fixes change JavaScript
