@@ -6,5 +6,5 @@ export async function loadDamStorySchedule(date: string) {
   const now = Date.now();
   if (date !== centralDayKey(now) && date !== nextDayKey(centralDayKey(now))) throw new Error('Choose a schedule for today or tomorrow in Central time.');
   const dam = await fetchDamSummary(DAM_STORY_ID, { scheduleDays: 2 });
-  return damStorySnapshot(dam?.schedule.find(day => day.scheduleDate === date), date);
+  return damStorySnapshot(dam?.schedule.find(day => day.scheduleDate === date), date, now, dam?.generationReference?.schedulingCapacityMw);
 }

@@ -1123,7 +1123,7 @@ export interface FixedScaleBar {
  */
 export function scheduledBar(
   megawatts: number,
-  ref: GenerationReference | null | undefined
+  ref: Pick<GenerationReference, 'schedulingCapacityMw'> | null | undefined
 ): FixedScaleBar | null {
   if (!Number.isFinite(megawatts) || megawatts < 0) return null;
   if (!ref || !Number.isFinite(ref.schedulingCapacityMw) || ref.schedulingCapacityMw <= 0) {
