@@ -12,7 +12,6 @@ import {
   generationPercentLabel,
   generationStatusLabel,
   generationVoiceOver,
-  generatorRack,
   releaseComparison,
   releaseRepeatsTurbineFlow,
   scheduleCheckedPhrase,
@@ -34,27 +33,6 @@ function ReadingTime({ at, now }: { at: string; now: number }) {
   </Text>;
 }
 
-function GeneratorCell({
-  fill,
-  on,
-  off,
-  channel,
-}: {
-  fill: number;
-  on: string;
-  off: string;
-  channel: string;
-}) {
-  return (
-    <View style={[styles.cell, { borderColor: on, backgroundColor: off }]}>
-      <View style={[styles.cellFill, { height: `${Math.round(fill * 100)}%`, backgroundColor: on }]} />
-      {/* The rotor channel. Decorative, and the only thing separating this from
-          a plain bar chart of eight identical columns. */}
-      <View style={[styles.cellChannel, { backgroundColor: channel }]} />
-    </View>
-  );
-}
-
 export function DamGenerationHero({ dam, now, headerAction, readingsSource }: {
   dam: DamSnapshot;
   now: number;
@@ -66,7 +44,6 @@ export function DamGenerationHero({ dam, now, headerAction, readingsSource }: {
   const state = generationNow(dam, now);
   const status = generationStatusLabel(state);
   const ref = dam.generationReference;
-  const rack = state.kind === 'generating' ? generatorRack(state.turbineCfs, ref) : null;
   const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
   const voiceOver = generationVoiceOver(state, ref);
   const comparison = releaseComparison(dam.metrics.generationFlow, release, ref, {
@@ -82,38 +59,33 @@ export function DamGenerationHero({ dam, now, headerAction, readingsSource }: {
 
   return <View>
     <View style={styles.headingRow}>
-      <EddySymbol name="release" size={28} />
+      <EddySymbol name="release" size={22} />
       <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>Total release</Text>
       {headerAction}
     </View>
-    {release ? <>
-      <Text style={[styles.release, { color: dimRelease ? colors.textMuted : colors.text }]}
-        accessibilityLabel={`Total water release, ${Math.round(release.value).toLocaleString()} cubic feet per second${release.dailyMean ? ', daily average' : ''}`}>
-        {Math.round(release.value).toLocaleString()} <Text style={[styles.unit, { color: colors.textMuted }]}>cfs</Text>
-      </Text>
-      {release.dailyMean ? <Text style={[styles.caption, { color: colors.textMuted }]}>Daily average</Text> : null}
-    </> : <Text style={[styles.caption, { color: colors.textMuted }]}>Total release unavailable.</Text>}
-    <View style={styles.readingRow}>
-      {release ? <ReadingTime at={release.at} now={now} /> : null}
-      {readingsSource}
+    <View style={styles.valueRow}>
+      {release ? (
+        <Text style={[styles.release, { color: dimRelease ? colors.textMuted : colors.text }]}
+          accessibilityLabel={`Total water release, ${Math.round(release.value).toLocaleString()} cubic feet per second${release.dailyMean ? ', daily average' : ''}`}>
+          {Math.round(release.value).toLocaleString()} <Text style={[styles.unit, { color: colors.textMuted }]}>cfs</Text>
+        </Text>
+      ) : <Text style={[styles.caption, { color: colors.textMuted }]}>Total release unavailable.</Text>}
+      <View style={styles.readingRow}>
+        {release ? <ReadingTime at={release.at} now={now} /> : null}
+        {readingsSource}
+      </View>
     </View>
+    {release?.dailyMean ? <Text style={[styles.caption, { color: colors.textMuted }]}>Daily average</Text> : null}
     {dimRelease && !release?.dailyMean ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated release reading</Text> : null}
 
-    {status ? <View style={[styles.turbine, { borderTopColor: colors.border }]}>
+    {status ? <View style={styles.turbine}>
       <View style={styles.turbineSummary}>
         <View style={styles.statusRow}>
           <ControlIcon name="flash" size={13} color={colors.interactive} />
           <Text accessibilityRole="header" style={[styles.status, { color: colors.text }]}>{status}</Text>
         </View>
-        {rack ? <View style={styles.rackBlock} accessible accessibilityLabel={`${voiceOver} Estimated from turbine flow.`}>
-          <View style={styles.rack}>
-            {rack.cells.map((cell, i) => <GeneratorCell key={i} fill={cell.fill}
-              on={colors.interactive} off={colors.cardRaised} channel={colors.card} />)}
-          </View>
-          {percent ? <Text style={[styles.estimate, { color: colors.text }]}>
-            ~{percent} <Text style={{ color: colors.textMuted }}>{FULL_GENERATION_SHORT_LABEL}</Text>
-          </Text> : null}
-        </View> : null}
+        {percent ? <Text style={[styles.estimate, { color: colors.textMuted }]}
+          accessibilityLabel={voiceOver ?? undefined}>~{percent} {FULL_GENERATION_SHORT_LABEL}</Text> : null}
       </View>
       {state.kind !== 'unavailable' ? <>
         {!repeatsRelease || !sameTime ? <Text style={[styles.caption, { color: dimTurbine ? colors.textMuted : colors.text }]}>
@@ -121,7 +93,7 @@ export function DamGenerationHero({ dam, now, headerAction, readingsSource }: {
         </Text> : null}
         {!sameTime ? <View style={styles.readingRow}><ReadingTime at={state.observedAt} now={now} /></View> : null}
         {dimTurbine ? <Text style={[styles.note, { color: colors.textMuted }]}>Outdated turbine reading</Text> : null}
-        {rack && state.kind === 'generating' && state.fraction !== null && state.fraction > 1 ?
+        {state.kind === 'generating' && state.fraction !== null && state.fraction > 1 ?
           <Text style={[styles.note, { color: colors.textMuted }]}>{ABOVE_FULL_GENERATION_LABEL}</Text> : null}
       </> : null}
     </View> : null}
@@ -138,22 +110,18 @@ export function DamGenerationHero({ dam, now, headerAction, readingsSource }: {
 const styles = StyleSheet.create({
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heading: { ...t.base, fontFamily: fonts.semibold, flex: 1 },
-  release: { ...t['3xl'], fontFamily: fonts.monoMedium, marginTop: 10, fontVariant: ['tabular-nums'] },
+  valueRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 10 },
+  release: { ...t['3xl'], fontFamily: fonts.semibold, fontVariant: ['tabular-nums'] },
   unit: { ...t.base, fontFamily: fonts.body },
   caption: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   readingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, marginTop: 2 },
   age: { ...t.xs, fontFamily: fonts.body, flexShrink: 1, paddingVertical: 4 },
   note: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
-  turbine: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 12 },
+  turbine: { marginTop: 4 },
   turbineSummary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   status: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   flow: { fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
-  rackBlock: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, flexShrink: 1 },
   estimate: { ...t.xs, fontFamily: fonts.body, flexShrink: 1 },
-  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
-  cell: { width: 12, height: 18, borderRadius: 3, borderWidth: 1.5, overflow: 'hidden', justifyContent: 'flex-end' },
-  cellChannel: { position: 'absolute', top: 4, bottom: 4, left: '50%', width: 1, opacity: 0.7 },
-  cellFill: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   spill: { ...t.sm, fontFamily: fonts.medium, marginTop: 12, padding: 10, borderWidth: 1, borderRadius: 10 },
 });

@@ -350,10 +350,6 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null, 
       </View>
 
 
-      {/* Four ticks instead of the three words this had, because "noon" alone
-          left a reader counting bars to find 6 PM — the hour a weekday release
-          most often starts. Still words rather than a 0-23 axis: nobody reads a
-          release schedule in 24-hour time. */}
       {/* NAMED, because an unlabelled coral line beside a labelled teal window
           invites the reader to take it for part of the same mark. */}
       {!compact && showMarker && rowWidth > 0 ? (
@@ -371,11 +367,10 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null, 
 
       {!compact ? (
         <View style={styles.barAxis}>
-          <Text style={[styles.axisText, { color: colors.textSubtle }]}>midnight</Text>
-          <Text style={[styles.axisText, { color: colors.textSubtle }]}>6 AM</Text>
-          <Text style={[styles.axisText, { color: colors.textSubtle }]}>noon</Text>
-          <Text style={[styles.axisText, { color: colors.textSubtle }]}>6 PM</Text>
-          <Text style={[styles.axisText, { color: colors.textSubtle }]}>midnight</Text>
+          {['12 AM', '6 AM', 'Noon', '6 PM', '12 AM'].map((label, index) => (
+            <Text key={index} style={[styles.axisText, { color: colors.textSubtle },
+              index === 0 && styles.axisStart, index === 4 && styles.axisEnd]}>{label}</Text>
+          ))}
         </View>
       ) : null}
       </>}
@@ -470,7 +465,9 @@ const styles = StyleSheet.create({
   nowRow: { minHeight: 16 },
   nowLabel: { width: 32, fontSize: 12, lineHeight: 17, textAlign: 'center', fontFamily: fonts.medium },
   barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
-  axisText: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
+  axisText: { width: '25%', textAlign: 'center', fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
+  axisStart: { width: '12.5%', textAlign: 'left' },
+  axisEnd: { width: '12.5%', textAlign: 'right' },
 });
 
 export const _test = { markerLeft, shareOf, barColor, BAR_GAP, HOURS };

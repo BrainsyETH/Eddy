@@ -647,7 +647,7 @@ export function scheduleOutlook(
  * seconds and the iOS app can hold a response far longer, so "in 2 hours"
  * silently decays into a false claim while "at 3 PM" does not.
  */
-function moveClock(move: ScheduledMove): string {
+export function moveClock(move: ScheduledMove): string {
   // hourEndingLabel gives the hour the water STARTS moving, which is exactly
   // the instant the move happens — hour ending 16 is the release running from
   // 3 PM, so the change is at 3 PM.

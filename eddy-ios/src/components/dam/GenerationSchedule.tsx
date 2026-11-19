@@ -18,7 +18,8 @@
 //
 // The bars themselves live in ./DayBars, shared with the Favorites row.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { useSyncExternalStore, type ReactNode } from 'react';
+import { Settings, StyleSheet, Text, View } from 'react-native';
 import type { DamScheduleDay } from '@eddy/types';
 import {
   oldestRetrievedAt,
@@ -37,65 +38,66 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
+// A single device preference applies to the schedule at every dam. iOS Settings
+// reads synchronously, so a returning reader gets the saved layout on first paint.
+const expandedKey = 'eddy.dam.schedule.expanded';
+const listeners = new Set<() => void>();
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+function isExpanded() {
+  return Settings.get(expandedKey) !== false;
+}
+function saveExpanded(expanded: boolean) {
+  Settings.set({ [expandedKey]: expanded });
+  for (const listener of listeners) listener();
+}
+
 function DayRow({
   day,
   reference,
   defaultExpanded,
+  inline = false,
   now,
 }: {
   day: DamScheduleDay;
   reference?: GenerationReference | null;
   defaultExpanded: boolean;
+  inline?: boolean;
   now: number;
 }) {
   const { colors } = useTheme();
 
-  // Null on every day but today. Carried in the collapsed header because the
-  // bar row it mirrors is hidden from VoiceOver, and because "is the water on
-  // RIGHT NOW" is the question this whole screen exists to answer — it should
-  // not require opening a section.
   const current = nowSentence(day, now);
 
   // All schedule surfaces distinguish a real peak from a flat-output day.
   const summary = scheduleWindowSummary(day, reference);
   const peak = summary?.varied ? summary.peak : null;
 
+  const date = scheduleDayLabel(day.scheduleDate);
+  const dateSummary = [current?.label, scheduledHoursSummary(day.hours), summary?.text, 'Central time'].filter(Boolean).join('. ');
+  const windowLabel = summary ? (
+    <Text style={[styles.windowLabel, { color: colors.textMuted }]} accessibilityLabel={summary.text}>
+      {summary.varied ? 'Peak' : 'Scheduled generation'} <Text style={{ color: colors.text }}>{summary.window}</Text>
+    </Text>
+  ) : null;
+  const bars = <DayBars day={day} reference={reference} peakSchedule={peak} now={now} />;
+  if (inline) {
+    return <View>
+      <View style={styles.dayHeading} accessible accessibilityLabel={`${date}. ${dateSummary}`}>
+        <Text style={[styles.date, { color: colors.text }]}>{date}</Text>
+        {windowLabel}
+      </View>
+      {bars}
+      {current ? <Text style={[styles.nowLabel, { color: colors.textMuted }]}>{current.label}</Text> : null}
+    </View>;
+  }
   return (
-    <CollapsibleSection
-      title={scheduleDayLabel(day.scheduleDate)}
-      // No visible sentence under the day header. The bars and the peak line
-      // already show when the units run, and a written list of every idle
-      // window ("…: midnight – 6 AM, 8 AM – 9 AM, 11 AM – 4 PM…") restated
-      // the bars in a harder-to-read form. The web schedule shows none either;
-      // the hour summary stays for VoiceOver, which cannot see the bars.
-      accessibilitySummary={[current?.label, scheduledHoursSummary(day.hours), summary?.text, 'Central time'].filter(Boolean).join('. ')}
-      defaultExpanded={defaultExpanded}
-      trailing={current ? (
-        <Text
-          style={[
-            styles.nowLabel,
-            // Keep styling tied to the flag rather than the label's wording.
-            { color: current.generating ? colors.accent : colors.textSubtle },
-          ]}
-        >
-          {current.label}
-        </Text>
-      ) : null}
-    >
-      {/* This is the posted plan. Observed flow remains in the hero above. */}
-      {summary ? (
-        <Text
-          style={styles.peakBlock}
-          accessible
-          accessibilityLabel={summary.text}
-        >
-          <Text style={{ color: colors.textMuted }}>
-            {summary.varied ? 'Peak' : 'Scheduled generation'}{' '}
-          </Text>
-          <Text style={[styles.peak, { color: colors.text }]}>{summary.window}</Text>
-        </Text>
-      ) : null}
-      <DayBars day={day} reference={reference} peakSchedule={peak} now={now} />
+    <CollapsibleSection title={date} accessibilitySummary={dateSummary} defaultExpanded={defaultExpanded}
+      trailing={current ? <Text style={[styles.nowLabel, { color: current.generating ? colors.accent : colors.textSubtle }]}>{current.label}</Text> : null}>
+      {windowLabel}
+      {bars}
     </CollapsibleSection>
   );
 }
@@ -104,32 +106,28 @@ export function GenerationSchedule({
   schedule,
   reference,
   embedded = false,
-  nextChange = null,
+  headline = 'Generation schedule',
+  changeTime,
+  stopDetail,
+  sourceFooter,
+  showFooterWhenCollapsed = false,
   now,
 }: {
   schedule: DamScheduleDay[];
   /** SWPA's published pair, so every day is drawn on the project's scale. */
   reference?: GenerationReference | null;
-  /**
-   * Drawn inside the merged Generation card — no chrome, no title, no footer.
-   *
-   * The card owns all three, because this section and the observed hero above
-   * it were each carrying their own copy of the SWPA attribution, the
-   * freshness line and the schedules-change warning. Said twice, three inches
-   * apart, about the same publisher.
-   */
+  /** The release card supplies the disclosure headline and the source footer. */
   embedded?: boolean;
-  /**
-   * The next-change sentence, moved down from the hero.
-   *
-   * It describes SWPA's PLAN, so it belongs over the plan rather than under an
-   * observed turbine reading — which is where it read as a second, competing
-   * statement of the same fact. Null keeps the section as it was.
-   */
-  nextChange?: { sentence: string; hasMove: boolean } | null;
+  headline?: string;
+  changeTime?: string;
+  stopDetail?: string;
+  sourceFooter?: ReactNode;
+  showFooterWhenCollapsed?: boolean;
   now: number;
 }) {
   const { colors, elevation } = useTheme();
+
+  const expanded = useSyncExternalStore(subscribe, isExpanded, () => true);
 
   if (schedule.length === 0) return null;
 
@@ -141,25 +139,6 @@ export function GenerationSchedule({
 
   const body = (
     <>
-      {/* Only an actual transition needs a callout. No-change summaries stay
-          in the schedule, with minimum-flow and continuing-generation caveats. */}
-      {nextChange ? (
-        <View
-          style={[
-            nextChange.hasMove ? styles.nextPanel : styles.noChange,
-            nextChange.hasMove ? { backgroundColor: colors.cardRaised, borderColor: colors.interactive } : null,
-          ]}
-        >
-          {nextChange.hasMove ? <Text style={[styles.blockLabel, { color: colors.interactive }]}>
-            Next scheduled change
-          </Text> : null}
-          <Text style={[
-            nextChange.hasMove ? styles.nextSentence : styles.noChangeText,
-            { color: nextChange.hasMove ? colors.text : colors.textMuted },
-          ]}>{nextChange.sentence}</Text>
-        </View>
-      ) : null}
-
       {embedded ? null : (
         <Text style={[styles.title, { color: colors.text }]}>Generation schedule</Text>
       )}
@@ -183,6 +162,7 @@ export function GenerationSchedule({
             day={day}
             reference={reference}
             defaultExpanded={i === 0}
+            inline={embedded && i === 0}
             now={now}
           />
         ))}
@@ -225,7 +205,14 @@ export function GenerationSchedule({
     </>
   );
 
-  if (embedded) return body;
+  if (embedded) return <>
+    <CollapsibleSection compact title={headline} summary={stopDetail} summaryLayout="below"
+      expanded={expanded} onExpandedChange={saveExpanded} accessibilitySummary={changeTime}
+      trailing={changeTime ? <Text style={[styles.changeTime, { color: colors.text }]}>{changeTime}</Text> : null}>
+      {body}
+    </CollapsibleSection>
+    {expanded || showFooterWhenCollapsed ? sourceFooter : null}
+  </>;
   return <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>{body}</View>;
 }
 
@@ -233,17 +220,12 @@ const styles = StyleSheet.create({
   card: { borderRadius: 14, padding: 16 },
   title: { ...t.lg, fontFamily: fonts.display },
   intro: { ...t.sm, marginTop: 2 },
-  days: { marginTop: 8 },
-  nextPanel: { borderRadius: 10, borderLeftWidth: 3, padding: 12, marginBottom: 12 },
-  noChange: { marginBottom: 4 },
-  noChangeText: { ...t.sm, fontFamily: fonts.body },
-  blockLabel: { ...t.xs, fontFamily: fonts.semibold },
-  nextSentence: { ...t.base, fontFamily: fonts.heading, marginTop: 3 },
-  nowLabel: { ...t.xs, fontFamily: fonts.semibold },
-  // The heading is the quiet half and the figure is the loud one: a reader
-  // scanning for "how big" should land on the number, not on the label over it.
-  peakBlock: { ...t.sm, fontFamily: fonts.body, marginTop: 6 },
-  peak: { fontFamily: fonts.semibold },
+  days: { gap: 4 },
+  dayHeading: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 },
+  date: { ...t.sm, fontFamily: fonts.semibold },
+  windowLabel: { ...t.xs, fontFamily: fonts.body },
+  changeTime: { ...t.base, fontFamily: fonts.heading, fontVariant: ['tabular-nums'] },
+  nowLabel: { ...t.xs, fontFamily: fonts.medium },
   footer: { borderTopWidth: 1, marginTop: 12, paddingTop: 10 },
   footerText: { ...t.xs },
   retrieval: { ...t.xs, fontFamily: fonts.semibold, textAlign: 'center', marginTop: 12 },
