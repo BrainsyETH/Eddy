@@ -191,8 +191,11 @@ Each input says what it measures, where and over what window, or it is left out.
   and is worded as what past rains did. Every other studied gauge has a
   recorded reason for having none, most often that the time varies too much
   from storm to storm. A gauge joins the list only through a locked study of
-  the same kind. The river's recovery note (`drop_rate_note`) still reaches
-  the river Read, for tone only.
+  the same kind. The eight per-river recovery rates (`drop_rate_note`, "0.3–0.6
+  ft/day") were as unsourced as the lag numbers and were deleted on
+  2026-11-19, on the owner's word. No Read is told a rate or a timeline for a
+  river coming back down, and the prompt forbids stating one: the measured
+  6- and 24-hour change is what the Read knows about how fast it is moving.
 
 ## Knowledge by gauge
 

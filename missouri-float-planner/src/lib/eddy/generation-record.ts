@@ -81,8 +81,6 @@ export interface GenerationCapture {
   forecast: ForecastData | null;
   precipitation: PrecipitationSummary | null;
   trajectory: GaugeTrajectory | null;
-  /** The river's recovery (drop rate) note as handed to the prompt. */
-  recoveryNote: string | null;
   /** The knowledge text injected into the prompt, or null if not loaded. */
   localKnowledge: string | null;
   systemPrompt: string;
@@ -192,7 +190,6 @@ function captureInputs(c: GenerationCapture): Record<string, unknown> {
     forecast: c.forecast,
     precipitation: c.precipitation,
     trajectory: c.trajectory,
-    recoveryNote: c.recoveryNote,
   };
 }
 

@@ -145,7 +145,6 @@ export async function generateEddyUpdate(
     forecast: null,
     precipitation: null,
     trajectory: null,
-    recoveryNote: null,
     localKnowledge: null,
     systemPrompt: EDDY_SYSTEM_PROMPT,
     userPrompt: null,
@@ -211,16 +210,10 @@ export async function generateEddyUpdate(
   const trajectory = gaugeResult ? await buildGaugeTrajectoryForSite(gaugeResult.usgsSiteId) : null;
   if (trajectory) sourcesUsed.push('gauge trajectory');
 
-  // --- 6. Recovery note ---
-  // No rain-to-river lag is handed to the Read. The per-river estimates had no
-  // source and were removed; see scripts/research/rain-lag-2026-11.
-  const recoveryNote = riverCtx?.characteristics?.dropRateNote?.trim() || null;
-
   // --- 7. Build the prompt ---
-  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, recoveryNote, riverCtx);
+  const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, riverCtx);
   capture.localKnowledge = localKnowledge || null;
   capture.trajectory = trajectory;
-  capture.recoveryNote = recoveryNote;
   capture.userPrompt = prompt;
 
   // --- 8. Call the model ---
@@ -408,7 +401,7 @@ TREND AND THE DAYS AHEAD:
 - Let the measured trend set your tone: falling toward a better level is good news, rising near a threshold deserves caution, and a fast rise in High water deserves a stronger warning.
 - The measured changes and rate cover roughly the past day. A peak or low is labelled with the number of days it was taken over and says nothing about the days before that. Do not say how long the gauge has held steady beyond what the data shows, and do not call the river predictable or reliable.
 - Anything about later days must be conditional ("if that rain arrives", "rain could"). Never say conditions will stay, remain or be a certain way. Never predict a gauge height or a rise or fall amount.
-- Do not say how many hours rain takes to reach or crest at this gauge. Use recovery knowledge for tone only; do not recite drop rates or timelines.
+- Do not say how many hours rain takes to reach or crest at this gauge, and do not give a rate or a timeline for the river coming back down. The measured change is what you know about how fast it is moving.
 - Do not describe the weather: no sky, temperature, wind or rain chance, today or ahead. The app's Weather section owns all of it. The days ahead reach you only as an [OUTLOOK] block, and only when rain is likely. Without one, say nothing about the days ahead. With one, say once in [FULL] that rain could change this reading and that it is worth another look, and leave it there.
 
 ACCURACY:
