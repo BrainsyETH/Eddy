@@ -1348,7 +1348,7 @@ your Mac. Three targets, in the order you reach for them:
 
 | Target | Produces | Signing | Costs an EAS build |
 | --- | --- | --- | --- |
-| `make run-ios` | app on the simulator | none (ad-hoc) | no |
+| `make run-ios` | app on the simulator | development identity required by Expo for app entitlements | no |
 | `make archive-ios` | .ipa via Xcode, submittable | Xcode, your login keychain | no |
 | `make build-ios` / `make testflight` | .ipa via EAS | EAS-held credentials | **yes** |
 
@@ -1396,26 +1396,51 @@ the fix, on Node 20, followed by `make check` — it rewrites
 
 ### Local builds and code signing
 
-A simulator build is signed ad-hoc and needs no certificate. A **local device**
-build does — and any signing configured in Xcode lives in `ios/`, which the next
-`prebuild --clean` deletes. That is why the certificate error keeps coming back.
+Eddy's installed Expo CLI checks native entitlements before a local build.
+`com.apple.developer.applesignin` and
+`com.apple.developer.associated-domains` trigger development-signing setup even
+for a Simulator destination. Its "physical iOS devices" error text is misleading
+in this case. Selecting a different simulator does not remove that requirement.
+Do not strip capabilities or disable signing to repair the normal development
+workflow.
 
-| Need | Use | Signing |
-|---|---|---|
-| JS iteration, most screens | `make dev` → simulator | none |
-| Push, StoreKit sandbox, universal links | `make build-ios` → install internally | EAS holds credentials |
+One-time setup, in the **same macOS account that runs the build**:
 
-Known issue: on Xcode 26.6 with Expo CLI 57.0.10, `expo run:ios` has resolved a
-signing certificate even for a **simulator** destination, failing with
-`No code signing certificates are available to use`. Bypass with xcodebuild,
-which cannot require signing for a simulator:
+1. Select full Xcode and install an iOS Simulator runtime.
+2. In Xcode Settings > Accounts, sign in with the Apple Account that has access
+   to Eddy's existing developer team. Select that team and use Manage
+   Certificates to create an Apple Development identity if none is available.
+   Alternatively import an existing development identity with its private key.
+   Do not revoke working certificates on another Mac.
+3. Verify `security find-identity -v -p codesigning` shows a valid development
+   identity. The certificate and private key must be accessible to this macOS
+   user; signing in under another macOS account does not configure this one.
+   If an identity appears without `-v` but not with `-v`, inspect certificate
+   validity and its issuer chain before creating another identity. On a fresh
+   Mac, a missing Apple WWDR G3 intermediate can cause this. Obtain the matching
+   intermediate from https://www.apple.com/certificateauthority/, verify its
+   chain, and add it to the build user's login keychain. Do not set certificates
+   to Always Trust or remove existing certificates to bypass validation.
+4. Run `make run-ios` from the repository root on Node 20. Expo can configure
+   native targets using the development identity. If prompted, choose Eddy's
+   existing team. The command builds locally, not through EAS.
 
-```bash
-cd eddy-ios/ios
-xcodebuild -workspace *.xcworkspace -scheme Eddy -configuration Debug \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
-  CODE_SIGNING_ALLOWED=NO build
-```
+Run only one native build per checkout/DerivedData location at a time. Before
+starting an agent verification build, inspect running `make run-ios`, Expo and
+`xcodebuild` processes and coordinate with the person using Terminal or Xcode.
+If Xcode reports `build.db` locked, let the owning build finish or stop only the
+build you own; do not delete an active database or DerivedData directory.
+
+Signing settings in generated `ios/` can be removed by `prebuild --clean`;
+the identity remains in the user's keychain and can be selected again. Never
+store private keys or certificates in the repository. An installed development
+client uses `npx expo start --dev-client` from `eddy-ios/` for JavaScript-only
+iteration; native dependency/configuration changes require `make run-ios` again.
+
+Homebrew is also account-sensitive: the installation owner performs package
+installs/upgrades, while other users can run installed tools via Homebrew's
+shell environment. Do not use `sudo brew` or recursively change a shared
+installation's ownership to fix a PATH issue.
 
 **Verify the native archive for this release.** The repository does not establish
 which of the newly added modules/extensions were in the last shipped binary.

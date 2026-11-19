@@ -36,7 +36,27 @@ Two things that are not optional:
 you see `No iOS devices available`, either the runtime is missing
 (`xcodebuild -downloadPlatform iOS`) or Xcode is not the selected developer
 directory (`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`).
-Note `Simulator.app` lives *inside* `Xcode.app`, so deleting Xcode removes it.
+On Xcode 27, open **Xcode > Open Developer Tool > Device Hub** to view and
+interact with simulators. The installed app can be opened directly with:
+
+```bash
+open /Applications/Xcode.app/Contents/Applications/DeviceHub.app
+```
+
+Do not assume the older `Contents/Developer/Applications/Simulator.app` path
+exists. Inspect the installed Xcode version and bundled apps first.
+See [Apple’s Device Hub guide](https://developer.apple.com/documentation/xcode/pairing-your-devices-with-your-mac).
+
+### iOS 27 scene-lifecycle startup
+
+Expo SDK 57 requires `expo-build-properties` → `ios.enableSceneSupport: true`
+when building with Xcode 27. This uses Expo's own scene delegate and moves window
+creation out of AppDelegate; it is not a Simulator-only bypass. Without it, UIKit
+can terminate at `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`
+before JavaScript starts. Keep this option until upgrading to a template that
+adopts scenes by default (SDK 58+). Regenerate native config and rebuild after
+changing it. Do not only edit generated `ios/` files: cloud builds regenerate
+them from app config.
 
 ### `react-native-svg could not be found within the project`
 
