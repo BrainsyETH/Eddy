@@ -4255,6 +4255,7 @@ export type Database = {
           render_request: Json | null
           retry_count: number
           river_slug: string | null
+          scheduled_at: string | null
           status: string
           updated_at: string
           video_url: string | null
@@ -4290,6 +4291,7 @@ export type Database = {
           render_request?: Json | null
           retry_count?: number
           river_slug?: string | null
+          scheduled_at?: string | null
           status?: string
           updated_at?: string
           video_url?: string | null
@@ -4325,6 +4327,7 @@ export type Database = {
           render_request?: Json | null
           retry_count?: number
           river_slug?: string | null
+          scheduled_at?: string | null
           status?: string
           updated_at?: string
           video_url?: string | null

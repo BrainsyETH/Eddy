@@ -101,3 +101,9 @@
   .filters select { padding-inline: .375rem; }
   .verticalReview { grid-template-columns: minmax(0, 1fr); }
 }
+
+@media (max-width: 520px) {
+  .reviewActions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; align-items:stretch; }
+  .reviewActions button { width:100%; min-height:42px; padding:.4rem; }
+  .reviewActions label, .reviewActions p, .reviewActions :global(.admin-primary) { grid-column:1/-1; }
+}

@@ -1,13 +1,13 @@
 # Daily dam videos
 
-Open **Admin → Social → Quick Post → Dam generation video** and choose a powerhouse.
+Open **Admin → Social → Create post → Dam generation** and choose a powerhouse.
 SWPA projects offer today’s and tomorrow’s hourly generation schedules. Wolf Creek,
 Center Hill and Dale Hollow offer the Corps’ generation forecast for the selected
 Central date. Bagnell shows Ameren’s latest measured release and the previous
 23 hourly readings. Total release includes all outlets.
 
-Choose Instagram Story, TikTok, or both, then select **Create video**. In Post History, owners open **Review & send** for each finished
-video and select **Approve & send**. Instagram publishes a Story. TikTok follows
+Choose Instagram Story, TikTok, or both, then select **Create video**. In the Queue, owners open **Review draft** for each finished
+video and choose **Approve & send** or **Schedule for later**. Timed approvals appear in the planner and can be returned to review from the queue. The publisher checks the source again at send time. Instagram publishes a Story. TikTok follows
 the connected account’s posting mode: inbox drafts are finished in TikTok;
 direct posting sends to the profile. **Download MP4** also works after delivery.
 Rendering and downloading work without a connected social account.

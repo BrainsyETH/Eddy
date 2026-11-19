@@ -369,7 +369,7 @@ export const METRICS = [
     key: 'social_failed',
     label: 'Failed social posts \u00b7 7 days',
     detail: '',
-    href: '/admin/social',
+    href: '/admin/social#queue',
     attention: true,
   },
   {
@@ -377,7 +377,7 @@ export const METRICS = [
     key: 'social_stuck',
     label: 'Rendering longer than 30 minutes \u00b7 7 days',
     detail: '',
-    href: '/admin/social',
+    href: '/admin/social#queue',
     attention: true,
   },
   {
@@ -385,7 +385,7 @@ export const METRICS = [
     key: 'social_fallback',
     label: 'Videos published as fallback images \u00b7 7 days',
     detail: '',
-    href: '/admin/social',
+    href: '/admin/social#settings',
     attention: true,
   },
   {

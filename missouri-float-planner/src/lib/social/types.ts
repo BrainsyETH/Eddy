@@ -26,7 +26,7 @@ export type PostType =
   | 'eddy_says'
   | 'favorite_float'
   | 'route_draw';
-export type PostStatus = 'pending' | 'rendering' | 'review' | 'inbox' | 'publishing' | 'published' | 'failed' | 'skipped';
+export type PostStatus = 'pending' | 'rendering' | 'review' | 'scheduled' | 'unknown' | 'inbox' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
 export type MediaType = 'image' | 'video';
@@ -67,6 +67,7 @@ export type DayMediaMap = Partial<Record<
 
 /** Admin-editable matrix: which post types render as video on which days. */
 export interface MediaSchedule {
+  delivery?: import('./publishing-plan').DayDeliveries;
   river_highlight: DayMediaMap;
   daily_digest: DayMediaMap;
   /** Weekly reels: cell = 'video' | 'image' | null (null = don't fire). */

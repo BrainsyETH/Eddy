@@ -285,14 +285,23 @@ Routes without photo reveals keep a 286px compact-card band; photo routes reserv
 redundant header line, nested stat tiles and separate CTA pays for that taller
 photo while retaining useful route space.
 
-In **Admin → Social → Posting Schedule**, Float Pick has independent Instagram
-and Facebook placements. Choose Story only, the regular Instagram Reel or
-Facebook Page video, or both. Save the settings to apply them to scheduled
-posts. Quick Post can override the placement for one draft batch. Existing
-schedules default to their previous regular placement. TikTok gets one video.
+Open **Admin → Social → Planner** and edit a Float Pick schedule. Select a
+weekday first to change that day alone. Choose a time and a destination for
+each account. Instagram supports Reel, Story, or both. Facebook supports Page
+video, Story, or both. TikTok gets one video when selected. **Create draft**
+starts a one-time post with those choices. Editing the draft affects only that
+batch. Existing schedules inherit their saved time and placements.
+
+Owners can edit recurring rules. For a single post, create or save a draft, open
+it in the Queue, then choose **Approve & send** or **Schedule for later**.
+Choose a future Central hour or half hour. The planner lists approved one-time
+posts. **Return to review** in the Queue cancels the planned send. Pausing
+automatic posting holds timed drafts until the publisher resumes. Source checks
+run again at send time for dam videos and Daily Reports. Apply migration
+`20261119135000_social_scheduled_drafts.sql` before deploying timed approvals.
 
 All destinations use the same route selection and Eddy’s “Ed-dy Dot Guide” theme.
-Each placement renders within its own safe area and has a separate Post History
+Each placement renders within its own safe area and has a separate queue
 row, approval and retry. A failed Story stays a video for that destination.
 The terrain snapshot is shared within a batch. Rerenders use the saved route
 and placement. Placement is offered for formats whose composition lays out
@@ -300,7 +309,7 @@ per destination (`destinationLayout` in `post-types.ts`); other formats render
 once and share that file across platforms. Every video, scheduled or manual,
 is saved and dispatched through `dispatchVideos`. If a scheduled render cannot
 start, shared formats publish their cover image instead; Float Picks stay in
-Post History for Render again. The scheduler allows one post per format per
+the Queue for Render again. The scheduler allows one post per format per
 Central-time day. Instagram publishes Stories with a STORIES container; Facebook
 uses the Page video_stories upload and finish flow. The manual Remotion
 `social-route-{instagram|facebook|tiktok}-{reel|story}` presets remain available.
@@ -354,7 +363,7 @@ narration at a soft, natural pace, and keeps Eddy visible. The earlier 30-second
 cap was removed in favor of understandable speech. It includes the saved report
 date's weather temperatures and a canoeing Eddy closing card.
 The caption retains the full text. Existing drafts retain their saved render
-props: create a new Quick Post to pick up the revised report selection as well
+props: create a new draft to pick up the revised report selection as well
 as the layout. Neither a new render nor this change approves a manual draft.
 
 Eddy Read renders require the GitHub Actions `OPENAI_API_KEY` secret. Before

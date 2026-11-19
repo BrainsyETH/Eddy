@@ -5,7 +5,7 @@ import { adminFetch } from '@/hooks/useAdminAuth';
 import { scheduleDayLabel } from '@shared/dam-schedule-copy';
 import { damPostSource, damStorySummary, ORIGINAL_STORY_DAM, type DamPostOption, type DamPostSnapshot, type DamStoryPlatform } from '@shared/social-dam-schedule';
 
-export default function DamScheduleExport({ onQueued }: { onQueued: () => void }) {
+export default function DamScheduleExport({ onQueued }: { onQueued: (message: string, partial: boolean) => void }) {
   const [dams, setDams] = useState<DamPostOption[]>([]);
   const [damId, setDamId] = useState(ORIGINAL_STORY_DAM.id);
   const selected = dams.find(dam => dam.id === damId);
@@ -55,8 +55,8 @@ export default function DamScheduleExport({ onQueued }: { onQueued: () => void }
       const response = await adminFetch('/api/admin/social/dam-schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ damId, date: snapshot.kind === 'release' ? undefined : snapshot.scheduleDate, platforms }) });
       const data = await response.json();
       const errors = data.results?.filter((r: { error?: string }) => r.error).map((r: { platform: string; error: string }) => `${r.platform}: ${r.error}`).join(' ');
-      setMessage(response.ok ? `Making your video. Open Post History to review and send it.${errors ? ` ${errors}` : ''}` : data.error || errors || 'Could not start the video.');
-      onQueued();
+      setMessage(response.ok ? `Preparing your video for review.${errors ? ` ${errors}` : ''}` : data.error || errors || 'Could not start the video.');
+      if (response.ok) onQueued(errors ? `Some videos could not be prepared. ${errors}` : 'Dam video queued for review', Boolean(errors));
     } catch { setMessage('Could not confirm whether the video started. Check History before trying again.'); }
     finally { setRendering(false); }
   }

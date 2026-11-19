@@ -1,3 +1,4 @@
+import { sendReviewedPost } from '@/lib/social/send-reviewed';
 import { dispatchDailyReport } from '@/lib/social/daily-report-dispatch';
 import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily-report';
 // src/app/api/cron/post-social/route.ts
@@ -186,6 +187,19 @@ async function runSocialPosting(request: NextRequest) {
     }
   } catch (err) {
     console.error(`${LOG_PREFIX} Error reaping stale records:`, err);
+  }
+
+  // One-time approvals use the existing publishing switch and the saved draft.
+  const { data: postingConfig } = await supabase.from('social_config').select('posting_enabled').order('updated_at', { ascending: false }).limit(1).maybeSingle();
+  if (postingConfig?.posting_enabled) {
+    const { data: due, error } = await supabase.from('social_posts').select('*').eq('status', 'scheduled')
+      .lte('scheduled_at', new Date().toISOString()).order('scheduled_at').order('id').limit(12);
+    if (error) errors.push('Could not load scheduled drafts: ' + error.message);
+    for (const post of due ?? []) {
+      const result = await sendReviewedPost(supabase, post, 'scheduled');
+      if (result.status === 200) published++;
+      else { failed++; errors.push('Scheduled draft ' + post.id + ': ' + ('error' in result.body ? result.body.error : result.status)); }
+    }
   }
 
   // --- Process new scheduled posts ---

@@ -8,7 +8,10 @@ import DamVideoDownload from '@/components/admin/social/DamVideoDownload';
 import { isDamStory } from '@shared/social-dam-schedule';
 import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
-import { PlacementFields } from '@/components/admin/social/PlacementFields';
+import { DestinationFields, PublishingPlanner, RuleEditor } from '@/components/admin/social/PublishingPlanner';
+import studio from '@/components/admin/social/publishing.module.css';
+import { type PlanRule, type Weekday, type Delivery } from '@/lib/social/publishing-plan';
+import type { MediaSchedule } from '@/lib/social/types';
 import { destinationLabel, isStoryRender, renderPlacement, type PlacementChoices } from '@/lib/social/placements';
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
 import { videoSafeInsets } from '@shared/social-brand';
@@ -19,7 +22,8 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import {
   RefreshCw,
   Settings,
-  Filter,
+  CalendarDays,
+  Inbox,
   FileText,
   Clock,
   CheckCircle,
@@ -30,14 +34,20 @@ import {
   Trash2,
   Save,
   Send,
-  Eye,
   X,
-  Zap,
+
   Play,
   Copy,
 } from 'lucide-react';
 
-type Tab = 'settings' | 'filters' | 'content' | 'history';
+type Tab = 'planner' | 'queue' | 'history' | 'content' | 'settings' | 'create';
+const screens: { key: Exclude<Tab, 'create'>; label: string; icon: typeof Clock }[] = [
+  { key: 'planner', label: 'Planner', icon: CalendarDays }, { key: 'queue', label: 'Queue', icon: Inbox },
+  { key: 'history', label: 'History', icon: Clock }, { key: 'content', label: 'Library', icon: FileText },
+  { key: 'settings', label: 'Settings', icon: Settings },
+];
+const formatFor = { digest: 'daily_digest', highlight: 'river_highlight', section_guide: 'section_guide', weekly_forecast: 'weekly_forecast' } as const;
+type ComposerKind = keyof typeof formatFor | 'tip' | 'dam' | 'custom';
 
 interface PlatformHealthStats {
   platform: string;
@@ -74,22 +84,11 @@ interface WeeklyReelConfig {
   time_cst: string;
   media: 'video' | 'image';
 }
-type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
-type MediaChoice = 'video' | 'image';
-type DayMediaMap = Partial<Record<DayKey, MediaChoice>>;
-// Weekly reels allow null ("don't fire") so the day cell is tri-state.
-type WeeklyDayMediaMap = Partial<Record<DayKey, MediaChoice | null>>;
-
-interface MediaSchedule {
-  river_highlight: DayMediaMap;
-  daily_digest: DayMediaMap;
-  weekly_forecast?: WeeklyDayMediaMap;
-  section_guide?: WeeklyDayMediaMap;
-  weekly_trend?: WeeklyDayMediaMap;
-}
-
 interface SocialConfig {
+  updated_at: string;
+  timezone?: string;
   daily_report_auto_publish_enabled?: boolean;
+  meta_accounts?: { facebook: boolean; instagram: boolean };
   id: string;
   posting_enabled: boolean;
   posting_frequency_hours: number;
@@ -108,8 +107,6 @@ interface SocialConfig {
   section_guide: WeeklyReelConfig & { placements?: PlacementChoices };
   weekly_trend: WeeklyReelConfig;
 }
-
-const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 interface PreviewPost {
   placement?: 'reel' | 'story';
@@ -137,6 +134,7 @@ interface PreviewData {
 }
 
 interface SocialPost {
+  scheduled_at?: string | null;
   id: string;
   post_type: string;
   platform: string;
@@ -176,6 +174,16 @@ const FALLBACK_RIVERS = [
   { slug: 'courtois', name: 'Courtois Creek' },
 ];
 
+function deliveryStamp(at?: string | null) {
+  return at ? new Date(at).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' CT' : '';
+}
+
+function postDestination(post: SocialPost) {
+  if (isDamStory(post.render_request) && post.platform === 'instagram') return 'Instagram Story';
+  if (post.media_type === 'video') return destinationLabel(post.platform, renderPlacement(post.render_request));
+  return post.platform === 'instagram' ? 'Instagram' : post.platform === 'facebook' ? 'Facebook' : 'TikTok';
+}
+
 const ALL_CONDITIONS = [
   { code: 'flowing', label: 'Flowing', color: 'bg-emerald-500' },
   { code: 'good', label: 'Good', color: 'bg-lime-500' },
@@ -187,6 +195,7 @@ const ALL_CONDITIONS = [
 
 const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   review: { label: 'Ready for review', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  scheduled: { label: 'Scheduled', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   inbox: { label: 'Sent to TikTok inbox', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   published: { label: 'Published', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
   failed: { label: 'Failed', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
@@ -196,68 +205,6 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   rendering: { label: 'Rendering', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
   skipped: { label: 'Skipped', className: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
 };
-
-// Post types that can be triggered from the Posting Schedule row's "Post Now" button.
-type PostNowType = 'highlight' | 'digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
-
-// Declarative config for each row in the unified Posting Schedule matrix.
-// `time` is either a getter/setter pair into SocialConfig, or the literal
-// 'thursday_read' sentinel for the weekly Read’s fixed time. `action` is either
-// a PostNowType or 'none' (row has no manual trigger).
-type RowTimeField = 'thursday_read' | {
-  get: (c: SocialConfig) => string;
-  set: (c: SocialConfig, value: string, setConfig: (next: SocialConfig) => void) => void;
-};
-
-interface ScheduleRow {
-  key: 'river_highlight' | 'daily_digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
-  label: string;
-  time: RowTimeField;
-  action: PostNowType | 'none';
-}
-
-const SCHEDULE_ROWS: ScheduleRow[] = [
-  {
-    key: 'river_highlight',
-    label: 'Eddy’s Read',
-    time: 'thursday_read',
-    action: 'highlight',
-  },
-  {
-    key: 'daily_digest',
-    label: 'Daily Report',
-    time: {
-      get: (c) => c.digest_time_cst,
-      set: (c, v, set) => set({ ...c, digest_time_cst: v }),
-    },
-    action: 'digest',
-  },
-  {
-    key: 'weekly_forecast',
-    label: 'Weekend Forecast',
-    time: {
-      get: (c) => c.weekly_forecast?.time_cst ?? '22:00',
-      set: (c, v, set) => set({
-        ...c,
-        weekly_forecast: { ...(c.weekly_forecast || { enabled: true, day_of_week: 5, time_cst: '22:00', media: 'video' }), time_cst: v },
-      }),
-    },
-    action: 'weekly_forecast',
-  },
-  {
-    key: 'section_guide',
-    label: 'Float Pick',
-    time: {
-      get: (c) => c.section_guide?.time_cst ?? '17:00',
-      set: (c, v, set) => set({
-        ...c,
-        section_guide: { ...(c.section_guide || { enabled: true, day_of_week: 3, time_cst: '17:00', media: 'video' }), time_cst: v },
-      }),
-    },
-    action: 'section_guide',
-  },
-
-];
 
 // Display names for post_type values — aligned with the post formats we ship.
 // eddy_says / favorite_float / route_draw are retired types kept only so
@@ -275,20 +222,28 @@ const POST_TYPE_LABELS: Record<string, string> = {
   condition_easing: 'Easing',
   condition_recovery: 'All Clear',
   storm_digest: 'Storm Digest',
-  manual: 'Tip',
+  manual: 'Custom post',
 };
 
 export default function SocialAdminPage() {
   const {identity}=useAdminAuth();
-  const isOwner=identity?.role === 'owner';
-  const [activeTab, setActiveTab] = useState<Tab>(isOwner ? 'settings' : 'content');
+  const isOwner = identity?.role === 'owner';
+  const [activeTab, setActiveTab] = useState<Tab>('planner');
   const [config, setConfig] = useState<SocialConfig | null>(null);
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [customContent, setCustomContent] = useState<CustomContent[]>([]);
   const [rivers, setRivers] = useState<{ slug: string; name: string }[]>(FALLBACK_RIVERS);
   const [loading, setLoading] = useState(true);
+  const [addingSnippet, setAddingSnippet] = useState(false);
+  const [readyCount, setReadyCount] = useState(0);
+  const [preferences, setPreferences] = useState<Partial<Pick<SocialConfig, 'disabled_rivers' | 'highlight_conditions' | 'video_features'>>>({});
+  const prefs = config ? { ...config, ...preferences } : null;
   const [saving, setSaving] = useState(false);
-  const [postingNow, setPostingNow] = useState<PostNowType | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [postTotal, setPostTotal] = useState(0);
+  const [postLoading, setPostLoading] = useState(false);
+  const [postError, setPostError] = useState('');
+  const postRequest = useRef(0);
   const [postFilter, setPostFilter] = useState<{ platform: string; status: string }>({
     platform: '',
     status: '',
@@ -310,7 +265,7 @@ export default function SocialAdminPage() {
   });
 
   // Compose post state
-  const [showCompose, setShowCompose] = useState(false);
+
   const [composeForm, setComposeForm] = useState({
     caption: '',
     imageUrl: '',
@@ -329,10 +284,11 @@ export default function SocialAdminPage() {
   const [savingPostingSwitch, setSavingPostingSwitch] = useState(false);
 
   // Quick post state
-  const [showQuickPost, setShowQuickPost] = useState(false);
-  const [quickPostType, setQuickPostType] = useState<
-    'digest' | 'highlight' | 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'tip'
-  >('digest');
+  const [quickPostType, setQuickPostType] = useState<ComposerKind>('digest');
+  const [repeat, setRepeat] = useState(false);
+  const [initialDay, setInitialDay] = useState<Weekday>();
+  const [editing, setEditing] = useState<PlanRule>();
+  const format = quickPostType in formatFor ? formatFor[quickPostType as keyof typeof formatFor] : undefined;
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
   const [quickPlacements, setQuickPlacements] = useState<PlacementChoices>();
@@ -340,6 +296,13 @@ export default function SocialAdminPage() {
 
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false);
+  const previewDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = previewDialog.current;
+    if (!showPreview || !dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, [showPreview]);
   const [previewOverlay, setPreviewOverlay] = useState<'off' | 'safe'>('off');
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -348,6 +311,10 @@ export default function SocialAdminPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [scheduleLater, setScheduleLater] = useState(false);
+  const [sendTime, setSendTime] = useState('');
+  const [upcoming, setUpcoming] = useState<SocialPost[]>([]);
+  const [upcomingError, setUpcomingError] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const videoPreviewPost = posts.find(post => post.id === reviewId);
   const reviewDialog = useRef<HTMLDialogElement>(null);
@@ -403,27 +370,71 @@ export default function SocialAdminPage() {
   }, []);
 
   const fetchPosts = useCallback(async () => {
+    if (activeTab !== 'queue' && activeTab !== 'history') return;
+    const serial = ++postRequest.current;
+    setPostLoading(true); setPostError('');
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ limit: '50', offset: String(offset), view: activeTab });
       if (postFilter.platform) params.set('platform', postFilter.platform);
       if (postFilter.status) params.set('status', postFilter.status);
-      params.set('limit', '50');
-      params.set('_t', Date.now().toString());
+      const response = await adminFetch(`/api/admin/social/posts?${params}`);
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      if (serial !== postRequest.current) return;
+      if (offset && !data.posts.length && offset >= data.total) { setOffset(Math.max(0, offset - 50)); return; }
+      setPosts(data.posts); setPostTotal(data.total);
+    } catch {
+      if (serial === postRequest.current) setPostError('Could not load posts. Refresh to try again.');
+    } finally { if (serial === postRequest.current) setPostLoading(false); }
+  }, [activeTab, offset, postFilter]);
 
-      const res = await adminFetch(`/api/admin/social/posts?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        console.log(`[SocialAdmin] fetchPosts: ${data.posts?.length ?? 0} posts, total=${data.total}`);
-        setPosts(data.posts || []);
-      } else {
-        console.error(`[SocialAdmin] fetchPosts failed: ${res.status}`);
-        showToast(`Failed to load post history (${res.status})`, 'error');
-      }
-    } catch (err) {
-      console.error('Failed to fetch posts:', err);
-      showToast('Could not load post history', 'error');
+  function navigate(tab: Tab) {
+    setReviewId(null); ++postRequest.current; setPosts([]); setPostTotal(0); setPostError('');
+    setOffset(0); setPostFilter({ platform: '', status: '' }); setActiveTab(tab);
+    if (window.location.hash !== '#' + tab) window.history.pushState(null, '', '#' + tab);
+    window.scrollTo(0, 0);
+  }
+
+  function openComposer(recurring = false, rule?: PlanRule, day?: Weekday) {
+    setInitialDay(day);
+    const kind = rule ? (Object.keys(formatFor) as (keyof typeof formatFor)[]).find(k => formatFor[k] === rule.format)! : recurring ? 'section_guide' : 'digest';
+    setQuickPostType(kind); setEditing(recurring ? rule : undefined); setRepeat(recurring); setQuickPlacements(undefined);
+    setQuickPostPlatforms(['instagram', 'facebook']); setConfirmingPublish(false);
+    if (rule && !recurring) setDraftDelivery(rule.delivery);
+    navigate('create');
+  }
+
+  useEffect(() => {
+    function readHash() {
+      const key = window.location.hash.slice(1);
+      if (key === 'create' || screens.some(tab => tab.key === key)) {
+        setActiveTab(key as Tab); setOffset(0); setPostFilter({ platform: '', status: '' });
+      } else if (!key) setActiveTab('planner');
     }
-  }, [postFilter]);
+    readHash();
+    window.addEventListener('popstate', readHash);
+    window.addEventListener('hashchange', readHash);
+    return () => {
+      window.removeEventListener('popstate', readHash);
+      window.removeEventListener('hashchange', readHash);
+    };
+  }, []);
+
+  const fetchReadyCount = useCallback(async () => {
+    try {
+      const res = await adminFetch('/api/admin/social/posts?status=review&limit=1');
+      if (res.ok) { const data = await res.json(); setReadyCount(data.total ?? 0); }
+    } catch { /* The queue remains accessible if the count is unavailable. */ }
+  }, []);
+
+  const fetchUpcoming = useCallback(async () => {
+    try {
+      const res = await adminFetch('/api/admin/social/posts?view=scheduled&limit=12');
+      if (!res.ok) throw new Error();
+      setUpcoming((await res.json()).posts); setUpcomingError(false);
+    } catch { setUpcomingError(true); }
+  }, []);
+  useEffect(() => { if (activeTab === 'planner') void fetchUpcoming(); }, [activeTab, fetchUpcoming]);
 
   const fetchContent = useCallback(async () => {
     try {
@@ -524,7 +535,7 @@ export default function SocialAdminPage() {
   // Initial load — run once on mount
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchConfig(), fetchPosts(), fetchContent(), fetchRivers(), fetchHealth()]).finally(() =>
+    Promise.all([fetchConfig(), fetchContent(), fetchRivers(), fetchHealth(), fetchReadyCount()]).finally(() =>
       setLoading(false)
     );
     fetchTikTokStatus();
@@ -533,127 +544,39 @@ export default function SocialAdminPage() {
     const tk = p.get('tiktok');
     if (tk === 'connected') showToast('TikTok connected', 'success');
     else if (tk === 'error') showToast(`TikTok connect failed: ${p.get('reason') || 'unknown'}`, 'error');
-    if (tk) window.history.replaceState({}, '', window.location.pathname);
+    if (tk) window.history.replaceState({}, '', window.location.pathname + '#settings');
+    if (tk) setActiveTab('settings');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-fetch posts when filter changes (don't re-fetch config — would overwrite unsaved edits)
   useEffect(() => {
-    fetchPosts();
-  }, [postFilter, fetchPosts]);
+    void fetchPosts();
+    if (activeTab !== 'queue') return;
+    const timer = window.setInterval(() => { if (!document.hidden) { void fetchPosts(); void fetchReadyCount(); } }, 15000);
+    return () => window.clearInterval(timer);
+  }, [activeTab, fetchPosts, fetchReadyCount]);
 
   const saveConfig = async () => {
-    if (!config) return;
+    if (!config || !prefs) return;
     setSaving(true);
-    console.log(`[SocialAdmin] Saving config: cooldown=${config.highlight_cooldown_hours}, conditions=[${config.highlight_conditions?.join(',')}]`);
     try {
-      // Use POST (not PUT) to avoid any edge/CDN caching of write operations
-      const res = await adminFetch(`/api/admin/social/config?_save=1&_t=${Date.now()}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
-      if (res.ok) {
-        const saved = await res.json();
-        if (saved && saved.id) {
-          console.log(`[SocialAdmin] Save response: cooldown=${saved.highlight_cooldown_hours}, conditions=[${saved.highlight_conditions?.join(',')}]`);
-
-          // Verification: do a fresh GET to confirm the save actually persisted
-          const verifyRes = await adminFetch(`/api/admin/social/config?_verify=1&_t=${Date.now()}`);
-          if (verifyRes.ok) {
-            const verified = await verifyRes.json();
-            if (verified && verified.id) {
-              const cooldownOk = verified.highlight_cooldown_hours === config.highlight_cooldown_hours;
-              const conditionsOk = JSON.stringify(verified.highlight_conditions?.sort()) === JSON.stringify(config.highlight_conditions?.sort());
-
-              const placementsOk = (['facebook', 'instagram'] as const).every(platform =>
-                (verified.section_guide?.placements?.[platform] ?? 'regular') === (config.section_guide?.placements?.[platform] ?? 'regular'));
-
-              if (!cooldownOk || !conditionsOk || !placementsOk) {
-                console.error(
-                  `[SocialAdmin] SAVE DID NOT PERSIST! ` +
-                  `Sent cooldown=${config.highlight_cooldown_hours} but GET returned ${verified.highlight_cooldown_hours}. ` +
-                  `Sent conditions=[${config.highlight_conditions?.join(',')}] but GET returned [${verified.highlight_conditions?.join(',')}]`
-                );
-                showToast('Save failed — changes did not persist. Check server logs.', 'error');
-                setConfig(verified); // Show actual DB state
-                return;
-              }
-
-              console.log(`[SocialAdmin] Save VERIFIED — DB matches: cooldown=${verified.highlight_cooldown_hours}, conditions=[${verified.highlight_conditions?.join(',')}]`);
-              setConfig(verified);
-              showToast('Settings saved and verified', 'success');
-            } else {
-              setConfig(saved);
-              showToast('Settings saved (verification returned empty)', 'success');
-            }
-          } else {
-            setConfig(saved);
-            showToast('Settings saved (could not verify)', 'success');
-          }
-        } else {
-          showToast('Save appeared to succeed but returned empty data — please refresh', 'error');
-        }
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || `Save failed (${res.status})`, 'error');
+      const res = await adminFetch('/api/admin/social/config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_preferences', version: config.updated_at, disabled_rivers: prefs.disabled_rivers,
+          highlight_conditions: prefs.highlight_conditions, video_features: { condition_alerts_as_video: prefs.video_features?.condition_alerts_as_video ?? false } }) });
+      const data = await res.json();
+      if (res.status === 409) {
+        setPreferences({}); await fetchConfig(); showToast('Settings changed in another session. Review the latest settings and make your change again.', 'error'); return;
       }
-    } catch (err) {
-      console.error('Failed to save config:', err);
-      showToast('Network error — could not save', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Manual "Post Now" for any matrix row with a backing API type. Reuses the
-  // scheduler's data fetchers on the server so the immediate post is shaped
-  // identically to a scheduled one.
-  const postNow = async (postType: PostNowType) => {
-    if (postingNow || !config) return;
-    setPostingNow(postType);
-    try {
-      // Infer video vs image from today's matrix cell so the manual post
-      // matches what the scheduler would emit. Falls back to video.
-      const DAY_KEYS_LOCAL: DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-      const todayKey = DAY_KEYS_LOCAL[new Date().getUTCDay()];
-      const mediaScheduleKey = postType === 'digest' ? 'daily_digest' : postType;
-      const cellValue = (config.media_schedule?.[mediaScheduleKey as keyof MediaSchedule] as Record<string, string | null> | undefined)?.[todayKey];
-      const asVideo = cellValue === 'video';
-
-      // quick-post accepts 'digest' (not 'daily_digest') for the image path.
-      const apiType = postType === 'digest' ? 'digest' : postType;
-      const res = await adminFetch('/api/admin/social/quick-post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: apiType,
-          ...(postType === 'section_guide' && { placements: config.section_guide?.placements }),
-          // TikTok supports our reels; the Daily Report is an image carousel.
-          platforms: ['facebook', 'instagram', ...(tiktokStatus?.connected && postType !== 'digest' ? ['tiktok'] : [])],
-          asVideo,
-        }),
-      });
-      if (res.ok) {
-        const body = await res.json().catch(() => null);
-        const count = body?.rendering ?? body?.results?.filter?.((r: { status: string }) => r.status === 'review')?.length ?? 0;
-        showToast(body?.warnings?.length ? `Preparing ${count} drafts. Check Post History for failed renders.`
-          : count ? `Preparing ${count} draft(s) for review` : 'No drafts created', body?.warnings?.length ? 'error' : 'success');
-        fetchPosts();
-      } else {
-        const body = await res.json().catch(() => null);
-        showToast(body?.error || 'Post failed', 'error');
-      }
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Post failed', 'error');
-    } finally {
-      setPostingNow(null);
-    }
+      if (!res.ok) throw new Error(data.error || 'Could not save settings.');
+      setConfig(data); setPreferences({}); showToast('Settings saved', 'success');
+    } catch (err) { showToast(err instanceof Error ? err.message : 'Could not save settings.', 'error'); }
+    finally { setSaving(false); }
   };
 
   const retryPost = async (
     postId: string,
-    action: 'retry' | 'approve' | 'render' | 'resolve' = 'retry',
+    action: 'retry' | 'approve' | 'render' | 'resolve' | 'schedule' | 'unschedule' = 'retry',
     outcome?: 'published' | 'failed',
   ) => {
     if (sendingId) return;
@@ -663,24 +586,26 @@ export default function SocialAdminPage() {
       const res = await adminFetch('/api/admin/social/retry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: postId, action, outcome }),
+        body: JSON.stringify({ id: postId, action, outcome, time: action === 'schedule' ? sendTime : undefined }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Could not confirm delivery. Check Post History.');
+      if (!res.ok) throw new Error(data.error || 'Could not confirm delivery. Check the queue.');
       reviewDialog.current?.close();
+      setReviewId(null); setScheduleLater(false); setSendTime('');
       const receipt = data.delivery === 'inbox' ? 'Sent to the TikTok inbox' : 'Published';
       showToast(
+        action === 'schedule' ? 'Post scheduled' : action === 'unschedule' ? 'Returned to review' :
         action === 'render' ? 'Rendering a new draft for review'
           : action === 'resolve' ? (outcome === 'published' ? 'Marked as published' : 'Marked as not published')
           : receipt,
         'success',
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not confirm delivery. Check Post History.';
+      const message = err instanceof Error ? err.message : 'Could not confirm delivery. Check the queue.';
       setReviewError(message);
       showToast(message, 'error');
     } finally {
-      await fetchPosts();
+      await Promise.all([fetchPosts(), fetchReadyCount()]);
       setSendingId(null);
     }
   };
@@ -700,6 +625,7 @@ export default function SocialAdminPage() {
         }),
       });
       if (res.ok) {
+        setAddingSnippet(false);
         setNewContent({ content_type: 'tip', text: '', start_date: '', end_date: '', platforms: ['instagram', 'facebook'] });
         fetchContent();
         showToast('Content snippet added', 'success');
@@ -748,7 +674,7 @@ export default function SocialAdminPage() {
     }
   };
 
-  const publishManualPost = async () => {
+  const publishManualPost = async (draft = false) => {
     if (!composeForm.caption.trim()) return;
     setPublishing(true);
     setConfirmingPublish(false);
@@ -758,6 +684,7 @@ export default function SocialAdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mode: draft ? 'draft' : 'publish',
           caption: composeForm.caption,
           imageUrl: composeForm.imageUrl || undefined,
           platforms: composeForm.platforms,
@@ -779,8 +706,8 @@ export default function SocialAdminPage() {
       fetchPosts();
 
       if (notSent.length === 0) {
-        showToast(`Published to ${sent.join(' and ')}`, 'success');
-        setShowCompose(false);
+        showToast(draft ? 'Draft saved for review' : `Published to ${sent.join(' and ')}`, 'success');
+        navigate(draft ? 'queue' : 'history');
         setComposeForm({ caption: '', imageUrl: '', platforms: ['facebook', 'instagram'] });
         return;
       }
@@ -793,7 +720,7 @@ export default function SocialAdminPage() {
       setPublishOutcome({
         sent: [],
         notSent: [],
-        requestError: 'Network error — the outcome is not known. Check Post History before trying again.',
+        requestError: 'Network error — the outcome is not known. Check the queue or history before trying again.',
       });
     } finally {
       setPublishing(false);
@@ -817,7 +744,7 @@ export default function SocialAdminPage() {
         showToast(data?.error || `Could not ${wanted ? 'resume' : 'pause'} posting (${res.status}) — nothing changed`, 'error');
         return;
       }
-      setConfig((current) => (current ? { ...current, posting_enabled: data.posting_enabled } : current));
+      setConfig((current) => (current ? { ...current, posting_enabled: data.posting_enabled, updated_at: data.updated_at } : current));
       showToast(data.posting_enabled ? 'Automatic posting resumed' : 'Automatic posting paused', 'success');
     } catch {
       showToast(`Network error — posting is still ${config.posting_enabled ? 'active' : 'paused'}`, 'error');
@@ -852,25 +779,27 @@ export default function SocialAdminPage() {
           type: quickPostType,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
           ...(quickPostType === 'section_guide' && { placements: quickPlacements ?? config?.section_guide?.placements }),
-          platforms: quickPostPlatforms.filter(p => quickPostType !== 'digest' || p !== 'tiktok'),
+          platforms: quickPostPlatforms.filter(p => p !== 'tiktok' || draftDelivery.tiktok),
         }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.rendering) {
-          showToast(data.warnings?.length ? `Preparing ${data.rendering} drafts. Check Post History for failed renders.`
+          showToast(data.warnings?.length ? `Preparing ${data.rendering} drafts. Check the queue for failed renders.`
             : `Preparing ${data.rendering} draft(s) for review`, data.warnings?.length ? 'error' : 'success');
         } else {
           const successes = data.results?.filter((r: { status: string }) => r.status === 'review').length || 0;
           const failures = data.results?.filter((r: { status: string }) => r.status === 'failed') || [];
-          if (failures.length > 0) {
-            showToast(`Drafts ready for ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
+          if (failures.length) {
+            const detail = failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('. ');
+            showToast(`${successes} drafts ready. ${detail}`, 'error');
+            if (!successes) return;
           } else {
-            showToast(`Drafts ready for ${successes} platform(s)`, 'success');
+            showToast(`${successes} ${successes === 1 ? 'draft' : 'drafts'} ready for review`, 'success');
           }
         }
-        setShowQuickPost(false);
-        fetchPosts();
+        navigate('queue');
+        void fetchReadyCount();
       } else {
         const data = await res.json().catch(() => ({}));
         showToast(data.error || `Quick post failed (${res.status})`, 'error');
@@ -903,35 +832,32 @@ export default function SocialAdminPage() {
     }
   };
 
-  const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
-    { key: 'settings', label: 'Settings', icon: Settings },
-    { key: 'filters', label: 'River Filters', icon: Filter },
-    { key: 'content', label: 'Custom Content', icon: FileText },
-    { key: 'history', label: 'Post History', icon: Clock },
-  ];
+  const chosen = quickPlacements ?? config?.section_guide?.placements;
+  const draftDelivery: Delivery = { time: '', instagram: quickPostPlatforms.includes('instagram') ? (quickPostType === 'section_guide' ? chosen?.instagram ?? 'regular' : 'regular') : 'off',
+    facebook: quickPostPlatforms.includes('facebook') ? (quickPostType === 'section_guide' ? chosen?.facebook ?? 'regular' : 'regular') : 'off',
+    tiktok: quickPostPlatforms.includes('tiktok') && Boolean(tiktokStatus?.connected) && quickPostType !== 'tip' && quickPostType !== 'digest' };
+  function setDraftDelivery(value: Delivery) {
+    setQuickPostPlatforms([...(value.instagram !== 'off' ? ['instagram'] : []), ...(value.facebook !== 'off' ? ['facebook'] : []), ...(value.tiktok ? ['tiktok'] : [])]);
+    setQuickPlacements({ instagram: value.instagram === 'off' ? undefined : value.instagram, facebook: value.facebook === 'off' ? undefined : value.facebook });
+  }
 
   return (
     <AdminLayout
-      title="Social Media"
-      description="Review and publish posts for Instagram, Facebook and TikTok."
+      title="Social publishing" hideHeader
     >
       {/* Toast notification */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg border text-sm font-medium transition-all ${
-          toast.type === 'success'
-            ? 'bg-green-900/90 text-green-200 border-green-700'
-            : 'bg-red-900/90 text-red-200 border-red-700'
-        }`}>
+        <div role="status" className={studio.toast} data-feedback={toast.type}>
           {toast.message}
         </div>
       )}
       {/* Preview Modal */}
       {showPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <dialog ref={previewDialog} aria-label="Schedule preview" onClose={e => { if (!e.currentTarget.open) setShowPreview(false); }} className={studio.preview}>
           <div className="bg-neutral-800 border border-neutral-700 rounded-xl w-full max-w-3xl max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-neutral-700">
-              <h3 className="text-lg font-semibold text-white">Schedule Preview</h3>
-              <button onClick={() => setShowPreview(false)} className="text-neutral-400 hover:text-white">
+              <h3 className="text-lg font-semibold text-white">Today’s recurring posts</h3>
+              <button aria-label="Close schedule preview" onClick={() => previewDialog.current?.close()} className="text-neutral-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -945,7 +871,7 @@ export default function SocialAdminPage() {
               ) : previewData ? (
                 <>
                   {previewData.posts.length === 0 ? (
-                    <p className="text-neutral-400 text-sm">No posts would be scheduled right now.</p>
+                    <p className="text-neutral-400 text-sm">No recurring posts are due today.</p>
                   ) : (
                     previewData.posts.map((post, i) => (
                       <div key={i} className="bg-neutral-700/50 rounded-lg p-4 border border-neutral-600">
@@ -991,7 +917,7 @@ export default function SocialAdminPage() {
               ) : null}
             </div>
           </div>
-        </div>
+        </dialog>
       )}
 
       {/* Video Preview Modal */}
@@ -1053,20 +979,22 @@ export default function SocialAdminPage() {
                 {videoPreviewPost.platform === 'tiktok' && tiktokStatus?.directPost === false && (
                   <p className="mt-3 text-sm text-neutral-400">Finish posting from the TikTok inbox.</p>
                 )}
-                {!damPreview && videoPreviewPost.status === 'review' && (
-                  <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} disabled={sendingId !== null} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>
-                )}
-                {!damPreview && reviewError && <p role="alert" className="mt-3 text-sm text-red-400">{reviewError}</p>}
                 <p className="text-xs text-neutral-500 mt-2">
                   {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}
                 </p>
               </div>
             </div>
-            {damPreview && isOwner && videoPreviewPost.video_url && (
+            {((damPreview && isOwner && videoPreviewPost.video_url) || (!damPreview && videoPreviewPost.status === 'review')) && (
               <footer className={styles.reviewActions}>
                 {reviewError && <p role="alert" className="w-full text-sm text-red-400">{reviewError}</p>}
-                <DamVideoDownload id={videoPreviewPost.id} />
-                {['review', 'failed'].includes(videoPreviewPost.status) && (
+                {videoPreviewPost.status === 'review' && scheduleLater && <label className={studio.field}>Send at (Central)
+                  <input type="datetime-local" step="1800" value={sendTime} onChange={e => setSendTime(e.target.value)}/>
+                  <small>{config?.posting_enabled === false ? 'Automatic posting is paused. Scheduled posts wait until it resumes.' : 'Choose an hour or half hour.'}</small>
+                </label>}
+                {damPreview && <DamVideoDownload id={videoPreviewPost.id} />}
+                {videoPreviewPost.status === 'review' && <button className="admin-secondary" disabled={Boolean(sendingId)} onClick={() => setScheduleLater(!scheduleLater)}>{scheduleLater ? 'Back to send now' : 'Schedule for later'}</button>}
+                {scheduleLater && videoPreviewPost.status === 'review' ? <button className="admin-primary" disabled={!sendTime || Boolean(sendingId)}
+                  onClick={() => retryPost(videoPreviewPost.id, 'schedule')}>Approve &amp; schedule</button> : ['review', 'failed'].includes(videoPreviewPost.status) && (
                   <button className="admin-primary" disabled={sendingId !== null}
                     onClick={() => retryPost(videoPreviewPost.id, videoPreviewPost.status === 'failed' ? 'retry' : 'approve')}>
                     {sendingId === videoPreviewPost.id ? 'Sending…' : 'Approve & send'}
@@ -1078,72 +1006,51 @@ export default function SocialAdminPage() {
         </dialog>
       )}
 
-      <div className={`w-full min-w-0 p-4 sm:p-6 ${activeTab === 'history' ? '' : 'max-w-5xl mx-auto'}`}>
-        {/* Action buttons */}
-        <div className="flex flex-wrap gap-3 mb-6">
-          <button
-            onClick={() => { setShowQuickPost(!showQuickPost); setQuickPlacements(undefined); setShowCompose(false); }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-          >
-            <Zap className="w-4 h-4" />
-            Quick Post
-          </button>
-          <button
-            onClick={() => { setShowCompose(!showCompose); setShowQuickPost(false); }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
-          >
-            <Send className="w-4 h-4" />
-            Compose Post
-          </button>
-          <button
-            onClick={() => loadPreview()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors admin-secondary"
-          >
-            <Eye className="w-4 h-4" />
-            Preview Next Posts
-          </button>
-        </div>
+      <div className={studio.workspace}>
+        <header className={studio.mast}><h1>Social publishing</h1>
+          {activeTab !== 'create' && <button className="admin-primary" onClick={() => openComposer()}><Plus size={17}/> Create post</button>}
+        </header>
+        <nav className={studio.nav} aria-label="Social publishing">
+          {screens.map(({ key, label, icon: Icon }) => <button key={key} aria-current={activeTab === key ? 'page' : undefined} onClick={() => navigate(key)}><Icon size={16}/>{label}{key === 'queue' && readyCount > 0 && <span className={studio.count} aria-label={readyCount + ' ready for review'}>{readyCount}</span>}</button>)}
+        </nav>
+        {activeTab === 'planner' && (config ? <PublishingPlanner config={config} draft={rule => openComposer(false, rule)} edit={rule => openComposer(true, rule)} create={day => openComposer(true, undefined, day)}
+          owner={isOwner} tiktokConnected={tiktokStatus?.connected} settings={() => navigate('settings')} preview={() => loadPreview(true)} /> : <p>{loading ? 'Loading schedule…' : <button className="admin-secondary" onClick={fetchConfig}>Reload schedule</button>}</p>)}
 
-        {isOwner && showQuickPost && <DamScheduleExport onQueued={fetchPosts} />}
+        {activeTab === 'planner' && (upcoming.length > 0 || upcomingError) && <section className={studio.upcoming} aria-label="Scheduled one-time posts">
+          <div className={studio.sectionHead}><h2>Scheduled posts</h2><button className={studio.inline} onClick={() => navigate('queue')}>Open queue</button></div>
+          {upcomingError ? <button className="admin-secondary" onClick={fetchUpcoming}>Reload scheduled posts</button> : upcoming.map(post => <div key={post.id} className={studio.upcomingRow}>
+            <strong>{deliveryStamp(post.scheduled_at)}</strong><span>{POST_TYPE_LABELS[post.post_type] || post.post_type} · {postDestination(post)}</span>
+          </div>)}
+        </section>}
 
-        {/* Quick Post form */}
-        {showQuickPost && (
-          <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6 mb-6 space-y-4">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Zap className="w-5 h-5 text-green-400" />
-              Quick Post
-            </h3>
-            <p className="text-sm text-neutral-400">
-              Generate a draft, inspect the caption and media, then choose Publish. Scheduled posts still publish automatically.
-            </p>
-
-            {/* Post type selector */}
-            <div>
-              <label htmlFor="quick-post-type" className="block text-sm text-neutral-300 mb-1">Post Type</label>
-              <select
-                id="quick-post-type" value={quickPostType}
-                onChange={(e) => {
-                  setQuickPostType(e.target.value as typeof quickPostType);
-                  setQuickPostContentId('');
-                }}
-                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
-              >
-                <option value="digest">Daily Report (widget carousel)</option>
-                <option value="highlight">Eddy’s Read (2–3 rivers for the weekend)</option>
-                <option value="weekly_forecast">Weekend Forecast</option>
-                <option value="section_guide">Float Pick</option>
-
-                <option value="tip">Tip / Seasonal Quote</option>
-              </select>
-            </div>
-
+        {activeTab === 'create' && <section className={studio.editor} aria-label="Post editor">
+          <div className={studio.formHead}><h2>{editing ? 'Edit schedule' : repeat ? 'New schedule' : 'Create post'}</h2>
+            <label className={studio.field}>Post type<select aria-label="Post type" value={quickPostType} disabled={Boolean(editing) || quickPosting || publishing} onChange={e => {
+              const kind = e.target.value as ComposerKind;
+              setQuickPostType(kind); setQuickPostContentId(''); setConfirmingPublish(false); setQuickPlacements(undefined);
+              if (!(kind in formatFor)) setRepeat(false);
+            }}>
+              <option value="digest">Daily Report</option><option value="highlight">Eddy’s Read</option>
+              <option value="weekly_forecast">Weekend Forecast</option><option value="section_guide">Float Pick</option>
+              {isOwner && <option value="dam">Dam generation</option>}<option value="tip">Tip or seasonal quote</option><option value="custom">Custom post</option>
+            </select></label>
+            {format && isOwner && !editing && <div className={studio.mode} role="group" aria-label="Posting frequency">
+              <button aria-pressed={!repeat} onClick={() => setRepeat(false)}>One-time draft</button>
+              <button aria-pressed={repeat} onClick={() => setRepeat(true)}>Recurring schedule</button>
+            </div>}
+          </div>
+          {repeat && isOwner && format ? config && <RuleEditor key={format + (editing?.days.join() ?? '')} config={config} format={format} original={editing} initialDay={initialDay}
+            cancel={() => navigate('planner')} reload={() => { void fetchConfig(); navigate('planner'); }}
+            onSave={data => { setConfig(data as SocialConfig); showToast('Schedule saved', 'success'); navigate('planner'); }}/>
+          : quickPostType === 'dam' && isOwner ? <DamScheduleExport onQueued={(message, partial) => { showToast(message, partial ? 'error' : 'success'); navigate('queue'); }}/>
+          : quickPostType !== 'custom' ? <div className={studio.formBody}>
             {/* Content selector (for tips) */}
-            {quickPostType === 'digest' && <p className="text-sm text-neutral-400">A carousel of river and dam widgets for Instagram and Facebook. TikTok is skipped for this format.</p>}
+            {quickPostType === 'digest' && <p className={studio.note}>River and dam widgets in a swipeable carousel.</p>}
             {quickPostType === 'tip' && (
               <div>
-                <label className="block text-sm text-neutral-300 mb-1">Content</label>
+                <label htmlFor="tip-snippet" className="block text-sm text-neutral-300 mb-1">Content snippet</label>
                 <select
-                  value={quickPostContentId}
+                  id="tip-snippet" value={quickPostContentId}
                   onChange={(e) => setQuickPostContentId(e.target.value)}
                   className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
                 >
@@ -1157,100 +1064,36 @@ export default function SocialAdminPage() {
               </div>
             )}
 
-            {/* Platform checkboxes */}
-            <div className="flex gap-4 items-center">
-              <label className="flex items-center gap-2 text-sm text-neutral-300">
-                <input
-                  type="checkbox"
-                  checked={quickPostPlatforms.includes('facebook')}
-                  onChange={(e) => {
-                    setQuickPostPlatforms(e.target.checked
-                      ? [...quickPostPlatforms, 'facebook']
-                      : quickPostPlatforms.filter(x => x !== 'facebook'));
-                  }}
-                  className="rounded bg-neutral-900 border-neutral-600"
-                />
-                Facebook
-              </label>
-              <label className="flex items-center gap-2 text-sm text-neutral-300">
-                <input
-                  type="checkbox"
-                  checked={quickPostPlatforms.includes('instagram')}
-                  onChange={(e) => {
-                    setQuickPostPlatforms(e.target.checked
-                      ? [...quickPostPlatforms, 'instagram']
-                      : quickPostPlatforms.filter(x => x !== 'instagram'));
-                  }}
-                  className="rounded bg-neutral-900 border-neutral-600"
-                />
-                Instagram
-              </label>
-              {tiktokStatus?.connected && quickPostType !== 'tip' && quickPostType !== 'digest' && (
-                <label className="flex items-center gap-2 text-sm text-neutral-300">
-                  <input
-                    type="checkbox"
-                    checked={quickPostPlatforms.includes('tiktok')}
-                    onChange={(e) => {
-                      setQuickPostPlatforms(e.target.checked
-                        ? [...quickPostPlatforms, 'tiktok']
-                        : quickPostPlatforms.filter(x => x !== 'tiktok'));
-                    }}
-                    className="rounded bg-neutral-900 border-neutral-600"
-                  />
-                  TikTok <span className="text-neutral-500">(draft)</span>
-                </label>
-              )}
-            </div>
-
-            {quickPostType === 'section_guide' && <PlacementFields formatLabel="Float Pick"
-              platforms={quickPostPlatforms} value={quickPlacements ?? config?.section_guide?.placements}
-              onChange={setQuickPlacements} />}
-
-            {/* Explain what will be ready for review. */}
-            <div className="p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg text-xs text-neutral-400">
-              {quickPostType === 'digest'
-                ? 'Creates a carousel draft with 2–5 widget slides. Review every slide and the caption in posting history, then publish.'
-                : quickPostType === 'section_guide'
-                ? 'Creates one draft per destination with Eddy’s theme music.'
-                : quickPostType === 'tip'
-                ? 'Creates a static image draft for review.'
-                : 'Creates a video draft. Rendering usually takes 3–5 minutes. Review the finished video and caption in posting history, then publish.'}
-            </div>
-
+            <DestinationFields value={draftDelivery} onChange={setDraftDelivery} story={quickPostType === 'section_guide'} carousel={quickPostType === 'digest'}
+              image={quickPostType === 'tip'} tiktok={Boolean(tiktokStatus?.connected) && quickPostType !== 'digest' && quickPostType !== 'tip'}/>
             {/* Actions */}
             <div className="flex gap-3">
               <button
                 onClick={publishQuickPost}
                 disabled={
                   quickPosting ||
-                  quickPostPlatforms.filter(p => quickPostType !== 'digest' || p !== 'tiktok').length === 0 ||
+                  draftDelivery.instagram === 'off' && draftDelivery.facebook === 'off' && !draftDelivery.tiktok ||
                   (quickPostType === 'tip' && !quickPostContentId)
                 }
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                className="admin-primary inline-flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 {quickPosting
-                  ? (quickPostType === 'tip' ? 'Publishing...' : 'Dispatching...')
+                  ? 'Preparing…'
                   : 'Generate draft'}
               </button>
               <button
-                onClick={() => setShowQuickPost(false)}
+                onClick={() => navigate('planner')}
                 className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Compose form */}
-        {showCompose && (
-          <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6 mb-6 space-y-4">
-            <h3 className="text-lg font-semibold text-white">Compose Post</h3>
+          </div> : <div className={studio.formBody}>
             <div>
-              <label className="block text-sm text-neutral-300 mb-1">Caption</label>
+              <label htmlFor="custom-caption" className="block text-sm text-neutral-300 mb-1">Caption</label>
               <textarea
-                value={composeForm.caption}
+                id="custom-caption" value={composeForm.caption}
                 onChange={(e) => setComposeForm({ ...composeForm, caption: e.target.value })}
                 rows={4}
                 placeholder="Write your post caption..."
@@ -1258,10 +1101,10 @@ export default function SocialAdminPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-neutral-300 mb-1">Image URL (optional)</label>
+              <label htmlFor="custom-image" className="block text-sm text-neutral-300 mb-1">Image URL (optional)</label>
               <input
                 type="url"
-                value={composeForm.imageUrl}
+                id="custom-image" value={composeForm.imageUrl}
                 onChange={(e) => setComposeForm({ ...composeForm, imageUrl: e.target.value })}
                 placeholder="https://..."
                 className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder-neutral-500"
@@ -1319,9 +1162,9 @@ export default function SocialAdminPage() {
                 </p>
                 <div className="flex gap-3">
                   <button
-                    onClick={publishManualPost}
+                    onClick={() => publishManualPost()}
                     disabled={publishing}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                    className="admin-primary inline-flex items-center gap-2"
                   >
                     <Send className="w-4 h-4" />
                     Yes, publish
@@ -1336,17 +1179,19 @@ export default function SocialAdminPage() {
               </div>
             ) : (
               <div className="flex gap-3">
+                <button className="admin-primary" onClick={() => publishManualPost(true)}
+                  disabled={publishing || !composeForm.caption.trim() || !composeForm.platforms.length || (composeForm.platforms.includes('instagram') && !composeForm.imageUrl.trim())}>Save draft</button>
                 <button
                   onClick={() => setConfirmingPublish(true)}
-                  disabled={publishing || !composeForm.caption.trim() || composeForm.platforms.length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                  disabled={publishing || !composeForm.caption.trim() || composeForm.platforms.length === 0 || (composeForm.platforms.includes('instagram') && !composeForm.imageUrl.trim())}
+                  className="admin-secondary inline-flex items-center gap-2"
                 >
                   <Send className="w-4 h-4" />
                   {publishing ? 'Publishing...' : 'Publish Now'}
                 </button>
                 <button
                   onClick={() => {
-                    setShowCompose(false);
+                    navigate('history');
                     setConfirmingPublish(false);
                   }}
                   className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
@@ -1355,12 +1200,241 @@ export default function SocialAdminPage() {
                 </button>
               </div>
             )}
+          </div>}
+        </section>}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <RefreshCw className="w-6 h-6 animate-spin text-neutral-400" />
           </div>
-        )}
+        ) : (
+          <>
+            {/* Settings Tab */}
+            {isOwner && activeTab === 'settings' && config && prefs && (
+              <div className="space-y-6">
+                <div className={studio.sectionHead}><h2>Publishing settings</h2></div>
+                {/* Global toggle */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Automatic posting</h3>
+                      <p className="text-sm text-neutral-400">Applies immediately to scheduled posts.</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={config.posting_enabled}
+                      aria-label="Automatic social posting"
+                      aria-busy={savingPostingSwitch}
+                      disabled={savingPostingSwitch}
+                      onClick={togglePosting}
+                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors disabled:opacity-60 ${
+                        config.posting_enabled ? 'bg-green-500' : 'bg-neutral-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                          config.posting_enabled ? 'translate-x-7' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className={`text-sm font-medium ${config.posting_enabled ? 'text-green-400' : 'text-red-400'}`}>
+                    {savingPostingSwitch
+                      ? 'Saving…'
+                      : config.posting_enabled
+                        ? 'Active — saved. Scheduled posts publish automatically.'
+                        : 'Paused — saved. No scheduled or automatic posts will go out. Posts you publish by hand still do.'}
+                  </div>
+                </div>
+
+                {config.meta_accounts && <section><h3 className="font-semibold">Publishing accounts</h3>
+                  {(['instagram', 'facebook'] as const).map(account => <div key={account} className={studio.upcomingRow}>
+                    <strong className="capitalize">{account}</strong><span>{config.meta_accounts?.[account] ? 'Credentials configured' : 'Credentials missing'}</span>
+                  </div>)}
+                </section>}
+                {/* TikTok connection */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">TikTok</h3>
+                      <p className="text-sm text-neutral-400">
+                        {tiktokStatus?.directPost ? 'Videos publish to your profile.' : 'Finish publishing drafts from your TikTok inbox.'}
+                      </p>
+                    </div>
+                    {tiktokStatus?.connected ? (
+                      <button
+                        onClick={disconnectTikTok}
+                        disabled={tiktokBusy}
+                        className="px-4 py-2 text-sm rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 disabled:opacity-50"
+                      >
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        onClick={connectTikTok}
+                        disabled={tiktokBusy || !tiktokStatus?.configured}
+                        className="px-4 py-2 text-sm rounded-lg bg-white/10 text-white border border-white/20 hover:bg-white/20 disabled:opacity-50"
+                        title={tiktokStatus?.configured ? '' : 'Set TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET first'}
+                      >
+                        {tiktokBusy ? 'Connecting…' : 'Connect TikTok'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-3 text-sm">
+                    {!tiktokStatus ? (
+                      <span className="text-neutral-500">Checking…</span>
+                    ) : !tiktokStatus.configured ? (
+                      <span className="text-amber-400">App not configured — set TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET.</span>
+                    ) : tiktokStatus.connected ? (
+                      <span className="text-green-400">
+                        Connected
+                        {tiktokStatus.refreshTokenExpiresAt
+                          ? ` · re-auth by ${new Date(tiktokStatus.refreshTokenExpiresAt).toLocaleDateString()}`
+                          : ''}
+                        {` · ${tiktokStatus.directPost ? 'direct post' : 'drafts'}`}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">Not connected.</span>
+                    )}
+                  </div>
+                  {tiktokStatus?.configured && tiktokStatus?.redirectUri && (
+                    <p className="mt-3 text-xs text-neutral-500 break-all">
+                      Register this exact URL in TikTok → Login Kit → Redirect URI:{' '}
+                      <code className="text-neutral-300 font-mono">{tiktokStatus.redirectUri}</code>
+                    </p>
+                  )}
+                </div>
+
+                {/* Video Features — opt-in reel variants */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">Condition alerts</h3>
+                  <label className="flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={prefs.video_features?.condition_alerts_as_video ?? false}
+                      onChange={(e) => {
+                        setPreferences({
+                          ...preferences,
+                          video_features: {
+                            ...(prefs.video_features || { condition_alerts_as_video: false }),
+                            condition_alerts_as_video: e.target.checked,
+                          },
+                        });
+                      }}
+                      className="mt-1 rounded bg-neutral-900 border-neutral-600"
+                    />
+                    <div>
+                      <div className="text-neutral-200 font-medium">
+                        Condition-change alerts as Reels
+                      </div>
+                      <div className="text-sm text-neutral-400 mt-1">
+                        When a river flips to high or dangerous, render a 12-second reel
+                        with the current conditions. Leave off for image alerts.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                <details className={studio.settingsGroup}><summary>Eddy’s Read sources and condition filters</summary>
+                {/* River toggles */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">River Selection</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Select which rivers can appear in Eddy’s Read. Unchecked rivers will be excluded.
+                  </p>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {rivers.map((river) => {
+                      const isDisabled = (prefs.disabled_rivers || []).includes(river.slug);
+                      return (
+                        <label
+                          key={river.slug}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!isDisabled}
+                            onChange={(e) => {
+                              const disabled = prefs.disabled_rivers || [];
+                              if (e.target.checked) {
+                                setPreferences({
+                                  ...preferences,
+                                  disabled_rivers: disabled.filter((s) => s !== river.slug),
+                                });
+                              } else {
+                                setPreferences({
+                                  ...preferences,
+                                  disabled_rivers: [...disabled, river.slug],
+                                });
+                              }
+                            }}
+                            className="rounded bg-neutral-900 border-neutral-600"
+                          />
+                          <span className="text-neutral-200">{river.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Condition filters */}
+                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-2">Condition Triggers</h3>
+                  <p className="text-sm text-neutral-400 mb-4">
+                    Include rivers in Eddy’s Read only when their current condition matches one of these:
+                  </p>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    {ALL_CONDITIONS.map((condition) => {
+                      const isEnabled = (prefs.highlight_conditions || []).includes(condition.code);
+                      return (
+                        <label
+                          key={condition.code}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            onChange={(e) => {
+                              const conditions = prefs.highlight_conditions || [];
+                              if (e.target.checked) {
+                                setPreferences({
+                                  ...preferences,
+                                  highlight_conditions: [...conditions, condition.code],
+                                });
+                              } else {
+                                setPreferences({
+                                  ...preferences,
+                                  highlight_conditions: conditions.filter((c) => c !== condition.code),
+                                });
+                              }
+                            }}
+                            className="rounded bg-neutral-900 border-neutral-600"
+                          />
+                          <span className={`w-3 h-3 rounded-full ${condition.color}`} />
+                          <span className="text-neutral-200">{condition.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                </details>
+
+                <button
+                  onClick={saveConfig}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save settings'}
+                </button>
+              </div>
+            )}
 
         {/* Video pipeline health */}
-        {health && (
-          <div
+        {activeTab === 'settings' && health && (
+          <details className={studio.settingsGroup}><summary>Video rendering and publisher checks</summary><div
             className={`mb-6 p-4 rounded-lg border ${
               health.videoPipelineHealthy
                 ? 'bg-green-950/40 border-green-800 text-green-200'
@@ -1431,443 +1505,22 @@ export default function SocialAdminPage() {
                 )}
               </div>
             </div>
-          </div>
+          </div></details>
         )}
-
-        {/* Tabs */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-6 border-b border-neutral-700 pb-2">
-          {tabs.filter(tab => isOwner || tab.key === 'content' || tab.key === 'history').map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                  activeTab === tab.key
-                    ? 'bg-primary-600 text-white'
-                    : 'text-neutral-400 hover:text-white hover:bg-neutral-700'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="w-6 h-6 animate-spin text-neutral-400" />
-          </div>
-        ) : (
-          <>
-            {/* Settings Tab */}
-            {isOwner && activeTab === 'settings' && config && (
-              <div className="space-y-6">
-                {/* Global toggle */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Posting Status</h3>
-                      <p className="text-sm text-neutral-400">Turn automatic social posting on or off. Saves immediately.</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={config.posting_enabled}
-                      aria-label="Automatic social posting"
-                      aria-busy={savingPostingSwitch}
-                      disabled={savingPostingSwitch}
-                      onClick={togglePosting}
-                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors disabled:opacity-60 ${
-                        config.posting_enabled ? 'bg-green-500' : 'bg-neutral-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                          config.posting_enabled ? 'translate-x-7' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div className={`text-sm font-medium ${config.posting_enabled ? 'text-green-400' : 'text-red-400'}`}>
-                    {savingPostingSwitch
-                      ? 'Saving…'
-                      : config.posting_enabled
-                        ? 'Active — saved. Scheduled posts publish automatically.'
-                        : 'Paused — saved. No scheduled or automatic posts will go out. Posts you publish by hand still do.'}
-                  </div>
-                </div>
-
-                {/* TikTok connection */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">TikTok</h3>
-                      <p className="text-sm text-neutral-400">
-                        Reels are uploaded to your TikTok inbox as drafts; finish &amp; post them in the app.
-                        Capped at 5 drafts / 24h.
-                      </p>
-                    </div>
-                    {tiktokStatus?.connected ? (
-                      <button
-                        onClick={disconnectTikTok}
-                        disabled={tiktokBusy}
-                        className="px-4 py-2 text-sm rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 disabled:opacity-50"
-                      >
-                        Disconnect
-                      </button>
-                    ) : (
-                      <button
-                        onClick={connectTikTok}
-                        disabled={tiktokBusy || !tiktokStatus?.configured}
-                        className="px-4 py-2 text-sm rounded-lg bg-white/10 text-white border border-white/20 hover:bg-white/20 disabled:opacity-50"
-                        title={tiktokStatus?.configured ? '' : 'Set TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET first'}
-                      >
-                        {tiktokBusy ? 'Connecting…' : 'Connect TikTok'}
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-3 text-sm">
-                    {!tiktokStatus ? (
-                      <span className="text-neutral-500">Checking…</span>
-                    ) : !tiktokStatus.configured ? (
-                      <span className="text-amber-400">App not configured — set TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET.</span>
-                    ) : tiktokStatus.connected ? (
-                      <span className="text-green-400">
-                        Connected{tiktokStatus.openId ? ` (open_id ${tiktokStatus.openId.slice(0, 8)}…)` : ''}
-                        {tiktokStatus.refreshTokenExpiresAt
-                          ? ` · re-auth by ${new Date(tiktokStatus.refreshTokenExpiresAt).toLocaleDateString()}`
-                          : ''}
-                        {` · ${tiktokStatus.directPost ? 'direct post' : 'drafts'}`}
-                      </span>
-                    ) : (
-                      <span className="text-neutral-400">Not connected.</span>
-                    )}
-                  </div>
-                  {tiktokStatus?.configured && tiktokStatus?.redirectUri && (
-                    <p className="mt-3 text-xs text-neutral-500 break-all">
-                      Register this exact URL in TikTok → Login Kit → Redirect URI:{' '}
-                      <code className="text-neutral-300 font-mono">{tiktokStatus.redirectUri}</code>
-                    </p>
-                  )}
-                </div>
-
-                {/* Posting Schedule — single unified grid */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
-                  {!config.daily_report_auto_publish_enabled && <p className="mb-4 text-sm text-amber-300">Automatic Daily Reports are paused for rollout. Generate and approve a draft on Instagram and Facebook before enabling automation. Your saved days and times are kept.</p>}
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Carousel for Daily Report, Off / Video for Float Picks and other videos</span>.
-                    If every day for a row is Off, that post type is disabled. Set the time each type fires, or choose Generate draft to review a manual post.
-                  </p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr>
-                          <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 w-8"></th>
-                          <th className="text-left text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[160px]">Post type</th>
-                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                            <th key={day} className="text-center text-xs font-medium text-neutral-400 uppercase px-1 py-2 min-w-[58px]">{day}</th>
-                          ))}
-                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[140px]">Time (Central)</th>
-                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[100px]"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* Active post formats; retired formats remain visible in history */}
-                        {SCHEDULE_ROWS.map((row) => {
-                          const cells = config.media_schedule?.[row.key] as Record<string, string | null> | undefined;
-                          return (
-                            <tr key={`fmt-${row.key}`} className="border-t border-neutral-700/50 bg-neutral-900/40">
-                              <td className="px-2 py-2"></td>
-                              <td className="px-2 py-2 text-xs uppercase tracking-wide text-neutral-300 whitespace-nowrap font-medium">
-                                {row.label}
-                              </td>
-                              {MEDIA_DAYS.map((day) => {
-                                // Two-state: Off ↔ Video. Legacy 'image' cells
-                                // read as Video (posts are video-only now).
-                                if (row.key === 'river_highlight' && day !== 'thu') return <td key={day} className="text-center text-neutral-600">—</td>;
-                                const raw = cells?.[day] ?? null;
-                                const current = Boolean(raw);
-                                const next = current ? null : row.key === 'daily_digest' ? 'image' : 'video';
-                                return (
-                                  <td key={day} className="px-1 py-2 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => setConfig({
-                                        ...config,
-                                        media_schedule: {
-                                          ...(config.media_schedule || { river_highlight: {}, daily_digest: {} }),
-                                          [row.key]: {
-                                            ...((config.media_schedule?.[row.key] as Record<string, string | null> | undefined) || {}),
-                                            [day]: next,
-                                          },
-                                        },
-                                      })}
-                                      className={`min-w-[62px] px-1 py-1 rounded text-xs font-medium transition-colors ${
-                                        current
-                                          ? 'bg-primary-500 text-white hover:bg-primary-600'
-                                          : 'bg-neutral-900 border border-dashed border-neutral-600 text-neutral-500 hover:border-neutral-400'
-                                      }`}
-                                    >
-                                      {current ? row.key === 'daily_digest' ? 'Carousel' : 'Video' : 'Off'}
-                                    </button>
-                                  </td>
-                                );
-                              })}
-                              <td className="px-2 py-2 text-center">
-                                {(() => {
-                                  if (row.time === 'thursday_read') {
-                                    return <span className="text-xs text-neutral-300">Thursday · 5:00 PM</span>;
-                                  }
-                                  const timeField = row.time;
-                                  return (
-                                    <input
-                                      type="time"
-                                      value={timeField.get(config) || ''}
-                                      onChange={(e) => timeField.set(config, e.target.value, setConfig)}
-                                      className="w-[128px] px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white text-center"
-                                    />
-                                  );
-                                })()}
-                              </td>
-                              <td className="px-2 py-2 text-center">
-                                {row.action === 'none' ? (
-                                  <span className="text-xs text-neutral-600">—</span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled={postingNow === row.action}
-                                    onClick={() => postNow(row.action as PostNowType)}
-                                    className="px-3 py-1 bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors"
-                                  >
-                                    {postingNow === row.action ? 'Preparing…' : 'Generate draft'}
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {/* Visual separator between format rows and river rows */}
-                        <tr>
-                          <td colSpan={11} className="px-2 pt-4 pb-1 text-[10px] uppercase tracking-wider text-neutral-500">
-                            Rivers eligible for Eddy’s Read — enable at least two with fresh reports
-                          </td>
-                        </tr>
-                        {rivers.map((river) => {
-                          const isDisabled = (config.disabled_rivers || []).includes(river.slug);
-                          return (
-                            <tr
-                              key={river.slug}
-                              className={`border-t border-neutral-700/50 ${isDisabled ? 'opacity-40' : ''}`}
-                            >
-                              <td className="px-2 py-2">
-                                <button
-                                  onClick={() => {
-                                    const disabled = config.disabled_rivers || [];
-                                    if (isDisabled) {
-                                      setConfig({
-                                        ...config,
-                                        disabled_rivers: disabled.filter((s) => s !== river.slug),
-                                      });
-                                    } else {
-                                      setConfig({
-                                        ...config,
-                                        disabled_rivers: [...disabled, river.slug],
-                                      });
-                                    }
-                                  }}
-                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                    !isDisabled ? 'bg-green-500' : 'bg-neutral-600'
-                                  }`}
-                                >
-                                  <span
-                                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                                      !isDisabled ? 'translate-x-4' : 'translate-x-0.5'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                              <td className={`px-2 py-2 font-medium whitespace-nowrap ${isDisabled ? 'text-neutral-500' : 'text-neutral-200'}`}>
-                                {river.name}
-                              </td>
-                              <td colSpan={7} className="px-2 py-2 text-xs text-neutral-400">
-                                {isDisabled ? 'Excluded from the weekly Read' : 'Available for the weekly Read'}
-                              </td>
-                              <td colSpan={2}></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="mt-4">
-                    <PlacementFields formatLabel="Float Pick" value={config.section_guide?.placements}
-                      onChange={placements => setConfig({ ...config, section_guide: { ...config.section_guide, placements } })} />
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-3">
-                    All times are Central (CST/CDT). Eddy’s Read runs once on Thursday at 5:00 PM when its Thursday cell is enabled. Float Pick keeps its own schedule.
-                  </p>
-                </div>
-
-                {/* Video Features — opt-in reel variants */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">Video Features</h3>
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Opt-in reel variants. Renders go through GitHub Actions, add ~5–10 min latency,
-                    and are gated by the audio verification step.
-                  </p>
-                  <label className="flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.video_features?.condition_alerts_as_video ?? false}
-                      onChange={(e) => {
-                        setConfig({
-                          ...config,
-                          video_features: {
-                            ...(config.video_features || { condition_alerts_as_video: false }),
-                            condition_alerts_as_video: e.target.checked,
-                          },
-                        });
-                      }}
-                      className="mt-1 rounded bg-neutral-900 border-neutral-600"
-                    />
-                    <div>
-                      <div className="text-neutral-200 font-medium">
-                        Condition-change alerts as Reels
-                      </div>
-                      <div className="text-sm text-neutral-400 mt-1">
-                        When a river flips to high or dangerous, render a 12-second reel
-                        instead of posting a static image. Off = fast image alert; on = higher
-                        engagement, slower publish.
-                      </div>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Save button */}
-                <button
-                  onClick={saveConfig}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Settings'}
-                </button>
-              </div>
-            )}
-
-            {/* River Filters Tab */}
-            {isOwner && activeTab === 'filters' && config && (
-              <div className="space-y-6">
-                {/* River toggles */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">River Selection</h3>
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Select which rivers can appear in Eddy’s Read. Unchecked rivers will be excluded.
-                  </p>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {rivers.map((river) => {
-                      const isDisabled = (config.disabled_rivers || []).includes(river.slug);
-                      return (
-                        <label
-                          key={river.slug}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!isDisabled}
-                            onChange={(e) => {
-                              const disabled = config.disabled_rivers || [];
-                              if (e.target.checked) {
-                                setConfig({
-                                  ...config,
-                                  disabled_rivers: disabled.filter((s) => s !== river.slug),
-                                });
-                              } else {
-                                setConfig({
-                                  ...config,
-                                  disabled_rivers: [...disabled, river.slug],
-                                });
-                              }
-                            }}
-                            className="rounded bg-neutral-900 border-neutral-600"
-                          />
-                          <span className="text-neutral-200">{river.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Condition filters */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">Condition Triggers</h3>
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Include rivers in Eddy’s Read only when their current condition matches one of these:
-                  </p>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {ALL_CONDITIONS.map((condition) => {
-                      const isEnabled = (config.highlight_conditions || []).includes(condition.code);
-                      return (
-                        <label
-                          key={condition.code}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isEnabled}
-                            onChange={(e) => {
-                              const conditions = config.highlight_conditions || [];
-                              if (e.target.checked) {
-                                setConfig({
-                                  ...config,
-                                  highlight_conditions: [...conditions, condition.code],
-                                });
-                              } else {
-                                setConfig({
-                                  ...config,
-                                  highlight_conditions: conditions.filter((c) => c !== condition.code),
-                                });
-                              }
-                            }}
-                            className="rounded bg-neutral-900 border-neutral-600"
-                          />
-                          <span className={`w-3 h-3 rounded-full ${condition.color}`} />
-                          <span className="text-neutral-200">{condition.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Media Schedule + Video Features moved to the Settings tab */}
-
-                <button
-                  onClick={saveConfig}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Filters'}
-                </button>
-              </div>
-            )}
 
             {/* Custom Content Tab */}
             {activeTab === 'content' && (
               <div className="space-y-6">
-                {/* Add new */}
-                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
+                <div className={studio.sectionHead}><div><h2>Content library</h2><p>Reusable tips, seasonal notes, and captions.</p></div>
+                  <button className="admin-secondary" onClick={() => setAddingSnippet(!addingSnippet)}>{addingSnippet ? 'Close editor' : 'Add snippet'}</button></div>
+                {addingSnippet && <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-4">Add Content Snippet</h3>
                   <div className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="block text-sm text-neutral-300 mb-1">Type</label>
+                        <label htmlFor="snippet-type" className="block text-sm text-neutral-300 mb-1">Type</label>
                         <select
-                          value={newContent.content_type}
+                          id="snippet-type" value={newContent.content_type}
                           onChange={(e) => setNewContent({ ...newContent, content_type: e.target.value })}
                           className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
                         >
@@ -1879,19 +1532,19 @@ export default function SocialAdminPage() {
                       </div>
                       <div className="flex gap-4 items-end">
                         <div className="flex-1">
-                          <label className="block text-sm text-neutral-300 mb-1">Start Date</label>
+                          <label htmlFor="snippet-start" className="block text-sm text-neutral-300 mb-1">Start Date</label>
                           <input
                             type="date"
-                            value={newContent.start_date}
+                            id="snippet-start" value={newContent.start_date}
                             onChange={(e) => setNewContent({ ...newContent, start_date: e.target.value })}
                             className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
                           />
                         </div>
                         <div className="flex-1">
-                          <label className="block text-sm text-neutral-300 mb-1">End Date</label>
+                          <label htmlFor="snippet-end" className="block text-sm text-neutral-300 mb-1">End Date</label>
                           <input
                             type="date"
-                            value={newContent.end_date}
+                            id="snippet-end" value={newContent.end_date}
                             onChange={(e) => setNewContent({ ...newContent, end_date: e.target.value })}
                             className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
                           />
@@ -1899,9 +1552,9 @@ export default function SocialAdminPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm text-neutral-300 mb-1">Text</label>
+                      <label htmlFor="snippet-text" className="block text-sm text-neutral-300 mb-1">Text</label>
                       <textarea
-                        value={newContent.text}
+                        id="snippet-text" value={newContent.text}
                         onChange={(e) => setNewContent({ ...newContent, text: e.target.value })}
                         rows={3}
                         placeholder="e.g., Summer special: Book your float at eddyfloat.com"
@@ -1949,9 +1602,10 @@ export default function SocialAdminPage() {
                   </div>
                 </div>
 
+                }
                 {/* Existing content */}
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">Active Snippets</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">Saved snippets</h3>
                   {customContent.length === 0 ? (
                     <p className="text-neutral-400 text-sm">No content snippets yet</p>
                   ) : (
@@ -1959,7 +1613,7 @@ export default function SocialAdminPage() {
                       {customContent.map((item) => (
                         <div
                           key={item.id}
-                          className={`flex items-start gap-4 p-4 rounded-lg border transition-colors ${
+                          className={`flex flex-wrap items-start gap-4 p-4 rounded-lg border transition-colors ${
                             item.active
                               ? 'bg-neutral-700/50 border-neutral-600'
                               : 'bg-neutral-800 border-neutral-700 opacity-60'
@@ -1979,9 +1633,10 @@ export default function SocialAdminPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-neutral-200 truncate">{item.text}</p>
+                            <p className="text-sm text-neutral-200 [overflow-wrap:anywhere]">{item.text}</p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {item.active && <button className={studio.inline} onClick={() => { openComposer(); setQuickPostType('tip'); setQuickPostContentId(item.id); setQuickPostPlatforms(item.platforms.filter(p => p === 'facebook' || p === 'instagram')); }}>Use in post</button>}
                             <button
                               onClick={() => toggleContentActive(item)}
                               className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
@@ -1993,7 +1648,7 @@ export default function SocialAdminPage() {
                               {item.active ? 'Active' : 'Inactive'}
                             </button>
                             <button
-                              onClick={() => deleteContent(item.id)}
+                              aria-label="Delete snippet" onClick={() => deleteContent(item.id)}
                               className="p-1 text-neutral-500 hover:text-red-400 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2007,15 +1662,17 @@ export default function SocialAdminPage() {
               </div>
             )}
 
-            {/* Post History Tab */}
-            {activeTab === 'history' && (
+            {/* Queue and delivery history */}
+            {(activeTab === 'history' || activeTab === 'queue') && (
               <div className={`space-y-4 ${styles.history}`}>
+                <div className={studio.sectionHead}><div><h2>{activeTab === 'queue' ? 'Publishing queue' : 'Delivery history'}</h2>
+                  <p>{activeTab === 'queue' ? 'Review drafts, track renders, and resolve delivery issues.' : 'Published posts, TikTok inbox deliveries, and skipped posts.'}</p></div></div>
                 {/* Filters */}
                 <div className={styles.filters}>
                   <select
                     aria-label="Filter by platform"
                     value={postFilter.platform}
-                    onChange={(e) => setPostFilter({ ...postFilter, platform: e.target.value })}
+                    onChange={(e) => { setOffset(0); setPostFilter({ ...postFilter, platform: e.target.value }); }}
                     className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
                   >
                     <option value="">All Platforms</option>
@@ -2026,20 +1683,15 @@ export default function SocialAdminPage() {
                   <select
                     aria-label="Filter by status"
                     value={postFilter.status}
-                    onChange={(e) => setPostFilter({ ...postFilter, status: e.target.value })}
+                    onChange={(e) => { setOffset(0); setPostFilter({ ...postFilter, status: e.target.value }); }}
                     className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
                   >
                     <option value="">All Statuses</option>
-                    <option value="published">Published</option>
-                    <option value="failed">Failed</option>
-                    <option value="rendering">Rendering</option>
-                    <option value="review">Ready for review</option>
-                    <option value="inbox">Sent to TikTok inbox</option>
-                    <option value="pending">Pending</option>
-                    <option value="skipped">Skipped</option>
+                    {(activeTab === 'queue' ? ['review', 'scheduled', 'rendering', 'pending', 'publishing', 'failed', 'unknown'] : ['published', 'inbox', 'skipped']).map(status =>
+                      <option key={status} value={status}>{STATUS_BADGES[status].label}</option>)}
                   </select>
                   <button
-                    aria-label="Refresh post history"
+                    aria-label="Refresh posts"
                     onClick={fetchPosts}
                     className="p-2 text-neutral-400 hover:text-white transition-colors"
                   >
@@ -2048,14 +1700,14 @@ export default function SocialAdminPage() {
                 </div>
 
                 {/* Posts table */}
-                {posts.length === 0 ? (
+                {postError ? <p role="alert">{postError}</p> : postLoading && !posts.length ? <p role="status">Loading posts…</p> : posts.length === 0 ? (
                   <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-8 text-center">
-                    <p className="text-neutral-400">No posts found</p>
+                    <p className="text-neutral-400">{activeTab === 'queue' ? 'No posts waiting in this queue.' : 'No deliveries match these filters.'}</p>
                   </div>
                 ) : (
                   <div className="bg-neutral-800 border border-neutral-700 rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table aria-label="Post history" className={styles.table}>
+                      <table aria-label={activeTab === 'queue' ? 'Publishing queue' : 'Delivery history'} className={styles.table}>
                         <thead>
                           <tr className="border-b border-neutral-700">
                             <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3">Date</th>
@@ -2070,7 +1722,7 @@ export default function SocialAdminPage() {
                           {posts.map((post) => {
                             const badge = STATUS_BADGES[post.status] || STATUS_BADGES.pending;
                             const dam = isDamStory(post.render_request) ? post.render_request : null;
-                            const reviewable = dam && isOwner && post.video_url && ['review', 'failed'].includes(post.status);
+                            const reviewable = dam ? isOwner && post.video_url && ['review', 'failed'].includes(post.status) : post.status === 'review';
                             return (
                               <tr key={post.id} className="border-b border-neutral-700/50">
                                 <td className="px-4 py-3 text-sm text-neutral-300 whitespace-nowrap">
@@ -2081,7 +1733,7 @@ export default function SocialAdminPage() {
                                     minute: '2-digit',
                                   })}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{destinationLabel(post.platform, dam && post.platform === 'instagram' ? 'story' : renderPlacement(post.render_request))}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{postDestination(post)}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
                                   <strong>{dam ? dam.inputProps?.snapshot?.dam?.name ?? 'Dam update' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
                                   <span className="block text-xs text-neutral-400">
@@ -2096,6 +1748,7 @@ export default function SocialAdminPage() {
                                     {post.status === 'pending' && <AlertCircle className="w-3 h-3" />}
                                     {badge.label}
                                   </span>
+                                  {post.status === 'scheduled' && <p className="text-xs mt-1">{deliveryStamp(post.scheduled_at)}</p>}
                                   {post.error_message && (
                                     <p className="text-xs text-red-400 mt-1 max-w-xs truncate" title={post.error_message}>
                                       {post.error_message}
@@ -2107,16 +1760,17 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap items-center gap-2">
+                                    {post.status === 'scheduled' && (!dam || isOwner) && <button className={studio.inline} disabled={Boolean(sendingId)} onClick={() => retryPost(post.id, 'unschedule')}>Return to review</button>}
                                     {(post.video_url || post.image_url || post.caption) && (
                                       <button
                                         onClick={() => {
-                                          setReviewError('');
+                                          setScheduleLater(false); setSendTime(''); setReviewError('');
                                           setReviewId(post.id);
                                         }}
                                         className="admin-secondary flex items-center gap-1.5 px-3 py-1 text-sm rounded"
                                       >
                                         <Play className="w-3 h-3" />
-                                        {reviewable ? 'Review & send' : 'Preview'}
+                                        {reviewable ? 'Review draft' : 'Preview'}
                                       </button>
                                     )}
                                     {post.platform === 'tiktok' && post.caption && (
@@ -2168,6 +1822,10 @@ export default function SocialAdminPage() {
                     </div>
                   </div>
                 )}
+                {(postTotal > 50 || offset > 0) && <div className={studio.actions}>
+                  <button className="admin-secondary" disabled={offset === 0} onClick={() => setOffset(offset - 50)}>Previous</button>
+                  <span>{offset + 1}–{Math.min(offset + 50, postTotal)} of {postTotal}</span>
+                  <button className="admin-secondary" disabled={offset + 50 >= postTotal} onClick={() => setOffset(offset + 50)}>Next</button></div>}
               </div>
             )}
           </>

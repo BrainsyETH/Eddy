@@ -22,9 +22,12 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('social_posts')
     .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
+  const view = searchParams.get('view');
+  query = view === 'scheduled' ? query.eq('status', 'scheduled').order('scheduled_at').order('id') : query.order('created_at', { ascending: false }).order('id');
+  if (view === 'queue') query = query.in('status', ['review', 'scheduled', 'rendering', 'pending', 'publishing', 'failed', 'unknown']);
+  if (view === 'history') query = query.in('status', ['published', 'inbox', 'skipped']);
   if (platform) {
     query = query.eq('platform', platform);
   }

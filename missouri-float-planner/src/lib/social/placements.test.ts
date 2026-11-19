@@ -5,6 +5,8 @@ import { dispatchVideos } from './dispatch-videos';
 import { FacebookAdapter } from './facebook-adapter';
 import { destinationLabel, expandDestinations, renderPlacement, savedPlacementChoices, validPlacementChoices } from './placements';
 import { blocksRepost, postsFromToday } from './post-scheduler';
+import { applyRule, defaultDelivery, deliveryOn, planRules, wantedPlatforms, type PlanConfig } from './publishing-plan';
+import { draftSendTime } from './draft-time';
 import { supportsStory } from './post-types';
 import { savedPostMedia } from './review';
 import { destinationRenderRequest, getCompositionForPost } from './video-renderer';
@@ -177,4 +179,33 @@ test('scheduler dedupe uses the Central date and keeps failed Float Picks for Re
 
   const broken = { from: () => ({ select: () => ({ eq: () => ({ gte: async () => ({ data: null, error: { message: 'down' } }) }) }) }) };
   await assert.rejects(postsFromToday(broken, 'weekly_forecast', 'America/Chicago', now), /today's weekly_forecast/);
+});
+
+test('the planner inherits existing deliveries and a single-day edit only changes that occurrence', () => {
+  const config: PlanConfig = { media_schedule: { daily_digest: {}, river_highlight: {}, section_guide: { mon: 'video', fri: 'image' } },
+    section_guide: { time_cst: '17:00', placements: { facebook: 'both' } } };
+  const base = defaultDelivery(config, 'section_guide');
+  assert.deepEqual(planRules(config), [{ format: 'section_guide', days: ['mon', 'fri'], delivery: base }]);
+  const friday = { ...base, instagram: 'story' as const, facebook: 'off' as const, time: '09:30', tiktok: false };
+  const saved = { ...config, media_schedule: applyRule(config, 'section_guide', ['fri'], ['fri'], friday) };
+  assert.deepEqual(deliveryOn(saved, 'section_guide', 'mon'), base);
+  assert.deepEqual(deliveryOn(saved, 'section_guide', 'fri'), friday);
+  assert.deepEqual(wantedPlatforms(friday, ['facebook', 'instagram', 'tiktok']), ['instagram']);
+  assert.deepEqual(wantedPlatforms(friday, ['facebook', 'tiktok']), []);
+  assert.throws(() => applyRule(saved, 'section_guide', [], ['mon'], friday), /already has/);
+  assert.equal(planRules({ ...saved, media_schedule: applyRule(saved, 'section_guide', ['fri'], [], friday) }).length, 1);
+  assert.throws(() => applyRule(config, 'daily_digest', [], ['mon'], friday), /valid/);
+  assert.throws(() => applyRule(config, 'river_highlight', [], ['mon'], defaultDelivery(config, 'river_highlight')), /valid/);
+  assert.throws(() => applyRule(config, 'weekly_forecast', [], ['mon'], { ...base, facebook: 'regular', time: '27:00' }), /valid/);
+});
+
+test('one-time approvals store the Central publishing tick as an instant and reject expired or impossible times', () => {
+  const now = Date.parse('2026-03-07T16:00:00Z');
+  assert.equal(draftSendTime('2026-03-07T11:30', {}, now), '2026-03-07T17:30:00.000Z');
+  assert.equal(draftSendTime('2026-07-01T11:30', {}, now), '2026-07-01T16:30:00.000Z');
+  for (const time of ['2026-03-07T09:30', '2026-03-08T02:30', '2026-07-01T11:15']) {
+    assert.throws(() => draftSendTime(time, {}, now));
+  }
+  const dam = { compositionId: 'social-dam-schedule', inputProps: { snapshot: { scheduleDate: '2026-03-07' } } };
+  assert.throws(() => draftSendTime('2026-03-09T10:00', dam, now), /date shown/);
 });
