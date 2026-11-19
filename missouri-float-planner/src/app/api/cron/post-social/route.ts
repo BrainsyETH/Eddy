@@ -12,7 +12,8 @@ import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily
 import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getScheduledPosts, getRetryablePosts, postsFromToday, type SchedulerResult } from '@/lib/social/post-scheduler';
+import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
+import { claimScheduledDestinations } from '@/lib/social/stale-scheduled';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, ScheduledPost, PublishResult } from '@/lib/social/types';
 import { dispatchVideos, fallsBackToImage } from '@/lib/social/dispatch-videos';
@@ -245,16 +246,21 @@ async function runSocialPosting(request: NextRequest) {
         renderData ??= await buildRenderData(first, supabase);
 
         const imageFallback = fallsBackToImage(kind);
+        let sendPosts = batchPosts;
         if (imageFallback) {
-          // Clear today's failed or stuck scheduled rows so History shows the
-          // new attempt only. Formats without an image fallback keep theirs for
-          // Render again, and the scheduler doesn't re-queue them.
-          const stale = (await postsFromToday(supabase, kind, result.timeZone))
-            .filter(row => row.auto_publish && ['failed', 'pending'].includes(row.status)).map(row => row.id);
-          if (stale.length) await supabase.from('social_posts').delete().in('id', stale);
+          // Settle each destination on its own: one an admin retry is already
+          // sending is left to it, and the others replace today's failed or
+          // stuck scheduled row so History shows the new attempt only.
+          // Formats without an image fallback keep theirs for Render again,
+          // and the scheduler doesn't re-queue them.
+          const { ready, taken } = await claimScheduledDestinations(supabase, kind, result.timeZone, batchPosts);
+          for (const { post, reason } of taken) console.log(`${LOG_PREFIX} ${batchKey}/${post.platform}: ${reason} — not sending another`);
+          skipped += taken.length;
+          if (!ready.length) continue;
+          sendPosts = ready;
         }
 
-        const batch = await dispatchVideos(supabase, kind, renderData, batchPosts, true, { keepUndispatched: imageFallback });
+        const batch = await dispatchVideos(supabase, kind, renderData, sendPosts, true, { keepUndispatched: imageFallback });
         rendering += batch.rendering;
         errors.push(...batch.warnings);
         if (batch.rendering) console.log(`${LOG_PREFIX} Video render triggered for ${batchKey}: ${batch.rendering} post(s)`);
