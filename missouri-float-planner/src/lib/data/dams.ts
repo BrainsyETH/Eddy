@@ -48,6 +48,8 @@ import { readPatternHours } from '@/lib/data/dam-history-store';
 import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
 import { centralDayKey, nextDayKey, READING_STALE_AFTER_HOURS } from '@shared/dam-schedule-copy';
 import { generatingForNow } from '@shared/dam-generation';
+import { lakePageHref } from '@/lib/lakes/public-pages';
+import { lakeForDam } from '@/lib/lakes/registry';
 import { damSourceLinks } from '@/lib/data/dam-source-links';
 
 /**
@@ -705,6 +707,8 @@ export function buildSnapshot(
   // refreshStaleness re-derives it on the serving clock, because a stored row
   // can be served an hour after it was assembled. The reference pair sizes a
   // reading and does not decide on/off, so it is not needed here.
+  const lakeEntry = lakeForDam(dam.id);
+  const publishedLake = lakeEntry && lakePageHref(lakeEntry.slug) ? lakeEntry : null;
   const generating = generatingForNow(
     {
       hasTurbines: hasPowerhouse(dam),
@@ -775,6 +779,9 @@ export function buildSnapshot(
     // it" without a second round trip — which is what lets the iOS river screen
     // show a dam panel with no /api/rivers/[slug]/dam route existing.
     ...(dam.tailwater ? { tailwater: dam.tailwater } : {}),
+    // The lake destination, only once its page is released (public-pages.ts).
+    // What lets the iOS dam screen offer the lake without shipping the gate.
+    ...(publishedLake ? { lake: { slug: publishedLake.slug, name: publishedLake.name } } : {}),
     metrics,
     generating,
     schedule,

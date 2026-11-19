@@ -470,6 +470,13 @@ export interface DamSnapshot {
   sourceLinks?: DamSourceLink[];
   /** The reach this dam controls, when Eddy carries it. Absent for most. */
   tailwater?: DamTailwater;
+  /**
+   * The lake behind this dam, when Eddy has a published lake destination for
+   * it (GET /api/lakes/[slug], /lakes/[slug]). Absent for every other dam, and
+   * absent means "no lake screen to open", never "no lake": `lakeName` above
+   * still names the water. A client offers the lake only when this is present.
+   */
+  lake?: { slug: string; name: string };
 }
 
 /**

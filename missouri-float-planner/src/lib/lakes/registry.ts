@@ -59,6 +59,22 @@ export interface LakeEntry {
    * by a person (Phase 0 item 2 gate). The arithmetic exists either way.
    */
   rampCautionsVerified: boolean;
+  /**
+   * The lake's neighbours, for the "Where the water goes" rows. Facts about
+   * the map, declared from a source and never inferred from a gauge: a river
+   * listed here flows into this lake, a dam listed here releases water that
+   * reaches it. Where the release goes is read from the dam registry's
+   * `tailwater` when that is a river Eddy carries, and from `releasesInto`
+   * when it is the next lake down.
+   */
+  system?: {
+    /** `rivers.slug` of rivers Eddy carries that flow into this lake. */
+    feederRivers?: readonly string[];
+    /** Registry dams upstream, with the river that carries their release here. */
+    upstreamDams?: ReadonlyArray<{ damId: string; via: string }>;
+    /** The registry dam holding the lake this one releases into. */
+    releasesInto?: string;
+  };
   sources: LakeSources;
 }
 
@@ -82,6 +98,14 @@ export const LAKES: Record<string, LakeEntry> = {
       asOf: '2026-11-09',
     },
     rampCautionsVerified: false,
+    // The James and the Kings each run into their own arm of the lake, and the
+    // White arrives from Beaver Dam (USACE Little Rock District, Table Rock
+    // Lake project map). Below, the release is Lake Taneycomo, which the dam
+    // registry already names as this dam's tailwater.
+    system: {
+      feederRivers: ['james', 'kings-river'],
+      upstreamDams: [{ damId: 'swl-beaver-dam', via: 'White River' }],
+    },
     sources: {
       usaceRecreationProjects: ['TABLE ROCK LAKE'],
       agfcWaterbodies: ['Table Rock Lake'],
@@ -106,6 +130,11 @@ export const LAKES: Record<string, LakeEntry> = {
       asOf: '2026-11-09',
     },
     rampCautionsVerified: false,
+    // Truman releases straight into the head of Lake of the Ozarks, which is
+    // why Ameren's Osage report carries Truman's numbers at all. Eddy carries
+    // none of the rivers that feed it (Osage, South Grand, Pomme de Terre,
+    // Sac), so no feeder rows: an empty list is the honest state.
+    system: { releasesInto: 'ameren-bagnell-dam' },
     sources: {
       usaceRecreationProjects: ['HARRY S. TRUMAN DAM AND RESERVOIR MISSOURI'],
       nwkRampLake: 'Truman Lake',

@@ -7,6 +7,8 @@ export interface WeatherData {
   condition: string;
   conditionIcon: string;
   windSpeed: number;
+  /** Gust in mph, when OpenWeather reports one. It omits the field in steady air. */
+  windGust?: number;
   windDirection: number;
   humidity: number;
   city: string;
@@ -89,6 +91,7 @@ export async function fetchWeather(
     condition: data.weather[0].main,
     conditionIcon: data.weather[0].icon,
     windSpeed: Math.round(data.wind?.speed || 0),
+    ...(Number.isFinite(data.wind?.gust) ? { windGust: Math.round(data.wind.gust) } : {}),
     windDirection: data.wind?.deg || 0,
     humidity: data.main.humidity,
     city: data.name,
