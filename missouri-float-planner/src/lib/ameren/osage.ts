@@ -116,6 +116,7 @@ function roundTrips(ms: number, y: number, mo: number, d: number, h: number, mi:
 /** A report string ("659.31") as a finite non-negative number, or null. */
 function reportNumber(raw: unknown): number | null {
   if (typeof raw !== 'string' && typeof raw !== 'number') return null;
+  if (typeof raw === 'string' && raw.trim() === '') return null;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0) return null;
   return n;

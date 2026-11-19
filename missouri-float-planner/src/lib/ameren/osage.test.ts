@@ -58,6 +58,7 @@ test('rows parse to numbers, sorted, with malformed rows dropped individually', 
     { dateTimeStamp: '2026-08-14T02:00:00', headWaterLevel: 'n/a', tailWaterLevel: '1', discharge: '1' },
     { dateTimeStamp: 'not a stamp', headWaterLevel: '1', tailWaterLevel: '1', discharge: '1' },
     { dateTimeStamp: '2026-08-14T03:00:00', headWaterLevel: '659', tailWaterLevel: '555', discharge: '-40' },
+    { dateTimeStamp: '2026-08-14T04:00:00', headWaterLevel: '659', tailWaterLevel: '555', discharge: ' ' },
     'not even an object',
   ]);
   assert.equal(rows.length, 2);

@@ -1,9 +1,15 @@
-# Daily dam schedule videos
+# Daily dam videos
 
-The Table Rock pilot lives in **Admin → Social → Quick Post → Dam schedule video**.
-Choose today or tomorrow (Central time), Instagram Story and/or TikTok, then
-Create video. In Post History, owners open **Review & send** for each finished
-video and select **Approve & send**. Instagram publishes a Story. TikTok follows
+Open **Admin → Social → Create post → Dam generation** and choose a powerhouse.
+SWPA projects offer today’s and tomorrow’s hourly generation schedules. Wolf Creek,
+Center Hill and Dale Hollow offer the Corps’ generation forecast for the selected
+Central date. Bagnell shows Ameren’s latest measured release and the previous
+23 hourly readings. Total release includes all outlets.
+
+Choose Instagram Story, TikTok, or both, then select **Create video**. In the Queue, owners open **Review draft** for each finished
+video. Choose **Approve & send** for a Bagnell measured release. If Ameren has
+posted a newer reading, **Regenerate draft** refreshes the same queue item and
+returns it for another review. Dated schedules and forecasts also offer **Schedule for later**. Timed approvals appear in the planner and can be returned to review from the queue. The publisher checks the source again at send time. Instagram publishes a Story. TikTok follows
 the connected account’s posting mode: inbox drafts are finished in TikTok;
 direct posting sends to the profile. **Download MP4** also works after delivery.
 Rendering and downloading work without a connected social account.
@@ -14,16 +20,16 @@ render should be regenerated from the form, which checks the source again.
 
 ## Data and presentation
 
-- Existing dam snapshot reader and SWPA hour-ending semantics; no new ingestion.
-- Complete 24-hour schedule required. Missing, invalid, future-dated check times,
+- The picker follows the powerhouse registry. Videos carry the selected dam’s name, link and source.
+- SWPA videos require a complete 24-hour schedule. Missing, invalid, future-dated check times,
   or checks older than the shared 90-minute threshold block export. A missing
   date never borrows yesterday's schedule. Confirmed zero generation is valid.
-- Every generation window stays visible throughout the 12-second clip. The
+- Every scheduled generation window stays visible throughout the 12-second clip. The
   timeline shows each hour’s posted megawatts on the same fixed capacity scale
   as the dam widget. A diagonal shine follows the generating bars. Idle and
   minimum-flow hours stay at the baseline.
 - Date, Central time, SWPA attribution and the source-check timestamp are burned
-  into the video. No countdown, live cursor, measured cfs, seasonal pool line,
+  into each SWPA video. No countdown, live cursor, seasonal pool line,
   or downstream arrival estimate. The animation uses a fixed illustrative
   water level. No scheduled generation stops the
   decorative turbine, without claiming that the river is dry or safe.
@@ -54,12 +60,14 @@ information remains readable without audio.
 
 Drafts use the existing `manual` post type with `auto_publish: false` and a saved
 `social-dam-schedule` render request. The callback leaves the video in review.
-Each owner-initiated send checks the latest complete schedule for the rendered
-date and destination before claiming the row for delivery. A revised hourly MW
+Each owner-initiated send rechecks the saved dam, source, date and destination.
+Revised forecast windows or a new Ameren reading require a fresh video.
+Earlier drafts without an explicit dam identity are checked against Table Rock. A revised hourly MW
 value, changed chart scale, or older on/off-only draft requires a new video.
 Background retries skip dam videos. Downloads require
 owner access and proxy only a saved
-Vercel Blob `social-videos/` output. No migration or new environment variable.
+Vercel Blob `social-videos/` output. The publishing queue requires migration
+`20261119135000_social_scheduled_drafts.sql` before the web deployment.
 
 Static exports cannot update after posting. Check the burned-in date and source
 time before sharing; regenerate if the source has changed. Download history is
@@ -70,7 +78,7 @@ retained for review, including older dated videos.
 `make check-web` covers the date, freshness, completeness, hour-ending,
 minimum-flow and publish guards. The **Dam Story Preview** workflow typechecks
 Remotion, checks both destinations in Chromium at six frames (including the
-paddle's pull and recovery), and uploads 20 stills plus two sample MP4s and an
+paddle's pull and recovery), and uploads preview stills plus two sample MP4s and an
 isolated `dam-story-motion-study` MP4. Cases include midnight, all-day,
 zero/minimum-flow, split windows and the maximum 12 separate windows. Checks also
 cover the compact time card and Eddy’s canoe staying on the lake surface.

@@ -2,7 +2,8 @@
 // Determines scheduled social posts. Eddy’s Read is one Thursday comparison;
 // Float Pick and other format schedules retain their existing behavior.
 
-import { expandDestinations, savedPlacementChoices } from './placements';
+import { deliveryOn, wantedPlatforms, type Delivery } from './publishing-plan';
+import { expandDestinations } from './placements';
 import { supportsStory } from './post-types';
 import { fallsBackToImage } from './dispatch-videos';
 import { MAY_HAVE_PUBLISHED } from './publish-outcome';
@@ -182,12 +183,12 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
   const tiktokEnabled = enabledPlatforms.includes('tiktok');
   const nonTiktokPlatforms = enabledPlatforms.filter((p) => p !== 'tiktok');
   let tiktokBudget = tiktokEnabled ? await tiktokRemainingBudget(supabase) : 0;
-  const platformsForPost = (): SocialPlatform[] => {
-    if (tiktokEnabled && tiktokBudget > 0) {
+  const platformsForPost = (delivery: Delivery): SocialPlatform[] => {
+    if (delivery.tiktok && tiktokEnabled && tiktokBudget > 0) {
       tiktokBudget -= 1;
-      return [...nonTiktokPlatforms, 'tiktok'];
+      return wantedPlatforms(delivery, [...nonTiktokPlatforms, 'tiktok']);
     }
-    return nonTiktokPlatforms;
+    return wantedPlatforms(delivery, nonTiktokPlatforms);
   };
 
   // --- Weekly Forecast (media_schedule.weekly_forecast drives day/media) ---
@@ -203,7 +204,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
     // flag isn't maintained by the grid UI, so gating on it silently desynced
     // these posts off even with every day set to Video.
     if ((todayMedia || holidayEarlyCall) && config.weekly_forecast) {
-      const { time_cst } = config.weekly_forecast;
+      const delivery = deliveryOn(config, 'weekly_forecast', todayKey);
+      const time_cst = delivery.time;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
 
       if (!timeMatches) {
@@ -221,7 +223,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
         if (topRivers.length === 0) {
           console.log(`${LOG_PREFIX} Weekly forecast: no floatable rivers right now — skipping`);
         } else {
-          const platforms = platformsForPost();
+          const platforms = platformsForPost(delivery);
           for (const platform of platforms) {
             const { caption, hashtags } = formatWeeklyForecastCaption(
               topRivers,
@@ -257,7 +259,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
     // Grid cell is the gate (see weekly_forecast note above) — not the legacy
     // `enabled` flag, which the grid never sets.
     if (todayMedia && config.section_guide) {
-      const { time_cst } = config.section_guide;
+      const delivery = deliveryOn(config, 'section_guide', todayKey);
+      const time_cst = delivery.time;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
 
       if (!timeMatches) {
@@ -269,7 +272,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
         if (!ctx) {
           console.log(`${LOG_PREFIX} Float Pick: no live section and no evergreen favorite — skipping`);
         } else {
-          const destinations = expandDestinations(platformsForPost(), savedPlacementChoices(config, 'section_guide'), supportsStory('section_guide'));
+          const destinations = expandDestinations(platformsForPost(delivery), { instagram: delivery.instagram === 'off' ? undefined : delivery.instagram, facebook: delivery.facebook === 'off' ? undefined : delivery.facebook }, supportsStory('section_guide'));
           for (const { platform, placement } of destinations) {
             const { caption, hashtags } = ctx.caption(platform, customContent);
             posts.push({
@@ -307,11 +310,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
   } else {
     if (await alreadyPosted('daily_digest')) {
       console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
-    } else if (!isDueNow(config.digest_time_cst) && !skipTimeCheck) {
+    } else if (!isDueNow(deliveryOn(config, 'daily_digest', todayKey).time) && !skipTimeCheck) {
       console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_cst} CST), skipping digest`);
     } else {
       // The existing TikTok connector supports video only; do not spend its budget.
-      for (const platform of nonTiktokPlatforms) {
+      for (const platform of wantedPlatforms(deliveryOn(config, 'daily_digest', todayKey), nonTiktokPlatforms)) {
         posts.push({ postType: 'daily_digest', platform, riverSlug: null,
           caption: '', imageUrl: '', mediaType: 'image', hashtags: [], eddyUpdateId: null });
       }
@@ -326,7 +329,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
       if (ctx) {
         diag.eligible_rivers.push(...(ctx.riverSlugs ?? []));
         diag.due_rivers.push(...(ctx.riverSlugs ?? []));
-        for (const platform of platformsForPost()) {
+        for (const platform of platformsForPost(deliveryOn(config, 'river_highlight', todayKey))) {
           const { caption, hashtags } = ctx.caption(platform, customContent);
           posts.push({ postType: 'river_highlight', platform, riverSlug: null,
             caption, hashtags, imageUrl: ctx.imageUrl(platform), mediaType: 'video', eddyUpdateId: null });

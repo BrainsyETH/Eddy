@@ -139,8 +139,9 @@ export function buildAuthorizeUrl(state: string): string {
 }
 
 /** POST the OAuth token endpoint (used for both code-exchange and refresh). */
-async function postToken(body: Record<string, string>): Promise<TikTokTokenResponse> {
+async function postToken(body: Record<string, string>, signal?: AbortSignal): Promise<TikTokTokenResponse> {
   const res = await fetch(TIKTOK_OAUTH_URL, {
+    signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(body).toString(),
@@ -193,7 +194,7 @@ export async function exchangeCodeForTokens(supabase: Supabase, code: string): P
 /** Return a valid access token, refreshing (and persisting the rotated refresh
  *  token) if the stored one is expired or about to expire. Null when TikTok is
  *  not connected (no token row) or app creds are missing. */
-export async function getValidAccessToken(supabase: Supabase): Promise<string | null> {
+export async function getValidAccessToken(supabase: Supabase, signal?: AbortSignal): Promise<string | null> {
   const { clientKey, clientSecret } = getAppCreds();
   if (!clientKey || !clientSecret) return null;
 
@@ -220,7 +221,7 @@ export async function getValidAccessToken(supabase: Supabase): Promise<string | 
     client_secret: clientSecret,
     grant_type: 'refresh_token',
     refresh_token: token.refresh_token,
-  });
+  }, signal);
   // The returned refresh_token may differ — saveTokens persists the new one.
   await saveTokens(supabase, refreshed);
   return refreshed.access_token;
@@ -242,7 +243,8 @@ interface InboxInitResponse {
 type TikTokUploadResult = { success: boolean; postId?: string; error?: string; ambiguous?: boolean };
 
 /** TikTok may have accepted the last chunk even if its receipt never arrives. */
-async function finishTikTokUpload(uploadUrl: string, publishId: string, bytes: Buffer<ArrayBuffer>): Promise<TikTokUploadResult> {
+async function finishTikTokUpload(uploadUrl: string, publishId: string, bytes: Buffer<ArrayBuffer>, signal?: AbortSignal): Promise<TikTokUploadResult> {
+  if (signal?.aborted) return { success: false, error: 'Publishing deadline reached before uploading.' };
   const size = bytes.byteLength;
   try {
     const response = await fetch(uploadUrl, {
@@ -253,7 +255,7 @@ async function finishTikTokUpload(uploadUrl: string, publishId: string, bytes: B
         'Content-Range': `bytes 0-${size - 1}/${size}`,
       },
       body: bytes,
-      signal: AbortSignal.timeout(60_000),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000),
     });
     if (response.ok) return { success: true, postId: publishId };
     const detail = await response.text().catch(() => '');
@@ -271,18 +273,18 @@ async function finishTikTokUpload(uploadUrl: string, publishId: string, bytes: B
  * finish + caption the post in-app (draft mode carries no title/caption).
  */
 export async function publishVideoToTikTok(
-  params: { videoUrl: string },
+  params: { signal?: AbortSignal; videoUrl: string },
   supabase: Supabase,
 ): Promise<TikTokUploadResult> {
   try {
-    const accessToken = await getValidAccessToken(supabase);
+    const accessToken = await getValidAccessToken(supabase, params.signal);
     if (!accessToken) {
       return { success: false, error: 'TikTok is not connected (no stored token) — connect the account first' };
     }
 
     // Download the reel from its public blob URL (server-side; FILE_UPLOAD
     // avoids TikTok's PULL_FROM_URL domain-verification requirement).
-    const videoRes = await fetch(params.videoUrl);
+    const videoRes = await fetch(params.videoUrl, { signal: params.signal });
     if (!videoRes.ok) {
       return { success: false, error: `Failed to fetch video (${videoRes.status}) from ${params.videoUrl}` };
     }
@@ -292,6 +294,7 @@ export async function publishVideoToTikTok(
 
     // Init: single chunk (files are ~1.7MB, well under TikTok's per-chunk max).
     const initRes = await fetch(TIKTOK_INBOX_INIT_URL, {
+      signal: params.signal,
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -318,7 +321,7 @@ export async function publishVideoToTikTok(
       };
     }
 
-    return await finishTikTokUpload(uploadUrl, publishId, bytes);
+    return await finishTikTokUpload(uploadUrl, publishId, bytes, params.signal);
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Unknown TikTok error' };
   }
@@ -340,17 +343,18 @@ interface CreatorInfoResponse {
  * otherwise fall back to the most permissive option the creator actually offers.
  */
 export async function publishVideoToTikTokDirect(
-  params: { videoUrl: string; caption?: string },
+  params: { signal?: AbortSignal; videoUrl: string; caption?: string },
   supabase: Supabase,
 ): Promise<TikTokUploadResult> {
   try {
-    const accessToken = await getValidAccessToken(supabase);
+    const accessToken = await getValidAccessToken(supabase, params.signal);
     if (!accessToken) {
       return { success: false, error: 'TikTok is not connected (no stored token) — connect the account first' };
     }
 
     // 1. creator_info → the privacy levels this creator/app state permits.
     const ciRes = await fetch(TIKTOK_CREATOR_INFO_URL, {
+      signal: params.signal,
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8' },
     });
@@ -367,7 +371,7 @@ export async function publishVideoToTikTokDirect(
     const privacyLevel = options.includes(preferred) ? preferred : options[0];
 
     // 2. Download the reel bytes (FILE_UPLOAD — no PULL_FROM_URL verification).
-    const videoRes = await fetch(params.videoUrl);
+    const videoRes = await fetch(params.videoUrl, { signal: params.signal });
     if (!videoRes.ok) {
       return { success: false, error: `Failed to fetch video (${videoRes.status}) from ${params.videoUrl}` };
     }
@@ -377,6 +381,7 @@ export async function publishVideoToTikTokDirect(
 
     // 3. Init the direct post — the caption rides along as the title.
     const initRes = await fetch(TIKTOK_DIRECT_INIT_URL, {
+      signal: params.signal,
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8' },
       body: JSON.stringify({
@@ -407,7 +412,7 @@ export async function publishVideoToTikTokDirect(
       };
     }
 
-    return await finishTikTokUpload(uploadUrl, publishId, bytes);
+    return await finishTikTokUpload(uploadUrl, publishId, bytes, params.signal);
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Unknown TikTok error' };
   }

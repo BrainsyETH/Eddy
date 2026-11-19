@@ -1,7 +1,9 @@
 import { DAILY_REPORT_KIND, isDailyReport, reportImageUrls, reportIsCurrent } from './daily-report';
 import { isStoryRender } from './placements';
 import type { PublishParams } from './types';
-import { isDamStory, type DamStorySnapshot } from '../../../shared/social-dam-schedule';
+import { isDamStory, storyDam, type DamPostSnapshot } from '../../../shared/social-dam-schedule';
+
+export class StaleReleaseError extends Error {}
 
 export function isDamVideoUrl(value: string | null): value is string {
   if (!value) return false;
@@ -16,25 +18,42 @@ export function isDamVideoUrl(value: string | null): value is string {
 export function savedPostMedia(post: {
   platform?: string;
   caption: string; media_type: string; image_url: string | null; video_url: string | null; render_request?: unknown;
-}, currentSchedule?: DamStorySnapshot): PublishParams {
+}, current?: DamPostSnapshot): PublishParams {
   if (isDamStory(post.render_request)) {
     // Only the explicit review action supplies a freshly checked schedule.
-    if (!currentSchedule) throw new Error('Dam videos need owner approval.');
+    if (!current) throw new Error('Dam videos need owner approval.');
     const props = post.render_request.inputProps;
     if (!props || props.sample !== false || !['instagram', 'tiktok'].includes(props.platform) ||
         props.platform !== post.platform || post.media_type !== 'video' || !isDamVideoUrl(post.video_url)) {
       throw new Error('This draft has no valid video for this destination. Create a new dam video.');
     }
     const saved = props.snapshot;
-    if (saved && !Array.isArray(saved.hourlyMw)) {
-      throw new Error('This video predates hourly megawatt bars. Create a new dam video.');
+    if (!saved || storyDam(saved).id !== storyDam(current).id || storyDam(saved).name !== storyDam(current).name ||
+        (saved.kind ?? 'schedule') !== (current.kind ?? 'schedule') || !Number.isFinite(Date.parse(saved.checkedAt))) {
+      throw new Error('The dam or source has changed. Create a new dam video.');
     }
-    if (!saved || !Number.isFinite(Date.parse(saved.checkedAt)) ||
-        saved.scheduleDate !== currentSchedule.scheduleDate || saved.minimumFlow !== currentSchedule.minimumFlow ||
-        saved.capacityMw !== currentSchedule.capacityMw || !Array.isArray(saved.hours) || saved.hours.length !== 24 ||
-        saved.hourlyMw.length !== 24 ||
-        !currentSchedule.hours.every((active, i) => active === saved.hours[i] && currentSchedule.hourlyMw[i] === saved.hourlyMw[i])) {
-      throw new Error('The schedule has changed. Create a new dam video.');
+    if (saved.kind === 'forecast' && current.kind === 'forecast') {
+      if (saved.scheduleDate !== current.scheduleDate || saved.generating !== current.generating || saved.source !== current.source ||
+          !Array.isArray(saved.windows) || saved.windows.length !== current.windows.length || !current.windows.every((w, i) => w === saved.windows[i])) {
+        throw new Error('The forecast has changed. Create a new dam video.');
+      }
+    } else if (saved.kind === 'release' && current.kind === 'release') {
+      if (Date.parse(current.checkedAt) > Date.parse(saved.checkedAt)) {
+        throw new StaleReleaseError('A newer Ameren reading is available.');
+      }
+      if (saved.scheduleDate !== current.scheduleDate || saved.checkedAt !== current.checkedAt || saved.releaseCfs !== current.releaseCfs ||
+          !Array.isArray(saved.hourlyCfs) || saved.hourlyCfs.length !== 24 || !current.hourlyCfs.every((cfs, i) => cfs === saved.hourlyCfs[i])) {
+        throw new StaleReleaseError('The measured release has changed. Regenerate this draft.');
+      }
+    } else if ((!saved.kind || saved.kind === 'schedule') && (!current.kind || current.kind === 'schedule')) {
+      if (!Array.isArray(saved.hourlyMw)) throw new Error('This video predates hourly megawatt bars. Create a new dam video.');
+      if (saved.scheduleDate !== current.scheduleDate || saved.minimumFlow !== current.minimumFlow || saved.capacityMw !== current.capacityMw ||
+          !Array.isArray(saved.hours) || saved.hours.length !== 24 || saved.hourlyMw.length !== 24 ||
+          !current.hours.every((active, i) => active === saved.hours[i] && current.hourlyMw[i] === saved.hourlyMw[i])) {
+        throw new Error('The schedule has changed. Create a new dam video.');
+      }
+    } else {
+      throw new Error('Unrecognized data source. Create a new dam video.');
     }
     return {
       caption: post.caption, mediaType: 'video', videoUrl: post.video_url,

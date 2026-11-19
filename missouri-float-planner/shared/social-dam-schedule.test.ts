@@ -1,10 +1,14 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
-import { damStorySnapshot, damStoryWindows, damStorySummary, damStoryRender, damStoryCaption, DAM_STORY_FIXTURE } from './social-dam-schedule';
+import { forecastStorySnapshot, releaseStorySnapshot, damStorySnapshot, damStoryWindows, damStorySummary, damStoryRender, damStoryCaption, DAM_STORY_FIXTURE } from './social-dam-schedule';
 import { savedPostMedia } from '../src/lib/social/review';
 import { publishVideoToTikTok, publishVideoToTikTokDirect } from '../src/lib/social/tiktok-client';
 import { FakeOutboxDb } from '../src/lib/alerts/fake-outbox-db';
 import { InstagramAdapter } from '../src/lib/social/instagram-adapter';
+import { damPostOptions, loadDamPost } from '../src/lib/social/dam-story';
+import { hasPowerhouse, USACE_DAMS } from '../src/lib/flow-providers/usace-registry';
+import { parseSchedulePage, SWPA_PROJECTS } from '../src/lib/usace/swpa';
 import type { DamScheduleDay } from './dam-types';
 
 const now = Date.parse('2026-11-09T16:30:00Z');
@@ -89,6 +93,92 @@ test('a checked dam draft delivers the saved video to its own destination only a
   }
   const legacy = { ...draft.render_request, inputProps: { ...draft.render_request.inputProps, snapshot: { ...checked, hourlyMw: undefined, capacityMw: undefined } } };
   assert.throws(() => savedPostMedia({ ...draft, render_request: legacy }, checked), /Create a new dam video/);
+});
+
+test('the composer lists every registered powerhouse and rejects projects outside that list', async () => {
+  assert.deepEqual(damPostOptions.map(d => d.id).sort(), Object.values(USACE_DAMS).filter(hasPowerhouse).map(d => d.id).sort());
+  assert.equal(damPostOptions.filter(d => d.kind === 'schedule').length, 18);
+  assert.equal(damPostOptions.filter(d => d.kind === 'forecast').length, 3);
+  assert.deepEqual(damPostOptions.filter(d => d.kind === 'release').map(d => d.id), ['ameren-bagnell-dam']);
+  for (const id of ['swl-clearwater-dam', 'toString', '']) await assert.rejects(loadDamPost(id), /powerhouse/);
+  await assert.rejects(loadDamPost('ameren-bagnell-dam', '2026-11-10'), /latest measured/);
+});
+
+test('each of the 18 projects renders its own SWPA column and capacity', async t => {
+  const source = readFileSync('src/lib/usace/__fixtures__/swpa-mon-2026-07-27.txt', 'utf8');
+  const instant = Date.parse('2026-07-27T14:00:00Z');
+  t.mock.method(Date, 'now', () => instant);
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    const monday = url.endsWith('/mon.htm');
+    const body = monday ? source : source.replace('MONDAY JULY 27', 'TUESDAY JULY 28');
+    return new Response(body, { headers: { Date: new Date(instant).toUTCString() } });
+  });
+  const sheet = parseSchedulePage(source)!;
+  for (const option of damPostOptions.filter(d => d.kind === 'schedule')) {
+    const snapshot = await loadDamPost(option.id, sheet.scheduleDate);
+    assert.ok(snapshot.kind === 'schedule');
+    const code = USACE_DAMS[option.id].swpaCode!;
+    assert.equal(snapshot.dam?.id, option.id);
+    assert.equal(snapshot.capacityMw, SWPA_PROJECTS[code].capacityMw);
+    assert.deepEqual(snapshot.hourlyMw, sheet.projects[code].hours.map(hour => hour.megawatts));
+    if (code === 'BSD') assert.ok(snapshot.minimumFlow);
+  }
+});
+
+test('a non-Table Rock draft carries its identity through caption, filename and approval', () => {
+  const dam = { id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam' };
+  const snapshot = damStorySnapshot(day(), day().scheduleDate, now, 391, dam);
+  assert.ok(damStoryCaption(snapshot).startsWith(dam.name));
+  assert.ok(damStoryCaption(snapshot).endsWith('/' + dam.id));
+  const render = damStoryRender(snapshot, 'instagram');
+  assert.ok(render.outputFilename.startsWith(dam.id));
+  const post = { ...draft, render_request: render };
+  assert.ok(savedPostMedia(post, snapshot));
+  assert.throws(() => savedPostMedia(post, { ...snapshot, dam: { id: 'swl-norfork-dam', name: 'Norfork Dam' } }), /dam or source/);
+  // A legacy export with hourly bars belonged to Table Rock.
+  const legacy = { ...snapshot };
+  delete legacy.dam;
+  delete legacy.kind;
+  assert.throws(() => savedPostMedia({ ...draft, render_request: damStoryRender(legacy, 'instagram') }, snapshot), /dam or source/);
+  assert.ok(savedPostMedia({ ...draft, render_request: damStoryRender(legacy, 'instagram') }, damStorySnapshot(day(), day().scheduleDate, now, 391)));
+});
+
+test('a generation forecast preserves gaps and requires a current plan at approval', () => {
+  const dam = { id: 'lrn-wolf-creek-dam', name: 'Wolf Creek Dam' };
+  const forecast = { source: 'U.S. Army Corps of Engineers, Nashville District', timeZone: 'America/Chicago',
+    retrievedAt: day().retrievedAt!, windows: [
+      { startUtc: '2026-11-09T16:00Z', endUtc: '2026-11-09T18:00Z', generating: true, peakCfs: 4000 },
+      { startUtc: '2026-11-09T20:00Z', endUtc: '2026-11-09T21:00Z', generating: true, peakCfs: 5000 },
+      { startUtc: '2026-11-10T06:00Z', endUtc: '2026-11-18T06:00Z', generating: false, peakCfs: null },
+    ] };
+  const snapshot = forecastStorySnapshot(dam, forecast, day().scheduleDate, now);
+  assert.deepEqual(snapshot.windows, ['10 AM – 12 PM', '2 PM – 3 PM']);
+  assert.doesNotMatch(damStoryCaption(snapshot), /SWPA|scheduled generation/i);
+  assert.throws(() => forecastStorySnapshot(dam, { ...forecast, windows: forecast.windows.slice(0, 1) }, day().scheduleDate, now), /unavailable/);
+  assert.throws(() => forecastStorySnapshot(dam, forecast, '2026-11-19', now), /for this date/);
+  const idle = forecastStorySnapshot(dam, forecast, '2026-11-10', now);
+  assert.equal(idle.generating, false);
+  assert.deepEqual(idle.windows, ['all day']);
+  const post = { ...draft, render_request: damStoryRender(snapshot, 'instagram') };
+  assert.ok(savedPostMedia(post, snapshot));
+  assert.throws(() => savedPostMedia(post, { ...snapshot, windows: ['all day'] }), /forecast has changed/);
+});
+
+test('a release update uses fresh measured cfs, preserves missing hours and checks for revisions', () => {
+  const dam = { id: 'ameren-bagnell-dam', name: 'Bagnell Dam' };
+  const readings = [{ timestamp: now - 7_200_000, dischargeCfs: 0 }, { timestamp: now, dischargeCfs: 6500 }];
+  const snapshot = releaseStorySnapshot(dam, readings, now);
+  assert.deepEqual(snapshot.hourlyCfs.slice(-3), [0, null, 6500]);
+  assert.match(damStoryCaption(snapshot), /Measured release: 6,500 cfs/);
+  assert.doesNotMatch(damStoryCaption(snapshot), /generation schedule|SWPA/i);
+  for (const time of [now + 3 * 3_600_000, now - 3_600_000]) assert.throws(() => releaseStorySnapshot(dam, readings, time), /unavailable/);
+  const post = { ...draft, render_request: damStoryRender(snapshot, 'instagram') };
+  assert.ok(savedPostMedia(post, snapshot));
+  assert.throws(() => savedPostMedia(post, { ...snapshot, releaseCfs: 6510 }), /release has changed/);
+  const nextHour = now + 3_600_000;
+  const updated = releaseStorySnapshot(dam, [...readings, { timestamp: nextHour, dischargeCfs: 6500 }], nextHour);
+  assert.throws(() => savedPostMedia(post, updated), /newer Ameren reading/);
+  assert.ok(savedPostMedia({ ...post, render_request: damStoryRender(updated, 'instagram') }, updated));
 });
 
 test('Instagram Story and Reel submissions use their respective containers', async t => {

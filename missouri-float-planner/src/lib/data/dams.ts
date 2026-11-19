@@ -531,7 +531,7 @@ async function readMetrics(
   return metrics;
 }
 
-async function readSchedule(
+export async function readSchedule(
   dam: UsaceDam,
   days: number,
   pages?: ReadonlyArray<DaySchedule | null>,
@@ -599,7 +599,7 @@ const FORECAST_OFFICES: Partial<
  * are made with the same floor the observed `generating` chip uses, so the
  * forecast and the observation cannot disagree about what "running" means.
  */
-async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
+export async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
   const series = dam.series.generationForecast;
   const office = dam.office ? FORECAST_OFFICES[dam.office] : undefined;
   if (!series || !office || !dam.office || dam.generationOnCfs === undefined) return undefined;

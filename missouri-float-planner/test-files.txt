@@ -505,3 +505,5 @@ src/types/api-contract-parity.test.ts
 src/types/database-coverage.test.ts
 src/lib/social/placements.test.ts
 src/lib/social/stale-scheduled.test.ts
+src/lib/social/scheduled-drafts.test.ts
+src/lib/social/dam-regeneration.test.ts
