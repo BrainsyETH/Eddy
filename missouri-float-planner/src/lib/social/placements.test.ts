@@ -7,6 +7,7 @@ import { destinationLabel, expandDestinations, renderPlacement, savedPlacementCh
 import { blocksRepost, postsFromToday } from './post-scheduler';
 import { applyRule, defaultDelivery, deliveryOn, planRules, wantedPlatforms, type PlanConfig } from './publishing-plan';
 import { draftSendTime } from './draft-time';
+import { nextHalfHourInput } from './local-time';
 import { supportsStory } from './post-types';
 import { savedPostMedia } from './review';
 import { destinationRenderRequest, getCompositionForPost } from './video-renderer';
@@ -211,4 +212,12 @@ test('one-time approvals store the Central publishing tick as an instant and rej
   assert.ok(draftSendTime('2026-03-07T11:30', dam, now));
   const release = { ...dam, inputProps: { snapshot: { ...dam.inputProps.snapshot, kind: 'release' } } };
   assert.throws(() => draftSendTime('2026-03-07T11:30', release, now), /only be sent now/);
+});
+
+test('the send-time picker starts at the next half hour in Central time, in a form the publisher accepts', () => {
+  assert.equal(nextHalfHourInput('America/Chicago', Date.parse('2026-11-19T15:10:00Z')), '2026-11-19T09:30');
+  assert.equal(nextHalfHourInput('America/Chicago', Date.parse('2026-11-19T15:30:00Z')), '2026-11-19T10:00');
+  assert.equal(nextHalfHourInput('America/Chicago', Date.parse('2026-07-02T04:45:00Z')), '2026-07-02T00:00');
+  const now = Date.parse('2026-11-19T15:10:00Z');
+  assert.equal(draftSendTime(nextHalfHourInput('America/Chicago', now), {}, now), '2026-11-19T15:30:00.000Z');
 });

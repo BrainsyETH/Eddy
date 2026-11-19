@@ -1,10 +1,10 @@
-import { isDamStory, isMeasuredReleaseVideo, storyDam } from '@shared/social-dam-schedule';
+import { DamSourceUnavailable, isDamStory, isMeasuredReleaseVideo, storyDam } from '@shared/social-dam-schedule';
 import type { Database } from '@/types/database';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from './adapters';
-import { loadDamPost } from './dam-story';
+import { loadDamPost, regenerateDamPost } from './dam-story';
 import { outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from './publish-outcome';
-import { savedPostMedia, StaleReleaseError } from './review';
+import { savedPostMedia, StaleDamError, StaleReleaseError } from './review';
 import type { SocialPlatform } from './types';
 
 type Post = Database['public']['Tables']['social_posts']['Row'];
@@ -24,6 +24,9 @@ export function canClaimDelivery(budget: PublishBudget): boolean {
 
 const deferred = { status: 202, body: { deferred: true } } as const;
 
+/** How long past its send time a timed post keeps trying before it fails. */
+export const TIMED_POST_GRACE_MS = 2 * 60 * 60 * 1000;
+
 /** An immediate approval, retry and timed approval compete for the same row. */
 export async function sendReviewedPost(db: Client, post: Post, expected: 'review' | 'failed' | 'scheduled', budget?: PublishBudget) {
   if (budget && !canClaimDelivery(budget)) return deferred;
@@ -36,18 +39,34 @@ export async function sendReviewedPost(db: Client, post: Post, expected: 'review
     if (!adapter) throw new Error('Platform is not connected.');
     media = await checkedMedia(post);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Could not verify this draft.';
+    let message = err instanceof Error ? err.message : 'Could not verify this draft.';
     if (expected === 'scheduled') {
+      // A send time is a standing approval for that day's data. An unreachable
+      // source is tried again on the next run, and a revised plan gets a new
+      // video, until the post is too late to be worth sending.
+      if (Date.now() - Date.parse(post.scheduled_at!) < TIMED_POST_GRACE_MS) {
+        if (err instanceof DamSourceUnavailable) {
+          await db.from('social_posts').update({ error_message: 'Waiting to send: ' + message, updated_at: new Date().toISOString() })
+            .eq('id', post.id).eq('status', expected).eq('scheduled_at', post.scheduled_at!);
+          return { status: 503, body: { error: message, retrying: true } };
+        }
+        if (err instanceof StaleDamError && !(err instanceof StaleReleaseError)) {
+          const again = await regenerateDamPost(db, post, 'scheduled');
+          if (again.ok) return { status: 503, body: { error: 'The dam data changed. Rendering an updated video.', retrying: true } };
+          message = again.error;
+        }
+      }
       await db.from('social_posts').update({ status: 'failed', error_message: message, updated_at: new Date().toISOString() })
         .eq('id', post.id).eq('status', expected).eq('scheduled_at', post.scheduled_at!);
     }
-    return { status: 409, body: { error: message, ...(err instanceof StaleReleaseError && { code: 'stale_release' }) } };
+    return { status: 409, body: { error: message, ...(err instanceof StaleDamError && { code: err instanceof StaleReleaseError ? 'stale_release' : 'stale_dam' }) } };
   }
   if (budget && !canClaimDelivery(budget)) return deferred;
   let claim = db.from('social_posts').update({
     status: 'publishing', retry_count: (post.retry_count ?? 0) + (expected === 'failed' ? 1 : 0), updated_at: new Date().toISOString(),
   }).eq('id', post.id).eq('status', expected);
-  if (isMeasuredReleaseVideo(post.render_request)) claim = claim.eq('updated_at', post.updated_at);
+  // A regenerated dam video replaces the one this request read.
+  if (isDamStory(post.render_request)) claim = claim.eq('updated_at', post.updated_at);
   if (expected === 'scheduled') claim = claim.eq('scheduled_at', post.scheduled_at!);
   const { data, error } = await claim.select('id');
   if (error || !data?.length) return { status: 409, body: { error: error?.message ?? 'Already handled. Refresh the queue.' } };

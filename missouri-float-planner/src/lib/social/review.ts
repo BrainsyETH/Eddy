@@ -3,7 +3,15 @@ import { isStoryRender } from './placements';
 import type { PublishParams } from './types';
 import { isDamStory, storyDam, type DamPostSnapshot } from '../../../shared/social-dam-schedule';
 
-export class StaleReleaseError extends Error {}
+/** The saved video no longer matches its source. A new render can fix it. */
+export class StaleDamError extends Error {}
+export class StaleReleaseError extends StaleDamError {}
+
+/** Every hour the forecast still covers must say what the video says. Hours already past are not compared. */
+function sameForecastPlan(saved: Record<string, boolean>, current: Record<string, boolean> | undefined): boolean {
+  const hours = Object.entries(current ?? {});
+  return hours.length > 0 && hours.every(([at, generating]) => saved[at] === generating);
+}
 
 export function isDamVideoUrl(value: string | null): value is string {
   if (!value) return false;
@@ -33,9 +41,13 @@ export function savedPostMedia(post: {
       throw new Error('The dam or source has changed. Create a new dam video.');
     }
     if (saved.kind === 'forecast' && current.kind === 'forecast') {
-      if (saved.scheduleDate !== current.scheduleDate || saved.generating !== current.generating || saved.source !== current.source ||
-          !Array.isArray(saved.windows) || saved.windows.length !== current.windows.length || !current.windows.every((w, i) => w === saved.windows[i])) {
-        throw new Error('The forecast has changed. Create a new dam video.');
+      // Drafts made before the hourly plan was saved can only be matched by their clock labels.
+      const unchanged = saved.hours && typeof saved.hours === 'object'
+        ? sameForecastPlan(saved.hours, current.hours)
+        : saved.generating === current.generating && Array.isArray(saved.windows) &&
+          saved.windows.length === current.windows.length && current.windows.every((w, i) => w === saved.windows[i]);
+      if (saved.scheduleDate !== current.scheduleDate || saved.source !== current.source || !Array.isArray(saved.windows) || !unchanged) {
+        throw new StaleDamError('The forecast has changed. Create a new dam video.');
       }
     } else if (saved.kind === 'release' && current.kind === 'release') {
       if (Date.parse(current.checkedAt) > Date.parse(saved.checkedAt)) {
@@ -50,7 +62,7 @@ export function savedPostMedia(post: {
       if (saved.scheduleDate !== current.scheduleDate || saved.minimumFlow !== current.minimumFlow || saved.capacityMw !== current.capacityMw ||
           !Array.isArray(saved.hours) || saved.hours.length !== 24 || saved.hourlyMw.length !== 24 ||
           !current.hours.every((active, i) => active === saved.hours[i] && current.hourlyMw[i] === saved.hourlyMw[i])) {
-        throw new Error('The schedule has changed. Create a new dam video.');
+        throw new StaleDamError('The schedule has changed. Create a new dam video.');
       }
     } else {
       throw new Error('Unrecognized data source. Create a new dam video.');

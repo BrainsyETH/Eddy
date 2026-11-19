@@ -41,6 +41,10 @@ export async function checkSocialReview(browser, origin, out) {
           const { id, action } = route.request().postDataJSON();
           if (action === 'schedule' || action === 'unschedule') {
             const post = posts.find(p => p.id === id);
+            if (action === 'unschedule' && post.status === 'rendering') {
+              post.scheduled_at = null;
+              return route.fulfill({ json: { success: true, scheduledAt: null } });
+            }
             assert.equal(post.status, action === 'schedule' ? 'review' : 'scheduled');
             post.status = action === 'schedule' ? 'scheduled' : 'review';
             post.scheduled_at = action === 'schedule' ? '2027-01-16T15:30:00Z' : null;
@@ -69,8 +73,14 @@ export async function checkSocialReview(browser, origin, out) {
           const query = new URL(route.request().url()).searchParams;
           if (query.has('catalog')) return route.fulfill({ json: { dams } });
           if (route.request().method() === 'POST') {
-            damDrafts.push(route.request().postDataJSON());
-            return route.fulfill({ status: 202, json: { results: [] } });
+            const draft = route.request().postDataJSON();
+            damDrafts.push(draft);
+            if (draft.sendAt) {
+              posts.push({ id: 'timed', post_type: 'manual', platform: 'instagram', status: 'rendering', media_type: 'video', video_url: null,
+                caption: 'Bull Shoals Dam · November 19', created_at: '2026-11-19T15:00:00Z', scheduled_at: '2026-11-20T04:00:00Z',
+                render_request: { compositionId: 'social-dam-schedule', inputProps: { platform: 'instagram', snapshot: { kind: 'schedule', dam: dams[1], scheduleDate: '2026-11-19' } } } });
+            }
+            return route.fulfill({ status: 202, json: { results: [], scheduledAt: draft.sendAt ? '2026-11-20T04:00:00Z' : null } });
           }
           const dam = dams.find(option => option.id === query.get('damId'));
           assert.ok(dam);
@@ -175,12 +185,32 @@ export async function checkSocialReview(browser, origin, out) {
       const create = damSection.getByRole('button', { name: 'Create video' });
       await picker.selectOption('swl-bull-shoals-dam');
       await damSection.getByText('Only minimum flow scheduled').waitFor();
+      // A send time chosen with the video approves it in advance; the queue shows the plan and can withdraw it.
+      await damSection.getByRole('group', { name: 'When to send' }).getByRole('button', { name: 'Send at a set time' }).click();
+      const scheduleVideo = damSection.getByRole('button', { name: 'Create and schedule' });
+      assert.equal(await scheduleVideo.isDisabled(), true);
+      await damSection.getByLabel('Send at (Central)', { exact: false }).fill('2026-11-19T22:00');
+      await damSection.screenshot({ path: out + '/dam-send-time-' + width + '.png' });
+      await scheduleVideo.click();
+      await page.getByRole('heading', { name: 'Publishing queue' }).waitFor();
+      assert.deepEqual(damDrafts.at(-1), { damId: 'swl-bull-shoals-dam', date: '2026-11-19', platforms: ['instagram', 'tiktok'], sendAt: '2026-11-19T22:00' });
+      const timed = table.getByRole('row').filter({ hasText: 'Bull Shoals Dam' });
+      await timed.getByText('Sends Nov 19, 10:00 PM CT').waitFor();
+      await page.screenshot({ path: out + '/dam-timed-queue-' + width + '.png', fullPage: true });
+      await timed.getByRole('button', { name: 'Review first' }).click();
+      await timed.getByText('Rendering', { exact: true }).waitFor();
+      await timed.getByText(/^Sends/).waitFor({ state: 'hidden' });
+      await page.getByRole('button', { name: 'Create post', exact: true }).click();
+      await editor.getByRole('combobox', { name: 'Post type', exact: true }).selectOption('dam');
+      await picker.selectOption('swl-bull-shoals-dam');
+      await damSection.getByText('Only minimum flow scheduled').waitFor();
       await damSection.getByLabel('Schedule date (Central)').selectOption('2026-11-20');
       await damSection.getByText(/has not been posted/).waitFor();
       assert.equal(await create.isDisabled(), true);
       await picker.selectOption('ameren-bagnell-dam');
       await damSection.getByText('Measured release: 6,500 cfs').waitFor();
       assert.equal(await damSection.getByRole('combobox').count(), 1);
+      assert.equal(await damSection.getByRole('group', { name: 'When to send' }).count(), 0);
       await create.click();
       await page.getByRole('heading', { name: 'Publishing queue' }).waitFor();
       assert.deepEqual(damDrafts.at(-1), { damId: 'ameren-bagnell-dam', platforms: ['instagram', 'tiktok'] });

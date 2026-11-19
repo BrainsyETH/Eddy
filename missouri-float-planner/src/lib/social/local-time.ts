@@ -68,3 +68,16 @@ export function getLocalDateStrings(timeZone: string, date: Date = new Date()): 
     dateStr: date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone }),
   };
 }
+
+const HALF_HOUR_MS = 30 * 60 * 1000;
+
+/**
+ * The next half hour after `now`, as a `datetime-local` value in the given
+ * zone ("2026-11-19T14:30"). The publisher runs on the hour and half hour, so
+ * this is the earliest send time a picker should offer.
+ */
+export function nextHalfHourInput(timeZone: string, now: number = Date.now()): string {
+  const next = new Date((Math.floor(now / HALF_HOUR_MS) + 1) * HALF_HOUR_MS);
+  const { hour, minute } = getLocalParts(timeZone, next);
+  return `${getLocalDateKey(timeZone, next)}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}

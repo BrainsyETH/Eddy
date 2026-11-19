@@ -161,7 +161,47 @@ test('a generation forecast preserves gaps and requires a current plan at approv
   assert.deepEqual(idle.windows, ['all day']);
   const post = { ...draft, render_request: damStoryRender(snapshot, 'instagram') };
   assert.ok(savedPostMedia(post, snapshot));
-  assert.throws(() => savedPostMedia(post, { ...snapshot, windows: ['all day'] }), /forecast has changed/);
+  const firstHour = Object.keys(snapshot.hours!)[0];
+  assert.throws(() => savedPostMedia(post, { ...snapshot, hours: { ...snapshot.hours, [firstHour]: false } }), /forecast has changed/);
+  assert.throws(() => savedPostMedia(post, { ...snapshot, hours: {} }), /forecast has changed/);
+});
+
+test('an unrevised forecast is still approved later in the day, and a revised hour is not', () => {
+  // The source trims its windows to the hour now running, so the same plan reads shorter all day.
+  const dam = { id: 'lrn-wolf-creek-dam', name: 'Wolf Creek Dam' };
+  const midnight = Date.parse('2026-11-09T06:00:00Z');
+  const hour = 3_600_000;
+  const at = (h: number) => new Date(midnight + h * hour).toISOString();
+  const plan = (from: number, generation: [number, number] | null, checked: number) => {
+    const on = (h: number) => !!generation && h >= generation[0] && h < generation[1];
+    const windows = [];
+    for (let h = from, end = h; h < 24 * 9; h = end) {
+      while (end < 24 * 9 && on(end) === on(h)) end++;
+      windows.push({ startUtc: at(h), endUtc: at(end), generating: on(h), peakCfs: on(h) ? 9000 : null });
+    }
+    return { source: 'U.S. Army Corps of Engineers, Nashville District', timeZone: 'America/Chicago', retrievedAt: new Date(checked).toISOString(), windows };
+  };
+  const read = (from: number, generation: [number, number] | null) => {
+    const checked = midnight + from * hour + 300_000;
+    return forecastStorySnapshot(dam, plan(from, generation, checked), '2026-11-09', checked);
+  };
+  for (const generation of [[12, 18], null] as ([number, number] | null)[]) {
+    const made = read(7, generation);
+    const post = { ...draft, render_request: damStoryRender(made, 'instagram') };
+    for (const later of [9, 13, 20]) assert.ok(savedPostMedia(post, read(later, generation)));
+  }
+  assert.deepEqual([read(7, [12, 18]).windows, read(13, [12, 18]).windows], [['12 PM – 6 PM'], ['1 PM – 6 PM']]);
+  assert.deepEqual([read(7, null).windows, read(9, null).windows], [['7 AM – midnight'], ['9 AM – midnight']]);
+  const post = { ...draft, render_request: damStoryRender(read(7, [12, 18]), 'instagram') };
+  for (const revised of [[12, 20], [14, 18], null] as ([number, number] | null)[]) {
+    assert.throws(() => savedPostMedia(post, read(9, revised)), /forecast has changed/);
+  }
+  // A draft made before the hourly plan was saved is matched by its labels, as before.
+  const legacy = read(7, [12, 18]);
+  delete legacy.hours;
+  const old = { ...draft, render_request: damStoryRender(legacy, 'instagram') };
+  assert.ok(savedPostMedia(old, read(9, [12, 18])));
+  assert.throws(() => savedPostMedia(old, read(13, [12, 18])), /forecast has changed/);
 });
 
 test('a release update uses fresh measured cfs, preserves missing hours and checks for revisions', () => {

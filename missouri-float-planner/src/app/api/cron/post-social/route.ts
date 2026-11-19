@@ -1,4 +1,5 @@
 import { canClaimDelivery, sendReviewedPost } from '@/lib/social/send-reviewed';
+import { socialAlert } from '@/lib/social/alert';
 import { dispatchDailyReport } from '@/lib/social/daily-report-dispatch';
 import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily-report';
 // src/app/api/cron/post-social/route.ts
@@ -172,18 +173,21 @@ async function runSocialPosting(request: NextRequest) {
       .lt('updated_at', nonRenderCutoff);
     const nonRenderStale = (unknownStale || 0) + (pendingStale || 0);
 
-    const { count: renderStale } = await supabase
+    const { data: staleRenders } = await supabase
       .from('social_posts')
-      .update(
-        {
-          status: 'failed',
-          error_message: 'Stale — render did not complete within 30 min',
-          updated_at: new Date().toISOString(),
-        },
-        { count: 'exact' },
-      )
+      .update({
+        status: 'failed',
+        error_message: 'Stale — render did not complete within 30 min',
+        updated_at: new Date().toISOString(),
+      })
       .eq('status', 'rendering')
-      .lt('updated_at', renderCutoff);
+      .lt('updated_at', renderCutoff)
+      .select('id, platform, scheduled_at');
+    const renderStale = staleRenders?.length ?? 0;
+    // A timed post has nobody waiting on it, so a render that never came back needs saying.
+    for (const post of staleRenders ?? []) {
+      if (post.scheduled_at) await socialAlert(`:rotating_light: A timed social post never finished rendering and will not go out (${post.platform}, due ${post.scheduled_at}).`);
+    }
 
     const total = (nonRenderStale || 0) + (renderStale || 0);
     if (total > 0) {
@@ -469,8 +473,13 @@ async function runSocialPosting(request: NextRequest) {
         if (!canClaimDelivery(budget)) break;
         const result = await sendReviewedPost(supabase, post, 'scheduled', budget);
         if (result.status === 202) break;
-        if (result.status === 200) published++;
-        else { failed++; errors.push('Scheduled draft ' + post.id + ': ' + ('error' in result.body ? result.body.error : result.status)); }
+        if (result.status === 200) { published++; continue; }
+        const reason = 'error' in result.body ? result.body.error : result.status;
+        // Waiting on the source, or rendering an updated video: it is tried again next run.
+        if ('retrying' in result.body) { console.log(`${LOG_PREFIX} Timed post ${post.id} not sent yet: ${reason}`); continue; }
+        failed++;
+        errors.push('Scheduled draft ' + post.id + ': ' + reason);
+        await socialAlert(`:rotating_light: A timed social post did not go out (${post.platform}, due ${post.scheduled_at}): ${reason}\n${post.caption.split('\n')[0]}`);
       }
     }
   }

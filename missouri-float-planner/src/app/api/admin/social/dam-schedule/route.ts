@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
+import { getAdminIdentity, requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { withAdminMutation } from '@/lib/admin/mutation-audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadDamPost, damPostOptions } from '@/lib/social/dam-story';
 import { triggerVideoRender } from '@/lib/social/video-renderer';
+import { getAdapter } from '@/lib/social/adapters';
+import { draftSendTime } from '@/lib/social/draft-time';
 import { centralDayKey, nextDayKey } from '@shared/dam-schedule-copy';
 import { damStoryCaption, damStoryRender, type DamStoryPlatform } from '@shared/social-dam-schedule';
 
@@ -35,13 +37,22 @@ async function handlePOST(request: NextRequest) {
   let snapshot;
   try { snapshot = await loadDamPost(body.damId, body.date); }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not check the dam data.' }, { status: 409 }); }
+  // A send time approves the video before anyone has seen it, so it is the owner's to give.
+  // The publisher reads the source again when the time comes.
+  let scheduledAt: string | null = null;
+  if (body.sendAt !== undefined) {
+    if (getAdminIdentity(request)?.role !== 'owner') return NextResponse.json({ error: 'Only an owner can send a dam video.' }, { status: 403 });
+    try { scheduledAt = draftSendTime(body.sendAt, damStoryRender(snapshot, 'instagram')); }
+    catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 400 }); }
+  }
   const supabase = createAdminClient();
   const results: { platform: DamStoryPlatform; id?: string; error?: string }[] = [];
   for (const platform of new Set<DamStoryPlatform>(body.platforms)) {
+    if (scheduledAt && !getAdapter(platform)) { results.push({ platform, error: 'Platform is not connected.' }); continue; }
     const render = damStoryRender(snapshot, platform);
     const { data, error } = await supabase.from('social_posts').insert({
       post_type: 'manual', platform, caption: damStoryCaption(snapshot), hashtags: [],
-      media_type: 'video', status: 'rendering', auto_publish: false, render_request: render,
+      media_type: 'video', status: 'rendering', auto_publish: false, render_request: render, scheduled_at: scheduledAt,
     }).select('id').single();
     if (error || !data) { results.push({ platform, error: 'Could not save the video request.' }); continue; }
     const dispatched = await triggerVideoRender({ ...render, postIds: data.id }).catch(() => false);
@@ -50,8 +61,8 @@ async function handlePOST(request: NextRequest) {
     }
     results.push({ platform, id: data.id, ...(!dispatched && { error: 'Could not create the video.' }) });
   }
-  logAdminAction({ request, action: 'dam_schedule_export', entityType: 'social_post', details: { damId: body.damId, kind: snapshot.kind, date: snapshot.scheduleDate, results } });
-  return NextResponse.json({ results }, { status: results.some(r => r.id && !r.error) ? 202 : 502 });
+  logAdminAction({ request, action: 'dam_schedule_export', entityType: 'social_post', details: { damId: body.damId, kind: snapshot.kind, date: snapshot.scheduleDate, scheduledAt, results } });
+  return NextResponse.json({ results, scheduledAt }, { status: results.some(r => r.id && !r.error) ? 202 : 502 });
 }
 
 export const POST = withAdminMutation(handlePOST);

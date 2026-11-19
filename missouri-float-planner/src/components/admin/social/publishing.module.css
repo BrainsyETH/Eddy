@@ -28,6 +28,7 @@
 .formHead { margin-bottom:1.25rem; }
 .field,.destinations label { display:grid; gap:.35rem; font-size:.87rem; font-weight:600; }
 .field { max-width:26rem; }
+.field small { font-weight:400; color:var(--admin-muted); }
 .editor legend { font-size:.9rem; font-weight:600; margin-bottom:.45rem; }
 .editor select,.editor input[type=time] { min-width:0; border:1px solid var(--admin-line); border-radius:.4rem; min-height:42px; padding:.35rem .55rem; background:white; color:var(--admin-ink); }
 .destinations { display:flex; gap:.75rem; flex-wrap:wrap; min-width:0; }
