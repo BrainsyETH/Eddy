@@ -12,7 +12,8 @@ import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily
 import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getScheduledPosts, getRetryablePosts, postsFromToday, type SchedulerResult } from '@/lib/social/post-scheduler';
+import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
+import { clearStaleScheduled } from '@/lib/social/stale-scheduled';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, ScheduledPost, PublishResult } from '@/lib/social/types';
 import { dispatchVideos, fallsBackToImage } from '@/lib/social/dispatch-videos';
@@ -249,9 +250,13 @@ async function runSocialPosting(request: NextRequest) {
           // Clear today's failed or stuck scheduled rows so History shows the
           // new attempt only. Formats without an image fallback keep theirs for
           // Render again, and the scheduler doesn't re-queue them.
-          const stale = (await postsFromToday(supabase, kind, result.timeZone))
-            .filter(row => row.auto_publish && ['failed', 'pending'].includes(row.status)).map(row => row.id);
-          if (stale.length) await supabase.from('social_posts').delete().in('id', stale);
+          const { claimed } = await clearStaleScheduled(supabase, kind, result.timeZone);
+          if (claimed) {
+            // An admin retry took one of those rows while this run read them.
+            console.log(`${LOG_PREFIX} ${batchKey}: an earlier attempt is being retried — skipping the new one`);
+            skipped += batchPosts.length;
+            continue;
+          }
         }
 
         const batch = await dispatchVideos(supabase, kind, renderData, batchPosts, true, { keepUndispatched: imageFallback });
