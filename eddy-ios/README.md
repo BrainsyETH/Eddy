@@ -2535,8 +2535,14 @@ web planner's rule (`src/map/pinStacks.ts`): marks within 56pt of each other at
 the current whole zoom, across every layer drawn as individual marks at that
 zoom. Hazards stack like every other place; route endpoints and the selected
 place never stack. Like native counts, stacks depend only on the places and
-the whole zoom: they regroup the moment a pinch crosses a whole level, never
-on a pan, and are not held until the camera stops. The counts below
+the whole zoom, so they are grouped ahead for every whole zoom from
+`ZOOM.cluster` up (`stackLevels`). Mapbox switches levels itself: the stack
+badges and each pin layer's "hidden while stacked" filter are `step`
+expressions over `['zoom']`, evaluated at the tile's whole zoom, so a pinch
+regroups at the same moment native counts do and never waits on JavaScript;
+a pan never regroups. Regrouping runs only when the places change (layers,
+plan endpoints, selection, national-tier refill), with the selection and the
+national tier deferred so a tap renders first. The counts below
 `ZOOM.cluster` use the same 56pt radius, so crossing that rung is an ordinary
 level change. Tapping a
 stack below zoom 13 eases in to the zoom where it splits, capped at 15, when
@@ -2602,7 +2608,9 @@ rapid tap/pan while a query is pending, POIs near each sheet edge, remembered
 camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and
 10.5, pan responsiveness and fast fling with Other USGS gauges on (fling beyond
 the padded area and check for briefly empty edges before the camera settles),
-failed-first-load/retry, VoiceOver list selection, and largest text sizes.
+failed-first-load/retry, VoiceOver list selection, largest text sizes, and
+stacks regrouping mid-pinch across zoom 8–16 with no badge lingering after its
+members split (the zoom-stepped filters' first device check).
 
 Dam Reads and their schedules refresh on focus, foreground and five-minute
 boundaries. An earlier hour's Read or a previous Central day's response is not

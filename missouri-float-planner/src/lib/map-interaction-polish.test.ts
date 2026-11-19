@@ -15,8 +15,11 @@ import {
 import { fallbackMatches } from '../../../eddy-ios/src/hooks/searchFallback';
 import type { MapAccessPoint, RiverService } from '../../../packages/eddy-types';
 import {
-  nearestHitId, pinStacks, stackExpansionZoom, stackTap, STACK_MAX_ZOOM, STACK_RADIUS,
+  nearestHitId, pinStacks, stackExpansionZoom, stackLevels, stackTap, STACK_MAX_ZOOM, STACK_RADIUS,
 } from '../../../eddy-ios/src/map/pinStacks';
+// The GL style spec's filter compiler, to evaluate the map's zoom-stepped
+// filters as a renderer would. Installed with maplibre-gl, a pinned dependency.
+import { featureFilter } from '@maplibre/maplibre-gl-style-spec';
 // layers.ts imports through the app's alias, so the ladder rung is restated
 // here; map-zoom-ladder.test.ts pins the real value.
 const ZOOM = { cluster: 8 };
@@ -102,7 +105,7 @@ test('each gesture reports once, including gestures after an app-driven camera m
     gestureLatched: { current: false }, interactionEpoch: { current: 0 }, tapSequence: { current: 0 },
     gestureStarted,
     pendingCommand: { current: null }, appliedCommandId: { current: null }, liveCamera: { current: null },
-    flightEndsAt: { current: 0 }, stackLevelRef: { current: null }, setLiveStackLevel: () => {},
+    flightEndsAt: { current: 0 },
     onCameraCommandConsumed: () => {}, onUserGesture: () => { calls++; },
   };
   const run = handler('onCameraChanged', context);
@@ -110,30 +113,6 @@ test('each gesture reports once, including gestures after an app-driven camera m
     run({ properties: { center: [-91, 37], zoom: 9 }, gestures: { isGestureActive: active } });
   }
   assert.equal(calls, 3);
-});
-
-test('stacks regroup live at each whole-zoom crossing, and a frame within the level renders nothing', () => {
-  // The video that prompted this: native counts below z8 regrouped mid-pinch
-  // while the numbered stacks above it sat frozen until the camera stopped.
-  const levels: number[] = [];
-  const context = {
-    gestureLatched: { current: false }, interactionEpoch: { current: 0 }, tapSequence: { current: 0 },
-    gestureStarted,
-    pendingCommand: { current: null }, appliedCommandId: { current: null }, liveCamera: { current: null },
-    flightEndsAt: { current: 0 }, stackLevelRef: { current: null as number | null },
-    setLiveStackLevel: (level: number) => { levels.push(level); },
-    onCameraCommandConsumed: () => {}, onUserGesture: () => {},
-  };
-  const run = handler('onCameraChanged', context);
-  for (const zoom of [7.6, 7.8, 7.99, 8.0, 8.4, 8.9, 9.2, 9.1, 8.7, 7.5]) {
-    run({ properties: { center: [-91, 37], zoom }, gestures: { isGestureActive: true } });
-  }
-  assert.deepEqual(levels, [7, 8, 9, 8, 7], 'one state change per crossing, mid-gesture, in either direction');
-
-  // And the memo reads that live level, not the last camera stop.
-  const stacksMemo = mapText.slice(mapText.indexOf('const stacks = useMemo<PinStack[]>'), mapText.indexOf('const stacksById'));
-  assert.doesNotMatch(stacksMemo, /visibleViewport/, 'stacks must not wait for the camera to stop, or be bounded by where it stopped');
-  assert.match(mapText, /const stackLevel = liveStackLevel \?\? \(visibleViewport \? Math\.floor\(visibleViewport\.zoom\) : null\);/);
 });
 
 test('revealing a POI leaves a visible point alone and moves a point covered by the sheet', () => {
@@ -402,56 +381,151 @@ test('a stack tap follows the web planner rule exactly', () => {
   assert.equal(nearestHitId([], { lng: 0, lat: 0 }), null);
 });
 
-test('only individually drawn, enabled places stack, hazards included; the selection and endpoints stay out', () => {
+test('stacks are grouped ahead for every whole zoom from the cluster rung, over every enabled place', () => {
   const at = (id: string, layer: string, lng: number) => ({ id, layer, coordinates: { lng, lat: 37.153 } });
   const base = -91.4430;
   const near = lngApart(20, 15);
   const fixture = (overrides: Record<string, unknown> = {}) => ({
-    ZOOM, pinStacks,
-    stackLevel: 15,
+    ZOOM, stackLevels,
     layers: ['access', 'gauges', 'campgrounds', 'hazards'],
-    selectedPinId: null,
+    stackSelectedId: null,
     endpointIds: new Set<string>(),
     accessPins: [at('access:1', 'access', base)],
     campgroundPins: [at('access:2', 'campgrounds', base + near)],
     boatRampPins: [], springPins: [], outfitterPins: [], lodgingPins: [],
     gaugePins: [at('gauge:3', 'gauges', base + 2 * near)],
-    referenceGauges: [], dams: [], hazardPins: [],
+    stackReferenceGauges: [], dams: [], hazardPins: [],
     ...overrides,
   });
-  const stacks = (overrides?: Record<string, unknown>) =>
-    (JSON.parse(JSON.stringify(handler('stacks', fixture(overrides))())) as Array<{ ids: string[] }>).map((stack) => stack.ids);
-  assert.deepEqual(stacks(), [['access:1', 'access:2', 'gauge:3']]);
-  assert.deepEqual(stacks({ selectedPinId: 'access:2' }), [['access:1', 'gauge:3']]);
-  assert.deepEqual(stacks({ endpointIds: new Set(['access:1']) }), [['access:2', 'gauge:3']]);
-  assert.deepEqual(stacks({ layers: ['access', 'campgrounds'] }), [['access:1', 'access:2']], 'a layer that is off draws nothing to stack');
-  assert.deepEqual(stacks({ stackLevel: 8 }), [['access:1', 'access:2', 'gauge:3']],
-    'native clusters break at ZOOM.cluster like the family index, so at 8.x the gauge is a mark and stacks');
-  assert.deepEqual(stacks({ stackLevel: 7 }), [],
-    'below the cluster rung the family index already groups places');
-  assert.deepEqual(stacks({ stackLevel: null }), [], 'no camera yet, no stacks');
+  type Result = { levels: Array<{ level: number; stacks: Array<{ ids: string[] }> }>; sourceOf: Map<string, string> };
+  const run = (overrides?: Record<string, unknown>) => handler('stackLevelList', fixture(overrides))() as Result;
+  /** The stacks drawn at a whole zoom: its own level, or the last one below it. */
+  const stacksAt = (level: number, overrides?: Record<string, unknown>) => {
+    const { levels } = run(overrides);
+    const entry = [...levels].reverse().find((candidate) => candidate.level <= level);
+    return entry ? (JSON.parse(JSON.stringify(entry.stacks)) as Array<{ ids: string[] }>).map((stack) => stack.ids) : [];
+  };
+
+  const { levels, sourceOf } = run();
+  assert.equal(levels[0].level, ZOOM.cluster, 'nothing is grouped below the rung: the statewide index counts there');
+  assert.deepEqual(levels.map((entry) => entry.level), [8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    'every level up to the first where nothing is left to split');
+  assert.deepEqual(stacksAt(8), [['access:1', 'access:2', 'gauge:3']],
+    'native clusters break at ZOOM.cluster like the family index, so at 8 the gauge is a mark and stacks');
+  assert.deepEqual(stacksAt(15), [['access:1', 'access:2', 'gauge:3']]);
+  assert.deepEqual(stacksAt(16), [['access:1', 'access:2']], '40pt and 80pt apart at 16: the gauge splits off');
+  assert.deepEqual(stacksAt(20), [], 'the last level stands for every zoom above it');
+  assert.equal(sourceOf.get('access:2'), 'campgrounds', 'each member is filtered from the source that draws it');
+
+  assert.deepEqual(stacksAt(15, { stackSelectedId: 'access:2' }), [['access:1', 'gauge:3']]);
+  assert.deepEqual(stacksAt(15, { endpointIds: new Set(['access:1']) }), [['access:2', 'gauge:3']]);
+  assert.deepEqual(stacksAt(15, { layers: ['access', 'campgrounds'] }), [['access:1', 'access:2']], 'a layer that is off draws nothing to stack');
+  assert.deepEqual(stacksAt(15, { hazardPins: [at('hazard:4', 'hazards', base + 1.5 * near)] }), [['access:1', 'access:2', 'gauge:3', 'hazard:4']],
+    'a hazard stacks like any other place, rather than drawing over the number');
+  assert.deepEqual(stacksAt(15, { layers: ['access', 'gauges', 'campgrounds'], hazardPins: [at('hazard:4', 'hazards', base + 1.5 * near)] }),
+    [['access:1', 'access:2', 'gauge:3']], 'hazards switched off draw nothing to stack');
   // Off screen still stacks: a stack is a function of the places and the whole
   // zoom, like a native count, so a pan never regroups anything and a zoom-out
   // finds the newly visible ring already grouped.
   const far = -80;
   assert.deepEqual(
-    stacks({
-      accessPins: [at('access:1', 'access', base), at('access:9', 'access', far)],
-      campgroundPins: [at('access:8', 'campgrounds', far + near)],
-    }),
+    stacksAt(15, { accessPins: [at('access:1', 'access', base), at('access:9', 'access', far)], campgroundPins: [at('access:8', 'campgrounds', far + near)] }),
     [['access:1', 'gauge:3'], ['access:8', 'access:9']],
-    'places far off screen stack too, so a pan or zoom-out never waits for a camera stop to group them',
   );
-  assert.deepEqual(stacks({ hazardPins: [at('hazard:4', 'hazards', base + 1.5 * near)] }), [['access:1', 'access:2', 'gauge:3', 'hazard:4']],
-    'a hazard stacks like any other place, rather than drawing over the number');
-  assert.deepEqual(stacks({ layers: ['access', 'gauges', 'campgrounds'], hazardPins: [at('hazard:4', 'hazards', base + 1.5 * near)] }),
-    [['access:1', 'access:2', 'gauge:3']], 'hazards switched off draw nothing to stack');
+
+  // Nothing about the camera reaches the grouping: no viewport, no live zoom.
+  const memo = mapText.slice(mapText.indexOf('const stackLevelList = useMemo'), mapText.indexOf('const stacksById'));
+  assert.doesNotMatch(memo, /visibleViewport|liveCamera|\.zoom\b/);
+  // The selection and the national tier arrive deferred, so a tap or a camera
+  // stop renders before the regroup it causes.
+  assert.match(mapText, /const stackSelectedId = useDeferredValue\(selectedPinId\);/);
+  assert.match(mapText, /const stackReferenceGauges = useDeferredValue\(referenceGauges\);/);
 });
 
-test('stacked members are hidden by a layer filter, so a camera stop re-uploads no pin source', () => {
-  // Stack membership changes on camera stops; the places do not. Every pin
-  // shape is keyed on its own data (and the plan's endpoints, which move only
-  // with the plan), never on the stacks, so a pinch that merges one pair no
+test('stackLevels matches grouping each level on its own, and stops only where nothing can change', () => {
+  // A deterministic scatter strung along a line, with exact duplicates and
+  // near-duplicates — the cases where the shortcuts (zoom-0 projection, the
+  // nearest-neighbour cut, the closed-form split zoom) could drift.
+  const points: Array<{ id: string; lng: number; lat: number }> = [];
+  let seed = 7;
+  const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let index = 0; index < 600; index++) {
+    const lng = -92 + index * 0.004 + random() * 0.01;
+    const lat = 37 + random() * 0.05;
+    points.push({ id: `p:${index}`, lng, lat });
+    if (index % 9 === 0) points.push({ id: `d:${index}`, lng, lat });
+    if (index % 13 === 0) points.push({ id: `n:${index}`, lng: lng + 2e-6, lat });
+  }
+  const levels = stackLevels(points, 8);
+  for (const { level, stacks } of levels) {
+    assert.deepEqual(stacks, pinStacks(points, level), `level ${level}`);
+  }
+  const last = levels[levels.length - 1];
+  for (let level = last.level + 1; level <= STACK_MAX_ZOOM; level++) {
+    assert.deepEqual(last.stacks, pinStacks(points, level), `above the last level, at ${level}`);
+  }
+  assert.ok(last.stacks.every((stack) => stack.expansionZoom > STACK_MAX_ZOOM));
+  for (const stack of levels[0].stacks.slice(0, 40)) {
+    const members = points.filter((point) => stack.ids.includes(point.id));
+    assert.equal(stack.expansionZoom, stackExpansionZoom(members, 8), stack.id);
+  }
+  assert.deepEqual(stackLevels([], 8), [{ level: 8, stacks: [] }]);
+});
+
+test('Mapbox switches stack levels itself: zoom-stepped filters hide each level\'s members and show its badges', () => {
+  // Evaluated by the GL style-spec's own filter compiler (MapLibre's, which
+  // shares Mapbox GL's expression language and its rule that a filter's zoom
+  // is the tile's whole zoom), so a malformed expression — which on a device
+  // silently blanks the layer — fails here.
+  const stackedKey = JSON.stringify({
+    access: [[8, ['access:1', 'access:2']], [9, ['access:1', 'access:2']], [10, ['access:1']], [11, []]],
+    allGauges: [[8, ['ref:1']], [9, []]],
+    gauges: [[8, []], [9, []]],
+  });
+  const filters = (selectedPinId: string | null) => JSON.parse(JSON.stringify(
+    handler('stackFilters', { stackedKey, selectedPinId, PIN_LAYER_KEYS: ['access', 'gauges', 'allGauges'] })(),
+  )) as { solo: Record<string, unknown[]>; referenceSolo: unknown[] };
+  const shown = (filter: unknown[], zoom: number, properties: Record<string, unknown>) =>
+    featureFilter(filter as never, 'layers[0].filter').filter({ zoom } as never, { type: 1, properties, geometry: [] } as never);
+  const { solo, referenceSolo } = filters('access:3');
+  const access = (zoom: number) => ['access:1', 'access:2', 'access:3', 'access:4'].filter((id) => shown(solo.access, zoom, { id }));
+  assert.deepEqual(access(7.5), ['access:1', 'access:2', 'access:4'], 'below the rung nothing is hidden (the selection always is)');
+  assert.deepEqual(access(8), ['access:4']);
+  assert.deepEqual(access(9.9), ['access:4'], 'within a level, the level holds');
+  assert.deepEqual(access(10.2), ['access:2', 'access:4']);
+  assert.deepEqual(access(18), ['access:1', 'access:2', 'access:4'], 'the last stop stands for every zoom above it');
+  assert.equal(solo.access[0], 'step', 'zoom is the input of a top-level step');
+  assert.equal(JSON.stringify(solo.access).match(/"step"/g)?.length, 1);
+  assert.ok(!JSON.stringify(solo.access).includes('ref:1'), 'a layer carries only its own source\'s members');
+  assert.deepEqual(solo.gauges, ['!=', ['get', 'id'], 'access:3'], 'a source with nothing stacked keeps a plain filter');
+  assert.deepEqual(filters(null).solo.gauges, ['!=', ['get', 'id'], '']);
+
+  assert.equal(shown(referenceSolo, 8.5, { id: 'ref:1' }), false);
+  assert.equal(shown(referenceSolo, 9.5, { id: 'ref:1' }), true);
+  assert.equal(shown(referenceSolo, 9.5, { id: 'ref:2', point_count: 4 }), false, 'the national counts stay out of the dot and label layers');
+
+  // The badges: one feature per stack per level, drawn only at their level.
+  const stackFeaturesKey = JSON.stringify([
+    [8, [['stack:a|b', 2, -91, 37, 'place']]],
+    [9, [['stack:a|b', 2, -91, 37, 'place']]],
+    [10, []],
+  ]);
+  const levelFilter = JSON.parse(JSON.stringify(handler('stackLevelFilter', { stackFeaturesKey })())) as unknown[];
+  const badgesAt = (zoom: number) => [8, 9, 10].filter((level) => shown(levelFilter, zoom, { level }));
+  assert.deepEqual(badgesAt(7.9), []);
+  assert.deepEqual(badgesAt(8.4), [8]);
+  assert.deepEqual(badgesAt(9.99), [9]);
+  assert.deepEqual(badgesAt(14), [10]);
+  const shape = JSON.parse(JSON.stringify(handler('stackShape', { stackFeaturesKey })())) as { features: Array<{ id: string; properties: Record<string, unknown> }> };
+  assert.deepEqual(shape.features.map((feature) => [feature.id, feature.properties.id, feature.properties.level]),
+    [['8:stack:a|b', 'stack:a|b', 8], ['9:stack:a|b', 'stack:a|b', 9]]);
+  assert.match(mapText, /id=\{pinHitLayerId\('pins-stacks-face'\)\}\s*filter=\{stackLevelFilter\}/);
+});
+
+test('stacked members are hidden by a layer filter, so a regroup re-uploads no pin source', () => {
+  // Stack membership changes with the selection and the layers; the places do
+  // not. Every pin shape is keyed on its own data (and the plan's endpoints,
+  // which move only with the plan), never on the stacks, so a regroup no
   // longer re-serialises every source across the bridge.
   for (const shape of ['accessShape', 'outfitterShape', 'lodgingShape', 'boatRampShape', 'campgroundShape']) {
     assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+'\\), endpointIds\\),\\s*\\[\\w+, endpointIds\\]`), shape);
@@ -461,26 +535,20 @@ test('stacked members are hidden by a layer filter, so a camera stop re-uploads 
   }
   assert.match(mapText, /const hazardShape = useMemo\(\s*\(\) => featureCollection\(hazardPins, layerColorFor\('hazards'\)\),/);
   const shapes = mapText.slice(mapText.indexOf('const accessShape = useMemo'), mapText.indexOf('const pinShapes = useMemo'));
-  assert.doesNotMatch(shapes, /stackedKey|notStacked|stacks\b/, 'no pin shape may depend on the stacks');
+  assert.doesNotMatch(shapes, /stackedKey|stackFilters|stackLevelList|stacks\b/, 'no pin shape may depend on the stacks');
 
-  // The filter clause: keyed on the primitive stacked-id string, and it
-  // really excludes exactly the stacked members.
-  assert.match(mapText, /const notStacked = useMemo\([\s\S]*?\[stackedKey\],\s*\)/);
-  const clause = (stackedKey: string) => JSON.parse(JSON.stringify(handler('notStacked', { stackedKey })()));
-  // A `match` lookup, since every place on the map can be a member; labels
-  // deduplicated, because a repeated label fails to parse and blanks the layer.
-  assert.deepEqual(clause('access:1|gauge:3'), ['match', ['get', 'id'], ['access:1', 'gauge:3'], false, true]);
-  assert.deepEqual(clause('access:1|access:1|gauge:3'), ['match', ['get', 'id'], ['access:1', 'gauge:3'], false, true]);
-  assert.deepEqual(clause(''), ['!', ['in', ['get', 'id'], ['literal', []]]], 'no stacks hides nothing');
+  // The filters are memoised on primitive keys, so a render that regroups
+  // nothing hands every layer the same object.
+  assert.match(mapText, /const stackFilters = useMemo\([\s\S]*?\}, \[stackedKey, selectedPinId\]\);/);
 
   // Applied to every layer a stacked member could draw on, hazards included.
   const pinLayerBody = mapText.slice(mapText.indexOf('const pinLayer = ('), mapText.indexOf('const contextGaugeLayer = () =>'));
-  assert.match(pinLayerBody, /const solo = unselected\(notStacked\);/);
+  assert.match(pinLayerBody, /const solo = stackFilters\.solo\[id\];/);
   const access = mapText.slice(mapText.indexOf('const accessLayer = () =>'), mapText.indexOf('</Mapbox.ShapeSource>', mapText.indexOf('const accessLayer = () =>')));
-  assert.equal((access.match(/filter=\{unselected\(notStacked\)\}/g) ?? []).length, 4, 'every access layer hides stacked members');
-  assert.doesNotMatch(access, /filter=\{unselected\(\)\}/);
+  assert.equal((access.match(/filter=\{stackFilters\.solo\.access\}/g) ?? []).length, 4, 'every access layer hides stacked members');
+  assert.doesNotMatch(access, /filter=\{unselected\(/);
   const reference = mapText.slice(mapText.indexOf('const contextGaugeLayer = () =>'), mapText.indexOf('const statewideIndexLayer'));
-  assert.equal((reference.match(/notStacked\]\)\}/g) ?? []).length, 2, 'the reference dot and label hide stacked members');
+  assert.equal((reference.match(/filter=\{stackFilters\.referenceSolo\}/g) ?? []).length, 2, 'the reference dot and label hide stacked members');
 
   const stacksAt = mapText.indexOf('<Mapbox.ShapeSource id="pins-stacks"');
   const hazardsAt = mapText.indexOf("{pinLayer('hazards'");
@@ -517,9 +585,12 @@ test('the selected place has its own source, and every layer leaves it out', () 
   // No layer styles its own selection any more: it is filtered out instead.
   const before = mapText.slice(0, mapText.indexOf('<Mapbox.ShapeSource id="plan-endpoints"'));
   assert.doesNotMatch(before, /\['==', \['get', 'id'\], selectedPinId\]/);
-  assert.match(mapText, /const solo = [^;]*unselected\(/);
+  // Stack-hidden layers take stackFilters, which repeats unselected()'s
+  // clause in every zoom branch (evaluated in the stack-filter test above).
+  assert.match(mapText, /const solo = stackFilters\.solo\[id\];/);
+  assert.match(mapText, /const notSelected = \['!=', \['get', 'id'\], selectedPinId \?\? ''\];\s*const build =/);
   for (const id of ['pins-access-overview', 'pins-access-badge', 'pins-access-icon', 'pins-access-label', 'pins-allGauges-dot']) {
-    assert.match(mapText, new RegExp(`pinHitLayerId\\('${id}'\\)\\}\\s*filter=\\{unselected\\(`), `${id} leaves out the selection`);
+    assert.match(mapText, new RegExp(`pinHitLayerId\\('${id}'\\)\\}\\s*filter=\\{(unselected\\(|stackFilters\\.)`), `${id} leaves out the selection`);
   }
   const unselected = handler('unselected', { selectedPinId: 'gauge:1' });
   assert.deepEqual(JSON.parse(JSON.stringify(unselected(['!', ['has', 'point_count']]))),
@@ -534,10 +605,11 @@ test('the selected place has its own source, and every layer leaves it out', () 
 });
 
 test('no map layer filter can fall back to undefined, which iOS never clears', () => {
-  // Every filter prop is either a literal array or unselected(); a ternary or
-  // optional filter would reintroduce the stuck-filter bug on close.
+  // Every filter prop is a literal array, unselected(), or one of the stack
+  // memos, which always build an array; a ternary or optional filter would
+  // reintroduce the stuck-filter bug on close.
   for (const match of mapText.matchAll(/filter=\{([^}]*)\}/g)) {
-    assert.match(match[1], /^(\[|unselected\(|solo$)/, `filter={${match[1]}} must always be an expression`);
+    assert.match(match[1], /^(\[|unselected\(|solo$|stackFilters\.(solo\.\w+|referenceSolo)$|stackLevelFilter$)/, `filter={${match[1]}} must always be an expression`);
   }
 });
 
