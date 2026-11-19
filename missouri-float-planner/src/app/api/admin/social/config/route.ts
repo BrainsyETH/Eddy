@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { validPlacementChoices } from '@/lib/social/placements';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
+import { formatsFromLegacy } from '@/lib/social/format-settings';
 import { dailyReportAutoPublishEnabled } from '@/lib/social/daily-report';
 
 export const dynamic = 'force-dynamic';
@@ -138,10 +139,15 @@ async function handleSave(request: NextRequest) {
     weekly_trend: body.weekly_trend ?? existing.weekly_trend,
     updated_at: new Date().toISOString(),
   };
+  // Keep the per-format settings in step with the keys this form edits, so
+  // the scheduler reads the same schedule whichever shape it looks at.
+  // Fields the body left out are dropped from the update, so they keep their saved value here too.
+  const saved = Object.fromEntries(Object.entries(updatePayload).filter(([, value]) => value !== undefined));
+  const formats = formatsFromLegacy({ ...existing, ...saved });
 
   const { data, error } = await supabase
     .from('social_config')
-    .update(updatePayload)
+    .update({ ...updatePayload, formats })
     .eq('id', existing.id)
     .select('*')
     .single();

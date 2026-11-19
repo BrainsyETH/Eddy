@@ -107,6 +107,8 @@ export interface SocialConfig {
   weekly_forecast: WeeklyReelConfig;
   section_guide: WeeklyReelConfig & { placements?: PlacementChoices };
   weekly_trend: WeeklyReelConfig;
+  /** Per-format schedule settings; see format-settings.ts. Empty until the admin saves. */
+  formats?: Record<string, unknown>;
   updated_at: string;
 }
 

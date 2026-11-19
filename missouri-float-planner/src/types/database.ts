@@ -4126,6 +4126,7 @@ export type Database = {
           eddy_says: Json
           enabled_rivers: string[] | null
           favorite_float: Json
+          formats: Json
           highlight_conditions: string[]
           highlight_cooldown_hours: number
           highlights_per_run: number
@@ -4148,6 +4149,7 @@ export type Database = {
           eddy_says?: Json
           enabled_rivers?: string[] | null
           favorite_float?: Json
+          formats?: Json
           highlight_conditions?: string[]
           highlight_cooldown_hours?: number
           highlights_per_run?: number
@@ -4170,6 +4172,7 @@ export type Database = {
           eddy_says?: Json
           enabled_rivers?: string[] | null
           favorite_float?: Json
+          formats?: Json
           highlight_conditions?: string[]
           highlight_cooldown_hours?: number
           highlights_per_run?: number
@@ -4233,6 +4236,7 @@ export type Database = {
           eddy_update_id: string | null
           error_message: string | null
           facebook_post_id: string | null
+          format: string | null
           hashtags: string[] | null
           hook_style: string | null
           id: string
@@ -4247,6 +4251,7 @@ export type Database = {
           instagram_post_id: string | null
           media_type: string
           metadata: Json | null
+          placement: string | null
           platform: string
           platform_post_id: string | null
           post_type: string
@@ -4268,6 +4273,7 @@ export type Database = {
           eddy_update_id?: string | null
           error_message?: string | null
           facebook_post_id?: string | null
+          format?: string | null
           hashtags?: string[] | null
           hook_style?: string | null
           id?: string
@@ -4282,6 +4288,7 @@ export type Database = {
           instagram_post_id?: string | null
           media_type?: string
           metadata?: Json | null
+          placement?: string | null
           platform: string
           platform_post_id?: string | null
           post_type: string
@@ -4303,6 +4310,7 @@ export type Database = {
           eddy_update_id?: string | null
           error_message?: string | null
           facebook_post_id?: string | null
+          format?: string | null
           hashtags?: string[] | null
           hook_style?: string | null
           id?: string
@@ -4317,6 +4325,7 @@ export type Database = {
           instagram_post_id?: string | null
           media_type?: string
           metadata?: Json | null
+          placement?: string | null
           platform?: string
           platform_post_id?: string | null
           post_type?: string

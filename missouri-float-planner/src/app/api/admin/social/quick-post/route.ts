@@ -12,7 +12,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
 import { dispatchVideos } from '@/lib/social/dispatch-videos';
-import { expandDestinations, savedPlacementChoices, validPlacementChoices, type PlacementChoices } from '@/lib/social/placements';
+import { expandDestinations, validPlacementChoices, type PlacementChoices } from '@/lib/social/placements';
+import { SCHEDULED_FORMATS, placementChoicesFrom, resolveFormatSettings, type ScheduledFormat } from '@/lib/social/format-settings';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
 import { buildPostContext } from '@/lib/social/post-context';
 import { supportsStory, type PostKind } from '@/lib/social/post-types';
@@ -99,10 +100,10 @@ async function handlePOST(request: NextRequest) {
     // A one-off override wins; otherwise the format's saved placements apply.
     const storyLayout = supportsStory(kind);
     let placements: PlacementChoices | undefined = body.placements;
-    if (storyLayout && placements === undefined) {
+    if (storyLayout && placements === undefined && (SCHEDULED_FORMATS as readonly string[]).includes(kind)) {
       const config = await getOrCreateConfig(supabase);
       if (!config.data) throw new Error(config.error ?? 'Could not load saved placements');
-      placements = savedPlacementChoices(config.data, kind);
+      placements = placementChoicesFrom(resolveFormatSettings(config.data, kind as ScheduledFormat).destinations);
     }
     const destinations = expandDestinations(validPlatforms, placements, storyLayout);
     const posts = destinations.map(destination => ({
@@ -190,6 +191,7 @@ async function createDraftsForPlatforms(
       .from('social_posts')
       .insert({
         post_type: post.postType,
+        format: post.postType,
         platform,
         river_slug: post.riverSlug,
         caption: post.caption,

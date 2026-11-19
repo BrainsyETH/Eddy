@@ -12,9 +12,9 @@ export const WEEKEND_READ_TIME = '17:00';
 
 /** Same 35-minute catch-up window as other social formats. Preview ignores the
  * clock, not the Thursday day or the explicit off switch. */
-export function weekendReadDue(enabled: unknown, now = new Date(), skipTimeCheck = false, zone = 'America/Chicago'): boolean {
+export function weekendReadDue(enabled: unknown, now = new Date(), skipTimeCheck = false, zone = 'America/Chicago', time = WEEKEND_READ_TIME): boolean {
   if ((enabled !== 'video' && enabled !== 'image') || getLocalDay(zone, now) !== 4) return false;
-  const [hour, minute] = WEEKEND_READ_TIME.split(':').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
   const minutes = getLocalMinutes(zone, now) - (hour * 60 + minute);
   return skipTimeCheck || (minutes >= 0 && minutes < 35);
 }

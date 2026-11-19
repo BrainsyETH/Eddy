@@ -193,6 +193,7 @@ export async function publishClip(
       .from('social_posts')
       .insert({
         post_type: 'river_highlight',
+        format: 'clip',
         platform,
         river_slug: clip.river_slug || null,
         caption,

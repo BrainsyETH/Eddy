@@ -2,8 +2,8 @@
 // Determines scheduled social posts. Eddy’s Read is one Thursday comparison;
 // Float Pick and other format schedules retain their existing behavior.
 
-import { expandDestinations, savedPlacementChoices } from './placements';
-import { supportsStory } from './post-types';
+import type { Destination } from './placements';
+import { mediaForDay, resolveFormatSettings, type ScheduledFormat } from './format-settings';
 import { fallsBackToImage } from './dispatch-videos';
 import { MAY_HAVE_PUBLISHED } from './publish-outcome';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -25,7 +25,6 @@ import type {
   SocialCustomContent,
   SocialPlatform,
   ScheduledPost,
-  MediaType,
 } from './types';
 
 const LOG_PREFIX = '[SocialScheduler]';
@@ -36,23 +35,6 @@ const LOG_PREFIX = '[SocialScheduler]';
 let schedulerZone = 'America/Chicago';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-type DayKey = (typeof DAY_KEYS)[number];
-
-/**
- * Read the media choice for a given post type + day from social_config.
- * Returns null when the cell is unset / 'off' — the scheduler skips the
- * post entirely in that case (tri-state: off / video / image).
- */
-function resolveMedia(
-  mediaSchedule: import('./types').MediaSchedule | undefined,
-  postType: 'river_highlight' | 'daily_digest',
-  dayOfWeek: number,
-): MediaType | null {
-  const dayKey: DayKey = DAY_KEYS[dayOfWeek] ?? 'sun';
-  const choice = mediaSchedule?.[postType]?.[dayKey];
-  if (choice === 'video' || choice === 'image') return choice;
-  return null;
-}
 
 export interface SchedulerResult {
   posts: ScheduledPost[];
@@ -173,26 +155,28 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
   const cstDay = getLocalDay(schedulerZone);
   const todayKey = DAY_KEYS[cstDay];
 
-  // Platforms this run fans out to (FB/IG when Meta creds present; TikTok only
-  // when connected). All scheduled formats are video, so each post also goes to
-  // TikTok — but only while the rolling 24h TikTok draft budget lasts. `budget`
-  // is decremented per post that includes TikTok; once it hits 0, later posts in
-  // this run (and subsequent runs) get FB/IG only.
-  const enabledPlatforms = await getEnabledPlatforms(supabase);
-  const tiktokEnabled = enabledPlatforms.includes('tiktok');
-  const nonTiktokPlatforms = enabledPlatforms.filter((p) => p !== 'tiktok');
-  let tiktokBudget = tiktokEnabled ? await tiktokRemainingBudget(supabase) : 0;
-  const platformsForPost = (): SocialPlatform[] => {
-    if (tiktokEnabled && tiktokBudget > 0) {
-      tiktokBudget -= 1;
-      return [...nonTiktokPlatforms, 'tiktok'];
-    }
-    return nonTiktokPlatforms;
-  };
+  // Each format's days, time and destinations (format-settings.ts).
+  const settings = (kind: ScheduledFormat) => resolveFormatSettings(config, kind);
 
-  // --- Weekly Forecast (media_schedule.weekly_forecast drives day/media) ---
+  // A format's destinations narrowed to the platforms connected now (FB/IG
+  // when Meta creds are present; TikTok only when connected). TikTok is kept
+  // only while the rolling 24h TikTok draft budget lasts: each post that
+  // includes TikTok spends one, and once it hits 0 later posts in this run
+  // (and later runs) go to FB/IG only.
+  const enabledPlatforms = await getEnabledPlatforms(supabase);
+  let tiktokBudget = enabledPlatforms.includes('tiktok') ? await tiktokRemainingBudget(supabase) : 0;
+  const destinationsFor = (kind: ScheduledFormat): Destination[] => {
+    const connected = settings(kind).destinations.filter(d => enabledPlatforms.includes(d.platform));
+    if (!connected.some(d => d.platform === 'tiktok')) return connected;
+    if (tiktokBudget > 0) { tiktokBudget -= 1; return connected; }
+    return connected.filter(d => d.platform !== 'tiktok');
+  };
+  const platformsFor = (kind: ScheduledFormat): SocialPlatform[] => [...new Set(destinationsFor(kind).map(d => d.platform))];
+
+  // --- Weekly Forecast (its days drive day/media) ---
   {
-    const todayMedia = config.media_schedule?.weekly_forecast?.[todayKey] ?? null;
+    const forecast = settings('weekly_forecast');
+    const todayMedia = mediaForDay(forecast, cstDay);
     // Holiday early call: ahead of Memorial Day / July 4th / Labor Day, fire an
     // extra Tuesday forecast even when the grid cell is off — the season's
     // demand-spike weeks get a midweek read plus the regular Friday final call.
@@ -202,8 +186,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
     // type fires — same as daily_digest/river_highlight. The legacy `enabled`
     // flag isn't maintained by the grid UI, so gating on it silently desynced
     // these posts off even with every day set to Video.
-    if ((todayMedia || holidayEarlyCall) && config.weekly_forecast) {
-      const { time_cst } = config.weekly_forecast;
+    if (todayMedia || holidayEarlyCall) {
+      const time_cst = forecast.time;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
 
       if (!timeMatches) {
@@ -221,8 +205,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
         if (topRivers.length === 0) {
           console.log(`${LOG_PREFIX} Weekly forecast: no floatable rivers right now — skipping`);
         } else {
-          const platforms = platformsForPost();
-          for (const platform of platforms) {
+          for (const platform of platformsFor('weekly_forecast')) {
             const { caption, hashtags } = formatWeeklyForecastCaption(
               topRivers,
               customContent,
@@ -246,18 +229,18 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
     }
   }
 
-  // --- Float Pick (media_schedule.section_guide drives day/media) ---
+  // --- Float Pick (its days drive day/media) ---
   // Delegates the pick + caption + cover to buildPostContext — the single
   // decision point shared with the cron's render-time buildRenderData — so
   // caption, cover, and reel always describe the SAME float. Live-first: a
   // condition-aware 5-9 mi section when any river is flowing/good; otherwise
   // an evergreen favorite from the river-guide blogs (always publishable).
   {
-    const todayMedia = config.media_schedule?.section_guide?.[todayKey] ?? null;
+    const floatPick = settings('section_guide');
     // Grid cell is the gate (see weekly_forecast note above) — not the legacy
     // `enabled` flag, which the grid never sets.
-    if (todayMedia && config.section_guide) {
-      const { time_cst } = config.section_guide;
+    if (mediaForDay(floatPick, cstDay)) {
+      const time_cst = floatPick.time;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
 
       if (!timeMatches) {
@@ -269,8 +252,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
         if (!ctx) {
           console.log(`${LOG_PREFIX} Float Pick: no live section and no evergreen favorite — skipping`);
         } else {
-          const destinations = expandDestinations(platformsForPost(), savedPlacementChoices(config, 'section_guide'), supportsStory('section_guide'));
-          for (const { platform, placement } of destinations) {
+          for (const { platform, placement } of destinationsFor('section_guide')) {
             const { caption, hashtags } = ctx.caption(platform, customContent);
             posts.push({
               postType: 'section_guide',
@@ -299,7 +281,8 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
   // --- Daily Report (legacy daily_digest key) ---
   // After rollout opt-in, the matrix controls days: null cell => skip this day.
   // digest_enabled column is ignored (legacy; kept in schema for back-compat).
-  const digestMediaType = resolveMedia(config.media_schedule, 'daily_digest', cstDay);
+  const digest = settings('daily_digest');
+  const digestMediaType = mediaForDay(digest, cstDay);
   if (!dailyReportAutoPublishEnabled()) {
     diag.skipped_reasons.push('daily_report_rollout_paused');
   } else if (!digestMediaType) {
@@ -307,11 +290,11 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
   } else {
     if (await alreadyPosted('daily_digest')) {
       console.log(`${LOG_PREFIX} Daily digest already posted today, skipping`);
-    } else if (!isDueNow(config.digest_time_cst) && !skipTimeCheck) {
-      console.log(`${LOG_PREFIX} Not near digest time (${config.digest_time_cst} CST), skipping digest`);
+    } else if (!isDueNow(digest.time) && !skipTimeCheck) {
+      console.log(`${LOG_PREFIX} Not near digest time (${digest.time} CST), skipping digest`);
     } else {
-      // The existing TikTok connector supports video only; do not spend its budget.
-      for (const platform of nonTiktokPlatforms) {
+      // An image carousel: its destinations never include TikTok, so no budget is spent.
+      for (const platform of platformsFor('daily_digest')) {
         posts.push({ postType: 'daily_digest', platform, riverSlug: null,
           caption: '', imageUrl: '', mediaType: 'image', hashtags: [], eddyUpdateId: null });
       }
@@ -320,13 +303,14 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; pre
 
   // One Eddy’s Read each Thursday, using the existing format on/off cell.
   // Legacy per-river schedules no longer emit separate social Reads.
-  if (weekendReadDue(config.media_schedule?.river_highlight?.thu, new Date(), skipTimeCheck, schedulerZone)) {
+  const read = settings('river_highlight');
+  if (weekendReadDue(read.days.thu, new Date(), skipTimeCheck, schedulerZone, read.time)) {
     if (!await alreadyPosted('river_highlight')) {
       const ctx = await buildPostContext(supabase, { postType: 'river_highlight', config: { ...config, timezone: schedulerZone } });
       if (ctx) {
         diag.eligible_rivers.push(...(ctx.riverSlugs ?? []));
         diag.due_rivers.push(...(ctx.riverSlugs ?? []));
-        for (const platform of platformsForPost()) {
+        for (const platform of platformsFor('river_highlight')) {
           const { caption, hashtags } = ctx.caption(platform, customContent);
           posts.push({ postType: 'river_highlight', platform, riverSlug: null,
             caption, hashtags, imageUrl: ctx.imageUrl(platform), mediaType: 'video', eddyUpdateId: null });
@@ -362,7 +346,7 @@ function isDueNow(scheduledTimeCst: string, windowMinutes: number = 35): boolean
   return adjustedDiff >= 0 && adjustedDiff < windowMinutes;
 }
 
-type TodayRow = { id: string; created_at: string; status: string; auto_publish: boolean; image_url: string | null };
+type TodayRow = { id: string; created_at: string; status: string; auto_publish: boolean; image_url: string | null; format: string | null };
 
 /**
  * Posts of a type created on today's date in `timeZone` (Central by default).
@@ -374,14 +358,18 @@ export async function postsFromToday(supabase: any, postType: string, timeZone: 
   const since = new Date(now.getTime() - 36 * 3600_000);
   const today = getLocalDateKey(timeZone, now);
   const { data, error } = await supabase.from('social_posts')
-    .select('id,created_at,status,auto_publish,image_url')
+    .select('id,created_at,status,auto_publish,image_url,format')
     .eq('post_type', postType).gte('created_at', since.toISOString());
   if (error) throw new Error(`Could not check today's ${postType} posts`);
-  let rows = ((data ?? []) as TodayRow[]).filter(row => getLocalDateKey(timeZone, new Date(row.created_at)) === today);
-  // ClipEngine also uses river_highlight, including clips without a river.
-  // Only a weekend Read counts toward the weekly Read's slot.
-  if (postType === 'river_highlight') rows = rows.filter(row => row.image_url?.includes('type=weekend-read&'));
-  return rows;
+  return ((data ?? []) as TodayRow[]).filter(row => getLocalDateKey(timeZone, new Date(row.created_at)) === today &&
+    (row.format ? row.format === postType : legacyFormatMatch(postType, row)));
+}
+
+// Rows saved before social_posts.format: ClipEngine also uses
+// river_highlight, including clips without a river, so only a weekend Read
+// counts toward the weekly Read's slot.
+function legacyFormatMatch(postType: string, row: TodayRow): boolean {
+  return postType !== 'river_highlight' || !!row.image_url?.includes('type=weekend-read&');
 }
 
 /** Whether today's saved row keeps the scheduler from posting this format again. */

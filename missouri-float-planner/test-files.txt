@@ -504,3 +504,4 @@ src/lib/x402/request-limits.test.ts
 src/types/api-contract-parity.test.ts
 src/types/database-coverage.test.ts
 src/lib/social/placements.test.ts
+src/lib/social/format-settings.test.ts

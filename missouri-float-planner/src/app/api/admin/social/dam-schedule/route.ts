@@ -37,7 +37,8 @@ async function handlePOST(request: NextRequest) {
   for (const platform of new Set<DamStoryPlatform>(body.platforms)) {
     const render = damStoryRender(snapshot, platform);
     const { data, error } = await supabase.from('social_posts').insert({
-      post_type: 'manual', platform, caption: damStoryCaption(snapshot), hashtags: [],
+      post_type: 'manual', format: 'dam_schedule', placement: platform === 'instagram' ? 'story' : null,
+      platform, caption: damStoryCaption(snapshot), hashtags: [],
       media_type: 'video', status: 'rendering', auto_publish: false, render_request: render,
     }).select('id').single();
     if (error || !data) { results.push({ platform, error: 'Could not save the video request.' }); continue; }

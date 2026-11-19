@@ -305,6 +305,17 @@ Central-time day. Instagram publishes Stories with a STORIES container; Facebook
 uses the Page video_stories upload and finish flow. The manual Remotion
 `social-route-{instagram|facebook|tiktok}-{reel|story}` presets remain available.
 
+Each scheduled format runs from one settings shape — days, time and
+destinations — read through `resolveFormatSettings` in `format-settings.ts`.
+It is stored per format in `social_config.formats`; until a format has a valid
+entry there, it is derived from the legacy keys the admin edits
+(`media_schedule`, the per-format `time_cst`, `digest_time_cst`,
+`section_guide.placements`), and every admin save writes the derived entry
+back. New `social_posts` rows record `format` (the post-types kind, `clip` or
+`dam_schedule`) and `placement`; History labels, review and the scheduler's
+same-day check read those, falling back to `post_type` and `render_request`
+for older rows.
+
 The terrain snapshot projection is immutable. The display camera, route overlay,
 and image transform receive the selected layout origin together, preserving
 alignment with stored snapshots. These are organic-playback working bounds,

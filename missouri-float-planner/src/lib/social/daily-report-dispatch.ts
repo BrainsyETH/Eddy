@@ -35,7 +35,7 @@ export async function dispatchDailyReport(report: DailyReport, platforms: Social
       if (error) { errors.push(`${platform}: previous report could not be retired`); continue; }
     }
     const { data, error } = await supabase.from('social_posts').insert({
-      post_type: 'daily_digest', platform, river_slug: null, caption, hashtags,
+      post_type: 'daily_digest', format: 'daily_digest', platform, river_slug: null, caption, hashtags,
       media_type: 'image', image_url: null, status: 'rendering', auto_publish: autoPublish,
       render_request: JSON.parse(JSON.stringify(report)),
     }).select('id').single();

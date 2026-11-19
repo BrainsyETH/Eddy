@@ -73,7 +73,8 @@ export async function dispatchVideos(
   }
 
   const { error } = await db.from('social_posts').insert(rows.map(({ id, delivery, render }) => ({
-    id, post_type: kind, platform: delivery.platform, river_slug: delivery.riverSlug,
+    id, post_type: kind, format: kind, placement: delivery.placement ?? null,
+    platform: delivery.platform, river_slug: delivery.riverSlug,
     caption: delivery.caption, hashtags: delivery.hashtags, image_url: delivery.imageUrl,
     eddy_update_id: delivery.eddyUpdateId ?? null, media_type: 'video',
     status: 'rendering', auto_publish: autoPublish, render_request: render,

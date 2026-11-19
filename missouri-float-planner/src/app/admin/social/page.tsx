@@ -9,7 +9,7 @@ import { isDamStory } from '@shared/social-dam-schedule';
 import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
 import { PlacementFields } from '@/components/admin/social/PlacementFields';
-import { destinationLabel, isStoryRender, renderPlacement, type PlacementChoices } from '@/lib/social/placements';
+import { destinationLabel, renderPlacement, type PlacementChoices } from '@/lib/social/placements';
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
 import { videoSafeInsets } from '@shared/social-brand';
 import styles from './review.module.css';
@@ -150,8 +150,16 @@ interface SocialPost {
   video_url: string | null;
   media_type: string;
   render_request?: unknown;
+  /** Saved since the social_posts.format/placement migration; older rows fall back to post_type and render_request. */
+  format?: string | null;
+  placement?: 'reel' | 'story' | null;
   created_at: string;
   published_at: string | null;
+}
+
+/** Where a saved post goes: its saved placement, else what its render or dam video implies. */
+function postPlacement(post: Pick<SocialPost, 'placement' | 'platform' | 'render_request'>) {
+  return post.placement ?? (isDamStory(post.render_request) && post.platform === 'instagram' ? 'story' : renderPlacement(post.render_request));
 }
 
 interface CustomContent {
@@ -276,6 +284,8 @@ const POST_TYPE_LABELS: Record<string, string> = {
   condition_recovery: 'All Clear',
   storm_digest: 'Storm Digest',
   manual: 'Tip',
+  clip: 'Clip',
+  dam_schedule: 'Dam schedule',
 };
 
 export default function SocialAdminPage() {
@@ -359,7 +369,7 @@ export default function SocialAdminPage() {
     return () => dialog.close();
   }, [reviewOpen]);
   const damPreview = isDamStory(videoPreviewPost?.render_request);
-  const storyPreview = (damPreview && videoPreviewPost?.platform === 'instagram') || isStoryRender(videoPreviewPost?.render_request);
+  const storyPreview = !!videoPreviewPost && postPlacement(videoPreviewPost) === 'story';
   const previewSafe = videoSafeInsets(videoPreviewPost?.platform, storyPreview ? 'story' : 'reel');
 
   // TikTok connection status
@@ -1004,10 +1014,10 @@ export default function SocialAdminPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 id="social-review-title" className="text-lg font-semibold text-white">Review Post</h3>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
-                  {destinationLabel(videoPreviewPost.platform, storyPreview ? 'story' : renderPlacement(videoPreviewPost.render_request))}
+                  {destinationLabel(videoPreviewPost.platform, postPlacement(videoPreviewPost))}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
-                  {damPreview ? 'Dam schedule' : POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
+                  {damPreview ? 'Dam schedule' : POST_TYPE_LABELS[videoPreviewPost.format ?? videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
                 </span>
               </div>
               <button aria-label="Close review" onClick={() => reviewDialog.current?.close()} className="text-neutral-400 hover:text-white">
@@ -1040,7 +1050,7 @@ export default function SocialAdminPage() {
                   videoUrl={videoPreviewPost.video_url}
                   directPost={tiktokStatus?.directPost}
                   gridNeighbors={posts
-                    .filter(p => p.platform === 'instagram' && !isStoryRender(p.render_request) && !isDamStory(p.render_request) && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
+                    .filter(p => p.platform === 'instagram' && postPlacement(p) !== 'story' && !isDamStory(p.render_request) && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
                     .sort((a, b) => b.created_at.localeCompare(a.created_at))
                     .map(p => p.image_url as string)}
                 />}
@@ -2081,9 +2091,9 @@ export default function SocialAdminPage() {
                                     minute: '2-digit',
                                   })}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{destinationLabel(post.platform, dam && post.platform === 'instagram' ? 'story' : renderPlacement(post.render_request))}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{destinationLabel(post.platform, postPlacement(post))}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
-                                  <strong>{dam ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
+                                  <strong>{dam ? 'Dam schedule' : POST_TYPE_LABELS[post.format ?? post.post_type] ?? post.post_type}</strong>
                                   <span className="block text-xs text-neutral-400">
                                     {post.media_type === 'video' ? 'Video' : isDailyReport(post.render_request) ? `Carousel · ${post.render_request.slides.length}` : 'Image'}
                                     {post.river_slug && ` · ${post.river_slug}`}
@@ -2103,7 +2113,7 @@ export default function SocialAdminPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-400">
-                                  <span className="line-clamp-2 [overflow-wrap:anywhere]">{isStoryRender(post.render_request) ? '—' : post.caption}</span>
+                                  <span className="line-clamp-2 [overflow-wrap:anywhere]">{postPlacement(post) === 'story' && !dam ? '—' : post.caption}</span>
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap items-center gap-2">

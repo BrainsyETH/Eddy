@@ -1,5 +1,5 @@
 import { DAILY_REPORT_KIND, isDailyReport, reportImageUrls, reportIsCurrent } from './daily-report';
-import { isStoryRender } from './placements';
+import { renderPlacement } from './placements';
 import type { PublishParams } from './types';
 import { isDamStory, type DamStorySnapshot } from '../../../shared/social-dam-schedule';
 
@@ -16,6 +16,7 @@ export function isDamVideoUrl(value: string | null): value is string {
 export function savedPostMedia(post: {
   platform?: string;
   caption: string; media_type: string; image_url: string | null; video_url: string | null; render_request?: unknown;
+  placement?: string | null;
 }, currentSchedule?: DamStorySnapshot): PublishParams {
   if (isDamStory(post.render_request)) {
     // Only the explicit review action supplies a freshly checked schedule.
@@ -49,7 +50,7 @@ export function savedPostMedia(post: {
   }
   if (post.media_type === 'video') {
     if (!post.video_url) throw new Error('No rendered video. Render again before publishing.');
-    if (isStoryRender(post.render_request)) {
+    if ((post.placement ?? renderPlacement(post.render_request)) === 'story') {
       return { caption: '', mediaType: 'video', videoUrl: post.video_url, placement: 'story' };
     }
     return { caption: post.caption, mediaType: 'video', videoUrl: post.video_url, coverUrl: post.image_url ?? undefined };
