@@ -26,8 +26,8 @@ test('no gauge earned a time-to-rise range, so the list and the sentence carry n
   assert.deepEqual(study.gauges.filter(gauge => gauge.verdict?.publish?.riseHours).map(gauge => gauge.site), []);
 });
 
-test('the release list is the only place shipped code takes a rain lag from', () => {
-  // The unsourced per-river estimates are gone, and nothing may bring a second source back.
+test('the release list is the only place shipped code takes a rain lag from, and nothing reads a recovery rate', () => {
+  // The unsourced per-river lag estimates and recovery rates are gone, and nothing may bring them back.
   const files: string[] = [];
   const walk = (folder: string) => {
     for (const name of readdirSync(folder)) {
@@ -39,7 +39,7 @@ test('the release list is the only place shipped code takes a rain lag from', ()
   walk(join(root, 'src'));
   walk(join(root, 'shared'));
   const offenders = files.filter(file => !file.endsWith(join('src', 'types', 'database.ts'))
-    && /rain_lag_hours|rain_lag_note|rainLagHours|rainLagNote|RAIN_LAG\b|RAIN-TO-RIVER/.test(readFileSync(file, 'utf8')));
+    && /rain_lag_hours|rain_lag_note|rainLagHours|rainLagNote|RAIN_LAG\b|RAIN-TO-RIVER|drop_rate_note|dropRateNote|recoveryNote|Recovery rate/.test(readFileSync(file, 'utf8')));
   assert.deepEqual(offenders.map(file => file.slice(root.length + 1)), []);
   const route = readFileSync(join(root, 'src', 'app', 'api', 'rivers', '[slug]', 'outlook', 'route.ts'), 'utf8');
   assert.match(route, /rainLag: measuredLag\(station\?\.usgs_site_id\)/);

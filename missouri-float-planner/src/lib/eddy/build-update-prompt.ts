@@ -31,7 +31,6 @@ export function buildPrompt(
   localKnowledge: string,
   trajectory: GaugeTrajectory | null = null,
   precipitation: PrecipitationSummary | null = null,
-  recoveryNote: string | null = null,
   riverCtx: RiverContext | null = null,
 ): string {
   const riverNotes = riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug];
@@ -147,15 +146,11 @@ export function buildPrompt(
     lines.push('Recent rain: no measurement is available for this report. Do not describe the past hours as dry or as wet.');
   }
 
-  // How the river comes back down. The per-river "hours from rain to gauge"
-  // estimates that used to sit here had no source and were removed when lag
-  // was measured (scripts/research/rain-lag-2026-11). A measured lag is used
-  // only by the app's Weather section, for the gauges that earned one.
-  if (recoveryNote) {
-    lines.push('');
-    lines.push('[RECOVERY AFTER HIGH WATER]');
-    lines.push(`Recovery rate: ${recoveryNote}`);
-  }
+  // No rain-to-river lag and no recovery rate. Both were per-river numbers
+  // typed in with no source. The lag was removed when it was measured
+  // (scripts/research/rain-lag-2026-11), and the recovery rates went on the
+  // owner's word on 2026-11-19: the measured 6- and 24-hour change above
+  // already says how fast this river is dropping today.
 
   // No current weather and no three-day forecast. Weather belongs in the app's
   // Weather section, which is rebuilt on every view; a Read is stored for the

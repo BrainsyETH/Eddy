@@ -23,7 +23,6 @@ export interface RiverCharacteristics {
   primaryHazards: string[];
   lowWaterMeaning: string | null;
   risingWaterHazards: string | null;
-  dropRateNote: string | null;
   riverNote: string | null;
   /** Optional per-river float-speed multipliers, e.g. { low: 0.75, too_low: 0.5 } */
   speedCurve: { low?: number; too_low?: number } | null;
@@ -85,7 +84,6 @@ function mapRow(row: any): RiverContext {
           primaryHazards: rc.primary_hazards ?? [],
           lowWaterMeaning: rc.low_water_meaning ?? null,
           risingWaterHazards: rc.rising_water_hazards ?? null,
-          dropRateNote: rc.drop_rate_note ?? null,
           // Dropped when it is ingest bookkeeping rather than a note; see river-note.ts.
           riverNote: usableRiverNote(rc.river_note),
           speedCurve: rc.speed_curve ?? null,
@@ -107,7 +105,7 @@ async function loadAll(strict = false): Promise<Map<string, RiverContext>> {
        weather_city, weather_lat, weather_lon, alert_search_terms, active,
        river_characteristics (
          is_spring_fed, primary_hazards, low_water_meaning, rising_water_hazards,
-         drop_rate_note, river_note, speed_curve
+         river_note, speed_curve
        )`
     )
     .eq('active', true);

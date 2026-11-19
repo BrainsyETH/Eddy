@@ -26,7 +26,6 @@ const BLACK: RiverContext = {
     primaryHazards: [],
     lowWaterMeaning: 'scraping over the gravel bars between Lesterville and the lake.',
     risingWaterHazards: 'strainers in the shut-ins after a rain.',
-    dropRateNote: null,
     riverNote: null,
     speedCurve: null,
   },

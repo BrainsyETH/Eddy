@@ -40,6 +40,7 @@ scripts/migration-ledger.test.ts
 scripts/negative-evidence.test.ts
 scripts/rain-lag-estimates-migration.test.ts
 scripts/rainfall/source-contract.test.ts
+scripts/recovery-rates-migration.test.ts
 scripts/research/rain-lag-2026-11/lag.test.ts
 scripts/research/rain-lag-2026-11/results.test.ts
 scripts/river-guide-review-migration.test.ts

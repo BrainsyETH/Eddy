@@ -84,7 +84,6 @@ const capture = (over: Partial<GenerationCapture> = {}): GenerationCapture => ({
   forecast: null,
   precipitation: null,
   trajectory: null,
-  recoveryNote: null,
   localKnowledge: '=== General Ozarks Knowledge ===\nStrainers.\n\n=== current River Knowledge ===\nSpring-fed.',
   systemPrompt: 'You are Eddy.',
   userPrompt: 'Generate an Eddy condition update for: Current River',
