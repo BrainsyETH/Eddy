@@ -67,7 +67,7 @@ value, changed chart scale, or older on/off-only draft requires a new video.
 Background retries skip dam videos. Downloads require
 owner access and proxy only a saved
 Vercel Blob `social-videos/` output. The publishing queue requires migration
-`20261119135000_social_scheduled_drafts.sql` before the web deployment.
+`20261119153643_social_scheduled_drafts.sql` before the web deployment.
 
 Static exports cannot update after posting. Check the burned-in date and source
 time before sharing; regenerate if the source has changed. Download history is
