@@ -93,9 +93,15 @@ export function damImageModel(
   const on = moment.current && moment.generationKind === 'generating';
   const value = moment.releaseCfs != null ? Math.round(moment.releaseCfs).toLocaleString('en-US') : null;
   const releaseIso = moment.releaseObservedAt != null ? new Date(moment.releaseObservedAt).toISOString() : null;
+  // A posted schedule past its check window: the packet's summary is the
+  // home-screen widget's "Open Eddy…" prompt, which an image viewer may have
+  // no app to open. Say what it means instead.
+  const schedule = !moment.scheduleCurrent && dam.schedule.length > 0
+    ? 'The schedule may have changed.'
+    : moment.scheduleSummary;
   return {
     title: dam.name,
-    subtitle: `Total release${moment.releaseDailyMean ? ' · daily average' : ''} · ${moment.scheduleSummary}`,
+    subtitle: `Total release${moment.releaseDailyMean ? ' · daily average' : ''} · ${schedule}`,
     status,
     statusInk: on ? tokens.data : tokens.muted,
     statusBg: tokens.surface,
@@ -107,7 +113,7 @@ export function damImageModel(
     trend: null,
     age: shortAge(releaseIso, now),
     tokens,
-    alt: `${dam.name}: ${status}. Total release ${value !== null ? `${value} cfs` : 'unavailable'}${moment.releaseDailyMean ? ', daily average' : ''}. ${formatObservedAge(releaseIso, now)}. ${moment.scheduleSummary} From Eddy.`,
+    alt: `${dam.name}: ${status}. Total release ${value !== null ? `${value} cfs` : 'unavailable'}${moment.releaseDailyMean ? ', daily average' : ''}. ${formatObservedAge(releaseIso, now)}. ${schedule} From Eddy.`,
   };
 }
 

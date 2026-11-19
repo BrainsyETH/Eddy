@@ -66,7 +66,7 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
   const stacked = width < 375 || fontScale >= 1.3;
   const now = useObservationClock();
   const display = useMemo(() => damFavoriteDisplay(dam, now), [dam, now]);
-  const { moment, schedule, scheduleCaption, status, scheduleNotice, observedAge } = display;
+  const { moment, schedule, scheduleCaption, status, scheduleNotice, observedAge, scheduleLine, scheduleLineAccent } = display;
   const tomorrow = withTomorrow ? display.tomorrow : null;
   const value = moment.releaseCfs === null ? '—' : Math.round(moment.releaseCfs).toLocaleString();
   const statusColor = moment.current ? colors.interactive : colors.textSubtle;
@@ -77,7 +77,7 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
         `Total release: ${moment.releaseCfs === null ? 'unavailable' : `${value} cubic feet per second`}${moment.releaseDailyMean ? ', daily average' : ''}`,
         observedAge ? `Release observed ${observedAge}` : null,
         status, display.generationAge ? `Generation reading ${display.generationAge}` : null,
-        'At the dam', moment.scheduleSummary, display.scheduleDescription,
+        'At the dam', scheduleLine, display.scheduleDescription,
         tomorrow ? display.tomorrowDescription : null,
       ].filter(Boolean).join('. ')}
       accessibilityHint="Opens dam details and the full schedule"
@@ -119,7 +119,7 @@ export function DamGlance({ dam, onPress, withTomorrow = false }: {
             </View> : null}
           </View>
         </View>
-        <Text style={[t.xs, { color: moment.scheduleCurrent ? colors.textMuted : colors.accent, marginTop: 8 }]}>{moment.scheduleSummary}</Text>
+        <Text style={[t.xs, { color: scheduleLineAccent ? colors.accent : colors.textMuted, marginTop: 8 }]}>{scheduleLine}</Text>
         <View style={styles.footer}>
           <Text style={[t.xs, { color: colors.textSubtle }]}>At the dam</Text>
           <Text style={[t.xs, { color: colors.textSubtle }]}>

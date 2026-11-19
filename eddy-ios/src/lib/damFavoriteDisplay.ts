@@ -1,6 +1,6 @@
 import type { DamSnapshot } from '@eddy/types';
 import { damWidgetSnapshot } from '@eddy/conditions/dam-widget';
-import { nextDayKey, relativeAge, hourEndingLabel } from '@eddy/conditions/dam-schedule-copy';
+import { nextDayKey, relativeAge, hourEndingLabel, retrievalSentence } from '@eddy/conditions/dam-schedule-copy';
 
 type PacketHour = { megawatts: number | null; minimumFlow?: boolean };
 
@@ -80,8 +80,22 @@ export function damFavoriteDisplay(dam: DamSnapshot, now: number) {
   const tomorrowDescription = tomorrow
     ? spokenGeneration(tomorrow, 'Tomorrow')
     : null;
+  // A posted schedule Eddy has not re-checked recently. The packet's summary
+  // for this case is the home-screen widget's prompt ("Open Eddy to check the
+  // latest schedule."), which names the app the reader is already in, so the
+  // card says when Eddy last checked instead. Installed widgets read that
+  // summary from the server; it stays as it is.
+  const scheduleOutdated = !moment.scheduleCurrent && dam.schedule.length > 0;
+  const scheduleLine = scheduleOutdated
+    ? retrievalSentence(
+      moment.scheduleCheckedAt === null ? null : new Date(moment.scheduleCheckedAt).toISOString(), now, 'Schedule',
+    ) ?? 'The schedule may have been revised.'
+    : moment.scheduleSummary;
   return {
     moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge, generationAge, scheduleDescription,
     tomorrow, tomorrowPeak, tomorrowCaption, tomorrowDescription,
+    scheduleLine,
+    // Only "No schedule posted." keeps the accent; an outdated check is muted.
+    scheduleLineAccent: !moment.scheduleCurrent && !scheduleOutdated,
   };
 }
