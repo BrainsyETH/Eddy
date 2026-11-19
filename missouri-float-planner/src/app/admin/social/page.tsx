@@ -358,7 +358,7 @@ export default function SocialAdminPage() {
     dialog.showModal();
     return () => dialog.close();
   }, [reviewOpen]);
-  const damPreview = isDamStory(videoPreviewPost?.render_request);
+  const damPreview = isDamStory(videoPreviewPost?.render_request) ? videoPreviewPost.render_request : null;
   const storyPreview = (damPreview && videoPreviewPost?.platform === 'instagram') || isStoryRender(videoPreviewPost?.render_request);
   const previewSafe = videoSafeInsets(videoPreviewPost?.platform, storyPreview ? 'story' : 'reel');
 
@@ -1007,7 +1007,7 @@ export default function SocialAdminPage() {
                   {destinationLabel(videoPreviewPost.platform, storyPreview ? 'story' : renderPlacement(videoPreviewPost.render_request))}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
-                  {damPreview ? 'Dam schedule' : POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
+                  {damPreview ? damPreview.inputProps?.snapshot?.dam?.name ?? 'Dam update' : POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
                 </span>
               </div>
               <button aria-label="Close review" onClick={() => reviewDialog.current?.close()} className="text-neutral-400 hover:text-white">
@@ -2069,7 +2069,7 @@ export default function SocialAdminPage() {
                         <tbody>
                           {posts.map((post) => {
                             const badge = STATUS_BADGES[post.status] || STATUS_BADGES.pending;
-                            const dam = isDamStory(post.render_request);
+                            const dam = isDamStory(post.render_request) ? post.render_request : null;
                             const reviewable = dam && isOwner && post.video_url && ['review', 'failed'].includes(post.status);
                             return (
                               <tr key={post.id} className="border-b border-neutral-700/50">
@@ -2083,7 +2083,7 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{destinationLabel(post.platform, dam && post.platform === 'instagram' ? 'story' : renderPlacement(post.render_request))}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
-                                  <strong>{dam ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
+                                  <strong>{dam ? dam.inputProps?.snapshot?.dam?.name ?? 'Dam update' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
                                   <span className="block text-xs text-neutral-400">
                                     {post.media_type === 'video' ? 'Video' : isDailyReport(post.render_request) ? `Carousel · ${post.render_request.slides.length}` : 'Image'}
                                     {post.river_slug && ` · ${post.river_slug}`}

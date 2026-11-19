@@ -1,4 +1,4 @@
-import { isDamStory } from '@shared/social-dam-schedule';
+import { isDamStory, storyDam } from '@shared/social-dam-schedule';
 import { withAdminMutation } from '@/lib/admin/mutation-audit';
 
 import { isDailyReport, reportIsCurrent } from '@/lib/social/daily-report';
@@ -9,7 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdminIdentity, requireAdminAuth } from '@/lib/admin-auth';
 import { getAdapter } from '@/lib/social/adapters';
 import { triggerVideoRender, destinationRenderRequest } from '@/lib/social/video-renderer';
-import { loadDamStorySchedule } from '@/lib/social/dam-story';
+import { loadDamPost } from '@/lib/social/dam-story';
 import { savedPostMedia } from '@/lib/social/review';
 import type { SocialPlatform } from '@/lib/social/types';
 import { outcomeFields, providerAttemptRecorder, thrownFields } from '@/lib/social/publish-outcome';
@@ -52,7 +52,7 @@ async function handlePOST(request: NextRequest) {
 
   if (action === 'render') {
     const saved = post.render_request;
-    if (isDamStory(saved)) return NextResponse.json({ error: 'Create a new video to use the latest schedule.' }, { status: 409 });
+    if (isDamStory(saved)) return NextResponse.json({ error: 'Create a new video to use the latest dam data.' }, { status: 409 });
     if (isDailyReport(saved)) {
       if (!reportIsCurrent(saved)) return NextResponse.json({ error: 'This Daily Report is out of date. Generate a new draft with current readings.' }, { status: 409 });
       const report = { ...saved, imageUrls: undefined };
@@ -82,10 +82,9 @@ async function handlePOST(request: NextRequest) {
 
   let media;
   try {
-    const currentSchedule = damRender
-      ? await loadDamStorySchedule(damRender.inputProps?.snapshot?.scheduleDate)
-      : undefined;
-    media = savedPostMedia(post, currentSchedule);
+    const saved = damRender?.inputProps?.snapshot;
+    const current = saved ? await loadDamPost(storyDam(saved).id, saved.kind === 'release' ? undefined : saved.scheduleDate) : undefined;
+    media = savedPostMedia(post, current);
   }
   catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 409 }); }
   const adapter = getAdapter(post.platform as SocialPlatform);

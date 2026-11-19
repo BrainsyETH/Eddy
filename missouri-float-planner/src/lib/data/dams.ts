@@ -531,7 +531,7 @@ async function readMetrics(
   return metrics;
 }
 
-async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay[]> {
+export async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay[]> {
   // Zero days is a caller saying it does not render a schedule at all — see
   // fetchTailwaterDams. Distinct from a dam with no SWPA code, but the answer is
   // the same and the contract is unchanged: an empty schedule renders nothing.
@@ -592,7 +592,7 @@ const FORECAST_OFFICES: Partial<
  * are made with the same floor the observed `generating` chip uses, so the
  * forecast and the observation cannot disagree about what "running" means.
  */
-async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
+export async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
   const series = dam.series.generationForecast;
   const office = dam.office ? FORECAST_OFFICES[dam.office] : undefined;
   if (!series || !office || !dam.office || dam.generationOnCfs === undefined) return undefined;

@@ -14,6 +14,12 @@ export async function checkSocialReview(browser, origin, out) {
     let config = { id: 'fixture', disabled_rivers: [], highlight_conditions: [], river_schedules: {}, media_schedule: {}, video_features: {}, section_guide: { time_cst: '17:00' } };
     const drafts = [];
     const sends = [];
+    const damDrafts = [];
+    const dams = [
+      { id: 'swl-table-rock-dam', name: 'Table Rock Dam', kind: 'schedule' },
+      { id: 'swl-bull-shoals-dam', name: 'Bull Shoals Dam', kind: 'schedule' },
+      { id: 'ameren-bagnell-dam', name: 'Bagnell Dam', kind: 'release' },
+    ];
     let refuse = true;
     try {
       await context.route('**/fixture-video.mp4', route => route.fulfill({ status: 204 }));
@@ -32,6 +38,21 @@ export async function checkSocialReview(browser, origin, out) {
           const post = posts.find(p => p.id === id);
           post.status = id === 'tiktok' ? 'inbox' : 'published';
           return route.fulfill({ json: { success: true, delivery: post.status } });
+        }
+        if (path.endsWith('/dam-schedule')) {
+          const query = new URL(route.request().url()).searchParams;
+          if (query.has('catalog')) return route.fulfill({ json: { dams } });
+          if (route.request().method() === 'POST') {
+            damDrafts.push(route.request().postDataJSON());
+            return route.fulfill({ status: 202, json: { results: [] } });
+          }
+          const dam = dams.find(option => option.id === query.get('damId'));
+          assert.ok(dam);
+          const dates = { today: '2026-11-19', tomorrow: '2026-11-20' };
+          if (query.get('date') === dates.tomorrow) return route.fulfill({ status: 409, json: { ...dates, error: 'The generation schedule for this date has not been posted.' } });
+          const snapshot = { dam, kind: dam.kind, scheduleDate: dates.today, checkedAt: '2026-11-19T15:00:00Z',
+            ...(dam.kind === 'schedule' ? { hours: Array(24).fill(false), minimumFlow: dam.id === 'swl-bull-shoals-dam' } : { releaseCfs: 6500 }) };
+          return route.fulfill({ json: { ...dates, snapshot } });
         }
         if (path.endsWith('/health')) return route.fulfill({ json: { videoPipelineHealthy: true, hoursSinceLastSuccessfulVideo: 1, byPlatform: [], recentFallbackReasons: [] } });
         if (path.endsWith('/config')) {
@@ -92,6 +113,21 @@ export async function checkSocialReview(browser, origin, out) {
 
       await page.getByRole('button', { name: 'Post History', exact: true }).click();
       await page.getByRole('button', { name: 'Quick Post', exact: true }).click();
+      const damSection = page.getByRole('region', { name: 'Dam generation video' });
+      const picker = damSection.getByRole('combobox', { name: 'Dam', exact: true });
+      const create = damSection.getByRole('button', { name: 'Create video' });
+      await picker.selectOption('swl-bull-shoals-dam');
+      await damSection.getByText('Only minimum flow scheduled').waitFor();
+      await damSection.getByLabel('Schedule date (Central)').selectOption('2026-11-20');
+      await damSection.getByText(/has not been posted/).waitFor();
+      assert.equal(await create.isDisabled(), true);
+      await picker.selectOption('ameren-bagnell-dam');
+      await damSection.getByText('Measured release: 6,500 cfs').waitFor();
+      assert.equal(await damSection.getByRole('combobox').count(), 1);
+      await create.click();
+      await damSection.getByText(/Making your video/).waitFor();
+      assert.deepEqual(damDrafts.at(-1), { damId: 'ameren-bagnell-dam', platforms: ['instagram', 'tiktok'] });
+
       await page.getByLabel('Post Type').selectOption('section_guide');
       const quick = page.getByRole('group', { name: 'Float Pick placement' });
       assert.equal(await quick.getByLabel('Instagram').inputValue(), 'story');
