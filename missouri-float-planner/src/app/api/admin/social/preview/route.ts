@@ -23,8 +23,10 @@ export async function GET(request: NextRequest) {
     const { data: custom } = await supabase.from('social_custom_content').select('*').eq('active', true);
     const contexts = new Map<string, Awaited<ReturnType<typeof buildPostContext>>>();
     const posts = [];
-    for (const post of result.posts) {
-      if (post.postType === 'section_guide' || !(post.postType in POST_TYPES)) { posts.push(post); continue; }
+    for (const { renderData, ...post } of result.posts) {
+      // A post that carries render data already has the caption that matches
+      // its video; rebuilding could pick a different float.
+      if (renderData || !(post.postType in POST_TYPES)) { posts.push(post); continue; }
       const key = `${post.postType}:${post.riverSlug ?? ''}`;
       if (!contexts.has(key)) contexts.set(key, await buildPostContext(supabase, { postType: post.postType as PostKind, riverSlug: post.riverSlug ?? undefined }));
       const ctx = contexts.get(key);

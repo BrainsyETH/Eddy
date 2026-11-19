@@ -8,8 +8,8 @@ import DamVideoDownload from '@/components/admin/social/DamVideoDownload';
 import { isDamStory } from '@shared/social-dam-schedule';
 import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
-import { FloatPickPlacementFields } from '@/components/admin/social/FloatPickPlacementFields';
-import { destinationLabel, isFloatPickStory, type FloatPickPlacements } from '@/lib/social/float-pick-placements';
+import { PlacementFields } from '@/components/admin/social/PlacementFields';
+import { destinationLabel, isStoryRender, renderPlacement, type PlacementChoices } from '@/lib/social/placements';
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
 import { videoSafeInsets } from '@shared/social-brand';
 import styles from './review.module.css';
@@ -105,14 +105,14 @@ interface SocialConfig {
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
-  section_guide: WeeklyReelConfig & { placements?: FloatPickPlacements };
+  section_guide: WeeklyReelConfig & { placements?: PlacementChoices };
   weekly_trend: WeeklyReelConfig;
 }
 
 const MEDIA_DAYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 interface PreviewPost {
-  placement?: string;
+  placement?: 'reel' | 'story';
   postType: string;
   platform: string;
   riverSlug: string | null;
@@ -335,7 +335,7 @@ export default function SocialAdminPage() {
   >('digest');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
-  const [quickPlacements, setQuickPlacements] = useState<FloatPickPlacements>();
+  const [quickPlacements, setQuickPlacements] = useState<PlacementChoices>();
   const [quickPosting, setQuickPosting] = useState(false);
 
   // Preview modal state
@@ -359,7 +359,7 @@ export default function SocialAdminPage() {
     return () => dialog.close();
   }, [reviewOpen]);
   const damPreview = isDamStory(videoPreviewPost?.render_request);
-  const storyPreview = (damPreview && videoPreviewPost?.platform === 'instagram') || isFloatPickStory(videoPreviewPost?.render_request);
+  const storyPreview = (damPreview && videoPreviewPost?.platform === 'instagram') || isStoryRender(videoPreviewPost?.render_request);
   const previewSafe = videoSafeInsets(videoPreviewPost?.platform, storyPreview ? 'story' : 'reel');
 
   // TikTok connection status
@@ -951,7 +951,7 @@ export default function SocialAdminPage() {
                       <div key={i} className="bg-neutral-700/50 rounded-lg p-4 border border-neutral-600">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
-                            {destinationLabel(post.platform, post.placement === 'story', post.postType === 'section_guide')}
+                            {destinationLabel(post.platform, post.placement)}
                           </span>
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
                             {post.postType === 'daily_digest' ? 'Daily Report' : POST_TYPE_LABELS[post.postType] ?? post.postType}
@@ -1004,7 +1004,7 @@ export default function SocialAdminPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 id="social-review-title" className="text-lg font-semibold text-white">Review Post</h3>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
-                  {destinationLabel(videoPreviewPost.platform, storyPreview, videoPreviewPost.post_type === 'section_guide')}
+                  {destinationLabel(videoPreviewPost.platform, storyPreview ? 'story' : renderPlacement(videoPreviewPost.render_request))}
                 </span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase">
                   {damPreview ? 'Dam schedule' : POST_TYPE_LABELS[videoPreviewPost.post_type] ?? videoPreviewPost.post_type}
@@ -1040,7 +1040,7 @@ export default function SocialAdminPage() {
                   videoUrl={videoPreviewPost.video_url}
                   directPost={tiktokStatus?.directPost}
                   gridNeighbors={posts
-                    .filter(p => p.platform === 'instagram' && !isFloatPickStory(p.render_request) && !isDamStory(p.render_request) && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
+                    .filter(p => p.platform === 'instagram' && !isStoryRender(p.render_request) && !isDamStory(p.render_request) && p.id !== videoPreviewPost.id && p.status !== 'failed' && p.image_url && p.created_at < videoPreviewPost.created_at)
                     .sort((a, b) => b.created_at.localeCompare(a.created_at))
                     .map(p => p.image_url as string)}
                 />}
@@ -1202,7 +1202,7 @@ export default function SocialAdminPage() {
               )}
             </div>
 
-            {quickPostType === 'section_guide' && <FloatPickPlacementFields
+            {quickPostType === 'section_guide' && <PlacementFields formatLabel="Float Pick"
               platforms={quickPostPlatforms} value={quickPlacements ?? config?.section_guide?.placements}
               onChange={setQuickPlacements} />}
 
@@ -1704,7 +1704,7 @@ export default function SocialAdminPage() {
                     </table>
                   </div>
                   <div className="mt-4">
-                    <FloatPickPlacementFields value={config.section_guide?.placements}
+                    <PlacementFields formatLabel="Float Pick" value={config.section_guide?.placements}
                       onChange={placements => setConfig({ ...config, section_guide: { ...config.section_guide, placements } })} />
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">
@@ -2081,7 +2081,7 @@ export default function SocialAdminPage() {
                                     minute: '2-digit',
                                   })}
                                 </td>
-                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{destinationLabel(post.platform, (dam && post.platform === 'instagram') || isFloatPickStory(post.render_request), post.post_type === 'section_guide')}</td>
+                                <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{destinationLabel(post.platform, dam && post.platform === 'instagram' ? 'story' : renderPlacement(post.render_request))}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
                                   <strong>{dam ? 'Dam schedule' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
                                   <span className="block text-xs text-neutral-400">
@@ -2103,7 +2103,7 @@ export default function SocialAdminPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-400">
-                                  <span className="line-clamp-2 [overflow-wrap:anywhere]">{isFloatPickStory(post.render_request) ? '—' : post.caption}</span>
+                                  <span className="line-clamp-2 [overflow-wrap:anywhere]">{isStoryRender(post.render_request) ? '—' : post.caption}</span>
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap items-center gap-2">

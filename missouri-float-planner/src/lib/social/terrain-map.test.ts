@@ -102,7 +102,7 @@ test('Float Picks dispatch destination props and filenames; legacy retries adopt
   const before = process.env.GH_ACTIONS_TOKEN;
   process.env.GH_ACTIONS_TOKEN = 'test-github-token';
   t.after(() => { if (before === undefined) delete process.env.GH_ACTIONS_TOKEN; else process.env.GH_ACTIONS_TOKEN = before; });
-  const { destinationRenderRequest, getCompositionForPost, videoRenderGroup, triggerVideoRender } = await import('./video-renderer');
+  const { destinationRenderRequest, getCompositionForPost, triggerVideoRender } = await import('./video-renderer');
   const requests: Array<{ inputs: { post_ids: string; input_props: string; output_filename: string } }> = [];
   t.mock.method(globalThis, 'fetch', async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
     requests.push(JSON.parse(String(init?.body)));
@@ -110,7 +110,6 @@ test('Float Picks dispatch destination props and filenames; legacy retries adopt
   });
   const legacy = getCompositionForPost('section_guide', { riverName: 'Current River', distanceMi: 7.6 });
   const filenames = new Set<string>();
-  const groups = new Set<string>();
   for (const platform of ['instagram', 'facebook', 'tiktok'] as const) {
     const render = destinationRenderRequest(legacy, platform);
     assert.equal(render.inputProps.platform, platform);
@@ -118,11 +117,9 @@ test('Float Picks dispatch destination props and filenames; legacy retries adopt
     assert.deepEqual(destinationRenderRequest(render, platform), render, 'retry suffix stays idempotent');
     assert.equal(legacy.inputProps.platform, undefined, 'saved/shared source is not mutated');
     filenames.add(render.outputFilename);
-    groups.add(videoRenderGroup('section_guide', 'current', platform));
     await triggerVideoRender({ ...render, postIds: platform + '-id' });
   }
   assert.equal(filenames.size, 3);
-  assert.equal(groups.size, 3);
   for (const request of requests) {
     const props = JSON.parse(request.inputs.input_props);
     assert.equal(request.inputs.post_ids, props.platform + '-id');
@@ -130,5 +127,6 @@ test('Float Picks dispatch destination props and filenames; legacy retries adopt
   }
   const digest = getCompositionForPost('weekly_forecast', {});
   assert.deepEqual(destinationRenderRequest(digest, 'facebook'), digest);
-  assert.equal(videoRenderGroup('weekly_forecast', null, 'facebook'), videoRenderGroup('weekly_forecast', null, 'instagram'));
+  // Shared formats render once: every platform gets the same filename, which is the dispatch group key.
+  assert.equal(getCompositionForPost('weekly_forecast', {}, 'facebook').outputFilename, getCompositionForPost('weekly_forecast', {}, 'instagram').outputFilename);
 });

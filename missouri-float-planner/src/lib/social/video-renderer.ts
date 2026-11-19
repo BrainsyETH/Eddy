@@ -30,11 +30,7 @@ interface TriggerRenderParams {
 
 type RenderRequest = Omit<TriggerRenderParams, 'postIds'>;
 
-/** Keep each destination's Float Pick and callback IDs together. */
-export function videoRenderGroup(postType: string, riverSlug: string | null | undefined, platform: SocialPlatform): string {
-  return `${postType}:${riverSlug || 'global'}${postType === 'section_guide' ? `:${platform}` : ''}`;
-}
-
+/** Lay a per-destination composition out for one platform and placement. Shared compositions pass through. */
 export function destinationRenderRequest(render: RenderRequest, platform?: SocialPlatform, requestedPlacement?: SocialVideoPlacement): RenderRequest {
   if (render.compositionId !== 'social-route-portrait' || !platform) return render;
   const placement = requestedPlacement ?? (render.inputProps.placement === 'story' ? 'story' : 'reel');

@@ -6,7 +6,7 @@ import { withAdminMutation } from '@/lib/admin/mutation-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
-import { validFloatPickPlacements } from '@/lib/social/float-pick-placements';
+import { validPlacementChoices } from '@/lib/social/placements';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
 import { dailyReportAutoPublishEnabled } from '@/lib/social/daily-report';
 
@@ -98,7 +98,7 @@ async function handleSave(request: NextRequest) {
   if (authError) return authError;
 
   const body = await request.json();
-  if (body.section_guide?.placements !== undefined && !validFloatPickPlacements(body.section_guide.placements)) {
+  if (body.section_guide?.placements !== undefined && !validPlacementChoices(body.section_guide.placements)) {
     return NextResponse.json({ error: 'Invalid Float Pick placements' }, { status: 400 });
   }
   const supabase = createAdminClient();

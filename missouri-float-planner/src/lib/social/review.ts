@@ -1,5 +1,5 @@
 import { DAILY_REPORT_KIND, isDailyReport, reportImageUrls, reportIsCurrent } from './daily-report';
-import { isFloatPickStory } from './float-pick-placements';
+import { isStoryRender } from './placements';
 import type { PublishParams } from './types';
 import { isDamStory, type DamStorySnapshot } from '../../../shared/social-dam-schedule';
 
@@ -49,7 +49,7 @@ export function savedPostMedia(post: {
   }
   if (post.media_type === 'video') {
     if (!post.video_url) throw new Error('No rendered video. Render again before publishing.');
-    if (isFloatPickStory(post.render_request)) {
+    if (isStoryRender(post.render_request)) {
       return { caption: '', mediaType: 'video', videoUrl: post.video_url, placement: 'story' };
     }
     return { caption: post.caption, mediaType: 'video', videoUrl: post.video_url, coverUrl: post.image_url ?? undefined };

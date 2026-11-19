@@ -12,10 +12,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
 import { dispatchVideos } from '@/lib/social/dispatch-videos';
-import { floatPickDestinations, validFloatPickPlacements, type FloatPickPlacements } from '@/lib/social/float-pick-placements';
+import { expandDestinations, savedPlacementChoices, validPlacementChoices, type PlacementChoices } from '@/lib/social/placements';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
 import { buildPostContext } from '@/lib/social/post-context';
-import type { PostKind } from '@/lib/social/post-types';
+import { supportsStory, type PostKind } from '@/lib/social/post-types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -55,8 +55,8 @@ async function handlePOST(request: NextRequest) {
     return NextResponse.json({ error: 'At least one platform is required' }, { status: 400 });
   }
 
-  if (body.placements !== undefined && (type !== 'section_guide' || !validFloatPickPlacements(body.placements))) {
-    return NextResponse.json({ error: 'Invalid Float Pick placements' }, { status: 400 });
+  if (body.placements !== undefined && (!supportsStory(type) || !validPlacementChoices(body.placements))) {
+    return NextResponse.json({ error: 'Invalid placements for this format' }, { status: 400 });
   }
   const supabase = createAdminClient();
 
@@ -96,14 +96,15 @@ async function handlePOST(request: NextRequest) {
       return NextResponse.json({ ...result, reviewRequired: true }, { status: result.rendering ? 200 : 502 });
     }
 
-    let placements: FloatPickPlacements | undefined = body.placements;
-    if (kind === 'section_guide' && placements === undefined) {
+    // A one-off override wins; otherwise the format's saved placements apply.
+    const storyLayout = supportsStory(kind);
+    let placements: PlacementChoices | undefined = body.placements;
+    if (storyLayout && placements === undefined) {
       const config = await getOrCreateConfig(supabase);
-      if (!config.data) throw new Error(config.error ?? 'Could not load Float Pick placements');
-      placements = config.data.section_guide.placements;
+      if (!config.data) throw new Error(config.error ?? 'Could not load saved placements');
+      placements = savedPlacementChoices(config.data, kind);
     }
-    const destinations = kind === 'section_guide' ? floatPickDestinations(validPlatforms, placements) :
-      [...new Set(validPlatforms)].map(platform => ({ platform }));
+    const destinations = expandDestinations(validPlatforms, placements, storyLayout);
     const posts = destinations.map(destination => ({
       ...destination, ...ctx.caption(destination.platform, customContent),
       riverSlug: ctx.riverSlug, imageUrl: ctx.imageUrl(destination.platform),

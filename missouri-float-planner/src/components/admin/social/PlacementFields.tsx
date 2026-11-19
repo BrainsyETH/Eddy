@@ -1,15 +1,17 @@
-import { META_PLATFORMS, type FloatPickChoice, type FloatPickPlacements } from '@/lib/social/float-pick-placements';
+import { STORY_PLATFORMS, type PlacementChoice, type PlacementChoices } from '@/lib/social/placements';
 
-export function FloatPickPlacementFields({ value = {}, onChange, platforms = META_PLATFORMS }: {
-  value?: FloatPickPlacements;
-  onChange: (value: FloatPickPlacements) => void;
+/** Reel/Story choice per Story-capable platform, for any format with per-destination layouts. */
+export function PlacementFields({ formatLabel, value = {}, onChange, platforms = STORY_PLATFORMS }: {
+  formatLabel: string;
+  value?: PlacementChoices;
+  onChange: (value: PlacementChoices) => void;
   platforms?: readonly string[];
 }) {
-  const selected = META_PLATFORMS.filter(platform => platforms.includes(platform));
+  const selected = STORY_PLATFORMS.filter(platform => platforms.includes(platform));
   if (!selected.length) return null;
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium text-white">Float Pick placement</legend>
+      <legend className="mb-2 text-sm font-medium text-white">{formatLabel} placement</legend>
       <div className="flex flex-wrap gap-3">
         {selected.map(platform => {
           const regular = platform === 'instagram' ? 'Reel' : 'Page video';
@@ -17,7 +19,7 @@ export function FloatPickPlacementFields({ value = {}, onChange, platforms = MET
             <label key={platform} className="grid gap-1 text-xs text-neutral-300">
               {platform === 'instagram' ? 'Instagram' : 'Facebook'}
               <select value={value[platform] ?? 'regular'}
-                onChange={event => onChange({ ...value, [platform]: event.target.value as FloatPickChoice })}
+                onChange={event => onChange({ ...value, [platform]: event.target.value as PlacementChoice })}
                 className="min-h-10 rounded-md border border-neutral-600 bg-neutral-900 px-2 text-sm text-white">
                 <option value="regular">{regular} only</option>
                 <option value="story">Story only</option>

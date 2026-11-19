@@ -2,7 +2,8 @@
 // Shared types for social media posting system
 
 import type { SocialVideoPlacement } from '../../../shared/social-brand';
-import type { FloatPickPlacements } from './float-pick-placements';
+import type { PlacementChoices } from './placements';
+import type { RenderData } from './post-types';
 
 export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok';
 export type PostType =
@@ -104,7 +105,7 @@ export interface SocialConfig {
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
-  section_guide: WeeklyReelConfig & { placements?: FloatPickPlacements };
+  section_guide: WeeklyReelConfig & { placements?: PlacementChoices };
   weekly_trend: WeeklyReelConfig;
   updated_at: string;
 }
@@ -226,6 +227,8 @@ export interface WeeklyReview {
 // What the scheduler produces for the cron to process
 export interface ScheduledPost {
   placement?: SocialVideoPlacement;
+  /** Render data already chosen with the caption, so the video shows the same thing. */
+  renderData?: RenderData;
   postType: PostType;
   platform: SocialPlatform;
   riverSlug: string | null;

@@ -295,7 +295,13 @@ All destinations use the same route selection and Eddy’s “Ed-dy Dot Guide”
 Each placement renders within its own safe area and has a separate Post History
 row, approval and retry. A failed Story stays a video for that destination.
 The terrain snapshot is shared within a batch. Rerenders use the saved route
-and placement. Instagram publishes Stories with a STORIES container; Facebook
+and placement. Placement is offered for formats whose composition lays out
+per destination (`destinationLayout` in `post-types.ts`); other formats render
+once and share that file across platforms. Every video, scheduled or manual,
+is saved and dispatched through `dispatchVideos`. If a scheduled render cannot
+start, shared formats publish their cover image instead; Float Picks stay in
+Post History for Render again. The scheduler allows one post per format per
+Central-time day. Instagram publishes Stories with a STORIES container; Facebook
 uses the Page video_stories upload and finish flow. The manual Remotion
 `social-route-{instagram|facebook|tiktok}-{reel|story}` presets remain available.
 
