@@ -2542,9 +2542,16 @@ expressions over `['zoom']`, evaluated at the tile's whole zoom, so a pinch
 regroups at the same moment native counts do and never waits on JavaScript;
 a pan never regroups. Regrouping runs only when the places change (layers,
 plan endpoints, selection, national-tier refill), with the selection and the
-national tier deferred so a tap renders first. The counts below
-`ZOOM.cluster` use the same 56pt radius, so crossing that rung is an ordinary
-level change. Tapping a
+national tier deferred so a tap renders first. The national tier is deferred
+as one snapshot: its source, the stacks and the tap lookup all read it, so a
+badge never counts a gauge a refill has removed. The statewide index below
+`ZOOM.cluster` uses the same 56pt radius, so for Eddy's own layers crossing
+that rung is an ordinary level change. "Other USGS gauges" is the exception:
+below the rung it keeps its own parchment counts at a 50pt radius, separate
+from every Eddy count, and from the rung up its stations join the cross-layer
+stacks. With that layer on, zooming in across zoom 8 can merge a station and
+a nearby place into one badge that no count below the rung held together.
+Tapping a
 stack below zoom 13 eases in to the zoom where it splits, capped at 15, when
 that is more than half a level away; otherwise it opens "N places here" in the
 places sheet. Cluster taps ask the owning source for its expansion zoom,

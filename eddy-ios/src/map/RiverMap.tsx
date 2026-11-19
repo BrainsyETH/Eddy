@@ -1435,9 +1435,21 @@ export function RiverMap({
    * reach it deferred (useDeferredValue), so a tap or a camera stop renders
    * first and the regroup follows; meanwhile the selected place is drawn on
    * top by its own source, so a stale stack under it does not show.
+   *
+   * ── ONE SNAPSHOT OF THE NATIONAL TIER ──────────────────────────────────
+   *
+   * The deferred tier is not only what the stacks group: it is what the
+   * reference source draws and what a tap looks up (referenceShape, byId).
+   * The stacks once grouped the deferred list while the source and the tap
+   * lookup read the current one, so a chip filter or a viewport refill could
+   * drop a gauge while the badge counting it was still on screen — a badge
+   * reading 2 opened a chooser listing 1. Every reader takes the same
+   * snapshot now; the tier as a whole trails a refill by one deferred render,
+   * which nobody can see. The selection needs no such care: the place it
+   * names stays in byId, so a stack still counting it lists it.
    */
   const stackSelectedId = useDeferredValue(selectedPinId);
-  const stackReferenceGauges = useDeferredValue(referenceGauges);
+  const drawnReferenceGauges = useDeferredValue(referenceGauges);
   const stackLevelList = useMemo<{ levels: StackLevel[]; sourceOf: Map<string, PinLayerKey> }>(() => {
     // Every clustered source breaks at ZOOM.cluster (see NATIVE_CLUSTER_MAX_ZOOM),
     // so from that level up every layer's marks are individual and all of them
@@ -1461,13 +1473,13 @@ export function RiverMap({
     add(outfitterPins, 'outfitters');
     add(lodgingPins, 'lodging');
     add(gaugePins, 'gauges');
-    add(stackReferenceGauges, 'allGauges');
+    add(drawnReferenceGauges, 'allGauges');
     add(dams, 'dams');
     add(hazardPins, 'hazards');
     return { levels: stackLevels(candidates, ZOOM.cluster), sourceOf };
   }, [
     layers, stackSelectedId, endpointIds, accessPins, campgroundPins,
-    boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, stackReferenceGauges, dams, hazardPins,
+    boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, drawnReferenceGauges, dams, hazardPins,
   ]);
   // A stack's ID names its members, so the same group at two levels is the
   // same stack (same members, same centre, same split zoom). A tap reads the
@@ -1479,18 +1491,33 @@ export function RiverMap({
   // PRIMITIVE KEYS, so a regroup that changes nothing re-uploads nothing.
   // The memo above returns new arrays whenever its inputs change; these
   // strings only change when a stack forms, splits or moves at some level.
-  const referenceIds = useMemo(() => new Set((stackReferenceGauges ?? []).map((pin) => pin.id)), [stackReferenceGauges]);
-  const stackFeaturesKey = JSON.stringify(stackLevelList.levels.map(({ level, stacks }) => [level, stacks.map((stack) => [
-    stack.id, stack.ids.length, stack.lng, stack.lat,
-    stack.ids.every((member) => referenceIds.has(member)) ? 'usgs' : 'place',
-  ])]));
+  // Built in memos of their own: they walk every member at every level, and
+  // as plain expressions they did that on every render — a sheet drag, a
+  // camera stop, the first render of a tap whose regroup is deferred.
+  const referenceIds = useMemo(() => new Set((drawnReferenceGauges ?? []).map((pin) => pin.id)), [drawnReferenceGauges]);
+  const stackFeaturesKey = useMemo(
+    () => JSON.stringify(stackLevelList.levels.map(({ level, stacks }) => [level, stacks.map((stack) => [
+      stack.id, stack.ids.length, stack.lng, stack.lat,
+      stack.ids.every((member) => referenceIds.has(member)) ? 'usgs' : 'place',
+    ])])),
+    [stackLevelList, referenceIds],
+  );
   /** Per pin source: [level, sorted member IDs hidden at that level][]. */
-  const stackedKey = JSON.stringify(Object.fromEntries(
-    PIN_LAYER_KEYS.map((source) => [source, stackLevelList.levels.map(({ level, stacks }) => [
-      level,
-      stacks.flatMap((stack) => stack.ids).filter((id) => stackLevelList.sourceOf.get(id) === source).sort(),
-    ])]),
-  ));
+  const stackedKey = useMemo(() => {
+    const bySource = Object.fromEntries(PIN_LAYER_KEYS.map((source) => [source, [] as [number, string[]][]]));
+    for (const { level, stacks } of stackLevelList.levels) {
+      // One pass over the level's members, each to the source that draws it.
+      const members = Object.fromEntries(PIN_LAYER_KEYS.map((source) => [source, [] as string[]]));
+      for (const stack of stacks) {
+        for (const id of stack.ids) {
+          const source = stackLevelList.sourceOf.get(id);
+          if (source) members[source].push(id);
+        }
+      }
+      for (const source of PIN_LAYER_KEYS) bySource[source].push([level, members[source].sort()]);
+    }
+    return JSON.stringify(bySource);
+  }, [stackLevelList]);
   /**
    * ── STACKED MEMBERS ARE HIDDEN BY A FILTER, NOT BY THE DATA ─────────────
    *
@@ -1624,8 +1651,8 @@ export function RiverMap({
   // reference gauges per sheet settle. Same argument, and same fix, as every
   // memo above it.
   const referenceShape = useMemo(
-    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges')),
-    [referenceGauges],
+    () => featureCollection(drawnReferenceGauges ?? [], layerColorFor('allGauges')),
+    [drawnReferenceGauges],
   );
 
   /**
@@ -1737,13 +1764,14 @@ export function RiverMap({
     // so onContextPress looked up an id that could never be found, and every
     // tap on a reference gauge silently did nothing. The layer drew fine, which
     // is what made it read as "these just are not clickable".
-    for (const pin of referenceGauges ?? []) map.set(pin.id, pin);
+    // The drawn snapshot, the one the stacks group: see ONE SNAPSHOT.
+    for (const pin of drawnReferenceGauges ?? []) map.set(pin.id, pin);
     // Dams too, for the identical reason — they are built by the screen and
     // would otherwise draw fine and be untappable.
     for (const pin of dams ?? []) map.set(pin.id, pin);
     for (const { pin } of endpointPins) map.set(pin.id, pin);
     return map;
-  }, [pins, referenceGauges, dams, endpointPins]);
+  }, [pins, drawnReferenceGauges, dams, endpointPins]);
 
   const endpointFeatures = useMemo(() => ({
     type: 'FeatureCollection' as const,
@@ -2489,6 +2517,10 @@ export function RiverMap({
         shape={layerOn('allGauges') ? referenceShape : EMPTY_COLLECTION}
         ref={clusterSourceRefs['pins-allGauges']}
         cluster
+        // 50, not STACK_RADIUS: these counts are their own population, never
+        // mixed with Eddy's, so no stack rule continues from them. From
+        // ZOOM.cluster up the stations join the cross-layer stacks, where one
+        // can share a badge with a place for the first time.
         clusterRadius={50}
         // Breaks at ZOOM.cluster, like every other clustered layer. It was 11 —
         // three rungs later than the access points beside it — so panning in
@@ -2585,7 +2617,11 @@ export function RiverMap({
       // zoom. It was 46, and the counts then changed rule at the very rung
       // where they hand over to the stacks: a pinch across z8 broke one set of
       // groups into a differently-sized set, on top of the regroup every whole
-      // level brings. One radius makes that crossing an ordinary level change.
+      // level brings. One radius makes that crossing an ordinary level change
+      // for every Eddy layer. The national tier (contextGaugeLayer) keeps its
+      // own 50pt counts below the rung and joins the stacks above it, so a
+      // station and a place can first share a badge at z8 — see the README's
+      // map interaction contract.
       clusterRadius={STACK_RADIUS}
       clusterMaxZoomLevel={NATIVE_CLUSTER_MAX_ZOOM}
     >

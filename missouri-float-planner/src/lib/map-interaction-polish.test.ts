@@ -394,7 +394,7 @@ test('stacks are grouped ahead for every whole zoom from the cluster rung, over 
     campgroundPins: [at('access:2', 'campgrounds', base + near)],
     boatRampPins: [], springPins: [], outfitterPins: [], lodgingPins: [],
     gaugePins: [at('gauge:3', 'gauges', base + 2 * near)],
-    stackReferenceGauges: [], dams: [], hazardPins: [],
+    drawnReferenceGauges: [], dams: [], hazardPins: [],
     ...overrides,
   });
   type Result = { levels: Array<{ level: number; stacks: Array<{ ids: string[] }> }>; sourceOf: Map<string, string> };
@@ -439,7 +439,45 @@ test('stacks are grouped ahead for every whole zoom from the cluster rung, over 
   // The selection and the national tier arrive deferred, so a tap or a camera
   // stop renders before the regroup it causes.
   assert.match(mapText, /const stackSelectedId = useDeferredValue\(selectedPinId\);/);
-  assert.match(mapText, /const stackReferenceGauges = useDeferredValue\(referenceGauges\);/);
+  assert.match(mapText, /const drawnReferenceGauges = useDeferredValue\(referenceGauges\);/);
+});
+
+test('a stack tapped during a national-tier refill opens every place its badge counts', () => {
+  // The refill has landed in props (two gauges -> one) but the deferred render
+  // that regroups has not run. The badge, the source and the tap lookup must
+  // all still be reading the same snapshot, or a badge reading 2 opens 1.
+  const gauge = (id: string, lng: number) => ({ id, name: id, layer: 'allGauges', coordinates: { lng, lat: 37.153 } });
+  const drawn = [gauge('usgs:1', -91.4430), gauge('usgs:2', -91.4430 + lngApart(20, 14))];
+  const context = {
+    ZOOM, stackLevels, layers: ['allGauges'], stackSelectedId: null, endpointIds: new Set<string>(),
+    accessPins: [], campgroundPins: [], boatRampPins: [], springPins: [], outfitterPins: [], lodgingPins: [],
+    gaugePins: [], hazardPins: [], dams: [], pins: {}, endpointPins: [],
+    referenceGauges: [drawn[0]], drawnReferenceGauges: drawn,
+  };
+  const stackLevelList = handler('stackLevelList', context)();
+  const stacksById = handler('stacksById', { stackLevelList })() as Map<string, { id: string; ids: string[] }>;
+  const byId = handler('byId', context)() as Map<string, unknown>;
+  const stack = [...stacksById.values()].find((candidate) => candidate.ids.length === 2);
+  assert.ok(stack, 'the two stations stack at 14');
+
+  const s = scene({ zoom: 14 });
+  const choices: string[][] = [];
+  const select = handler('selectPinHits', {
+    ...s.context, byId, stacksById,
+    setStackChoice: (members: Array<{ id: string }>) => choices.push(members.map((pin) => pin.id)),
+  });
+  assert.equal(select([{ properties: { id: stack.id } }], undefined), true);
+  assert.deepEqual(choices, [['usgs:1', 'usgs:2']], 'the chooser lists every place the badge counts');
+
+  // Structurally: inside the component the current prop is read once, by the
+  // deferral, and every reader takes the snapshot.
+  const body = mapText.slice(mapText.indexOf('const stackSelectedId = useDeferredValue'));
+  assert.equal((body.match(/\breferenceGauges\b/g) ?? []).length, 1, 'only useDeferredValue reads the current tier');
+  for (const reader of ['const referenceShape = useMemo', 'const byId = useMemo', 'const stackLevelList = useMemo', 'const referenceIds = useMemo']) {
+    const at = mapText.indexOf(reader);
+    const statement = mapText.slice(at, mapText.indexOf('\n  const ', at + 1));
+    assert.match(statement, /drawnReferenceGauges/, `${reader} reads the drawn snapshot`);
+  }
 });
 
 test('stackLevels matches grouping each level on its own, and stops only where nothing can change', () => {
@@ -538,8 +576,26 @@ test('stacked members are hidden by a layer filter, so a regroup re-uploads no p
   assert.doesNotMatch(shapes, /stackedKey|stackFilters|stackLevelList|stacks\b/, 'no pin shape may depend on the stacks');
 
   // The filters are memoised on primitive keys, so a render that regroups
-  // nothing hands every layer the same object.
+  // nothing hands every layer the same object — and the keys are memoised on
+  // the grouping, so a render that regroups nothing does not rebuild them.
   assert.match(mapText, /const stackFilters = useMemo\([\s\S]*?\}, \[stackedKey, selectedPinId\]\);/);
+  assert.match(mapText, /const stackFeaturesKey = useMemo\([\s\S]*?\[stackLevelList, referenceIds\],\s*\);/);
+  assert.match(mapText, /const stackedKey = useMemo\([\s\S]*?\}, \[stackLevelList\]\);/);
+  const stackedKey = handler('stackedKey', {
+    PIN_LAYER_KEYS: ['access', 'campgrounds', 'allGauges'],
+    stackLevelList: {
+      levels: [
+        { level: 8, stacks: [{ ids: ['access:2', 'access:1', 'usgs:1'] }, { ids: ['access:3', 'access:4'] }] },
+        { level: 9, stacks: [{ ids: ['access:1', 'access:2'] }] },
+      ],
+      sourceOf: new Map([['access:1', 'access'], ['access:2', 'campgrounds'], ['access:3', 'access'], ['access:4', 'access'], ['usgs:1', 'allGauges']]),
+    },
+  })() as string;
+  assert.deepEqual(JSON.parse(stackedKey), {
+    access: [[8, ['access:1', 'access:3', 'access:4']], [9, ['access:1']]],
+    campgrounds: [[8, ['access:2']], [9, ['access:2']]],
+    allGauges: [[8, ['usgs:1']], [9, []]],
+  }, 'each level\'s members, partitioned to the source that draws them, sorted');
 
   // Applied to every layer a stacked member could draw on, hazards included.
   const pinLayerBody = mapText.slice(mapText.indexOf('const pinLayer = ('), mapText.indexOf('const contextGaugeLayer = () =>'));
