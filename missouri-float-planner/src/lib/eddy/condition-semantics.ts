@@ -141,6 +141,5 @@ export function buildSecondaryGaugeSemantics(
   return [
     ...riverWide,
     riverCtx.characteristics?.riverNote,
-    riverCtx.characteristics?.rainLagNote,
   ].filter(Boolean).join('\n');
 }

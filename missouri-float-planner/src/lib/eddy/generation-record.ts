@@ -23,7 +23,6 @@ import type { NWSAlert } from '@/lib/nws/alerts';
 import type { WeatherData, ForecastData, PrecipitationSummary } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
 import type { GaugeTrajectory } from './gauge-trajectory';
-import type { RainLagInfo } from './rain-lag';
 import type { ParsedEddyResponse } from './parse-response';
 import type { ReportFacts, ReportFallbackReason } from './report-facts';
 
@@ -82,7 +81,8 @@ export interface GenerationCapture {
   forecast: ForecastData | null;
   precipitation: PrecipitationSummary | null;
   trajectory: GaugeTrajectory | null;
-  rainLag: RainLagInfo | null;
+  /** The river's recovery (drop rate) note as handed to the prompt. */
+  recoveryNote: string | null;
   /** The knowledge text injected into the prompt, or null if not loaded. */
   localKnowledge: string | null;
   systemPrompt: string;
@@ -192,7 +192,7 @@ function captureInputs(c: GenerationCapture): Record<string, unknown> {
     forecast: c.forecast,
     precipitation: c.precipitation,
     trajectory: c.trajectory,
-    rainLag: c.rainLag,
+    recoveryNote: c.recoveryNote,
   };
 }
 

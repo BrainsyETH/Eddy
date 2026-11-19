@@ -2,7 +2,7 @@
 // Per-river region/hydrology context loaded from the database.
 //
 // This replaces the hardcoded Missouri maps that used to live in code
-// (RIVER_CITY_MAP, RIVER_SEARCH_TERMS, RIVER_NOTES, RAIN_LAG) and carries the
+// (RIVER_CITY_MAP, RIVER_SEARCH_TERMS, RIVER_NOTES) and carries the
 // multi-region fields added in migration 00145 (state, timezone, river_type,
 // park_code). Reads are served from a short in-memory cache because callers
 // (chat requests, cron update generation) hit the same rows repeatedly.
@@ -23,8 +23,6 @@ export interface RiverCharacteristics {
   primaryHazards: string[];
   lowWaterMeaning: string | null;
   risingWaterHazards: string | null;
-  rainLagHours: number | null;
-  rainLagNote: string | null;
   dropRateNote: string | null;
   riverNote: string | null;
   /** Optional per-river float-speed multipliers, e.g. { low: 0.75, too_low: 0.5 } */
@@ -87,8 +85,6 @@ function mapRow(row: any): RiverContext {
           primaryHazards: rc.primary_hazards ?? [],
           lowWaterMeaning: rc.low_water_meaning ?? null,
           risingWaterHazards: rc.rising_water_hazards ?? null,
-          rainLagHours: rc.rain_lag_hours !== null && rc.rain_lag_hours !== undefined ? Number(rc.rain_lag_hours) : null,
-          rainLagNote: rc.rain_lag_note ?? null,
           dropRateNote: rc.drop_rate_note ?? null,
           // Dropped when it is ingest bookkeeping rather than a note; see river-note.ts.
           riverNote: usableRiverNote(rc.river_note),
@@ -111,7 +107,7 @@ async function loadAll(strict = false): Promise<Map<string, RiverContext>> {
        weather_city, weather_lat, weather_lon, alert_search_terms, active,
        river_characteristics (
          is_spring_fed, primary_hazards, low_water_meaning, rising_water_hazards,
-         rain_lag_hours, rain_lag_note, drop_rate_note, river_note, speed_curve
+         drop_rate_note, river_note, speed_curve
        )`
     )
     .eq('active', true);

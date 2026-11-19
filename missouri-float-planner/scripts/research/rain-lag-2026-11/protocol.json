@@ -1,0 +1,122 @@
+{
+  "study": "Rain to river: how long after rain upstream each gauge rises and crests",
+  "locked_on": "2026-11-18",
+  "locked_before_any_analysis_of_real_data": true,
+  "question": "For each gauge with a reviewed watershed outline: after a rain over the watershed, how many hours until the gauge starts to rise and until it crests, and is that steady enough from storm to storm to tell people?",
+  "what_was_known_when_this_was_written": [
+    "The list of research basins, their review status and drainage areas, and which gauges have a discharge record (row counts and first dates only).",
+    "That NOAA's archive lists the hourly and 24-hour gauge-corrected files for sample days from 2020 to 2026, and that USGS serves 15-minute discharge for past dates. One hourly file was downloaded to learn its size.",
+    "No watershed rain total and no discharge value in the study window was read, plotted, compared or summarised before this file was committed."
+  ],
+  "outcome_for_every_gauge": "Each gauge in scope ends with one of two results: a lag range that passed every rule under release_rule, or one named reason from reasons_for_no_range. There is no third state and no manual override.",
+  "window": {
+    "start": "2024-11-01T00:00:00Z",
+    "end_exclusive": "2026-11-01T00:00:00Z",
+    "study_years": [
+      { "name": "year 1", "start": "2024-11-01T00:00:00Z", "end_exclusive": "2025-11-01T00:00:00Z" },
+      { "name": "year 2", "start": "2025-11-01T00:00:00Z", "end_exclusive": "2026-11-01T00:00:00Z" }
+    ],
+    "seasons": { "winter": [12, 1, 2], "spring": [3, 4, 5], "summer": [6, 7, 8], "fall": [9, 10, 11] },
+    "all_times": "UTC"
+  },
+  "scope": {
+    "in": "Every row of rainfall_research_basins with review_status 'reviewed' and enabled true on 2026-11-18.",
+    "not_studied": {
+      "reason": "watershed_not_reviewed",
+      "why": "The rain total is only as good as the outline it is averaged over.",
+      "sites": ["06923250", "06928900", "07034000", "07055646", "07064440", "07068000", "07185765", "07359610"]
+    },
+    "dam_controlled": {
+      "reason": "dam_controlled",
+      "why": "Flow at these gauges is set by releases from a storage dam upstream, so a rise is the dam's schedule and not the rain's travel time. docs/rainfall-history.md excludes dam-controlled reaches from lag measurement.",
+      "sites": {
+        "07057370": "White River near Norfork: below Bull Shoals Dam",
+        "07060500": "White River at Calico Rock: below Bull Shoals and Norfork dams",
+        "07063000": "Black River at Poplar Bluff: below Clearwater Dam"
+      }
+    },
+    "included_with_a_note": {
+      "06923950": "Niangua River at Tunnel Dam: at a small hydroelectric diversion with no flood storage. It is studied by the same rules as every other gauge."
+    }
+  },
+  "sources": {
+    "rain": {
+      "product": "NOAA MRMS MultiSensor_QPE_01H_Pass2 (gauge-corrected), one file an hour, from https://noaa-mrms-pds.s3.amazonaws.com",
+      "watershed_amount": "The area-weighted mean over the reviewed outline, by the same code the public rain view uses (mrmsTile, basinWeights, weightedRain) on the collector's tile. An hour with under 95% of the watershed covered has no amount.",
+      "hour": "The file stamped T covers the hour ending at T. It is stored as the hour starting at T minus one hour.",
+      "screen": "To avoid downloading hours with no rain, each day (the 24 hours ending 12:00 UTC) is first read from the 24-hour product (MultiSensor_QPE_24H_Pass2). If no gauge in scope has 0.05 in or more for the day, the day's 24 hourly files are not fetched and every hour is recorded as 0. If the 24-hour file is missing, the hourly files are fetched anyway.",
+      "missing": "An hourly file NOAA does not have, or one that fails to decode after three tries, leaves that hour with no amount for every gauge."
+    },
+    "flow": {
+      "service": "USGS instantaneous values, parameter 00060 (discharge, cfs), https://waterservices.usgs.gov/nwis/iv/",
+      "hourly": "Mean of the readings inside each clock hour. An hour with no numeric reading has no flow. Provisional data are used as served.",
+      "no_record": "A gauge USGS serves no discharge for in the window gets reason no_flow_record. Stage is not substituted."
+    },
+    "watershed_area": "Geodesic area of the reviewed outline, in square miles."
+  },
+  "storm": {
+    "wet_hour": "Watershed rain of 0.01 in or more in the hour.",
+    "spell": "Consecutive wet hours, joined across dry gaps shorter than 12 hours. A spell ends when 12 hours in a row are not wet.",
+    "qualifies": "Spell total of 0.50 in or more, and no more than 36 hours from its first wet hour to its last.",
+    "rain_start": "The moment 10% of the spell's rain had fallen, placed inside its hour in proportion.",
+    "rain_centre": "The moment 50% of the spell's rain had fallen, placed the same way.",
+    "set_aside": {
+      "long_rain": "Spell total of 0.50 in or more but longer than 36 hours.",
+      "rain_record_incomplete": "An hour with no rain amount inside the spell, in the 48 hours before it, or between it and the crest.",
+      "wet_before": "0.25 in or more over the watershed in the 48 hours before the spell's first wet hour.",
+      "outside_window": "The 48 hours before the spell or its response window runs past either end of the study window."
+    }
+  },
+  "response": {
+    "baseline": "Median hourly flow in the 6 hours before the spell's first wet hour. At least 4 of the 6 must have flow.",
+    "window_hours_after_rain_centre": [
+      { "watershed_sq_mi_up_to": 500, "hours": 72 },
+      { "watershed_sq_mi_up_to": 2000, "hours": 120 },
+      { "watershed_sq_mi_up_to": null, "hours": 168 }
+    ],
+    "search": "From the spell's first wet hour to the end of the window.",
+    "crest": "The highest hourly flow in the search, at the first hour it is reached. Its time is the middle of that hour.",
+    "responded": "Crest minus baseline is at least 25% of baseline and at least 5 cfs.",
+    "rise_begins": "The first hour in the search, at or before the crest, whose flow is at least baseline plus 10% of (crest minus baseline). Its time is the middle of that hour.",
+    "time_to_rise": "rise_begins minus rain_start, in hours.",
+    "time_to_crest": "crest minus rain_centre, in hours.",
+    "set_aside": {
+      "flow_record_incomplete": "Baseline cannot be formed, or more than 10% of the hours in the search have no flow.",
+      "no_crest_in_window": "The river responded but the crest falls in the last 6 hours of the window, so it may still have been rising.",
+      "rain_again_before_crest": "The river responded but 0.25 in or more fell between the spell's last wet hour and the crest.",
+      "rising_before_rain": "The river responded but rise_begins is earlier than rain_start, or the crest is not after rain_centre."
+    },
+    "counted": "A storm is counted when it qualifies and nothing above sets it aside. A counted storm either responded or did not."
+  },
+  "release_rule": {
+    "all_must_hold": {
+      "enough_storms": "At least 8 counted storms that responded.",
+      "both_years": "At least 3 of them in each study year.",
+      "more_than_one_season": "They come from at least 2 seasons, and no single season holds more than 75% of them.",
+      "usually_responds": "There are at least 4 counted storms of 1.00 in or more, and at least half of them responded.",
+      "steady": "For time_to_crest across the responding storms: the 90th percentile is no more than 3 times the 10th, or the two are no more than 6 hours apart.",
+      "years_agree": "The median time_to_crest of the two study years are within 3 hours of each other, or the larger is no more than 1.5 times the smaller."
+    },
+    "percentiles": "Linear interpolation between ordered values (the common 'type 7' definition).",
+    "published": {
+      "time_to_crest": "10th to 90th percentile, rounded outward to whole hours.",
+      "time_to_rise": "10th to 90th percentile, rounded outward to whole hours, and only when time_to_rise passes the 'steady' test on its own. Otherwise only the crest range is published.",
+      "always_with": "The number of storms behind the range."
+    }
+  },
+  "reasons_for_no_range": {
+    "watershed_not_reviewed": "Outside the study: the watershed outline has not been reviewed.",
+    "dam_controlled": "Flow is set by a storage dam upstream.",
+    "no_flow_record": "USGS serves no discharge for the gauge in the window.",
+    "too_few_storms": "Fewer than 8 counted storms responded.",
+    "uneven_years": "Fewer than 3 responding storms in one study year.",
+    "one_season": "Responding storms come from one season, or one season holds more than 75%.",
+    "seldom_responds": "Fewer than 4 counted storms of 1.00 in or more, or fewer than half of them responded.",
+    "too_variable": "Time to crest fails the 'steady' test.",
+    "years_disagree": "The two study years fail the 'years_agree' test."
+  },
+  "reason_order": "A gauge that fails more than one rule is given the first failing reason in the order listed under reasons_for_no_range. Every failing rule is still recorded in the results.",
+  "what_a_released_range_may_be_used_for": "A sentence in the weather section, for that gauge only, worded as a usual range and never as a prediction for one storm. The wording needs the owner's approval. A range is not evidence that rain has arrived or passed (docs/noaa-rainfall-plan.md).",
+  "what_this_study_replaces": "The eight per-river lag estimates in river_characteristics.rain_lag_hours and the deprecated RAIN_LAG map, which have no recorded source.",
+  "changes_after_locking": "Any change to a rule after the first results are seen is listed in README.md under 'Changes after locking', with the reason and the effect on every gauge's result. A fix to code that did not do what this file says is listed there too."
+}

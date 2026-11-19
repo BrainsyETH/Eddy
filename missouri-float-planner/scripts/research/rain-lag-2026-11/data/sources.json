@@ -1,0 +1,2013 @@
+{
+ "window": "2024-11-01T00:00:00Z/2026-11-01T00:00:00Z",
+ "hours": 17520,
+ "gauges": 39,
+ "rain": {
+  "days": 731,
+  "daysWithHourlyFiles": 350,
+  "daysNoaaHadNo24HourFile": 0,
+  "hourlyFilesRead": 8400,
+  "hourlyFilesMissing": 0,
+  "hoursWithNoAmount": {},
+  "sha256OfHourlyFileList": "9be6f988d0f0b78bba500c48e8aed8c5a7ae207e4466f7869a913a21c71f7f76"
+ },
+ "flow": {
+  "hoursWithFlow": {
+   "06923950": 17513,
+   "06928000": 17510,
+   "06930000": 17477,
+   "06933500": 17063,
+   "06934000": 17398,
+   "07010350": 17399,
+   "07013000": 17471,
+   "07014000": 17380,
+   "07014500": 17014,
+   "07015720": 17417,
+   "07016500": 17519,
+   "07018100": 16790,
+   "07018500": 17486,
+   "07019000": 17325,
+   "07037500": 16477,
+   "07049000": 17514,
+   "07050500": 17480,
+   "07052250": 17338,
+   "07052500": 17511,
+   "07055607": 17387,
+   "07055660": 17475,
+   "07055680": 17497,
+   "07056000": 17349,
+   "07056700": 17512,
+   "07057500": 17452,
+   "07058000": 17506,
+   "07061500": 17463,
+   "07064533": 17219,
+   "07065200": 17469,
+   "07065495": 17471,
+   "07066000": 17334,
+   "07066510": 0,
+   "07067000": 17510,
+   "07069305": 17520,
+   "07069500": 17378,
+   "07071500": 17516,
+   "07186000": 17298,
+   "07188925": 0,
+   "07252000": 17506
+  },
+  "requests": {
+   "06923950": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "9a5b1bd0d0f8d793190105d16cf7176dfa5b4d99cfafac614480d2869a9d1b9c",
+     "bytes": 363120,
+     "readings": 8821
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "140aa310acdb198f2df47b998184315221ef4c38a6e3d7517d82f23a3842d640",
+     "bytes": 360191,
+     "readings": 8678
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "cb0a46204a161de23273c26c36e35e5b3b0fba4c7821c477af5172db9d4a614c",
+     "bytes": 366404,
+     "readings": 8800
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "165ad6f5377d5f59867ebbbe8ec03a3014970fe618e02cca2665f2cee48ea21c",
+     "bytes": 362956,
+     "readings": 8792
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "5b39e734b1a715434a2597784563db96a8fb33e83336750aed956ff376266f68",
+     "bytes": 362628,
+     "readings": 8784
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "efb66099bc882cf312019a6bb1cdcc3638a6be294a5b2e1964b582999e46f0a2",
+     "bytes": 363475,
+     "readings": 8739
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "83cb643f81dcb7577d2197333a9498ce1993c84b9c1c9b5f31b4828b8b4a4c04",
+     "bytes": 365392,
+     "readings": 8789
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06923950&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "de18ff9feba39ef44e2dcb6677f1bc6d5dd55164529d955fac438825aad380fb",
+     "bytes": 339797,
+     "readings": 8226
+    }
+   ],
+   "06928000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "cba591ccc07043e4a96c500ed46ed581350bf8de0d2f82ed390dacadc4aafb25",
+     "bytes": 367243,
+     "readings": 8831
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "9fbb5f7377f7b554701d6fe8e2ea3d838b8422a7e0cda6238f8975e44e4c6c2a",
+     "bytes": 365980,
+     "readings": 8791
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "e065a6c5ca19d31421bda5a4cae2930e812c4284597d7bd2de07920004b9afcb",
+     "bytes": 368325,
+     "readings": 8793
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "231bcd107aff429246878131820e9e599a9583e93f19854c8fe40d3164b7b0e2",
+     "bytes": 368319,
+     "readings": 8818
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "6f4bd3872bc94daa63f701bdf62929a16b23314cec3f6284dc61b9bcecc6b967",
+     "bytes": 358069,
+     "readings": 8673
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "86d33692bb234bed1611773e70b4929f1018d9caa7bab0c9dbac05a90dd59a17",
+     "bytes": 366914,
+     "readings": 8789
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "e98bd8210422f19ad7eecb5b098b4a8b2a3d452f6221cd90ae507697b0ebb339",
+     "bytes": 366627,
+     "readings": 8812
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06928000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "b7d205a1a74c97cc1ef26bfb2f3bf978d92b328bcc3b82856cd008c2b90db624",
+     "bytes": 346633,
+     "readings": 8231
+    }
+   ],
+   "06930000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "98619c3f4de528b642f6e38ee16e76db8c8eb8ed947ee1996bd7d4ac20c8bc5c",
+     "bytes": 363993,
+     "readings": 8803
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "8a6be3062d46456bc3619221c4d7d9a5df0e1998355dee793b1b2246d97080f4",
+     "bytes": 363888,
+     "readings": 8770
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "0298d00e0b5592f5e7034ec6e4adb37350e7c69fadd0da338e5fadaec434c861",
+     "bytes": 365811,
+     "readings": 8809
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "86212a0b4d115b5702b59b3b6ab5121ab484567f255a1fafde31aec62487820c",
+     "bytes": 364705,
+     "readings": 8835
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "0777f4f4f5ba4867c937e6e0eb62e7a819b07196c0c83d1084f7107a7fdb6343",
+     "bytes": 355175,
+     "readings": 8600
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "3432ce09d5b130cc2b40c494a71b99ce5c6771556132b9d9389ad35c5a84ce1c",
+     "bytes": 366444,
+     "readings": 8823
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "e4c904a93b4593dcac8d122530034e5150fb921001d617a25e24e4f6b0a29a06",
+     "bytes": 364474,
+     "readings": 8820
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06930000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "f0fc602672aac3bcd5ac012f97089223ffa4e14e98656c94334cbc60f39967ac",
+     "bytes": 340779,
+     "readings": 8252
+    }
+   ],
+   "06933500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "a713348d0179a056f45ca4268640b18f6084024bf88b5ae0fcf418f8722ca9ac",
+     "bytes": 373506,
+     "readings": 8857
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "bf46eaac21f87953864fec417ae1f6fba492ddcb67c349c7e248370ecf0efc22",
+     "bytes": 371175,
+     "readings": 8755
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "3701e8d0eb31fa729ea65b4c6480f042e891837f16aec5d602c05b236e600f3d",
+     "bytes": 374069,
+     "readings": 8824
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "da1d45a8e9758ec809417a90f180dfa3203a87c2e9fc88179037055424c07b61",
+     "bytes": 365410,
+     "readings": 8835
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "af3e6eec7da81cffb9b4bddd42ca5bf663f7d4bab207ff0ec5ddd53631157e05",
+     "bytes": 364780,
+     "readings": 8823
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "c533c6b0594ed4467030144cf1ef85555d1058ac3a3fc70bce11bfb593a863c9",
+     "bytes": 372255,
+     "readings": 8827
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "9d0bc43432aa65414235f9403113ab5900ba81a0df83d651f7c61aba5f1cc2ad",
+     "bytes": 371971,
+     "readings": 8822
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06933500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "e8f054e91dbc6e37c57a6799fd8259a368122976f0594d7f8eaa5546e3aef358",
+     "bytes": 227362,
+     "readings": 5469
+    }
+   ],
+   "06934000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "951d075e1d170064ae9ae08e18612c5da9fb0c307425d9d0e65851e50313d3dd",
+     "bytes": 372365,
+     "readings": 8826
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "88b15dd13936ad3dcebb9c413d747f9e774d5e506d0b1c7ddc933e64614e3c56",
+     "bytes": 368869,
+     "readings": 8692
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "a079ae654446cb6bfee535b8675146424ef125c31a8d906cdbd15eac39c85725",
+     "bytes": 374241,
+     "readings": 8819
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "5f303a355ac37239fcc00670fc69a09bebb63ec0a17230ed842ab1211607c70a",
+     "bytes": 365362,
+     "readings": 8816
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "804c853eb74f1cfe341a325a1d24caef086d08e467022255882dd8a6d528cd7b",
+     "bytes": 359377,
+     "readings": 8661
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "4079ea56f665848ef0573f0c359ce81acb16d8c0002c1af4547f753cbe5149a1",
+     "bytes": 372880,
+     "readings": 8824
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "38ecda6ad4b7d10518147e55a1ffd28ed12f6aba65dd6c37f8662b8ffb8896b0",
+     "bytes": 365127,
+     "readings": 8648
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=06934000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "befab81ffa244660898da19aa93847c574ef11c82fc390182876de81e04f4dc4",
+     "bytes": 282346,
+     "readings": 6825
+    }
+   ],
+   "07010350": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "4fd446ed89de66ef872cf37320102ebe66e24346f59789bc18fbf4753375c7fe",
+     "bytes": 345577,
+     "readings": 8277
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "f17239186c693c51e4ea8ba26ee681baab77a827af6b2f348017f33a441cee2e",
+     "bytes": 369023,
+     "readings": 8808
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "cf539c00f7e7cbece856a73b5ede2b6db195054647fa0decffe6974de9a7a7aa",
+     "bytes": 367442,
+     "readings": 8815
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "237fe4edac37414fd254c1f3ff01ecc5b1787993d5e75abd803f18f70dc8c78b",
+     "bytes": 373438,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "cc0e1e94b6bfd252f5ee3581405b5767d322457080e3cc68f7232574f1235abe",
+     "bytes": 373438,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "be2460332192d3758d1317facc40b8570a1e3bce5d2dd816d687b92ee227638d",
+     "bytes": 368816,
+     "readings": 8820
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "f9133b05e5647cf711d181bb43ca70cddb3d7c3a7dda4933856cf452c245b8da",
+     "bytes": 370464,
+     "readings": 8792
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07010350&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "cd49cc50aba48e7e08b7e58720adae66a9c9432798a4033e28828baa1b098782",
+     "bytes": 344394,
+     "readings": 8147
+    }
+   ],
+   "07013000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "7b21b19a4b76116890e0800eb8eb3a68d6856e192f339aa07e2dd9f3699e2bd5",
+     "bytes": 363910,
+     "readings": 8806
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "663d5b2198415f3bfa090f9cdee939e313b870311e86935522f69f7a69dbe23b",
+     "bytes": 364653,
+     "readings": 8771
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "3c4ea8380c119a0c5d90158842d67665f3bd09f0425505294a0e370d3d1e31d1",
+     "bytes": 364880,
+     "readings": 8778
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "0042cf451b71ae3f9184853ea0d0bbb2b68ad8e0343e67597e64e633efb5e8c0",
+     "bytes": 357570,
+     "readings": 8663
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "ee1413a2f129b4f39f557572608a47c95c4f2b789e81c02d83cbbe7fc515b80c",
+     "bytes": 343858,
+     "readings": 8324
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "9fe6ffa3ee21225cce7a9631a994dd706658a2cffd5f1e3d0bce05cc192c6886",
+     "bytes": 360550,
+     "readings": 8667
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "76fc6ed1447379a2f7166ea27d4d03bb8f88dd07a3a7d70a439850dd8f8c7ea4",
+     "bytes": 357700,
+     "readings": 8646
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07013000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "f6bb6a79b54d6760a0031b64f7d2e9b7f782716344e7b545d28e690611f45dfc",
+     "bytes": 335214,
+     "readings": 8114
+    }
+   ],
+   "07014000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "d0aecd5e2316f88579a86afe9389abd0b7a3fa2824d9c71b42f41c9ecf29f883",
+     "bytes": 364645,
+     "readings": 8803
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "93f745feb9a1516984379d088af09a323d8d621b2ae76e09a5a39a8ce5af798b",
+     "bytes": 348286,
+     "readings": 8415
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "f306ec92c1e70fad10b625f0644025355a6c43b309e378db83dbd37d853190fa",
+     "bytes": 359934,
+     "readings": 8708
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "44615ded84209632af2f6dca62ab24702f4505054c35d94b1a13e2101709b63e",
+     "bytes": 372588,
+     "readings": 8822
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "b97e8e95baab64213cb0048b41ab60639eb102caf429ff1761f813988a110c59",
+     "bytes": 371940,
+     "readings": 8823
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "8e5681b82972e0057e14e4d67b0a8391ccf23afbfdf528c42d73febdec8cd492",
+     "bytes": 327419,
+     "readings": 7874
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "f1ced067198e4c23b32930ababd66022a3b75c69e0f5947de094e26f91a4bdd7",
+     "bytes": 366451,
+     "readings": 8816
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "f3e7d03c6255356515ff5ef6196a51551b0b1f6bad82f30b75e823f005282a79",
+     "bytes": 345906,
+     "readings": 8219
+    }
+   ],
+   "07014500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "e03951fe4530f69779802dd0546b426fce18efbf12bb6302a29ce85975c66c67",
+     "bytes": 323769,
+     "readings": 7778
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "602e65f69bfa1d7e59a5e853187ba538187fc2d3c61758a10c2c09fdb467ba4c",
+     "bytes": 319761,
+     "readings": 7657
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "7454f3fd2ad5b674b75bdcc7f751ac7b3821db4734de3c9ac0ca379c38999fcb",
+     "bytes": 325323,
+     "readings": 7744
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "3cf31695825afe94fc50604633e77a601e2bbda72f0ce42f3315223a85a2850a",
+     "bytes": 335676,
+     "readings": 8137
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "00b3c4de24e36d6573881cc9ee577127ef73f5df94710447fe071a39ae587c9f",
+     "bytes": 297203,
+     "readings": 7186
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "0e4f32cc8ceb714e43a7968b184a383260e9add485961eee348b60f7dfdc69ad",
+     "bytes": 316225,
+     "readings": 7524
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "0d861dbb56dffd362aa46e47374cf870859db2d631ef282de566df2a76d64a59",
+     "bytes": 325167,
+     "readings": 7805
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07014500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "b7c4324ebb88d56e21dfbcd2a76985c371bda9dd71ef7edbe39d49400e518f94",
+     "bytes": 321460,
+     "readings": 7770
+    }
+   ],
+   "07015720": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "fa132469147aec99634920eab9ad34bb9b8cb5e8685cf4809934bfe9ba9e7eea",
+     "bytes": 362891,
+     "readings": 8635
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "37b9a8820bc76ccd609d68a83a4f8a083b83170fe98c85b1cbbdc25a36e40fc8",
+     "bytes": 365780,
+     "readings": 8703
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "3b9384cdc426d3d47299912a1e1bb3f06723ddc60854a307585e3cb45ba7bf6f",
+     "bytes": 371119,
+     "readings": 8812
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "3aed669a0e1fa9ad195b325190caa68f1254523a9c02c242bd0d5d9ceea0af78",
+     "bytes": 369670,
+     "readings": 8741
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "ddac7a5c90a0abfdf19272652f03f9850695497daf3e1045a2a30aa4ab2e7c1c",
+     "bytes": 363490,
+     "readings": 8593
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "4c0cebdb220e5f104a7cfe6b0dbf6c1a6cc552450f4100d29d7eba6fa8583bae",
+     "bytes": 370494,
+     "readings": 8823
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "ddd1fa06e5ac3b96323f3032b2f63b600ae651ed66a36f7be05b5744d6fe9463",
+     "bytes": 371559,
+     "readings": 8822
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07015720&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "464cd1c59bf758b412dcd372509e925420614338b59c94dacd5391d2fda8aeef",
+     "bytes": 347914,
+     "readings": 8227
+    }
+   ],
+   "07016500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "d1960267979645e4a610f32bc98d0cd63b7d34432a85b7f7eba05707f86e4632",
+     "bytes": 364832,
+     "readings": 8808
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "8ad679f8ad71e9e093f1ec4941d4f4d67cb87a780b883c2e11cb247e7b5557c5",
+     "bytes": 352024,
+     "readings": 8448
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "f82fd004a3bf2e18216c29eb1e4c7288b7d53d4acdf899fe385449495e18a794",
+     "bytes": 366543,
+     "readings": 8831
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "e0407f14e73f314f0efa4754fbf6f2372b33979ab36e8d977f7db07e5f6339f3",
+     "bytes": 373451,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "df574ad951a645d816d55a7c11aaa789b5805688300e927629af6f76dbf5e218",
+     "bytes": 372054,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "7b0e46c4fc6980cabd90b077561922f6f7d3803a2d830bce697924610cf94428",
+     "bytes": 368170,
+     "readings": 8821
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "4dcca5a6465317d8a07fbd49b0b557a604fa2530d63f527839c27977417a1361",
+     "bytes": 364317,
+     "readings": 8778
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07016500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "d65f806337f6b4dfd8526b110e7187eb7d840b53ed8e3533f0a3b711f2e590d5",
+     "bytes": 346743,
+     "readings": 8256
+    }
+   ],
+   "07018100": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "5fc397439550cd743584ce1a503b6d06c6e0348bbf394e1d5899eebf24de9cad",
+     "bytes": 157691,
+     "readings": 3785
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "705ecadadc7e0d19200c4239ad397f6a70280cc13dda380141d1156706a37852",
+     "bytes": 175528,
+     "readings": 4196
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "39fb828b753698b12cbf12f453fc4f60775e245961598d83e1930d898f2e1472",
+     "bytes": 182023,
+     "readings": 4375
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "1e2728918f44820e530f62458673dadda76ed2878ea4352016728f891cd97098",
+     "bytes": 179212,
+     "readings": 4277
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "b2e930624eb32526fdc50bcbf0dd19c208f67e3963a9017f51dda01035678cf6",
+     "bytes": 183283,
+     "readings": 4415
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "9c2c531b4b414ff6a308d9043a480d9c83e5e1d41c0725eaf212b935fbae171d",
+     "bytes": 163636,
+     "readings": 3911
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "9833a1ac5dda67e50c1c466861d108a1802443c2aafdebf6b61343aa9429dce6",
+     "bytes": 175590,
+     "readings": 4208
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018100&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "7e3384c4a82fc98c12e2c8d465f0cb3f17d0c88367ebb4e8c5d56bac36e44422",
+     "bytes": 335714,
+     "readings": 8038
+    }
+   ],
+   "07018500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "dfe07212d30c46dfb4d74b1fe81635f4b7b1ce9b4df1ec0efcfbb2bda6785a0e",
+     "bytes": 366949,
+     "readings": 8851
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "436c9edfd083b895d523062448b7cf3bc2b52eb952c64cada0d0f392075719df",
+     "bytes": 362518,
+     "readings": 8683
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "5d9c07db9e3089e0a193ae32dd71e7e144bb0ea72f62d9dc53698b8b97aa29d6",
+     "bytes": 366245,
+     "readings": 8814
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "96102c4e12ef41c7e52c75211d34342ba22af782d97aee8bb3b8aba518039e9c",
+     "bytes": 364510,
+     "readings": 8830
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "cb1d89a6655e5b27b575fa1cd7612ef77e8cc505b4a57cf90da8cc2bfb786d74",
+     "bytes": 360188,
+     "readings": 8723
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "f84d7072d1eadc32515842aa79818d6c10e7dd28ae8275fa65cc493e0a14e46e",
+     "bytes": 367624,
+     "readings": 8823
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "f4556c1613302cc5c6b0d115b89d5057f0ebe4931145f24b26f900ad252e557d",
+     "bytes": 365155,
+     "readings": 8822
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07018500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "de6066d465671dc777486905c82ce16584d4df0503f750f6a88bceaf8959d0b2",
+     "bytes": 340739,
+     "readings": 8249
+    }
+   ],
+   "07019000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "4367c921446f277833cec944e9a00c62a750bc16d0221cf1a439a89f6bd9dc72",
+     "bytes": 362779,
+     "readings": 8597
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "d0123300e034929d941b9e9e7fa9645aa68c81200370836a2c410e89b1bafefe",
+     "bytes": 357623,
+     "readings": 8421
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "920d8d460a8224839cb98f77a5c31e190eb1ab14fd0e3415d5a523d920b42484",
+     "bytes": 373778,
+     "readings": 8813
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "47fa23b56e014430c1f071bd0290845be7a8565ea5787e341d5ae69b8f250766",
+     "bytes": 346609,
+     "readings": 8358
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "873c98c8ab2a7c55ca7db5442cfd41df4600b82b9eebafbd668250949a91414c",
+     "bytes": 321229,
+     "readings": 7734
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "e8c7d1e8c2bf00228d9c936618a68ffd806312fb20ba2fab7b7fd160a11126c1",
+     "bytes": 364336,
+     "readings": 8614
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "a5b4a4a0d07c0886692782c339d9f0607fa319992ee4830d34ed0972b90fdfb6",
+     "bytes": 358625,
+     "readings": 8468
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07019000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "199efd19418ac66baed8f16bbcbb33b6627698920a994cd2294914a639278e66",
+     "bytes": 336471,
+     "readings": 8096
+    }
+   ],
+   "07037500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "2e86eefb49f9f76486c41772efa7d3b336d3d1306bdb110ff083be9d988dfb7a",
+     "bytes": 347672,
+     "readings": 8324
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "b386493536cb1b0ac5d13145df25b43b95739b23902a315688d43c59a84861e4",
+     "bytes": 295572,
+     "readings": 7031
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "69d7ffdfe0318c36a738068530e068148ec9a86ca27972468c53a9bafe165013",
+     "bytes": 331442,
+     "readings": 7952
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "d07c4ae8dbcb41e668ea9b1261c10a2a73b23ffb1eb8af35ae78889243fc877c",
+     "bytes": 314791,
+     "readings": 7532
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "ec4e30108a69ca1551d9e90d585417d60080b675c4e59df099930e66958eddb7",
+     "bytes": 283308,
+     "readings": 6847
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "62f54522035ad39bb63d552cc4a39f54f81f440f70fbe8f96c44b935f5694765",
+     "bytes": 304659,
+     "readings": 7287
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "40bb605b20331738095965fdd7379b5cc263c3fd3fa444fbb6f7e5dc59fce153",
+     "bytes": 323499,
+     "readings": 7811
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07037500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "cd25077e33f5f8636388d7a4356e40434ae35b3f60ae4202f17498cc6687bad2",
+     "bytes": 312776,
+     "readings": 7475
+    }
+   ],
+   "07049000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "b2d2e9ba61f18e97ce25dc7611657b0f6cec16e93eee7b30a7b23696f89172c5",
+     "bytes": 366756,
+     "readings": 8845
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "c227ef8681ba0f4184b9ea166ce13f4f071df62b460631da23eca622c935a75a",
+     "bytes": 364838,
+     "readings": 8787
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "9819a1d3fe57c820a47139c4972997d67e330ed8de55c65d852ea4e9d48f0326",
+     "bytes": 367169,
+     "readings": 8801
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "0508abb3a9afa61540bdffdd650b1f6859f1898501be6547a905e982f7ede339",
+     "bytes": 371959,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "8185e3f983f3aa26ed48b7c6d77e4a724360dad5d824c58fd6f044e241c01972",
+     "bytes": 371821,
+     "readings": 8815
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "03d08a9f0b8f7304a997aa372fcd56e6acfaae92e33188293761649dc03e2282",
+     "bytes": 366463,
+     "readings": 8804
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "50fe3873ab78c9a4973df14b0fa5c018aa557c321c5833a6e3ba9bec4cd8c73f",
+     "bytes": 367465,
+     "readings": 8824
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07049000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "82d2b2e0c1651d7bf76cbfbee333ae8ae8f70f378d1dd80b749d5e949296f7bf",
+     "bytes": 349055,
+     "readings": 8252
+    }
+   ],
+   "07050500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "3419832c5911ac72c3a44a5821333feb9ed0dc3e51bb0275d4e51ffcea0e7bfc",
+     "bytes": 363906,
+     "readings": 8762
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "8b01b99df81d8a72c6f8b4d2560fa1907e7dffc51a9279ec850cb727fcc25289",
+     "bytes": 361063,
+     "readings": 8651
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "c36e1c6fa30db4f9c0a5ceb841f725f41f2d4afbc6bf95fabdfb712fbc073650",
+     "bytes": 357204,
+     "readings": 8560
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "8d24150aba6bdb8da1693ddd836544d9d5bce28226f22f4e4d693768043ac7f8",
+     "bytes": 361727,
+     "readings": 8600
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "8833df49a52543ceb20c89ecdad198a82b73dbfdd465ad726c0bc84cc2ef6681",
+     "bytes": 347489,
+     "readings": 8243
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "ece364f62a5362f8e5b1367f4ef32073a874462ae7eebfb641636147b41e1b21",
+     "bytes": 353670,
+     "readings": 8521
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "e6d8c6ed36c14784aaa7599f6a8ca5143e7d82e91610ca35fc80919423d90501",
+     "bytes": 357883,
+     "readings": 8579
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07050500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "89a2fd9605bb5b83a26d12b0312b57dde0e6abf47a3fdd09443f35a4e5eb8ace",
+     "bytes": 341533,
+     "readings": 8093
+    }
+   ],
+   "07052250": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "b4a701c89908698a8e43be3f1d0ea4471288b3b9802e13181822e923d0d11766",
+     "bytes": 353121,
+     "readings": 8557
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "8e4efba3ecc287d523c705f43733cb518215141a034750bc5b695fe16321ae36",
+     "bytes": 345797,
+     "readings": 8324
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "4520b7b1c630ce66d7ada798b7beaa888d1daebd09ffb455598215f8f90e5a51",
+     "bytes": 363111,
+     "readings": 8705
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "f75e0a3bc57dfb1b893391c77e8515b21cccfe525e48d408088da97af4aa81ff",
+     "bytes": 364024,
+     "readings": 8671
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "509207998d1594aa2a277ceed594ff85ba6745fbca1cfb1a2d6236ba2b373c05",
+     "bytes": 342254,
+     "readings": 8113
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "ca9c25254230c5630ae087a6b52f6fd5ce3ebc2a0ed822220b2a15c0bb29d766",
+     "bytes": 346071,
+     "readings": 8311
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "b077c7da56f0be98766f15427b3e983abe3a01f507838a08588fb341ca1dbe20",
+     "bytes": 360219,
+     "readings": 8668
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052250&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "d43a65b682f49c9dcd68c71317e6fc9d77a92edd7f2e9e2128e505123cd1a7f4",
+     "bytes": 338592,
+     "readings": 8071
+    }
+   ],
+   "07052500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "8acae0725b854436c36d99795d0ae6891e7786b8a33fb05a2f3cdbf89e68ea2f",
+     "bytes": 378859,
+     "readings": 8720
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "86bdb23173e1449d562328432cd8a1eb3f810a115527af73741b386c9acd0ed1",
+     "bytes": 373511,
+     "readings": 8538
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "596d9b44355615832233fd027eed15db6f649428b5bc741bec82aee3ad2981b7",
+     "bytes": 388480,
+     "readings": 8824
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "5ad8dc3d5171bb468ba391ace7954190412de53bbdb0c58099e4f4c6ee4dd617",
+     "bytes": 382510,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "e313faccc9391c160cf235a615cedebedc778a68117731d812fc2b7a4b753bca",
+     "bytes": 382218,
+     "readings": 8829
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "43151dd094bd0cd3ae51239495b5db18e691d357780d657b91b0d359c3ad07d6",
+     "bytes": 383138,
+     "readings": 8824
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "16f73626193e8ba7139939abc2a3b6749cb6d6834de82218b34642b9ba321b65",
+     "bytes": 367936,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07052500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "66f1c0c31367c620247a17307f709c8c8e2aae802814faf61cb69a7a7d22a30d",
+     "bytes": 341145,
+     "readings": 8256
+    }
+   ],
+   "07055607": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "b3e21f388681108ac319c8d0828360d204ef86af9b2b8e9a9fe5ea09f5eb8420",
+     "bytes": 366096,
+     "readings": 8835
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "91632d673e7a19d5191a0d10c82d72ee87c6143f481700a9981a64b65b931af3",
+     "bytes": 366725,
+     "readings": 8815
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "6a882c4ab62e8e493fc8164a73b8a18eec2ba84688e706e1ea01739b1db2a125",
+     "bytes": 357839,
+     "readings": 8630
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "b207bdade596f1fba42f0bbb72a415c266abb9714d5a82d13ebf8d2cb61d8ca6",
+     "bytes": 372449,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "26a533c09187b599bc105dec227d25194acfae5412000b8a271c0a8ee5583925",
+     "bytes": 323610,
+     "readings": 7635
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "5219c6a88a281c1a979a8ef9a79a34a420e9f15e12b1e23cf56257f29badcfc0",
+     "bytes": 328506,
+     "readings": 7859
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "a097f26b1ac16ed21ee485d4496e6fc16caf602328b872159538806b07f1b840",
+     "bytes": 367872,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055607&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "f117b513a5bb1755acb555703ebd182c486c44c3e235cb00c9ae3ef91ddc3eaa",
+     "bytes": 348826,
+     "readings": 8251
+    }
+   ],
+   "07055660": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "aba720020a0c92cbc45b84aabb018adf26022c63998c7d7478ce6b976ddcfe28",
+     "bytes": 333758,
+     "readings": 7999
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "9657ce2d0ef6c520a58a5a4097c509f93ef9bc440c0fa331c2c035b7dd482161",
+     "bytes": 366550,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "6bc04e07d0414bd1c4607ad391f76d9402e0d6c8f4204f48bbf4ca1a6cb541e2",
+     "bytes": 369903,
+     "readings": 8825
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "fbb2709c2034c49bf384959a6ac414e8dbb959874ab7adb4e71a30205bc969c5",
+     "bytes": 373883,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "b27bb194dc1cfad13cc63713fde4a3c3d1955aec78864f0c387f6132f417629a",
+     "bytes": 373553,
+     "readings": 8822
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "e77b8bde0204d5f083feabdef697a4b48fda20439ee7c997b3c674dc8f4b8dfe",
+     "bytes": 367555,
+     "readings": 8826
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "3a97307ee786e1062711e9383678904326a80275d08b6df4f6484617d8e2b07d",
+     "bytes": 370265,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055660&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "d5d0869703f612b4dda3e7798a2f66e31cc5325062a06dad4d0f0da9c771e050",
+     "bytes": 349214,
+     "readings": 8256
+    }
+   ],
+   "07055680": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "c967157199c55444054d04c1ef998eb90f0b114d100d649a1d6290d126fb8c83",
+     "bytes": 368011,
+     "readings": 8860
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "944f66b3ededec155c66403be8fe2c19a697d9efe5cdd8b0b496c3cde0f82e72",
+     "bytes": 366594,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "fb31f9e92bc0cc86fe2b6e2405a88e0d34eda9106b564499cf57101cea19a3ca",
+     "bytes": 368632,
+     "readings": 8811
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "3331197063b5521b81daf65f603b85ef80036f21433716f4e702e376853021c1",
+     "bytes": 371108,
+     "readings": 8789
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "065e2e3698b9ab012116347edbf44a913319a8f10e372677983e8a9cca07b394",
+     "bytes": 361373,
+     "readings": 8549
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "598fdba7e6cdb49d9528bd88552cc355273e2965e298e8f5a5e16acba4eecd8c",
+     "bytes": 366314,
+     "readings": 8797
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "fb1ad0807f4a0e2e1c1606b764dd75031aac5e62641f6d76eeefcab016c0444f",
+     "bytes": 367129,
+     "readings": 8795
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07055680&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "b6a59f5d027ef634f60509b976bafe5018ec91e18ceb1e176a8b2b124ae7f1c2",
+     "bytes": 345799,
+     "readings": 8173
+    }
+   ],
+   "07056000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "ab71a296d29da0964f077d6a2a84718e7328397d93b8a8c35f52d977ab40c0bf",
+     "bytes": 386227,
+     "readings": 8841
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "9c913e67cf7f3b154debe31a5f5422cf2c5654f3782521a5f39a7d7dd0d12132",
+     "bytes": 388054,
+     "readings": 8817
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "0f548cb86eab536e635da5462f6074fcb98063a3faa486d8e53f71a7ab178790",
+     "bytes": 358506,
+     "readings": 8579
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "b5825a85ad34008eec90ebf4543822235ebb839cd9d80f4a20b057fd7dc1069b",
+     "bytes": 345641,
+     "readings": 8211
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "44b49ff9f499c93a0877a606b72d9b793c34b2174fdd842088722b8ca4c7a53e",
+     "bytes": 314329,
+     "readings": 7527
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "312bca1f4acaae2b3d1ffcaeab29c66f65804762539668b1868f22fb690e3fda",
+     "bytes": 354801,
+     "readings": 8570
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "6cc5871c48b21be61343b7b41d4b0b3da8387b9b283640f3ab4ce6c8b86f490a",
+     "bytes": 361933,
+     "readings": 8690
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "971bc46999c470b6654af4e2c782716b4698f87709d4c3f6a429f873de6a7f34",
+     "bytes": 341615,
+     "readings": 8088
+    }
+   ],
+   "07056700": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "271ca61d336cb7caa509a1b3e0d2490ea308f02ba02110da5653bd02ea6c37a4",
+     "bytes": 369799,
+     "readings": 8860
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "172ee96ea8f4cdee0c6ed866f6678169cb32b53168756a42abf582e6230bdc8c",
+     "bytes": 371689,
+     "readings": 8817
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "5c74ebc38acc37a71099ab2af48a72c797c06cadce13f143cbc4a56df67126a5",
+     "bytes": 369125,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "9baaf884b26d626c3f4586ab5527b91af24659234f4984fb0fabdba6cfe0039b",
+     "bytes": 369925,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "3c106e4be06bd8fe7d46477e884da4c24b9eb299ce5a264bd1f803e44e78597f",
+     "bytes": 355953,
+     "readings": 8533
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "93b8bbdb437663c9540898a338ab0021852223832419d8e6c66c864de9198e33",
+     "bytes": 363702,
+     "readings": 8771
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "866c5f4b2b7d24f997084bbe7163b17a2e627350aa23ca8a6bccb8cefa3959d0",
+     "bytes": 367827,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07056700&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "66f3a452e782631b34e6a0f00bc8048b58660292f65c11a10e349afc80013d20",
+     "bytes": 344867,
+     "readings": 8191
+    }
+   ],
+   "07057500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "4d618f78a12012bce591d5b4c3b22b257343cb477d7ef1ebda505ebf0bdd47cf",
+     "bytes": 360271,
+     "readings": 8671
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "b2fb18096c8cb2a0812cccd4e389a2e7816c5e4f915252c47d66f1f4f4d77de9",
+     "bytes": 367095,
+     "readings": 8797
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "342719cef8363e5c10a47addcdb3f87eb6d873b0383fea18f7066cac173b404d",
+     "bytes": 362349,
+     "readings": 8599
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "489c64817990e6adc8fa07eb3f050d9f4394fa3dd76a40453b65da616b7e90f3",
+     "bytes": 361015,
+     "readings": 8746
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "75e960485635ad96b10e86d3ccdeebfb9f71882d088b03ea6ebe71000e098ef6",
+     "bytes": 352528,
+     "readings": 8538
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "40b77c54ec2a869277b2b4c1459eeac17d146fd53ee73f6c913de86d5c900b33",
+     "bytes": 351315,
+     "readings": 8484
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "9eacefeeff72e5d213a5d99edea9fc272b6e6aabd29abf6176af811fddfb18a2",
+     "bytes": 338861,
+     "readings": 8167
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07057500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "d828d6e24b284ec63894a0ac565d5e1c964443c5902350f45c7ba844e846cb7a",
+     "bytes": 333633,
+     "readings": 8076
+    }
+   ],
+   "07058000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "61de1464ab08b530bd09cac527dce63366b2ba3154996400dd7963574dcd5e2d",
+     "bytes": 365490,
+     "readings": 8849
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "4bf854fe7e66272dd1f4e4b8855520fc75831bc9ba2f8c88f428ce1bc9158e03",
+     "bytes": 365764,
+     "readings": 8808
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "1c9e9506005218e7132dc0e8398597dc5cf408ea74ab37a118791508f72a6eae",
+     "bytes": 366686,
+     "readings": 8812
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "c94ec27e6b0848d1bf6351988e12d45ee68f5c9d03bd03f30b6fe449b73dacad",
+     "bytes": 364742,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "ed5c0d1217caf6838f4740b647417f91132e5243d4fee8b475e08be8b4b0d719",
+     "bytes": 359881,
+     "readings": 8716
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "cc02119b0fd55bd35d077f704df6c0dc3cad2a0ee51b05562310e4198e3f0342",
+     "bytes": 364864,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "caa204ca79e4adf0326b5ea744d73ff7a1551926712e3f7f6f5e4ec65a474c67",
+     "bytes": 362944,
+     "readings": 8776
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07058000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "e5de093d39eba2b4bf3de195ce76e8682e339024acb3b491dd287c1f5f98de94",
+     "bytes": 340517,
+     "readings": 8244
+    }
+   ],
+   "07061500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "1fad94ce6a5ce8ac4e80f121daa1a3e17d89e7de9facae5d0b9e9158e470e904",
+     "bytes": 366103,
+     "readings": 8853
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "a597280bd5723dbf0417f82b3f55cacde220d6e217e8097cda75fb80fc077723",
+     "bytes": 366486,
+     "readings": 8824
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "8387dd3df15206d8ba5c89ac6035e8029c4691fd23ee44a3c52bdc8ae607dcb8",
+     "bytes": 364718,
+     "readings": 8814
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "2a80df2a63aebfb0e5fb3d95c820a95455c9d7002037f098da9f3f63449193b2",
+     "bytes": 364701,
+     "readings": 8835
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "cfca9afae978a6f93bb27d6bd8e3b6db053c522df2f523816acee014e19658d3",
+     "bytes": 353254,
+     "readings": 8553
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "e68897ea07727f8f4d76ba3ab0212a2467cf6ee91736940e527edaf0ddaaab37",
+     "bytes": 365757,
+     "readings": 8826
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "15b10e0d3f9c83f33542e24254df373423921eeb0704546cb97d9447a299d3df",
+     "bytes": 365132,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07061500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "d60a6f2bec3f091d1935567142896ba43b01fecd2f28c3175da4141cc197ae02",
+     "bytes": 338060,
+     "readings": 8181
+    }
+   ],
+   "07064533": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "9ccf2da4ebb706cfbbf363ea1eeefa7b0459e220d286ae8ed8279f5776ab8ed3",
+     "bytes": 353221,
+     "readings": 8549
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "66d25dbbb0b5becca15c07d3b818f36c24dcc0096fe785d4ec092e8a8840d84c",
+     "bytes": 365090,
+     "readings": 8789
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "81a3e42273a74cc56682c738eba78d40ff88e7c839d98ffe69d9a4f31fb07e44",
+     "bytes": 364378,
+     "readings": 8806
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "d7612907e092121c4b65522628836be0d14af2fb170f9b54824ec8ff2661e1c3",
+     "bytes": 364618,
+     "readings": 8833
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "f1836b7c522e3e7d3a550a5e8350b3b35a68213273f972e37a1318c60554f6b9",
+     "bytes": 346729,
+     "readings": 8393
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "5be592b9aaa747ff24218af032e879d5581398b5db575ad5d13c6c30aa27e5fb",
+     "bytes": 364514,
+     "readings": 8800
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "4a1982eea72dddd8ffe731189350183d8483d0d893ab80d142c04b05de431511",
+     "bytes": 359329,
+     "readings": 8704
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07064533&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "023e348c453da56797363d116dd33e461b604e754eab8c581c93d2e6e465aff0",
+     "bytes": 301402,
+     "readings": 7290
+    }
+   ],
+   "07065200": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "c6fd5606664ffc7d34e9d3508d91ed05ce7274be46ed31a9f3009fc9019571ae",
+     "bytes": 342689,
+     "readings": 8263
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "29196a4638625add3487b5bae24e996940e6c9d6f0fbc55e888ecc49ac0e9965",
+     "bytes": 364151,
+     "readings": 8797
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "f02e4c7e92edebacc8c7659f829422762eef8ab67cb0d598f0c3bf003e20d3ec",
+     "bytes": 365333,
+     "readings": 8813
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "20fe44dc49230b05dce1c62f7bc0ce4f6366bbea3dfc3ed9de1538148233aef0",
+     "bytes": 372784,
+     "readings": 8827
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "f4956f9a37616ba9f0d80d7e1ad51ff50354ed118c34fdfe62d22cf5c8a83cf8",
+     "bytes": 368054,
+     "readings": 8727
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "fefa19189829a873f893ec5f99e7bcad6a57b02e388fc830f9af34d1072a34ed",
+     "bytes": 368314,
+     "readings": 8813
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "d2448d729a15deab2edd20e1dc4ceff818175728d5b91c1f138fa8f057cfbb7b",
+     "bytes": 371291,
+     "readings": 8823
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065200&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "d643182d785ea93328a9920f7746556c2890497b2b9d38020eca07039a77e50b",
+     "bytes": 348994,
+     "readings": 8252
+    }
+   ],
+   "07065495": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "cd3661b055fc79cf83d6e6156549fd02c54c4bd48ae8440dbd30fde1585066dc",
+     "bytes": 361408,
+     "readings": 8726
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "d985969bf28a9f97d8244f2807d2652eb771c7e2920d9f7cb8387e700e2d3aac",
+     "bytes": 361350,
+     "readings": 8705
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "e83c85dac501f81593dd60396e05357a5107c472883e2012135d3ac478f31289",
+     "bytes": 365214,
+     "readings": 8808
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "71e9b34144011f2f6c0a7ed0e650477a4e5738669700336a1ebc0c19e9ad8133",
+     "bytes": 370905,
+     "readings": 8835
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "30da71e6b0f53eb0e5b14c9627d81d7ac623ee4ef54815b6886827e2aeb33a9a",
+     "bytes": 366421,
+     "readings": 8720
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "01e5e7272254a4c291669b9378c125add8f8a9d434ae83676e2a54ef4446dbb0",
+     "bytes": 366930,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "cae982e2dc8ef9dca0812a9c2652a2a1f872223988495f04bb7376b1cdfc3b49",
+     "bytes": 368155,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07065495&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "c0a353c39fe375ef13a0bfa1bcbf9b82120f86cc518d92f3f568d555e28d0794",
+     "bytes": 348933,
+     "readings": 8256
+    }
+   ],
+   "07066000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "ebf75cd32ab82557359470075a79666dc38d8f9dee85d39bc96ecfedebcc6b73",
+     "bytes": 338502,
+     "readings": 8193
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "25aae13cd56aed68a6e961e9a3b34e1bc8e157b1454bb91179f4e26b9a34c700",
+     "bytes": 326483,
+     "readings": 7841
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "cba1503f7cf7dfe6eabb020104823ed1113d55c041725dacd5a05c8be2a2144d",
+     "bytes": 363196,
+     "readings": 8706
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "76a40dc5daed6eeb8fec02343647f6cfb8361e89627dc58e1b005d7cdee0b204",
+     "bytes": 358424,
+     "readings": 8682
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "676a24f084ec06aba0d901d384949cf75175d55fa38d7459f59e58e1e1756939",
+     "bytes": 360747,
+     "readings": 8735
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "2f992ace71393a25edfbe33702ce00181f9f7897b4f779cadab6ec1379e723b3",
+     "bytes": 351399,
+     "readings": 8477
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "970e7ab106cd5c9c6c32044d4b8e8feac8040cf19e8e6cedd1757f6d2d3dc6c7",
+     "bytes": 340174,
+     "readings": 8226
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "77057b9e3e4961c190cae1d06bcb20231d6340e702525d8278566e978270cab0",
+     "bytes": 334002,
+     "readings": 8086
+    }
+   ],
+   "07066510": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07066510&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    }
+   ],
+   "07067000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "aa7ed2d05b7a0caab35af2a6843c57014400f5d319465cc6dc5dc5c76c460e79",
+     "bytes": 357881,
+     "readings": 8488
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "ffb7f7ece475cd6d3244cf1260e84e0ec80e4333ad03606fcc48b2abbcb56b51",
+     "bytes": 342407,
+     "readings": 8086
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "41a4013000999861ccfefc22396cfa6d9aa620249b0b928ecbc98f871c1ce6a6",
+     "bytes": 345603,
+     "readings": 8174
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "6933132e67b6c7831b92fab3b46fa502f8e7055967e38575e15fc77843bf56a8",
+     "bytes": 372637,
+     "readings": 8813
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "0bd926488cad2e6fbfe26202c5e2a43101c5f0ade7ac1b85eba71ad974f1cc27",
+     "bytes": 369706,
+     "readings": 8817
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "91139c7273f48d9dbb46a9cca2f26a0d27ecb7710b4da8f1fc3abc6d7b4e1546",
+     "bytes": 360972,
+     "readings": 8548
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "ee16d630c253079bf52685bf58697bda761dc75eb6f1250921beeee43f2ac4dc",
+     "bytes": 370495,
+     "readings": 8808
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07067000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "3233c75ba7fe76413f2d12bea60529ea1de9b186f38bb6c539c264b3b01d5409",
+     "bytes": 341033,
+     "readings": 8249
+    }
+   ],
+   "07069305": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "9c2f1fbcd5a80a1f187fe3660c11206d83d10b8d5bc791b4f40a44fd90d0649f",
+     "bytes": 370659,
+     "readings": 8861
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "5f44f3eb6daf3ffa749267cfdf987f52806ca4d1cc330ec14cac3599e24f3b71",
+     "bytes": 372321,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "cbd28e7da6bf9a5719a1141fbcd2b4a0428c936964fdfa2e81e09040f76010ef",
+     "bytes": 371733,
+     "readings": 8831
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "6b4ef49085bcb60830ab164bffe44f1cbfc1c6287b2b83d0c5735e637d820ba1",
+     "bytes": 364759,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "d1871d53f4e1b7b39b480190477d2efc8f1fd1ac3770f073270d08c740ff7831",
+     "bytes": 364595,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "365f91dbd5ecdb98d5cb532b47491c9fda2a49d3333f8cb67403a8ceee6a269a",
+     "bytes": 364808,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "5d8bc7308cabead8666950d9e2ce5615fbefa00399e243a0ae6d03a3b1d0e3ce",
+     "bytes": 365170,
+     "readings": 8832
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069305&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "f6042a9a8da1413e97a65bfcd9cbdc06ea17798dec816d1b3753790bdaf0e4d8",
+     "bytes": 341026,
+     "readings": 8256
+    }
+   ],
+   "07069500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "71816a410ab2f99d173cd5bd157f431a8e4ec91ad19e65c34ac38723ca4c06ca",
+     "bytes": 372073,
+     "readings": 8861
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "0c5ce6396c1ddbcf370888f9c9b44a42bed453d4b72f9382c41eee74a26fbf8d",
+     "bytes": 373506,
+     "readings": 8823
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "d0dfb6a452dc58113918bc50c6b8303502060939c11515c0701162928c898a76",
+     "bytes": 373311,
+     "readings": 8828
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "fdab404cf5fbda5c4f228f411ececde0e1d3fbb6f86d3808680692f58422483c",
+     "bytes": 358475,
+     "readings": 8684
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "a747e27c3b517bec16e16125887180945054b4a39d09c6df14100553a449b17a",
+     "bytes": 336611,
+     "readings": 8097
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "071a1788310806f58a66e1ad3109e8ce0f27ffb1551983a7ae18c836865d5b23",
+     "bytes": 347990,
+     "readings": 8390
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "80fb79813caafa0067d19d27736657609b1c0e411ec3ec7f5a7acf79d96cd0ba",
+     "bytes": 358948,
+     "readings": 8682
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07069500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "bba2f32d498d90e950e5d488302f3b776d968e18ac35b9c9d273e53c16605fde",
+     "bytes": 338421,
+     "readings": 8193
+    }
+   ],
+   "07071500": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "1e68a227fd1884c1ca8bcc01001e6c12737e4aa73a460c78baac53c423a30893",
+     "bytes": 367171,
+     "readings": 8844
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "e34c9e82fc6eb3336895fcb1ede208e80120edf13320c0604df2354ecf62021a",
+     "bytes": 358149,
+     "readings": 8571
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "74778c25583211a47cc54ed800fe16ae6fb931937107116c6003eaa8bf6b87d5",
+     "bytes": 342234,
+     "readings": 8093
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "90fdd2266808ffa13b4a7306571afeab2b15c570721de907547a16c7781ab3d4",
+     "bytes": 365484,
+     "readings": 8827
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "70415f844dd8dcc7e5b305202d57ba5c7daf617061a9ac1b12ee12ac8635de53",
+     "bytes": 364296,
+     "readings": 8825
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "ff8b997202038ebd7c3f29184f3b8a698b6328e28cdd25eb1cd394bed25cc215",
+     "bytes": 364095,
+     "readings": 8810
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "384e2306f2db99cb5a944f29c9dca8172f6033909e0ef295987b5e90df71f576",
+     "bytes": 363870,
+     "readings": 8813
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07071500&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "cd860dd7cca1e68de60fe16ed4d93c0b68672ab557f963591a10d5f11da458cf",
+     "bytes": 340597,
+     "readings": 8245
+    }
+   ],
+   "07186000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "9bbf640c60331e05ab483a30b9c19534f8823c24021769615e6d3f013632e999",
+     "bytes": 350035,
+     "readings": 8462
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "af275064037ad0904507ebefd3dc6a848858dce7987b5fe7c23f6ca5d6d410a0",
+     "bytes": 326470,
+     "readings": 7843
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "a6379ee457a9c151d56c3dde4c8e8660aa783f798980d80e806ec6be1f4160eb",
+     "bytes": 296292,
+     "readings": 7090
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "fa651214acff98eeacd98f92a582a73454c78a5d34e0150b7b73eff870c7303f",
+     "bytes": 356750,
+     "readings": 8578
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "7db0c0eb594b3af2bf22a3df46fb12280818659dd1eed5d7c03a515603b4015d",
+     "bytes": 361562,
+     "readings": 8601
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "3f605921da730d4ab19e1a56f6de26fe647ff8addf30f3c3381c2f47ebf9622a",
+     "bytes": 334057,
+     "readings": 8000
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "c6bc14704f138530d76bcd2db646246589ffe5b0283711ef2059b94529f8c2e7",
+     "bytes": 328970,
+     "readings": 7904
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07186000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "596fb1dd7c4a81af7723dcf5cf50b79d061e9190e92f30693a6f4c76d30e6d70",
+     "bytes": 347616,
+     "readings": 8256
+    }
+   ],
+   "07188925": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07188925&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "847ec612e7a103176c99618c922b8ae969072efa89e08a7230eb4d04b3f4ffa6",
+     "bytes": 81,
+     "readings": 0
+    }
+   ],
+   "07252000": [
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2024-10-31T21:00Z&endDT=2025-02-01T03:00Z",
+     "sha256": "e67f6777679af962b975f59c383912fd08ef115c61822fa5a9117f6f4016e3af",
+     "bytes": 369060,
+     "readings": 8859
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2025-01-31T21:00Z&endDT=2025-05-04T03:00Z",
+     "sha256": "a613c85f3351d8fd865c7b4af623644a2fd0c97719d5e1972e42067e71a3dc08",
+     "bytes": 367282,
+     "readings": 8822
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2025-05-03T21:00Z&endDT=2025-08-04T03:00Z",
+     "sha256": "3d2ce8c40d21e2426ea2c7370972e199ff3f5aa4d2c1a9c802a473fe242297eb",
+     "bytes": 371179,
+     "readings": 8830
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2025-08-03T21:00Z&endDT=2025-11-04T03:00Z",
+     "sha256": "09a8422d82b4e4f020587b90214366ef77ef8d2ca38d4188d00c083152f3561c",
+     "bytes": 371623,
+     "readings": 8836
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2025-11-03T21:00Z&endDT=2026-02-04T03:00Z",
+     "sha256": "0c8e5ca5d07d8d47624678b6eed7e865da45d289a815c9b1916fbeabdbe40855",
+     "bytes": 368378,
+     "readings": 8831
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2026-02-03T21:00Z&endDT=2026-05-07T03:00Z",
+     "sha256": "c14e742aadb7fadd48785f129e707c52aea750212f285fe8c1ddad6af8c181ab",
+     "bytes": 365390,
+     "readings": 8821
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2026-05-06T21:00Z&endDT=2026-08-07T03:00Z",
+     "sha256": "66ec11b70e9452c112c7faf31b88d4fbe74c5a75550ac64cbaba3e8510dc4e14",
+     "bytes": 368225,
+     "readings": 8731
+    },
+    {
+     "url": "https://nwis.waterservices.usgs.gov/nwis/iv/?format=rdb&sites=07252000&parameterCd=00060&startDT=2026-08-06T21:00Z&endDT=2026-11-01T03:00Z",
+     "sha256": "2ed28c9277b9219609ef68df671287367d14f94a4243411dbfeb4b7f415d3449",
+     "bytes": 353519,
+     "readings": 8256
+    }
+   ]
+  }
+ },
+ "files": {
+  "rain-hourly.csv.gz": "f361ab43bffe0d62a70e5abb8761ca0b43f0c2a6cbffc1c1070f241ac7672df6",
+  "flow-hourly.csv.gz": "697b690bae6144cfb277d3cf3caf8574cd269162483f03801eea2bcec83ae936"
+ }
+}

@@ -140,7 +140,7 @@ test('secondary prompts require a successful section check before using river be
   assert.match(gauge, /riverBehaviorApplies = !error && overrides != null && overrides\.length === 0/);
   assert.match(gauge, /buildGaugePrompt\(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies\)/);
   assert.match(gauge, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
-  assert.doesNotMatch(gauge, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote|rainLagNote)/);
+  assert.doesNotMatch(gauge, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote)/);
 });
 
 test('river prompt asks Eddy to know which stretch a gauge speaks for, without invented local facts', () => {

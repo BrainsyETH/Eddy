@@ -4,9 +4,9 @@ import { auditReport, type AuditInput } from './eddy-read-audit';
 
 const base: AuditInput = {
   rivers: [
-    { slug: 'black', riverNote: 'Per-section hydro types: upper-lesterville=spring_fed_float.', hasRainLag: false, hasPrimaryGauge: true },
-    { slug: 'current', riverNote: 'Spring-fed with a consistent base flow.', hasRainLag: true, hasPrimaryGauge: true },
-    { slug: 'white', riverNote: null, hasRainLag: false, hasPrimaryGauge: false },
+    { slug: 'black', riverNote: 'Per-section hydro types: upper-lesterville=spring_fed_float.', hasPrimaryGauge: true },
+    { slug: 'current', riverNote: 'Spring-fed with a consistent base flow.', hasPrimaryGauge: true },
+    { slug: 'white', riverNote: null, hasPrimaryGauge: false },
   ],
   sections: [
     { riverSlug: 'black', sectionSlug: 'upper-lesterville' },
@@ -50,7 +50,6 @@ test('prompt inputs name the rivers behind each count', () => {
   const report = auditReport(base);
   assert.match(report, /River note is ingest bookkeeping or unrendered: 1 of 3 \(33%\)\n\s+black/);
   assert.match(report, /No river note at all: white/);
-  assert.match(report, /No rain-to-river lag \(database or legacy map\): 2 of 3 \(67%\)\n\s+black, white/);
   assert.match(report, /No primary gauge: white/);
 });
 

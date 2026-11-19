@@ -213,10 +213,12 @@ Rivers system. Excellent for paddlers who want solitude.
 - Great for multi-day camping trips. Less developed, more wilderness feel.
 - Wildlife is abundant — bald eagles, herons, otters are commonly spotted.
 
-### Gauge: Bardley {@07071500} {unconfirmed}
+### Gauge: Bardley {@07071500}
 
-- **Sits**: Line mile 41.0 of 97. Nearest put-ins on the line: Riverton (41.0) above, Morgan Spring Float Camp (49.0) below. Drains 793 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Highway 160 bridge at Riverton. Above it: Greer Spring, which enters about 21 miles upstream just above Greer Crossing, and Hurricane Creek, about 17 miles upstream. Below it: Frederick Creek, about seven miles down.
+- **Speaks for**: Greer Crossing down, the river Greer Spring carries.
+- Thomasville and Cane Bluff are above Greer Spring. The river there is far smaller than this reading shows and depends on rain. No gauge speaks for it.
+- Eddy's only gauge on the river.
 
 ### Towns
 
@@ -251,10 +253,11 @@ Alley Spring. It joins the Current River at Two Rivers.
 - The upper Jacks Fork is narrow, twisty, and technical. Not for beginners.
 - It can go from floatable to unfloatable in 24 hours during dry spells.
 
-### Gauge: Mountain View {@07065200} {unconfirmed}
+### Gauge: Mountain View {@07065200}
 
-- **Sits**: Near Mountain View, line mile 6.8 of 45, far up the canyon. Drains 185 sq mi, against 298 at the Alley Spring gauge. To confirm what enters between them.
-- **Speaks for**: Draft: the upper canyon from the Prongs down past Buck Hollow. To confirm.
+- **Sits**: At Buck Hollow, about seven miles below the Prongs, where the North and South Prongs meet. Above it: both Prongs. Below it: Jam Up Creek, Leatherwood Creek and Bay Creek, small creeks that add water a little at a time on the way to Alley Spring. No large spring joins.
+- **Speaks for**: The upper Jacks Fork, from the Prongs through Buck Hollow to Rymers.
+- Rain-fed, and the smallest water on the river. The Alley Spring gauge, 24 miles down, sits on about two thirds more.
 
 ### Towns
 
@@ -305,10 +308,12 @@ the Mark Twain National Forest.
 - Check conditions before you go — there's less margin for error than on the bigger rivers.
 - The Big Piney is the Gasconade's largest tributary and joins it near Devils Elbow, so a big rise here shows up at the Gasconade's Jerome gauge, about nine miles below the confluence.
 
-### Gauge: Big Piney {@06930000} {unconfirmed}
+### Gauge: Big Piney {@06930000}
 
-- **Sits**: Line mile 74.8 of 108. Nearest put-ins on the line: Horse Camp Access (68.7) above, Wilderness Ridge Resort (74.9) below. Drains 560 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near the town of Big Piney, about two thirds of the way down the river and 32 miles above the Gasconade. Above it: the Little Piney, Arthur Creek and Big Paddy Creek. Below it: Spring Creek, about 15 miles down.
+- **Speaks for**: The river around Slabtown, Horse Camp and Ross, and on down toward the Gasconade.
+- Put-ins far upstream carry much less water than this reading shows. The farther up you start, the bigger the gap.
+- Eddy's only gauge on the river.
 
 ### Towns
 
@@ -381,10 +386,12 @@ a weekend of floating. Upper sections usually only floatable in early spring.
 - Nice bluffs and clear water when conditions are right.
 - **Gauge note**: Huzzah Creek near Steelville (**07014000**) also serves as the proxy gauge for Courtois Creek. Both creeks will show similar conditions, so do not recommend Courtois as an alternative when Huzzah is low.
 
-### Gauge: Steelville {@07014000} {unconfirmed}
+### Gauge: Steelville {@07014000}
 
-- **Sits**: Line mile 26.4 of 33. Nearest put-ins on the line: Highway 8 Bridge (Lower) (26.4) above, Huzzah Conservation Area (31.3) below. Drains 259 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Highway 8 bridge east of Steelville, about seven miles above the Meramec. Above it: Dry Creek, which joins right at the gauge, and Shoal Creek, about eight miles up. Below it: Courtois Creek, which joins about five miles down, just before the Meramec.
+- **Speaks for**: The lower Huzzah, from Highway 8 down.
+- Floats that start above Dry Creek have less water than this reading shows.
+- Eddy's only gauge on the creek.
 
 ### Towns
 
@@ -405,10 +412,11 @@ the weekend crowds. Upper sections usually only floatable in early spring.
 - Beautiful bluffs and gravel bars. Great for wading and swimming when the water is up.
 - Steelville area outfitters serve both Courtois and Huzzah.
 
-### Gauge: Steelville {@07014000} {unconfirmed}
+### Gauge: Steelville {@07014000}
 
-- **Sits**: This gauge is on Huzzah Creek near Steelville, not on the Courtois. The Courtois has no gauge of its own. To confirm how well the Huzzah stands in for it.
-- **Speaks for**: To confirm.
+- **Sits**: This gauge is on Huzzah Creek at Highway 8, not on the Courtois. The Courtois has no gauge. It joins the Huzzah about five miles below this gauge, so none of the Courtois's water is in the reading.
+- **Speaks for**: The Courtois by comparison only. The two creeks drain neighbouring valleys of about the same size and often rise and fall together, but a storm over one valley can miss the other.
+- Say the reading is from the Huzzah whenever you quote it for the Courtois.
 
 ### Towns
 
@@ -476,15 +484,19 @@ The slowest large stream in the Ozarks and one of its crookedest — it winds ab
 - Spring Creek enters about ten miles below Noser Mill and can nearly double the flow. Below that confluence the river is almost always floatable even when the upper half is not.
 - Union reads this reach well — except the Noser Mill to Spring Creek stretch above the confluence, which runs lower than Union shows.
 
-### Gauge: High Gate {@07015720} {unconfirmed}
+### Gauge: High Gate {@07015720}
 
-- **Sits**: Line mile 13.5 of 149. Nearest put-in on the line: Mint Spring MDC Access (26.0) below; none above. Drains 135 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near High Gate, far up the river, about 12 miles above Mint Spring, the first put-in. Above it: Lanes Fork and Clear Creek. Below it: Brush Creek, which joins just below the Highway 19 bridge, and the Dry Fork, a few miles farther down. Between them they more than double the river.
+- **Speaks for**: The upper Bourbeuse, Mint Spring to Highway H.
+- From the Highway 19 bridge down, Brush Creek and the Dry Fork have joined and the river carries more than this reading shows.
+- Rated on its own levels.
 
-### Gauge: Union {@07016500} {unconfirmed}
+### Gauge: Union {@07016500}
 
-- **Sits**: Line mile 132.7 of 149. Nearest put-ins on the line: Union MDC Access (132.6) above, Dr. Henry A. and Amalia Uhlemeyer MDC Access (141.9) below. Drains 808 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Union, about 16 miles above the Meramec. Above it: nearly the whole river, with the Dry Fork, the Little Bourbeuse, Red Oak Creek, Boone Creek and Spring Creek. Below it: no sizeable creek before the Meramec.
+- **Speaks for**: The middle and lower river, from Mill Rock down.
+- It is a long way below the upper put-ins. A rise takes time to reach it, and the upper river can be thin while this gauge reads fine.
+- Eddy's primary gauge for the river.
 
 ### Towns
 
@@ -515,31 +527,34 @@ The Buffalo National River — America's first National River (1972) — is a fr
 - Calmer, holds water nearly year-round, and reads more like flatwater than float. Low water here mostly costs speed rather than ending the trip.
 - The Harriet gauge, at the Highway 14 bridge, is the lowest before the White River confluence.
 
-### Gauge: Boxley {@07055646} {unconfirmed}
+### Gauge: Boxley {@07055646}
 
-- **Sits**: Line mile 13.5 of 148. Nearest put-in on the line: Boxley (15.2) below; none above. Drains 57 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Above Boxley, at the top of the valley. Above it: the headwaters only. Below it: Beech Creek, about two miles down at Boxley, and the side creeks of Boxley Valley. The river has doubled by Ponca.
+- **Speaks for**: Boxley Valley, from Boxley down to Ponca.
 
-### Gauge: Ponca {@07055660} {unconfirmed}
+### Gauge: Ponca {@07055660}
 
-- **Sits**: Line mile 21.2 of 148. Nearest put-ins on the line: Ponca (21.1) above, Steel Creek (23.7) below. Drains 116 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Ponca. Above it: Boxley Valley and its creeks. Below it: Cove Creek and small side creeks. The river gains slowly from here to Pruitt.
+- **Speaks for**: The upper river, Ponca through Steel Creek and Kyles Landing to Erbie.
 
-### Gauge: Pruitt {@07055680} {unconfirmed}
+### Gauge: Pruitt {@07055680}
 
-- **Sits**: Line mile 45.0 of 148. Nearest put-ins on the line: Ozark (43.1) above, Pruitt (45.1) below. Drains 190 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Pruitt. Above it: the upper river from Ponca. Below it: Mill Creek, just below the gauge, and then the Little Buffalo, which joins about four miles down and nearly doubles the river.
+- **Speaks for**: Ozark and Pruitt, down to the Little Buffalo.
+- From Hasty on, the Little Buffalo has joined and the river carries far more than this gauge reads.
 
-### Gauge: St. Joe {@07056000} {unconfirmed}
+### Gauge: St. Joe {@07056000}
 
-- **Sits**: Line mile 88.9 of 148. Nearest put-ins on the line: Tyler Bend (87.6) above, Grinders Ferry (89.1) below. Drains 829 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Highway 65 bridge, by Grinders Ferry and just below Tyler Bend. Above it: the Little Buffalo, Big Creek at Carver, Cave Creek, Richland Creek at Woolum, and Calf Creek, all of which join between Pruitt and here. Below it: Bear Creek, about five miles down, just past Gilbert.
+- **Speaks for**: The middle river, Hasty to Gilbert.
+- It is truest from Woolum down. Between Hasty and Woolum, Big Creek, Cave Creek and Richland Creek have not all joined yet, so the river carries less than this reading shows.
+- Eddy's primary gauge for the river.
 
-### Gauge: Harriet {@07056700} {unconfirmed}
+### Gauge: Harriet {@07056700}
 
 - **Sits**: At the Highway 14 bridge (Dillards Ferry) near Harriet, about 26 miles below the St. Joe gauge. Above it: everything the St. Joe gauge carries and the creeks that join below Gilbert. Below it: Buffalo Point and Rush, then the White River.
 - **Speaks for**: The lower Buffalo, from Gilbert down.
-- The owner approved these two lines on 2026-11-18. The block stays out of prompts until the river's main gauge, St. Joe, has a confirmed block too.
+- The lowest gauge on the river, before the White River.
 
 ### Towns
 
@@ -565,15 +580,18 @@ Missouri's only whitewater river. The upper St. Francis through Millstream Garde
 - Silver Mines down toward Sam A. Baker State Park and Wappapello: a normal-stream float, much calmer than the shut-ins.
 - On this reach low water mainly affects your speed rather than whether you can float.
 
-### Gauge: Roselle {@07034000} {unconfirmed}
+### Gauge: Roselle {@07034000}
 
-- **Sits**: Line mile 40.5 of 123. Nearest put-ins on the line: Syenite Access (Hwy H bridge) (29.7) above, Roselle Access (40.6) below. Drains 234 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Roselle, about three miles above Millstream Gardens and the Tiemann Shut-ins. Above it: the upper river, with Wolf Creek and Doe Run Creek. Below it: the Little St. Francis, which joins about seven miles down, just below Silver Mines, and adds more than half again.
+- **Speaks for**: The whitewater run through the shut-ins, Millstream Gardens to Silver Mines, and the river above it.
+- Its levels are whitewater levels, read in feet. They say nothing about the lower river: below the Little St. Francis, the Patterson gauge is the one on that water.
+- Eddy's primary gauge for the river.
 
-### Gauge: Patterson {@07037500} {unconfirmed}
+### Gauge: Patterson {@07037500}
 
-- **Sits**: Line mile 93.4 of 123. Nearest put-ins on the line: Hwy 34 bridge (Patterson gauge) (93.4) above, Greenville Recreation Area (Wappapello Lake, COE) (100.6) below. Drains 956 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Highway 34 bridge near Patterson, about four miles below Sam A. Baker State Park. Above it: the Little St. Francis, Marble Creek, Twelvemile Creek and Big Creek, which joins at Sam A. Baker. Below it: Clark Creek, then Wappapello Lake.
+- **Speaks for**: The lower St. Francis, from the Little St. Francis down through Jewett, Sam A. Baker and Highway 34 toward Wappapello.
+- Unrated. Eddy has no float levels for this gauge, so describe the reading and which way it is moving and give no condition. Only flood stage reads Dangerous here.
 
 ### Towns
 
@@ -608,15 +626,18 @@ A slow, long-pool Class I float rising in the St. Francois Mountains and winding
 - Dam country: Morse Mill at the top (portage right) and the Cedar Hill mill dam at the bottom (portage left, where the MDC Cedar Hill Access is also the best take-out in the stretch). Portage both at every level.
 - Byrnesville is the nearest gauge to this reach and the right one to read here.
 
-### Gauge: Richwoods {@07018100} {unconfirmed}
+### Gauge: Richwoods {@07018100}
 
-- **Sits**: Line mile 86.1 of 142. Nearest put-ins on the line: Mammoth Access (80.2) above, Merrill Horse Access (86.4) below. Drains 735 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Richwoods, about six miles below Mammoth Access and 54 miles above the Meramec. Above it: Cedar Creek, Flat River, Terre Bleue Creek, Mill Creek and Mineral Fork, which joins about eight miles up, between Washington State Park and Mammoth. Below it: no sizeable creek before Byrnesville.
+- **Speaks for**: The middle river, Mammoth to Brown's Ford.
+- From Washington State Park up, Mineral Fork has not joined yet and the river carries less than this reading shows.
+- Eddy's primary gauge for the river.
 
-### Gauge: Byrnesville {@07018500} {unconfirmed}
+### Gauge: Byrnesville {@07018500}
 
-- **Sits**: Line mile 127.2 of 142. Nearest put-ins on the line: Cedar Hill Access (121.2) above, Rockford Beach Park (131.4) below. Drains 917 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Byrnesville, about 14 miles above the Meramec. Above it: everything the Richwoods gauge reads and 40 more miles of river with no sizeable creek. Below it: the last miles to the Meramec.
+- **Speaks for**: The lower river: Morse Mill, Cedar Hill and Rockford Beach.
+- Rated on its own levels.
 
 ### Towns
 
@@ -649,10 +670,12 @@ A wild, spring-influenced Ozark stream running south through Douglas and Ozark c
 
 - Norfork Lake backwater when the lake is up: flat water rather than float, and the current quits well before the take-out does. Plan for paddling, and for wind.
 
-### Gauge: Tecumseh {@07058000} {unconfirmed}
+### Gauge: Tecumseh {@07058000}
 
-- **Sits**: Line mile 59.4 of 64. Nearest put-ins on the line: Warren Bridge Access (54.1) above, Florence C. Cook Access (61.9) below. Drains 570 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Tecumseh, at the very bottom of the creek, about four miles above the North Fork. Above it: every sizeable creek on the Bryant, with Hunter Creek, Fox Creek, Spring Creek and Brush Creek, and Pine Creek, which joins just above the gauge. Below it: only the backwater of Norfork Lake.
+- **Speaks for**: The lower creek, from Warren Bridge down.
+- It reads more water than any float upstream has. Fox Creek and Spring Creek join 25 to 28 miles up, between Vera Cruz and Hodgson Mill.
+- Eddy's only gauge on the creek.
 
 ### Towns
 
@@ -677,10 +700,12 @@ The North Fork of the White is a cold, clear, spring-fed float and one of Missou
 - The popular float, and the reach the Tecumseh gauge actually represents. Class I–II with two things to plan around: The Falls above River of Life Farm, and Dawt Mill Dam near the take-out.
 - Cold water year-round is a feature of this reach, not a seasonal caveat — dress for immersion even in midsummer.
 
-### Gauge: Tecumseh {@07057500} {unconfirmed}
+### Gauge: Tecumseh {@07057500}
 
-- **Sits**: Line mile 57.3 of 63. Nearest put-ins on the line: Patrick Bridge Access (55.3) above, Highway PP bridge (North Fork high bridge) (58.4) below. Drains 561 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Tecumseh, at the bottom of the floated river. Above it: Rainbow Spring and the other springs that carry the river, and Spring Creek, which joins near the Highway 14 bridge about 18 miles up. Below it: Bryant Creek, about five miles down, in the lake's backwater.
+- **Speaks for**: The spring-fed river, from Rainbow Spring down to Tecumseh.
+- Above the springs the river is much smaller than this reading shows.
+- Eddy's only gauge on the river.
 
 ### Towns
 
@@ -710,15 +735,18 @@ A southwest-Missouri smallmouth stream draining the Springfield Plateau to Table
 - Hwy 125 down to Hootentown: urban runoff and wastewater-treatment influence, flashy and rain-driven, floatable only at medium-to-high water. Not a summer trip.
 - Portage the Kissick low-head dam. Read Boaz or Springfield here — never the Galena number.
 
-### Gauge: Boaz {@07052250} {unconfirmed}
+### Gauge: Boaz {@07052250}
 
-- **Sits**: Line mile 59.7 of 93. Nearest put-ins on the line: Delaware Town Access (55.0) above, Shelvin Rock Access (60.7) below. Drains 462 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Boaz, between Delaware Town and Shelvin Rock. Above it: Wilsons Creek, which joins about seven miles up. Below it: Finley Creek, which joins about four miles down, above Hootentown, and adds more than half again.
+- **Speaks for**: The James above Finley Creek: Joe Crighton, Delaware Town and Shelvin Rock.
+- Rated on its own levels. Its High and Dangerous lines are provisional, set by the owner on 2026-11-19.
 
-### Gauge: Galena {@07052500} {unconfirmed}
+### Gauge: Galena {@07052500}
 
-- **Sits**: Line mile 88.3 of 93. Nearest put-in on the line: Galena Y-Bridge Access (Ralph Cox Memorial Access) (88.2) above; none below. Drains 987 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Galena Y-Bridge, at the bottom of the floated river. Above it: Finley Creek, about 25 miles up, and Crane Creek, about nine miles up. Below it: the river runs on to Table Rock Lake.
+- **Speaks for**: Hootentown to Galena, the classic lower float.
+- Hootentown, at the top of that float, has less water than this reading shows until Crane Creek joins.
+- Eddy's primary gauge for the river.
 
 ### Towns
 
@@ -734,19 +762,22 @@ A western-edge Ozark stream running from Lawrence County through Carthage and on
 - **The float ladder here is statistical, not a vetted float key.** No outfitter or agency publishes floatability levels for this river, so the thresholds come from long-run gauge percentiles at Carthage. Talk about trend and direction, and be more hedged about "good" and "too low" than on a calibrated river.
 - The one piece of local guidance that does exist is blunt and worth repeating: don't float on high water, and if the water is brown or carrying debris, stay out.
 - **Two low-head dams to portage**: the Hwy 96 dam (portage river-right) and the old mill dam near Galesburg. Scout both.
-- **Two gauges, very different drainages.** Carthage (07185765, ~425 sq mi) sits mid-reach and is the representative gauge. Waco (07186000, ~1,164 sq mi) is well downstream near the Kansas line, on nearly three times the drainage — it is not a substitute for Carthage.
+- **Two gauges, very different drainages.** Carthage (07185765, ~425 sq mi) sits mid-reach and is the representative gauge. Waco (07186000, ~1,164 sq mi) is well downstream near the Kansas line, on nearly three times the drainage — it is not a substitute for Carthage. Put-ins below the North Fork are on Waco's water, and Waco has no float levels, so they get a reading and no condition.
 - Public accesses sit roughly 3–7 miles apart down to Kafir Bridge, the last Missouri access above the state line. Below the line you are in Kansas, where floating requires landowner permission.
 - Carthage has dammed and milled this river since the 1840s, and the industrial legacy around the old millrace still affects water quality on that stretch. Nearest towns are Carthage and Sarcoxie; Joplin is the nearest city.
 
-### Gauge: Carthage {@07185765} {unconfirmed}
+### Gauge: Carthage {@07185765}
 
-- **Sits**: Line mile 31.2 of 101. Nearest put-ins on the line: Civil War Road Access (31.2) above, Route O Bridge Access (38.8) below. Drains 425 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Carthage. Above it: the upper river, with Honey Creek, Stahl Creek and White Oak Creek. Below it: the North Fork of the Spring River, which joins about 19 miles down, just above the Highway 270 bridge, and more than doubles the river.
+- **Speaks for**: The river above the North Fork, from Highway 97 through Carthage to the old mill dam at Galesburg.
+- It says nothing about the river below the North Fork.
+- Eddy's primary gauge for the river.
 
-### Gauge: Waco {@07186000} {unconfirmed}
+### Gauge: Waco {@07186000}
 
-- **Sits**: Line mile 52.8 of 101. Nearest put-ins on the line: Maple Lane Bridge (52.8) above, Kafir Bridge (56.2) below. Drains 1,164 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Waco, about three miles below the North Fork. Above it: the North Fork, which brings more water than the main river does. Below it: Cow Creek and Center Creek, then the Kansas line.
+- **Speaks for**: The river from the North Fork down: the Highway 270 bridge, Maple Lane and Kafir Bridge.
+- Unrated. Eddy has no float levels for this gauge, so describe the reading and which way it is moving and give no condition. Only flood stage reads Dangerous here.
 
 ### Towns
 
@@ -762,7 +793,7 @@ Arkansas's Spring River rises at Mammoth Spring and runs cold, clear, and remark
 - **The ledges are the hazard.** Saddler Falls and High Falls are Class I–II drops that regularly flip loaded canoes, and low-head Dams #1 and #3 need portaging, especially in high water. Rafts and hard-shell kayaks handle them better than open canoes.
 - The classic float is Dam 3 / Riverside down to Hardy, about 15 miles, with the main put-in roughly three miles below the spring. AGFC stocks trout in the cold upper stretch; smallmouth, walleye, and tiger muskie live below.
 - **Do not read NWS flood stage as the danger line.** Flood stage at Hardy is a stage-height category on a river whose floatable range is a few hundred cfs — high water on this river arrives long before the flood category does.
-- **Hardy (07069305)** at the Spring Street bridge is the primary gauge; **Imboden (07069500)** reads the lower river toward the Black River confluence, which is larger, warmer, and much less calibrated.
+- **Hardy (07069305)** at the Spring Street bridge is the primary gauge; **Imboden (07069500)** sits on the lower river toward the Black River confluence, which is larger, warmer, and has no float levels of its own. Put-ins there are graded by Hardy.
 - The Hardy stretch is a party-float destination on summer weekends. Nearest towns: Mammoth Spring, Hardy, and Cherokee Village.
 
 ### Mammoth Spring / Dam 3 to Hardy {#spring-reach1}
@@ -772,17 +803,20 @@ Arkansas's Spring River rises at Mammoth Spring and runs cold, clear, and remark
 
 ### Hardy toward Imboden and the Black {#spring-reach2}
 
-- Below Hardy the river grows, warms, and slows toward the Black River confluence. The Imboden gauge covers it, but this reach has no vetted float key — be more hedged here than on the Hardy run.
+- Below Hardy the river grows, warms, and slows toward the Black River confluence. The Imboden gauge sits on it, but this reach has no vetted float key and is graded by the Hardy gauge upstream — be more hedged here than on the Hardy run.
 
-### Gauge: Hardy {@07069305} {unconfirmed}
+### Gauge: Hardy {@07069305}
 
-- **Sits**: Line mile 18.4 of 58. Nearest put-ins on the line: Bayou Access (5.9) above, Hardy (Spring Street Bridge) Access (18.4) below. Drains 845 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Spring Street bridge in Hardy, about 18 miles below Mammoth Spring. Above it: Mammoth Spring, which carries the river, and Myatt Creek, which joins about six miles up. Below it: Martins Creek and Janes Creek, on the way to Imboden.
+- **Speaks for**: Mammoth Spring to Hardy on its own water, and Hardy to Imboden as the nearest rated gauge.
+- Below Hardy the river carries more than this reads: about 15% more at Imboden in low water and about a third more when Hardy is high.
+- Eddy's primary gauge for the river.
 
-### Gauge: Imboden {@07069500} {unconfirmed}
+### Gauge: Imboden {@07069500}
 
-- **Sits**: Line mile 45.7 of 58. Nearest put-ins on the line: Ravenden Access (38.2) above, Imboden Access (45.8) below. Drains 1,180 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Imboden, about 27 miles below Hardy and eight above the Black River. Above it: everything the Hardy gauge reads, plus Martins Creek and Janes Creek. Below it: the last miles to the Black River.
+- **Speaks for**: The lower river around Ravenden and Imboden.
+- Borrowed. Eddy has no float levels for this gauge, so the Ravenden and Imboden put-ins are graded by the Hardy gauge. This gauge runs above Hardy: about 15% in low water and about a third when Hardy is high.
 
 ### Towns
 
@@ -801,10 +835,12 @@ A free-flowing, undammed Ozark stream running about 90 miles north out of the Bo
 - **The bottom reach outlasts the rest.** Hwy 62 down to MO 86 holds water into August thanks to Table Rock backwater — but expect slack water, wind, and motorboats down there, not a moving float.
 - Access is a mix of road crossings and private/fee accesses through the Berryville and Eureka Springs outfitters. Nearest towns: Berryville, Eureka Springs, Marble.
 
-### Gauge: Berryville {@07050500} {unconfirmed}
+### Gauge: Berryville {@07050500}
 
-- **Sits**: Line mile 77.8 of 111. Nearest put-ins on the line: J.D. Fletcher Access (Hwy 62) (72.0) above, Stoney Point / Summers Ford (85.0) below. Drains 527 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Berryville, below the Highway 62 bridge, about 33 miles above the river's mouth. Above it: most of the river, with Osage Creek, the largest tributary, which joins about five miles up at Highway 62, and Keels Creek. Below it: no sizeable creek.
+- **Speaks for**: The lower river, from Highway 62 down.
+- Above Osage Creek, which is most of the floated river, there is less water than this reading shows, and less again the farther up you start.
+- Eddy's only gauge on the river.
 
 ### Towns
 
@@ -836,10 +872,12 @@ A scenic Class I northwest-Arkansas float running past Withrow Springs State Par
 - Ends at the War Eagle Mill low-head dam — a required portage with steep banks on both sides, just above Beaver Lake backwater.
 - When Beaver Lake is up, the last of this reach is flat lake water rather than creek.
 
-### Gauge: Hindsville {@07049000} {unconfirmed}
+### Gauge: Hindsville {@07049000}
 
-- **Sits**: Line mile 43.6 of 68. Nearest put-ins on the line: War Eagle Creek Walk-in Access ('Chicken House Access') (37.4) above, Hwy 45 Bridge (Hindsville) Access (43.7) below. Drains 263 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At the Highway 45 bridge near Hindsville. Above it: the upper creek and its small side creeks. Nothing large joins. Below it: Clifty Creek, about six miles down, then War Eagle Mill.
+- **Speaks for**: The floated creek, Withrow Springs to War Eagle Mill.
+- The creek gains water slowly, so the reading holds along the float and runs a little generous at the top.
+- Eddy's only gauge on the creek.
 
 ### Towns
 
@@ -867,10 +905,12 @@ A clear, gravel-bottomed Ozark stream crossing north-central Arkansas to the Whi
 - Starts at the named hazard: Kelly's Slab, the concrete low-water crossing at the Fred Berry Conservation Education Center. Scout and portage — water moving over the slab is dangerous.
 - The gauge sits right here, so this is the reach its reading describes most honestly.
 
-### Gauge: Yellville {@07055607} {unconfirmed}
+### Gauge: Yellville {@07055607}
 
-- **Sits**: Line mile 59.3 of 87. Nearest put-ins on the line: Crooked Creek Gravel Bar Camping Area (58.0) above, Kelley's Slab Access (59.4) below. Drains 398 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: At Kelley's Slab in Yellville. Above it: Clear Creek and Hampton Creek, which join about 16 miles up, below Pyatt. Below it: Mill Creek, about four miles down, on the way to the White River.
+- **Speaks for**: Snow down through Kelley's Slab and Yellville.
+- Above Clear Creek, around Pyatt and Harmon, the creek has about a third less water than this reading shows.
+- Eddy's only gauge on the creek.
 
 ### Towns
 
@@ -902,10 +942,12 @@ A clear Ouachita Mountain stream — **not** an Ozark river — and one of Arkan
 
 - Easier and slower than the run above, trending toward DeGray Lake. The long version of this reach holds an isolated Class III hole and wave train that only shows up at high water.
 
-### Gauge: Caddo Gap {@07359610} {unconfirmed}
+### Gauge: Caddo Gap {@07359610}
 
-- **Sits**: Line mile 19.8 of 75. Nearest put-ins on the line: Swinging Bridge Access (Caddo Gap) (17.8) above, Glenwood Access (City Park Boat Ramp) (27.7) below. Drains 136 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near Caddo Gap, about two miles below the swinging bridge. Above it: Polk Creek, Lick Creek and Collier Creek. Below it: the South Fork of the Caddo, which joins under two miles down and adds about a third.
+- **Speaks for**: Caddo Gap to Glenwood.
+- Norman, upstream, has less water than this reading shows. Below the South Fork the river has more.
+- Eddy's only gauge on the river.
 
 ### Towns
 
@@ -936,10 +978,12 @@ Arkansas's premier whitewater float and a National Wild and Scenic River, runnin
 
 - Below the hub the river mellows to I–II — the gentler end of the Mulberry, though still flashy and still not a beginner river on a rising gauge.
 
-### Gauge: Mulberry {@07252000} {unconfirmed}
+### Gauge: Mulberry {@07252000}
 
-- **Sits**: Line mile 58.6 of 70. Nearest put-ins on the line: Campbell Cemetery access (46.4) above, Mill Creek access (59.2) below. Drains 373 sq mi. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
+- **Sits**: Near the town of Mulberry, at the bottom of the floated river, just above the Mill Creek access. Above it: the Little Mulberry, which joins between Wolf Pen and Byrd's, and Hurricane Creek, about six miles up. Below it: Mill Creek, then the Arkansas River.
+- **Speaks for**: The whole floated river, read from the bottom. It is closest for Campbell Cemetery to Mill Creek.
+- The classic floats, Wolf Pen to Turner Bend, sit 23 to 39 miles above this gauge with less water than it reads.
+- Eddy's only gauge on the river.
 
 ### Towns
 
@@ -993,8 +1037,9 @@ Twenty-three miles of the White River between Table Rock Dam and Powersite Dam a
 - The live Noel gauge is USGS 07188925 and currently supplies stage only. The former Tiff City gauge is inactive. Never apply Tiff City stage thresholds to Noel or infer a discharge from its stage.
 - Bluff Dwellers Cave is a drive-to attraction south of Noel, not a riverside cave stop. Named springs documented on Indian Creek, Big Sugar Creek and Mill Creek are not established Elk mainstem stops.
 
-### Gauge: Noel {@07188925} {unconfirmed}
+### Gauge: Noel {@07188925}
 
-- **Sits**: Line mile 11.3 of 35. Nearest put-ins on the line: Mount Shira Access (7.6) above, Wayside Campground River Access (11.3) below. To confirm: what enters above it and what enters below it.
-- **Speaks for**: To confirm.
-
+- **Sits**: At the Highway 59 bridge in Noel. Above it: Big Sugar and Little Sugar creeks, which meet at Pineville to form the Elk about 11 miles up, and Indian Creek, which joins about five miles up. Below it: Buffalo Creek, about 13 miles down.
+- **Speaks for**: The Elk from Indian Creek down through Noel.
+- Between Pineville and Indian Creek the river has about a third less water than this reading shows.
+- Eddy's only gauge on the river.

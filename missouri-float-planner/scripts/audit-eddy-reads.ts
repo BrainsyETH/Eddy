@@ -22,7 +22,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getScriptClient } from './lib/db';
 import { auditReport, type AuditLogRow, type AuditPublished } from './lib/eddy-read-audit';
 import { listKnowledgeRiverSlugs, listKnowledgeSectionSlugs } from '../src/lib/eddy/knowledge';
-import { RAIN_LAG } from '../src/lib/eddy/rain-lag';
 
 const PAGE = 1000;
 
@@ -65,7 +64,7 @@ async function main() {
 
   const riverRows = await fetchAll<{ id: string; slug: string; river_characteristics: unknown }>((from, to) =>
     supabase.from('rivers')
-      .select('id, slug, river_characteristics(river_note, rain_lag_hours)')
+      .select('id, slug, river_characteristics(river_note)')
       .eq('active', true).order('slug').range(from, to));
   const riverById = new Map(riverRows.map((r) => [r.id, r.slug]));
 
@@ -92,12 +91,10 @@ async function main() {
   console.log(auditReport({
     rivers: riverRows.map((r) => {
       const rc = (Array.isArray(r.river_characteristics) ? r.river_characteristics[0] : r.river_characteristics) as
-        { river_note: string | null; rain_lag_hours: number | null } | null | undefined;
+        { river_note: string | null } | null | undefined;
       return {
         slug: r.slug,
         riverNote: rc?.river_note ?? null,
-        // The generator reads the database first and falls back to this map.
-        hasRainLag: rc?.rain_lag_hours != null || r.slug in RAIN_LAG,
         hasPrimaryGauge: withPrimary.has(r.id),
       };
     }),

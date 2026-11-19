@@ -47,17 +47,14 @@ function buildSlugMap(contexts: RiverContext[]): string {
 function buildStrategy(contexts: RiverContext[]): string {
   const bySlug = new Map(contexts.map((c) => [c.slug, c]));
   const springFed = contexts.filter((c) => c.characteristics?.isSpringFed === true).map((c) => c.name);
-  const quickResponding = contexts
-    .filter((c) => c.characteristics?.isSpringFed === false && (c.characteristics?.rainLagHours ?? 99) <= 4)
-    .map((c) => c.name);
 
   const lines: string[] = ['Strategy for which rivers to check:'];
   if (springFed.length > 0) {
     lines.push(`- Dry weather: check spring-fed rivers first (${springFed.join(', ')})`);
   }
-  if (quickResponding.length > 0) {
-    lines.push(`- Rainy: quick-responding smaller streams (${quickResponding.join(', ')}) may be at flowing levels`);
-  }
+  // A "quick-responding streams" hint used to follow, chosen by per-river
+  // rain-lag estimates that had no source. Measured lags
+  // (scripts/research/rain-lag-2026-11) did not bear them out, so it is gone.
   // Editorial picks — only mentioned while those rivers are on the roster.
   if (bySlug.has('current') || bySlug.has('meramec')) {
     lines.push('- Beginners/families: easier sections of Current or Meramec');

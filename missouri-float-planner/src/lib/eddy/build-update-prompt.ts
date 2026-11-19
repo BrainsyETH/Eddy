@@ -4,7 +4,6 @@ import type { UpdateTarget } from '@/data/river-sections';
 import type { NWSAlert } from '@/lib/nws/alerts';
 import type { WeatherData, ForecastData, PrecipitationSummary } from '@/lib/weather/openweather';
 import type { GaugeTrajectory } from './gauge-trajectory';
-import type { RainLagInfo } from './rain-lag';
 import type { RiverContext } from '@/lib/rivers/context';
 import { DEFAULT_TIMEZONE } from '@/lib/rivers/defaults';
 import { getLocalDateStrings } from '@/lib/social/local-time';
@@ -32,7 +31,7 @@ export function buildPrompt(
   localKnowledge: string,
   trajectory: GaugeTrajectory | null = null,
   precipitation: PrecipitationSummary | null = null,
-  rainLag: RainLagInfo | null = null,
+  recoveryNote: string | null = null,
   riverCtx: RiverContext | null = null,
 ): string {
   const riverNotes = riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug];
@@ -148,13 +147,14 @@ export function buildPrompt(
     lines.push('Recent rain: no measurement is available for this report. Do not describe the past hours as dry or as wet.');
   }
 
-  // Rain-to-river lag info
-  if (rainLag) {
+  // How the river comes back down. The per-river "hours from rain to gauge"
+  // estimates that used to sit here had no source and were removed when lag
+  // was measured (scripts/research/rain-lag-2026-11). A measured lag is used
+  // only by the app's Weather section, for the gauges that earned one.
+  if (recoveryNote) {
     lines.push('');
-    lines.push('[RAIN-TO-RIVER LAG]');
-    lines.push(`Typical response time: ${rainLag.hours} hours from local rain to gauge response`);
-    lines.push(`Note: ${rainLag.note}`);
-    lines.push(`Recovery rate: ${rainLag.dropRateFtPerDay}`);
+    lines.push('[RECOVERY AFTER HIGH WATER]');
+    lines.push(`Recovery rate: ${recoveryNote}`);
   }
 
   // No current weather and no three-day forecast. Weather belongs in the app's

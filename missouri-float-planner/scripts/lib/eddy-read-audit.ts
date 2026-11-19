@@ -11,7 +11,6 @@ import { riverNoteDefect } from '../../src/lib/eddy/river-note';
 export interface AuditRiver {
   slug: string;
   riverNote: string | null;
-  hasRainLag: boolean;
   hasPrimaryGauge: boolean;
 }
 export interface AuditSection { riverSlug: string; sectionSlug: string }
@@ -94,15 +93,12 @@ export function auditReport(input: AuditInput): string {
   // ── what the prompt is handed beside it ─────────────────────────────
   const malformed = input.rivers.filter((r) => riverNoteDefect(r.riverNote)).map((r) => r.slug).sort();
   const noNote = input.rivers.filter((r) => !r.riverNote?.trim()).map((r) => r.slug).sort();
-  const noLag = input.rivers.filter((r) => !r.hasRainLag).map((r) => r.slug).sort();
   const noGauge = input.rivers.filter((r) => !r.hasPrimaryGauge).map((r) => r.slug).sort();
   out.push('');
   out.push(`PROMPT INPUTS (${input.rivers.length} active rivers)`);
   out.push(`  River note is ingest bookkeeping or unrendered: ${share(malformed.length, input.rivers.length)}`);
   if (malformed.length) out.push(`    ${list(malformed)}`);
   out.push(`  No river note at all: ${list(noNote)}`);
-  out.push(`  No rain-to-river lag (database or legacy map): ${share(noLag.length, input.rivers.length)}`);
-  if (noLag.length) out.push(`    ${list(noLag)}`);
   out.push(`  No primary gauge: ${list(noGauge)}`);
 
   return out.join('\n');

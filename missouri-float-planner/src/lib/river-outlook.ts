@@ -7,6 +7,7 @@ import {
 import type { GaugeTrend } from '@shared/gauge-trend';
 import type { ConditionCode } from '@/types/api';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
+import type { MeasuredLag } from '@/lib/rainfall/lag-release';
 
 export const OUTLOOK_TIME_ZONE = 'America/Chicago';
 export const SIGNIFICANT_RAIN_CHANCE = 70;
@@ -113,6 +114,12 @@ export interface BuildEddyTakeSectionsInput {
    * tailwater or just Lower Black; Upper Black still follows the rain.
    */
   damControlled?: boolean;
+  /**
+   * The gauge's measured time from rain to crest, when it earned one. Pass
+   * `measuredLag(siteId)` and nothing else: the release list is the only
+   * source, and a gauge without an entry gets no timing at all.
+   */
+  rainLag?: MeasuredLag | null;
 }
 
 export interface BuildRiverOutlookInput {
@@ -288,6 +295,7 @@ function buildWeatherWatch(
   outlook: RiverOutlookState,
   currentCondition: ConditionCode,
   damControlled: boolean,
+  rainLag: MeasuredLag | null = null,
 ): string {
   const dated: DatedDay[] = outlook.days.map((day, index) => ({
     name: spokenDay(index, day.weather?.dayOfWeek),
@@ -384,17 +392,26 @@ function buildWeatherWatch(
   }
 
   // ── What any of it means for the water ────────────────────────────────────
-  if (damControlled && !changed && outlook.trend?.direction !== 'rising') {
+  // One answer, in this order: an official forecast change, then a rise the
+  // gauge is already showing, then the dam, then rain in the outlook. A rise
+  // that has been measured outranks rain that has not fallen: with rain ahead
+  // of it, a rising gauge below a dam used to be told "rain upstream is what
+  // would change this river" and nothing about the rise.
+  if (changed) {
+    sentences.push(
+      `The NWS has this gauge reaching ${getConditionShortLabel(changed.conditionCode!)} by ${changed.name}, which is the thing to watch — read it again the morning you go.`,
+    );
+  } else if (outlook.trend?.direction === 'rising') {
+    sentences.push(
+      `The gauge is already ${outlook.trend.label.toLowerCase()}, which matters more here than anything in the sky. Read it again right before you launch.`,
+    );
+  } else if (damControlled) {
     // A tailwater follows the dam, not the sky. "Rain upstream is what would
     // change this river" was printed under Bull Shoals while the posted
     // schedule had a 6,800 cfs peak that afternoon. Rain still matters to the
     // trip; it is not what moves this water, the release is.
     sentences.push(
       'The level here follows what the dam releases more than the rain, so check the posted schedule again the morning you go.',
-    );
-  } else if (changed) {
-    sentences.push(
-      `The NWS has this gauge reaching ${getConditionShortLabel(changed.conditionCode!)} by ${changed.name}, which is the thing to watch — read it again the morning you go.`,
     );
   } else if (rain.length > 0 || maybeRain.length > 0) {
     // Deliberately says nothing about what the river will do. Rain upstream of
@@ -403,10 +420,17 @@ function buildWeatherWatch(
     sentences.push(
       'Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in.',
     );
-  } else if (outlook.trend?.direction === 'rising') {
-    sentences.push(
-      `The gauge is already ${outlook.trend.label.toLowerCase()}, which matters more here than anything in the sky. Read it again right before you launch.`,
-    );
+    // A gauge with a measured range adds what past storms did, in days, with
+    // the number of storms behind it (owner's wording, 2026-11-18; the version
+    // in hours and "half the storm's rain had fallen" was accurate and
+    // unreadable). The study's clock starts when half the storm's rain had
+    // fallen over the watershed, which is "the middle of the storm": not the
+    // heaviest hour and not the end. It says nothing about the rain ahead.
+    if (rainLag) {
+      sentences.push(
+        `When rain raises this river, it usually peaks here ${crestSpan(rainLag.crestHours)} the middle of the storm. Based on ${rainLag.storms} past storms.`,
+      );
+    }
   }
   // Otherwise nothing is expected to move the river, and the section says no
   // more. It used to close on "read the gauge again the morning you go" here
@@ -419,12 +443,28 @@ function buildWeatherWatch(
   return sentences.join(' ');
 }
 
+/**
+ * A measured range of hours as plain days, ending in "of" or "after".
+ *
+ * The slow end sets the number of days, with six hours' grace so 52 hours is
+ * still "two". A range whose fast end is well under a day says "within", so
+ * nobody reads a 12-hour crest as a day's warning.
+ */
+export function crestSpan([fastest, slowest]: readonly [number, number]): string {
+  const days = Math.max(1, Math.ceil((slowest - 6) / 24));
+  const count = ['a day', 'a day or two', 'one to three days'][days - 1];
+  if (!count) throw new Error(`No wording for a crest ${slowest} hours after the storm`);
+  if (days === 1) return 'within a day of';
+  return fastest >= 18 ? `${count} after` : `within ${days === 2 ? 'a day or two' : 'three days'} of`;
+}
+
 /** Build the live decision hierarchy shown in the compact and fallback report. */
 export function buildEddyTakeSections({
   outlook,
   currentCondition,
   generatedEddyRead,
   damControlled = false,
+  rainLag = null,
 }: BuildEddyTakeSectionsInput): EddyTakeSections {
   const conditionLabel = currentCondition === 'unknown' ? null : getConditionShortLabel(currentCondition);
 
@@ -450,7 +490,7 @@ export function buildEddyTakeSections({
   } else if (outlook.futureUnavailable) {
     watchFor = 'No weather or river forecast came back, so there is nothing to look ahead at here. Read the gauge again right before you launch and treat the rest as unknown.';
   } else {
-    watchFor = buildWeatherWatch(outlook, currentCondition, damControlled);
+    watchFor = buildWeatherWatch(outlook, currentCondition, damControlled, rainLag);
   }
 
   return {

@@ -1,0 +1,394 @@
+{
+ "readAt": "2026-11-18T17:05:14.998Z",
+ "tile": {
+  "dx": 1189.1837785492494,
+  "dy": 1189.1837785492494,
+  "xmax": -10039445.860456608,
+  "xmin": -10532957.128554547,
+  "ymax": 4660040.56815956,
+  "ymin": 4078529.700448977,
+  "width": 415,
+  "height": 489
+ },
+ "tileFromCaptureAt": "2026-11-18T16:18:30.911968+00:00",
+ "basins": [
+  {
+   "site": "06923950",
+   "name": "Niangua River at Tunnel Dam near Macks Creek, MO",
+   "basinId": "6cf1b56a60588118e18283fb5a59d6c46f91846210b4c26370580ba48e12e0d6",
+   "squareMiles": 596.6,
+   "outlineSha256": "e31d7d2960067f00dc9db31fb0249898552868ff30c5eb8bacf670a36fd1b6f3",
+   "studied": true,
+   "cells": 1884
+  },
+  {
+   "site": "06928000",
+   "name": "Gasconade River near Hazelgreen, MO",
+   "basinId": "23c5693b57db7ca9e4388a92d164a0186354f2a49babf1b4c17114970b0742b0",
+   "squareMiles": 1254.2,
+   "outlineSha256": "47ec50334faeba6b318335dfb0f8f1b024498690f4f5c4812785baf0f4f92eb3",
+   "studied": true,
+   "cells": 3832
+  },
+  {
+   "site": "06930000",
+   "name": "Big Piney River near Big Piney, MO",
+   "basinId": "949ffdad699773ad414cd6e07484b1062a03ec126f94d5e364fd5a6b0a6d2558",
+   "squareMiles": 550.9,
+   "outlineSha256": "3190b9590f60751a5d58e50de57f70a6b5234a3ceb279e9936ba98cdd90ff3b1",
+   "studied": true,
+   "cells": 1744
+  },
+  {
+   "site": "06933500",
+   "name": "Gasconade River at Jerome, MO",
+   "basinId": "c0e39b071a7a70aff4d8ee81ea24b96d671998e356379a1db44ce8083747d8a2",
+   "squareMiles": 2832.4,
+   "outlineSha256": "0c0424fb4e4cf77ad05d6e8e1ef106f359d6a73d29d8d6f215dd4b8ee7427f11",
+   "studied": true,
+   "cells": 8546
+  },
+  {
+   "site": "06934000",
+   "name": "Gasconade River near Rich Fountain, MO",
+   "basinId": "2667d5ae5fc7b10de713ed8849f74fa083c471b9101f0649de1eb1ecde3767d7",
+   "squareMiles": 3189.2,
+   "outlineSha256": "cdd4fb7376ac9be940fa6864e8cec8d184d9b65dee5eb89f812663bcd5acde15",
+   "studied": true,
+   "cells": 9682
+  },
+  {
+   "site": "07010350",
+   "name": "Meramec River at Cook Station, MO",
+   "basinId": "d1d8298e57feebfac2b960f6c82186055451b2350bacdd883feec1fac3fab71a",
+   "squareMiles": 199.3,
+   "outlineSha256": "efc7f5df5125bca80a165b492c109b3499328a7db7aa16c9001b8024243d0f83",
+   "studied": true,
+   "cells": 662
+  },
+  {
+   "site": "07013000",
+   "name": "Meramec River near Steelville, MO",
+   "basinId": "d4ad7110c54529a7f78774680817ae9cc1a10a401a568aaea810d6c529dd5751",
+   "squareMiles": 781.3,
+   "outlineSha256": "4072606e479fb355a8c3d101c81b3081ae204b8b8a8289337370401ac5bcb957",
+   "studied": true,
+   "cells": 2465
+  },
+  {
+   "site": "07014000",
+   "name": "Huzzah Creek near Steelville, MO",
+   "basinId": "0bc622387c5417ba8608af01d57bd9400bde5c987c767407716e1b3552ab79d3",
+   "squareMiles": 256.3,
+   "outlineSha256": "efaa728d198cb83ebab0982fada63ce9fb6c9c9c643f9b37547de7770a18ec3e",
+   "studied": true,
+   "cells": 842
+  },
+  {
+   "site": "07014500",
+   "name": "Meramec River near Sullivan, MO",
+   "basinId": "10bdfc8ff3e48c743d0cfa660c4499e10f4a126253abfe9facd3dc05353d96d8",
+   "squareMiles": 1486.7,
+   "outlineSha256": "3cf91c0fb83ec81c2ce45f4faf23ba5c8d94a4190c5092ccf3b4a2f8586e0eda",
+   "studied": true,
+   "cells": 4591
+  },
+  {
+   "site": "07015720",
+   "name": "Bourbeuse River near High Gate, MO",
+   "basinId": "2680e8577d9c7ff661083e86d888530772f4519c61c3f84d4aa2650e76d4e1ba",
+   "squareMiles": 135.7,
+   "outlineSha256": "c9b9e92ee8b289e691e870f557fe05296551431045f6e6d02461b7be7d3b01ff",
+   "studied": true,
+   "cells": 459
+  },
+  {
+   "site": "07016500",
+   "name": "Bourbeuse River at Union, MO",
+   "basinId": "433334fc05099e59eb22583a33c490555842e3a39136730f6c7ebe8a0e0ea707",
+   "squareMiles": 803.4,
+   "outlineSha256": "2db3f0c7d4bc366fc09343c8e04dd5b44b906300327b82768d3a2797732c891b",
+   "studied": true,
+   "cells": 2571
+  },
+  {
+   "site": "07018100",
+   "name": "Big River near Richwoods, MO",
+   "basinId": "40c4f68b1d075680d939c3cc9742eb54724e2df2ad10bc623f54cbc027c9f17a",
+   "squareMiles": 738.7,
+   "outlineSha256": "90b5c8d6e7ddac52a15476f6cdfedb53814d9afaec67ef573f8ad1d8aaa4edab",
+   "studied": true,
+   "cells": 2325
+  },
+  {
+   "site": "07018500",
+   "name": "Big River at Byrnesville, MO",
+   "basinId": "677f6402cb6e59cedc9daa42266467718c19dd5ad0438f67445c6ae3e9e1d14a",
+   "squareMiles": 917.4,
+   "outlineSha256": "ba64866affd54e6a8530132d35daf8333c22d2347f858fb9764c3f5f2bdd6dbe",
+   "studied": true,
+   "cells": 2903
+  },
+  {
+   "site": "07019000",
+   "name": "Meramec River near Eureka, MO",
+   "basinId": "b0ed4ddb639360adf767b4b1c764dfd005ee6f4d35722fcba41fa710c0c47b76",
+   "squareMiles": 3786.9,
+   "outlineSha256": "49ed51fb7d6a85369369ebf1443051883b0797e2d18bc56d1d3dd7354ae451f1",
+   "studied": true,
+   "cells": 11579
+  },
+  {
+   "site": "07037500",
+   "name": "St. Francis River near Patterson, MO",
+   "basinId": "96c35165ede10c4b623f32c2f63cd8d3a2ebdd14775e76dbbbc91f9758e72601",
+   "squareMiles": 948.3,
+   "outlineSha256": "44796b59ccf738f65fab3c72ab0212719f2c3050ef6d7950ce06e775bf510afa",
+   "studied": true,
+   "cells": 2948
+  },
+  {
+   "site": "07049000",
+   "name": "War Eagle Creek near Hindsville, AR",
+   "basinId": "8ed65991a8ae306c17eef1b27796a116ef221ae61059eb1c8ad88aca92f89ec2",
+   "squareMiles": 264.7,
+   "outlineSha256": "6c9506b4d7753e2bcccdaad94527ed25c9b7ea2e1187748c80cfba8783175fa6",
+   "studied": true,
+   "cells": 849
+  },
+  {
+   "site": "07050500",
+   "name": "Kings River near Berryville, AR",
+   "basinId": "924cd9540fc39e3e4e57075063d4a3c31597dd78394d1506e7ea9fda5050e5ad",
+   "squareMiles": 529,
+   "outlineSha256": "9a0a6e0d696666a8efea779364d3ea9e7c56203b2eade2bcd649fb9126a98b74",
+   "studied": true,
+   "cells": 1639
+  },
+  {
+   "site": "07052250",
+   "name": "James River near Boaz, MO",
+   "basinId": "a0d7a4fd34c4b92b4e83d89fa48f28348dd306ba6fdf04720bc59e44a4545db3",
+   "squareMiles": 458.3,
+   "outlineSha256": "a21a0157ef4d284edef634b2c337c690ff1ac266632904c65a4a5faa9bed8e63",
+   "studied": true,
+   "cells": 1466
+  },
+  {
+   "site": "07052500",
+   "name": "James River at Galena, MO",
+   "basinId": "4b32ed74c126168afd511ab0363e49c6a1a50a4f0ecfc3dc18a2f046c1def07a",
+   "squareMiles": 991.5,
+   "outlineSha256": "906485cf46e262fe8d1fa50c10afef29044889de9504d6e29829a6229141a4fe",
+   "studied": true,
+   "cells": 3050
+  },
+  {
+   "site": "07055607",
+   "name": "Crooked Creek at Kelly Crossing at Yellville, AR",
+   "basinId": "025e982753d1d292cb6a8dac0f70c6abfcee00717dd465322d68827a72390b0a",
+   "squareMiles": 402.3,
+   "outlineSha256": "0544d42196b1a27d7f0ed3025b11da8dd293d853218687396b515fb476b32a18",
+   "studied": true,
+   "cells": 1249
+  },
+  {
+   "site": "07055660",
+   "name": "Buffalo River at Ponca, AR",
+   "basinId": "1db7cdf1ad6919af71ff70dfa9047aed53350fe332b889d2dd4bcb8f25f85406",
+   "squareMiles": 116.6,
+   "outlineSha256": "4b9296b4de28ff8da7accfbd6cbb5e90eca8c634f242f0c558844ec944df3a10",
+   "studied": true,
+   "cells": 392
+  },
+  {
+   "site": "07055680",
+   "name": "Buffalo River at Pruitt, AR",
+   "basinId": "ab7aeb68dfc0463bd3919979a856616acfbb5b7e010af59389c96e17b18c3e95",
+   "squareMiles": 190.9,
+   "outlineSha256": "4ac25ce0fb7b0a796e6d774fda539e16f892ef07b8af7eb0e91e30f1c621a23f",
+   "studied": true,
+   "cells": 638
+  },
+  {
+   "site": "07056000",
+   "name": "Buffalo River near St. Joe, AR",
+   "basinId": "6153155ee3711392d15b0bdf708895a9cdc8d5e59c53644be5f0a7ba9d31ef2c",
+   "squareMiles": 829.3,
+   "outlineSha256": "2af056884af72097cef3d92a8be64ead3544a1138feb9c0211e7051a5c1611bf",
+   "studied": true,
+   "cells": 2500
+  },
+  {
+   "site": "07056700",
+   "name": "Buffalo River near Harriet, AR",
+   "basinId": "cf92ba0fc29d19ab2744f560c75087eee1763cd5ed2d7d38f433bbdab440df67",
+   "squareMiles": 1072.4,
+   "outlineSha256": "38c4e78a4db59089923afe299f909060209c0759c34092260c6679f497a832bc",
+   "studied": true,
+   "cells": 3229
+  },
+  {
+   "site": "07057370",
+   "name": "White River near Norfork, AR",
+   "basinId": "87ff8c96d3402f8b841c98e1f29b93e0f70a8c1e1df89ad30572d72ddedfe2ca",
+   "squareMiles": 8035.3,
+   "outlineSha256": "85915b854a7608289f3ac30ae63898e0195f8bf4a63bfd83d51d719559799570",
+   "studied": false,
+   "cells": null
+  },
+  {
+   "site": "07057500",
+   "name": "North Fork River near Tecumseh, MO",
+   "basinId": "b392eb9dbb9c8b93a8db97b161bf458819370093dd7a4633265f212ce7b65c30",
+   "squareMiles": 562,
+   "outlineSha256": "a0320198a7c2d3846c405fc3777fdcd230bc3348d19be73b2ebfa12726297409",
+   "studied": true,
+   "cells": 1732
+  },
+  {
+   "site": "07058000",
+   "name": "Bryant Creek near Tecumseh, MO",
+   "basinId": "3a7ddbf182a1fd2e0684be0bf98d33db7acd11f67eebf241907dbbe5e2f96ebc",
+   "squareMiles": 568.5,
+   "outlineSha256": "077f1d4f1eff7e3a2568d707beb7037aba2853c9b3ade4342ef872699eeec07f",
+   "studied": true,
+   "cells": 1762
+  },
+  {
+   "site": "07060500",
+   "name": "White River at Calico Rock, AR",
+   "basinId": "22c3be42d30dccb7d4a9265d255e52217e6bea38cf3e0522e812c815bc11b474",
+   "squareMiles": 9959.7,
+   "outlineSha256": "f0b33279a312d467071e09d156c9a0817e139f7d5e6adba9d270a5d13d80b0a2",
+   "studied": false,
+   "cells": null
+  },
+  {
+   "site": "07061500",
+   "name": "Black River near Annapolis, MO",
+   "basinId": "da8b135040d98e8d0b6090f1da1f23cdbec6d53c3483a1d5c4ee073685708236",
+   "squareMiles": 492.6,
+   "outlineSha256": "b9fbc48af665dd96a896b565741779c874bd5162d2380338faace14e1d11e50a",
+   "studied": true,
+   "cells": 1571
+  },
+  {
+   "site": "07063000",
+   "name": "Black River at Poplar Bluff, MO",
+   "basinId": "6167d5b9e268e329f1902398b3c23dedeb96d1a5b3069a8629a11e1cd5cfd0ec",
+   "squareMiles": 1252.4,
+   "outlineSha256": "723fb9bdc577da95ef360d4bd55896b18a2d521a3d644b0b76dff5bcd6d76b65",
+   "studied": false,
+   "cells": null
+  },
+  {
+   "site": "07064533",
+   "name": "Current River above Akers, MO",
+   "basinId": "a97fd00b015551e60585269ae56a8ab0fe898bad77043a70e04ad3a66b4eacb0",
+   "squareMiles": 294.6,
+   "outlineSha256": "e2f7a06ba895d092bc3a9cc1129eb904d02af05d1ee490b99c0862e383397eee",
+   "studied": true,
+   "cells": 946
+  },
+  {
+   "site": "07065200",
+   "name": "Jacks Fork near Mountain View, MO",
+   "basinId": "b4924fd9c8f7d4ff5772e0cfc70c2de8223b90756c78305cdcadfed2c02f1cdb",
+   "squareMiles": 185.2,
+   "outlineSha256": "77b21c1ed6ca01c73e698652fdac6667ef8e26bb17ecbbad3f3a229bbc237376",
+   "studied": true,
+   "cells": 604
+  },
+  {
+   "site": "07065495",
+   "name": "Jacks Fork at Alley Spring, MO",
+   "basinId": "dd1fd275be39db869913104ca5cb761f87c80ad48325bbdcea200f6c4b0b5a91",
+   "squareMiles": 303.5,
+   "outlineSha256": "180091ad0a81b577adfed2067a0570bc506205fe814ff112d4033cec84d42725",
+   "studied": true,
+   "cells": 982
+  },
+  {
+   "site": "07066000",
+   "name": "Jacks Fork at Eminence, MO",
+   "basinId": "4ed9badc745e6316a2ba21f92f6c7d61223ac2efc083cc44c5c39752b78c3cd6",
+   "squareMiles": 403.8,
+   "outlineSha256": "edb30f001fa8561c788e294fe0c6a6856c6b02ccbab09b0e6ebc8dacec3bbd6e",
+   "studied": true,
+   "cells": 1288
+  },
+  {
+   "site": "07066510",
+   "name": "Current River above Powder Mill, MO",
+   "basinId": "806d88353e42aa26d77e0a440231a58c985387392a7266e1277d333894b5d77d",
+   "squareMiles": 1336,
+   "outlineSha256": "cddd4e57a0245c1f71c3b8bd3bd600f7cee43d96ed1f7f87567d08091221c838",
+   "studied": true,
+   "cells": 4066
+  },
+  {
+   "site": "07067000",
+   "name": "Current River at Van Buren, MO",
+   "basinId": "fb2c2cab29ee6a4248fdd97a7b329f347233e25e51e10396a9bca9a1c00cb2e6",
+   "squareMiles": 1669.9,
+   "outlineSha256": "a550ad22fcdfc129b32f719111ae6fc0de8f053323901d5f7c5d3b0da085d2ac",
+   "studied": true,
+   "cells": 5072
+  },
+  {
+   "site": "07069305",
+   "name": "Spring River at Spring Street Bridge at Hardy, AR",
+   "basinId": "3d58d02ac7374e2195bb4f49f6a7d16fc5a9e789d9a6ba3d14d47348b3c6c367",
+   "squareMiles": 844.6,
+   "outlineSha256": "bbaadfd5fc0177db1997d7f4b938a2b7864f6e0a3c477b6298cb9dc5b4640bba",
+   "studied": true,
+   "cells": 2545
+  },
+  {
+   "site": "07069500",
+   "name": "Spring River at Imboden, AR",
+   "basinId": "b5cebcd0d8dba5eb16ef1ee0c0a800046bc267a89d854689b7b9363601157ef0",
+   "squareMiles": 1160.5,
+   "outlineSha256": "db7d9e93369931d349ff515fa11bf05d4e43c6fd0b245e5960b8495591a019bf",
+   "studied": true,
+   "cells": 3477
+  },
+  {
+   "site": "07071500",
+   "name": "Eleven Point River near Bardley, MO",
+   "basinId": "e193f9e897f66b6b9613e017dd1f8eec55f3d6ee12aa967ffed3a75d4348226e",
+   "squareMiles": 785.3,
+   "outlineSha256": "3a40881797c393ee8a9c7f261236c3368c8af4f9ac2e38e29d53d1337913f03c",
+   "studied": true,
+   "cells": 2419
+  },
+  {
+   "site": "07186000",
+   "name": "Spring River near Waco, MO",
+   "basinId": "f878f88b0e18ae698e8b5bb78e06f13f075112441b8e94e229550bf394fcd74a",
+   "squareMiles": 1165.6,
+   "outlineSha256": "242a6b58e5390da11a3a99fca4f6c6b17dddfd51be8d0547222dd8449fa2e04c",
+   "studied": true,
+   "cells": 3586
+  },
+  {
+   "site": "07188925",
+   "name": "Elk Rv at MO-59, Noel, MO",
+   "basinId": "993e2e3f78ffad933e1e76032bab48ece4529b997eada3bddb4daade1f988461",
+   "squareMiles": 801.1,
+   "outlineSha256": "09b61ad18a7d9ef68c5200702e8831e9dca7d48a67945ad925b5e2798b4cd7ad",
+   "studied": true,
+   "cells": 2441
+  },
+  {
+   "site": "07252000",
+   "name": "Mulberry River near Mulberry, AR",
+   "basinId": "6ac45a60585cf68b0c545c0453e7d6a208a174e4452a07e983358f87cfc4c842",
+   "squareMiles": 373.7,
+   "outlineSha256": "5af570c41301ffdd2aef946fd6ecd280ae928d8020ef36f8441bacfba51fb15e",
+   "studied": true,
+   "cells": 1166
+  }
+ ]
+}
