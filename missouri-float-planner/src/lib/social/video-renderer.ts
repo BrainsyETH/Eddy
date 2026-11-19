@@ -1,6 +1,7 @@
 // src/lib/social/video-renderer.ts
 // Triggers video rendering via GitHub Actions workflow_dispatch.
-// Float Picks render per destination; other formats share a cross-posted master.
+// Formats with `destinationLayout` (post-types.ts) render per destination;
+// other formats share a cross-posted master.
 //
 // Required environment variables:
 //   GH_ACTIONS_TOKEN  — GitHub PAT with 'actions:write' scope
@@ -30,9 +31,14 @@ interface TriggerRenderParams {
 
 type RenderRequest = Omit<TriggerRenderParams, 'postIds'>;
 
+/** Compositions that lay themselves out per destination, from the registry's `destinationLayout`. */
+const DESTINATION_LAYOUT_COMPOSITIONS = new Set(
+  Object.values(POST_TYPES).filter(def => def.destinationLayout && def.composition).map(def => def.composition),
+);
+
 /** Lay a per-destination composition out for one platform and placement. Shared compositions pass through. */
 export function destinationRenderRequest(render: RenderRequest, platform?: SocialPlatform, requestedPlacement?: SocialVideoPlacement): RenderRequest {
-  if (render.compositionId !== 'social-route-portrait' || !platform) return render;
+  if (!DESTINATION_LAYOUT_COMPOSITIONS.has(render.compositionId) || !platform) return render;
   const placement = requestedPlacement ?? (render.inputProps.placement === 'story' ? 'story' : 'reel');
   return {
     ...render,

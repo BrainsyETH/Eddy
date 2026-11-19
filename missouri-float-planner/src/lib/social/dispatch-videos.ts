@@ -8,6 +8,7 @@
 // placement.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { destinationKey } from './placements';
 import { supportsStory, type RenderData, type VideoPostKind } from './post-types';
 import type { ScheduledPost } from './types';
 import { getCompositionForPost, shareTerrainMap, triggerVideoRender } from './video-renderer';
@@ -52,6 +53,13 @@ export async function dispatchVideos(
   autoPublish: boolean,
   options: { keepUndispatched?: boolean } = {},
 ): Promise<DispatchResult> {
+  // Two rows for one destination would publish the same video twice.
+  const seen = new Set<string>();
+  for (const post of posts) {
+    const key = destinationKey(post);
+    if (seen.has(key)) throw new Error(`Duplicate destination ${key.replace(':', ' ')}; nothing was saved.`);
+    seen.add(key);
+  }
   const rows = posts.map(post => ({
     id: crypto.randomUUID(),
     delivery: post,

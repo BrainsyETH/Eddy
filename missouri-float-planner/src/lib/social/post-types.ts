@@ -122,6 +122,8 @@ export interface PostTypeDef {
    * The composition lays itself out per destination (platform + Reel/Story),
    * so each destination renders separately and Story placement is offered.
    * Formats without it share one render across platforms and post as Reels.
+   * Set it only once the Remotion composition reads `platform` and
+   * `placement` from its props; placements.test.ts checks that it does.
    */
   destinationLayout?: true;
 }

@@ -4,14 +4,14 @@
 // Stored per format in social_config.formats. Until a format has a valid
 // saved entry, its settings are derived from the legacy keys the admin still
 // edits (media_schedule, weekly_forecast / section_guide time_cst,
-// digest_time_cst, section_guide.placements). Each admin save writes the
-// derived settings back, so the two cannot drift; a later phase moves the
-// admin to editing this shape directly.
+// digest_time_cst, section_guide.placements). An admin save writes each
+// format's settings, changing only the fields whose legacy source it edited
+// (formatsOnSave); a later phase moves the admin to editing this shape directly.
 //
 // The scheduler, Quick Post and the config route read settings only through
 // resolveFormatSettings.
 
-import { expandDestinations, savedPlacementChoices, type Destination, type PlacementChoices } from './placements';
+import { STORY_PLATFORMS, destinationKey, expandDestinations, savedPlacementChoices, type Destination, type PlacementChoices } from './placements';
 import { supportsStory } from './post-types';
 import type { DayMediaMap, MediaType, SocialConfig, SocialPlatform } from './types';
 import { WEEKEND_READ_TIME } from './weekend-read';
@@ -59,13 +59,29 @@ function validDays(value: unknown): value is DayMediaMap {
       (media === null || media === 'video' || media === 'image'));
 }
 
+/**
+ * Each destination must be one the format and platform can deliver, listed
+ * once. A Story needs a per-destination layout and a platform with Stories
+ * (Instagram, Facebook); TikTok takes regular video only. A duplicate pair
+ * would save two delivery rows for the same video.
+ */
 function validDestinations(kind: ScheduledFormat, value: unknown): value is Destination[] {
+  if (!Array.isArray(value)) return false;
   const allowed = formatPlatforms(kind);
   const story = supportsStory(kind);
-  return Array.isArray(value) && value.every(d => !!d && typeof d === 'object' &&
-    allowed.includes((d as Destination).platform) &&
-    ((d as Destination).placement === undefined ||
-      (story && ((d as Destination).placement === 'reel' || (d as Destination).placement === 'story'))));
+  const seen = new Set<string>();
+  return value.every(d => {
+    if (!d || typeof d !== 'object') return false;
+    const { platform, placement } = d as Destination;
+    if (!allowed.includes(platform)) return false;
+    if (placement !== undefined && placement !== 'reel' && placement !== 'story') return false;
+    if (placement !== undefined && !story) return false;
+    if (placement === 'story' && !(STORY_PLATFORMS as readonly string[]).includes(platform)) return false;
+    const key = destinationKey(d as Destination);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function validFormatSettings(kind: ScheduledFormat, value: unknown): value is FormatSettings {
@@ -95,9 +111,37 @@ export function resolveFormatSettings(config: ConfigLike, kind: ScheduledFormat)
   return validFormatSettings(kind, saved) ? saved : legacyFormatSettings(config, kind);
 }
 
-/** Every scheduled format's settings derived from the legacy keys, as the config route saves them. */
+/** Every scheduled format's settings derived from the legacy keys. */
 export function formatsFromLegacy(config: ConfigLike): FormatsConfig {
   return Object.fromEntries(SCHEDULED_FORMATS.map(kind => [kind, legacyFormatSettings(config, kind)])) as FormatsConfig;
+}
+
+// Stable comparison for small JSON values (key order ignored).
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+/**
+ * The formats an admin save writes. Each field of a format (days, time,
+ * destinations) keeps the value the format runs with now, saved or derived,
+ * unless this save changed the legacy field it comes from: the media grid
+ * row, the format's time, or Float Pick's placements. Saving an unrelated
+ * setting therefore never rewrites a saved schedule.
+ */
+export function formatsOnSave(before: ConfigLike, after: ConfigLike): FormatsConfig {
+  return Object.fromEntries(SCHEDULED_FORMATS.map(kind => {
+    const current = resolveFormatSettings(before, kind);
+    const was = legacyFormatSettings(before, kind);
+    const next = legacyFormatSettings(after, kind);
+    const field = <K extends keyof FormatSettings>(key: K): FormatSettings[K] =>
+      canonical(was[key]) === canonical(next[key]) ? current[key] : next[key];
+    return [kind, { days: field('days'), time: field('time'), destinations: field('destinations') }];
+  })) as FormatsConfig;
 }
 
 /** The media cell for a weekday (0 = Sunday), or null when the format is off that day. */

@@ -29,8 +29,25 @@
 -- One settings object per scheduled format: { days, time, destinations }.
 -- Starts empty. Until the admin saves, the app derives each format's settings
 -- from the legacy keys (media_schedule, weekly_forecast, section_guide,
--- digest_time_cst); each save writes the derived object here. The legacy keys
--- stay until a later, separately authorized cleanup.
+-- digest_time_cst). Each save writes every format's settings here, changing
+-- only the fields whose legacy source that save edited. The legacy keys stay
+-- until a later, separately authorized cleanup.
+--
+-- ── Daily Report: one scheduled report per platform per Central date ────────
+-- idx_social_posts_digest_dedup counted days in UTC while the scheduler counts
+-- them in Central time, so an 8:30 PM Central report (already the next UTC
+-- day) blocked the next day's 2 PM report. The index now uses the Central date.
+-- An index needs a fixed zone: America/Chicago, the scheduler's default
+-- (social_config.timezone); daily-report-dispatch.ts frees the slot with the
+-- same constant.
+--
+-- The old rule allowed two scheduled reports on one Central date when they
+-- fell on different UTC dates. Before the new index is built, every such
+-- group keeps its most likely posted row (published first, then newest) and
+-- the others become auto_publish = false, the same retirement
+-- daily-report-dispatch.ts applies to a superseded failed report. Their
+-- status and history are unchanged. Preview them first with
+-- scripts/review/social-format-preflight.sql.
 
 alter table public.social_posts add column if not exists placement text;
 alter table public.social_posts drop constraint if exists social_posts_placement_check;
@@ -86,3 +103,22 @@ alter table public.social_config add constraint social_config_formats_object
   check (jsonb_typeof(formats) = 'object');
 comment on column public.social_config.formats is
   'Per-format schedule settings { days, time, destinations }, keyed by post-types.ts kind. Empty until the admin saves; the app derives settings from the legacy keys meanwhile.';
+
+with ranked as (
+  select id,
+         row_number() over (
+           partition by platform, ((created_at at time zone 'America/Chicago')::date)
+           order by (status = 'published') desc, created_at desc
+         ) as n
+    from public.social_posts
+   where post_type = 'daily_digest' and auto_publish = true
+)
+update public.social_posts p
+   set auto_publish = false
+  from ranked r
+ where p.id = r.id and r.n > 1;
+
+drop index if exists public.idx_social_posts_digest_dedup;
+create unique index idx_social_posts_digest_dedup
+  on public.social_posts (post_type, platform, ((created_at at time zone 'America/Chicago')::date))
+  where post_type = 'daily_digest' and auto_publish = true;

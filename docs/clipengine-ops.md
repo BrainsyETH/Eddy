@@ -310,11 +310,16 @@ destinations — read through `resolveFormatSettings` in `format-settings.ts`.
 It is stored per format in `social_config.formats`; until a format has a valid
 entry there, it is derived from the legacy keys the admin edits
 (`media_schedule`, the per-format `time_cst`, `digest_time_cst`,
-`section_guide.placements`), and every admin save writes the derived entry
-back. New `social_posts` rows record `format` (the post-types kind, `clip` or
-`dam_schedule`) and `placement`; History labels, review and the scheduler's
-same-day check read those, falling back to `post_type` and `render_request`
-for older rows.
+`section_guide.placements`). An admin save writes each format's entry but
+changes only the fields whose legacy source that save edited, so saving an
+unrelated setting never rewrites a saved time or destinations. A destination
+(platform and placement) is listed once; TikTok takes regular video only, and
+Stories need a composition that reads `placement` (`placements.test.ts` checks
+this for every `destinationLayout` format). New `social_posts` rows record
+`format` (the post-types kind, `clip` or `dam_schedule`) and `placement`;
+History labels, review and the scheduler's same-day check read those, falling
+back to `post_type` and `render_request` for older rows. The Daily Report's
+uniqueness index counts days in Central time, like the scheduler.
 
 The terrain snapshot projection is immutable. The display camera, route overlay,
 and image transform receive the selected layout origin together, preserving

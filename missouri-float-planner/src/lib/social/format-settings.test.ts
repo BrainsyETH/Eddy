@@ -3,7 +3,7 @@ import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { dispatchVideos } from './dispatch-videos';
 import {
-  SCHEDULED_FORMATS, formatsFromLegacy, legacyFormatSettings, mediaForDay,
+  SCHEDULED_FORMATS, formatsFromLegacy, formatsOnSave, legacyFormatSettings, mediaForDay,
   placementChoicesFrom, resolveFormatSettings, validFormatSettings,
 } from './format-settings';
 import { expandDestinations } from './placements';
@@ -106,4 +106,48 @@ test('saved rows carry their format and placement, and readers prefer them', asy
   ];
   const readDb = { from: () => ({ select: () => ({ eq: () => ({ gte: async () => ({ data: rows, error: null }) }) }) }) };
   assert.deepEqual((await postsFromToday(readDb, 'river_highlight', 'America/Chicago', now)).map(r => r.id), ['read', 'old-read']);
+});
+
+test('saving an unrelated setting keeps a saved Story-only schedule; editing its time changes only the time', () => {
+  // The review case: Facebook Story only, at 9:15 AM, saved per format.
+  const storyOnly = { days: { wed: 'video' as const }, time: '09:15', destinations: [{ platform: 'facebook' as const, placement: 'story' as const }] };
+  const existing = { ...legacy, formats: { section_guide: storyOnly } };
+  const unrelated = formatsOnSave(existing, { ...existing, highlight_cooldown_hours: 6 } as typeof existing);
+  assert.deepEqual(unrelated.section_guide, storyOnly);
+  assert.deepEqual(unrelated.weekly_forecast, legacyFormatSettings(legacy, 'weekly_forecast'));
+
+  const retimed = formatsOnSave(existing, { ...existing, section_guide: { ...legacy.section_guide, time_cst: '18:00' } });
+  assert.deepEqual(retimed.section_guide, { ...storyOnly, time: '18:00' });
+
+  const regrid = formatsOnSave(existing, { ...existing, media_schedule: { ...media_schedule, section_guide: { fri: 'video' } } });
+  assert.deepEqual(regrid.section_guide, { ...storyOnly, days: { fri: 'video' } });
+
+  const replaced = formatsOnSave(existing, { ...existing, section_guide: { ...legacy.section_guide, placements: { facebook: 'both' as const } } });
+  assert.deepEqual(replaced.section_guide?.destinations, legacyFormatSettings({ ...legacy, section_guide: { ...legacy.section_guide, placements: { facebook: 'both' } } }, 'section_guide').destinations,
+    'editing placements replaces the destinations');
+  assert.equal(replaced.section_guide?.time, '09:15');
+
+  // Grid key order alone is not an edit.
+  const reordered = formatsOnSave(existing, { ...existing, media_schedule: { ...media_schedule, section_guide: { sat: 'video', wed: 'video' } } });
+  assert.deepEqual(reordered.section_guide, storyOnly);
+});
+
+test('a destination is listed once and only where it can be delivered', () => {
+  const ok = (kind: 'section_guide' | 'weekly_forecast', destinations: unknown[]) =>
+    validFormatSettings(kind, { days: {}, time: '12:00', destinations });
+  assert.equal(ok('section_guide', [{ platform: 'instagram', placement: 'story' }, { platform: 'instagram', placement: 'reel' }]), true);
+  assert.equal(ok('section_guide', [{ platform: 'instagram', placement: 'story' }, { platform: 'instagram', placement: 'story' }]), false, 'duplicate Story');
+  assert.equal(ok('section_guide', [{ platform: 'facebook' }, { platform: 'facebook', placement: 'reel' }]), false, 'a missing placement is the regular post');
+  assert.equal(ok('section_guide', [{ platform: 'tiktok', placement: 'story' }]), false, 'TikTok takes regular video only');
+  assert.equal(ok('section_guide', [{ platform: 'tiktok', placement: 'reel' }]), true);
+  assert.equal(ok('weekly_forecast', [{ platform: 'tiktok' }, { platform: 'tiktok' }]), false);
+  assert.equal(ok('section_guide', [{ platform: 'instagram', placement: 'banner' }]), false);
+});
+
+test('dispatch refuses two rows for one destination before saving anything', async () => {
+  let inserts = 0;
+  const db = { from: () => ({ insert() { inserts++; return { error: null }; } }) } as unknown as SupabaseClient;
+  const story = { platform: 'instagram' as const, placement: 'story' as const, riverSlug: null, caption: 'c', imageUrl: 'i', hashtags: [] };
+  await assert.rejects(dispatchVideos(db, 'section_guide', {}, [story, { ...story }], true), /Duplicate destination instagram story/);
+  assert.equal(inserts, 0);
 });

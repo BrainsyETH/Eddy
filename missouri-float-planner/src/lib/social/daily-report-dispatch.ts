@@ -2,6 +2,15 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { SocialPlatform } from './types';
 import { dailyReportAutoPublishEnabled, reportCaption, type DailyReport } from './daily-report';
+import { postsFromToday } from './post-scheduler';
+
+/**
+ * The zone of the Daily Report uniqueness index (idx_social_posts_digest_dedup,
+ * migration 20261119033834): one scheduled report per platform per date here.
+ * An index needs a fixed zone, so this is the scheduler's default rather than
+ * social_config.timezone.
+ */
+export const DIGEST_DAY_ZONE = 'America/Chicago';
 
 export async function triggerReportRender(postIds: string[]): Promise<boolean> {
   if (!postIds.length || postIds.some(id => !/^[0-9a-f-]{36}$/i.test(id))) return false;
@@ -26,13 +35,21 @@ export async function dispatchDailyReport(report: DailyReport, platforms: Social
   const { caption, hashtags } = reportCaption(report);
   for (const platform of [...new Set(platforms)].filter(p => p !== 'tiktok')) {
     if (autoPublish) {
-      // Retain failed attempts in history while freeing the existing UTC-day
-      // uniqueness slot. They can no longer auto-retry an obsolete snapshot.
-      const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
-      const { error } = await supabase.from('social_posts').update({ auto_publish: false })
-        .eq('post_type', 'daily_digest').eq('platform', platform).eq('auto_publish', true)
-        .eq('status', 'failed').gte('created_at', dayStart.toISOString());
-      if (error) { errors.push(`${platform}: previous report could not be retired`); continue; }
+      // Retain failed attempts in history while freeing today's uniqueness
+      // slot (a Central date, like the index). They can no longer auto-retry
+      // an obsolete snapshot.
+      try {
+        const failed = (await postsFromToday(supabase, 'daily_digest', DIGEST_DAY_ZONE))
+          .filter(row => row.auto_publish && row.status === 'failed').map(row => row.id);
+        if (failed.length) {
+          const { error } = await supabase.from('social_posts').update({ auto_publish: false })
+            .in('id', failed).eq('platform', platform).eq('status', 'failed');
+          if (error) throw error;
+        }
+      } catch {
+        errors.push(`${platform}: previous report could not be retired`);
+        continue;
+      }
     }
     const { data, error } = await supabase.from('social_posts').insert({
       post_type: 'daily_digest', format: 'daily_digest', platform, river_slug: null, caption, hashtags,

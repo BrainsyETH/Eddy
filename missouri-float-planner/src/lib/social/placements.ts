@@ -22,6 +22,11 @@ export interface Destination {
   placement?: SocialVideoPlacement;
 }
 
+/** One delivery: a platform and its placement. A missing placement is the regular post. */
+export function destinationKey(destination: Destination): string {
+  return `${destination.platform}:${destination.placement ?? 'reel'}`;
+}
+
 export function validPlacementChoices(value: unknown): value is PlacementChoices {
   return !!value && typeof value === 'object' && !Array.isArray(value) &&
     Object.entries(value).every(([key, choice]) => (STORY_PLATFORMS as readonly string[]).includes(key) &&

@@ -5,7 +5,9 @@ import { dispatchVideos } from './dispatch-videos';
 import { FacebookAdapter } from './facebook-adapter';
 import { destinationLabel, expandDestinations, renderPlacement, savedPlacementChoices, validPlacementChoices } from './placements';
 import { blocksRepost, postsFromToday } from './post-scheduler';
-import { supportsStory } from './post-types';
+import { POST_TYPES, supportsStory } from './post-types';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { savedPostMedia } from './review';
 import { destinationRenderRequest, getCompositionForPost } from './video-renderer';
 
@@ -177,4 +179,31 @@ test('scheduler dedupe uses the Central date and keeps failed Float Picks for Re
 
   const broken = { from: () => ({ select: () => ({ eq: () => ({ gte: async () => ({ data: null, error: { message: 'down' } }) }) }) }) };
   await assert.rejects(postsFromToday(broken, 'weekly_forecast', 'America/Chicago', now), /today's weekly_forecast/);
+});
+
+test('every format offering Stories renders a Story-shaped file with a composition that reads the placement', async t => {
+  const { getCompositionForPost } = await import('./video-renderer');
+  const root = path.join(process.cwd(), 'remotion', 'src');
+  const registry = readFileSync(path.join(root, 'Root.tsx'), 'utf8');
+  const kinds = Object.values(POST_TYPES).filter(def => def.destinationLayout);
+  assert.ok(kinds.length > 0);
+  for (const def of kinds) {
+    await t.test(def.id, () => {
+      const reel = getCompositionForPost(def.id as 'section_guide', {}, 'instagram', 'reel');
+      const story = getCompositionForPost(def.id as 'section_guide', {}, 'instagram', 'story');
+      assert.equal(story.inputProps.placement, 'story');
+      assert.equal(story.inputProps.platform, 'instagram');
+      assert.notEqual(story.outputFilename, reel.outputFilename, 'each placement gets its own file');
+      // The flag alone changes nothing on screen: the Remotion component must lay itself out from the props.
+      const component = registry.match(new RegExp(`id="${def.composition}"\\s*component=\\{(\\w+)\\}`))?.[1];
+      assert.ok(component, `${def.composition} is registered in remotion/src/Root.tsx`);
+      const from = registry.match(new RegExp(`import \\{[^}]*\\b${component}\\b[^}]*\\} from "\\.(/[^"]+)"`))?.[1];
+      assert.ok(from, `${component} is imported in Root.tsx`);
+      assert.match(readFileSync(path.join(root, `${from}.tsx`), 'utf8'), /\bplacement\b/,
+        `${component} must read props.placement before ${def.id} can offer Stories`);
+    });
+  }
+  // Shared formats pass through unchanged, whatever placement a caller asks for.
+  const forecast = getCompositionForPost('weekly_forecast', {}, 'instagram', 'story');
+  assert.equal(forecast.inputProps.placement, undefined);
 });
