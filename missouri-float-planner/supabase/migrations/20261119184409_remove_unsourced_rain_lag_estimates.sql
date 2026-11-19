@@ -1,6 +1,9 @@
--- 20261118230000_remove_unsourced_rain_lag_estimates.sql
+-- 20261119184409_remove_unsourced_rain_lag_estimates.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
+-- Applied to production 2026-11-19 as 20261119184409, on the owner's
+-- go-ahead. Read back afterwards: no river carries rain_lag_hours or
+-- rain_lag_note, and all eight drop_rate_note values are still there. Written
+-- as 20261118230000 and renamed to the version production recorded.
 --
 -- Clears rain_lag_hours and rain_lag_note on eight rivers, and only on those
 -- eight, and only while each still holds the value recorded here. Each carried

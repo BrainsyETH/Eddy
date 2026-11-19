@@ -10,7 +10,7 @@ import { classifyReading } from '../shared/condition-ladder';
 // Boaz a top. These tests run the real file against production's put-ins,
 // gauges and stretches as read on 2026-11-19, and check both paths.
 
-const migration = readFileSync('supabase/migrations/20261119170000_put_ins_read_the_gauge_that_speaks_for_them.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261119184853_put_ins_read_the_gauge_that_speaks_for_them.sql', 'utf8');
 
 /** name, stored mile, planner mile (snap_to_river), nearest gauge by distance, gauge after on both paths */
 type PutIn = [name: string, stored: number, planner: number, nearest: string, after: string];

@@ -70,7 +70,7 @@ from its line.
 Two gauges on a river are the third case. With no stretch, a stored mile falls
 to the river's main gauge and a map point takes the nearest gauge by distance,
 so an access page and the planner can grade one put-in from two gauges.
-`20261119170000` adds ten stretches on seven rivers so both agree, with each
+`20261119184853` adds ten stretches on seven rivers so both agree, with each
 boundary at the creek that changes the river. Its header records the one
 put-in that cannot be fixed that way (Jewett, on the St. Francis, whose chart
 mile equals a whitewater put-in's planner mile) and how one range serves both

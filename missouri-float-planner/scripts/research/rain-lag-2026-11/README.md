@@ -27,7 +27,7 @@ hint. Measured, the river typically began rising 4 to 21 hours after the rain
 started and crested 13 to 67 hours after half of it had fallen, and at most gauges
 on those rivers the time was too variable to state. The estimates are deleted:
 the code no longer reads them, and migration
-`20261118230000_remove_unsourced_rain_lag_estimates.sql` clears the columns.
+`20261119184409_remove_unsourced_rain_lag_estimates.sql` clears the columns.
 
 The 12 ranges live in `src/lib/rainfall/lag-release.ts`. A test holds that list
 to `results/results.json` entry for entry. The weather section adds a sentence

@@ -1,6 +1,14 @@
--- 20261119170000_put_ins_read_the_gauge_that_speaks_for_them.sql
+-- 20261119184853_put_ins_read_the_gauge_that_speaks_for_them.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
+-- Applied to production 2026-11-19 as 20261119184853, on the owner's
+-- go-ahead. Read back afterwards, for all 83 approved put-ins on the seven
+-- rivers, by stored mile and by map point: every one resolves to the gauge
+-- reviewed below on both paths, except Jewett by stored mile, as expected.
+-- Ten stretches carry a gauge and both bounds. The put-ins on Waco and
+-- Patterson read "unknown" on both paths. Boaz reads High above 650 cfs and
+-- Dangerous at 1,500. Written as 20261119170000 and renamed to the version
+-- production recorded. The statement production holds is the `do` block below
+-- under a shorter comment.
 --
 -- On seven rivers with two gauges, a put-in near the second gauge is graded by
 -- that gauge, on both of the paths that choose one. The James gauge near Boaz
@@ -110,7 +118,7 @@
 -- listed under `moves` changed gauge, each from and to the gauge named, and
 -- no other put-in on these rivers moved. The map-point path cannot be checked
 -- here without the river lines; it was simulated against production's
--- snap_to_river miles on 2026-11-19 and is read back after applying.
+-- snap_to_river miles on 2026-11-19 and read back after applying (above).
 
 do $$
 declare
