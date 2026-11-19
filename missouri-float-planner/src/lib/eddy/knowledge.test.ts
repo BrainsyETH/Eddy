@@ -230,17 +230,43 @@ test('the rivers whose gauge lines are confirmed are exactly these', () => {
   const confirmed = listKnowledgeRiverSlugs()
     .filter((slug) => listKnowledgeGauges(slug).some((g) => g.confirmed))
     .sort();
-  assert.deepEqual(confirmed, ['black', 'current', 'gasconade', 'jacks-fork', 'meramec', 'niangua']);
+  const gauges: Record<string, string[]> = {
+    'big-piney': ['06930000'],
+    'big-river': ['07018100', '07018500'],
+    black: ['07061500', 'swl-clearwater-dam', '07063000'],
+    bourbeuse: ['07015720', '07016500'],
+    'bryant-creek': ['07058000'],
+    buffalo: ['07055646', '07055660', '07055680', '07056000', '07056700'],
+    'caddo-river': ['07359610'],
+    courtois: ['07014000'],
+    'crooked-creek': ['07055607'],
+    current: [VAN_BUREN, '07064440', '07064533', '07066510', '07068000'],
+    'eleven-point': ['07071500'],
+    elk: ['07188925'],
+    gasconade: ['06928000', '06933500', '06934000'],
+    huzzah: ['07014000'],
+    'jacks-fork': [EMINENCE, ALLEY, '07065200'],
+    james: ['07052250', '07052500'],
+    'kings-river': ['07050500'],
+    meramec: ['07010350', '07013000', '07014500', '07019000'],
+    mulberry: ['07252000'],
+    niangua: [WINDYVILLE, '06923950'],
+    'north-fork-white': ['07057500'],
+    'spring-river': ['07069305', '07069500'],
+    'spring-river-mo': ['07185765', '07186000'],
+    'st-francis': ['07034000', '07037500'],
+    'war-eagle-creek': ['07049000'],
+  };
+  assert.deepEqual(confirmed, Object.keys(gauges).sort());
   assert.deepEqual(
     Object.fromEntries(confirmed.map((slug) => [slug, listKnowledgeGauges(slug).filter((g) => g.confirmed).map((g) => g.siteId)])),
-    {
-      black: ['07061500', 'swl-clearwater-dam', '07063000'],
-      current: [VAN_BUREN, '07064440', '07064533', '07066510', '07068000'],
-      gasconade: ['06928000', '06933500', '06934000'],
-      'jacks-fork': [EMINENCE, ALLEY],
-      meramec: ['07010350', '07013000', '07014500', '07019000'],
-      niangua: [WINDYVILLE, '06923950'],
-    },
+    gauges,
+  );
+  // Every gauge block in the file is confirmed as of 2026-11-19. A new draft is
+  // fine; it just has to be a decision, so it shows up here.
+  assert.deepEqual(
+    listKnowledgeRiverSlugs().flatMap((slug) => listKnowledgeGauges(slug).filter((g) => !g.confirmed).map((g) => `${slug} ${g.siteId}`)),
+    [],
   );
 });
 
@@ -267,8 +293,10 @@ test("a river's Read gets its own gauge in full and every other gauge in one lin
   assert.match(elsewhere, /- Alley Spring gauge: At Alley Spring, just ABOVE where the spring's water enters/);
   assert.match(elsewhere, /Speaks for: The upper Jacks Fork, above Alley Spring\./);
   assert.doesNotMatch(read, /narrow, twisty, and technical/);
-  // Mountain View is drafted, so it is not listed at all.
-  assert.doesNotMatch(read, /Mountain View gauge/);
+  // Mountain View was a draft until 2026-11-19 and was not listed at all. Confirmed, it gets its one line too.
+  assert.match(elsewhere, /- Mountain View gauge: At Buck Hollow, about seven miles below the Prongs/);
+  assert.match(elsewhere, /Speaks for: The upper Jacks Fork, from the Prongs through Buck Hollow to Rymers\./);
+  assert.doesNotMatch(read, /smallest water on the river/);
 });
 
 test("a gauge's Read gets its own block and nothing of the others", () => {
@@ -296,17 +324,19 @@ test('each spring is placed on the right side of its gauge', () => {
   assert.match(getKnowledgeForTarget('jacks-fork', null, ALLEY), /=== This gauge: Alley Spring \(07065495\) ===[\s\S]*just ABOVE where the spring's water enters/);
 });
 
-test('a river with no confirmed block for the gauge is selected as it always was', () => {
-  // Big River's blocks are drafts, so naming its gauge changes nothing.
-  assert.equal(getKnowledgeForTarget('big-river', null, '07018100'), getKnowledgeForTarget('big-river', null));
+test('a river with no block for the gauge is selected as it always was', () => {
+  // The White has no gauge blocks at all, so naming its gauge changes nothing.
+  assert.deepEqual(listKnowledgeGauges('white'), []);
+  assert.equal(getKnowledgeForTarget('white', null, '07057370'), getKnowledgeForTarget('white', null));
   assert.equal(
-    getRiverKnowledgeForGauge('big-river', 'Big River at Byrnesville, MO', '07018500'),
-    getRiverKnowledgeForGauge('big-river', 'Big River at Byrnesville, MO'),
+    getRiverKnowledgeForGauge('white', 'White River at Calico Rock, AR', '07060500'),
+    getRiverKnowledgeForGauge('white', 'White River at Calico Rock, AR'),
   );
-  // And a confirmed river asked about a gauge it has only a draft for: the
-  // older rule, a reach note that names the gauge's town.
-  const mountainView = getRiverKnowledgeForGauge('jacks-fork', 'Jacks Fork near Mountain View, MO', '07065200');
-  assert.doesNotMatch(mountainView, /This gauge:/);
+  // And a confirmed river asked about a gauge it has no block for: the older
+  // rule, a reach note that names the gauge's town. (A drafted block is treated
+  // the same way; the made-up file above covers that.)
+  const unknown = getRiverKnowledgeForGauge('jacks-fork', 'Jacks Fork at Nowhere, MO', '00000000');
+  assert.doesNotMatch(unknown, /This gauge:/);
 });
 
 test('chat is told everything about the river in view, towns included, and no Read is told the towns', () => {

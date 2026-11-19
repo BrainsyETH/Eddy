@@ -67,6 +67,17 @@ ladder (Dangerous at the NWS action flow, a provisional High), and shows how
 two stretches can be right on a river whose stored access miles are offset
 from its line.
 
+Two gauges on a river are the third case. With no stretch, a stored mile falls
+to the river's main gauge and a map point takes the nearest gauge by distance,
+so an access page and the planner can grade one put-in from two gauges.
+`20261119170000` adds ten stretches on seven rivers so both agree, with each
+boundary at the creek that changes the river. Its header records the one
+put-in that cannot be fixed that way (Jewett, on the St. Francis, whose chart
+mile equals a whitewater put-in's planner mile) and how one range serves both
+scales on the Bourbeuse. An unrated second gauge is assigned like any other:
+its put-ins then show a reading and no condition on both paths, instead of
+another gauge's condition on one of them.
+
 While stretch Reads are paused, an assignment has one live effect: the
 planner's gauge for put-ins inside the stretch.
 
@@ -206,11 +217,22 @@ file's own Format Rules say how to write it. In short:
 `{unconfirmed}` on a gauge heading keeps a drafted block out of every prompt. A
 river with no confirmed block for a gauge is selected as it was before gauge
 blocks existed: the river-wide block, plus, for a gauge Read, any reach note
-that names the gauge's town. Six rivers are confirmed: the Black, the Current,
-the Gasconade, the Jacks Fork, the Meramec and the Niangua. The other gauges
-carry drafts built from the river line and access points, with the inflows
-left for the owner to state. `knowledge.test.ts` lists the confirmed rivers, so
-confirming one is a deliberate change.
+that names the gauge's town. All 49 gauge blocks on 25 rivers are confirmed as
+of 2026-11-19; the three tailwaters carry none. Six rivers were confirmed with
+the owner river by river. The other 30 blocks were confirmed, at the owner's
+direction, from two checks: where each sizeable creek joins, read from the
+national stream network (NHDPlus) and placed on Eddy's river lines, and which
+gauge each approved put-in resolves to. `knowledge.test.ts` lists every
+confirmed gauge and fails on a draft it does not expect, so a new block is a
+deliberate change.
+
+A second gauge's block says which of three states it is in. **Rated**: its own
+levels. **Borrowed**: no levels of its own, with the gauge its put-ins are
+graded by and how closely the two track (the Spring River at Imboden, on
+Hardy). **Unrated**: no levels and no condition, only the reading, its
+direction and NWS flood stage (the Spring River near Waco, the St. Francis near
+Patterson). A main gauge's ladder is not carried to a second gauge by a flow
+ratio: where trips have been logged at the gauge itself, they decide.
 
 Confirm a gauge line from the readings where they can speak: with a gauge on
 each side of an inflow, the gain between them at low water is the inflow. That
