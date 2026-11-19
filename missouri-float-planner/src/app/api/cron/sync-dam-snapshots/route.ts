@@ -21,6 +21,20 @@
 // have read, cache and all, because what it is storing IS a reader's response.
 // Folding them would mean one route with two cache policies.
 //
+// ── Except the SWPA schedule pages, read once per pass and uncached ────────
+// An expired entry in Next's data cache is served stale to the requests that
+// find it, while it refreshes in the background. At :35 the previous pass's
+// copy has always expired (REVALIDATE_SECONDS is 30 minutes), so the first
+// four dams in registry order — Clearwater, Table Rock, Bull Shoals, Beaver —
+// were stored with an hour-old schedule and every dam after them with a fresh
+// one. An hour old at write passes the 90-minute stale line half an hour
+// later, so Table Rock and Bull Shoals read "check the latest schedule" for
+// half of every hour with nothing failing (production, 2026-11-19 13:35 UTC:
+// those three at 12:35, every other SWPA dam at 13:29). One page holds every
+// project, so the pass reads each day's page once, skipping the cache, and
+// every dam is assembled from the same copy. A failed page is null, its day is
+// absent, and carryFromPrevious keeps the posted day as for any failed read.
+//
 // SCHEDULED AT :35 (vercel.json) — update-gauges holds the cron lock table at
 // :00 and every 15 minutes, sync-gauge-latest at :20, sync-dam-history at :25.
 
@@ -29,7 +43,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
-import { fetchDamDetail, listDamIds } from '@/lib/data/dams';
+import { DETAIL_SCHEDULE_DAYS, fetchDamDetail, listDamIds } from '@/lib/data/dams';
+import { fetchScheduleDays } from '@/lib/usace/swpa';
 import {
   carryFromPrevious,
   decideWrites,
@@ -93,6 +108,7 @@ async function runSync(request: NextRequest) {
   let keptOnOutage = 0;
   let carriedForward = 0;
   let scheduleCarried = 0;
+  let schedulePagesRead = 0;
   let forecastHistory: Awaited<ReturnType<typeof recordForecastHistory>> = null;
 
   try {
@@ -103,9 +119,13 @@ async function runSync(request: NextRequest) {
     // An unreachable table yields an empty map and the pass proceeds as before.
     const previousPromise = readStoredSnapshots({ now: startedAt });
 
+    // Once for the pass, uncached: see the header. Never throws.
+    const schedulePages = await fetchScheduleDays(DETAIL_SCHEDULE_DAYS, { skipCache: true });
+    schedulePagesRead = schedulePages.filter(Boolean).length;
+
     const snapshots = await mapWithConcurrency(ids, DAM_CONCURRENCY, async (id) => {
       try {
-        return await fetchDamDetail(id);
+        return await fetchDamDetail(id, { schedulePages });
       } catch (err) {
         // fetchDamDetail is documented as never throwing; this is here so that
         // if that ever stops being true, one bad project costs one row rather
@@ -158,6 +178,10 @@ async function runSync(request: NextRequest) {
     // SWPA fetch or parse failure; it clears itself at the next good read, and
     // the carried days age on the page from their own retrievedAt meanwhile.
     scheduleCarried,
+    // SWPA day pages this pass read and accepted, of DETAIL_SCHEDULE_DAYS. Fewer
+    // is a failed or not-yet-refreshed sheet; scheduleCarried says whether the
+    // posted days survived it.
+    schedulePagesRead,
     // Null means the history write failed; the pages were still served.
     forecastHistory,
   });

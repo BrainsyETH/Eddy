@@ -14,6 +14,9 @@ import {
   weekdayFileForKey,
   centralDateKey,
   scheduleDayKeys,
+  fetchScheduleDays,
+  projectSchedulesFrom,
+  type DaySchedule,
   type ProjectSchedule,
 } from './swpa';
 
@@ -276,5 +279,53 @@ test('the file for a day key agrees with the file for every instant in that Cent
   for (let t = start; t < start + 365 * 86_400_000; t += 30 * 60_000) {
     const instant = new Date(t);
     assert.equal(weekdayFileForKey(centralDateKey(instant)), weekdayFileFor(instant), instant.toISOString());
+  }
+});
+
+// ── one read of the pages for a whole pass ─────────────────────────────────
+// sync-dam-snapshots reads each day's page once, uncached, and assembles every
+// dam from that copy. Reading through Next's data cache instead gave the first
+// dams in registry order (Table Rock, Bull Shoals, Beaver) the previous pass's
+// hour-old page and every later dam a fresh one.
+
+function page(scheduleDate: string, codes: string[]): DaySchedule {
+  const projects: Record<string, ProjectSchedule> = {};
+  for (const code of codes) {
+    projects[code] = { projectCode: code, scheduleDate, hours: [], retrievedAt: `${scheduleDate}T12:00:00.000Z` };
+  }
+  return { scheduleDate, projects, retrievedAt: `${scheduleDate}T12:00:00.000Z` };
+}
+
+test('a project\'s schedules come from pages already read, today first, absent days skipped', () => {
+  const pages = [page('2026-11-19', ['TRD', 'BSD', 'OZK']), null, page('2026-11-21', ['BSD'])];
+  assert.deepEqual(projectSchedulesFrom(pages, 'BSD').map((d) => d.scheduleDate), ['2026-11-19', '2026-11-21']);
+  assert.deepEqual(projectSchedulesFrom(pages, 'TRD').map((d) => d.scheduleDate), ['2026-11-19']);
+  // The page's other spelling of Ozark still finds it.
+  assert.deepEqual(projectSchedulesFrom(pages, 'OZD').map((d) => d.projectCode), ['OZK']);
+  assert.deepEqual(projectSchedulesFrom([null, null], 'BSD'), []);
+});
+
+test('the pass reads each day\'s page once, uncached when asked, and a failed page is null', async () => {
+  const original = globalThis.fetch;
+  const requests: Array<{ url: string; init?: RequestInit & { next?: unknown } }> = [];
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    requests.push({ url: String(url), init });
+    return new Response('unavailable', { status: 503 });
+  }) as typeof fetch;
+  const errors = console.error;
+  console.error = () => {};
+  try {
+    const pages = await fetchScheduleDays(3, { skipCache: true });
+    assert.deepEqual(pages, [null, null, null]);
+    assert.equal(requests.length, 3, 'one request per day, not one per dam');
+    assert.equal(new Set(requests.map((r) => r.url)).size, 3);
+    assert.ok(requests.every((r) => r.init?.cache === 'no-store' && r.init?.next === undefined));
+
+    requests.length = 0;
+    await fetchScheduleDays(2);
+    assert.ok(requests.every((r) => r.init?.cache === undefined && r.init?.next !== undefined), 'readers keep the cache');
+  } finally {
+    globalThis.fetch = original;
+    console.error = errors;
   }
 });
