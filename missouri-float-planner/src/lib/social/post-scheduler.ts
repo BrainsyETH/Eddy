@@ -362,7 +362,7 @@ function isDueNow(scheduledTimeCst: string, windowMinutes: number = 35): boolean
   return adjustedDiff >= 0 && adjustedDiff < windowMinutes;
 }
 
-type TodayRow = { id: string; created_at: string; status: string; auto_publish: boolean; image_url: string | null };
+type TodayRow = { id: string; created_at: string; status: string; auto_publish: boolean; image_url: string | null; platform: string };
 
 /**
  * Posts of a type created on today's date in `timeZone` (Central by default).
@@ -374,7 +374,7 @@ export async function postsFromToday(supabase: any, postType: string, timeZone: 
   const since = new Date(now.getTime() - 36 * 3600_000);
   const today = getLocalDateKey(timeZone, now);
   const { data, error } = await supabase.from('social_posts')
-    .select('id,created_at,status,auto_publish,image_url')
+    .select('id,created_at,status,auto_publish,image_url,platform')
     .eq('post_type', postType).gte('created_at', since.toISOString());
   if (error) throw new Error(`Could not check today's ${postType} posts`);
   let rows = ((data ?? []) as TodayRow[]).filter(row => getLocalDateKey(timeZone, new Date(row.created_at)) === today);
