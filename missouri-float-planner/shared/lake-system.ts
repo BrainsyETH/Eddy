@@ -7,7 +7,7 @@
 // a schedule, so SWPA's "subject to change" note has nothing to travel with.
 // The dam screen keeps the plan, and every dam row opens it.
 
-import { relativeAgeShort } from './dam-schedule-copy';
+import { READING_LAGGING_AFTER_HOURS, relativeAgeShort } from './dam-schedule-copy';
 import type { LakeSystemFlow, LakeSystemRow, LakeSystemStage, LakeWeather } from './lake-types';
 
 export const LAKE_SYSTEM_STAGE_LABELS: Record<LakeSystemStage, string> = {
@@ -49,6 +49,23 @@ function isDaily(flow: LakeSystemFlow | undefined): boolean {
   return Boolean(flow?.dailyMean || flow?.daily);
 }
 
+/**
+ * Whether an observed turbine state may still be stated in the present tense.
+ *
+ * The dam screen's own line (generatingForNow): only a fresh reading speaks
+ * for now. The server applies it when it builds the row, but a client can hold
+ * the row far longer than that, with no signal at the lake, so the test runs
+ * again here on the reader's clock. Past the line the row keeps its release
+ * and its age and says nothing about the turbines.
+ */
+function speaksForNow(at: string, now: number): boolean {
+  const ms = Date.parse(at);
+  if (!Number.isFinite(ms)) return false;
+  const hours = (now - ms) / 3_600_000;
+  // An hour of clock skew ahead is current; further ahead is not a reading of now.
+  return hours >= -1 && hours <= READING_LAGGING_AFTER_HOURS;
+}
+
 function flowFact(label: string, flow: LakeSystemFlow): string {
   return `${label} ${cfs(flow.cfs)}${cadenceNote(flow)}`;
 }
@@ -79,7 +96,7 @@ export function lakeSystemRowCopy(row: LakeSystemRow, now = Date.now()): LakeSys
       // A downstream dam is there for its lake, so the lake's level leads.
       if (row.pool) facts.push(`Level ${row.pool.valueFt.toFixed(2)} ft`);
       if (row.release) facts.push(flowFact('Release', row.release));
-      if (row.generating !== undefined) facts.push(row.generating ? 'Generating' : 'Not generating');
+      if (row.generation && speaksForNow(row.generation.at, now)) facts.push(row.generation.on ? 'Generating' : 'Not generating');
       const dated = row.release ?? row.pool;
       const daily = isDaily(row.release);
       return {

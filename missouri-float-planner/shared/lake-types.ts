@@ -108,8 +108,8 @@ export type LakeSystemRow =
       state: string;
       name: string;
       condition?: { code: string; label: string };
-      /** In the unit the river's thresholds use, the only unit it may be shown in. */
-      reading?: { value: number; unit: 'ft' | 'cfs'; at?: string };
+      /** In the unit the river's thresholds use, the only unit it may be shown in. Always dated. */
+      reading?: { value: number; unit: 'ft' | 'cfs'; at: string };
     }
   | {
       kind: 'dam';
@@ -121,8 +121,14 @@ export type LakeSystemRow =
       /** The river that carries this dam's release to the lake, for an upstream dam. */
       via?: string;
       release?: LakeSystemFlow;
-      /** Observed turbine state. Absent when unknown or when the dam has no powerhouse. */
-      generating?: boolean;
+      /**
+       * Observed turbine state, WITH the time of the turbine reading it came
+       * from. Absent when unknown or when the dam has no powerhouse. A client
+       * shows it only while that reading still speaks for now on its own
+       * clock (lake-system.ts): a payload held for hours must not go on saying
+       * "Generating".
+       */
+      generation?: { on: boolean; at: string };
       /** The neighbouring lake's level, for a dam downstream. */
       pool?: { valueFt: number; at: string };
     };

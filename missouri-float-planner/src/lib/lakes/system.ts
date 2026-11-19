@@ -29,15 +29,23 @@ function flow(metric: DamMetricValue | undefined, daily = false): LakeSystemFlow
   return { cfs: metric.value, at: metric.at, ...(metric.dailyMean ? { dailyMean: true } : {}), ...(daily ? { daily: true } : {}) };
 }
 
+/** The observed turbine state with the time of the turbine reading behind it, or nothing. */
+function generation(dam: DamSnapshot | null | undefined): { generation: { on: boolean; at: string } } | Record<string, never> {
+  const at = dam?.metrics.generationFlow?.at;
+  return typeof dam?.generating === 'boolean' && at ? { generation: { on: dam.generating, at } } : {};
+}
+
 function riverRow(river: RiverListItem, stage: 'coming_in' | 'below'): LakeSystemRow {
   const row: Extract<LakeSystemRow, { kind: 'river' }> = { kind: 'river', stage, slug: river.slug, state: river.state, name: river.name };
   const condition = river.currentCondition;
-  if (!condition) return row;
+  // No observation time, no claim: a rating and a number that cannot age would
+  // read as current forever. The row stays, as a door to the river's page.
+  if (!condition?.readingTimestamp) return row;
   // "Unknown" is the absence of a rating, not a rating worth a line.
   if (condition.code !== 'unknown') row.condition = { code: condition.code, label: condition.label };
   const value = condition.thresholdUnit === 'ft' ? condition.gaugeHeightFt : condition.thresholdUnit === 'cfs' ? condition.dischargeCfs : null;
   if (value !== null && Number.isFinite(value) && condition.thresholdUnit) {
-    row.reading = { value, unit: condition.thresholdUnit, ...(condition.readingTimestamp ? { at: condition.readingTimestamp } : {}) };
+    row.reading = { value, unit: condition.thresholdUnit, at: condition.readingTimestamp };
   }
   return row;
 }
@@ -60,11 +68,7 @@ export function buildLakeSystem({ lake, dam, dams, rivers }: LakeSystemInputs): 
     const release = flow(dams.get(upstream.damId)?.metrics.release);
     // An upstream dam earns a row by what it is sending; without a release it is only a name.
     if (!entry || !release) continue;
-    const generating = dams.get(upstream.damId)?.generating;
-    rows.push({
-      kind: 'dam', stage: 'coming_in', damId: entry.id, name: entry.name, via: upstream.via, release,
-      ...(typeof generating === 'boolean' ? { generating } : {}),
-    });
+    rows.push({ kind: 'dam', stage: 'coming_in', damId: entry.id, name: entry.name, via: upstream.via, release, ...generation(dams.get(upstream.damId)) });
   }
 
   for (const slug of lake.system?.feederRivers ?? []) {
@@ -76,7 +80,7 @@ export function buildLakeSystem({ lake, dam, dams, rivers }: LakeSystemInputs): 
   rows.push({
     kind: 'dam', stage: 'dam', damId: poolDam.id, name: poolDam.name,
     ...(release ? { release } : {}),
-    ...(typeof dam?.generating === 'boolean' ? { generating: dam.generating } : {}),
+    ...generation(dam),
   });
 
   const tailwater = poolDam.tailwater ? rivers.get(poolDam.tailwater.riverSlug) : undefined;

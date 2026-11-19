@@ -33,10 +33,10 @@ const lake = {
   dam: { id: 'swl-table-rock-dam', name: 'Table Rock Dam' },
   system: [
     { kind: 'inflow', stage: 'coming_in', flow: { cfs: 8200, at } },
-    { kind: 'dam', stage: 'coming_in', damId: 'swl-beaver-dam', name: 'Beaver Dam', via: 'White River', release: { cfs: 3900, at }, generating: false },
+    { kind: 'dam', stage: 'coming_in', damId: 'swl-beaver-dam', name: 'Beaver Dam', via: 'White River', release: { cfs: 3900, at }, generation: { on: false, at } },
     { kind: 'river', stage: 'coming_in', slug: 'james', state: 'MO', name: 'James River', condition: { code: 'good', label: 'Good' }, reading: { value: 640, unit: 'cfs', at } },
     { kind: 'river', stage: 'coming_in', slug: 'kings-river', state: 'AR', name: 'Kings River' },
-    { kind: 'dam', stage: 'dam', damId: 'swl-table-rock-dam', name: 'Table Rock Dam', release: { cfs: 7200, at }, generating: true },
+    { kind: 'dam', stage: 'dam', damId: 'swl-table-rock-dam', name: 'Table Rock Dam', release: { cfs: 7200, at }, generation: { on: true, at } },
     { kind: 'river', stage: 'below', slug: 'taneycomo', state: 'MO', name: 'Lake Taneycomo', condition: { code: 'flowing', label: 'Flowing' }, reading: { value: 7200, unit: 'cfs', at } },
   ],
 };
@@ -148,7 +148,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           } else {
             assert.deepEqual(await system.locator('h3').allInnerTexts(), ['Coming in', 'At the dam', 'Below the dam']);
             for (const href of ['/dams/swl-beaver-dam', '/rivers/missouri/james', '/rivers/arkansas/kings-river', '/dams/swl-table-rock-dam', '/rivers/missouri/taneycomo']) assert.equal(await system.locator(`a[href="${href}"]`).count(), 1, `${href} is linked once`);
+            assert.equal(await system.locator('[data-lake-system-row="inflow"]').count(), 1, 'the measured inflow has its row');
             assert.equal(await system.locator('[data-lake-system-row="inflow"] a').count(), 0, 'inflow is a reading, not a destination');
+            assert(systemText.includes('Release 7,200 cfs · Generating') && systemText.includes('Release 3,900 cfs · Not generating'), 'a fresh turbine reading states the turbine state');
           }
           assert(await system.locator('li > *').evaluateAll(nodes => nodes.every(n => n.getBoundingClientRect().height >= 44 && n.scrollWidth <= n.clientWidth)), 'system rows are full touch targets and do not overflow');
         }

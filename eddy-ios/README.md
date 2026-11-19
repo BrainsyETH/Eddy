@@ -1618,9 +1618,23 @@ level, wind, launches, then "Water in and out".
   "Show all". An elevation caution renders only when the server sent one and
   the level is still current on the device clock.
 - **Water in and out:** feeder rivers, dams above, the lake's own dam and where
-  the release goes. Rows open the existing river and dam screens with
-  `router.navigate`, so the dam and lake screens do not stack copies of each
-  other. Rows state observations only; the schedule stays on the dam screen.
+  the release goes. Rows open the existing river and dam screens. Rows state
+  observations only; the schedule stays on the dam screen. A turbine state
+  ("Generating") is shown only while its own reading is under two hours old on
+  the device clock, the dam screen's line, so a payload held with no signal
+  stops saying it.
+
+The dam screen links to its lake and the lake's dam row links back. A link
+that points at the screen directly underneath goes back to it
+(`src/lib/stackReturn.ts`); any other target is pushed. `router.navigate` does
+not do this: in a stack it reuses a screen only when the focused route has the
+same name, so the pair would add two screens per round trip. The dam ↔ river
+pair still uses `router.navigate` and has not been checked for the same
+growth.
+
+A 404 from the lake request reads "Lake not found" with no retry; any other
+failure reads "Lake unavailable" with Try again. The chart's axis labels
+follow Dynamic Type up to 1.5× and the gutter is sized from the longest label.
 
 The copy, launch order, freshness rule and chart model are imported from
 `@eddy/conditions` (`lake-system`, `lake-launch-order`, `lake-reading`,

@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import type { LakeSection } from '@eddy/conditions/lake-types';
-import { fetchLake } from '@/api/client';
+import { ApiError, fetchLake } from '@/api/client';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { RiverPageHeader } from '@/components/RiverPageHeader';
 import { LakeLaunchList } from '@/components/lake/LakeLaunchList';
@@ -65,11 +65,15 @@ export default function LakeDetailScreen() {
         if (signal.aborted) return;
         setHeld({ slug, lake: next });
         setFailed(false);
-      } catch {
+      } catch (error) {
         if (signal.aborted) return;
         // A refresh failure must not blank a screen already showing a level;
         // the reading keeps its honest age instead. Only an arrival fails.
-        if (primary) setFailed(true);
+        //
+        // A 404 is an answer, not an outage: the lake is not published (or the
+        // slug is wrong), and "check your connection" with a retry that cannot
+        // succeed would be the wrong thing to say.
+        if (primary) setFailed(!(error instanceof ApiError && error.status === 404));
       } finally {
         if (!signal.aborted && primary) {
           setSettledFor(slug);

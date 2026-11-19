@@ -102,3 +102,13 @@ export function nearestPoint(points: LakeChartPoint[], t: number): LakeChartPoin
   for (const p of points) if (!best || Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
   return best;
 }
+
+/**
+ * The value-axis labels, all in one precision: one decimal when any gridline
+ * falls between whole feet, none otherwise. Choosing by the span instead
+ * rounded a 917.5 gridline to "918", which labels a line that is not there.
+ */
+export function lakeValueTickLabels(ticks: ReadonlyArray<{ value: number }>): string[] {
+  const decimals = ticks.some((tick) => Math.abs(tick.value - Math.round(tick.value)) > 1e-6) ? 1 : 0;
+  return ticks.map((tick) => tick.value.toFixed(decimals));
+}

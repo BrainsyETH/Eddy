@@ -41,7 +41,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import { fetchRivers } from '@/api/client';
@@ -52,6 +52,7 @@ import { DamStateCard } from '@/components/dam/DamStateCard';
 import { GenerationCard } from '@/components/dam/GenerationCard';
 import { DamSourceLinks } from '@/components/dam/DamSourceLinks';
 import { openExternalLink } from '@/lib/openExternalLink';
+import { previousRouteIs } from '@/lib/stackReturn';
 import {
   damHasAnything,
   damSourceLink,
@@ -75,6 +76,7 @@ import { fonts, type as t } from '@/theme/typography';
 export default function DamDetailScreen() {
   const { damId } = useLocalSearchParams<{ damId: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const { colors, elevation } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
   const headerHeight = useHeaderHeight();
@@ -629,15 +631,14 @@ export default function DamDetailScreen() {
               absent means "nothing to open" and draws nothing; `lakeName` in
               the header still names the water either way.
 
-              navigate, not push: the lake screen's dam row links back here. */}
+              Opened from that lake's own dam row, this goes BACK to the lake
+              rather than pushing a second copy of it (stackReturn.ts). */}
           {dam.lake ? (
             <Pressable
-              onPress={() =>
-                router.navigate({
-                  pathname: '/lake/[slug]',
-                  params: { slug: dam.lake!.slug, name: dam.lake!.name },
-                })
-              }
+              onPress={() => {
+                if (previousRouteIs(navigation.getState(), 'lake/[slug]', 'slug', dam.lake!.slug)) navigation.goBack();
+                else router.push({ pathname: '/lake/[slug]', params: { slug: dam.lake!.slug, name: dam.lake!.name } });
+              }}
               style={({ pressed }) => [
                 styles.sourceButton,
                 { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },

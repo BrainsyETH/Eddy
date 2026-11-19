@@ -8,11 +8,12 @@
 // screen keeps the schedule and its caveat.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { LAKE_SYSTEM_STAGE_LABELS, lakeSystemRowCopy, lakeSystemRowRelation } from '@eddy/conditions/lake-system';
 import type { LakeSystemRow, LakeSystemStage } from '@eddy/conditions/lake-types';
+import { previousRouteIs } from '@/lib/stackReturn';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radii } from '@/theme/layout';
 import { fonts, type as t } from '@/theme/typography';
@@ -32,17 +33,23 @@ function rowKey(row: LakeSystemRow): string {
 function Row({ row, now }: { row: LakeSystemRow; now: number }) {
   const { colors } = useTheme();
   const router = useRouter();
+  const navigation = useNavigation();
   const copy = lakeSystemRowCopy(row, now);
   if (!copy) return null;
   const relation = lakeSystemRowRelation(row);
   const facts = copy.facts.join(' · ');
   const age = copy.age ? `${copy.age}${copy.stale ? ' · Outdated' : ''}` : null;
-  // navigate, not push: the dam screen links back to this lake, and push let
-  // the pair stack copies of each other.
+  // A dam row that points at the screen this lake was opened from goes BACK
+  // to it. The dam screen links here and this row links there; pushing each
+  // way grew the history by two screens per round trip (stackReturn.ts).
+  // Every other row is a new place and is pushed.
   const open = row.kind === 'river'
-    ? () => router.navigate({ pathname: '/river/[slug]', params: { slug: row.slug } })
+    ? () => router.push({ pathname: '/river/[slug]', params: { slug: row.slug } })
     : row.kind === 'dam'
-      ? () => router.navigate({ pathname: '/dam/[damId]', params: { damId: row.damId } })
+      ? () => {
+          if (previousRouteIs(navigation.getState(), 'dam/[damId]', 'damId', row.damId)) navigation.goBack();
+          else router.push({ pathname: '/dam/[damId]', params: { damId: row.damId } });
+        }
       : null;
   const body = (
     <>

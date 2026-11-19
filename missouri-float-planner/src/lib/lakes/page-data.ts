@@ -13,14 +13,29 @@
 
 import type { DamSnapshot } from '@shared/dam-types';
 import type { LakeSection } from '@shared/lake-types';
+import { directorySnapshotsFromRows, readDirectoryRows } from '@/lib/data/dam-directory-source';
 import { loadDamPageSnapshot } from '@/lib/data/dam-page-snapshot';
-import { pageDamSummaries, pageRivers } from '@/lib/data/public-pages';
+import { getRivers } from '@/lib/data/rivers';
 import { logger } from '@/lib/logger';
+import { createBoundedReader } from './bounded-reader';
 import { lakePageHref } from './public-pages';
 import { getLake, poolDamFor, type LakeEntry } from './registry';
 import { loadLakeSection } from './section';
 import { buildLakeSystem } from './system';
 import { loadLakeWeather } from './weather';
+
+/**
+ * The neighbours' readings, never older than a minute on this instance.
+ *
+ * Not the public pages' `unstable_cache` loaders: those hand an expired entry
+ * of any age to the request that finds it, and a lake page is quiet enough
+ * that the first reader of the morning would be shown last night's rivers
+ * (see bounded-reader.ts). The dams come through the dam directory's reader,
+ * which is bounded the same way, has a deadline, and re-bands every reading
+ * on the request's clock.
+ */
+export const NEIGHBOUR_RIVERS_TTL_MS = 60_000;
+const readNeighbourRivers = createBoundedReader(getRivers, NEIGHBOUR_RIVERS_TTL_MS);
 
 export interface LakePageData {
   entry: LakeEntry;
@@ -46,9 +61,9 @@ export async function loadLakePage(slug: string, now = Date.now()): Promise<Lake
   const dam: DamSnapshot | null = await loadDamPageSnapshot(damEntry.id, now);
   const [section, weather, rivers, dams] = await Promise.all([
     loadLakeSection(damEntry.id, dam?.metrics.poolElevation, now),
-    loadLakeWeather(entry),
-    optional('rivers', slug, pageRivers, []),
-    optional('neighbouring dams', slug, pageDamSummaries, []),
+    loadLakeWeather(entry, { now }),
+    optional('rivers', slug, readNeighbourRivers, []),
+    optional('neighbouring dams', slug, async () => directorySnapshotsFromRows(await readDirectoryRows(), now), []),
   ]);
   if (!section) return null;
 

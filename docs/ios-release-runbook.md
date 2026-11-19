@@ -250,9 +250,11 @@ which is the intended order. The rules are ADR 0019 items 8 to 10 and
 `eddy-ios/README.md`, "Lake details".
 
 - [ ] **Entry and return.** Table Rock Dam and Harry S. Truman Dam show the
-      lake button; Bull Shoals does not. Dam → lake → the lake's dam row → the
-      lake button again does not stack repeated screens, and Back returns to
-      the originating tab.
+      lake button; Bull Shoals does not. The button stays once the dam's full
+      readings land. Dam → lake → the lake's dam row returns to the dam
+      already open, and the lake button from there returns to the lake: after
+      three round trips, one Back from the dam leaves it. From Table Rock Lake,
+      the Beaver Dam row pushes a new screen and Back returns to the lake.
 - [ ] **Level card.** Table Rock shows an hourly observation, signed 24-hour
       and 7-day change, the conservation-pool sentence and a seven-day line
       with its dashed pool reference. Truman reads "Daily report" and is not
@@ -269,12 +271,16 @@ which is the intended order. The rules are ADR 0019 items 8 to 10 and
 - [ ] **Water in and out.** Table Rock lists inflow, Beaver Dam, the James and
       Kings rivers, Table Rock Dam and Lake Taneycomo; Truman lists its dam and
       Lake of the Ozarks. River and dam rows open the right screens; no row
-      states a schedule.
+      states a schedule. Open the lake, switch to airplane mode and return
+      after two hours: the dam rows keep their release and age and no longer
+      say "Generating" or "Not generating".
 - [ ] **Failure and refresh.** A cold open in airplane mode shows "Lake
-      unavailable" with a working Try again. Returning to the screen after the
+      unavailable" with a working Try again; an unknown lake slug shows "Lake
+      not found" with no retry. Returning to the screen after the
       level ages past its limit marks it outdated and removes the movement.
-- [ ] **Accessibility and theme.** Largest Dynamic Type, VoiceOver (chart
-      summary, row labels, 44-point targets) and dark mode.
+- [ ] **Accessibility and theme.** Largest Dynamic Type (the chart's axis
+      labels stay on one line and clear of the plot), VoiceOver (chart summary,
+      row labels, 44-point targets) and dark mode.
 
 ### October 13 freshness update candidate
 

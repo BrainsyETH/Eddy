@@ -307,6 +307,7 @@ src/lib/ios-review-fixes.test.ts
 src/lib/ios-river-sections.test.ts
 src/lib/ios-routes.test.ts
 src/lib/ios-share-fallback.test.ts
+src/lib/ios-stack-return.test.ts
 src/lib/ios-today-navigation.test.ts
 src/lib/ios-trust-state.test.ts
 src/lib/ios-unrated-flood.test.ts

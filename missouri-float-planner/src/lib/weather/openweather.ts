@@ -66,13 +66,19 @@ export async function fetchWeather(
   lat: number,
   lon: number,
   apiKey: string,
-  options: { signal?: AbortSignal } = {}
+  /**
+   * `fresh` skips the ten-minute data cache for this one call. The cache is
+   * stale-while-revalidate: an expired entry, however old, is returned to the
+   * request that finds it. A caller that can tell the answer is too old to
+   * use (the lake page's wind) asks again with this instead of showing it.
+   */
+  options: { signal?: AbortSignal; fresh?: boolean } = {}
 ): Promise<WeatherData> {
   const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
 
   const response = await trackedFetch('openweather', 'openweather', url, {
     signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000),
-    next: { revalidate: 600 }, // Cache current weather for 10 minutes
+    ...(options.fresh ? { cache: 'no-store' as const } : { next: { revalidate: 600 } }), // Cache current weather for 10 minutes
   });
 
   if (!response.ok) {

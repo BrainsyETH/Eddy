@@ -634,19 +634,29 @@ in `src/lib/lakes/registry.ts` (`system`) and the dam registry's `tailwater`,
 never inferred from a gauge. Rows state observations with their age and link to
 the existing river and dam pages; they never state a schedule, which stays on
 the dam page with its caveat. A neighbour with no reading keeps a row only when
-the row is still a useful link. The recreation card links to official visitor
+the row is still a useful link. A turbine state travels with the time of the
+turbine reading behind it and is shown only while that reading is under two
+hours old on the reader's clock, the dam page's own line; a river reading with
+no observation time is not shown at all. Neighbour readings come through
+bounded readers (`src/lib/lakes/bounded-reader.ts`, the dam directory's row
+reader), never the `unstable_cache` page loaders, which hand an expired entry
+of any age to the first request after a quiet stretch. A cached wind already
+past the two-hour line is fetched once more without the cache. The recreation card links to official visitor
 information.
 
 `GET /api/lakes/[slug]` returns the same `LakeSection` (`shared/lake-types.ts`)
 the page renders, from the same loader (`src/lib/lakes/page-data.ts`), and
 answers only for a published lake. It is the iOS lake screen's one request. A
 dam snapshot carries `lake: { slug, name }` only when that lake's page is
-published; clients offer the lake from that field. The row copy, wind line,
+published; clients offer the lake from that field. Stored snapshots re-derive
+it from the gate when served, so a publish or an un-publish does not wait
+for the hourly rebuild (the CDN's cache of the dam response still applies). The row copy, wind line,
 launch order, level freshness and chart model live in `shared/` (`lake-system`,
 `lake-launch-order`, `lake-reading`, `lake-chart`) so web and iOS agree.
 
 `src/lib/lakes/public-pages.ts` is the shared publication gate for lake routes,
-dam links, Conditions discovery and the sitemap. It starts empty. Add a pilot
+dam links, Conditions discovery and the sitemap. It lists Table Rock and
+Truman. Add a lake
 only after the migration, real history and useful reviewed launch coverage
 meet `docs/LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md`. Publication is a release
 decision: a later data outage renders unavailable states, not a disappearing

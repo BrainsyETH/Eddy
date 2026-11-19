@@ -7,11 +7,32 @@ const NOW = Date.parse('2026-11-19T18:00:00Z');
 const ago = (hours: number) => new Date(NOW - hours * 3_600_000).toISOString();
 
 test('a dam row states the observed release and turbine state, and never a schedule', () => {
-  const row: LakeSystemRow = { kind: 'dam', stage: 'dam', damId: 'swl-table-rock-dam', name: 'Table Rock Dam', release: { cfs: 7214.4, at: ago(1) }, generating: true };
+  const row: LakeSystemRow = { kind: 'dam', stage: 'dam', damId: 'swl-table-rock-dam', name: 'Table Rock Dam', release: { cfs: 7214.4, at: ago(1) }, generation: { on: true, at: ago(1) } };
   const copy = lakeSystemRowCopy(row, NOW);
   assert.deepEqual(copy, { title: 'Table Rock Dam', facts: ['Release 7,214 cfs', 'Generating'], age: '1 hr ago', stale: false });
   assert.doesNotMatch(JSON.stringify(copy), /scheduled|until|start|stop/i, 'a plan needs SWPA\'s caveat beside it; this row has no room for one');
   assert.equal(lakeSystemRowRelation(row), null);
+});
+
+test('a turbine state is said only while its own reading still speaks for now, on the reader\'s clock', () => {
+  const row = (releaseAgo: number, turbineAgo: number, on = true): LakeSystemRow => ({
+    kind: 'dam', stage: 'dam', damId: 'swl-table-rock-dam', name: 'Table Rock Dam',
+    release: { cfs: 7214, at: ago(releaseAgo) }, generation: { on, at: ago(turbineAgo) },
+  });
+  assert.deepEqual(lakeSystemRowCopy(row(0.5, 0.5), NOW)?.facts, ['Release 7,214 cfs', 'Generating']);
+  assert.deepEqual(lakeSystemRowCopy(row(0.5, 0.5, false), NOW)?.facts, ['Release 7,214 cfs', 'Not generating']);
+  // The same payload, held on a phone with no signal: four hours on, the dam
+  // screen has dropped its chip (two-hour line), and so does this row.
+  const later = NOW + 3.5 * 3_600_000;
+  assert.deepEqual(lakeSystemRowCopy(row(0.5, 0.5), later), { title: 'Table Rock Dam', facts: ['Release 7,214 cfs'], age: '4 hr ago', stale: false });
+  // The turbine reading can be older than the release beside it; its own time decides.
+  assert.deepEqual(lakeSystemRowCopy(row(0.5, 3), NOW)?.facts, ['Release 7,214 cfs']);
+  // No release reading: the turbine state alone would be an undated claim only while fresh, and nothing after.
+  const alone: LakeSystemRow = { kind: 'dam', stage: 'dam', damId: 'd', name: 'Dam', generation: { on: true, at: ago(0.5) } };
+  assert.deepEqual(lakeSystemRowCopy(alone, NOW)?.facts, ['Generating']);
+  assert.deepEqual(lakeSystemRowCopy(alone, later)?.facts, []);
+  assert.deepEqual(lakeSystemRowCopy({ ...alone, generation: { on: true, at: 'not a date' } }, NOW)?.facts, []);
+  assert.deepEqual(lakeSystemRowCopy({ ...alone, generation: { on: true, at: new Date(NOW + 3 * 3_600_000).toISOString() } }, NOW)?.facts, [], 'a stamp hours ahead is not a reading of now');
 });
 
 test('an unknown turbine state says nothing, and a zero release is a number, not "no release"', () => {
@@ -37,7 +58,7 @@ test('a river row reads in its own unit, and a river with no reading is still a 
     lakeSystemRowCopy({ kind: 'river', stage: 'coming_in', slug: 'james', state: 'MO', name: 'James River', condition: { code: 'good', label: 'Good' }, reading: { value: 3.416, unit: 'ft', at: ago(0.5) } }, NOW),
     { title: 'James River', facts: ['Good', '3.42 ft'], age: '30 min ago', stale: false },
   );
-  assert.deepEqual(lakeSystemRowCopy({ kind: 'river', stage: 'below', slug: 'taneycomo', state: 'MO', name: 'Lake Taneycomo', reading: { value: 7200, unit: 'cfs' } }, NOW)?.facts, ['7,200 cfs']);
+  assert.deepEqual(lakeSystemRowCopy({ kind: 'river', stage: 'below', slug: 'taneycomo', state: 'MO', name: 'Lake Taneycomo', reading: { value: 7200, unit: 'cfs', at: ago(1) } }, NOW)?.facts, ['7,200 cfs']);
   assert.deepEqual(lakeSystemRowCopy({ kind: 'river', stage: 'coming_in', slug: 'kings-river', state: 'AR', name: 'Kings River' }, NOW), { title: 'Kings River', facts: [], age: null, stale: false });
 });
 

@@ -9,6 +9,7 @@
 // Never throws. Weather is an optional card; an outage draws no card and the
 // level and the launches still render.
 
+import { lakeWeatherIsStale } from '@shared/lake-system';
 import type { LakeWeather } from '@shared/lake-types';
 import { fetchWeather, getWindDirection, type WeatherData } from '@/lib/weather/openweather';
 import { logger } from '@/lib/logger';
@@ -28,11 +29,29 @@ export function lakeWeatherFrom(weather: WeatherData, place: string): LakeWeathe
   };
 }
 
-export async function loadLakeWeather(lake: LakeEntry, apiKey = process.env.OPENWEATHER_API_KEY): Promise<LakeWeather | undefined> {
+export interface LakeWeatherOptions {
+  apiKey?: string;
+  now?: number;
+  /** Injected for tests; defaults to the OpenWeather client. */
+  fetch?: typeof fetchWeather;
+}
+
+/**
+ * The weather client's ten-minute cache is stale-while-revalidate, so on a
+ * quiet page the first request can be handed an observation from hours ago.
+ * When the cached answer is already past the card's own "outdated" line, ask
+ * once more without the cache instead of drawing a wind nobody should use.
+ * The second answer is kept whatever its age: a station that is itself behind
+ * shows as outdated, which is true.
+ */
+export async function loadLakeWeather(lake: LakeEntry, options: LakeWeatherOptions = {}): Promise<LakeWeather | undefined> {
+  const { apiKey = process.env.OPENWEATHER_API_KEY, now = Date.now(), fetch = fetchWeather } = options;
   const dam = poolDamFor(lake);
   if (!dam || !apiKey) return undefined;
   try {
-    return lakeWeatherFrom(await fetchWeather(dam.lat, dam.lon, apiKey), `Near ${dam.name}`);
+    let weather = await fetch(dam.lat, dam.lon, apiKey);
+    if (lakeWeatherIsStale(weather, now)) weather = await fetch(dam.lat, dam.lon, apiKey, { fresh: true });
+    return lakeWeatherFrom(weather, `Near ${dam.name}`);
   } catch (error) {
     logger.warn('lake weather unavailable', { lake: lake.slug, error: error instanceof Error ? error.message : String(error) });
     return undefined;

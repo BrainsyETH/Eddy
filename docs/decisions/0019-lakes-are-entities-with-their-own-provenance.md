@@ -74,11 +74,15 @@ status nobody has looked at since 2022.
    in the registries, never inferred from readings. Each row states an
    observation with its age and opens the river or dam page that owns the
    detail. A row never states a schedule or forecast; those stay on the dam
-   page, where SWPA's caveat sits beside them.
+   page, where SWPA's caveat sits beside them. A present-tense state
+   ("Generating") carries the time of its own reading and is shown only while
+   that reading speaks for now on the reader's clock, because a phone at a
+   ramp can hold a payload for hours. A reading with no time is not shown.
 10. **One lake payload for every client.** `GET /api/lakes/<slug>` returns the
     object the web page renders, from the same loader, only for a published
     lake. A dam snapshot names its lake (`lake: { slug, name }`) only when that
-    lake is published. The words and rules clients need live in `shared/`.
+    lake is published, decided when the snapshot is served and not only when
+    it was assembled. The words and rules clients need live in `shared/`.
 
 ## Consequences
 
