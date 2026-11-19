@@ -14,6 +14,7 @@ scripts/admin/no-blocking-dialogs.test.ts
 scripts/check-migration-drift.test.ts
 scripts/dam-generation-alerts-migration.test.ts
 scripts/gauge-above-spring-migrations.test.ts
+scripts/gauge-stretch-alignment-migration.test.ts
 scripts/import-nhd-rivers-from-tnm.test.ts
 scripts/import-service-river-facts.test.ts
 scripts/import-services-csv.test.ts
