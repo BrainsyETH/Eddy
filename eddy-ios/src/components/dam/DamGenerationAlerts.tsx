@@ -1,5 +1,5 @@
 // eddy-ios/src/components/dam/DamGenerationAlerts.tsx
-// "Alert me about posted generation": two switches on the dam screen.
+// Generation schedule alerts on the dam detail screen.
 //
 // ── What the two switches promise ───────────────────────────────────────────
 //
@@ -7,7 +7,7 @@
 // posted time, at it, or both, for every posted start rather than only the
 // day's first. It reads the schedule. It does not confirm generation began:
 // measured turbine flow reaches Eddy one to three hours late, which is after
-// the water (docs/decisions/0020). So the card says "posted" in its title and
+// the water (docs/decisions/0020). The card names the schedule in its title and
 // carries DAM_ALERT_NOTE under the switches, on the screen where the promise
 // is made, because a quiet phone must not read as "the water is staying down".
 //
@@ -52,6 +52,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 're
 import type { DamGenerationAlert } from '@eddy/types';
 import { ApiError } from '@/api/client';
 import { AlertNotificationSetup } from '@/components/AlertNotificationSetup';
+import { EddySymbol } from '@/components/EddySymbol';
 import { AlertSignInSheet } from '@/components/AlertSignInSheet';
 import { useAlertGate } from '@/hooks/useAlertGate';
 import { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
@@ -131,44 +132,48 @@ export function DamGenerationAlerts({ dam }: Props) {
   );
 
   const row = (label: string, value: boolean, change: DamAlertChange, a11y: string) => (
-    <View style={styles.row}>
+    <Pressable
+      onPress={() => void apply(change)}
+      disabled={gate.busy}
+      accessibilityRole="switch"
+      accessibilityLabel={a11y}
+      accessibilityState={{ checked: value, disabled: gate.busy, busy: gate.busy }}
+      style={({ pressed }) => [styles.row, { opacity: gate.busy ? 0.55 : pressed ? 0.65 : 1 }]}
+    >
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
-      <Switch
-        value={value}
-        disabled={gate.busy}
-        onValueChange={() => void apply(change)}
-        trackColor={{ true: colors.interactive, false: colors.border }}
-        accessibilityLabel={a11y}
-        accessibilityState={{ disabled: gate.busy, busy: gate.busy }}
-      />
-    </View>
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Switch value={value} trackColor={{ true: colors.interactive, false: colors.border }}
+          ios_backgroundColor={colors.border} thumbColor={value ? colors.onInteractive : undefined} />
+      </View>
+    </Pressable>
   );
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: colors.text }]}>Alert me about posted generation</Text>
+        <EddySymbol name="alertWatch" size={26} />
+        <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Generation schedule alerts</Text>
         {gate.busy ? (
           <ActivityIndicator size="small" color={colors.textMuted} accessibilityLabel="Saving" />
         ) : null}
       </View>
 
       {view === 'switches' ? (
-        <>
+        <View style={[styles.choices, { backgroundColor: colors.cardRaised }]}>
           {row(
-            '1 hour before it starts',
+            '1 hour before the posted start',
             times.hourBefore,
             { hourBefore: !times.hourBefore },
             `Notify me 1 hour before generation is posted to start at ${dam.name}`,
           )}
           <View style={[styles.rule, { backgroundColor: colors.border }]} />
           {row(
-            'When it’s posted to start',
+            'At the posted start',
             times.atStart,
             { atStart: !times.atStart },
             `Notify me when generation is posted to start at ${dam.name}`,
           )}
-        </>
+        </View>
       ) : view === 'loading' ? (
         // STILL ASKING. No switches: off would be a guess.
         <View style={styles.status} accessibilityLiveRegion="polite">
@@ -230,11 +235,11 @@ export function DamGenerationAlerts({ dam }: Props) {
 
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   title: { ...textStyles.cardTitle, flex: 1 },
-  // 44pt at least, so the whole row is a comfortable target beside the switch.
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
-  rowLabel: { ...t.base, fontFamily: fonts.body, flex: 1 },
+  choices: { borderRadius: radii.inset, paddingHorizontal: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingVertical: 6 },
+  rowLabel: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   rule: { height: StyleSheet.hairlineWidth },
   note: { ...t.xs, fontFamily: fonts.body, marginTop: 8, lineHeight: 17 },
   // The notice carries its own bottom margin; this is only the gap above it.

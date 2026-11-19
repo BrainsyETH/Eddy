@@ -2,6 +2,10 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import type { MapGauge } from '@eddy/types';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { FavoriteGaugeReading } from '@/lib/favoriteGaugeReadings';
+import { mapFloodReading } from '@/lib/readingFlood';
+import { gaugeLink } from '@/lib/gaugeCondition';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { useTheme } from '@/theme/ThemeProvider';
 import { conditionChipBorder, conditionInk, conditionOpaqueBg } from '@/theme/conditions';
 import { fonts, type as t } from '@/theme/typography';
@@ -10,36 +14,51 @@ export function FavoriteRiverGauges({ readings, onOpenGauge }: {
   readings: FavoriteGaugeReading[];
   onOpenGauge: (gauge: MapGauge) => void;
 }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.list, { backgroundColor: colors.cardRaised }]}>
+      {readings.map((item, index) => (
+        <FavoriteGaugeLine key={item.gauge.id} item={item} divider={index > 0} onOpenGauge={onOpenGauge} />
+      ))}
+    </View>
+  );
+}
+
+function FavoriteGaugeLine({ item, divider, onOpenGauge }: {
+  item: FavoriteGaugeReading;
+  divider: boolean;
+  onOpenGauge: (gauge: MapGauge) => void;
+}) {
+  const { gauge, place, reading, code, notice, accessibilityLabel } = item;
   const { colors, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const stacked = width < 360 || fontScale >= 1.3;
+  const flood = useStationFlood(gauge.usgsSiteId, undefined, mapFloodReading(gauge, gaugeLink(gauge)?.floodStageFt));
   return (
-    <View style={[styles.list, { backgroundColor: colors.cardRaised }]}>
-      {readings.map(({ gauge, place, reading, code, notice, accessibilityLabel }, index) => (
-        <Pressable key={gauge.id}
-          onPress={gauge.usgsSiteId ? () => onOpenGauge(gauge) : undefined}
-          disabled={!gauge.usgsSiteId}
-          accessibilityRole={gauge.usgsSiteId ? 'button' : undefined}
-          accessibilityLabel={accessibilityLabel}
-          accessibilityHint={gauge.usgsSiteId ? 'Opens this gauge' : undefined}
-          style={({ pressed }) => [styles.row, index > 0 && styles.divider, {
-            borderTopColor: colors.border, opacity: pressed ? 0.65 : 1,
-          }]}>
-          <View style={[styles.content, stacked && styles.stacked]}>
-            <View style={[styles.location, stacked && styles.stackedLocation]}>
-              <Text style={[styles.place, { color: colors.text }]}>{place}</Text>
-              {notice ? <Text style={[styles.notice, { color: colors.textMuted }]}>{notice}</Text> : null}
-            </View>
-            <View style={[styles.pill, stacked && styles.stackedPill, {
-              backgroundColor: conditionOpaqueBg(code, isDark), borderColor: conditionChipBorder(code, isDark),
-            }]}>
-              <Text style={[styles.value, { color: conditionInk(code, isDark) }]}>{reading}</Text>
-            </View>
+    <Pressable onPress={gauge.usgsSiteId ? () => onOpenGauge(gauge) : undefined}
+      disabled={!gauge.usgsSiteId}
+      accessibilityRole={gauge.usgsSiteId ? 'button' : undefined}
+      accessibilityLabel={[accessibilityLabel, ...flood.notices.map(n => n.text)].join(', ')}
+      accessibilityHint={gauge.usgsSiteId ? 'Opens this gauge' : undefined}
+      style={({ pressed }) => [styles.row, divider && styles.divider, {
+        borderTopColor: colors.border, opacity: pressed ? 0.65 : 1,
+      }]}>
+      <View style={styles.body}>
+        <View style={[styles.content, stacked && styles.stacked]}>
+          <View style={[styles.location, stacked && styles.stackedLocation]}>
+            <Text style={[styles.place, { color: colors.text }]}>{place}</Text>
+            {notice ? <Text style={[styles.notice, { color: colors.textMuted }]}>{notice}</Text> : null}
           </View>
-          {gauge.usgsSiteId ? <ControlIcon name="chevron-forward" size={12} color={colors.textSubtle} /> : null}
-        </Pressable>
-      ))}
-    </View>
+          <View style={[styles.pill, stacked && styles.stackedPill, {
+            backgroundColor: conditionOpaqueBg(code, isDark), borderColor: conditionChipBorder(code, isDark),
+          }]}>
+            <Text style={[styles.value, { color: conditionInk(code, isDark) }]}>{reading}</Text>
+          </View>
+        </View>
+        <FloodNotices notices={flood.notices} />
+      </View>
+      {gauge.usgsSiteId ? <ControlIcon name="chevron-forward" size={12} color={colors.textSubtle} /> : null}
+    </Pressable>
   );
 }
 
@@ -47,7 +66,8 @@ const styles = StyleSheet.create({
   list: { marginTop: 12, marginRight: 8, borderRadius: 10, overflow: 'hidden' },
   row: { minHeight: 44, paddingHorizontal: 10, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 8 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth },
-  content: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  body: { flex: 1, minWidth: 0 },
+  content: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   stacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 3 },
   location: { flex: 1, minWidth: 0 },
   stackedLocation: { flexGrow: 0, flexBasis: 'auto' },

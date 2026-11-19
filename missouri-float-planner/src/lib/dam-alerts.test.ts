@@ -119,9 +119,9 @@ test('the Alerts row says which times are on, and says posted', () => {
 });
 
 test('the note beside the switches states the limit of a schedule alert', () => {
-  assert.match(DAM_ALERT_NOTE, /posted schedule/);
-  assert.match(DAM_ALERT_NOTE, /at the dam/);
-  assert.match(DAM_ALERT_NOTE, /can start without being posted/);
+  assert.match(DAM_ALERT_NOTE, /dam’s posted schedule/);
+  assert.match(DAM_ALERT_NOTE, /Central time/);
+  assert.match(DAM_ALERT_NOTE, /can start without notice/);
 });
 
 test('a dam generation push opens its dam, and river or gauge pushes are unchanged', () => {

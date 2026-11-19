@@ -1554,6 +1554,12 @@ Missing ladders or readings omit the scale; stale/suspect readings mute it and
 hide its marker. Seasonal copy is omitted for missing statistics, untrusted
 readings or a comparison from another calendar day. Search rows stay compact.
 
+Reading cards keep routine flood status, the observed gauge height, and published
+thresholds in **About this reading** (the About tab on a map gauge). Current
+threshold crossings, a forecast crossing into a higher category, and active NWS
+flood alerts appear directly below the station reading, before the recreational
+scale. Compact station rows show the same notices and open station details.
+
 ## Dam details
 
 Dam detail uses the same photo header as river detail, with the web's selected

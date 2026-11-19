@@ -32,7 +32,7 @@
 // the scale is labelled in megawatts — the number SWPA actually published —
 // never in cfs. cfs is an estimate and belongs in the prose beneath, hedged.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { LayoutChangeEvent, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { DamScheduleDay, ScheduledHour } from '@eddy/types';
 import {
@@ -66,6 +66,8 @@ interface Props {
   reference?: GenerationReference | null;
   /** Row context: shorter bars, no axis labels, no scale line. */
   compact?: boolean;
+  /** The day's peak or scheduled window, shown above both the chart and the hourly list. */
+  children?: ReactNode;
   /**
    * The day's peak, from the SAME derivation the line above the chart prints.
    *
@@ -162,7 +164,7 @@ function hourReadout(hour: ScheduledHour): string {
   return `${window} · ${hour.megawatts.toLocaleString()} MW scheduled${flow}`;
 }
 
-export function DayBars({ day, reference, compact = false, peakSchedule = null, now }: Props) {
+export function DayBars({ day, reference, compact = false, peakSchedule = null, now, children }: Props) {
   const { colors } = useTheme();
   const { fontScale, width } = useWindowDimensions();
   const screenReader = useScreenReaderEnabled();
@@ -231,6 +233,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null, 
 
   return (
     <View>
+      {list ? children : null}
       {/* Keep the return action within reach when the 24-hour list is open. */}
       {list ? listToggle : null}
       {list ? <View>
@@ -245,6 +248,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null, 
       {/* Keep the fixed scale visible until an hour is inspected. */}
       {!compact ? (
         <View style={styles.scaleRow}>
+          {children}
           <Text style={[styles.scaleText, { color: colors.textSubtle }]}>
             {scrubbedHour ? hourReadout(scrubbedHour)
               : scrubbed !== null ? `${hourEndingLabel(scrubbed + 1)} · schedule not posted`
@@ -350,6 +354,10 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null, 
       </View>
 
 
+      {/* Four ticks instead of the three words this had, because "noon" alone
+          left a reader counting bars to find 6 PM — the hour a weekday release
+          most often starts. Still words rather than a 0-23 axis: nobody reads a
+          release schedule in 24-hour time. */}
       {/* NAMED, because an unlabelled coral line beside a labelled teal window
           invites the reader to take it for part of the same mark. */}
       {!compact && showMarker && rowWidth > 0 ? (
@@ -367,10 +375,11 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null, 
 
       {!compact ? (
         <View style={styles.barAxis}>
-          {['12 AM', '6 AM', 'Noon', '6 PM', '12 AM'].map((label, index) => (
-            <Text key={index} style={[styles.axisText, { color: colors.textSubtle },
-              index === 0 && styles.axisStart, index === 4 && styles.axisEnd]}>{label}</Text>
-          ))}
+          <Text style={[styles.axisText, { color: colors.textSubtle }]}>midnight</Text>
+          <Text style={[styles.axisText, { color: colors.textSubtle }]}>6 AM</Text>
+          <Text style={[styles.axisText, { color: colors.textSubtle }]}>noon</Text>
+          <Text style={[styles.axisText, { color: colors.textSubtle }]}>6 PM</Text>
+          <Text style={[styles.axisText, { color: colors.textSubtle }]}>midnight</Text>
         </View>
       ) : null}
       </>}
@@ -433,8 +442,8 @@ export function nowSentence(
 const styles = StyleSheet.create({
   listToggle: { minHeight: 44, justifyContent: 'center', paddingVertical: 8 },
   hourDetail: { ...t.sm, fontFamily: fonts.mono, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  scaleRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
-  scaleText: { ...t.xs, fontFamily: fonts.medium, flex: 1, textAlign: 'right' },
+  scaleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12, rowGap: 2, marginTop: 6 },
+  scaleText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1, marginLeft: 'auto', textAlign: 'right' },
   bars: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -465,9 +474,7 @@ const styles = StyleSheet.create({
   nowRow: { minHeight: 16 },
   nowLabel: { width: 32, fontSize: 12, lineHeight: 17, textAlign: 'center', fontFamily: fonts.medium },
   barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
-  axisText: { width: '25%', textAlign: 'center', fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
-  axisStart: { width: '12.5%', textAlign: 'left' },
-  axisEnd: { width: '12.5%', textAlign: 'right' },
+  axisText: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
 });
 
 export const _test = { markerLeft, shareOf, barColor, BAR_GAP, HOURS };

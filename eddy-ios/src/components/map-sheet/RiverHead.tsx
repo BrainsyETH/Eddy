@@ -58,6 +58,8 @@ import {
   conditionLongLabel,
 } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { useCachedEddyUpdate } from '@/hooks/useEddyUpdates';
 import { selectEddySays } from '@/lib/eddySays';
 import type { RiverSheetData } from './riverTabs';
@@ -88,6 +90,7 @@ export function RiverHead({
   const primary = river.gauges.find(gauge => gauge.siteId === selectedSiteId) ?? defaultGauge;
   // The default verdict must agree with the river line, even while the
   // separate gauge catalog is loading. Only an explicit alternate is graded.
+  const flood = useStationFlood(primary?.siteId ?? null);
   const shownCode = riverOverviewCondition(river.code, defaultGauge?.siteId, primary);
 
   return (
@@ -182,6 +185,8 @@ export function RiverHead({
           </Text>
         </View>
       )}
+
+      <FloodNotices notices={flood.notices} />
 
       {/* Eddy's free line, under the verdict it elaborates on. Two lines at
           most: this is a glance above a collapsed detent, and a paragraph here

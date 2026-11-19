@@ -10,7 +10,7 @@ import * as sourceLinks from '../../../eddy-ios/src/lib/damSourceLinks';
 
 // Run the real container with native hosts stubbed. Its child hero can return
 // null; that must not leave the container's padded white surface on screen.
-function renderCard(dam: DamSnapshot, now = Date.now(), preferences: Record<string, boolean> = {}) {
+function renderCard(dam: DamSnapshot, now = Date.now(), fontScale = 1) {
   const nodes: { type: unknown; props: Record<string, unknown> }[] = [];
   const jsx = (type: unknown, props: Record<string, unknown>) => {
     if (typeof type === 'function') return type(props);
@@ -19,12 +19,15 @@ function renderCard(dam: DamSnapshot, now = Date.now(), preferences: Record<stri
     return node;
   };
   const dependencies: Record<string, unknown> = {
-    'react': { useSyncExternalStore: (_subscribe: unknown, snapshot: () => boolean) => snapshot() },
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
-    'react-native': { Settings: {
-      get: (key: string) => preferences[key],
-      set: (values: Record<string, boolean>) => Object.assign(preferences, values),
-    }, View: 'View', Text: 'Text', StyleSheet: { create: (styles: unknown) => styles, hairlineWidth: 1 } },
+    react: { useMemo: (compute: () => unknown) => compute(), useState: (initial: unknown) => [initial, () => {}] },
+    'react-native': {
+      View: 'View', Text: 'Text', Pressable: 'Pressable',
+      StyleSheet: { create: (styles: unknown) => styles, hairlineWidth: 1 },
+      useWindowDimensions: () => ({ width: 390, fontScale }),
+      PanResponder: { create: () => ({ panHandlers: {} }) },
+    },
+    '@/hooks/useScreenReaderEnabled': { useScreenReaderEnabled: () => false },
     '@/theme/layout': { radii: {} },
     '@/theme/ThemeProvider': { useTheme: () => ({ colors: { textMuted: 'muted', agingText: 'coral', error: 'red' }, elevation: () => ({}) }) },
     '@/theme/typography': { fonts: {}, type: {} },
@@ -32,9 +35,7 @@ function renderCard(dam: DamSnapshot, now = Date.now(), preferences: Record<stri
     '@eddy/conditions/dam-schedule-copy': scheduleCopy,
     '@/components/dam/DamGenerationHero': { DamGenerationHero: (props: { dam: DamSnapshot }) =>
       props.dam.hasTurbines || props.dam.metrics.release ? jsx('Hero', props) : null },
-    '@/components/CollapsibleSection': { CollapsibleSection: (props: Record<string, unknown>) =>
-      jsx('Day', { ...props, children: [props.title, props.trailing, props.summary, props.expanded === false ? null : props.children] }) },
-    '@/components/dam/DayBars': { DayBars: 'DayBars', nowSentence: () => null },
+    '@/components/CollapsibleSection': { CollapsibleSection: 'Day' },
     '@/components/dam/DamInfoTip': { DamInfoTip: 'Info' },
     // The real selection logic with a stub row: an empty list draws nothing,
     // as the component itself does.
@@ -42,22 +43,20 @@ function renderCard(dam: DamSnapshot, now = Date.now(), preferences: Record<stri
       links.length > 0 ? jsx('Sources', { links }) : null },
     '@/lib/damSourceLinks': sourceLinks,
   };
-  const scheduleExports: Record<string, unknown> = {};
-  runInNewContext(ts.transpileModule(readFileSync('../eddy-ios/src/components/dam/GenerationSchedule.tsx', 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
-  }).outputText, { exports: scheduleExports, require: (name: string) => {
-    assert.ok(name in dependencies, `Unexpected schedule dependency: ${name}`);
-    return dependencies[name];
-  } });
-  dependencies['@/components/dam/GenerationSchedule'] = scheduleExports;
-  const exports: { GenerationCard?: (props: { dam: DamSnapshot; now: number }) => unknown } = {};
-  const source = readFileSync('../eddy-ios/src/components/dam/GenerationCard.tsx', 'utf8');
-  runInNewContext(ts.transpileModule(source, { compilerOptions: {
-    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
-  } }).outputText, { exports, require: (name: string) => {
-    assert.ok(name in dependencies, `Unexpected generation card dependency: ${name}`);
-    return dependencies[name];
-  } });
+  function loadComponent(name: string) {
+    const exports: Record<string, unknown> = {};
+    const source = readFileSync(`../eddy-ios/src/components/dam/${name}.tsx`, 'utf8');
+    runInNewContext(ts.transpileModule(source, { compilerOptions: {
+      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+    } }).outputText, { exports, require: (dependency: string) => {
+      assert.ok(dependency in dependencies, `Unexpected ${name} dependency: ${dependency}`);
+      return dependencies[dependency];
+    } });
+    return exports;
+  }
+  dependencies['@/components/dam/DayBars'] = loadComponent('DayBars');
+  dependencies['@/components/dam/GenerationSchedule'] = loadComponent('GenerationSchedule');
+  const exports = loadComponent('GenerationCard') as { GenerationCard: (props: { dam: DamSnapshot; now: number }) => unknown };
   assert.ok(exports.GenerationCard);
   return { result: exports.GenerationCard({ dam, now }), nodes };
 }
@@ -214,6 +213,8 @@ test('the native posted plan grades its single check time by age without claimin
   assert.match(content, /No further generation posted/);
   assert.doesNotMatch(content, /Next scheduled change/);
   assert.match(content, /Peak 5–9 AM/);
+  assert.ok(content.indexOf('Schedule checked') > content.indexOf('Peak 5–9 AM'),
+    'the source footer follows the posted schedule');
   assert.equal((content.match(/Schedule checked/g) ?? []).length, 1);
   assert.doesNotMatch(content, /Outdated schedule|may have changed/);
   assert.match(content, /7:32 PM CST/);
@@ -249,12 +250,24 @@ test('the native posted plan grades its single check time by age without claimin
   }
 });
 
+test('the peak and MW scale share a wrapping row, and large text retains the peak in hourly details', () => {
+  const dam = { ...floodControl, generationReference: reference,
+    schedule: [postedDay(h => h >= 6 && h <= 9 ? 230 : h === 5 || h === 10 ? 115 : 0)] };
+  const chart = renderCard(dam, scheduleNow);
+  const row = chart.nodes.find(node => node.type === 'View' &&
+    words(node).replace(/\s+/g, ' ').trim() === 'Peak 5–9 AM 0–230 MW');
+  assert.ok(row, 'peak and capacity use the same chart header');
+  assert.equal((row.props.style as { flexWrap: string }).flexWrap, 'wrap');
+  const large = words(renderCard(dam, scheduleNow, 1.5).result).replace(/\s+/g, ' ');
+  assert.match(large, /Peak 5–9 AM Show hourly chart/);
+});
+
 test('a quieter schedule still distinguishes upcoming changes, minimum flow, flat output and missing hours', () => {
   const render = (day: DamScheduleDay) => words(renderCard({
     ...floodControl, generationReference: reference, schedule: [day],
   }, scheduleNow).result).replace(/\s+/g, ' ');
   const next = render(postedDay(h => h >= 23 ? 230 : 0));
-  assert.match(next, /Next scheduled generation 10 PM/);
+  assert.match(next, /Next scheduled change Generation starts at 10 PM/);
   assert.match(next, /Scheduled generation 10 PM–midnight/);
   assert.doesNotMatch(next, /No further generation|Peak/);
   const minimum = render(postedDay(() => 10, true));
@@ -266,40 +279,4 @@ test('a quieter schedule still distinguishes upcoming changes, minimum flow, fla
   const missing = postedDay(() => 0);
   missing.hours = missing.hours.filter(h => h.hourEnding !== 22);
   assert.doesNotMatch(render(missing), /No further generation|Next scheduled change/);
-});
-
-test('the schedule opens initially and remembers either choice across dams and visits', () => {
-  const prefs: Record<string, boolean> = {};
-  const day = postedDay(h => (h === 7 || h >= 23) ? 230 : 0);
-  const dam = { ...floodControl, schedule: [day], generationReference: reference };
-  const visit = (id: string) => renderCard({ ...dam, id }, scheduleNow, prefs);
-  const setExpanded = (view: ReturnType<typeof visit>, expanded: boolean) => {
-    const row = view.nodes.find(node => node.type === 'Day' && node.props.compact);
-    assert.ok(row);
-    (row.props.onExpandedChange as (open: boolean) => void)(expanded);
-  };
-  const first = visit('dam-a');
-  assert.match(words(first.result), /Nov 16/);
-  assert.deepEqual(prefs, {});
-  setExpanded(first, false);
-  const closed = visit('dam-b');
-  assert.doesNotMatch(words(closed.result), /Nov 16/);
-  assert.match(words(closed.result), /Next scheduled generation\s+10 PM/);
-  assert.match(words(closed.result), /Schedule checked/, 'an aging check remains visible even when folded');
-  setExpanded(closed, true);
-  assert.match(words(visit('dam-a').result), /Nov 16/);
-});
-
-test('the schedule distinguishes a later window from increases, decreases and stops', () => {
-  const now = Date.parse('2026-11-16T16:20:00Z'); // 10:20 AM Central
-  const render = (load: (h: number) => number) => words(renderCard({
-    ...floodControl, hasTurbines: true, generationReference: reference, schedule: [postedDay(load)],
-    metrics: { generationFlow: { value: 2734, at: new Date(now).toISOString(), unit: 'cfs', staleness: 'fresh' } },
-  }, now).result).replace(/\s+/g, ' ');
-  const laterWindow = render(h => h === 7 || h >= 12 ? 230 : 0);
-  assert.match(laterWindow, /Next scheduled generation 11 AM/);
-  assert.doesNotMatch(laterWindow, /starts at|starts again/i);
-  assert.match(render(h => h < 12 ? 115 : 230), /Scheduled output increase 11 AM/);
-  assert.match(render(h => h < 12 ? 230 : 115), /Scheduled output decrease 11 AM/);
-  assert.match(render(h => h === 12 ? 0 : 230), /Generation scheduled until 11 AM Scheduled to resume at 12 PM/);
 });

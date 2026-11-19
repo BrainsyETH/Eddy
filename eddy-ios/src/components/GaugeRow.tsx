@@ -37,9 +37,12 @@ import type { MapGauge } from '@eddy/types';
 import { conditionColor, conditionLabel, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { gaugeConditionCode, gaugeReadingText } from '@/lib/gaugeCondition';
+import { gaugeConditionCode, gaugeLink, gaugeReadingText } from '@/lib/gaugeCondition';
 import { readingAge } from '@/lib/readingCopy';
 import { KindMark } from '@/components/KindMark';
+import { mapFloodReading } from '@/lib/readingFlood';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { ReadingScale } from '@/components/ReadingScale';
 import { favoriteGaugeContext } from '@/lib/favoriteGaugeContext';
 
@@ -50,6 +53,7 @@ interface Props {
   riverName?: string | null;
   /** Live data, when it has arrived. Null is an ordinary state, not an error. */
   gauge: MapGauge | null;
+  siteId?: string | null;
   /**
    * Whether this gauge is starred.
    *
@@ -66,7 +70,7 @@ interface Props {
   now?: number;
 }
 
-function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar, showContext = false, now }: Props) {
+function GaugeRowComponent({ name, riverName, gauge, siteId, starred, onPress, onToggleStar, showContext = false, now }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   const code = gauge && !isReadingStale(gauge.readingAgeHours) ? gaugeConditionCode(gauge) : 'unknown';
@@ -74,6 +78,8 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
   const age = gauge ? readingAge(gauge.readingAgeHours) : null;
 
   const meta = [riverName, age].filter(Boolean).join(' · ');
+  const flood = useStationFlood(gauge?.usgsSiteId ?? siteId ?? null, undefined,
+    mapFloodReading(gauge, gauge && gaugeLink(gauge)?.floodStageFt));
   const context = showContext ? favoriteGaugeContext(gauge, now) : null;
 
   return (
@@ -94,6 +100,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
           riverName ? `on the ${riverName}` : null,
           age,
           context?.season,
+          ...flood.notices.map(notice => notice.text),
         ]
           .filter(Boolean)
           .join(', ')}
@@ -120,6 +127,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
           {reading ?? 'No gauge reading'}
         </Text>
 
+        <FloodNotices notices={flood.notices} />
         {meta ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
             {meta}

@@ -40,14 +40,11 @@ export function RiverPageHeader({ name, meta, photo, topInset, horizontalInset =
     if (root !== null && block !== null && title !== null) onTitleBottom(root + block + title);
   }
   const ink = photo ? '#FFFFFF' : colors.text;
+  const captionInk = solid ? '#FFFFFF' : 'rgba(255,255,255,0.84)';
   const creditLink = photo?.credit ? (
     <Pressable accessibilityRole="link" accessibilityLabel={`Photo credit: ${photo.credit.text}. Cropped for display. Opens source and license.`}
       onPress={() => void openExternalLink(photo.credit!.url)} style={overlayCredit ? styles.creditOverlay : styles.credit}>
-      <Text numberOfLines={overlayCredit ? 1 : undefined}
-        style={[styles.creditText, overlayCredit && styles.creditBadge, {
-          color: overlayCredit ? '#FFFFFF' : colors.textMuted,
-          backgroundColor: overlayCredit ? (solid ? colors.anchorSurface : `rgba(0,0,0,${RIVER_TITLE_SHADE})`) : undefined,
-        }]}>
+      <Text style={[styles.creditText, overlayCredit ? { color: captionInk, textAlign: 'right' } : { color: colors.textMuted }]}>
         {overlayCredit ? photo.credit.text : `Photo: ${photo.credit.text} · Cropped ↗`}
       </Text>
     </Pressable>
@@ -91,6 +88,9 @@ const styles = StyleSheet.create({
   shade: { position: 'absolute', left: 0, right: 0 },
   credit: { minHeight: 44, paddingHorizontal: 20, paddingVertical: 8, justifyContent: 'center' },
   creditText: { ...t.xs, fontFamily: fonts.body },
-  creditOverlay: { alignSelf: 'flex-end', maxWidth: '100%', minWidth: 44, minHeight: 44, marginRight: -20, justifyContent: 'flex-end' },
-  creditBadge: { paddingHorizontal: 6, paddingVertical: 3, borderTopLeftRadius: 4, overflow: 'hidden' },
+  creditOverlay: {
+    alignSelf: 'flex-end', maxWidth: '100%', minWidth: 44, minHeight: 44,
+    marginRight: -8, // The title is inset 20 pt; the caption sits 12 pt from the edge.
+    paddingBottom: 8, justifyContent: 'flex-end',
+  },
 });

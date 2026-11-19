@@ -38,10 +38,8 @@ interface Props {
   accessibilitySummary?: string;
   /** Open on mount. Defaults to shut. */
   defaultExpanded?: boolean;
-  /** Controlled disclosure, for a choice saved outside this section. */
-  expanded?: boolean;
-  onExpandedChange?: (expanded: boolean) => void;
-  compact?: boolean;
+  /** Let a parent with a row gap own the spacing between sections. */
+  flushBottom?: boolean;
   children: ReactNode;
 }
 
@@ -53,34 +51,27 @@ export function CollapsibleSection({
   trailing = null,
   accessibilitySummary,
   defaultExpanded = false,
-  expanded: controlledExpanded,
-  onExpandedChange,
-  compact = false,
+  flushBottom = false,
   children,
 }: Props) {
   const { colors } = useTheme();
   const { fontScale, width } = useWindowDimensions();
   const stacked = fontScale >= 1.3 || width < 360;
-  const [localExpanded, setLocalExpanded] = useState(defaultExpanded);
-  const expanded = controlledExpanded ?? localExpanded;
-  function toggle() {
-    if (controlledExpanded === undefined) setLocalExpanded(!expanded);
-    onExpandedChange?.(!expanded);
-  }
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
-    <View style={compact ? undefined : styles.section}>
+    <View style={flushBottom ? undefined : styles.section}>
       <Pressable
-        onPress={toggle}
+        onPress={() => setExpanded((prev) => !prev)}
         style={({ pressed }) => [styles.trigger, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={(summaryLayout === 'below' ? [title, accessibilitySummary, summary] : [title, summary, accessibilitySummary]).filter(Boolean).join(', ')}
+        accessibilityLabel={[title, summary, accessibilitySummary].filter(Boolean).join(', ')}
       >
         <View style={styles.head}>
           {leading}
           <View style={styles.headText}>
-            <Text style={[compact ? styles.compactTitle : styles.title, { color: colors.text }]}>{title}</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             {summary && summaryLayout === 'inline' ? (
               <Text style={[styles.summary, { color: colors.textSubtle }]} numberOfLines={stacked ? undefined : 1}>
                 {summary}
@@ -115,7 +106,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headText: { flex: 1, minWidth: 0 },
-  compactTitle: { ...t.base, fontFamily: fonts.semibold },
   title: { ...t.lg, fontFamily: fonts.heading },
   summary: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   body: { marginTop: 10 },

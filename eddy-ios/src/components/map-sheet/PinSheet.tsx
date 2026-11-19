@@ -36,6 +36,9 @@ import type { MapPin } from '@/map/RiverMap';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { usePlaceFavorite } from '@/hooks/usePlaceFavorite';
 import { placeFromAccess, placeFromPin } from '@/lib/savedPlaces';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
+import type { ReadingFlood } from '@/lib/readingFlood';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { decisionSlot, type DecisionSlot } from './peekSlot';
 import { GlanceSlot } from './GlanceSlot';
@@ -143,6 +146,8 @@ function PinSheetSelection(input: PinSheetProps) {
     isGaugePin ? pin.siteId : null,
     revision,
   );
+
+  const flood = useStationFlood(isGaugePin ? pin.siteId ?? null : null, gaugeDetail);
 
   const gaugeFacts: GaugePinFacts | null = useMemo(() => {
     if (!isGaugePin) return null;
@@ -306,6 +311,7 @@ function PinSheetSelection(input: PinSheetProps) {
     const shared = {
       facts: gaugeFacts,
       detail: gaugeDetail,
+      flood,
       status: gaugeStatus,
       onRetry: retry,
       onOpenGauge: props.onOpenGauge,
@@ -320,7 +326,7 @@ function PinSheetSelection(input: PinSheetProps) {
     accessPoint ? renderAccessTab(key as TabKey) : renderGaugeTab(key as GaugeTabKey);
 
   const headerProps = {
-    ...props, detail, status, gaugeFacts, peekSlot: slot,
+    ...props, detail, status, gaugeFacts, flood, peekSlot: slot,
   };
   const tabBar = activeTabs.length > 1 ? (
     <View style={{ backgroundColor: colors.sheet }}>
@@ -395,6 +401,7 @@ function PinSheetHeader({
   detail,
   status,
   gaugeFacts,
+  flood,
   gauges,
   riverGaugeCount,
   part = 'all',
@@ -404,6 +411,7 @@ function PinSheetHeader({
   detail: AccessPointDetailResponse | null;
   status: DetailStatus;
   gaugeFacts: GaugePinFacts | null;
+  flood: ReadingFlood;
   part?: 'identity' | 'summary' | 'all';
   /** Which fact the glance reserves. Resolved once by PinSheet — see there. */
   peekSlot: DecisionSlot;
@@ -471,9 +479,10 @@ function PinSheetHeader({
           />
         </GlanceSlot>
       ) : gaugeFacts ? (
-        // A gauge needs no reservation: every word of this row is on the pin
-        // before the sheet opens. See GaugeReadingRow.
-        <GaugeReadingRow facts={gaugeFacts} compact tint={pin.color} />
+        <>
+          <GaugeReadingRow facts={gaugeFacts} compact tint={pin.color} />
+          <FloodNotices notices={flood.notices} />
+        </>
       ) : null}
 
       {/* Stacked at the larger text sizes, as the map planner's fields are:

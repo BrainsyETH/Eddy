@@ -1,5 +1,7 @@
 import { hasLadder } from '@eddy/conditions/condition-ladder';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
+import { conditionFloodReading } from '@/lib/readingFlood';
+import { useStationFlood } from '@/hooks/useStationFlood';
 import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
 import { readingAge } from '@/lib/readingCopy';
 import { observedStamp } from '@/lib/observedStamp';
@@ -41,6 +43,8 @@ export function EssentialsConditions({ slug, now }: { slug: string; now: number 
     return () => controller.abort();
   }, [slug, reload]);
   const age = reading ? observationAgeHours(reading.readingTimestamp, reading.readingAgeHours, reading.cachedAt, now) : null;
+  const siteId = reading?.gaugeUsgsId ?? null;
+  const flood = useStationFlood(siteId, undefined, conditionFloodReading(reading, siteId));
   const band = readingBand(age);
   // Zone named, like the gauge and river screens (observedStamp.ts).
   const stamp = observedStamp(reading?.readingTimestamp);
@@ -55,6 +59,7 @@ export function EssentialsConditions({ slug, now }: { slug: string; now: number 
         reading={usable ? { value: primary, unit } : null}
         verdict={rated ? { code: usable ? reading.code : 'unknown', lastKnown } : undefined}
         thresholds={reading?.thresholds}
+        flood={flood}
         readingTimestamp={reading?.readingTimestamp}
         // The visible label only: passing the name as stationName as well
         // printed it a second time in the card's Station row.

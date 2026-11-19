@@ -15,6 +15,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { KindMark } from '@/components/KindMark';
 import { Otter, otterForCondition } from '@/components/Otter';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { ReadingScale } from '@/components/ReadingScale';
 import { FavoriteRiverGauges } from '@/components/FavoriteRiverGauges';
 import type { FavoriteGaugeReading } from '@/lib/favoriteGaugeReadings';
@@ -58,6 +60,7 @@ function FavoriteRiverCardComponent({
 }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
+  const flood = useStationFlood(gaugeReadings.length ? null : river.primaryGaugeSiteId ?? null);
   const condition = river.currentCondition;
   const code = condition?.code ?? 'unknown';
   // Returns null when there is no gauge AND when the rated unit's reading is
@@ -172,6 +175,8 @@ function FavoriteRiverCardComponent({
                 ) : null}
               </View>
             </Pressable>
+
+            <FloodNotices notices={flood.notices} />
 
             {/* The fallback scale must use the same unit as its headline. */}
             {thresholds && reading && thresholds.thresholdUnit === reading.unit ? (

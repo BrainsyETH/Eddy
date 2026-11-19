@@ -345,3 +345,66 @@ test('summary scale names the real first and last bands, including partial ladde
   assert.equal(readingSummaryScaleLabels([], 'cfs'), null);
   assert.equal(readingSummaryScaleLabels(partial.slice(0, 1), 'cfs'), null);
 });
+
+test('routine flood comparisons stay in reading information, with feet and the station thresholds', async () => {
+  const { readingFlood } = await import('../../../eddy-ios/src/lib/readingFlood');
+  const at = Date.parse('2026-11-19T16:00:00Z');
+  const gauge = { gaugeHeightFt: 3, readingTimestamp: new Date(at).toISOString(), readingSuspect: false,
+    floodStages: { actionFt: 6, floodFt: 10, moderateFt: null, majorFt: -9999 } };
+  const quiet = readingFlood(gauge, null, at);
+  assert.deepEqual(quiet.notices, []);
+  assert.deepEqual(quiet.details, [
+    { label: 'Flood status', value: 'Below flood stage. Gauge height: 3 ft.' },
+    { label: 'Flood levels', value: 'Action 6 ft · Flood stage 10 ft' },
+  ]);
+  for (const uncertain of [{ ...gauge, readingSuspect: true }, { ...gauge, readingTimestamp: null },
+    { ...gauge, readingTimestamp: new Date(at - 7 * 3_600_000).toISOString() }]) {
+    assert.deepEqual(readingFlood(uncertain, [], at).notices, []);
+    assert.match(readingFlood(uncertain, [], at).details[0].value, /No current reading/);
+  }
+  assert.deepEqual(readingFlood({ ...gauge, floodStages: null }, [], at).details, []);
+});
+
+test('flood notices include active alerts, current crossings and future escalation in reading order', async () => {
+  const { readingFlood } = await import('../../../eddy-ios/src/lib/readingFlood');
+  const at = Date.parse('2026-11-19T16:00:00Z');
+  const stamp = (h: number) => new Date(at + h * 3_600_000).toISOString();
+  const point = (h: number, ft: number) => ({ timestamp: stamp(h), gaugeHeightFt: ft, dischargeCfs: null });
+  const alert = (event: string, h: number) => ({ event, expires: stamp(h), onset: null, headline: event, severity: 'Unknown' });
+  const gauge = { gaugeHeightFt: 6, readingTimestamp: stamp(0), readingSuspect: false,
+    floodStages: { actionFt: 6, floodFt: 10, moderateFt: 13, majorFt: 18 },
+    floodAlerts: [alert('Flood Warning', 1), alert('Flood Warning', -1), alert('Flood Watch', 2), alert('Hydrologic Outlook', 4)] };
+  const result = readingFlood(gauge, [point(-2, 18), point(6, 10)], at);
+  assert.deepEqual(result.notices.map(n => n.text), ['Flood Warning in effect until today 11 AM',
+    'Flood Watch in effect until today 12 PM', 'Near flood stage now.', 'Could reach flood stage today.']);
+  assert.deepEqual(result.notices.map(n => n.emphasized), [true, false, true, true]);
+  assert.match(result.details.at(-1)!.value, /Hydrologic Outlook/);
+  assert.equal(readingFlood({ ...gauge, floodAlerts: [] }, [point(-1, 18), point(4, 6)], at).notices.length, 1);
+  const noReading = { ...gauge, gaugeHeightFt: null, floodAlerts: [] };
+  assert.deepEqual(readingFlood(noReading, [point(6, 10)], at).notices.map(n => n.text), ['Could reach flood stage today.']);
+  const onlyAlert = readingFlood({ ...noReading, floodStages: null, floodAlerts: [alert('Flood Advisory', 1), alert('Flood Warning', -1)] }, [], at);
+  assert.deepEqual(onlyAlert.notices.map(n => n.text), ['Flood Advisory in effect until today 11 AM']);
+});
+
+test('a picked station cannot inherit a different river gauge’s cached flood stages', async () => {
+  const { conditionFloodReading } = await import('../../../eddy-ios/src/lib/readingFlood');
+  const condition = { code: 'good' as const, label: 'Good', gaugeUsgsId: 'A', gaugeName: 'primary',
+    gaugeHeightFt: 3, dischargeCfs: 157, readingTimestamp: null, readingAgeHours: null, accuracyWarning: false,
+    accuracyWarningReason: null, floodStages: { actionFt: 6, floodFt: 10, moderateFt: null, majorFt: null, lid: null, source: 'curated' as const } };
+  assert.equal(conditionFloodReading(condition, 'B'), null);
+  assert.equal(conditionFloodReading(condition, null), null);
+  assert.equal(conditionFloodReading(condition, 'A')?.floodStages?.floodFt, 10);
+});
+
+test('a fresher same-station observation updates the flood comparison and keeps the official alerts', async () => {
+  const { floodReadingForStation, readingFlood } = await import('../../../eddy-ios/src/lib/readingFlood');
+  const now = Date.parse('2026-11-19T16:00:00Z');
+  const detail = { gaugeHeightFt: 4, readingTimestamp: '2026-11-19T14:00:00Z', readingSuspect: false,
+    floodStages: { actionFt: null, floodFt: 10, moderateFt: null, majorFt: null },
+    floodAlerts: [{ event: 'Flood Watch', onset: null, expires: null, headline: '', severity: 'Unknown' }] };
+  const newer = { ...detail, gaugeHeightFt: 11, readingTimestamp: new Date(now).toISOString(), floodAlerts: [], floodStages: null };
+  const update = floodReadingForStation(detail, newer, now);
+  assert.deepEqual(readingFlood(update, [], now).notices.map(n => n.text), ['Flood Watch in effect', 'At flood stage now.']);
+  assert.equal(floodReadingForStation(detail, { ...newer, readingTimestamp: null }, now), detail);
+  assert.deepEqual(readingFlood(floodReadingForStation(detail, { ...newer, readingSuspect: true }, now), [], now).notices.map(n => n.text), ['Flood Watch in effect']);
+});

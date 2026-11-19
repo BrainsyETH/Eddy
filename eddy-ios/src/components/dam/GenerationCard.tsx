@@ -4,7 +4,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { DamSnapshot } from '@eddy/types';
 import {
   generationReferenceCitation,
-  moveClock,
   RACK_ESTIMATE_NOTE,
   scheduleCheckLine,
   scheduleOutlook,
@@ -46,27 +45,21 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
   if (!hasObserved && !hasSchedule) return null;
 
   const ref = dam.generationReference;
+  // Shorten only a known idle remainder. Minimum flow, continuing generation
+  // and an unknown current hour retain the shared schedule semantics.
   const outlook = scheduleOutlook(dam.schedule, ref, now);
-  const move = outlook?.move;
-  const changeLabels = {
-    start: 'Next scheduled generation',
-    stop: 'Generation scheduled until',
-    increase: 'Scheduled output increase',
-    decrease: 'Scheduled output decrease',
-  };
-  const title = move ? changeLabels[move.kind]
-    : outlook && !outlook.generating && !outlook.minimumFlowOnly ? 'No further generation posted'
-    : scheduledChangeSummary(dam.schedule, ref, now) ?? 'Generation schedule';
-  const stopDetail = move?.kind === 'stop'
-    ? outlook?.resumesAt ? `Scheduled to resume at ${moveClock(outlook.resumesAt)}.` : 'Later hours have not been posted.'
-    : undefined;
+  const scheduled = outlook && !outlook.move && !outlook.generating && !outlook.minimumFlowOnly
+    ? 'No further generation posted'
+    : scheduledChangeSummary(dam.schedule, ref, now, true);
+  const nextChange = scheduled
+    ? { sentence: scheduled, hasMove: Boolean(outlook?.move) }
+    : null;
 
   // Eddy's fetch, never SWPA's post — they publish no timestamp of any kind, so
   // the label says "Schedule checked". As old as the OLDEST day, because a
   // section is only as fresh as its weakest part.
   const check = scheduleCheckLine(dam.schedule.map(day => day.retrievedAt), now);
   const oldestCheck = oldestRetrievedAt(dam.schedule);
-  const unknownCheck = dam.schedule.some(day => !day.retrievedAt || !Number.isFinite(Date.parse(day.retrievedAt)));
   const checkAgeMinutes = oldestCheck ? (now - Date.parse(oldestCheck)) / 60_000 : 0;
   // Age describes Eddy's last check, not whether SWPA revised the plan.
   // Unknown checks stay neutral even if another day's timestamp is old.
@@ -92,17 +85,6 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
     (link) => link !== null,
   );
 
-  const readingsLink = <DamSourceLinks links={observedSources} compact />;
-  const sourceFooter = check || scheduleSources.length > 0 ? (
-    <View style={styles.sourceRow}>
-      <DamSourceLinks links={scheduleSources} compact />
-      {check ? <Text
-        style={[styles.retrieval, { color: checkColor }]}
-        accessibilityLabel={check.stale ? `${check.text}. Last checked ${relativeAge(oldestCheck, now)}.` : undefined}
-      >{check.text}</Text> : null}
-    </View>
-  ) : null;
-
   return (
     <View
       style={[
@@ -114,7 +96,7 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
       {hasObserved ? <DamGenerationHero
         dam={dam}
         now={now}
-        readingsSource={readingsLink}
+        readingsSource={<DamSourceLinks links={observedSources} compact />}
         headerAction={
           <DamInfoTip
             title="Water release and generation"
@@ -125,17 +107,20 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
 
       {hasSchedule || scheduleSources.length > 0 ? (
         <View style={hasObserved ? [styles.schedule, { borderTopColor: colors.border }] : undefined}>
-          {hasSchedule ? <GenerationSchedule
+          <GenerationSchedule
             schedule={dam.schedule}
-            reference={ref}
+            reference={dam.generationReference}
             embedded
-            headline={title}
-            changeTime={move ? moveClock(move) : undefined}
-            stopDetail={stopDetail}
-            sourceFooter={sourceFooter}
-            showFooterWhenCollapsed={Boolean(check?.stale || unknownCheck)}
+            nextChange={nextChange}
             now={now}
-          /> : sourceFooter}
+          />
+          {check || scheduleSources.length > 0 ? <View style={styles.sourceRow}>
+            <DamSourceLinks links={scheduleSources} compact />
+            {check ? <Text
+              style={[styles.retrieval, { color: checkColor }]}
+              accessibilityLabel={check.stale ? `${check.text}. Last checked ${relativeAge(oldestCheck, now)}.` : undefined}
+            >{check.text}</Text> : null}
+          </View> : null}
         </View>
       ) : null}
     </View>
@@ -144,7 +129,7 @@ export function GenerationCard({ dam, now }: { dam: DamSnapshot; now: number }) 
 
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16 },
-  schedule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 10 },
+  schedule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 12 },
   // Source on the left, check time on the right when both fit. When they do
   // not (a narrow phone, large text) the row wraps and both keep the left
   // edge, the time directly under the link.

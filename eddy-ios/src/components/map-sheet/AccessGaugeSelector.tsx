@@ -3,6 +3,8 @@ import { Text, View } from 'react-native';
 import type { AccessPointGaugeStatus, MapGauge } from '@eddy/types';
 import { gaugeFreshness } from '@eddy/conditions/gauge-freshness';
 import { conditionLabel } from '@/theme/conditions';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { GaugePicker } from '../GaugePicker';
 import { gaugesForRiver, gaugeConditionCode, gaugePlaceLabel } from '@/lib/gaugeCondition';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -29,6 +31,7 @@ export function AccessGaugeSelector({ status, gauges, riverSlug, onOpenGauge, ga
     provider: picked.provider ?? 'usgs', cfs: picked.dischargeCfs, heightFt: picked.gaugeHeightFt,
     level: code, label: conditionLabel(code), lastUpdated: picked.readingTimestamp, trend: null,
   } : status;
+  const flood = useStationFlood(pending ? null : shown?.usgsId ?? null);
   return <View>
     {gaugeCount > 1 ? shown && choices.length > 1 && choices.some(gauge => gauge.id === shown.gaugeId) ? (
       <GaugePicker gauges={choices} riverSlug={riverSlug} selectedId={shown.gaugeId} onSelect={setPickedId} />
@@ -36,5 +39,6 @@ export function AccessGaugeSelector({ status, gauges, riverSlug, onOpenGauge, ga
       <Text numberOfLines={1} style={{ ...t.sm, fontFamily: fonts.semibold, color: colors.textMuted, flexShrink: 1 }}>Gauge: {shown ? gaugePlaceLabel(shown.gaugeName) : pending ? 'Loading…' : 'Unavailable'}</Text>
     </View> : null}
     <AccessGaugeReading status={shown} onOpenGauge={onOpenGauge} compact pending={pending || !shown} pendingLabel={pending ? undefined : unavailableLabel} />
+    <FloodNotices notices={flood.notices} />
   </View>;
 }

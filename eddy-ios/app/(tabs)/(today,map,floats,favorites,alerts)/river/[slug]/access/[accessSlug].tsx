@@ -52,6 +52,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -226,6 +228,7 @@ function Section({
 
 function GaugeCard({ status, age, onOpen }: { status: AccessPointGaugeStatus; age: string; onOpen: () => void }) {
   const { colors, elevation, isDark } = useTheme();
+  const flood = useStationFlood(status.usgsId);
   const reading =
     status.cfs != null
       ? formatReading(status.cfs, 'cfs')
@@ -242,7 +245,7 @@ function GaugeCard({ status, age, onOpen }: { status: AccessPointGaugeStatus; ag
         elevation(1),
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`${status.gaugeName}, ${status.label}${reading ? `, ${reading}` : ''}, ${age}`}
+      accessibilityLabel={[`${status.gaugeName}, ${status.label}${reading ? `, ${reading}` : ''}, ${age}`, ...flood.notices.map(n => n.text)].join('. ')}
     >
       <View style={styles.gaugeCardTop}>
         <Text style={[styles.gaugeName, { color: colors.textMuted }]}>
@@ -279,6 +282,7 @@ function GaugeCard({ status, age, onOpen }: { status: AccessPointGaugeStatus; ag
         <View style={styles.gaugeSpacer} />
         <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
       </View>
+      <FloodNotices notices={flood.notices} />
     </Pressable>
   );
 }

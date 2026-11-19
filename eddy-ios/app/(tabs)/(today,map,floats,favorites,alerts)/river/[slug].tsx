@@ -147,6 +147,8 @@ import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
+import { conditionFloodReading, mapFloodReading } from '@/lib/readingFlood';
+import { useStationFlood } from '@/hooks/useStationFlood';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { observationAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
@@ -1130,6 +1132,11 @@ export default function RiverDetailScreen() {
   const chartProvider = chartGauge ? chartGauge.provider ?? 'usgs' : null;
   const { detail: chartGaugeDetail } = useGaugeDetail(loading || error || !river ? null : shownSiteId);
 
+  const floodSite = loading || error || !river ? null : shownSiteId;
+  const floodFallback = conditionFloodReading(condition, floodSite)
+    ?? mapFloodReading(pickedGauge, pickedGauge && gaugeLink(pickedGauge, slug)?.floodStageFt);
+  const flood = useStationFlood(floodSite, chartGaugeDetail, floodFallback);
+
   if (loading) {
     // Navigation remains available while the river is loading.
     return (
@@ -1461,6 +1468,7 @@ export default function RiverDetailScreen() {
             trend={summaryLastKnown ? null : shownTrend}
             thresholds={scaleThresholds}
             context={percentileText}
+            flood={flood}
             stationName={shownGaugeName}
             stationLabel={!pickerIdentifiesStation && shownGaugeName ? gaugePlaceLabel(shownGaugeName) : null}
             age={readingAgeHours === null ? 'Observation time unavailable' : band === 'expired' ? 'Reading is out of date' : readingAge(readingAgeHours)}

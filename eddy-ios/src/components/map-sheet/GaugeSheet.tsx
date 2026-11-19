@@ -42,10 +42,7 @@ import { flowBandSentence } from '@/theme/flow';
 // The percentile -> band function itself, not the MapGaugeLite wrapper in
 // src/lib/gaugeFlow: a GaugeDetail carries the percentile directly.
 import { flowBand } from '@eddy/conditions/flow-band';
-import { safetySummarySentence, summarizeSafety } from '@eddy/conditions/safety-summary';
-import { isReadingStale } from '@eddy/conditions/reading-staleness';
-import { observationAgeHours } from '@eddy/conditions/gauge-freshness';
-import { floodAlertLine, floodAlertsToShow } from '@eddy/conditions/flood-alert-copy';
+import type { ReadingFlood } from '@/lib/readingFlood';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
 import { Absent, Fact, LinkRow, Prose, Retry, Section } from './sections';
@@ -55,6 +52,7 @@ import type { GaugePinFacts } from './gaugeTabs';
 export interface GaugeTabProps {
   facts: GaugePinFacts;
   detail: GaugeDetail | null;
+  flood: ReadingFlood;
   /** Whether the one request behind these tabs is pending, done or failed. */
   status: DetailStatus;
   /** Run that request again. Offered only under a line that says it failed. */
@@ -295,10 +293,9 @@ export function GaugeHistoryTab({ facts, detail, title }: GaugeTabProps & { titl
  * own caveat on today's value. All four are about the source, which is the
  * question this tab answers.
  */
-export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
+export function GaugeAboutTab({ facts, detail, flood }: GaugeTabProps) {
   const publicUrl = detail?.publicUrl ?? null;
   const band = detail?.curated === false ? flowBand(detail.flowPercentile) : null;
-  const alerts = floodAlertsToShow(detail?.floodAlerts);
 
   return (
     <View>
@@ -310,29 +307,9 @@ export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
 
       {detail?.stationNote ? <Prose>{detail.stationNote}</Prose> : null}
 
-      {/* Active NWS alerts covering the station, either tier — the same
-          lookup and wording as the gauge screen. Quoted, never graded. */}
-      {alerts.length ? (
-        <Section title="NWS alerts">
-          {alerts.map((alert) => (
-            <Prose key={alert.event}>{floodAlertLine(alert)}</Prose>
-          ))}
-        </Section>
-      ) : null}
-
-      {/* ── NWS stages, for the tier that has no Levels tab ───────────────
-          A curated station shows these inside Levels. An unrated one has no
-          Levels tab, so until this the sheet dropped the one official
-          threshold the station carries, while the gauge screen it links to
-          led with it. Same machine as that screen (shared/safety-summary),
-          so the two say the same sentence. */}
-      {detail?.curated === false && detail.floodStages ? (
-        <Section title="Flood stages">
-          <Prose>{floodStageSentence(detail)}</Prose>
-          <Fact label="Action" value={stageText(detail.floodStages.actionFt)} />
-          <Fact label="Flood" value={stageText(detail.floodStages.floodFt)} />
-          <Fact label="Moderate" value={stageText(detail.floodStages.moderateFt)} />
-          <Fact label="Major" value={stageText(detail.floodStages.majorFt)} />
+      {flood.details.length ? (
+        <Section title="Flood information">
+          {flood.details.map(row => <Fact key={row.label} label={row.label} value={row.value} />)}
         </Section>
       ) : null}
 
@@ -384,28 +361,6 @@ function rangeText(
     return `${min.toLocaleString()}–${max.toLocaleString()} ${unit ?? ''}`.trim();
   }
   return levelText(min ?? max, unit);
-}
-
-/**
- * Where today's stage sits against the NWS ladder, in the gauge screen's words.
- *
- * Feet against feet only, and an untrusted reading (suspect, or past the shared
- * staleness line) contributes no comparison — the identical inputs the gauge
- * screen hands summarizeSafety.
- */
-function floodStageSentence(detail: GaugeDetail): string {
-  const stages = detail.floodStages;
-  return safetySummarySentence(
-    summarizeSafety({
-      stages: stages
-        ? { action: stages.actionFt, flood: stages.floodFt, moderate: stages.moderateFt, major: stages.majorFt }
-        : null,
-      currentFt:
-        detail.readingSuspect || isReadingStale(observationAgeHours(detail.readingTimestamp))
-          ? null
-          : detail.gaugeHeightFt,
-    }),
-  );
 }
 
 /** Always feet. See the call site. */

@@ -38,6 +38,8 @@ import { CampingScrollGroup, CampingTableHeader, CampingTableRow } from '../Camp
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { observedCampingOverview } from '@/lib/campingHeatmap';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { ReadingScale } from '../ReadingScale';
 import { EddySymbol } from '../EddySymbol';
 import { placeSymbol } from './placeSymbol';
@@ -92,7 +94,6 @@ export interface RiverTabProps {
  * where it is drawn from the river's own condition code.
  */
 export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
-  const { colors, isDark } = useTheme();
 
   if (!river.gauges.length) {
     return <Absent>No water reading here yet.</Absent>;
@@ -102,64 +103,78 @@ export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
     <View>
       <Section title="Gauges">
         {river.gauges.map((gauge, index) => (
-          <Pressable
-            key={gauge.siteId}
-            onPress={() => onOpenGauge(gauge.siteId)}
-            style={({ pressed }) => [
-              styles.gaugeBlock,
-              index > 0 && [styles.gaugeDivider, { borderTopColor: colors.border }],
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${gauge.name}, ${conditionLabel(gauge.code)}${gauge.reading ? `, ${gauge.reading}` : ''}. Open the gauge`}
-          >
-            <View style={styles.gaugeRow}>
-              <View style={styles.gaugeText}>
-                <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                  {gauge.name}
-                </Text>
-                {gauge.reading ? (
-                  <Text style={[styles.rowMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                    {gauge.reading}
-                    {gauge.isPrimary && river.gauges.length > 1 ? ' · primary' : ''}
-                  </Text>
-                ) : null}
-              </View>
-              <View
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: conditionBg(gauge.code, isDark),
-                    borderColor: conditionChipBorder(gauge.code, isDark),
-                  },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: conditionInk(gauge.code, isDark) }]}>
-                  {conditionLabel(gauge.code)}
-                </Text>
-              </View>
-            </View>
-
-            {/* ── The whole river at a glance ─────────────────────────
-                The same band track a favourite carries, once per station, so
-                where each gauge sits between too low and flood reads down the
-                column without opening any of them. A station whose reading is
-                missing still draws its ladder — the bands are the legend for
-                that stretch even when today's marker cannot be placed. A gauge
-                with no ladder draws nothing, and ReadingScale declines a ladder
-                of fewer than two bands on its own. */}
-            {gauge.ladder ? (
-              <ReadingScale
-                thresholds={gauge.ladder}
-                value={gauge.value}
-                unit={gauge.ladder.thresholdUnit}
-                muted={gauge.code === 'unknown' && gauge.value != null}
-              />
-            ) : null}
-          </Pressable>
+          <RiverGaugeReading key={gauge.siteId} gauge={gauge} divider={index > 0} showPrimary={river.gauges.length > 1} onOpenGauge={onOpenGauge} />
         ))}
       </Section>
     </View>
+  );
+}
+
+function RiverGaugeReading({ gauge, divider, showPrimary, onOpenGauge }: {
+  gauge: RiverTabProps['river']['gauges'][number];
+  divider: boolean;
+  showPrimary: boolean;
+  onOpenGauge: RiverTabProps['onOpenGauge'];
+}) {
+  const { colors, isDark } = useTheme();
+  const flood = useStationFlood(gauge.siteId);
+  return (
+    <Pressable
+      onPress={() => onOpenGauge(gauge.siteId)}
+      style={({ pressed }) => [
+        styles.gaugeBlock,
+        divider && [styles.gaugeDivider, { borderTopColor: colors.border }],
+        { opacity: pressed ? 0.6 : 1 },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={[`${gauge.name}, ${conditionLabel(gauge.code)}${gauge.reading ? `, ${gauge.reading}` : ''}`, ...flood.notices.map(n => n.text), 'Open the gauge'].join('. ')}
+    >
+      <View style={styles.gaugeRow}>
+        <View style={styles.gaugeText}>
+          <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
+            {gauge.name}
+          </Text>
+          {gauge.reading ? (
+            <Text style={[styles.rowMeta, { color: colors.textMuted }]} numberOfLines={1}>
+              {gauge.reading}
+              {gauge.isPrimary && showPrimary ? ' · primary' : ''}
+            </Text>
+          ) : null}
+        </View>
+        <View
+          style={[
+            styles.chip,
+            {
+              backgroundColor: conditionBg(gauge.code, isDark),
+              borderColor: conditionChipBorder(gauge.code, isDark),
+            },
+          ]}
+        >
+          <Text style={[styles.chipText, { color: conditionInk(gauge.code, isDark) }]}>
+            {conditionLabel(gauge.code)}
+          </Text>
+        </View>
+      </View>
+
+      <FloodNotices notices={flood.notices} />
+
+      {/* ── The whole river at a glance ─────────────────────────
+          The same band track a favourite carries, once per station, so
+          where each gauge sits between too low and flood reads down the
+          column without opening any of them. A station whose reading is
+          missing still draws its ladder — the bands are the legend for
+          that stretch even when today's marker cannot be placed. A gauge
+          with no ladder draws nothing, and ReadingScale declines a ladder
+          of fewer than two bands on its own. */}
+      {gauge.ladder ? (
+        <ReadingScale
+          thresholds={gauge.ladder}
+          value={gauge.value}
+          unit={gauge.ladder.thresholdUnit}
+          muted={gauge.code === 'unknown' && gauge.value != null}
+        />
+      ) : null}
+    </Pressable>
   );
 }
 

@@ -11,6 +11,8 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { readingSummaryVerdict } from '@/lib/readingSummary';
 import { Otter, otterForCondition } from './Otter';
+import { FloodNotices } from './FloodNotices';
+import type { ReadingFlood } from '@/lib/readingFlood';
 import { ReadingScale } from './ReadingScale';
 import { TREND_ICON, type TrendDirection } from './TrendPill';
 
@@ -34,13 +36,14 @@ interface Props {
   /** Only when a picker or the page heading doesn't already identify it. */
   stationLabel?: string | null;
   details?: readonly ReadingInfoItem[];
-  /** Accuracy caveats and current NWS status stay visible. */
+  flood?: ReadingFlood;
+  /** Additional context and accuracy caveats. */
   children?: ReactNode;
   /** Optional local actions beside the observation age, such as refresh. */
   footerActions?: ReactNode;
 }
 
-export function ReadingSummaryCard({ embedded, sectionReadings, reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children, footerActions }: Props) {
+export function ReadingSummaryCard({ embedded, sectionReadings, reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], flood, children, footerActions }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
   const [infoOpen, setInfoOpen] = useState(false);
@@ -59,6 +62,7 @@ export function ReadingSummaryCard({ embedded, sectionReadings, reading, verdict
     { label: 'Station', value: stationName },
     { label: 'Reading', value: reading ? formatReading(reading.value, reading.unit) : 'No reading available' },
     ...details,
+    ...(flood?.details ?? []),
     ...(hasScale ? [{ label: 'Condition strip', value: 'Equal-width condition bands. The marker shows where the reading sits within its band.' }] : []),
   ];
   const infoButton = <Pressable accessibilityRole="button" accessibilityLabel="About this reading" accessibilityHint="Opens station and reading details" onPress={() => setInfoOpen(true)} style={({ pressed }) => [styles.info, { opacity: pressed ? 0.6 : 1 }]}>
@@ -132,6 +136,7 @@ export function ReadingSummaryCard({ embedded, sectionReadings, reading, verdict
           </View>
         </View>
         )}
+        {flood ? <FloodNotices notices={flood.notices} /> : null}
         {hasScale && thresholds && reading ? (
           <ReadingScale thresholds={thresholds} value={verdict?.code === 'unknown' ? null : reading.value} unit={reading.unit} summary muted={mutedScale} />
         ) : null}

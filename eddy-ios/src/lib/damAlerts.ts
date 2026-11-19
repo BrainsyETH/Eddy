@@ -50,7 +50,7 @@ export function turnsDamAlertOn(change: DamAlertChange): boolean {
  * not read a quiet phone as a promise that the water is staying down.
  */
 export const DAM_ALERT_NOTE =
-  'Follows the posted schedule. Times are at the dam, in Central time. Generation can start without being posted.';
+  'Alerts follow the dam’s posted schedule (Central time). Generation can start without notice.';
 
 /** What the push primer promises, completing "Eddy sends a notification …". */
 export const DAM_ALERT_PROMISE = 'when generation is posted to start at the dam';

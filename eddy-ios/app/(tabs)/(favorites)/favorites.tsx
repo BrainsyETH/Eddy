@@ -408,6 +408,7 @@ function FavoritesContent() {
       return (
         <GaugeRow
           name={item.name}
+          siteId={item.usgsSiteId}
           riverName={riverName}
           gauge={gauge}
           showContext

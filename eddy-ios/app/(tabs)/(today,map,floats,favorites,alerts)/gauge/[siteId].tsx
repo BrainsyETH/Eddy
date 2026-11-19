@@ -48,7 +48,6 @@ import { ControlIcon } from '@/components/ControlIcon';
 import type {
   GaugeDetail,
   GaugeDetailThreshold,
-  GaugeFloodStages,
   RiverOutlookResponse,
 } from '@eddy/types';
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
@@ -64,12 +63,8 @@ import {
   resolvePremiumTakeState,
   type PremiumReadFailure,
 } from '@/lib/premiumRead';
-import {
-  floodStageColor,
-  formatStage,
-} from '@/theme/floodStage';
-import { safetySummarySentence, summarizeSafety } from '@eddy/conditions/safety-summary';
-import { isReadingStale } from '@eddy/conditions/reading-staleness';
+import { readingFlood } from '@/lib/readingFlood';
+import { useObservationClock } from '@/hooks/useObservationClock';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
@@ -99,18 +94,13 @@ import { readingSummarySeason } from '@/lib/readingSummary';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import {
   coldWaterNote,
-  forecastCrest,
-  forecastCrestSentence,
-  forecastDayLabel,
   recentPeak,
   recentPeakSentence,
   recentRecord,
   recentRecordSentence,
   recentTrend,
   RECORD_WINDOW_DAYS,
-  upcomingForecast,
 } from '@eddy/conditions/gauge-recent';
-import { floodAlertLine, floodAlertsToShow, isFloodWarning } from '@eddy/conditions/flood-alert-copy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { premiumPitch } from '@/lib/premiumCopy';
@@ -150,26 +140,6 @@ function displayUnit(gauge: GaugeSeed, link: GaugeDetailThreshold | null): 'ft' 
   if (gauge.dischargeCfs != null) return 'cfs';
   if (gauge.gaugeHeightFt != null) return 'ft';
   return null;
-}
-
-/**
- * "Flood stage 20 ft · action 10 ft", from whichever of the four are published.
- *
- * Named in the NWS's own words, never paraphrased into Eddy's — see the header
- * of src/theme/floodStage.ts for why relaying somebody else's threshold is the
- * one safety-adjacent thing an unrated gauge is allowed to carry.
- */
-function stageSummary(stages: GaugeFloodStages): string {
-  return (
-    [
-      stages.floodFt != null ? `Flood stage ${formatStage(stages.floodFt)}` : null,
-      stages.actionFt != null ? `action ${formatStage(stages.actionFt)}` : null,
-      stages.moderateFt != null ? `moderate ${formatStage(stages.moderateFt)}` : null,
-      stages.majorFt != null ? `major ${formatStage(stages.majorFt)}` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ')
-  );
 }
 
 function readingValue(gauge: GaugeSeed, unit: 'ft' | 'cfs' | null): number | null {
@@ -396,6 +366,7 @@ export default function GaugeDetailScreen() {
   // Seven days because that is the widest window the history route samples
   // without collapsing into bucket extrema — see shared/gauge-recent.ts.
   // Called above the early returns below, as every hook here must be.
+  const now = useObservationClock();
   const recentHistory = useGaugeHistory(siteId ?? null, 7);
   // And the last month, for "highest reading in the last 30 days" — a fixed
   // window of its own for the same reason: the claim names thirty days.
@@ -506,55 +477,10 @@ export default function GaugeDetailScreen() {
       ? recentRecordSentence(recentRecord(monthHistory.history, unit))
       : null;
   const coldLine = coldWaterNote(gauge.waterTemperature);
-  // Active NWS alerts at the station's coordinates — absent from builds of the
-  // endpoint that predate the field, which reads exactly like none.
-  const alerts = floodAlertsToShow(gauge.floodAlerts);
   const summaryPercentile = !tierResolving && !gauge.readingSuspect && readingIsCurrent && supportsFlowBand(gauge.provider) ? gauge.flowPercentile : null;
 
   const stages = gauge.floodStages;
-  // The NWS forecast rides on the week's history response — the route attaches
-  // it for any station with an NWS location id, rated or not, and the chart
-  // already draws it. Here it is said in words: folded into the safety sentence
-  // ("Forecast to reach NWS minor flood stage Tuesday"), and as a crest line
-  // when it rises without reaching a category.
-  // Upcoming points only: the route trims to what lies past the last
-  // OBSERVATION, and a stale station or a cached response can still carry
-  // points that have already happened — which would let the safety line say
-  // "forecast to reach" about a time already gone.
-  const forecast = recentHistory.matchesRequest ? upcomingForecast(recentHistory.history?.forecast) : [];
-  // FEET AGAINST FEET, always — gaugeHeightFt is the only value these
-  // thresholds may be compared against. The five-state answer itself comes
-  // from shared/safety-summary.ts, the same machine the website's summary
-  // speaks through, so the two platforms cannot phrase safety differently.
-  // An untrusted reading (suspect, or past the shared six-hour line)
-  // contributes no comparison: "official stages published; current comparison
-  // unavailable" is the honest state for it.
-  const trustedStageFt =
-    gauge.readingSuspect || isReadingStale(observationAgeHours(gauge.readingTimestamp))
-      ? null
-      : gauge.gaugeHeightFt;
-  const safety = summarizeSafety({
-    stages: stages
-      ? {
-          action: stages.actionFt,
-          flood: stages.floodFt,
-          moderate: stages.moderateFt,
-          major: stages.majorFt,
-        }
-      : null,
-    currentFt: trustedStageFt,
-    forecast: forecast.map((point) => ({ t: point.timestamp, gaugeHeightFt: point.gaugeHeightFt })),
-  });
-  const safetyDay = safety.kind === 'forecast' && safety.crossesAt ? forecastDayLabel(safety.crossesAt) : null;
-  // Withheld only when the safety sentence already IS the forecast ("Forecast
-  // to reach NWS minor flood stage Tuesday"). A river already at a category
-  // still gets it: summarizeSafety reports the CURRENT category and stops, so
-  // "Currently at or above NWS action stage" would otherwise be all a reader
-  // saw while the Weather Service forecasts a crest several feet higher.
-  const crestLine =
-    safety.kind === 'forecast'
-      ? null
-      : forecastCrestSentence(forecastCrest(forecast, trustedStageFt));
+  const flood = readingFlood(gauge, recentHistory.matchesRequest && recentHistory.historySiteId === gauge.siteId ? recentHistory.history?.forecast : null, now);
 
   const age = readingAge(observationAgeHours(gauge.readingTimestamp));
   const percentile = percentileLabel(summaryPercentile);
@@ -699,6 +625,7 @@ export default function GaugeDetailScreen() {
             thresholds={!tierResolving ? link : null}
             context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit, undefined, gauge.dischargeCfs) ?? (!rated ? damNote : null)}
             stationName={gauge.name}
+            flood={flood}
             age={readingIsCurrent ? age : [gaugeFreshnessLabel(gauge.readingTimestamp), age].filter(Boolean).join(' · ')}
             ageWarning={!readingIsCurrent}
             details={[
@@ -706,7 +633,6 @@ export default function GaugeDetailScreen() {
               { label: 'Observed', value: observedStamp(gauge.readingTimestamp, gauge.timeZone) },
               { label: 'Seasonal comparison', value: percentile ? `${percentile} for flow` : gauge.seasonalContextUnavailableReason ?? 'No current seasonal comparison available' },
               { label: 'Historical record', value: gauge.seasonalContext?.yearsOfRecord ? `${gauge.seasonalContext.yearsOfRecord} years of records` : null },
-              { label: 'Flood levels', value: stages ? stageSummary(stages) : null },
               ...[
                 { label: 'Water temperature', measurement: gauge.waterTemperature, value: `${gauge.waterTemperature?.valueF}°F` },
                 { label: 'Dissolved oxygen', measurement: gauge.dissolvedOxygen, value: `${gauge.dissolvedOxygen?.valueMgL} mg/L` },
@@ -718,39 +644,17 @@ export default function GaugeDetailScreen() {
               })),
             ]}
           >
-            {/* The Weather Service's alerts lead: they are its statement about
-                the area right now, and they outrank everything below. Only a
-                WARNING takes the flood colour; a watch or advisory is stated
-                at full strength without it. */}
-            {alerts.map((alert) => (
-              <Text
-                key={alert.event}
-                style={isFloodWarning(alert) ? [styles.stagePassed, { color: floodStageColor(), marginTop: 10 }] : [styles.caveat, { color: colors.text }]}
-              >
-                {floodAlertLine(alert)}
-              </Text>
-            ))}
             {/* Facts about the water, for either tier — never a verdict. The
                 crest is muted context; cold water is safety information, so it
                 reads at full strength without borrowing the alarm red. */}
             {recordLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{recordLine}</Text> : null}
             {rated && peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
-            {crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{crestLine}</Text> : null}
+            {flood.crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{flood.crestLine}</Text> : null}
             {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
             {gauge.readingSuspect && gauge.qualifierNote ? (
               <Text style={[styles.caveat, { color: colors.error }]}>
                 {gauge.qualifierNote}
               </Text>
-            ) : null}
-            {stages ? (
-              <View style={[styles.stages, { borderTopColor: colors.border }]}>
-                {/* A forecast crossing is the Weather Service's own statement
-                    about the next few days — it gets the same weight as a
-                    current one, while its sentence keeps the future tense. */}
-                <Text style={safety.kind === 'current' || safety.kind === 'forecast' ? [styles.stagePassed, { color: floodStageColor() }] : [styles.stageSummary, { color: colors.textMuted }]}>
-                  {safetySummarySentence(safety, { forecastDayLabel: safetyDay })}
-                </Text>
-              </View>
             ) : null}
           </ReadingSummaryCard>
         </View>
@@ -1076,9 +980,6 @@ const styles = StyleSheet.create({
   premiumBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   caveat: { ...t.xs, fontFamily: fonts.medium, marginTop: 10 },
   restoreNotice: { ...t.sm, fontFamily: fonts.body, marginBottom: 8 },
-  stages: { marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth },
-  stagePassed: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 4 },
-  stageSummary: { ...t.xs, fontFamily: fonts.body },
   actions: { paddingHorizontal: 16, gap: 10 },
   action: { paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
   actionText: { ...t.base, fontFamily: fonts.semibold },

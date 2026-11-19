@@ -33,6 +33,8 @@ import { conditionColor, conditionLabel, conditionText } from '@/theme/condition
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { allReadings, damControlledLabel, formatReading, primaryReading } from '@/lib/readingCopy';
+import { useStationFlood } from '@/hooks/useStationFlood';
+import { FloodNotices } from '@/components/FloodNotices';
 import { KindMark } from '@/components/KindMark';
 import { TREND_ICON } from '@/components/TrendPill';
 
@@ -80,6 +82,7 @@ function RiverRowComponent({
   const { colors, elevation, isDark } = useTheme();
 
   const condition = river.currentCondition;
+  const flood = useStationFlood(river.primaryGaugeSiteId ?? null);
   const code = condition?.code ?? 'unknown';
   // Returns null when there is no gauge, and ALSO when the declared unit's
   // reading is missing. Both are ordinary states and both must render as
@@ -115,6 +118,7 @@ function RiverRowComponent({
           reading ? readingText : 'no gauge reading',
           trend?.label,
           age ? `updated ${age}` : null,
+          ...flood.notices.map(notice => notice.text),
         ]
           .filter(Boolean)
           .join(', ')}
@@ -156,6 +160,8 @@ function RiverRowComponent({
             </View>
           ) : null}
         </View>
+
+        <FloodNotices notices={flood.notices} />
 
         {/* Reading age, and — only when the list is sorted by distance — how
             far away it is. The region and the access-point count used to sit
