@@ -251,9 +251,17 @@ jobs:
           retention-days: 7
 
   # Keep admin fixture failures separate from the web/guide and iOS checks.
+  #
+  # The cap is sized for a slow "Install Chromium" on top of the tests. That
+  # step is usually 20 seconds, but `--with-deps` fetches font packages from
+  # the runner's Ubuntu mirror, and a slow mirror has stretched it to 7 or 8
+  # minutes. The browser itself still downloaded in seconds, so caching
+  # ~/.cache/ms-playwright would not have helped. The rest of the job takes 6
+  # to 7 minutes, and at the earlier 10-minute cap a slow mirror cancelled the
+  # job with no test failing.
   admin-workspace:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: missouri-float-planner
