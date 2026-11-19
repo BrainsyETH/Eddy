@@ -97,6 +97,17 @@ test('the dam image says what the iOS widget says', () => {
   assert.match(stripSvg(older), new RegExp(`fill="${older.tokens.muted}" textLength="[^\"]+" lengthAdjust="spacingAndGlyphs">7,200`));
   oldRelease.metrics.release!.dailyMean = true;
   assert.match(damImageModel(oldRelease, { theme: 'light', accent: null }, now).alt, /daily average/);
+
+  // An outdated schedule check: the packet's summary is the home-screen
+  // widget's "Open Eddy…" prompt, which an image viewer may have no app for.
+  const outdated = dam();
+  outdated.schedule[0].retrievedAt = new Date(now - 3 * 3600_000).toISOString();
+  const stale = damImageModel(outdated, { theme: 'light', accent: null }, now);
+  assert.match(stale.subtitle ?? '', /Total release · The schedule may have changed\./);
+  assert.match(stale.alt, /The schedule may have changed\. From Eddy\./);
+  assert.doesNotMatch(`${stale.subtitle} ${stale.alt}`, /Open Eddy/);
+  outdated.schedule = [];
+  assert.match(damImageModel(outdated, { theme: 'light', accent: null }, now).subtitle ?? '', /No schedule posted\./);
 });
 
 test('dam HTML widgets lead with release and keep its clock separate from generation', () => {
@@ -123,6 +134,17 @@ test('dam HTML widgets lead with release and keep its clock separate from genera
   assert.doesNotMatch(render('card'), /6,600|7,200/);
   snapshot.metrics.release = { value: 0, unit: 'cfs', at: new Date(now).toISOString(), staleness: 'fresh' };
   assert.match(render('card'), /ew-reading-value">0/);
+
+  // An outdated schedule check gets the embed's own wording, decided from
+  // scheduleCurrent rather than by rewriting the widget's sentence.
+  snapshot.schedule[0].retrievedAt = new Date(now - 3 * 3600_000).toISOString();
+  for (const size of ['strip', 'card', 'full'] as const) {
+    const html = render(size);
+    assert.match(html, /The schedule may have changed\. Check the full report\./);
+    assert.doesNotMatch(html, /Open Eddy/);
+  }
+  snapshot.schedule = [];
+  assert.match(render('strip'), /Schedule · No schedule posted\./);
 });
 
 test('svg renders are well formed, sized to their text, and escape the data', () => {

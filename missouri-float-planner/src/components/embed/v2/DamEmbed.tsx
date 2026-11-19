@@ -177,11 +177,16 @@ function observedIso(moment: Moment): string | null {
   return moment.releaseObservedAt != null ? new Date(moment.releaseObservedAt).toISOString() : null;
 }
 
-/** The next-change sentence, or the visible stale notice that replaces it. */
-function nextChange(moment: Moment): { text: string; stale: boolean } {
+/**
+ * The next-change sentence, or the visible stale notice that replaces it.
+ * A posted schedule past its check window gets the embed's own wording: the
+ * packet's summary for that case is the home-screen widget's "Open Eddy…"
+ * prompt, which a reader on another site may have no app to open.
+ */
+function nextChange(moment: Moment, posted: boolean): { text: string; stale: boolean } {
   if (moment.scheduleCurrent) return { text: moment.scheduleSummary, stale: false };
   return {
-    text: moment.scheduleSummary.replace('Open Eddy to check the latest schedule.', 'The schedule may have changed. Check the full report.'),
+    text: posted ? 'The schedule may have changed. Check the full report.' : moment.scheduleSummary,
     stale: true,
   };
 }
@@ -215,7 +220,7 @@ function Strip({ data, options, branding, origin, now }: Props) {
   const moment = damWidgetSnapshot(data.dam, now).entries[0];
   const tone = statusTone(moment);
   const age = shortAge(observedIso(moment), now);
-  const next = nextChange(moment);
+  const next = nextChange(moment, data.dam.schedule.length > 0);
   return (
     <EmbedFrame size="strip" options={options} kind="dam" label={`${data.dam.name} generation`}>
       <a href={eddyDeepLink(origin, `/dams/${data.dam.id}`, utmFor(data, options, branding))} target="_blank" rel="noopener noreferrer" className="ew-strip" aria-label={`${data.dam.name}. Total release ${moment.releaseCfs != null ? `${Math.round(moment.releaseCfs).toLocaleString("en-US")} cfs` : "unavailable"}${moment.releaseDailyMean ? ', daily average' : ''}. ${compactStatus(moment)}. ${formatObservedAge(observedIso(moment), now)}. Posted schedule: ${next.text}`}>
@@ -250,7 +255,7 @@ function Card(props: Props) {
   const tomorrow = full && moment.scheduleDate
     ? packet.scheduleDays.find((d) => d.date > moment.scheduleDate!) ?? null
     : null;
-  const next = nextChange(moment);
+  const next = nextChange(moment, dam.schedule.length > 0);
   // Downstream changes come only from the dam's own dated stage series.
   // Do not infer movement from turbine flow or classify wading/float safety.
   const downstream = full ? dam.metrics.tailwaterElevation ?? null : null;

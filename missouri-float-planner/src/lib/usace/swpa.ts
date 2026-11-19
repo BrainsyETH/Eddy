@@ -460,22 +460,30 @@ export function swpaCodeCandidates(projectCode: string): string[] {
 }
 
 /**
- * Schedules for one project across the next `days` days, today first.
- * Days that fail or haven't been refreshed are simply absent.
+ * Each day's schedule page for the next `days` days, today first. A day that
+ * fails or hasn't been refreshed is null. Never throws.
+ *
+ * One page holds every project, so a caller assembling many dams in one pass
+ * reads the pages once here and hands them to projectSchedulesFrom, rather
+ * than asking for the same pages once per dam (see sync-dam-snapshots).
  */
-export async function fetchProjectSchedule(
-  projectCode: string,
+export async function fetchScheduleDays(
   days = 3,
   options?: { skipCache?: boolean }
-): Promise<ProjectSchedule[]> {
+): Promise<Array<DaySchedule | null>> {
   const results = await Promise.allSettled(
     scheduleDayKeys(days).map((key) => fetchDayScheduleForKey(key, options))
   );
+  return results.map((r) => (r.status === 'fulfilled' ? r.value : null));
+}
 
+/** One project's schedules from pages already read; absent days are skipped. */
+export function projectSchedulesFrom(
+  pages: ReadonlyArray<DaySchedule | null>,
+  projectCode: string
+): ProjectSchedule[] {
   const codes = swpaCodeCandidates(projectCode);
-
-  return results
-    .map((r) => (r.status === 'fulfilled' ? r.value : null))
+  return pages
     .map((day) => {
       if (!day) return null;
       for (const code of codes) {
@@ -485,6 +493,18 @@ export async function fetchProjectSchedule(
       return null;
     })
     .filter((s): s is ProjectSchedule => s !== null);
+}
+
+/**
+ * Schedules for one project across the next `days` days, today first.
+ * Days that fail or haven't been refreshed are simply absent.
+ */
+export async function fetchProjectSchedule(
+  projectCode: string,
+  days = 3,
+  options?: { skipCache?: boolean }
+): Promise<ProjectSchedule[]> {
+  return projectSchedulesFrom(await fetchScheduleDays(days, options), projectCode);
 }
 
 /**

@@ -382,8 +382,14 @@ test('Favorites renders total release and its age for flood-control dams and pow
   assert.match(text(), /12a/);
   assert.match(text(), /Release an hour ago/);
   assert.doesNotMatch(text(), /Check schedule|Subject to change/);
+  // The packet's stale summary is the home-screen widget's "Open Eddy…"
+  // prompt; inside Eddy the card says when the schedule was checked instead.
+  assert.match(text(), /Schedule checked 3 hours ago\. It may have been revised since\./);
+  assert.doesNotMatch(text(), /Open Eddy/);
   const details = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
   assert.ok(details);
+  assert.match(String(details.props.accessibilityLabel), /Schedule checked 3 hours ago/);
+  assert.doesNotMatch(String(details.props.accessibilityLabel), /Open Eddy/);
   assert.match(String(details.props.accessibilityLabel), /Generation scheduled 12 AM to 2 PM/);
   assert.doesNotMatch(String(details.props.accessibilityLabel), /subject to change/i);
 
@@ -420,6 +426,32 @@ test('Favorites renders total release and its age for flood-control dams and pow
   const minimumDetails = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
   assert.match(String(minimumDetails!.props.accessibilityLabel), /Minimum flow\./);
   assert.match(String(minimumDetails!.props.accessibilityLabel), /Only minimum flow scheduled/);
+});
+
+test('dam favorites never show the widget\'s "Open Eddy" prompt and mute an outdated schedule check', () => {
+  const dam = fixture();
+  const current = damFavoriteDisplay(dam, now);
+  assert.equal(current.scheduleLine, current.moment.scheduleSummary);
+  assert.match(current.scheduleLine, /Generation scheduled until 2 PM/);
+  assert.equal(current.scheduleLineAccent, false);
+
+  dam.schedule[0].retrievedAt = new Date(now - 2 * 3600_000).toISOString();
+  const outdated = damFavoriteDisplay(dam, now);
+  // The widget packet keeps its own sentence; installed widgets read it.
+  assert.match(outdated.moment.scheduleSummary, /Open Eddy to check the latest schedule/);
+  assert.equal(outdated.scheduleLine, 'Schedule checked 2 hours ago. It may have been revised since.');
+  assert.equal(outdated.scheduleLineAccent, false);
+  assert.ok(outdated.schedule, 'today\'s posted bars stay drawn');
+
+  dam.schedule[0].retrievedAt = null;
+  const unknown = damFavoriteDisplay(dam, now);
+  assert.equal(unknown.scheduleLine, 'The schedule may have been revised.');
+  assert.equal(unknown.scheduleLineAccent, false);
+
+  dam.schedule = [];
+  const none = damFavoriteDisplay(dam, now);
+  assert.equal(none.scheduleLine, 'No schedule posted.');
+  assert.equal(none.scheduleLineAccent, true);
 });
 
 /** Bull Shoals passing its minimum flow through a unit at low output. */
