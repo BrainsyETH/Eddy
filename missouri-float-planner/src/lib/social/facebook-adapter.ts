@@ -27,6 +27,8 @@ export class FacebookAdapter implements PlatformAdapter {
       const result = await publishVideoToFacebook({
         caption: params.caption,
         videoUrl: params.videoUrl,
+        placement: params.placement,
+        onUpload: params.onProviderAttempt,
       });
       return {
         success: result.success,

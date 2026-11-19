@@ -2,6 +2,8 @@
 // Determines scheduled social posts. Eddy’s Read is one Thursday comparison;
 // Float Pick and other format schedules retain their existing behavior.
 
+import { floatPickDestinations } from './float-pick-placements';
+import type { RenderData } from './post-types';
 import { MAY_HAVE_PUBLISHED } from './publish-outcome';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -16,7 +18,7 @@ import { tiktokRemainingBudget } from './tiktok-cap';
 
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
-import { getLocalDay, getLocalMinutes } from './local-time';
+import { getLocalDay, getLocalMinutes, getLocalDateKey } from './local-time';
 import { upcomingHolidayWeekend } from './holiday-weekends';
 import type {
   SocialCustomContent,
@@ -52,6 +54,7 @@ function resolveMedia(
 }
 
 export interface SchedulerResult {
+  floatPickRenderData?: RenderData;
   posts: ScheduledPost[];
   diagnostics: {
     posting_enabled: boolean;
@@ -65,7 +68,7 @@ export interface SchedulerResult {
   };
 }
 
-export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): Promise<SchedulerResult> {
+export async function getScheduledPosts(options?: { skipTimeCheck?: boolean; preview?: boolean }): Promise<SchedulerResult> {
   const supabase = createAdminClient();
   const skipTimeCheck = options?.skipTimeCheck ?? false;
   const diag: SchedulerResult['diagnostics'] = {
@@ -158,6 +161,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   const posts: ScheduledPost[] = [];
+  let floatPickRenderData: RenderData | undefined;
   const baseUrl = 'https://eddy.guide';
 
   // Pre-compute scheduling-zone day-of-week for video/schedule decisions
@@ -251,23 +255,22 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     if (todayMedia && config.section_guide) {
       const { time_cst } = config.section_guide;
       const timeMatches = skipTimeCheck || isDueNow(time_cst);
-      const alreadyPosted = await hasPostedToday('section_guide', null, supabase);
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Float Pick: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted && !options?.skipTimeCheck) {
+      } else if (!(skipTimeCheck && options?.preview) && await hasPostedToday('section_guide', null, supabase)) {
         console.log(`${LOG_PREFIX} Float Pick: already posted today — skipping`);
       } else {
         const ctx = await buildPostContext(supabase, { postType: 'section_guide' });
         if (!ctx) {
           console.log(`${LOG_PREFIX} Float Pick: no live section and no evergreen favorite — skipping`);
         } else {
-          const platforms = platformsForPost();
-          for (const platform of platforms) {
+          floatPickRenderData = ctx.renderData;
+          for (const { platform, placement } of floatPickDestinations(platformsForPost(), config.section_guide.placements)) {
             const { caption, hashtags } = ctx.caption(platform, customContent);
             posts.push({
               postType: 'section_guide',
-              platform,
+              platform, placement,
               riverSlug: ctx.riverSlug,
               caption,
               imageUrl: ctx.imageUrl(platform),
@@ -332,7 +335,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${diag.due_rivers.length} river highlights)`);
-  return { posts, diagnostics: diag };
+  return { posts, floatPickRenderData, diagnostics: diag };
 }
 
 // True when the scheduled Central time falls within the current fire window.
@@ -363,6 +366,17 @@ async function hasPostedToday(
 ): Promise<boolean> {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
+
+  if (postType === 'section_guide') {
+    const since = new Date(Date.now() - 36 * 3600_000);
+    const localDate = getLocalDateKey(schedulerZone);
+    const { data, error } = await supabase.from('social_posts').select('created_at,status,auto_publish')
+      .eq('post_type', postType).gte('created_at', since.toISOString());
+    if (error) throw new Error('Could not check scheduled Float Picks');
+    return (data ?? []).some((row: { created_at: string; status: string; auto_publish: boolean }) =>
+      getLocalDateKey(schedulerZone, new Date(row.created_at)) === localDate &&
+      (row.auto_publish || ['pending', 'rendering', ...MAY_HAVE_PUBLISHED].includes(row.status)));
+  }
 
   let query = supabase
     .from('social_posts')

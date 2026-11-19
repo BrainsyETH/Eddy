@@ -15,6 +15,7 @@ import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/li
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, ScheduledPost, PublishResult } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost, videoRenderGroup } from '@/lib/social/video-renderer';
+import { dispatchVideos } from '@/lib/social/dispatch-videos';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { buildPostContext } from '@/lib/social/post-context';
 import { savedPostMedia } from '@/lib/social/review';
@@ -194,7 +195,19 @@ async function runSocialPosting(request: NextRequest) {
     console.log(`${LOG_PREFIX} ${scheduledPosts.length} posts scheduled`);
 
     // Separate video and image posts
-    const videoPosts = scheduledPosts.filter(p => p.mediaType === 'video');
+    const floatPicks = scheduledPosts.filter(p => p.postType === 'section_guide');
+    if (floatPicks.length && result.floatPickRenderData) {
+      try {
+        const batch = await dispatchVideos(supabase, 'section_guide', result.floatPickRenderData, floatPicks, true);
+        rendering += batch.rendering;
+        failed += floatPicks.length - batch.rendering;
+        errors.push(...batch.warnings);
+      } catch (error) {
+        failed += floatPicks.length;
+        errors.push(`Float Pick: ${error instanceof Error ? error.message : 'Could not queue videos'}`);
+      }
+    }
+    const videoPosts = scheduledPosts.filter(p => p.mediaType === 'video' && p.postType !== 'section_guide');
     const imagePosts = scheduledPosts.filter(p => p.mediaType !== 'video' && p.postType !== 'daily_digest');
     const reportPosts = scheduledPosts.filter(p => p.postType === 'daily_digest');
     if (reportPosts.length) {

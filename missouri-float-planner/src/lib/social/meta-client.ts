@@ -17,7 +17,7 @@ type MetaPublishResult = { success: boolean; postId?: string; error?: string; am
  * back `ambiguous` and the caller records the post as unknown rather than
  * failed (which would be auto-retried into a duplicate).
  */
-async function finalPublish(url: string, init: RequestInit, label: string): Promise<MetaPublishResult> {
+async function finalPublish(url: string, init: RequestInit, label: string, receipt: 'id' | 'story' = 'id'): Promise<MetaPublishResult> {
   let response: Response;
   try {
     response = await fetch(url, { ...init, signal: timeout() });
@@ -26,17 +26,24 @@ async function finalPublish(url: string, init: RequestInit, label: string): Prom
     console.error(`[MetaClient] ${label}: no response — outcome unknown:`, msg);
     return { success: false, ambiguous: true, error: `${label}: no response (${msg})` };
   }
-  let data: { id?: string } & Partial<MetaApiError> = {};
+  let data: { id?: string; success?: boolean; post_id?: string | number } & Partial<MetaApiError> = {};
   try {
-    data = await response.json();
+    data = (await response.json()) ?? {};
   } catch {
     // An OK status with an unreadable body still means Meta accepted it.
-    if (response.ok) return { success: true };
+    if (response.ok && receipt !== 'story') return { success: true };
   }
   if (!response.ok) {
     const errorMsg = data.error?.message || `HTTP ${response.status}`;
     console.error(`[MetaClient] ${label} failed:`, errorMsg);
     return { success: false, error: errorMsg, ambiguous: response.status >= 500 };
+  }
+  if (receipt === 'story') {
+    if (data.success !== true) {
+      return { success: false, ambiguous: true, error: 'Facebook did not confirm Story publication. Check the Page before retrying.' };
+    }
+    const postId = typeof data.post_id === 'string' || Number.isSafeInteger(data.post_id) ? String(data.post_id) : undefined;
+    return { success: true, postId };
   }
   return { success: true, postId: data.id };
 }
@@ -372,6 +379,8 @@ export async function publishVideoToInstagram(params: {
 export async function publishVideoToFacebook(params: {
   caption: string;
   videoUrl: string;
+  placement?: 'reel' | 'story';
+  onUpload?: (id: string) => void | Promise<void>;
 }): Promise<MetaPublishResult> {
   const { accessToken, pageId } = getCredentials();
 
@@ -380,6 +389,36 @@ export async function publishVideoToFacebook(params: {
   }
 
   try {
+    if (params.placement === 'story') {
+      const endpoint = `${META_GRAPH_URL}/${pageId}/video_stories`;
+      const start = await fetch(endpoint, {
+        method: 'POST', signal: timeout(),
+        body: new URLSearchParams({ upload_phase: 'start', access_token: accessToken }),
+      });
+      const session = await start.json();
+      if (!start.ok || !session.video_id || !session.upload_url) {
+        return { success: false, error: session.error?.message ?? 'Facebook could not start the Story upload.' };
+      }
+      const uploadUrl = new URL(session.upload_url);
+      if (uploadUrl.origin !== 'https://rupload.facebook.com' || uploadUrl.username || uploadUrl.password ||
+          !uploadUrl.pathname.startsWith('/video-upload/')) {
+        return { success: false, error: 'Facebook returned an invalid Story upload address.' };
+      }
+      const videoId = String(session.video_id);
+      await params.onUpload?.(videoId);
+      const upload = await fetch(uploadUrl, {
+        method: 'POST', signal: timeout(), redirect: 'error',
+        headers: { Authorization: `OAuth ${accessToken}`, file_url: params.videoUrl },
+      });
+      const uploaded = await upload.json();
+      if (!upload.ok || uploaded.success !== true) {
+        return { success: false, error: uploaded.error?.message ?? 'Facebook did not accept the Story video.' };
+      }
+      return await finalPublish(endpoint, {
+        method: 'POST',
+        body: new URLSearchParams({ upload_phase: 'finish', video_id: videoId, access_token: accessToken }),
+      }, 'Facebook Story', 'story');
+    }
     console.log(`[MetaClient] Facebook video_url: ${params.videoUrl}`);
 
     const videoBody = new URLSearchParams({

@@ -1,6 +1,9 @@
 // src/lib/social/types.ts
 // Shared types for social media posting system
 
+import type { SocialVideoPlacement } from '../../../shared/social-brand';
+import type { FloatPickPlacements } from './float-pick-placements';
+
 export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok';
 export type PostType =
   | 'daily_digest'
@@ -101,7 +104,7 @@ export interface SocialConfig {
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
-  section_guide: WeeklyReelConfig;
+  section_guide: WeeklyReelConfig & { placements?: FloatPickPlacements };
   weekly_trend: WeeklyReelConfig;
   updated_at: string;
 }
@@ -132,7 +135,7 @@ export interface PublishParams {
   imageUrls?: string[];
   videoUrl?: string;
   coverUrl?: string;
-  instagramPlacement?: 'story' | 'reel';
+  placement?: SocialVideoPlacement;
   mediaType?: MediaType;
   /**
    * Called with the platform's id for this attempt as soon as it exists (an
@@ -222,6 +225,7 @@ export interface WeeklyReview {
 
 // What the scheduler produces for the cron to process
 export interface ScheduledPost {
+  placement?: SocialVideoPlacement;
   postType: PostType;
   platform: SocialPlatform;
   riverSlug: string | null;

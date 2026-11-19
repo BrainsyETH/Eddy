@@ -50,7 +50,7 @@
   min-width: 0;
 }
 
-.damReview {
+.verticalReview {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
@@ -58,7 +58,7 @@
   padding: clamp(1rem, 2vw, 2rem);
 }
 
-.damPlayer {
+.verticalPlayer {
   width: min(100%, 36dvh);
   justify-self: center;
 }
@@ -99,5 +99,5 @@
   .reviewFrame { max-height: 94dvh; }
   .filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
   .filters select { padding-inline: .375rem; }
-  .damReview { grid-template-columns: minmax(0, 1fr); }
+  .verticalReview { grid-template-columns: minmax(0, 1fr); }
 }

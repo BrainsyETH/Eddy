@@ -503,3 +503,4 @@ src/lib/weather/request.test.ts
 src/lib/x402/request-limits.test.ts
 src/types/api-contract-parity.test.ts
 src/types/database-coverage.test.ts
+src/lib/social/float-pick-placements.test.ts

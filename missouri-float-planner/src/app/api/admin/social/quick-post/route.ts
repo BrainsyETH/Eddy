@@ -11,9 +11,11 @@ import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
-import { triggerVideoRender, getCompositionForPost, shareTerrainMap } from '@/lib/social/video-renderer';
-import { buildPostContext, type PostContext } from '@/lib/social/post-context';
-import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
+import { dispatchVideos } from '@/lib/social/dispatch-videos';
+import { floatPickDestinations, validFloatPickPlacements, type FloatPickPlacements } from '@/lib/social/float-pick-placements';
+import { getOrCreateConfig } from '@/lib/social/config-helpers';
+import { buildPostContext } from '@/lib/social/post-context';
+import type { PostKind } from '@/lib/social/post-types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -53,6 +55,9 @@ async function handlePOST(request: NextRequest) {
     return NextResponse.json({ error: 'At least one platform is required' }, { status: 400 });
   }
 
+  if (body.placements !== undefined && (type !== 'section_guide' || !validFloatPickPlacements(body.placements))) {
+    return NextResponse.json({ error: 'Invalid Float Pick placements' }, { status: 400 });
+  }
   const supabase = createAdminClient();
 
   // Load custom content for caption formatting
@@ -91,93 +96,27 @@ async function handlePOST(request: NextRequest) {
       return NextResponse.json({ ...result, reviewRequired: true }, { status: result.rendering ? 200 : 502 });
     }
 
-    return await dispatchVideo(request, supabase, kind, ctx, validPlatforms, customContent);
+    let placements: FloatPickPlacements | undefined = body.placements;
+    if (kind === 'section_guide' && placements === undefined) {
+      const config = await getOrCreateConfig(supabase);
+      if (!config.data) throw new Error(config.error ?? 'Could not load Float Pick placements');
+      placements = config.data.section_guide.placements;
+    }
+    const destinations = kind === 'section_guide' ? floatPickDestinations(validPlatforms, placements) :
+      [...new Set(validPlatforms)].map(platform => ({ platform }));
+    const posts = destinations.map(destination => ({
+      ...destination, ...ctx.caption(destination.platform, customContent),
+      riverSlug: ctx.riverSlug, imageUrl: ctx.imageUrl(destination.platform),
+    }));
+    const result = await dispatchVideos(supabase, kind, ctx.renderData, posts, false);
+    logAdminAction({ request, action: `quick_post_${kind}`, entityType: 'social_post',
+      details: { destinations, dispatched: result.rendering } });
+    return NextResponse.json({ ...result, reviewRequired: true, ...(!result.rendering && { error: 'Video render could not start.' }) },
+      { status: result.rendering ? 200 : 502 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
-
-// --- Video: save drafts, then render each distinct destination layout ---
-
-async function dispatchVideo(
-  request: NextRequest,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  kind: VideoPostKind,
-  ctx: PostContext,
-  platforms: SocialPlatform[],
-  customContent: SocialCustomContent[],
-) {
-  const postIds: string[] = [];
-  const insertErrors: string[] = [];
-  const groups = new Map<string, { request: ReturnType<typeof getCompositionForPost>; ids: string[]; platforms: SocialPlatform[] }>();
-  for (const platform of [...new Set(platforms)]) {
-    const renderRequest = getCompositionForPost(kind, ctx.renderData, platform);
-    const { caption, hashtags } = ctx.caption(platform, customContent);
-    const { data: record, error: insertError } = await supabase
-      .from('social_posts')
-      .insert({
-        post_type: kind,
-        platform,
-        river_slug: ctx.riverSlug,
-        caption,
-        image_url: ctx.imageUrl(platform),
-        media_type: 'video',
-        hashtags,
-        status: 'rendering',
-        auto_publish: false,
-        render_request: renderRequest,
-      })
-      .select('id')
-      .single();
-
-    if (insertError) {
-      insertErrors.push(`${platform}: ${insertError.message}`);
-      continue;
-    }
-    postIds.push(record.id);
-    const key = renderRequest.outputFilename;
-    const group = groups.get(key) ?? { request: renderRequest, ids: [], platforms: [] };
-    group.ids.push(record.id);
-    group.platforms.push(platform);
-    groups.set(key, group);
-  }
-
-  if (postIds.length === 0) {
-    return NextResponse.json(
-      { error: insertErrors.length > 0 ? `No records created — ${insertErrors.join('; ')}` : 'No records created' },
-      { status: 500 },
-    );
-  }
-
-  // Saved drafts keep the provider-free request; only the dispatches share the
-  // prepared snapshot, so a later rerender fetches a fresh map of its own.
-  const dispatches = [...groups.values()];
-  const requests = await shareTerrainMap(dispatches.map(group => group.request));
-  let rendering = 0;
-  for (const [index, group] of dispatches.entries()) {
-    const success = await triggerVideoRender({ ...requests[index], postIds: group.ids.join(',') }).catch(() => false);
-    if (success) {
-      rendering += group.ids.length;
-      continue;
-    }
-    const reason = 'GH Actions dispatch failed — check GH_ACTIONS_TOKEN and render-social-video.yml.';
-    for (const id of group.ids) {
-      await supabase.from('social_posts').update({ status: 'failed', error_message: reason }).eq('id', id);
-    }
-    insertErrors.push(`${group.platforms.join(', ')}: ${reason}`);
-  }
-
-  logAdminAction({ request,
-    action: `quick_post_${kind}`,
-    entityType: 'social_post',
-    details: { platforms, dispatched: rendering },
-  });
-  if (!rendering) {
-    return NextResponse.json({ error: 'GH Actions workflow dispatch failed — check GH_ACTIONS_TOKEN and workflow file', warnings: insertErrors }, { status: 502 });
-  }
-  return NextResponse.json({ rendering, reviewRequired: true, warnings: insertErrors });
 }
 
 // --- Tip (custom content, image-only) ---

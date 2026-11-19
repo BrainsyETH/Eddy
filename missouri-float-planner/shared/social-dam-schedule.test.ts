@@ -60,7 +60,7 @@ test('a checked dam draft delivers the saved video to its own destination only a
     assert.throws(() => savedPostMedia(post), /owner approval/);
     assert.deepEqual(savedPostMedia(post, checked), {
       caption: 'Table Rock', mediaType: 'video', videoUrl: video,
-      ...(platform === 'instagram' && { instagramPlacement: 'story' }),
+      ...(platform === 'instagram' && { placement: 'story' }),
     });
   }
 
@@ -98,7 +98,7 @@ test('Instagram Story and Reel submissions use their respective containers', asy
     const adapter = new InstagramAdapter();
     const media = savedPostMedia(draft, DAM_STORY_FIXTURE);
     assert.equal((await adapter.publishPost({ ...media, coverUrl: 'cover' })).success, true);
-    assert.equal((await adapter.publishPost({ ...media, instagramPlacement: undefined, coverUrl: 'cover' })).success, true);
+    assert.equal((await adapter.publishPost({ ...media, placement: undefined, coverUrl: 'cover' })).success, true);
     assert.equal(published, 2);
     assert.equal(containers[0].get('media_type'), 'STORIES');
     assert.equal(containers[0].get('video_url'), video);
