@@ -1,4 +1,4 @@
-import { sendReviewedPost } from '@/lib/social/send-reviewed';
+import { canClaimDelivery, sendReviewedPost } from '@/lib/social/send-reviewed';
 import { dispatchDailyReport } from '@/lib/social/daily-report-dispatch';
 import { dailyReportAutoPublishEnabled, isDailyReport } from '@/lib/social/daily-report';
 // src/app/api/cron/post-social/route.ts
@@ -90,6 +90,7 @@ async function linkClipPost(supabase: any, videoUrl: string, postId: string) {
 }
 
 async function runSocialPosting(request: NextRequest) {
+  const startedAt = Date.now();
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
@@ -102,7 +103,10 @@ async function runSocialPosting(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const supabase = createAdminClient();
+  // Leave 30s after provider cancellation to persist the receipt and release the lock.
+  const remaining = (reserveSeconds: number) => Math.max(0, startedAt + (maxDuration - reserveSeconds) * 1000 - Date.now());
+  const budget = { claimBefore: startedAt + 60_000, signal: AbortSignal.timeout(remaining(30)) };
+  const supabase = createAdminClient(AbortSignal.timeout(remaining(5)));
   const skipTimeCheck = request.nextUrl.searchParams.get('skip_time_check') === 'true';
   if (skipTimeCheck) {
     console.log(`${LOG_PREFIX} skip_time_check=true — bypassing schedule time checks`);
@@ -187,19 +191,6 @@ async function runSocialPosting(request: NextRequest) {
     }
   } catch (err) {
     console.error(`${LOG_PREFIX} Error reaping stale records:`, err);
-  }
-
-  // One-time approvals use the existing publishing switch and the saved draft.
-  const { data: postingConfig } = await supabase.from('social_config').select('posting_enabled').order('updated_at', { ascending: false }).limit(1).maybeSingle();
-  if (postingConfig?.posting_enabled) {
-    const { data: due, error } = await supabase.from('social_posts').select('*').eq('status', 'scheduled')
-      .lte('scheduled_at', new Date().toISOString()).order('scheduled_at').order('id').limit(12);
-    if (error) errors.push('Could not load scheduled drafts: ' + error.message);
-    for (const post of due ?? []) {
-      const result = await sendReviewedPost(supabase, post, 'scheduled');
-      if (result.status === 200) published++;
-      else { failed++; errors.push('Scheduled draft ' + post.id + ': ' + ('error' in result.body ? result.body.error : result.status)); }
-    }
   }
 
   // --- Process new scheduled posts ---
@@ -298,6 +289,7 @@ async function runSocialPosting(request: NextRequest) {
           let pubResult: PublishResult;
           try {
             pubResult = await adapter.publishPost({
+              signal: budget.signal,
               caption: delivery.caption,
               imageUrl: delivery.imageUrl,
               mediaType: 'image',
@@ -365,6 +357,7 @@ async function runSocialPosting(request: NextRequest) {
 
       try {
         const pubResult = await adapter.publishPost({
+          signal: budget.signal,
           caption: post.caption,
           imageUrl: post.imageUrl,
           mediaType: 'image',
@@ -415,6 +408,7 @@ async function runSocialPosting(request: NextRequest) {
     console.log(`${LOG_PREFIX} ${retryable.length} posts eligible for retry`);
 
     for (const post of retryable) {
+      if (!canClaimDelivery(budget)) break;
       const adapter = getAdapter(post.platform as SocialPlatform);
       if (!adapter) continue;
 
@@ -431,6 +425,7 @@ async function runSocialPosting(request: NextRequest) {
         continue;
       }
 
+      if (!canClaimDelivery(budget)) break;
       const { data: claimed } = await supabase
         .from('social_posts')
         .update({ status: 'publishing', retry_count: (fullPost.retry_count ?? 0) + 1, updated_at: new Date().toISOString() })
@@ -440,7 +435,7 @@ async function runSocialPosting(request: NextRequest) {
       if (!claimed?.length) continue; // someone else (the admin route) took it
 
       try {
-        const pubResult = await adapter.publishPost({ ...media, onProviderAttempt: providerAttemptRecorder(supabase, post.id) });
+        const pubResult = await adapter.publishPost({ ...media, signal: budget.signal, onProviderAttempt: providerAttemptRecorder(supabase, post.id) });
         await writeOutcome(supabase, post.id, outcomeFields(pubResult));
 
         if (pubResult.success) {
@@ -460,6 +455,24 @@ async function runSocialPosting(request: NextRequest) {
     }
   } catch (err) {
     console.error(`${LOG_PREFIX} Error processing retries:`, err);
+  }
+
+  // Give recurring dispatch, reconciliation and retries first use of the run.
+  if (canClaimDelivery(budget)) {
+    const { data: config, error: configError } = await supabase.from('social_config').select('posting_enabled').order('updated_at', { ascending: false }).limit(1).maybeSingle();
+    if (configError) errors.push('Could not read the scheduled publishing switch: ' + configError.message);
+    if (config?.posting_enabled && canClaimDelivery(budget)) {
+      const { data: due, error } = await supabase.from('social_posts').select('*').eq('status', 'scheduled')
+        .lte('scheduled_at', new Date().toISOString()).order('scheduled_at').order('id').limit(12);
+      if (error) errors.push('Could not load scheduled drafts: ' + error.message);
+      for (const post of due ?? []) {
+        if (!canClaimDelivery(budget)) break;
+        const result = await sendReviewedPost(supabase, post, 'scheduled', budget);
+        if (result.status === 202) break;
+        if (result.status === 200) published++;
+        else { failed++; errors.push('Scheduled draft ' + post.id + ': ' + ('error' in result.body ? result.body.error : result.status)); }
+      }
+    }
   }
 
   return NextResponse.json({

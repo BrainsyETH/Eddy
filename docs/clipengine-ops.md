@@ -297,7 +297,11 @@ it in the Queue, then choose **Approve & send** or **Schedule for later**.
 Choose a future Central hour or half hour. The planner lists approved one-time
 posts. **Return to review** in the Queue cancels the planned send. Pausing
 automatic posting holds timed drafts until the publisher resumes. Source checks
-run again at send time for dam videos and Daily Reports. Apply migration
+run again at send time for dam videos and Daily Reports. Bagnell measured releases
+use immediate approval. A newer Ameren observation requires a refreshed draft.
+Recurring dispatch, reconciliation and retries run before one-time approvals.
+After the first minute of a run, pending approvals stay scheduled for the next tick.
+Apply migration
 `20261119135000_social_scheduled_drafts.sql` before deploying timed approvals.
 
 All destinations use the same route selection and Eddy’s “Ed-dy Dot Guide” theme.

@@ -1,10 +1,11 @@
 import { centralWallClockToUtc } from '@/lib/ameren/osage';
 import { getLocalDateKey } from './local-time';
 import { isDailyReport, reportIsCurrent } from './daily-report';
-import { isDamStory } from '@shared/social-dam-schedule';
+import { isDamStory, isMeasuredReleaseVideo } from '@shared/social-dam-schedule';
 
 /** Match the publisher's half-hour ticks. Evaluate freshness again when the job runs. */
 export function draftSendTime(value: unknown, render: unknown, now = Date.now()): string {
+  if (isMeasuredReleaseVideo(render)) throw new Error('Measured releases can only be sent now because the reading updates hourly.');
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:(00|30)$/.test(value)) {
     throw new Error('Choose an hour or half hour in Central time.');
   }

@@ -131,6 +131,8 @@ export interface PlatformAdapter {
 }
 
 export interface PublishParams {
+  /** Absolute caller deadline shared by every request in a delivery. */
+  signal?: AbortSignal;
   caption: string;
   imageUrl?: string;
   /** Ordered carousel images; never fall back to the cover alone. */

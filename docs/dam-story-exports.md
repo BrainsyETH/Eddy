@@ -7,7 +7,9 @@ Central date. Bagnell shows Ameren’s latest measured release and the previous
 23 hourly readings. Total release includes all outlets.
 
 Choose Instagram Story, TikTok, or both, then select **Create video**. In the Queue, owners open **Review draft** for each finished
-video and choose **Approve & send** or **Schedule for later**. Timed approvals appear in the planner and can be returned to review from the queue. The publisher checks the source again at send time. Instagram publishes a Story. TikTok follows
+video. Choose **Approve & send** for a Bagnell measured release. If Ameren has
+posted a newer reading, **Regenerate draft** refreshes the same queue item and
+returns it for another review. Dated schedules and forecasts also offer **Schedule for later**. Timed approvals appear in the planner and can be returned to review from the queue. The publisher checks the source again at send time. Instagram publishes a Story. TikTok follows
 the connected account’s posting mode: inbox drafts are finished in TikTok;
 direct posting sends to the profile. **Download MP4** also works after delivery.
 Rendering and downloading work without a connected social account.
@@ -64,7 +66,8 @@ Earlier drafts without an explicit dam identity are checked against Table Rock. 
 value, changed chart scale, or older on/off-only draft requires a new video.
 Background retries skip dam videos. Downloads require
 owner access and proxy only a saved
-Vercel Blob `social-videos/` output. No migration or new environment variable.
+Vercel Blob `social-videos/` output. The publishing queue requires migration
+`20261119135000_social_scheduled_drafts.sql` before the web deployment.
 
 Static exports cannot update after posting. Check the burned-in date and source
 time before sharing; regenerate if the source has changed. Download history is

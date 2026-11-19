@@ -47,6 +47,14 @@ export async function checkSocialReview(browser, origin, out) {
             if (action === 'schedule') assert.equal(route.request().postDataJSON().time, '2027-01-16T09:30');
             return route.fulfill({ json: { success: true, scheduledAt: post.scheduled_at } });
           }
+          if (id === 'measured') {
+            if (action === 'approve') return route.fulfill({ status: 409, json: { error: 'A newer Ameren reading is available.', code: 'stale_release' } });
+            assert.equal(action, 'regenerate');
+            const post = posts.find(p => p.id === id);
+            post.status = 'rendering';
+            post.video_url = null;
+            return route.fulfill({ status: 202, json: { success: true, rendering: true } });
+          }
           assert.equal(action, 'approve');
           if (refuse) {
             refuse = false;
@@ -176,6 +184,20 @@ export async function checkSocialReview(browser, origin, out) {
       await create.click();
       await page.getByRole('heading', { name: 'Publishing queue' }).waitFor();
       assert.deepEqual(damDrafts.at(-1), { damId: 'ameren-bagnell-dam', platforms: ['instagram', 'tiktok'] });
+
+      posts.push({ id: 'measured', post_type: 'manual', platform: 'instagram', status: 'review', caption: 'Bagnell Dam',
+        media_type: 'video', video_url: origin + '/fixture-video.mp4', created_at: new Date().toISOString(),
+        render_request: { compositionId: 'social-dam-schedule', inputProps: { platform: 'instagram', snapshot: { kind: 'release', dam: dams[2] } } } });
+      await page.getByRole('button', { name: 'Refresh posts' }).click();
+      const measured = table.getByRole('row').filter({ hasText: 'Bagnell Dam' });
+      await measured.getByRole('button', { name: 'Review draft' }).click();
+      assert.equal(await dialog.getByRole('button', { name: 'Schedule for later' }).count(), 0);
+      await dialog.getByRole('button', { name: 'Approve & send' }).click();
+      await dialog.getByRole('alert').filter({ hasText: 'A newer Ameren reading is available.' }).waitFor();
+      await dialog.screenshot({ path: out + '/bagnell-regenerate-' + width + '.png' });
+      await dialog.getByRole('button', { name: 'Regenerate draft' }).click();
+      await measured.getByText('Rendering', { exact: true }).waitFor();
+      assert.deepEqual(sends, ['instagram', 'tiktok']);
 
       for (const placement of ['reel', 'story']) {
         posts.push({ id: 'fb-' + placement, platform: 'facebook', post_type: 'section_guide', status: 'review',

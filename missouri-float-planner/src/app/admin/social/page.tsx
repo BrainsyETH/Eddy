@@ -5,7 +5,7 @@
 
 import DamScheduleExport from '@/components/admin/social/DamScheduleExport';
 import DamVideoDownload from '@/components/admin/social/DamVideoDownload';
-import { isDamStory } from '@shared/social-dam-schedule';
+import { isDamStory, isMeasuredReleaseVideo } from '@shared/social-dam-schedule';
 import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
 import { DestinationFields, PublishingPlanner, RuleEditor } from '@/components/admin/social/PublishingPlanner';
@@ -315,6 +315,7 @@ export default function SocialAdminPage() {
   const [sendTime, setSendTime] = useState('');
   const [upcoming, setUpcoming] = useState<SocialPost[]>([]);
   const [upcomingError, setUpcomingError] = useState(false);
+  const [staleRelease, setStaleRelease] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const videoPreviewPost = posts.find(post => post.id === reviewId);
   const reviewDialog = useRef<HTMLDialogElement>(null);
@@ -326,6 +327,8 @@ export default function SocialAdminPage() {
     return () => dialog.close();
   }, [reviewOpen]);
   const damPreview = isDamStory(videoPreviewPost?.render_request) ? videoPreviewPost.render_request : null;
+  const measuredRelease = isMeasuredReleaseVideo(damPreview);
+  const canScheduleReview = videoPreviewPost?.status === 'review' && !measuredRelease;
   const storyPreview = (damPreview && videoPreviewPost?.platform === 'instagram') || isStoryRender(videoPreviewPost?.render_request);
   const previewSafe = videoSafeInsets(videoPreviewPost?.platform, storyPreview ? 'story' : 'reel');
 
@@ -576,7 +579,7 @@ export default function SocialAdminPage() {
 
   const retryPost = async (
     postId: string,
-    action: 'retry' | 'approve' | 'render' | 'resolve' | 'schedule' | 'unschedule' = 'retry',
+    action: 'retry' | 'approve' | 'render' | 'resolve' | 'schedule' | 'unschedule' | 'regenerate' = 'retry',
     outcome?: 'published' | 'failed',
   ) => {
     if (sendingId) return;
@@ -586,16 +589,21 @@ export default function SocialAdminPage() {
       const res = await adminFetch('/api/admin/social/retry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: postId, action, outcome, time: action === 'schedule' ? sendTime : undefined }),
+        body: JSON.stringify({ id: postId, action, outcome,
+          ...(measuredRelease && videoPreviewPost?.id === postId && { expectedAttempt: damPreview?.attemptId ?? null }),
+          time: action === 'schedule' ? sendTime : undefined }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Could not confirm delivery. Check the queue.');
+      if (!res.ok) {
+        if (data.code === 'stale_release') setStaleRelease(true);
+        throw new Error(data.error || 'Could not confirm delivery. Check the queue.');
+      }
       reviewDialog.current?.close();
       setReviewId(null); setScheduleLater(false); setSendTime('');
       const receipt = data.delivery === 'inbox' ? 'Sent to the TikTok inbox' : 'Published';
       showToast(
         action === 'schedule' ? 'Post scheduled' : action === 'unschedule' ? 'Returned to review' :
-        action === 'render' ? 'Rendering a new draft for review'
+        action === 'render' || action === 'regenerate' ? 'Rendering a new draft for review'
           : action === 'resolve' ? (outcome === 'published' ? 'Marked as published' : 'Marked as not published')
           : receipt,
         'success',
@@ -984,16 +992,19 @@ export default function SocialAdminPage() {
                 </p>
               </div>
             </div>
-            {((damPreview && isOwner && videoPreviewPost.video_url) || (!damPreview && videoPreviewPost.status === 'review')) && (
+            {((damPreview && isOwner && (videoPreviewPost.video_url || (measuredRelease && videoPreviewPost.status === 'failed'))) || (!damPreview && videoPreviewPost.status === 'review')) && (
               <footer className={styles.reviewActions}>
                 {reviewError && <p role="alert" className="w-full text-sm text-red-400">{reviewError}</p>}
-                {videoPreviewPost.status === 'review' && scheduleLater && <label className={studio.field}>Send at (Central)
+                {canScheduleReview && scheduleLater && <label className={studio.field}>Send at (Central)
                   <input type="datetime-local" step="1800" value={sendTime} onChange={e => setSendTime(e.target.value)}/>
                   <small>{config?.posting_enabled === false ? 'Automatic posting is paused. Scheduled posts wait until it resumes.' : 'Choose an hour or half hour.'}</small>
                 </label>}
-                {damPreview && <DamVideoDownload id={videoPreviewPost.id} />}
-                {videoPreviewPost.status === 'review' && <button className="admin-secondary" disabled={Boolean(sendingId)} onClick={() => setScheduleLater(!scheduleLater)}>{scheduleLater ? 'Back to send now' : 'Schedule for later'}</button>}
-                {scheduleLater && videoPreviewPost.status === 'review' ? <button className="admin-primary" disabled={!sendTime || Boolean(sendingId)}
+                {measuredRelease && videoPreviewPost.status === 'review' && !reviewError && <p className={studio.note}>Send now · Ameren updates the reading hourly.</p>}
+                {damPreview && videoPreviewPost.video_url && <DamVideoDownload id={videoPreviewPost.id} />}
+                {canScheduleReview && <button className="admin-secondary" disabled={Boolean(sendingId)} onClick={() => setScheduleLater(!scheduleLater)}>{scheduleLater ? 'Back to send now' : 'Schedule for later'}</button>}
+                {measuredRelease && (staleRelease || (videoPreviewPost.status === 'failed' && !videoPreviewPost.video_url)) ?
+                  <button className="admin-primary" disabled={Boolean(sendingId)} onClick={() => retryPost(videoPreviewPost.id, 'regenerate')}>Regenerate draft</button>
+                : scheduleLater && canScheduleReview ? <button className="admin-primary" disabled={!sendTime || Boolean(sendingId)}
                   onClick={() => retryPost(videoPreviewPost.id, 'schedule')}>Approve &amp; schedule</button> : ['review', 'failed'].includes(videoPreviewPost.status) && (
                   <button className="admin-primary" disabled={sendingId !== null}
                     onClick={() => retryPost(videoPreviewPost.id, videoPreviewPost.status === 'failed' ? 'retry' : 'approve')}>
@@ -1722,7 +1733,7 @@ export default function SocialAdminPage() {
                           {posts.map((post) => {
                             const badge = STATUS_BADGES[post.status] || STATUS_BADGES.pending;
                             const dam = isDamStory(post.render_request) ? post.render_request : null;
-                            const reviewable = dam ? isOwner && post.video_url && ['review', 'failed'].includes(post.status) : post.status === 'review';
+                            const reviewable = dam ? isOwner && (post.video_url || isMeasuredReleaseVideo(dam)) && ['review', 'failed'].includes(post.status) : post.status === 'review';
                             return (
                               <tr key={post.id} className="border-b border-neutral-700/50">
                                 <td className="px-4 py-3 text-sm text-neutral-300 whitespace-nowrap">
@@ -1764,7 +1775,7 @@ export default function SocialAdminPage() {
                                     {(post.video_url || post.image_url || post.caption) && (
                                       <button
                                         onClick={() => {
-                                          setScheduleLater(false); setSendTime(''); setReviewError('');
+                                          setScheduleLater(false); setSendTime(''); setReviewError(''); setStaleRelease(false);
                                           setReviewId(post.id);
                                         }}
                                         className="admin-secondary flex items-center gap-1.5 px-3 py-1 text-sm rounded"

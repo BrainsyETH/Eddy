@@ -102,8 +102,12 @@ export function releaseStorySnapshot(dam: StoryDam, readings: { timestamp: numbe
 }
 
 /** This is a tag check, deliberately also rejecting malformed exports at publish boundaries. */
-export function isDamStory(render: unknown): render is { compositionId: typeof DAM_STORY_COMPOSITION; inputProps: DamStoryProps; outputFilename: string } {
+export function isDamStory(render: unknown): render is { compositionId: typeof DAM_STORY_COMPOSITION; inputProps: DamStoryProps; outputFilename: string; attemptId?: string } {
   return !!render && typeof render === 'object' && 'compositionId' in render && render.compositionId === DAM_STORY_COMPOSITION;
+}
+
+export function isMeasuredReleaseVideo(render: unknown): boolean {
+  return isDamStory(render) && render.inputProps?.snapshot?.kind === 'release';
 }
 
 export function damStoryWindows(hours: boolean[]): string[] {

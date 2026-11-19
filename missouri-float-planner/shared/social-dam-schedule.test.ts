@@ -175,6 +175,10 @@ test('a release update uses fresh measured cfs, preserves missing hours and chec
   const post = { ...draft, render_request: damStoryRender(snapshot, 'instagram') };
   assert.ok(savedPostMedia(post, snapshot));
   assert.throws(() => savedPostMedia(post, { ...snapshot, releaseCfs: 6510 }), /release has changed/);
+  const nextHour = now + 3_600_000;
+  const updated = releaseStorySnapshot(dam, [...readings, { timestamp: nextHour, dischargeCfs: 6500 }], nextHour);
+  assert.throws(() => savedPostMedia(post, updated), /newer Ameren reading/);
+  assert.ok(savedPostMedia({ ...post, render_request: damStoryRender(updated, 'instagram') }, updated));
 });
 
 test('Instagram Story and Reel submissions use their respective containers', async t => {

@@ -208,4 +208,7 @@ test('one-time approvals store the Central publishing tick as an instant and rej
   }
   const dam = { compositionId: 'social-dam-schedule', inputProps: { snapshot: { scheduleDate: '2026-03-07' } } };
   assert.throws(() => draftSendTime('2026-03-09T10:00', dam, now), /date shown/);
+  assert.ok(draftSendTime('2026-03-07T11:30', dam, now));
+  const release = { ...dam, inputProps: { snapshot: { ...dam.inputProps.snapshot, kind: 'release' } } };
+  assert.throws(() => draftSendTime('2026-03-07T11:30', release, now), /only be sent now/);
 });

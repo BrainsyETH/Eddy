@@ -9,7 +9,7 @@ export class FacebookAdapter implements PlatformAdapter {
 
   async publishPost(params: PublishParams): Promise<PublishResult> {
     if (params.imageUrls !== undefined) {
-      const result = await publishCarousel({ platform: 'facebook', caption: params.caption,
+      const result = await publishCarousel({ platform: 'facebook', caption: params.caption, signal: params.signal,
         imageUrls: params.imageUrls, onContainer: params.onProviderAttempt });
       return { success: result.success, platformPostId: result.postId, error: result.error, ambiguous: result.ambiguous };
     }
@@ -26,7 +26,7 @@ export class FacebookAdapter implements PlatformAdapter {
       }
       const result = await publishVideoToFacebook({
         caption: params.caption,
-        videoUrl: params.videoUrl,
+        signal: params.signal,        videoUrl: params.videoUrl,
         placement: params.placement,
         onUpload: params.onProviderAttempt,
       });
@@ -41,7 +41,7 @@ export class FacebookAdapter implements PlatformAdapter {
     // Image posts (default)
     const result = await publishToFacebook({
       caption: params.caption,
-      imageUrl: params.imageUrl || '',
+      signal: params.signal,      imageUrl: params.imageUrl || '',
     });
 
     return {

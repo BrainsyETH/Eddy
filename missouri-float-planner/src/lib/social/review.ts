@@ -3,6 +3,8 @@ import { isStoryRender } from './placements';
 import type { PublishParams } from './types';
 import { isDamStory, storyDam, type DamPostSnapshot } from '../../../shared/social-dam-schedule';
 
+export class StaleReleaseError extends Error {}
+
 export function isDamVideoUrl(value: string | null): value is string {
   if (!value) return false;
   try {
@@ -36,9 +38,12 @@ export function savedPostMedia(post: {
         throw new Error('The forecast has changed. Create a new dam video.');
       }
     } else if (saved.kind === 'release' && current.kind === 'release') {
+      if (Date.parse(current.checkedAt) > Date.parse(saved.checkedAt)) {
+        throw new StaleReleaseError('A newer Ameren reading is available.');
+      }
       if (saved.scheduleDate !== current.scheduleDate || saved.checkedAt !== current.checkedAt || saved.releaseCfs !== current.releaseCfs ||
           !Array.isArray(saved.hourlyCfs) || saved.hourlyCfs.length !== 24 || !current.hourlyCfs.every((cfs, i) => cfs === saved.hourlyCfs[i])) {
-        throw new Error('The measured release has changed. Create a new dam video.');
+        throw new StaleReleaseError('The measured release has changed. Regenerate this draft.');
       }
     } else if ((!saved.kind || saved.kind === 'schedule') && (!current.kind || current.kind === 'schedule')) {
       if (!Array.isArray(saved.hourlyMw)) throw new Error('This video predates hourly megawatt bars. Create a new dam video.');
