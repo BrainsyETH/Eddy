@@ -302,7 +302,7 @@ use immediate approval. A newer Ameren observation requires a refreshed draft.
 Recurring dispatch, reconciliation and retries run before one-time approvals.
 After the first minute of a run, pending approvals stay scheduled for the next tick.
 Apply migration
-`20261119135000_social_scheduled_drafts.sql` before deploying timed approvals.
+`20261119153643_social_scheduled_drafts.sql` before deploying timed approvals.
 
 All destinations use the same route selection and Eddy’s “Ed-dy Dot Guide” theme.
 Each placement renders within its own safe area and has a separate queue

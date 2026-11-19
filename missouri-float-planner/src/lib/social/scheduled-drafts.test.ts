@@ -18,7 +18,7 @@ test('the publisher claims a due approval once and leaves cancelled approvals al
     retry_count int default 0, updated_at timestamptz, error_message text, provider_attempt_id text, platform_post_id text, published_at timestamptz,
     constraint social_posts_status_check check (status in ('review', 'published')));
     insert into social_posts(id,status,auto_publish) values ('legacy','published',true), ('draft','review',false);`);
-  await db.exec(await readFile('supabase/migrations/20261119135000_social_scheduled_drafts.sql', 'utf8'));
+  await db.exec(await readFile('supabase/migrations/20261119153643_social_scheduled_drafts.sql', 'utf8'));
   await assert.rejects(db.query("update social_posts set status='scheduled' where id='draft'"));
   await assert.rejects(db.query("update social_posts set status='scheduled',scheduled_at=now() where id='legacy'"));
   const at = '2026-11-19T14:00:00Z';
