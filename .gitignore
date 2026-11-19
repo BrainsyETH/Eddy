@@ -11,4 +11,9 @@ Desktop.ini
 # scrape-heatmap.sh, so every scan run would otherwise leave this behind in the
 # runner's clone).
 __pycache__/
-.env.local
+# Local secrets, in every directory. Covers every dotenv variant (.env.local,
+# .env.production, ...), not just one name; app-level .gitignore files add
+# their own rules on top. Example files stay committable.
+.env
+.env.*
+!.env.example
