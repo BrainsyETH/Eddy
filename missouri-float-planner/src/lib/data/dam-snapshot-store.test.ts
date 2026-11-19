@@ -387,6 +387,21 @@ test('the cron reads the previous rows before it writes over them', () => {
   assert.ok(carry < source.indexOf('writeStoredSnapshots(supabase'), 'carry before the write');
 });
 
+test('the cron reads the SWPA pages once, uncached, and builds every dam from them', () => {
+  // Through Next's data cache, the first dams in registry order were served
+  // the previous pass's expired page — an hour old at write — and Table Rock
+  // and Bull Shoals read "check the latest schedule" for half of every hour.
+  const source = readFileSync('src/app/api/cron/sync-dam-snapshots/route.ts', 'utf8');
+  const read = source.indexOf('fetchScheduleDays(DETAIL_SCHEDULE_DAYS, { skipCache: true })');
+  assert.ok(read > 0, 'the pages are read uncached');
+  assert.equal(source.match(/fetchScheduleDays\(/g)?.length, 1, 'once per pass');
+  assert.ok(read < source.indexOf('mapWithConcurrency(ids'), 'before any dam is assembled');
+  const calls = source.match(/fetchDamDetail\([^)]*\)/g) ?? [];
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every((call) => /schedulePages/.test(call)), `every dam reads the pass's pages: ${calls}`);
+  assert.match(source, /schedulePagesRead,/, 'the count is in the cron response');
+});
+
 // ── carrying a posted schedule over a failed SWPA read ────────────────────
 //
 // The 2026-11-09 audit's first P1. readSchedule answers [] whenever a SWPA file
