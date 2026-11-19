@@ -2534,7 +2534,11 @@ rotates but never tilts: pitch is off, because the compass resets heading only. 
 web planner's rule (`src/map/pinStacks.ts`): marks within 56pt of each other at
 the current whole zoom, across every layer drawn as individual marks at that
 zoom. Hazards stack like every other place; route endpoints and the selected
-place never stack. Tapping a
+place never stack. Like native counts, stacks depend only on the places and
+the whole zoom: they regroup the moment a pinch crosses a whole level, never
+on a pan, and are not held until the camera stops. The counts below
+`ZOOM.cluster` use the same 56pt radius, so crossing that rung is an ordinary
+level change. Tapping a
 stack below zoom 13 eases in to the zoom where it splits, capped at 15, when
 that is more than half a level away; otherwise it opens "N places here" in the
 places sheet. Cluster taps ask the owning source for its expansion zoom,

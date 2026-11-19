@@ -52,7 +52,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { MapPlacesSheet } from '@/components/MapPlacesSheet';
 import { gestureStarted, pointNeedsReveal } from './mapInteraction';
-import { nearestHitId, pinStacks, stackTap, type HitCandidate, type PinStack, type StackCandidate } from './pinStacks';
+import { nearestHitId, pinStacks, STACK_RADIUS, stackTap, type HitCandidate, type PinStack, type StackCandidate } from './pinStacks';
 import { PublicLandCallout } from './PublicLandCallout';
 import type {
   CampsiteAvailabilitySummary,
@@ -1403,24 +1403,42 @@ export function RiverMap({
    * everything and kept out of every count, their triangles sat over the
    * numbers and outranked the map they annotate.
    *
-   * Computed from the camera's last STOP, never per frame, and padded like
-   * the gauge request box so a mark just off screen still groups with its
-   * neighbour on screen.
+   * ── GROUPED AT THE LIVE WHOLE ZOOM, OVER EVERY PLACE ─────────────────────
+   *
+   * A stack is a function of two things: the places, and the whole zoom the
+   * map is drawn at. That is the contract native clustering keeps below
+   * ZOOM.cluster — counts regroup the moment a pinch crosses a whole level,
+   * and a pan never regroups anything — and the stacks keep it too.
+   *
+   * They used to be computed from the camera's last STOP, over the stopped
+   * viewport padded by a fifth. On a device that read as the POIs loading
+   * badly: during a pinch the native counts below z8 regrouped live while
+   * the stacks above it sat frozen at the old zoom, then snapped into new
+   * groups when the finger lifted; a pinch that crossed z8 drew every member
+   * as a loose dot until the camera stopped; and a zoom-out showed the
+   * newly-visible ring unstacked, because it was outside the old box.
+   *
+   * So the level comes from onCameraChanged (one render per whole-level
+   * crossing, never per frame — see stackLevel), and every place that is on
+   * takes part, wherever it is. The set is bounded — the curated layers ship
+   * whole, and the national tier is already a padded subset of the camera
+   * (referencePins on the screen) — and the grouping is a grid pass, so
+   * grouping all of it costs less than one bridge upload of what it saves.
    */
+  const [liveStackLevel, setLiveStackLevel] = useState<number | null>(null);
+  const stackLevelRef = useRef<number | null>(null);
+  // Before the first camera frame, the last stop is the best level there is.
+  const stackLevel = liveStackLevel ?? (visibleViewport ? Math.floor(visibleViewport.zoom) : null);
   const stacks = useMemo<PinStack[]>(() => {
-    if (!visibleViewport || visibleViewport.zoom < ZOOM.cluster) return [];
-    const { bounds: [west, south, east, north], zoom } = visibleViewport;
-    const padLng = (east - west) * 0.2;
-    const padLat = (north - south) * 0.2;
     // Every clustered source breaks at ZOOM.cluster (see NATIVE_CLUSTER_MAX_ZOOM),
-    // so above the guard at the top of this memo every layer's marks are
-    // individual and all of them may stack.
+    // so from that level up every layer's marks are individual and all of them
+    // may stack; below it the statewide index's native counts do this job.
+    if (stackLevel === null || stackLevel < ZOOM.cluster) return [];
     const candidates: StackCandidate[] = [];
     const add = (list: readonly MapPin[] | null | undefined) => {
       for (const pin of list ?? []) {
         if (!layers.includes(pin.layer) || pin.id === selectedPinId || endpointIds.has(pin.id)) continue;
         const { lng, lat } = pin.coordinates;
-        if (lng < west - padLng || lng > east + padLng || lat < south - padLat || lat > north + padLat) continue;
         candidates.push({ id: pin.id, lng, lat });
       }
     };
@@ -1434,15 +1452,15 @@ export function RiverMap({
     add(referenceGauges);
     add(dams);
     add(hazardPins);
-    return pinStacks(candidates, zoom);
+    return pinStacks(candidates, stackLevel);
   }, [
-    visibleViewport, layers, selectedPinId, endpointIds, accessPins, campgroundPins,
+    stackLevel, layers, selectedPinId, endpointIds, accessPins, campgroundPins,
     boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, referenceGauges, dams, hazardPins,
   ]);
   const stacksById = useMemo(() => new Map(stacks.map((stack) => [stack.id, stack])), [stacks]);
-  // PRIMITIVE KEYS, so a camera stop that regroups nothing re-uploads nothing.
-  // `stacks` is a new array on every stop; these strings only change when a
-  // stack forms, splits or moves.
+  // PRIMITIVE KEYS, so a level crossing that regroups nothing re-uploads
+  // nothing. `stacks` is a new array on every crossing; these strings only
+  // change when a stack forms, splits or moves.
   const stackedKey = stacks.flatMap((stack) => stack.ids).sort().join('|');
   const referenceIds = useMemo(() => new Set((referenceGauges ?? []).map((pin) => pin.id)), [referenceGauges]);
   const stackFeaturesKey = JSON.stringify(stacks.map((stack) => [
@@ -1452,20 +1470,29 @@ export function RiverMap({
   /**
    * ── STACKED MEMBERS ARE HIDDEN BY A FILTER, NOT BY THE DATA ─────────────
    *
-   * Stack membership changes on camera stops; the places themselves do not.
+   * Stack membership changes with the whole zoom; the places themselves do not.
    * Leaving the stacked ids out of each layer's shape tied every pin source
    * to the camera: a pinch that merged one pair re-serialised every access,
    * campground, gauge and reference-gauge feature and sent all of them across
    * the bridge again. The shapes below now change only when their data does,
-   * and a stop that regroups changes this one small filter clause plus the
-   * stack source. Hit-testing is unchanged: a filtered feature is not
+   * and a level crossing that regroups changes this one filter clause plus
+   * the stack source. Hit-testing is unchanged: a filtered feature is not
    * rendered, so a tap cannot land on it, exactly as when it was absent.
+   *
+   * A `match`, not `in`: every place on the map can be a member now, and
+   * Mapbox evaluates `in` over a literal array by scanning it for every
+   * feature of every pin layer, where `match` compiles its labels into a
+   * lookup. Labels must be unique or the expression fails to parse and the
+   * layer draws nothing, hence the Set. No stacks keeps the empty `in`: a
+   * `match` needs at least one label.
    *
    * Route endpoints are still left out of the data: they change only with the
    * plan, never with the camera.
    */
   const notStacked = useMemo(
-    () => ['!', ['in', ['get', 'id'], ['literal', stackedKey ? stackedKey.split('|') : []]]],
+    () => stackedKey
+      ? ['match', ['get', 'id'], [...new Set(stackedKey.split('|'))], false, true]
+      : ['!', ['in', ['get', 'id'], ['literal', []]]],
     [stackedKey],
   );
   const stackShape = useMemo(() => ({
@@ -1906,7 +1933,8 @@ export function RiverMap({
   /**
    * The camera moved. Ref-only, and STABLE.
    *
-   * Fires on every animation frame, so nothing in here may render React. It is
+   * Fires on every animation frame, so nothing in here may render React per
+   * frame — the one state it sets changes only when the whole zoom does. It is
    * also the only source of live zoom — cluster expansion adds its delta to
    * whatever is on screen right now, rather than to a value onMapIdle published
    * before the last animation finished.
@@ -1944,6 +1972,14 @@ export function RiverMap({
         zoom,
         gestureActive,
       };
+      // The one render this callback may cause: the whole zoom changed, so
+      // the stacks regroup now, mid-pinch, the way native counts do — not when
+      // the finger lifts. Ref-guarded, so a frame within the level is free.
+      const level = Math.floor(zoom);
+      if (level !== stackLevelRef.current) {
+        stackLevelRef.current = level;
+        setLiveStackLevel(level);
+      }
       const heading = state.properties?.heading;
       if (typeof heading === 'number' && Number.isFinite(heading)) onHeadingChange?.(heading);
     },
@@ -2497,11 +2533,13 @@ export function RiverMap({
       shape={shape}
       ref={clusterSourceRefs['pins-statewide-index']}
       cluster
-      // 46: between access's old 42 and the national tier's 50. The index holds
-      // more members in the same ground than any single layer did, and a radius
-      // that groups them too tightly leaves a scatter of near-touching counts
-      // where one belongs.
-      clusterRadius={46}
+      // STACK_RADIUS (56, the web planner's), the same rule the numbered stacks
+      // apply from ZOOM.cluster up — both measure 512pt-tile points at the whole
+      // zoom. It was 46, and the counts then changed rule at the very rung
+      // where they hand over to the stacks: a pinch across z8 broke one set of
+      // groups into a differently-sized set, on top of the regroup every whole
+      // level brings. One radius makes that crossing an ordinary level change.
+      clusterRadius={STACK_RADIUS}
       clusterMaxZoomLevel={NATIVE_CLUSTER_MAX_ZOOM}
     >
       <Mapbox.SymbolLayer
