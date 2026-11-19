@@ -126,6 +126,32 @@ export function forecastDays(
   return days;
 }
 
+/**
+ * One calendar day's forecast, hour by hour: hour start (ISO UTC) to whether
+ * the powerhouse is forecast to be generating.
+ *
+ * The windows are trimmed to start at the hour now running, so a day's clock
+ * labels shrink as the day passes even when the plan is untouched. Comparing
+ * two readings by absolute hour is what tells a revised plan from a later
+ * look at the same one.
+ */
+export function forecastDayHours(
+  windows: readonly DamForecastWindow[],
+  timeZone: string,
+  dayKey: string
+): Record<string, boolean> {
+  const hours: Record<string, boolean> = {};
+  for (const w of windows) {
+    const start = Date.parse(w.startUtc);
+    const end = Date.parse(w.endUtc);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    for (let t = start; t < end; t += HOUR_MS) {
+      if (zoneClock(t, timeZone).dayKey === dayKey) hours[new Date(t).toISOString()] = w.generating;
+    }
+  }
+  return hours;
+}
+
 function pushSpan(
   day: ForecastDay,
   w: DamForecastWindow,

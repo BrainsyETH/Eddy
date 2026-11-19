@@ -10,6 +10,7 @@ import type { SocialPlatform } from '@/lib/social/types';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { savedPostMedia } from '@/lib/social/review';
 import { isDamStory } from '@shared/social-dam-schedule';
+import { socialAlert } from '@/lib/social/alert';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
     if (status === 'failed') {
       console.error(`${LOG_PREFIX} Render failed for ${postId} (${platform}): ${error}`);
       await saveRender({ status: 'failed', error_message: error || 'Video render failed — no fallback' });
+      if (post.scheduled_at) await socialAlert(`:rotating_light: A timed social post could not be rendered and will not go out (${platform}, ${postId}): ${error || 'render failed'}`);
       results.push({ postId, platform, success: false, error: error || 'Render failed' });
       continue;
     }
@@ -98,6 +100,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (post.auto_publish === false || isDamStory(post.render_request)) {
+      // A send time chosen with a dam video is the owner's approval, given in
+      // advance: the publisher checks the source again before it sends. If the
+      // time was withdrawn while this rendered, the video waits for review.
+      if (isDamStory(post.render_request) && post.scheduled_at) {
+        const { data: timed } = await saveRender({ video_url: videoUrl, status: 'scheduled', auto_publish: false, error_message: null })
+          .eq('scheduled_at', post.scheduled_at).select('id');
+        if (timed?.length) { results.push({ postId, platform, success: true }); continue; }
+      }
       const { error: reviewError } = await saveRender({ video_url: videoUrl, status: 'review', error_message: null });
       results.push({ postId, platform, success: !reviewError, error: reviewError?.message });
       continue;

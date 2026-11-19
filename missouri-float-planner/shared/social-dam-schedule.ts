@@ -1,5 +1,5 @@
 import { centralDayKey, idleScheduleLabel, nextDayKey, scheduleDayLabel, scheduledGeneration, scheduleIsStale, readingStaleness, windowLabel } from './dam-schedule-copy';
-import { forecastDays, forecastPlanStale } from './dam-forecast-copy';
+import { forecastDayHours, forecastDays, forecastPlanStale } from './dam-forecast-copy';
 import type { DamGenerationForecast, DamScheduleDay } from './dam-types';
 
 export const DAM_STORY_COMPOSITION = 'social-dam-schedule';
@@ -29,6 +29,12 @@ interface ForecastPost extends DatedDamPost {
   generating: boolean;
   windows: string[];
   source: string;
+  /**
+   * The day's plan by hour start (ISO UTC), from the hour the video was made.
+   * `windows` are clock labels that shorten as the day passes; approval
+   * compares these instead. Absent on drafts made before it existed.
+   */
+  hours?: Record<string, boolean>;
 }
 interface ReleasePost extends DatedDamPost {
   kind: 'release';
@@ -38,6 +44,9 @@ interface ReleasePost extends DatedDamPost {
   releaseCfs: number;
 }
 export type DamPostSnapshot = DamStorySnapshot | ForecastPost | ReleasePost;
+
+/** The source could not be read or is not current. Unlike a changed plan, waiting can fix it. */
+export class DamSourceUnavailable extends Error {}
 
 export function storyDam(snapshot: DamPostSnapshot): StoryDam {
   if (snapshot?.dam?.id && snapshot.dam.name) return snapshot.dam;
@@ -56,14 +65,14 @@ export type DamStoryProps = {
 export function damStorySnapshot(day: DamScheduleDay | undefined, date: string, now = Date.now(), capacityMw?: number, dam: StoryDam = ORIGINAL_STORY_DAM): DamStorySnapshot {
   const today = centralDayKey(now);
   if (date !== today && date !== nextDayKey(today)) throw new Error('Choose today or tomorrow in Central time.');
-  if (!day || day.scheduleDate !== date) throw new Error('The generation schedule for this date has not been posted.');
+  if (!day || day.scheduleDate !== date) throw new DamSourceUnavailable('The generation schedule for this date has not been posted.');
   const checked = Date.parse(day.retrievedAt ?? '');
   if (!Number.isFinite(checked) || checked > now + 300_000 || scheduleIsStale(day.retrievedAt, now)) {
-    throw new Error('The schedule needs a new check before you can make a video. Try again later.');
+    throw new DamSourceUnavailable('The schedule needs a new check before you can make a video. Try again later.');
   }
   const hours = [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding);
   if (hours.length !== 24 || hours.some((hour, index) => hour.hourEnding !== index + 1 || !Number.isFinite(hour.megawatts) || hour.megawatts < 0)) {
-    throw new Error('The schedule is incomplete. Try again later.');
+    throw new DamSourceUnavailable('The schedule is incomplete. Try again later.');
   }
   return {
     kind: 'schedule', dam, scheduleDate: date,
@@ -78,14 +87,15 @@ export function damStorySnapshot(day: DamScheduleDay | undefined, date: string, 
 export function forecastStorySnapshot(dam: StoryDam, forecast: DamGenerationForecast | undefined, date: string, now: number): ForecastPost {
   const checked = Date.parse(forecast?.retrievedAt ?? '');
   if (!forecast || !Number.isFinite(checked) || checked > now + 300_000 || scheduleIsStale(forecast.retrievedAt, now) || forecastPlanStale(forecast.windows, now)) {
-    throw new Error('A current generation forecast is unavailable.');
+    throw new DamSourceUnavailable('A current generation forecast is unavailable.');
   }
   const day = forecastDays(forecast.windows, forecast.timeZone).find(day => day.dayKey === date);
-  if (!day) throw new Error('There is no generation forecast for this date.');
+  if (!day) throw new DamSourceUnavailable('There is no generation forecast for this date.');
   const generation = day.spans.filter(span => span.generating);
   const spans = generation.length ? generation : day.spans;
   return { kind: 'forecast', dam, scheduleDate: date, checkedAt: forecast.retrievedAt!,
-    generating: generation.length > 0, windows: spans.map(span => span.label), source: forecast.source };
+    generating: generation.length > 0, windows: spans.map(span => span.label), source: forecast.source,
+    hours: forecastDayHours(forecast.windows, forecast.timeZone, date) };
 }
 
 export function releaseStorySnapshot(dam: StoryDam, readings: { timestamp: number; dischargeCfs: number }[] | null, now: number): ReleasePost {
@@ -93,7 +103,7 @@ export function releaseStorySnapshot(dam: StoryDam, readings: { timestamp: numbe
   const latest = series.at(-1);
   if (!latest || !Number.isFinite(latest.dischargeCfs) || latest.dischargeCfs < 0 ||
       latest.timestamp > now + 300_000 || readingStaleness(latest.timestamp, now) !== 'fresh') {
-    throw new Error('A recent measured release is unavailable.');
+    throw new DamSourceUnavailable('A recent measured release is unavailable.');
   }
   const byTime = new Map(series.filter(r => Number.isFinite(r.dischargeCfs) && r.dischargeCfs >= 0).map(r => [r.timestamp, r.dischargeCfs]));
   const hourlyCfs = Array.from({ length: 24 }, (_, i) => byTime.get(latest.timestamp - (23 - i) * 3_600_000) ?? null);

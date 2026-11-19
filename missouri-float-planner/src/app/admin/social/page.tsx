@@ -10,6 +10,7 @@ import CarouselPreview from '@/components/admin/social/CarouselPreview';
 import { isDailyReport, reportImageUrls, reportNeedsRender } from '@/lib/social/daily-report';
 import { DestinationFields, PublishingPlanner, RuleEditor } from '@/components/admin/social/PublishingPlanner';
 import studio from '@/components/admin/social/publishing.module.css';
+import { nextHalfHourInput } from '@/lib/social/local-time';
 import { type PlanRule, type Weekday, type Delivery } from '@/lib/social/publishing-plan';
 import type { MediaSchedule } from '@/lib/social/types';
 import { destinationLabel, isStoryRender, renderPlacement, type PlacementChoices } from '@/lib/social/placements';
@@ -178,6 +179,11 @@ function deliveryStamp(at?: string | null) {
   return at ? new Date(at).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' CT' : '';
 }
 
+function postTypeLabel(post: SocialPost) {
+  if (isDamStory(post.render_request)) return post.render_request.inputProps?.snapshot?.dam?.name ?? 'Dam update';
+  return POST_TYPE_LABELS[post.post_type] ?? post.post_type;
+}
+
 function postDestination(post: SocialPost) {
   if (isDamStory(post.render_request) && post.platform === 'instagram') return 'Instagram Story';
   if (post.media_type === 'video') return destinationLabel(post.platform, renderPlacement(post.render_request));
@@ -313,6 +319,7 @@ export default function SocialAdminPage() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [scheduleLater, setScheduleLater] = useState(false);
   const [sendTime, setSendTime] = useState('');
+  const [earliestSend, setEarliestSend] = useState('');
   const [upcoming, setUpcoming] = useState<SocialPost[]>([]);
   const [upcomingError, setUpcomingError] = useState(false);
   const [staleRelease, setStaleRelease] = useState(false);
@@ -590,12 +597,12 @@ export default function SocialAdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: postId, action, outcome,
-          ...(measuredRelease && videoPreviewPost?.id === postId && { expectedAttempt: damPreview?.attemptId ?? null }),
+          ...(damPreview && videoPreviewPost?.id === postId && { expectedAttempt: damPreview.attemptId ?? null }),
           time: action === 'schedule' ? sendTime : undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (data.code === 'stale_release') setStaleRelease(true);
+        if (data.code === 'stale_release' || data.code === 'stale_dam') setStaleRelease(true);
         throw new Error(data.error || 'Could not confirm delivery. Check the queue.');
       }
       reviewDialog.current?.close();
@@ -992,17 +999,17 @@ export default function SocialAdminPage() {
                 </p>
               </div>
             </div>
-            {((damPreview && isOwner && (videoPreviewPost.video_url || (measuredRelease && videoPreviewPost.status === 'failed'))) || (!damPreview && videoPreviewPost.status === 'review')) && (
+            {((damPreview && isOwner && (videoPreviewPost.video_url || videoPreviewPost.status === 'failed')) || (!damPreview && videoPreviewPost.status === 'review')) && (
               <footer className={styles.reviewActions}>
                 {reviewError && <p role="alert" className="w-full text-sm text-red-400">{reviewError}</p>}
                 {canScheduleReview && scheduleLater && <label className={studio.field}>Send at (Central)
-                  <input type="datetime-local" step="1800" value={sendTime} onChange={e => setSendTime(e.target.value)}/>
+                  <input type="datetime-local" step="1800" min={earliestSend} max={damPreview?.inputProps?.snapshot ? damPreview.inputProps.snapshot.scheduleDate + 'T23:30' : undefined} value={sendTime} onChange={e => setSendTime(e.target.value)}/>
                   <small>{config?.posting_enabled === false ? 'Automatic posting is paused. Scheduled posts wait until it resumes.' : 'Choose an hour or half hour.'}</small>
                 </label>}
                 {measuredRelease && videoPreviewPost.status === 'review' && !reviewError && <p className={studio.note}>Send now · Ameren updates the reading hourly.</p>}
                 {damPreview && videoPreviewPost.video_url && <DamVideoDownload id={videoPreviewPost.id} />}
-                {canScheduleReview && <button className="admin-secondary" disabled={Boolean(sendingId)} onClick={() => setScheduleLater(!scheduleLater)}>{scheduleLater ? 'Back to send now' : 'Schedule for later'}</button>}
-                {measuredRelease && (staleRelease || (videoPreviewPost.status === 'failed' && !videoPreviewPost.video_url)) ?
+                {canScheduleReview && <button className="admin-secondary" disabled={Boolean(sendingId)} onClick={() => { setEarliestSend(nextHalfHourInput('America/Chicago')); setScheduleLater(!scheduleLater); }}>{scheduleLater ? 'Back to send now' : 'Schedule for later'}</button>}
+                {damPreview && (staleRelease || (videoPreviewPost.status === 'failed' && !videoPreviewPost.video_url)) ?
                   <button className="admin-primary" disabled={Boolean(sendingId)} onClick={() => retryPost(videoPreviewPost.id, 'regenerate')}>Regenerate draft</button>
                 : scheduleLater && canScheduleReview ? <button className="admin-primary" disabled={!sendTime || Boolean(sendingId)}
                   onClick={() => retryPost(videoPreviewPost.id, 'schedule')}>Approve &amp; schedule</button> : ['review', 'failed'].includes(videoPreviewPost.status) && (
@@ -1030,7 +1037,7 @@ export default function SocialAdminPage() {
         {activeTab === 'planner' && (upcoming.length > 0 || upcomingError) && <section className={studio.upcoming} aria-label="Scheduled one-time posts">
           <div className={studio.sectionHead}><h2>Scheduled posts</h2><button className={studio.inline} onClick={() => navigate('queue')}>Open queue</button></div>
           {upcomingError ? <button className="admin-secondary" onClick={fetchUpcoming}>Reload scheduled posts</button> : upcoming.map(post => <div key={post.id} className={studio.upcomingRow}>
-            <strong>{deliveryStamp(post.scheduled_at)}</strong><span>{POST_TYPE_LABELS[post.post_type] || post.post_type} · {postDestination(post)}</span>
+            <strong>{deliveryStamp(post.scheduled_at)}</strong><span>{postTypeLabel(post)} · {postDestination(post)}{post.status === 'rendering' ? ' · Rendering' : ''}</span>
           </div>)}
         </section>}
 
@@ -1733,7 +1740,8 @@ export default function SocialAdminPage() {
                           {posts.map((post) => {
                             const badge = STATUS_BADGES[post.status] || STATUS_BADGES.pending;
                             const dam = isDamStory(post.render_request) ? post.render_request : null;
-                            const reviewable = dam ? isOwner && (post.video_url || isMeasuredReleaseVideo(dam)) && ['review', 'failed'].includes(post.status) : post.status === 'review';
+                            const reviewable = dam ? isOwner && (post.video_url || post.status === 'failed') && ['review', 'failed'].includes(post.status) : post.status === 'review';
+                            const planned = post.status === 'scheduled' || (post.status === 'rendering' && Boolean(post.scheduled_at));
                             return (
                               <tr key={post.id} className="border-b border-neutral-700/50">
                                 <td className="px-4 py-3 text-sm text-neutral-300 whitespace-nowrap">
@@ -1746,7 +1754,7 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-neutral-300 capitalize">{postDestination(post)}</td>
                                 <td className="px-4 py-3 text-sm text-neutral-300">
-                                  <strong>{dam ? dam.inputProps?.snapshot?.dam?.name ?? 'Dam update' : POST_TYPE_LABELS[post.post_type] ?? post.post_type}</strong>
+                                  <strong>{postTypeLabel(post)}</strong>
                                   <span className="block text-xs text-neutral-400">
                                     {post.media_type === 'video' ? 'Video' : isDailyReport(post.render_request) ? `Carousel · ${post.render_request.slides.length}` : 'Image'}
                                     {post.river_slug && ` · ${post.river_slug}`}
@@ -1759,7 +1767,7 @@ export default function SocialAdminPage() {
                                     {post.status === 'pending' && <AlertCircle className="w-3 h-3" />}
                                     {badge.label}
                                   </span>
-                                  {post.status === 'scheduled' && <p className="text-xs mt-1">{deliveryStamp(post.scheduled_at)}</p>}
+                                  {planned && <p className="text-xs mt-1">{post.status === 'rendering' ? 'Sends ' : ''}{deliveryStamp(post.scheduled_at)}</p>}
                                   {post.error_message && (
                                     <p className="text-xs text-red-400 mt-1 max-w-xs truncate" title={post.error_message}>
                                       {post.error_message}
@@ -1771,7 +1779,7 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    {post.status === 'scheduled' && (!dam || isOwner) && <button className={studio.inline} disabled={Boolean(sendingId)} onClick={() => retryPost(post.id, 'unschedule')}>Return to review</button>}
+                                    {planned && (!dam || isOwner) && <button className={studio.inline} disabled={Boolean(sendingId)} onClick={() => retryPost(post.id, 'unschedule')}>{post.status === 'rendering' ? 'Review first' : 'Return to review'}</button>}
                                     {(post.video_url || post.image_url || post.caption) && (
                                       <button
                                         onClick={() => {

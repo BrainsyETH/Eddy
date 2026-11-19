@@ -299,6 +299,9 @@ posts. **Return to review** in the Queue cancels the planned send. Pausing
 automatic posting holds timed drafts until the publisher resumes. Source checks
 run again at send time for dam videos and Daily Reports. Bagnell measured releases
 use immediate approval. A newer Ameren observation requires a refreshed draft.
+A dated dam video can instead be given its send time when it is created, and then
+posts without a review; see [Daily dam videos](dam-story-exports.md#sending-at-a-set-time)
+for how a timed dam post waits for its source, re-renders revised data and alerts.
 Recurring dispatch, reconciliation and retries run before one-time approvals.
 After the first minute of a run, pending approvals stay scheduled for the next tick.
 Apply migration

@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
     .range(offset, offset + limit - 1);
 
   const view = searchParams.get('view');
-  query = view === 'scheduled' ? query.eq('status', 'scheduled').order('scheduled_at').order('id') : query.order('created_at', { ascending: false }).order('id');
+  // A dam video made with a send time is planned from the moment it starts rendering.
+  query = view === 'scheduled'
+    ? query.or('status.eq.scheduled,and(status.eq.rendering,scheduled_at.not.is.null)').order('scheduled_at').order('id')
+    : query.order('created_at', { ascending: false }).order('id');
   if (view === 'queue') query = query.in('status', ['review', 'scheduled', 'rendering', 'pending', 'publishing', 'failed', 'unknown']);
   if (view === 'history') query = query.in('status', ['published', 'inbox', 'skipped']);
   if (platform) {
