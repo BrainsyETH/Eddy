@@ -2,27 +2,19 @@
 
 ## Background Music
 
-`background-music.wav` is a 12-second synthesized acoustic-folk loop (D →
-G → Bm → A, finger-picked feel, 44.1 kHz stereo 16-bit PCM). It's
-generated deterministically from `generate-background-music.py` — regenerate
-with:
+`background-music.wav` contains “Ed-dy Dot Guide” by evanrgardner
+(18.68 seconds, 48 kHz stereo PCM). Float Picks on Instagram and Facebook
+use this theme in the rendered MP4, including Story placements. The separate
+`generate-background-music.py` script can generate a 12-second folk loop.
+Running it in place replaces the current theme.
 
-```bash
-cd missouri-float-planner/remotion/public/audio
-python3 generate-background-music.py
-```
+### Replacing the theme
 
-### Replacing with a real track
-
-To use real music, drop a new file at `background-music.wav` (or commit an
-MP3 and update the `staticFile(...)` calls and workflow `AUDIO_SRC`). The
-render pipeline enforces two gates so any dud audio fails loudly instead
-of shipping a silent Reel:
-
-1. **Encoded-audio-size floor** — after AAC re-encode at 192 kb/s, the
-   audio stream must be ≥5 KiB per second of video. Silent tracks
-   compress to a fraction of that.
-2. **silencedetect** — fails if >80% of the final MP4 is below −40 dBFS.
+Use a track cleared for the intended accounts and destinations. Replacing
+`background-music.wav` changes all compositions that use it.
+`scripts/mux-social-audio.sh` loops it to the video duration and encodes
+stereo AAC at 192 kb/s. Before upload, `scripts/render-core.sh` checks that
+the encoded audio reaches 64 kb/s and that at most 80% is below −40 dBFS.
 
 Target specs for replacement tracks:
 - ≥128 kb/s MP3 or 16-bit PCM WAV

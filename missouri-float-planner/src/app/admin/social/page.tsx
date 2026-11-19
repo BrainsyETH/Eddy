@@ -1048,7 +1048,7 @@ export default function SocialAdminPage() {
               }
               <div className="min-w-0">
                 {storyPreview && !damPreview
-                  ? <p className="text-sm text-neutral-300">This Story includes Eddy’s instrumental track.</p>
+                  ? <p className="text-sm text-neutral-300">Music · Ed-dy Dot Guide</p>
                   : <p className="text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>}
                 {videoPreviewPost.platform === 'tiktok' && tiktokStatus?.directPost === false && (
                   <p className="mt-3 text-sm text-neutral-400">Finish posting from the TikTok inbox.</p>
@@ -1211,7 +1211,7 @@ export default function SocialAdminPage() {
               {quickPostType === 'digest'
                 ? 'Creates a carousel draft with 2–5 widget slides. Review every slide and the caption in posting history, then publish.'
                 : quickPostType === 'section_guide'
-                ? 'Creates one draft per destination with Eddy’s instrumental track.'
+                ? 'Creates one draft per destination with Eddy’s theme music.'
                 : quickPostType === 'tip'
                 ? 'Creates a static image draft for review.'
                 : 'Creates a video draft. Rendering usually takes 3–5 minutes. Review the finished video and caption in posting history, then publish.'}

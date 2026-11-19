@@ -291,7 +291,7 @@ Facebook Page video, or both. Save the settings to apply them to scheduled
 posts. Quick Post can override the placement for one draft batch. Existing
 schedules default to their previous regular placement. TikTok gets one video.
 
-All destinations use the same route selection and Eddy’s acoustic-folk theme.
+All destinations use the same route selection and Eddy’s “Ed-dy Dot Guide” theme.
 Each placement renders within its own safe area and has a separate Post History
 row, approval and retry. A failed Story stays a video for that destination.
 The terrain snapshot is shared within a batch. Rerenders use the saved route
