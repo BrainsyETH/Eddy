@@ -137,6 +137,7 @@ export async function getOrCreateConfig(
     // Explicit known-key rebuild — stale keys from retired post types
     // (eddy_says, favorite_float) that may linger in the DB JSON are dropped.
     config.media_schedule = {
+      ...(config.media_schedule.delivery && { delivery: config.media_schedule.delivery }),
       river_highlight: { ...DEFAULT_MEDIA_SCHEDULE.river_highlight, ...(config.media_schedule.river_highlight || {}) },
       daily_digest: { ...DEFAULT_MEDIA_SCHEDULE.daily_digest, ...(config.media_schedule.daily_digest || {}) },
       weekly_forecast: { ...DEFAULT_MEDIA_SCHEDULE.weekly_forecast, ...(config.media_schedule.weekly_forecast || {}) },

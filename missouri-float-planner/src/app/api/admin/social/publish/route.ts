@@ -30,6 +30,10 @@ async function handlePOST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  if (body.mode !== undefined && body.mode !== 'publish' && body.mode !== 'draft') {
+    return NextResponse.json({ error: 'Choose draft or publish.' }, { status: 400 });
+  }
+
   const { caption, imageUrl, platforms } = body as {
     caption?: string;
     imageUrl?: string;
@@ -58,6 +62,17 @@ async function handlePOST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  if (body.mode === 'draft') {
+    const destinations = [...new Set(validPlatforms)];
+    if (destinations.includes('instagram') && !imageUrl) return NextResponse.json({ error: 'Add an image for Instagram.' }, { status: 400 });
+    const { error } = await supabase.from('social_posts').insert(destinations.map(platform => ({
+      platform, post_type: 'manual', caption: caption.trim(), image_url: imageUrl || null, media_type: 'image', status: 'review', auto_publish: false,
+    })));
+    if (error) return NextResponse.json({ error: 'Could not save the draft.' }, { status: 500 });
+    await logAdminAction({ request, action: 'social_draft_created', entityType: 'social_posts', details: { platforms: destinations } });
+    return NextResponse.json({ results: destinations.map(platform => ({ platform, success: true })) });
+  }
+
   const results: Array<{ platform: string; success: boolean; error?: string; postId?: string; duplicate?: boolean }> = [];
 
   for (const platform of validPlatforms) {

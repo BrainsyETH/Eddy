@@ -1,0 +1,109 @@
+.history {
+  container-type: inline-size;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dialog {
+  width: min(92vw, 74rem);
+  margin: auto;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+
+.reviewFrame {
+  display: flex;
+  flex-direction: column;
+  max-height: 90dvh;
+}
+
+.reviewBody {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.reviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: start;
+  gap: .75rem;
+  padding: .75rem 1rem;
+  border-top: 1px solid var(--admin-line);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.filters select {
+  min-width: 0;
+}
+
+.verticalReview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(1rem, 3vw, 3rem);
+  padding: clamp(1rem, 2vw, 2rem);
+}
+
+.verticalPlayer {
+  width: min(100%, 36dvh);
+  justify-self: center;
+}
+
+@container (max-width: 56rem) {
+  .table, .table tbody {
+    display: block;
+  }
+
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'post status' 'platform date' 'caption caption' 'actions actions';
+    align-items: start;
+    gap: .5rem;
+    padding: .875rem 1rem;
+  }
+
+  .table td { min-width: 0; padding: 0; }
+  .table td:nth-child(1) { grid-area: date; text-align: right; white-space: normal; }
+  .table td:nth-child(2) { grid-area: platform; }
+  .table td:nth-child(3) { grid-area: post; }
+  .table td:nth-child(4) { grid-area: status; text-align: right; max-width: 11rem; }
+  .table td:nth-child(5) { grid-area: caption; }
+  .table td:nth-child(6) { grid-area: actions; }
+}
+
+@media (max-width: 640px) {
+  .dialog { width: calc(100% - 1rem); }
+  .reviewFrame { max-height: 94dvh; }
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .filters select { padding-inline: .375rem; }
+  .verticalReview { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 520px) {
+  .reviewActions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; align-items:stretch; }
+  .reviewActions button { width:100%; min-height:42px; padding:.4rem; }
+  .reviewActions label, .reviewActions p, .reviewActions :global(.admin-primary) { grid-column:1/-1; }
+}

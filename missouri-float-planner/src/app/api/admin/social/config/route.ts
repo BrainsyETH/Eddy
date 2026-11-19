@@ -6,6 +6,9 @@ import { withAdminMutation } from '@/lib/admin/mutation-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
+import { hasInstagramCredentials, hasMetaCredentials } from '@/lib/social/meta-client';
+import { applyRule } from '@/lib/social/publishing-plan';
+import { validPlacementChoices } from '@/lib/social/placements';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';
 import { dailyReportAutoPublishEnabled } from '@/lib/social/daily-report';
 
@@ -14,7 +17,8 @@ export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 const LOG_PREFIX = '[SocialConfig]';
-const withRollout = <T extends object>(config: T) => ({ ...config, daily_report_auto_publish_enabled: dailyReportAutoPublishEnabled() });
+const withRollout = <T extends object>(config: T) => ({ ...config, daily_report_auto_publish_enabled: dailyReportAutoPublishEnabled(),
+  meta_accounts: { facebook: hasMetaCredentials(), instagram: hasInstagramCredentials() } });
 
 const CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -49,7 +53,7 @@ async function handlePUT(request: NextRequest) {
   return handleSave(request);
 }
 
-// PATCH saves the posting switch on its own. It is the control an operator
+// PATCH saves schedules, preferences, or the posting switch independently. It is the control an operator
 // reaches for to stop automatic posts, so it must take effect the moment it is
 // flipped — not after a Save button further down the page — and it must not
 // carry the rest of the form's unsaved edits along with it.
@@ -58,6 +62,31 @@ async function handlePATCH(request: NextRequest) {
   if (authError) return authError;
 
   const body = await request.json().catch(() => null);
+  if (body?.action === 'save_rule' || body?.action === 'save_preferences') {
+    const supabase = createAdminClient();
+    const { data: config, error } = await getOrCreateConfig(supabase);
+    if (!config || error) return NextResponse.json({ error: 'Could not load the schedule.' }, { status: 500 });
+    if (body.version !== config.updated_at) return NextResponse.json({ error: 'The schedule changed in another session. Reopen the planner to load the latest version.' }, { status: 409 });
+    let fields;
+    try {
+      if (body.action === 'save_rule') {
+        fields = { media_schedule: applyRule(config, body.format, body.previousDays, body.days, body.delivery) };
+      } else {
+        if (![body.disabled_rivers, body.highlight_conditions].every(value => Array.isArray(value) && value.every(item => typeof item === 'string')) ||
+            typeof body.video_features?.condition_alerts_as_video !== 'boolean') throw new Error('Invalid publishing preferences.');
+        fields = { disabled_rivers: body.disabled_rivers, highlight_conditions: body.highlight_conditions,
+          video_features: { ...config.video_features, condition_alerts_as_video: body.video_features.condition_alerts_as_video } };
+      }
+    }
+    catch (cause) { return NextResponse.json({ error: (cause as Error).message }, { status: 400 }); }
+    const { data: saved, error: writeError } = await supabase.from('social_config')
+      .update({ ...fields, updated_at: new Date().toISOString() }).eq('id', config.id)
+      .eq('updated_at', config.updated_at).select('*').maybeSingle();
+    if (writeError || !saved) return NextResponse.json({ error: writeError ? 'Could not save the schedule.' : 'The schedule changed. Reopen the planner and try again.' }, { status: writeError ? 500 : 409 });
+    await logAdminAction({ request, action: body.action === 'save_rule' ? 'social_schedule_saved' : 'social_preferences_saved', entityType: 'social_config', entityId: config.id,
+      details: { format: body.format, days: body.days } });
+    return NextResponse.json(withRollout(saved), { headers: CACHE_HEADERS });
+  }
   if (!body || typeof body.posting_enabled !== 'boolean') {
     return NextResponse.json({ error: 'posting_enabled must be true or false' }, { status: 400, headers: CACHE_HEADERS });
   }
@@ -97,6 +126,9 @@ async function handleSave(request: NextRequest) {
   if (authError) return authError;
 
   const body = await request.json();
+  if (body.section_guide?.placements !== undefined && !validPlacementChoices(body.section_guide.placements)) {
+    return NextResponse.json({ error: 'Invalid Float Pick placements' }, { status: 400 });
+  }
   const supabase = createAdminClient();
 
   // Self-healing: get config (handles duplicates and missing rows)
@@ -128,9 +160,9 @@ async function handleSave(request: NextRequest) {
     highlight_conditions: body.highlight_conditions,
     river_schedules: body.river_schedules,
     video_features: body.video_features ?? existing.video_features,
-    media_schedule: body.media_schedule ?? existing.media_schedule,
+    media_schedule: body.media_schedule ? { ...body.media_schedule, delivery: existing.media_schedule?.delivery } : existing.media_schedule,
     weekly_forecast: body.weekly_forecast ?? existing.weekly_forecast,
-    section_guide: body.section_guide ?? existing.section_guide,
+    section_guide: { ...existing.section_guide, ...body.section_guide },
     weekly_trend: body.weekly_trend ?? existing.weekly_trend,
     updated_at: new Date().toISOString(),
   };

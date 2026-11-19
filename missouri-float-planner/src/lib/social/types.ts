@@ -1,6 +1,10 @@
 // src/lib/social/types.ts
 // Shared types for social media posting system
 
+import type { SocialVideoPlacement } from '../../../shared/social-brand';
+import type { PlacementChoices } from './placements';
+import type { RenderData } from './post-types';
+
 export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok';
 export type PostType =
   | 'daily_digest'
@@ -22,7 +26,7 @@ export type PostType =
   | 'eddy_says'
   | 'favorite_float'
   | 'route_draw';
-export type PostStatus = 'pending' | 'rendering' | 'review' | 'inbox' | 'publishing' | 'published' | 'failed' | 'skipped';
+export type PostStatus = 'pending' | 'rendering' | 'review' | 'scheduled' | 'unknown' | 'inbox' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
 export type MediaType = 'image' | 'video';
@@ -63,6 +67,7 @@ export type DayMediaMap = Partial<Record<
 
 /** Admin-editable matrix: which post types render as video on which days. */
 export interface MediaSchedule {
+  delivery?: import('./publishing-plan').DayDeliveries;
   river_highlight: DayMediaMap;
   daily_digest: DayMediaMap;
   /** Weekly reels: cell = 'video' | 'image' | null (null = don't fire). */
@@ -101,7 +106,7 @@ export interface SocialConfig {
   video_features: VideoFeatures;
   media_schedule: MediaSchedule;
   weekly_forecast: WeeklyReelConfig;
-  section_guide: WeeklyReelConfig;
+  section_guide: WeeklyReelConfig & { placements?: PlacementChoices };
   weekly_trend: WeeklyReelConfig;
   updated_at: string;
 }
@@ -126,12 +131,15 @@ export interface PlatformAdapter {
 }
 
 export interface PublishParams {
+  /** Absolute caller deadline shared by every request in a delivery. */
+  signal?: AbortSignal;
   caption: string;
   imageUrl?: string;
   /** Ordered carousel images; never fall back to the cover alone. */
   imageUrls?: string[];
   videoUrl?: string;
   coverUrl?: string;
+  placement?: SocialVideoPlacement;
   mediaType?: MediaType;
   /**
    * Called with the platform's id for this attempt as soon as it exists (an
@@ -221,6 +229,9 @@ export interface WeeklyReview {
 
 // What the scheduler produces for the cron to process
 export interface ScheduledPost {
+  placement?: SocialVideoPlacement;
+  /** Render data already chosen with the caption, so the video shows the same thing. */
+  renderData?: RenderData;
   postType: PostType;
   platform: SocialPlatform;
   riverSlug: string | null;

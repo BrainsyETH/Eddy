@@ -28,15 +28,16 @@ export class TikTokAdapter implements PlatformAdapter {
       };
     }
 
-    const supabase = createAdminClient();
+    const supabase = createAdminClient(params.signal);
     const result = isTikTokDirectPost()
-      ? await publishVideoToTikTokDirect({ videoUrl: params.videoUrl, caption: params.caption }, supabase)
-      : await publishVideoToTikTok({ videoUrl: params.videoUrl }, supabase);
+      ? await publishVideoToTikTokDirect({ signal: params.signal, videoUrl: params.videoUrl, caption: params.caption }, supabase)
+      : await publishVideoToTikTok({ signal: params.signal, videoUrl: params.videoUrl }, supabase);
     return {
       success: result.success,
       delivery: isTikTokDirectPost() ? 'published' : 'inbox',
       platformPostId: result.postId,
       error: result.error,
+      ambiguous: result.ambiguous,
     };
   }
 

@@ -9,11 +9,11 @@ export class InstagramAdapter implements PlatformAdapter {
 
   async publishPost(params: PublishParams): Promise<PublishResult> {
     if (params.imageUrls !== undefined) {
-      const result = await publishCarousel({ platform: 'instagram', caption: params.caption,
+      const result = await publishCarousel({ platform: 'instagram', caption: params.caption, signal: params.signal,
         imageUrls: params.imageUrls, onContainer: params.onProviderAttempt });
       return { success: result.success, platformPostId: result.postId, error: result.error, ambiguous: result.ambiguous };
     }
-    // Video posts use the Reels container flow. If the caller asked for
+    // Videos default to Reels. If the caller asked for
     // video but did not provide a videoUrl (e.g. retry of a post whose
     // render failed), refuse — do NOT silently downgrade to an image feed
     // post, since that changes what the user sees without consent.
@@ -26,7 +26,8 @@ export class InstagramAdapter implements PlatformAdapter {
       }
       const result = await publishVideoToInstagram({
         caption: params.caption,
-        videoUrl: params.videoUrl,
+        signal: params.signal,        videoUrl: params.videoUrl,
+        placement: params.placement,
         coverUrl: params.coverUrl,
         onContainer: params.onProviderAttempt,
       });
@@ -45,7 +46,7 @@ export class InstagramAdapter implements PlatformAdapter {
 
     const result = await publishToInstagram({
       caption: params.caption,
-      imageUrl: params.imageUrl,
+      signal: params.signal,      imageUrl: params.imageUrl,
       onContainer: params.onProviderAttempt,
     });
 

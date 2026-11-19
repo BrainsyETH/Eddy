@@ -285,18 +285,41 @@ Routes without photo reveals keep a 286px compact-card band; photo routes reserv
 redundant header line, nested stat tiles and separate CTA pays for that taller
 photo while retaining useful route space.
 
-Float Picks render separately for Instagram, Facebook and TikTok using each
-platform's existing Reel working bounds. Quick Post saves each destination's
-render request; scheduled posts group Float Picks by platform. A failed manual
-dispatch fails only its own draft. The destination renders of one Quick Post
-share a single prepared terrain snapshot (one provider request, one upload);
-the saved drafts stay provider-free, so a later rerender prepares its own. Rerendering an older saved Float Pick selects
-that draft's destination profile. Other formats continue sharing one master.
-The admin preview guide uses the post's actual destination. Named Remotion
-`social-route-{instagram|facebook|tiktok}-{reel|story}` presets also support
-manual exports, with the same input data. Story presets are exports only; this
-does not add Story publication. Omitted destination props retain the conservative
-shared layout for legacy renders.
+Open **Admin → Social → Planner** and edit a Float Pick schedule. Select a
+weekday first to change that day alone. Choose a time and a destination for
+each account. Instagram supports Reel, Story, or both. Facebook supports Page
+video, Story, or both. TikTok gets one video when selected. **Create draft**
+starts a one-time post with those choices. Editing the draft affects only that
+batch. Existing schedules inherit their saved time and placements.
+
+Owners can edit recurring rules. For a single post, create or save a draft, open
+it in the Queue, then choose **Approve & send** or **Schedule for later**.
+Choose a future Central hour or half hour. The planner lists approved one-time
+posts. **Return to review** in the Queue cancels the planned send. Pausing
+automatic posting holds timed drafts until the publisher resumes. Source checks
+run again at send time for dam videos and Daily Reports. Bagnell measured releases
+use immediate approval. A newer Ameren observation requires a refreshed draft.
+A dated dam video can instead be given its send time when it is created, and then
+posts without a review; see [Daily dam videos](dam-story-exports.md#sending-at-a-set-time)
+for how a timed dam post waits for its source, re-renders revised data and alerts.
+Recurring dispatch, reconciliation and retries run before one-time approvals.
+After the first minute of a run, pending approvals stay scheduled for the next tick.
+Apply migration
+`20261119153643_social_scheduled_drafts.sql` before deploying timed approvals.
+
+All destinations use the same route selection and Eddy’s “Ed-dy Dot Guide” theme.
+Each placement renders within its own safe area and has a separate queue
+row, approval and retry. A failed Story stays a video for that destination.
+The terrain snapshot is shared within a batch. Rerenders use the saved route
+and placement. Placement is offered for formats whose composition lays out
+per destination (`destinationLayout` in `post-types.ts`); other formats render
+once and share that file across platforms. Every video, scheduled or manual,
+is saved and dispatched through `dispatchVideos`. If a scheduled render cannot
+start, shared formats publish their cover image instead; Float Picks stay in
+the Queue for Render again. The scheduler allows one post per format per
+Central-time day. Instagram publishes Stories with a STORIES container; Facebook
+uses the Page video_stories upload and finish flow. The manual Remotion
+`social-route-{instagram|facebook|tiktok}-{reel|story}` presets remain available.
 
 The terrain snapshot projection is immutable. The display camera, route overlay,
 and image transform receive the selected layout origin together, preserving
@@ -347,7 +370,7 @@ narration at a soft, natural pace, and keeps Eddy visible. The earlier 30-second
 cap was removed in favor of understandable speech. It includes the saved report
 date's weather temperatures and a canoeing Eddy closing card.
 The caption retains the full text. Existing drafts retain their saved render
-props: create a new Quick Post to pick up the revised report selection as well
+props: create a new draft to pick up the revised report selection as well
 as the layout. Neither a new render nor this change approves a manual draft.
 
 Eddy Read renders require the GitHub Actions `OPENAI_API_KEY` secret. Before

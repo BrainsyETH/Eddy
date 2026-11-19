@@ -118,6 +118,17 @@ export interface PostTypeDef {
   renderProps?: (data: RenderData) => Record<string, unknown>;
   /** Output filename stem (no extension) for the rendered video. */
   outputFilename?: (data: RenderData) => string;
+  /**
+   * The composition lays itself out per destination (platform + Reel/Story),
+   * so each destination renders separately and Story placement is offered.
+   * Formats without it share one render across platforms and post as Reels.
+   */
+  destinationLayout?: true;
+}
+
+/** True when a format can render a Story-shaped video for Instagram/Facebook. */
+export function supportsStory(kind: string): boolean {
+  return POST_TYPES[kind as PostKind]?.destinationLayout === true;
 }
 
 // All renders are portrait — both platforms get 1080x1920.
@@ -214,6 +225,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     needs: 'none',
     media: ['video'],
     composition: 'social-route-portrait',
+    destinationLayout: true,
     ogType: 'section',
     renderProps: (data) =>
       data.evergreen

@@ -22,9 +22,15 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('social_posts')
     .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
+  const view = searchParams.get('view');
+  // A dam video made with a send time is planned from the moment it starts rendering.
+  query = view === 'scheduled'
+    ? query.or('status.eq.scheduled,and(status.eq.rendering,scheduled_at.not.is.null)').order('scheduled_at').order('id')
+    : query.order('created_at', { ascending: false }).order('id');
+  if (view === 'queue') query = query.in('status', ['review', 'scheduled', 'rendering', 'pending', 'publishing', 'failed', 'unknown']);
+  if (view === 'history') query = query.in('status', ['published', 'inbox', 'skipped']);
   if (platform) {
     query = query.eq('platform', platform);
   }

@@ -5,6 +5,7 @@ import { createHmac } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
+import { checkSocialReview } from './social-review-smoke.mjs';
 import { checkModelTests } from './ai-models-smoke.mjs';
 const require = createRequire(import.meta.url);
 const origin = 'http://127.0.0.1:3152';
@@ -65,6 +66,7 @@ try {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
+  await checkSocialReview(browser, origin, out);
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
   });

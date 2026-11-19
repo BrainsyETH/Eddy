@@ -34,7 +34,7 @@ import {
   type TimeseriesChange,
   type TimeseriesPoint,
 } from '@/lib/usace/cda';
-import { fetchProjectSchedule, idleWindows, SWPA_PROJECTS } from '@/lib/usace/swpa';
+import { fetchProjectSchedule, idleWindows, projectSchedulesFrom, SWPA_PROJECTS, type DaySchedule } from '@/lib/usace/swpa';
 import { hasResolverSpec, parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
   USACE_DAMS,
@@ -531,13 +531,20 @@ async function readMetrics(
   return metrics;
 }
 
-async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay[]> {
+export async function readSchedule(
+  dam: UsaceDam,
+  days: number,
+  pages?: ReadonlyArray<DaySchedule | null>,
+): Promise<DamScheduleDay[]> {
   // Zero days is a caller saying it does not render a schedule at all — see
   // fetchTailwaterDams. Distinct from a dam with no SWPA code, but the answer is
   // the same and the contract is unchanged: an empty schedule renders nothing.
   if (days <= 0) return [];
   if (!dam.swpaCode) return [];
-  const schedules = await fetchProjectSchedule(dam.swpaCode, days);
+  // Pages the caller already read for this pass (sync-dam-snapshots), today first.
+  const schedules = pages
+    ? projectSchedulesFrom(pages.slice(0, days), dam.swpaCode)
+    : await fetchProjectSchedule(dam.swpaCode, days);
   return schedules.map((s) => {
     const hours = markMinimumFlowHours(dam, s.hours);
     return {
@@ -592,7 +599,7 @@ const FORECAST_OFFICES: Partial<
  * are made with the same floor the observed `generating` chip uses, so the
  * forecast and the observation cannot disagree about what "running" means.
  */
-async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
+export async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
   const series = dam.series.generationForecast;
   const office = dam.office ? FORECAST_OFFICES[dam.office] : undefined;
   if (!series || !office || !dam.office || dam.generationOnCfs === undefined) return undefined;
@@ -639,6 +646,7 @@ async function fetchSnapshot(
   options: {
     metrics: UsaceMetric[];
     scheduleDays: number;
+    schedulePages?: ReadonlyArray<DaySchedule | null>;
     pattern?: boolean;
     forecast?: boolean;
   }
@@ -650,7 +658,7 @@ async function fetchSnapshot(
     (dam.amerenMetrics ? readAmerenMetrics(dam, options.metrics) : readMetrics(dam, options.metrics)).catch(
       () => ({}) as Partial<Record<UsaceMetric, DamMetricValue>>
     ),
-    readSchedule(dam, options.scheduleDays).catch(() => [] as DamScheduleDay[]),
+    readSchedule(dam, options.scheduleDays, options.schedulePages).catch(() => [] as DamScheduleDay[]),
     options.pattern ? readPattern(damId) : Promise.resolve(undefined),
     options.forecast ? readForecast(dam).catch(() => undefined) : Promise.resolve(undefined),
   ]);
@@ -788,11 +796,16 @@ export const SUMMARY_SCHEDULE_DAYS = 2;
 /** A dam's own page: every metric, three days of schedule, the observed week. */
 export async function fetchDamDetail(
   damId: string,
-  options?: { scheduleDays?: number }
+  options?: {
+    scheduleDays?: number;
+    /** SWPA pages read once for a whole pass (fetchScheduleDays), today first. */
+    schedulePages?: ReadonlyArray<DaySchedule | null>;
+  }
 ): Promise<DamSnapshot | null> {
   return fetchSnapshot(damId, {
     metrics: DETAIL_METRICS,
     scheduleDays: options?.scheduleDays ?? DETAIL_SCHEDULE_DAYS,
+    schedulePages: options?.schedulePages,
     // Detail only. A twenty-dam index has no room to draw a week per row and no
     // reason to pay twenty database reads for one that is never seen.
     pattern: true,

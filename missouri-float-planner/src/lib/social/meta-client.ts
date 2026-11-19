@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises';
 // src/lib/social/meta-client.ts
 // Low-level Meta Graph API v21 client for Facebook and Instagram posting
 
@@ -6,7 +7,10 @@ const META_GRAPH_URL = 'https://graph.facebook.com/v24.0';
 /** Every Graph request is bounded. They used to have no timeout at all. */
 const REQUEST_TIMEOUT_MS = 30_000;
 const POLL_TIMEOUT_MS = 10_000;
-const timeout = (ms = REQUEST_TIMEOUT_MS) => AbortSignal.timeout(ms);
+function timeout(ms = REQUEST_TIMEOUT_MS, signal?: AbortSignal) {
+  const perRequest = AbortSignal.timeout(ms);
+  return signal ? AbortSignal.any([signal, perRequest]) : perRequest;
+}
 
 type MetaPublishResult = { success: boolean; postId?: string; error?: string; ambiguous?: boolean };
 
@@ -17,26 +21,34 @@ type MetaPublishResult = { success: boolean; postId?: string; error?: string; am
  * back `ambiguous` and the caller records the post as unknown rather than
  * failed (which would be auto-retried into a duplicate).
  */
-async function finalPublish(url: string, init: RequestInit, label: string): Promise<MetaPublishResult> {
+async function finalPublish(url: string, init: RequestInit, label: string, signal?: AbortSignal, receipt: 'id' | 'story' = 'id'): Promise<MetaPublishResult> {
+  if (signal?.aborted) return { success: false, error: 'Publishing deadline reached before sending.' };
   let response: Response;
   try {
-    response = await fetch(url, { ...init, signal: timeout() });
+    response = await fetch(url, { ...init, signal: timeout(REQUEST_TIMEOUT_MS, signal) });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'request failed';
     console.error(`[MetaClient] ${label}: no response — outcome unknown:`, msg);
     return { success: false, ambiguous: true, error: `${label}: no response (${msg})` };
   }
-  let data: { id?: string } & Partial<MetaApiError> = {};
+  let data: { id?: string; success?: boolean; post_id?: string | number } & Partial<MetaApiError> = {};
   try {
-    data = await response.json();
+    data = (await response.json()) ?? {};
   } catch {
     // An OK status with an unreadable body still means Meta accepted it.
-    if (response.ok) return { success: true };
+    if (response.ok && receipt !== 'story') return { success: true };
   }
   if (!response.ok) {
     const errorMsg = data.error?.message || `HTTP ${response.status}`;
     console.error(`[MetaClient] ${label} failed:`, errorMsg);
     return { success: false, error: errorMsg, ambiguous: response.status >= 500 };
+  }
+  if (receipt === 'story') {
+    if (data.success !== true) {
+      return { success: false, ambiguous: true, error: 'Facebook did not confirm Story publication. Check the Page before retrying.' };
+    }
+    const postId = typeof data.post_id === 'string' || Number.isSafeInteger(data.post_id) ? String(data.post_id) : undefined;
+    return { success: true, postId };
   }
   return { success: true, postId: data.id };
 }
@@ -72,6 +84,7 @@ export function hasInstagramCredentials(): boolean {
 // Two-step flow: upload unpublished photo, then create a feed post with it attached.
 // This keeps the image visible in the feed but out of the Page's photo album.
 export async function publishToFacebook(params: {
+  signal?: AbortSignal;
   caption: string;
   imageUrl: string;
 }): Promise<MetaPublishResult> {
@@ -95,7 +108,7 @@ export async function publishToFacebook(params: {
     const photoResponse = await fetch(`${META_GRAPH_URL}/${pageId}/photos`, {
       method: 'POST',
       body: photoBody,
-      signal: timeout(),
+      signal: timeout(REQUEST_TIMEOUT_MS, params.signal),
     });
 
     const photoData = await photoResponse.json();
@@ -128,7 +141,7 @@ export async function publishToFacebook(params: {
       access_token: accessToken,
     });
 
-    return await finalPublish(`${META_GRAPH_URL}/${pageId}/feed`, { method: 'POST', body: feedBody }, 'Facebook feed post');
+    return await finalPublish(`${META_GRAPH_URL}/${pageId}/feed`, { method: 'POST', body: feedBody }, 'Facebook feed post', params.signal);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Facebook publish error:', msg);
@@ -169,6 +182,7 @@ export async function publishLinkToFacebook(params: {
 
 // Publish a photo post to Instagram (2-step container flow)
 export async function publishToInstagram(params: {
+  signal?: AbortSignal;
   caption: string;
   imageUrl: string;
   onContainer?: (containerId: string) => void | Promise<void>;
@@ -187,7 +201,7 @@ export async function publishToInstagram(params: {
     // a cold serverless function and timeout. A full GET ensures the image is
     // generated, cached at the edge, and ready for Meta to download instantly.
     try {
-      const preflight = await fetch(params.imageUrl, { signal: timeout() });
+      const preflight = await fetch(params.imageUrl, { signal: timeout(REQUEST_TIMEOUT_MS, params.signal) });
       const contentType = preflight.headers.get('content-type') || 'unknown';
       const contentLength = preflight.headers.get('content-length') || 'unknown';
       console.log(`[MetaClient] Image preflight: status=${preflight.status}, content-type=${contentType}, size=${contentLength}`);
@@ -222,7 +236,7 @@ export async function publishToInstagram(params: {
       {
         method: 'POST',
         body: containerBody,
-        signal: timeout(),
+        signal: timeout(REQUEST_TIMEOUT_MS, params.signal),
       }
     );
 
@@ -242,7 +256,7 @@ export async function publishToInstagram(params: {
     await params.onContainer?.(containerId);
 
     // Step 2: Wait for container to be ready (poll status)
-    const ready = await waitForContainer(containerId, accessToken);
+    const ready = await waitForContainer(containerId, accessToken, params.signal);
     if (!ready.success) {
       return { success: false, error: ready.error || 'Container not ready' };
     }
@@ -255,7 +269,7 @@ export async function publishToInstagram(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
       },
-      'Instagram publish',
+      'Instagram publish', params.signal,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -268,14 +282,16 @@ export async function publishToInstagram(params: {
 async function waitForContainer(
   containerId: string,
   accessToken: string,
+  signal?: AbortSignal,
   maxAttempts = 10,
   delayMs = 3000
 ): Promise<{ success: boolean; error?: string }> {
   for (let i = 0; i < maxAttempts; i++) {
+    signal?.throwIfAborted();
     try {
       const response = await fetch(
         `${META_GRAPH_URL}/${containerId}?fields=status_code&access_token=${accessToken}`,
-        { signal: timeout(POLL_TIMEOUT_MS) },
+        { signal: timeout(POLL_TIMEOUT_MS, signal) },
       );
       const data = await response.json();
 
@@ -287,21 +303,23 @@ async function waitForContainer(
         return { success: false, error: 'Container processing failed' };
       }
 
-      // Still processing — wait and try again
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
     } catch {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      // A transient status read can be retried while the parent deadline permits it.
+      signal?.throwIfAborted();
     }
+    if (i + 1 < maxAttempts) await delay(delayMs, undefined, { signal });
   }
 
   return { success: false, error: 'Container processing timed out' };
 }
 
-// Publish a video (Reel) to Instagram (3-step container flow with longer polling)
+// Publish a video to Instagram (3-step container flow with longer polling)
 export async function publishVideoToInstagram(params: {
+  signal?: AbortSignal;
   caption: string;
   videoUrl: string;
   coverUrl?: string;
+  placement?: 'story' | 'reel';
   onContainer?: (containerId: string) => void | Promise<void>;
 }): Promise<MetaPublishResult> {
   const { accessToken, instagramAccountId } = getCredentials();
@@ -313,22 +331,20 @@ export async function publishVideoToInstagram(params: {
   try {
     console.log(`[MetaClient] Instagram video_url: ${params.videoUrl}`);
 
-    // Step 1: Create video container (Reel)
+    const story = params.placement === 'story';
     const containerBody = new URLSearchParams({
       video_url: params.videoUrl,
-      media_type: 'REELS',
-      caption: params.caption,
+      media_type: story ? 'STORIES' : 'REELS',
       access_token: accessToken,
     });
-
-    // Use the OG image as the Reel cover (prevents black first-frame)
-    if (params.coverUrl) {
-      containerBody.set('cover_url', params.coverUrl);
+    if (!story) {
+      containerBody.set('caption', params.caption);
+      if (params.coverUrl) containerBody.set('cover_url', params.coverUrl);
     }
 
     const containerResponse = await fetch(
       `${META_GRAPH_URL}/${instagramAccountId}/media`,
-      { method: 'POST', body: containerBody, signal: timeout() }
+      { method: 'POST', body: containerBody, signal: timeout(REQUEST_TIMEOUT_MS, params.signal) }
     );
 
     const containerData = await containerResponse.json();
@@ -347,7 +363,7 @@ export async function publishVideoToInstagram(params: {
     await params.onContainer?.(containerId);
 
     // Step 2: Wait for video processing (longer timeout than images)
-    const ready = await waitForContainer(containerId, accessToken, 30, 5000);
+    const ready = await waitForContainer(containerId, accessToken, params.signal, 30, 5000);
     if (!ready.success) {
       return { success: false, error: ready.error || 'Video container not ready' };
     }
@@ -360,7 +376,7 @@ export async function publishVideoToInstagram(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
       },
-      'Instagram video publish',
+      'Instagram video publish', params.signal,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -371,8 +387,11 @@ export async function publishVideoToInstagram(params: {
 
 // Publish a video to a Facebook Page
 export async function publishVideoToFacebook(params: {
+  signal?: AbortSignal;
   caption: string;
   videoUrl: string;
+  placement?: 'reel' | 'story';
+  onUpload?: (id: string) => void | Promise<void>;
 }): Promise<MetaPublishResult> {
   const { accessToken, pageId } = getCredentials();
 
@@ -381,6 +400,36 @@ export async function publishVideoToFacebook(params: {
   }
 
   try {
+    if (params.placement === 'story') {
+      const endpoint = `${META_GRAPH_URL}/${pageId}/video_stories`;
+      const start = await fetch(endpoint, {
+        method: 'POST', signal: timeout(REQUEST_TIMEOUT_MS, params.signal),
+        body: new URLSearchParams({ upload_phase: 'start', access_token: accessToken }),
+      });
+      const session = await start.json();
+      if (!start.ok || !session.video_id || !session.upload_url) {
+        return { success: false, error: session.error?.message ?? 'Facebook could not start the Story upload.' };
+      }
+      const uploadUrl = new URL(session.upload_url);
+      if (uploadUrl.origin !== 'https://rupload.facebook.com' || uploadUrl.username || uploadUrl.password ||
+          !uploadUrl.pathname.startsWith('/video-upload/')) {
+        return { success: false, error: 'Facebook returned an invalid Story upload address.' };
+      }
+      const videoId = String(session.video_id);
+      await params.onUpload?.(videoId);
+      const upload = await fetch(uploadUrl, {
+        method: 'POST', signal: timeout(REQUEST_TIMEOUT_MS, params.signal), redirect: 'error',
+        headers: { Authorization: `OAuth ${accessToken}`, file_url: params.videoUrl },
+      });
+      const uploaded = await upload.json();
+      if (!upload.ok || uploaded.success !== true) {
+        return { success: false, error: uploaded.error?.message ?? 'Facebook did not accept the Story video.' };
+      }
+      return await finalPublish(endpoint, {
+        method: 'POST',
+        body: new URLSearchParams({ upload_phase: 'finish', video_id: videoId, access_token: accessToken }),
+      }, 'Facebook Story', params.signal, 'story');
+    }
     console.log(`[MetaClient] Facebook video_url: ${params.videoUrl}`);
 
     const videoBody = new URLSearchParams({
@@ -389,7 +438,7 @@ export async function publishVideoToFacebook(params: {
       access_token: accessToken,
     });
 
-    return await finalPublish(`${META_GRAPH_URL}/${pageId}/videos`, { method: 'POST', body: videoBody }, 'Facebook video upload');
+    return await finalPublish(`${META_GRAPH_URL}/${pageId}/videos`, { method: 'POST', body: videoBody }, 'Facebook video upload', params.signal);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Facebook video publish error:', msg);
@@ -400,6 +449,7 @@ export async function publishVideoToFacebook(params: {
 // Instagram carousel children are private until the parent is published.
 // Facebook attaches unpublished photos to one feed post in the same order.
 export async function publishCarousel(params: {
+  signal?: AbortSignal;
   platform: 'instagram' | 'facebook'; caption: string; imageUrls: string[];
   onContainer?: (id: string) => void | Promise<void>;
 }): Promise<MetaPublishResult> {
@@ -417,7 +467,7 @@ export async function publishCarousel(params: {
       const body = new URLSearchParams(instagram
         ? { image_url: imageUrl, is_carousel_item: 'true', access_token: accessToken }
         : { url: imageUrl, published: 'false', access_token: accessToken });
-      const response = await fetch(`${META_GRAPH_URL}/${account}/${instagram ? 'media' : 'photos'}`, { method: 'POST', body, signal: timeout() });
+      const response = await fetch(`${META_GRAPH_URL}/${account}/${instagram ? 'media' : 'photos'}`, { method: 'POST', body, signal: timeout(REQUEST_TIMEOUT_MS, params.signal) });
       const data = await response.json();
       if (!response.ok || !data.id) return { success: false, error: data.error?.message || 'Carousel image upload failed' };
       ids.push(data.id);
@@ -425,22 +475,22 @@ export async function publishCarousel(params: {
     if (!instagram) {
       const body = new URLSearchParams({ message: params.caption, access_token: accessToken });
       ids.forEach((id, index) => body.set(`attached_media[${index}]`, JSON.stringify({ media_fbid: id })));
-      return await finalPublish(`${META_GRAPH_URL}/${account}/feed`, { method: 'POST', body }, 'Facebook multi-photo post');
+      return await finalPublish(`${META_GRAPH_URL}/${account}/feed`, { method: 'POST', body }, 'Facebook multi-photo post', params.signal);
     }
-    const children = await Promise.all(ids.map(id => waitForContainer(id, accessToken)));
+    const children = await Promise.all(ids.map(id => waitForContainer(id, accessToken, params.signal)));
     if (children.some(c => !c.success)) return { success: false, error: 'A carousel image is not ready; no post was published' };
     const response = await fetch(`${META_GRAPH_URL}/${account}/media`, {
-      method: 'POST', signal: timeout(),
+      method: 'POST', signal: timeout(REQUEST_TIMEOUT_MS, params.signal),
       body: new URLSearchParams({ media_type: 'CAROUSEL', children: ids.join(','), caption: params.caption, access_token: accessToken }),
     });
     const parent = await response.json();
     if (!response.ok || !parent.id) return { success: false, error: parent.error?.message || 'Carousel container failed' };
     await params.onContainer?.(parent.id);
-    const ready = await waitForContainer(parent.id, accessToken);
+    const ready = await waitForContainer(parent.id, accessToken, params.signal);
     if (!ready.success) return { success: false, error: ready.error };
     return await finalPublish(`${META_GRAPH_URL}/${account}/media_publish`, {
       method: 'POST', body: new URLSearchParams({ creation_id: parent.id, access_token: accessToken }),
-    }, 'Instagram carousel publish');
+    }, 'Instagram carousel publish', params.signal);
   } catch (error) {
     // finalPublish classifies ambiguous final-call failures itself. Errors here
     // occurred while preparing private media, so no public post was made.

@@ -113,9 +113,9 @@ const ADMIN_SECTIONS = [
     color: 'bg-indigo-500',
   },
   {
-    title: 'Social Media',
+    title: 'Social publishing',
     description:
-      'Manage Instagram and Facebook auto-posting settings and history',
+      'Plan posts, review drafts, and track deliveries.',
     href: '/admin/social',
     icon: Share2,
     color: 'bg-pink-500',

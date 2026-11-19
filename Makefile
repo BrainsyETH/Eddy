@@ -144,7 +144,7 @@ env-pull: guard-node ## Pull EAS env vars into eddy-ios/.env for a local build
 # one does not: Metro inlines them from the process, so without .env the app
 # builds clean and launches with no map, no auth and no purchases — a failure
 # that looks like a bug in the app rather than a missing file. Hence env-pull.
-run-ios: guard-node ## Local SIMULATOR build (no signing, no EAS build credit)
+run-ios: guard-node ## Local Simulator build (development signing for app capabilities; no EAS credit)
 	cd $(MOBILE) && npx expo run:ios
 
 archive-ios: guard-node ## Prebuild + pods, then open Xcode to archive and submit

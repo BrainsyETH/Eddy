@@ -42,7 +42,7 @@ try {
   const layoutErrors = new Set();
   const check = (condition, message) => { if (!condition) layoutErrors.add(message); };
   const patterns = {
-    noon: snapshot.hours,
+    noon: snapshot.hours, forecast: [], release: [],
     multiple: Array.from({ length: 24 }, (_, h) => h < 2 || h === 12 || h === 23),
     twelve: Array.from({ length: 24 }, (_, h) => h % 2 === 1),
     idle: Array(24).fill(false), minimum: Array(24).fill(false), all: Array(24).fill(true),
@@ -54,7 +54,21 @@ try {
   await mkdir('out/dam-story', { recursive: true });
   for (const platform of ['instagram', 'tiktok']) for (const [name, hours] of Object.entries(patterns)) {
     const id = 'social-dam-schedule';
-    const input = { platform, sample: true, snapshot: { ...snapshot, hours, minimumFlow: name === 'minimum' || name === 'mixedMinimum' } };
+    const minimumFlow = name === 'minimum' || name === 'mixedMinimum';
+    const hourlyMw = hours.map((on, i) => on ? [55, 115, 170, 230][i % 4] : minimumFlow ? 5 : 0);
+    const input = { platform, sample: true, snapshot: { ...snapshot, hours, hourlyMw, capacityMw: 230, minimumFlow } };
+    if (name === 'twelve') input.snapshot.dam = { id: 'swf-robert-s-kerr', name: 'Robert S. Kerr Lock & Dam' };
+    if (name === 'forecast') input.snapshot = {
+      kind: 'forecast', dam: { id: 'lrn-wolf-creek-dam', name: 'Wolf Creek Dam' },
+      scheduleDate: snapshot.scheduleDate, checkedAt: snapshot.checkedAt,
+      source: 'U.S. Army Corps of Engineers, Nashville District', generating: true,
+      windows: ['midnight – 2 AM', '4 AM – 6 AM', '8 AM – 10 AM', '12 PM – 2 PM', '4 PM – 6 PM', '10 PM – midnight'],
+    };
+    if (name === 'release') input.snapshot = {
+      kind: 'release', dam: { id: 'ameren-bagnell-dam', name: 'Bagnell Dam' },
+      scheduleDate: snapshot.scheduleDate, checkedAt: snapshot.checkedAt,
+      releaseCfs: 6000, hourlyCfs: Array.from({ length: 24 }, (_, i) => i === 4 ? null : 250 * (i + 1)),
+    };
     await page.evaluateOnNewDocument(input => {
       window.remotion_inputProps = JSON.stringify(input);
       window.remotion_initialFrame = 0; window.remotion_attempt = 1;
@@ -87,25 +101,33 @@ try {
         return {
           // Measure rendered hull/head paths, not the outer rig's clipped paddle
           // copies. An SVG group's bounds include geometry outside clip paths.
-          canoe: bounds(document.querySelector('[data-canoe-hull]')), head: bounds(document.querySelector('[data-canoe-head]')),
+          ...(scene && { canoe: bounds(document.querySelector('[data-canoe-hull]')), head: bounds(document.querySelector('[data-canoe-head]')),
           lakeBounds: { left:point(100, 35), right:point(335, 132), surface:point(100, 114) },
-          layeredCanoe: !!document.querySelector('[data-canoe-hull]') && !!document.querySelector('[data-canoe-paddle]') && !scene.querySelector('foreignObject, image, img'),
+          layeredCanoe: !!document.querySelector('[data-canoe-hull]') && !!document.querySelector('[data-canoe-paddle]') && !scene.querySelector('foreignObject, image, img') }),
           error: window.remotion_cancelledError,
           regions: [...document.querySelectorAll('[data-dam-region]')].map(el => ({ name: el.dataset.damRegion, ...bounds(el) })),
           text: [...document.querySelectorAll('[data-dam-text]')].map(el => { const range=document.createRange(); range.selectNodeContents(el); return {text:el.textContent,...bounds(range),parent:bounds(el.closest('[data-dam-region]'))}; }),
           copy: document.querySelector('[data-dam-safe]').textContent,
-          windows: document.querySelector('[data-dam-windows]').textContent,
-          hourCount: document.querySelectorAll('[data-dam-hour]').length,
+          windows: document.querySelector('[data-dam-windows]')?.textContent,
+          bars: [...document.querySelectorAll('[data-dam-hour]')].map(el => ({ height: el.height.baseVal.value, y: el.y.baseVal.value })),
           imageLoaded: [...document.querySelectorAll('img')].every(el => el.complete && el.naturalWidth > 0),
         };
       });
       assert.ok(!result.error, result.error);
       assert.ok(result.imageLoaded, 'Eddy logo loads');
-      assert.ok(result.layeredCanoe, 'Eddy and canoe are layered vector artwork, not an image overlay');
-      check(result.canoe.left >= result.lakeBounds.left.x && result.canoe.right < result.lakeBounds.right.x && result.canoe.top > result.lakeBounds.left.y && result.canoe.bottom > result.lakeBounds.surface.y && result.canoe.bottom < result.lakeBounds.right.y, `${platform}/${name}@${frame}: hull stays on the lake surface: ${JSON.stringify(result.canoe)}`);
-      check(result.head.top > result.lakeBounds.left.y && result.head.bottom < result.lakeBounds.surface.y && result.head.left > result.canoe.left && result.head.right < result.canoe.right, `${platform}/${name}@${frame}: Eddy sits above the hull: ${JSON.stringify(result.head)}`);
-      assert.equal(result.hourCount, 24);
-      assert.ok(result.text.length >= 12, 'layout assertions must inspect rendered copy');
+      if (name !== 'release') {
+        assert.ok(result.layeredCanoe, 'Eddy and canoe are layered vector artwork, not an image overlay');
+        check(result.canoe.left >= result.lakeBounds.left.x && result.canoe.right < result.lakeBounds.right.x && result.canoe.top > result.lakeBounds.left.y && result.canoe.bottom > result.lakeBounds.surface.y && result.canoe.bottom < result.lakeBounds.right.y, `${platform}/${name}@${frame}: hull stays on the lake surface: ${JSON.stringify(result.canoe)}`);
+        check(result.head.top > result.lakeBounds.left.y && result.head.bottom < result.lakeBounds.surface.y && result.head.left > result.canoe.left && result.head.right < result.canoe.right, `${platform}/${name}@${frame}: Eddy sits above the hull: ${JSON.stringify(result.head)}`);
+      }
+      assert.equal(result.bars.length, name === 'release' || name === 'forecast' ? 0 : 24);
+      for (const [i, bar] of result.bars.entries()) {
+        const plotHeight = bar.y + bar.height;
+        assert.ok(Math.abs(plotHeight - (result.bars[0].y + result.bars[0].height)) < 0.001, 'common baseline');
+        if (hours[i]) assert.ok(Math.abs(bar.height / plotHeight - hourlyMw[i] / 230) < 0.001, 'hourly MW on the fixed capacity scale');
+        else assert.ok(bar.height / plotHeight < 0.05, 'idle and minimum flow stay at the baseline');
+      }
+      assert.ok(result.text.length >= (name === 'release' || name === 'forecast' ? 8 : 12), 'layout assertions must inspect rendered copy');
       const safe = platform === 'instagram' ? { top:250, bottom:1620, left:60, right:1020 } : { top:180, bottom:1500, left:60, right:810 };
       for (const rect of [...result.regions, ...result.text]) {
         check(rect.left >= safe.left-1 && rect.right <= safe.right+1 && rect.top >= safe.top-1 && rect.bottom <= safe.bottom+1, `${platform}/${name}@${frame}: outside safe bounds: ${JSON.stringify(rect)}`);
@@ -121,7 +143,11 @@ try {
       if (initialCopy === undefined) initialCopy = result.copy;
       assert.equal(result.copy, initialCopy, 'facts remain visible for the whole clip');
       assert.match(result.copy, /SAMPLE/);
-      assert.doesNotMatch(result.copy, /hours posted|At the dam|downstream water-level forecast|DESIGN PREVIEW/);
+      if (name === 'forecast') { assert.match(result.copy, /Wolf Creek Dam.*Generation forecast/); assert.doesNotMatch(result.copy, /SWPA|MW/); }
+      else if (name === 'release') { assert.match(result.copy, /Bagnell Dam.*Measured release6,000 cfs/); assert.doesNotMatch(result.copy, /SWPA|MW/); }
+      else assert.match(result.copy, /0–230 MW/);
+      if (name === 'twelve') assert.match(result.copy, /Robert S. Kerr Lock & Dam/);
+      assert.doesNotMatch(result.copy, /Illustration|not live|hours posted|At the dam|downstream water-level forecast|DESIGN PREVIEW/i);
       if (name === 'noon') {
         assert.equal(result.windows, 'Noon–8 PM');
         assert.match(result.copy, /8 hours scheduled/);
@@ -138,7 +164,7 @@ try {
   }
   assert.deepEqual(errors, []);
   assert.deepEqual([...layoutErrors], []);
-  console.log('Dam story: 20 fixtures × 6 frames; safe bounds, layered canoe, complete windows and static copy passed.');
+  console.log('Dam story: 24 fixtures × 6 frames; safe bounds, layered canoe, complete windows and static copy passed.');
 } finally {
   if (browser) await browser.close();
   if (server) await new Promise(r => server.close(r));

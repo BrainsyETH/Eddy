@@ -1,31 +1,79 @@
-import { isDamStory } from '@shared/social-dam-schedule';
+import { regenerateDamPost } from '@/lib/social/dam-story';
+import { isDamStory, isMeasuredReleaseVideo } from '@shared/social-dam-schedule';
 import { withAdminMutation } from '@/lib/admin/mutation-audit';
 
 import { isDailyReport, reportIsCurrent } from '@/lib/social/daily-report';
-import { triggerReportRender } from '@/lib/social/daily-report-dispatch';
 // Review, retry publication, or rerender the saved composition without changing media type.
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { getAdminIdentity, requireAdminAuth } from '@/lib/admin-auth';
 import { getAdapter } from '@/lib/social/adapters';
 import { triggerVideoRender, destinationRenderRequest } from '@/lib/social/video-renderer';
-import { savedPostMedia } from '@/lib/social/review';
+import { draftSendTime } from '@/lib/social/draft-time';
+import { checkedMedia, sendReviewedPost } from '@/lib/social/send-reviewed';
+import { StaleDamError, StaleReleaseError } from '@/lib/social/review';
 import type { SocialPlatform } from '@/lib/social/types';
-import { outcomeFields, providerAttemptRecorder, thrownFields } from '@/lib/social/publish-outcome';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 async function handlePOST(request: NextRequest) {
   const authError = await requireAdminAuth(request);
   if (authError) return authError;
   const body = await request.json().catch(() => null);
   if (!body?.id) return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
   const action = body.action ?? 'retry';
-  if (!['approve', 'retry', 'render', 'resolve'].includes(action)) return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+  if (!['approve', 'retry', 'render', 'resolve', 'schedule', 'unschedule', 'regenerate'].includes(action)) return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   const supabase = createAdminClient();
   const { data: post } = await supabase.from('social_posts').select('*').eq('id', body.id).single();
   if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
-  const expected = action === 'approve' ? 'review' : action === 'resolve' ? 'unknown' : 'failed';
+  const damRender = isDamStory(post.render_request) ? post.render_request : null;
+  if (damRender && getAdminIdentity(request)?.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can send a dam video.' }, { status: 403 });
+  }
+  // A regenerated video replaces the one the reviewer was looking at.
+  if (['approve', 'retry', 'regenerate', 'schedule'].includes(action) && damRender &&
+      (isMeasuredReleaseVideo(damRender) || body.expectedAttempt !== undefined) &&
+      (body.expectedAttempt ?? null) !== (damRender.attemptId ?? null)) {
+    return NextResponse.json({ error: 'A new version is available. Review it before continuing.' }, { status: 409 });
+  }
+  if (action === 'regenerate') {
+    if (!damRender || !['review', 'failed'].includes(post.status)) {
+      return NextResponse.json({ error: 'This draft cannot be regenerated. Refresh the queue.' }, { status: 409 });
+    }
+    const result = await regenerateDamPost(supabase, post, post.status as 'review' | 'failed');
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: /start rendering/.test(result.error) ? 502 : 409 });
+    return NextResponse.json({ success: true, rendering: true }, { status: 202 });
+  }
+
+  // A send time chosen with the video can be withdrawn while it renders. The video then waits for review.
+  if (action === 'unschedule' && post.status === 'rendering' && post.scheduled_at) {
+    const { data, error } = await supabase.from('social_posts').update({ scheduled_at: null, updated_at: new Date().toISOString() })
+      .eq('id', post.id).eq('status', 'rendering').select('id');
+    if (error || !data?.length) return NextResponse.json({ error: error?.message ?? 'Already handled. Refresh the queue.' }, { status: 409 });
+    return NextResponse.json({ success: true, scheduledAt: null });
+  }
+
+  const expected = action === 'unschedule' ? 'scheduled' : action === 'approve' || action === 'schedule' ? 'review' : action === 'resolve' ? 'unknown' : 'failed';
   if (post.status !== expected) return NextResponse.json({ error: `Post is no longer ${expected}. Refresh its status.` }, { status: 409 });
+
+  if (action === 'schedule' || action === 'unschedule') {
+    let scheduledAt = null;
+    if (action === 'schedule') {
+      try {
+        scheduledAt = draftSendTime(body.time, post.render_request);
+        if (!getAdapter(post.platform as SocialPlatform)) throw new Error('Platform is not connected.');
+        await checkedMedia(post);
+      } catch (err) {
+        return NextResponse.json({ error: (err as Error).message,
+          ...(err instanceof StaleDamError && { code: err instanceof StaleReleaseError ? 'stale_release' : 'stale_dam' }) }, { status: 400 });
+      }
+    }
+    const { data, error } = await supabase.from('social_posts').update({
+      status: scheduledAt ? 'scheduled' : 'review', scheduled_at: scheduledAt, auto_publish: false, updated_at: new Date().toISOString(),
+    }).eq('id', post.id).eq('status', expected).select('id');
+    if (error || !data?.length) return NextResponse.json({ error: error?.message ?? 'Already handled. Refresh the queue.' }, { status: 409 });
+    return NextResponse.json({ success: true, scheduledAt });
+  }
 
   // An admin settling an `unknown` post after checking the account. "Not
   // posted" moves it to failed, which is what makes a retry possible; nothing
@@ -46,12 +94,13 @@ async function handlePOST(request: NextRequest) {
 
   if (action === 'render') {
     const saved = post.render_request;
-    if (isDamStory(saved)) return NextResponse.json({ error: 'Create a new video to use the latest schedule.' }, { status: 409 });
+    if (isDamStory(saved)) return NextResponse.json({ error: 'Create a new video to use the latest dam data.' }, { status: 409 });
     if (isDailyReport(saved)) {
       if (!reportIsCurrent(saved)) return NextResponse.json({ error: 'This Daily Report is out of date. Generate a new draft with current readings.' }, { status: 409 });
       const report = { ...saved, imageUrls: undefined };
       const { data, error } = await supabase.from('social_posts').update({ status: 'rendering', auto_publish: false, image_url: null, render_request: JSON.parse(JSON.stringify(report)), error_message: null, updated_at: new Date().toISOString() }).eq('id', post.id).eq('status', expected).select('id');
       if (error || !data?.length) return NextResponse.json({ error: 'Already handled' }, { status: 409 });
+      const { triggerReportRender } = await import('@/lib/social/daily-report-dispatch');
       const dispatched = await triggerReportRender([post.id]).catch(() => false);
       if (!dispatched) await supabase.from('social_posts').update({ status: 'failed', error_message: 'Carousel render could not start' }).eq('id', post.id).eq('status', 'rendering');
       return NextResponse.json({ success: dispatched, rendering: dispatched }, { status: dispatched ? 200 : 502 });
@@ -74,28 +123,8 @@ async function handlePOST(request: NextRequest) {
     }
   }
 
-  let media;
-  try { media = savedPostMedia(post); }
-  catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 409 }); }
-  const adapter = getAdapter(post.platform as SocialPlatform);
-  if (!adapter) return NextResponse.json({ error: 'Platform is not connected' }, { status: 400 });
-  const { data: claimed, error: claimError } = await supabase.from('social_posts')
-    .update({ status: 'publishing', retry_count: (post.retry_count ?? 0) + (action === 'retry' ? 1 : 0), updated_at: new Date().toISOString() })
-    .eq('id', post.id).eq('status', expected).select('id');
-  if (claimError || !claimed?.length) return NextResponse.json({ error: claimError?.message ?? 'Already handled' }, { status: 409 });
-  try {
-    const result = await adapter.publishPost({ ...media, onProviderAttempt: providerAttemptRecorder(supabase, post.id) });
-    // An ambiguous failure is recorded as `unknown`, never `failed`: see publish-outcome.ts.
-    const { error } = await supabase.from('social_posts').update(outcomeFields(result)).eq('id', post.id).eq('status', 'publishing');
-    // A successful platform call with a failed receipt must never encourage an immediate repost.
-    if (error) return NextResponse.json({ error: 'Could not save the delivery receipt. Check the platform before retrying.' }, { status: 502 });
-    return NextResponse.json(result, { status: result.success ? 200 : 502 });
-  } catch (error) {
-    // A throw does not prove the platform refused the post.
-    const message = error instanceof Error ? error.message : 'Publishing failed';
-    await supabase.from('social_posts').update(thrownFields(error)).eq('id', post.id).eq('status', 'publishing');
-    return NextResponse.json({ error: `Outcome unknown — check the account before retrying. (${message})` }, { status: 502 });
-  }
+  const result = await sendReviewedPost(supabase, post, action === 'approve' ? 'review' : 'failed');
+  return NextResponse.json(result.body, { status: result.status });
 }
 
 export const POST = withAdminMutation(handlePOST);

@@ -5,7 +5,7 @@ import { adminFetch } from '@/hooks/useAdminAuth';
 export default function DamVideoDownload({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  return <div className="mt-4"><button disabled={busy} className="px-4 py-2 rounded bg-primary-600 text-white disabled:opacity-50" onClick={async () => {
+  return <div><button disabled={busy} className="admin-secondary px-3 rounded" onClick={async () => {
     setBusy(true); setError('');
     try {
       const response = await adminFetch(`/api/admin/social/dam-schedule/${id}/download`);

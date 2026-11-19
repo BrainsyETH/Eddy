@@ -48,11 +48,11 @@ import { serviceContactActions, type ServiceContactAction } from '@/lib/serviceC
 // (as this once did) put white text inside a white halo on dark mode: a map full
 // of invisible labels.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { MapPlacesSheet } from '@/components/MapPlacesSheet';
 import { gestureStarted, pointNeedsReveal } from './mapInteraction';
-import { nearestHitId, pinStacks, stackTap, type HitCandidate, type PinStack, type StackCandidate } from './pinStacks';
+import { nearestHitId, STACK_RADIUS, stackLevels, stackTap, type HitCandidate, type StackCandidate, type StackLevel } from './pinStacks';
 import { PublicLandCallout } from './PublicLandCallout';
 import type {
   CampsiteAvailabilitySummary,
@@ -191,6 +191,8 @@ const LAYER_SHAPE: Record<PinLayerKey, PinShape> = {
   dams: 'dam',
   allGauges: 'dot',
 };
+/** Every pin source, one per pin layer: the keys of the table above. */
+const PIN_LAYER_KEYS = Object.keys(LAYER_SHAPE) as PinLayerKey[];
 
 /** How far a bottom-anchored mark's badge rides up behind its bulb, in pt. */
 const ACCESS_BADGE_LIFT = 11;
@@ -946,8 +948,9 @@ interface Props {
   placesListOpen?: boolean;
   onClosePlacesList?: () => void;
   /**
-   * The camera as of its last stop. Overlapping places are grouped into
-   * numbered stacks at this zoom, and the places list reads its bounds.
+   * The camera as of its last stop. The places list reads its bounds, and a
+   * tap reads its zoom when the live camera has not reported one. The
+   * numbered stacks do not read it: they are grouped ahead for every zoom.
    */
   visibleViewport?: { bounds: MapBounds; zoom: number };
 }
@@ -1403,82 +1406,193 @@ export function RiverMap({
    * everything and kept out of every count, their triangles sat over the
    * numbers and outranked the map they annotate.
    *
-   * Computed from the camera's last STOP, never per frame, and padded like
-   * the gauge request box so a mark just off screen still groups with its
-   * neighbour on screen.
+   * ── PRECOMPUTED FOR EVERY ZOOM; MAPBOX PICKS THE LEVEL ────────────────────
+   *
+   * A stack is a function of two things: the places, and the whole zoom the
+   * map is drawn at. That is the contract native clustering keeps below
+   * ZOOM.cluster — counts regroup the instant a pinch crosses a whole level,
+   * and a pan never regroups anything — and the stacks keep it too.
+   *
+   * They used to be computed from the camera's last STOP, over the stopped
+   * viewport. On a device that read as the POIs loading badly: during a pinch
+   * the native counts below z8 regrouped live while the stacks above it sat
+   * frozen at the old zoom, then snapped when the finger lifted; a pinch
+   * across z8 drew every member as a loose dot until the camera stopped; and
+   * a zoom-out showed the newly visible ring unstacked. Regrouping in
+   * JavaScript at each level crossing fixed the waiting but still trailed the
+   * native counts by a bridge round trip.
+   *
+   * So every level is grouped ahead (stackLevels: from ZOOM.cluster up to the
+   * level where nothing can change, the last entry standing for every zoom
+   * above it), over every place that is on, wherever it is. The stack source
+   * holds every level's badges tagged with their level, and every pin layer's
+   * filter hides each level's members; both are `step` expressions over
+   * ['zoom'], which Mapbox evaluates per tile at the tile's whole zoom — the
+   * same moment its own clusters regroup. A pinch never waits on JavaScript.
+   *
+   * What it costs: one grouping pass per level whenever the PLACES change —
+   * a layer toggle, the plan's endpoints, the selection, a national-tier
+   * refill — and never for the camera itself. The refill is the one a camera
+   * stop can cause: with "Other USGS gauges" on, a stop that moves the padded
+   * area swaps that layer's stations, from its floor at ZOOM.min up, and
+   * every level regroups. The selection and the national tier
+   * reach it deferred (useDeferredValue), so a tap or a camera stop renders
+   * first and the regroup follows; meanwhile the selected place is drawn on
+   * top by its own source, so a stale stack under it does not show.
+   *
+   * ── ONE SNAPSHOT OF THE NATIONAL TIER ──────────────────────────────────
+   *
+   * The deferred tier is not only what the stacks group: it is what the
+   * reference source draws and what a tap looks up (referenceShape, byId).
+   * The stacks once grouped the deferred list while the source and the tap
+   * lookup read the current one, so a chip filter or a viewport refill could
+   * drop a gauge while the badge counting it was still on screen — a badge
+   * reading 2 opened a chooser listing 1. Every reader takes the same
+   * snapshot now; the tier as a whole trails a refill by one deferred render,
+   * which nobody can see. The selection needs no such care: the place it
+   * names stays in byId, so a stack still counting it lists it.
    */
-  const stacks = useMemo<PinStack[]>(() => {
-    if (!visibleViewport || visibleViewport.zoom < ZOOM.cluster) return [];
-    const { bounds: [west, south, east, north], zoom } = visibleViewport;
-    const padLng = (east - west) * 0.2;
-    const padLat = (north - south) * 0.2;
+  const stackSelectedId = useDeferredValue(selectedPinId);
+  const drawnReferenceGauges = useDeferredValue(referenceGauges);
+  const stackLevelList = useMemo<{ levels: StackLevel[]; sourceOf: Map<string, PinLayerKey> }>(() => {
     // Every clustered source breaks at ZOOM.cluster (see NATIVE_CLUSTER_MAX_ZOOM),
-    // so above the guard at the top of this memo every layer's marks are
-    // individual and all of them may stack.
+    // so from that level up every layer's marks are individual and all of them
+    // may stack; below it the statewide index's native counts do this job.
     const candidates: StackCandidate[] = [];
-    const add = (list: readonly MapPin[] | null | undefined) => {
+    // Which pin SOURCE draws each member, so each layer's filter carries only
+    // its own members rather than every stacked ID on the map.
+    const sourceOf = new Map<string, PinLayerKey>();
+    const add = (list: readonly MapPin[] | null | undefined, source: PinLayerKey) => {
       for (const pin of list ?? []) {
-        if (!layers.includes(pin.layer) || pin.id === selectedPinId || endpointIds.has(pin.id)) continue;
-        const { lng, lat } = pin.coordinates;
-        if (lng < west - padLng || lng > east + padLng || lat < south - padLat || lat > north + padLat) continue;
-        candidates.push({ id: pin.id, lng, lat });
+        if (!layers.includes(pin.layer) || pin.id === stackSelectedId || endpointIds.has(pin.id)) continue;
+        if (sourceOf.has(pin.id)) continue;
+        sourceOf.set(pin.id, source);
+        candidates.push({ id: pin.id, lng: pin.coordinates.lng, lat: pin.coordinates.lat });
       }
     };
-    add(accessPins);
-    add(campgroundPins);
-    add(boatRampPins);
-    add(springPins);
-    add(outfitterPins);
-    add(lodgingPins);
-    add(gaugePins);
-    add(referenceGauges);
-    add(dams);
-    add(hazardPins);
-    return pinStacks(candidates, zoom);
+    add(accessPins, 'access');
+    add(campgroundPins, 'campgrounds');
+    add(boatRampPins, 'boatRamps');
+    add(springPins, 'springs');
+    add(outfitterPins, 'outfitters');
+    add(lodgingPins, 'lodging');
+    add(gaugePins, 'gauges');
+    add(drawnReferenceGauges, 'allGauges');
+    add(dams, 'dams');
+    add(hazardPins, 'hazards');
+    return { levels: stackLevels(candidates, ZOOM.cluster), sourceOf };
   }, [
-    visibleViewport, layers, selectedPinId, endpointIds, accessPins, campgroundPins,
-    boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, referenceGauges, dams, hazardPins,
+    layers, stackSelectedId, endpointIds, accessPins, campgroundPins,
+    boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, drawnReferenceGauges, dams, hazardPins,
   ]);
-  const stacksById = useMemo(() => new Map(stacks.map((stack) => [stack.id, stack])), [stacks]);
-  // PRIMITIVE KEYS, so a camera stop that regroups nothing re-uploads nothing.
-  // `stacks` is a new array on every stop; these strings only change when a
-  // stack forms, splits or moves.
-  const stackedKey = stacks.flatMap((stack) => stack.ids).sort().join('|');
-  const referenceIds = useMemo(() => new Set((referenceGauges ?? []).map((pin) => pin.id)), [referenceGauges]);
-  const stackFeaturesKey = JSON.stringify(stacks.map((stack) => [
-    stack.id, stack.ids.length, stack.lng, stack.lat,
-    stack.ids.every((member) => referenceIds.has(member)) ? 'usgs' : 'place',
-  ]));
+  // A stack's ID names its members, so the same group at two levels is the
+  // same stack (same members, same centre, same split zoom). A tap reads the
+  // ID off the badge Mapbox drew for the level on screen.
+  const stacksById = useMemo(
+    () => new Map(stackLevelList.levels.flatMap(({ stacks }) => stacks.map((stack) => [stack.id, stack] as const))),
+    [stackLevelList],
+  );
+  // PRIMITIVE KEYS, so a regroup that changes nothing re-uploads nothing.
+  // The memo above returns new arrays whenever its inputs change; these
+  // strings only change when a stack forms, splits or moves at some level.
+  // Built in memos of their own: they walk every member at every level, and
+  // as plain expressions they did that on every render — a sheet drag, a
+  // camera stop, the first render of a tap whose regroup is deferred.
+  const referenceIds = useMemo(() => new Set((drawnReferenceGauges ?? []).map((pin) => pin.id)), [drawnReferenceGauges]);
+  const stackFeaturesKey = useMemo(
+    () => JSON.stringify(stackLevelList.levels.map(({ level, stacks }) => [level, stacks.map((stack) => [
+      stack.id, stack.ids.length, stack.lng, stack.lat,
+      stack.ids.every((member) => referenceIds.has(member)) ? 'usgs' : 'place',
+    ])])),
+    [stackLevelList, referenceIds],
+  );
+  /** Per pin source: [level, sorted member IDs hidden at that level][]. */
+  const stackedKey = useMemo(() => {
+    const bySource = Object.fromEntries(PIN_LAYER_KEYS.map((source) => [source, [] as [number, string[]][]]));
+    for (const { level, stacks } of stackLevelList.levels) {
+      // One pass over the level's members, each to the source that draws it.
+      const members = Object.fromEntries(PIN_LAYER_KEYS.map((source) => [source, [] as string[]]));
+      for (const stack of stacks) {
+        for (const id of stack.ids) {
+          const source = stackLevelList.sourceOf.get(id);
+          if (source) members[source].push(id);
+        }
+      }
+      for (const source of PIN_LAYER_KEYS) bySource[source].push([level, members[source].sort()]);
+    }
+    return JSON.stringify(bySource);
+  }, [stackLevelList]);
   /**
    * ── STACKED MEMBERS ARE HIDDEN BY A FILTER, NOT BY THE DATA ─────────────
    *
-   * Stack membership changes on camera stops; the places themselves do not.
-   * Leaving the stacked ids out of each layer's shape tied every pin source
-   * to the camera: a pinch that merged one pair re-serialised every access,
+   * Stack membership changes with the zoom and the selection; the places
+   * themselves do not. Leaving the stacked ids out of each layer's shape tied
+   * every pin source to the stacks: a regroup re-serialised every access,
    * campground, gauge and reference-gauge feature and sent all of them across
-   * the bridge again. The shapes below now change only when their data does,
-   * and a stop that regroups changes this one small filter clause plus the
-   * stack source. Hit-testing is unchanged: a filtered feature is not
-   * rendered, so a tap cannot land on it, exactly as when it was absent.
+   * the bridge again. The shapes below change only when their data does, and
+   * a regroup changes these filters plus the stack source. Hit-testing is
+   * unchanged: a filtered feature is not rendered, so a tap cannot land on it.
    *
-   * Route endpoints are still left out of the data: they change only with the
-   * plan, never with the camera.
+   * Each filter is a top-level `step` over ['zoom'] — the form Mapbox accepts
+   * for zoom wherever it accepts it at all — with the layer's own condition
+   * (the selection, and for the national tier "not a count") repeated in
+   * every branch. Below ZOOM.cluster nothing is hidden. A stop is written
+   * only where the hidden set changes, so the zooms where every remaining
+   * stack is one spot add nothing.
+   *
+   * A `match`, not `in`: Mapbox evaluates `in` over a literal array by
+   * scanning it for every feature, where `match` compiles its labels into a
+   * lookup. Labels must be unique or the expression fails to parse and the
+   * layer draws nothing — they are, since a place is drawn by one source and
+   * sits in one stack per level.
+   *
+   * Memoised whole, per source, so a render that changes neither the stacks
+   * nor the selection hands every layer the same filter object and nothing
+   * crosses the bridge. Route endpoints are still left out of the data: they
+   * change only with the plan, never with the camera.
    */
-  const notStacked = useMemo(
-    () => ['!', ['in', ['get', 'id'], ['literal', stackedKey ? stackedKey.split('|') : []]]],
-    [stackedKey],
-  );
+  const stackFilters = useMemo(() => {
+    const hidden = JSON.parse(stackedKey) as Record<string, [number, string[]][]>;
+    const notSelected = ['!=', ['get', 'id'], selectedPinId ?? ''];
+    const build = (source: PinLayerKey, condition: unknown[]) => {
+      const base = condition.length ? ['all', ...condition, notSelected] : notSelected;
+      const stops: unknown[] = [];
+      let previous = '';
+      for (const [level, ids] of hidden[source] ?? []) {
+        const key = ids.join('|');
+        if (key === previous) continue;
+        previous = key;
+        stops.push(level, ids.length ? ['all', base, ['match', ['get', 'id'], ids, false, true]] : base);
+      }
+      return stops.length ? ['step', ['zoom'], base, ...stops] : base;
+    };
+    return {
+      solo: Object.fromEntries(PIN_LAYER_KEYS.map((source) => [source, build(source, [])])) as Record<PinLayerKey, unknown[]>,
+      // The national tier's dots and labels share a source with its counts.
+      referenceSolo: build('allGauges', [['!', ['has', 'point_count']]]),
+    };
+  }, [stackedKey, selectedPinId]);
   const stackShape = useMemo(() => ({
     type: 'FeatureCollection' as const,
-    features: (JSON.parse(stackFeaturesKey) as [string, number, number, number, string][]).map(
-      ([id, count, lng, lat, face]) => ({
+    features: (JSON.parse(stackFeaturesKey) as [number, [string, number, number, number, string][]][]).flatMap(
+      ([level, stacks]) => stacks.map(([id, count, lng, lat, face]) => ({
         type: 'Feature' as const,
-        id,
-        properties: { id, count, face },
+        id: `${level}:${id}`,
+        properties: { id, count, face, level },
         geometry: { type: 'Point' as const, coordinates: [lng, lat] },
-      }),
+      })),
     ),
   }), [stackFeaturesKey]);
+  /**
+   * Which level's badges draw: the whole zoom on screen, from ZOOM.cluster,
+   * with the last computed level standing for every zoom above it.
+   */
+  const stackLevelFilter = useMemo(() => {
+    const levels = (JSON.parse(stackFeaturesKey) as [number, unknown[]][]).map(([level]) => level);
+    return levels.length
+      ? ['step', ['zoom'], false, ...levels.flatMap((level) => [level, ['==', ['get', 'level'], level]])]
+      : ['==', ['get', 'level'], -1];
+  }, [stackFeaturesKey]);
 
   /**
    * Each pin layer's FeatureCollection, built once per change of its inputs.
@@ -1541,8 +1655,8 @@ export function RiverMap({
   // reference gauges per sheet settle. Same argument, and same fix, as every
   // memo above it.
   const referenceShape = useMemo(
-    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges')),
-    [referenceGauges],
+    () => featureCollection(drawnReferenceGauges ?? [], layerColorFor('allGauges')),
+    [drawnReferenceGauges],
   );
 
   /**
@@ -1654,13 +1768,14 @@ export function RiverMap({
     // so onContextPress looked up an id that could never be found, and every
     // tap on a reference gauge silently did nothing. The layer drew fine, which
     // is what made it read as "these just are not clickable".
-    for (const pin of referenceGauges ?? []) map.set(pin.id, pin);
+    // The drawn snapshot, the one the stacks group: see ONE SNAPSHOT.
+    for (const pin of drawnReferenceGauges ?? []) map.set(pin.id, pin);
     // Dams too, for the identical reason — they are built by the screen and
     // would otherwise draw fine and be untappable.
     for (const pin of dams ?? []) map.set(pin.id, pin);
     for (const { pin } of endpointPins) map.set(pin.id, pin);
     return map;
-  }, [pins, referenceGauges, dams, endpointPins]);
+  }, [pins, drawnReferenceGauges, dams, endpointPins]);
 
   const endpointFeatures = useMemo(() => ({
     type: 'FeatureCollection' as const,
@@ -2264,8 +2379,8 @@ export function RiverMap({
      * together (see statewideIndexLayer).
      */
     // Stacked members draw as their stack's number, not as themselves; see
-    // notStacked.
-    const solo = unselected(notStacked);
+    // stackFilters.
+    const solo = stackFilters.solo[id];
     return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
@@ -2406,6 +2521,10 @@ export function RiverMap({
         shape={layerOn('allGauges') ? referenceShape : EMPTY_COLLECTION}
         ref={clusterSourceRefs['pins-allGauges']}
         cluster
+        // 50, not STACK_RADIUS: these counts are their own population, never
+        // mixed with Eddy's, so no stack rule continues from them. From
+        // ZOOM.cluster up the stations join the cross-layer stacks, where one
+        // can share a badge with a place for the first time.
         clusterRadius={50}
         // Breaks at ZOOM.cluster, like every other clustered layer. It was 11 —
         // three rungs later than the access points beside it — so panning in
@@ -2432,7 +2551,7 @@ export function RiverMap({
         />
         <Mapbox.CircleLayer
           id={pinHitLayerId('pins-allGauges-dot')}
-          filter={unselected(['all', ['!', ['has', 'point_count']], notStacked])}
+          filter={stackFilters.referenceSolo}
           minZoomLevel={ZOOM.min}
           style={{
             circleColor: ['get', 'color'],
@@ -2454,7 +2573,7 @@ export function RiverMap({
         />
         <Mapbox.SymbolLayer
           id={pinHitLayerId('pins-allGauges-label')}
-          filter={unselected(['all', ['!', ['has', 'point_count']], notStacked])}
+          filter={stackFilters.referenceSolo}
           // ZOOM.names, with every other label on the map. This tier used to
           // name its dots the moment they stopped being bubbles, which put
           // fourteen thousand place names on screen two rungs before anything
@@ -2497,11 +2616,17 @@ export function RiverMap({
       shape={shape}
       ref={clusterSourceRefs['pins-statewide-index']}
       cluster
-      // 46: between access's old 42 and the national tier's 50. The index holds
-      // more members in the same ground than any single layer did, and a radius
-      // that groups them too tightly leaves a scatter of near-touching counts
-      // where one belongs.
-      clusterRadius={46}
+      // STACK_RADIUS (56, the web planner's), the same rule the numbered stacks
+      // apply from ZOOM.cluster up — both measure 512pt-tile points at the whole
+      // zoom. It was 46, and the counts then changed rule at the very rung
+      // where they hand over to the stacks: a pinch across z8 broke one set of
+      // groups into a differently-sized set, on top of the regroup every whole
+      // level brings. One radius makes that crossing an ordinary level change
+      // for every Eddy layer. The national tier (contextGaugeLayer) keeps its
+      // own 50pt counts below the rung and joins the stacks above it, so a
+      // station and a place can first share a badge at z8 — see the README's
+      // map interaction contract.
+      clusterRadius={STACK_RADIUS}
       clusterMaxZoomLevel={NATIVE_CLUSTER_MAX_ZOOM}
     >
       <Mapbox.SymbolLayer
@@ -2559,7 +2684,7 @@ export function RiverMap({
     >
       <Mapbox.CircleLayer
         id={pinHitLayerId('pins-access-overview')}
-        filter={unselected(notStacked)}
+        filter={stackFilters.solo.access}
         // The statewide index draws everything below here. Without the floor the
         // two would both paint at statewide zoom — bubbles with a full scatter
         // of dots under them, which is the crowding this was meant to end.
@@ -2579,7 +2704,7 @@ export function RiverMap({
           exactly as the endpoint's does. */}
       <Mapbox.CircleLayer
         id={pinHitLayerId('pins-access-badge')}
-        filter={unselected(notStacked)}
+        filter={stackFilters.solo.access}
         minZoomLevel={ZOOM.places}
         style={{
           circleRadius: 13,
@@ -2592,7 +2717,7 @@ export function RiverMap({
       />
       <Mapbox.SymbolLayer
         id={pinHitLayerId('pins-access-icon')}
-        filter={unselected(notStacked)}
+        filter={stackFilters.solo.access}
         minZoomLevel={ZOOM.places}
         style={{
           iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
@@ -2607,7 +2732,7 @@ export function RiverMap({
           dialog; at overview zoom it is the dimmed circle below. */}
       <Mapbox.SymbolLayer
         id={pinHitLayerId('pins-access-label')}
-        filter={unselected(notStacked)}
+        filter={stackFilters.solo.access}
         minZoomLevel={ZOOM.names}
         style={{
           textField: ['get', 'label'],
@@ -3070,6 +3195,7 @@ export function RiverMap({
             why a separate count layer drew underneath the face. */}
         <Mapbox.SymbolLayer
           id={pinHitLayerId('pins-stacks-face')}
+          filter={stackLevelFilter}
           style={{
             // A stack of nothing but USGS reference gauges wears their
             // parchment face, as their own counts do; any Eddy member makes it

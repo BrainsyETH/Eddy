@@ -8,7 +8,9 @@ import { outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } fr
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform } from '@/lib/social/types';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
+import { savedPostMedia } from '@/lib/social/review';
 import { isDamStory } from '@shared/social-dam-schedule';
+import { socialAlert } from '@/lib/social/alert';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +49,9 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const results: Array<{ postId: string; platform: string; success: boolean; error?: string }> = [];
 
-  for (const postId of postIds) {
+  for (const target of postIds) {
+    // Regeneration keeps the same review row. Only the dispatched render may complete it.
+    const [postId, attemptId] = target.split(':');
     // Fetch the post record
     const { data: post, error: fetchError } = await supabase
       .from('social_posts')
@@ -63,19 +67,19 @@ export async function POST(request: NextRequest) {
 
     const platform = post.platform as SocialPlatform;
 
-    if (post.status !== 'rendering') { results.push({ postId, platform, success: true }); continue; }
+    if (post.status !== 'rendering' || (post.render_request?.attemptId ?? undefined) !== attemptId) { results.push({ postId, platform, success: true }); continue; }
+
+    function saveRender(fields: Record<string, unknown>) {
+      const update = supabase.from('social_posts').update({ ...fields, updated_at: new Date().toISOString() })
+        .eq('id', postId).eq('status', 'rendering');
+      return attemptId ? update.eq('render_request->>attemptId', attemptId) : update.is('render_request->>attemptId', null);
+    }
 
     // Handle render failure — do NOT fall back to image; fail loudly
     if (status === 'failed') {
       console.error(`${LOG_PREFIX} Render failed for ${postId} (${platform}): ${error}`);
-      await supabase
-        .from('social_posts')
-        .update({
-          status: 'failed',
-          error_message: error || 'Video render failed — no fallback',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', postId).eq('status', 'rendering');
+      await saveRender({ status: 'failed', error_message: error || 'Video render failed — no fallback' });
+      if (post.scheduled_at) await socialAlert(`:rotating_light: A timed social post could not be rendered and will not go out (${platform}, ${postId}): ${error || 'render failed'}`);
       results.push({ postId, platform, success: false, error: error || 'Render failed' });
       continue;
     }
@@ -90,22 +94,21 @@ export async function POST(request: NextRequest) {
     if (!audioAudible) {
       const reason = `audio not verified (audioKib=${audioKib ?? 'n/a'}, silence=${totalSilenceS ?? 'n/a'}s)`;
       console.error(`${LOG_PREFIX} Rejecting ${postId} (${platform}): ${reason}`);
-      await supabase
-        .from('social_posts')
-        .update({
-          status: 'failed',
-          error_message: `Video not published — ${reason}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', postId).eq('status', 'rendering');
+      await saveRender({ status: 'failed', error_message: `Video not published — ${reason}` });
       results.push({ postId, platform, success: false, error: reason });
       continue;
     }
 
     if (post.auto_publish === false || isDamStory(post.render_request)) {
-      const { error: reviewError } = await supabase.from('social_posts')
-        .update({ video_url: videoUrl, status: 'review', error_message: null, updated_at: new Date().toISOString() })
-        .eq('id', postId).eq('status', 'rendering');
+      // A send time chosen with a dam video is the owner's approval, given in
+      // advance: the publisher checks the source again before it sends. If the
+      // time was withdrawn while this rendered, the video waits for review.
+      if (isDamStory(post.render_request) && post.scheduled_at) {
+        const { data: timed } = await saveRender({ video_url: videoUrl, status: 'scheduled', auto_publish: false, error_message: null })
+          .eq('scheduled_at', post.scheduled_at).select('id');
+        if (timed?.length) { results.push({ postId, platform, success: true }); continue; }
+      }
+      const { error: reviewError } = await saveRender({ video_url: videoUrl, status: 'review', error_message: null });
       results.push({ postId, platform, success: !reviewError, error: reviewError?.message });
       continue;
     }
@@ -119,16 +122,7 @@ export async function POST(request: NextRequest) {
     // retry routinely arrives while the first publish is still in flight (or
     // already done). Without this guard that retry double-posted to Meta and
     // orphaned the first post (DB keeps only the last platform_post_id).
-    const { data: claimed } = await supabase
-      .from('social_posts')
-      .update({
-        video_url: videoUrl,
-        status: 'publishing',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', postId)
-      .eq('status', 'rendering')
-      .select('id');
+    const { data: claimed } = await saveRender({ video_url: videoUrl, status: 'publishing' }).select('id');
 
     if (!claimed || claimed.length === 0) {
       console.log(`${LOG_PREFIX} ${postId} (${platform}) already claimed by a prior callback — skipping to avoid a duplicate post`);
@@ -153,10 +147,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const result = await adapter.publishPost({
-        caption: post.caption,
-        videoUrl,
-        coverUrl: post.image_url || undefined,
-        mediaType: 'video',
+        ...savedPostMedia({ ...post, media_type: 'video', video_url: videoUrl }),
         onProviderAttempt: providerAttemptRecorder(supabase, postId),
       });
 
