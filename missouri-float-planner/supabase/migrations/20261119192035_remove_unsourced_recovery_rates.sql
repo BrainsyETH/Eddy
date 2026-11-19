@@ -1,6 +1,10 @@
--- 20261119200000_remove_unsourced_recovery_rates.sql
+-- 20261119192035_remove_unsourced_recovery_rates.sql
 --
--- NOT YET APPLIED. Listed under [pending] in production-migrations.txt.
+-- Applied to production 2026-11-19 as 20261119192035, on the owner's word
+-- ("delete all eight"). Read back afterwards: no river carries a
+-- drop_rate_note, and the ten river notes beside them are untouched. Written
+-- as 20261119200000 and renamed to the version production recorded. The
+-- statement production holds is the `do` block below under a shorter comment.
 --
 -- Clears river_characteristics.drop_rate_note on eight rivers, and only on
 -- those eight, and only while each still holds the text recorded here.
