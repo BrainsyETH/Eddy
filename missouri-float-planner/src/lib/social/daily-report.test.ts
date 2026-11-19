@@ -33,6 +33,7 @@ test('paused automatic dispatch does not insert drafts or start a renderer', asy
       if (name === 'server-only') return {};
       if (name === './daily-report') return { ...reportHelpers, dailyReportAutoPublishEnabled: () => false };
       if (name === '@/lib/supabase/admin') return { createAdminClient: () => { throw new Error('Paused dispatch must not access the database'); } };
+      if (name === './post-scheduler') return { postsFromToday: () => { throw new Error('Paused dispatch must not read earlier reports'); } };
       throw new Error(`Unexpected dependency ${name}`);
     },
     fetch: () => { throw new Error('Paused dispatch must not start a render'); },
