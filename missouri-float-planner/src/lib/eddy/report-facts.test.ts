@@ -3,7 +3,7 @@ import { matchAlertsByTerms } from '../nws/alert-matching';
 import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, plainRelation, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine, reportIncompleteness } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, plainRelation, BELOW_OPTIMAL_NOTE, ladderLines, ladderPosition, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine, reportIncompleteness } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
 
 const input = {
@@ -81,7 +81,8 @@ test('section fallback cannot turn Van Buren into a Montauk/Akers assessment', (
 
 test('missing rating uses a factual unavailable fallback, not confident floatability', () => {
   const unknown = buildReportFacts({ ...input, gaugeHeightFt: null, dischargeCfs: null });
-  assert.match(guardReport(report('Dependable floating today.'), unknown).quoteText, /assessment is unavailable/);
+  const replaced = guardReport(report('Dependable floating today.'), unknown).quoteText;
+  assert.equal(replaced, 'The gauge at Van Buren, MO is not reporting right now. Without a reading there is no rating.');
 });
 
 
@@ -309,7 +310,7 @@ test('missing gauge still produces an alert-led location fallback without invent
   assert.ok(fallback);
   for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
     assert.match(fallback[field] ?? '', /^NWS Flood Warning for Example County/);
-    assert.match(fallback[field] ?? '', /Gauge assessment unavailable for Example River/);
+    assert.match(fallback[field] ?? '', /No gauge rating for Example River today\./);
     assert.doesNotMatch(fallback[field] ?? '', /Unknown at|at null|USGS/);
   }
 });
@@ -377,7 +378,13 @@ test('fallback prose names the station by its town and reads as sentences', () =
   // Its own label phrasing passes the guard it would otherwise trip.
   assert.deepEqual(reportContradictions(fallback, tooLow), ['unsupported-section']);
   const unknown = factualReportFallback(buildReportFacts({ ...input, gaugeName: 'Spring River at Imboden, AR', conditionCode: 'unknown', gaugeHeightFt: null, dischargeCfs: null }));
-  assert.equal(unknown.summaryText, 'The gauge at Imboden, AR has no usable condition reading right now.');
+  assert.equal(unknown.summaryText, 'The gauge at Imboden, AR is not reporting right now.');
+  // A reading with nothing to rate it against still reports the reading.
+  const unrated = factualReportFallback(buildReportFacts({ gaugeName: 'Elk River at Noel, MO', conditionCode: 'unknown', gaugeHeightFt: 3.21, dischargeCfs: null,
+    thresholds: { levelTooLow: null, levelLow: null, levelOptimalMin: null, levelOptimalMax: null, levelHigh: null, levelDangerous: null } }));
+  assert.equal(unrated.quoteText, 'The gauge at Noel, MO is at 3.21 ft. Eddy has no float rating for it.');
+  assert.equal(unrated.eddyRead, unrated.quoteText);
+  for (const text of [unknown.quoteText, unrated.quoteText]) assert.doesNotMatch(text, /assessment|matching measurement|thresholds/);
   assert.match(factualReportFallback(buildReportFacts({ ...input, gaugeName: 'Mystery Station' })).summaryText ?? '', /^The Mystery Station gauge reads Good\.$/);
 });
 
@@ -387,9 +394,14 @@ test('below-optimal guidance does not turn a range comparison into scraping advi
     const snapshot = buildReportFacts({ ...input, conditionCode });
     assert.equal(snapshot.relation, 'below');
     const comparison = plainRelation(snapshot)!;
-    assert.match(comparison, /comparison alone does not establish shallow water or scraping/);
     assert.doesNotMatch(comparison, /expect.*riffles|thin side|pick.*line|may.*touch/);
-    assert.ok(reportFactsPrompt(snapshot).includes(comparison));
+    const prompt = reportFactsPrompt(snapshot);
+    assert.ok(prompt.includes(comparison));
+    // The caution is addressed to the model on its own line. Inside the
+    // reader-facing sentence it was repeated to readers on 2026-11-19.
+    assert.doesNotMatch(comparison, /does not establish/);
+    assert.ok(prompt.includes(`(For you, not the reader: ${BELOW_OPTIMAL_NOTE})`));
+    assert.match(BELOW_OPTIMAL_NOTE, /comparison alone does not establish shallow water or scraping/);
   }
 });
 
@@ -475,4 +487,57 @@ test('reportIncompleteness asks the stop reason before the text', () => {
   assert.equal(reportIncompleteness({ ...whole, eddyRead: null }, true), 'missing_blocks');
   assert.equal(reportIncompleteness({ ...whole, summaryText: '  ' }, true), 'missing_blocks');
   assert.equal(reportIncompleteness({ ...whole, quoteText: '' }, true), 'missing_blocks');
+});
+
+// ── The whole ladder ────────────────────────────────────────────────────────
+// Until 2026-11-19 the prompt carried the optimal range and nothing below it,
+// so a Too Low Read could not say how far the river was from floating.
+
+test('the facts carry every level the ladder defines, as the classifier applies them', () => {
+  assert.deepEqual(ladderLines(facts), [
+    '- Too Low (not worth floating): below 400',
+    '- Low (floatable, with some dragging): 400 up to 700',
+    '- Good (floats fine): 700 up to 1,190',
+    '- Flowing (floats at its best, the optimal range): 1,190 to 2,700',
+    '- High: above 2,700, up to 5,000',
+    '- Dangerous: 5,000 and up',
+  ]);
+  const prompt = reportFactsPrompt(facts);
+  for (const line of ladderLines(facts)) assert.ok(prompt.includes(line), line);
+  assert.match(prompt, /This gauge's float levels, in cfs \(Eddy's own levels, not official limits\):/);
+  // Each boundary agrees with the classifier on both of its sides.
+  const at = (dischargeCfs: number) => buildReportFacts({ ...input, dischargeCfs }).conditionCode;
+  assert.deepEqual([at(399), at(400), at(699), at(700), at(1189), at(1190), at(2700), at(2701), at(5000)],
+    ['too_low', 'low', 'low', 'good', 'good', 'flowing', 'flowing', 'high', 'dangerous']);
+});
+
+test('a partial ladder lists only what it defines and never prints an unknown bound', () => {
+  // "Good begins at X": the Gasconade at Jerome. On 2026-11-19 this prompt
+  // said "Optimal range: 400 to unknown cfs. Computed comparison: unavailable"
+  // and the Read told people the comparison "is not fully resolved".
+  const jerome = buildReportFacts({ gaugeName: 'Gasconade River at Jerome, MO', gaugeHeightFt: 2.1, dischargeCfs: 421,
+    thresholds: { thresholdUnit: 'cfs', levelTooLow: null, levelLow: null, levelOptimalMin: 400, levelOptimalMax: null, levelHigh: null, levelDangerous: null } });
+  assert.equal(jerome.conditionCode, 'good');
+  assert.deepEqual(ladderLines(jerome), ['- Too Low (not worth floating): below 400', '- Good (floats fine): 400 and up']);
+  const prompt = reportFactsPrompt(jerome);
+  assert.doesNotMatch(prompt, /to unknown|Computed comparison|Optimal range:/);
+  // No ladder at all: no heading either.
+  const none = buildReportFacts({ ...input, thresholds: { levelTooLow: null, levelLow: null, levelOptimalMin: null, levelOptimalMax: null, levelHigh: null, levelDangerous: null } });
+  assert.deepEqual(ladderLines(none), []);
+  assert.doesNotMatch(reportFactsPrompt(none), /float levels/);
+});
+
+test('the distance to the next level is put in words a Read can use', () => {
+  const at = (dischargeCfs: number) => ladderPosition(buildReportFacts({ ...input, dischargeCfs }));
+  assert.equal(at(200), "this gauge starts to float at 400 cfs. Today's 200 cfs is about half of that.");
+  assert.equal(at(40), "this gauge starts to float at 400 cfs. Today's 40 cfs is a small fraction of that.");
+  assert.equal(at(500), "it floats fine (Good) from 700 cfs. Today's 500 cfs is about three quarters of that.");
+  assert.equal(at(756), "it floats at its best from 1,190 cfs. Today's 756 cfs is about two thirds of that.");
+  assert.equal(at(1500), null); // Flowing: nothing above it worth reaching for.
+  assert.equal(at(3000), "Dangerous starts at 5,000 cfs. Today's 3,000 cfs is 2,000 cfs below that.");
+  assert.match(reportFactsPrompt(buildReportFacts({ ...input, dischargeCfs: 200 })), /How far today is from the next level: this gauge starts to float at 400 cfs/);
+  // A stage is measured from an arbitrary zero: half the feet is not half the water.
+  const stage = ladderPosition(buildReportFacts({ gaugeName: 'Mulberry River near Mulberry, AR', gaugeHeightFt: 1.03, dischargeCfs: 46,
+    thresholds: { thresholdUnit: 'ft', levelTooLow: 1.5, levelLow: 1.8, levelOptimalMin: 2, levelOptimalMax: 3.5, levelHigh: 3.5, levelDangerous: 5 } }));
+  assert.equal(stage, "this gauge starts to float at 1.5 ft. Today's 1.03 ft is 0.47 ft short of that.");
 });

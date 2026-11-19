@@ -18,12 +18,13 @@
 //
 // and three consumers get three different selections:
 //
-//   river Read   the river-wide block, the reporting gauge's block, reach notes
+//   river Read   General, the river-wide block, the reporting gauge's block, reach notes
 //                tagged with that gauge, and one line per other gauge under an
 //                "elsewhere, patterns only" header            getKnowledgeForTarget
 //   gauge Read   the river-wide block, that gauge's block and its reach notes
 //                                                         getRiverKnowledgeForGauge
-//   chat         everything about the river, towns included   getKnowledgeForChat
+//   chat         everything about the river, towns included, and General's
+//                "Chat only" trip-planning block               getKnowledgeForChat
 //
 // A river that has no confirmed block for a gauge is selected the way it was
 // before gauge blocks existed. `{unconfirmed}` on a gauge heading keeps a
@@ -54,7 +55,10 @@ interface RiverKnowledge {
 }
 
 interface KnowledgeSections {
+  /** The primer every Read and every chat gets. */
   general: string;
+  /** General's `### Chat only` block: trip planning that no Read is handed. */
+  generalChat: string;
   rivers: Record<string, RiverKnowledge>;
 }
 
@@ -96,7 +100,7 @@ function parseKnowledgeFile(): KnowledgeSections {
     content = readFileSync(filePath, 'utf-8');
   } catch {
     console.warn('[EddyKnowledge] EDDY_KNOWLEDGE.md not found, using empty knowledge');
-    cachedKnowledge = { general: '', rivers: {} };
+    cachedKnowledge = { general: '', generalChat: '', rivers: {} };
     cacheTimestamp = now;
     return cachedKnowledge;
   }
@@ -108,7 +112,7 @@ function parseKnowledgeFile(): KnowledgeSections {
 
 /** Pure, so the format can be tested on text that is not the real file. */
 export function parseKnowledge(content: string): KnowledgeSections {
-  const sections: KnowledgeSections = { general: '', rivers: {} };
+  const sections: KnowledgeSections = { general: '', generalChat: '', rivers: {} };
   const lines = content.split('\n');
 
   let currentH2 = ''; // Current ## heading (normalized to slug)
@@ -125,6 +129,14 @@ export function parseKnowledge(content: string): KnowledgeSections {
     buffer = [];
     if (!text || !seenGeneral) return;
 
+    if (currentH2 === 'general' && currentH3 && /^chat only$/i.test(currentH3.title)) {
+      // Trip planning that is true every day: the season, crowds, services,
+      // "check with an outfitter". Handed to a Read it was repeated on every
+      // river every morning (12 of 24 river Reads on 2026-11-19 told the
+      // reader to call an outfitter), so only chat gets it.
+      sections.generalChat = sections.generalChat ? `${sections.generalChat}\n\n${text}` : text;
+      return;
+    }
     if (currentH2 === 'general') {
       // General may have subsections. Accumulate every flush instead of
       // overwriting, or the last subsection clobbers the main General primer
@@ -334,6 +346,10 @@ export function getKnowledgeForChat(riverSlug: string | null): string {
     parts.push('=== General Ozarks Knowledge ===');
     parts.push(knowledge.general);
   }
+  if (knowledge.generalChat) {
+    parts.push('\n=== Trip planning ===');
+    parts.push(knowledge.generalChat);
+  }
   const river = riverSlug ? knowledge.rivers[riverSlug] : undefined;
   if (!river) return parts.join('\n');
 
@@ -396,6 +412,17 @@ export function getKnowledgeTowns(riverSlug: string): string {
 /** The parsed General knowledge block (for regression-testing the parser). */
 export function getGeneralKnowledge(): string {
   return parseKnowledgeFile().general;
+}
+
+/** General's `### Chat only` block, or ''. */
+export function getChatOnlyKnowledge(): string {
+  return parseKnowledgeFile().generalChat;
+}
+
+/** Reach-note slugs under a river that carry no `{@site}` tag, in file order. */
+export function listUntaggedSectionSlugs(riverSlug: string): string[] {
+  const river = parseKnowledgeFile().rivers[riverSlug];
+  return river ? Object.keys(river.subsections).filter((slug) => !river.sectionGauges[slug]?.length) : [];
 }
 
 /**

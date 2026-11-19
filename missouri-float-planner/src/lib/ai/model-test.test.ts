@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildReportFacts, reportClaimsLine } from '@/lib/eddy/report-facts';
-import { evaluateRiverReport, latestPerTarget, recordedFacts, recordedReport, type SampleRow } from './model-test';
+import { evaluateRiverReport, latestPerTarget, rebuildUserPrompt, recordedFacts, recordedReport, type SampleRow } from './model-test';
 
 const facts = buildReportFacts({
   gaugeName: 'Current River at Van Buren, MO',
@@ -154,7 +154,7 @@ test('no text is its own verdict, not a pass', () => {
 
 test('em dashes are cleaned before judging, as production cleans them', () => {
   const result = evaluateRiverReport(output('Good water — easy float.', 'Lower river.', 'Good at Van Buren.'), facts, true);
-  assert.doesNotMatch(result.written?.summaryText ?? '', /—/);
+  assert.equal(result.written?.summaryText, 'Good water. Easy float.');
 });
 
 // ── Choosing what to replay ─────────────────────────────────────────────────
@@ -208,4 +208,51 @@ test('the published text is read back only when it is there', () => {
   });
   assert.equal(recordedReport(null), null);
   assert.equal(recordedReport({ summaryText: 'S' }), null);
+});
+
+// ── Rebuilding the message for a recorded morning ───────────────────────────
+// A replay used to resend the stored user message, which can only test a
+// change to the system prompt. Rebuilt from the recorded inputs, it also tests
+// what today's builder and today's knowledge file would hand the model.
+
+const recordedInputs = (over: Record<string, unknown> = {}) => JSON.parse(JSON.stringify({
+  target: { riverSlug: 'current', riverName: 'Current River', sectionSlug: null, sectionName: null, sectionDescription: null,
+    sectionRiverType: null, sectionLowWaterMeaning: null, sectionRisingWaterHazards: null },
+  facts,
+  readingTimestamp: '2026-11-19T10:45:00Z',
+  gaugeNotes: null,
+  river: { riverType: 'spring_fed_float', state: 'MO', timezone: 'America/Chicago', characteristics: null },
+  alerts: [],
+  weather: null,
+  forecast: null,
+  precipitation: null,
+  trajectory: {
+    change24h: 0, change6h: 0, rateFtPerHour: 0, acceleration: 'steady', windowDays: 10,
+    windowPeak: { heightFt: 2.6, timestamp: '2026-11-12T06:00:00Z' }, windowLow: { heightFt: 2.5, timestamp: '2026-11-15T06:00:00Z' },
+    currentHeightFt: 2.57, narrative: 'Gauge has held steady near 2.6 ft over the past 24 hours.',
+    percentileContext: 'Current discharge of 756 cfs is at the 18th percentile for this date. Median: 1,150 cfs.', percentile: 18, stats: null,
+  },
+  ...over,
+}));
+
+test("a recorded morning is rebuilt with today's builder, dated to that morning", () => {
+  const prompt = rebuildUserPrompt(recordedInputs(), { createdAt: '2026-11-19T11:11:04Z', riverCtx: null, localKnowledge: '=== This gauge: Van Buren ===' });
+  assert.ok(prompt);
+  // The recorded morning, not the day of the test, and no stale-reading warning.
+  assert.match(prompt, /^Date: Thursday, November 19, 2026$/m);
+  assert.doesNotMatch(prompt, /WARNING: Reading is/);
+  // Today's inputs: the claims line, the ladder, the one-line trend, the knowledge passed in.
+  assert.ok(prompt.includes(reportClaimsLine(facts)));
+  assert.match(prompt, /- Low \(floatable, with some dragging\): 400 up to 700/);
+  assert.match(prompt, /^Steady: no meaningful change over the past 24 hours\.$/m);
+  assert.doesNotMatch(prompt, /percentile|Median/);
+  assert.match(prompt, /=== This gauge: Van Buren ===/);
+});
+
+test('a record that cannot be rebuilt is refused, so the stored message is used', () => {
+  const options = { createdAt: '2026-11-19T11:11:04Z', riverCtx: null, localKnowledge: '' };
+  for (const inputs of [null, {}, { facts }, recordedInputs({ target: null }), recordedInputs({ target: { riverSlug: 'current' } }), recordedInputs({ facts: null })]) {
+    assert.equal(rebuildUserPrompt(inputs, options), null);
+  }
+  assert.equal(rebuildUserPrompt(recordedInputs(), { ...options, createdAt: 'not a date' }), null);
 });

@@ -22,6 +22,9 @@
 import { parseEddyResponse, replaceEmDashes, stripEddyMarkers, type ParsedEddyResponse } from '@/lib/eddy/parse-response';
 import { prepareGeneratedReport, type IncompleteReason, type ReportFacts, type ReportFallbackReason } from '@/lib/eddy/report-facts';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { buildPrompt } from '@/lib/eddy/build-update-prompt';
+import type { UpdateTarget } from '@/data/river-sections';
+import type { RiverContext } from '@/lib/rivers/context';
 
 /** One recorded generation the panel can replay. */
 export interface TestSample {
@@ -180,4 +183,61 @@ export function recordedReport(published: unknown): ParsedEddyResponse | null {
     eddyRead: typeof p.eddyRead === 'string' ? p.eddyRead : null,
     quoteText: p.quoteText,
   };
+}
+
+/**
+ * The user message today's prompt builder would write for a recorded morning,
+ * or null when the record does not hold enough to build one.
+ *
+ * WHY REBUILD. A replay used to resend the recorded user message under today's
+ * system prompt. That tests a change to the system prompt and nothing else:
+ * the recorded message still holds whatever the builder handed over that
+ * morning. A change to the inputs (which trend lines are supplied, the float
+ * ladder, which knowledge a gauge is given) could not be read before it
+ * shipped. The record keeps the structured inputs, so the message can be built
+ * again from the same water with today's builder and today's knowledge file.
+ *
+ * `createdAt` stands in for "now", so the date line and the stale-reading
+ * warning describe the recorded morning and not the day of the test.
+ *
+ * The river context is today's when the caller could load it, and otherwise
+ * the part of it the record kept (which has no region).
+ */
+export function rebuildUserPrompt(
+  inputs: unknown,
+  options: { createdAt: string; riverCtx: RiverContext | null; localKnowledge: string },
+): string | null {
+  const facts = recordedFacts(inputs);
+  if (!facts) return null;
+  const recorded = inputs as Record<string, unknown>;
+  const target = recorded.target as Partial<UpdateTarget> | null | undefined;
+  if (!target || typeof target.riverSlug !== 'string' || typeof target.riverName !== 'string') return null;
+  const now = new Date(options.createdAt);
+  if (Number.isNaN(now.getTime())) return null;
+  const or = <T>(value: unknown, fallback: T): T => (value == null ? fallback : (value as T));
+  return buildPrompt(
+    {
+      riverSlug: target.riverSlug,
+      riverName: target.riverName,
+      sectionSlug: target.sectionSlug ?? null,
+      sectionName: target.sectionName ?? null,
+      sectionDescription: target.sectionDescription ?? null,
+      sectionRiverType: target.sectionRiverType ?? null,
+      sectionLowWaterMeaning: target.sectionLowWaterMeaning ?? null,
+      sectionRisingWaterHazards: target.sectionRisingWaterHazards ?? null,
+    },
+    {
+      facts,
+      readingTimestamp: nonEmpty(recorded.readingTimestamp),
+      notes: nonEmpty(recorded.gaugeNotes),
+    },
+    or(recorded.weather, null),
+    or(recorded.forecast, null),
+    Array.isArray(recorded.alerts) ? (recorded.alerts as never[]) : [],
+    options.localKnowledge,
+    or(recorded.trajectory, null),
+    or(recorded.precipitation, null),
+    options.riverCtx ?? or<RiverContext | null>(recorded.river, null),
+    now,
+  );
 }

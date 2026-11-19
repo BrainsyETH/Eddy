@@ -58,10 +58,12 @@ export type ReportFacts = ReturnType<typeof buildReportFacts>;
 
 export function reportFactsPrompt(f: ReportFacts): string {
   const danger = f.thresholds.levelDangerous;
+  const ladder = ladderLines(f);
+  const position = ladderPosition(f);
   return [
     '[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]',
     `Begin your response with exactly this single line: ${reportClaimsLine(f)}`,
-    'Then write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.',
+    'Then write [SUMMARY], [EDDY_READ], and [FULL]. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.',
     `Reporting gauge: ${f.gaugeName}`,
     'If no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.',
     ...(f.floodAlerts?.length ? [
@@ -71,31 +73,115 @@ export function reportFactsPrompt(f: ReportFacts): string {
     `Computed condition: ${f.conditionLabel} (${f.conditionCode}). Do not upgrade, downgrade, or reinterpret this label.`,
     `Rating measurement: ${f.unit === 'cfs' ? 'discharge' : 'gauge height'}; value: ${formatReportMeasurement(f.value, f.unit)}.`,
     `Separate measurements: height ${formatReportMeasurement(f.gaugeHeightFt, 'ft')}; discharge ${formatReportMeasurement(f.dischargeCfs, 'cfs')}. These are not interchangeable.`,
-    'Use these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.',
-    'You do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example "the gauge reads Good" or "running Too Low". Never write it as a field such as "condition: Good"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.',
-    `Optimal range: ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}. Computed comparison: ${f.relation}.`,
+    'If you name the rating, use its capitalized label in a natural sentence. Never write it as a field such as "condition: Good"; the [CLAIMS] line already carries the structured claim.',
+    // The whole ladder, not only the optimal range. Until 2026-11-19 a Too Low
+    // Read was told where floating is best and nothing about where floating
+    // starts, so it could not say how far off the river was.
+    ...(ladder.length ? [`This gauge's float levels, in ${f.unit} (Eddy's own levels, not official limits):`, ...ladder] : []),
+    // Both ends or neither: a one-ended "400 to unknown cfs" had Reads telling
+    // people the comparison "is not fully resolved at this reading".
+    ...(f.relation === 'unavailable' ? [] : [`Optimal range: ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}. Computed comparison: ${f.relation}.`]),
     ...(plainRelation(f) ? [`In plain words for the reader: ${plainRelation(f)}`] : []),
-    'Good and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.',
+    ...(position ? [`How far today is from the next level: ${position}`] : []),
+    ...(f.relation === 'below' && (f.conditionCode === 'good' || f.conditionCode === 'flowing')
+      ? [`(For you, not the reader: ${BELOW_OPTIMAL_NOTE})`] : []),
     ...(danger == null ? [] : [`Editorial danger threshold: ${danger} ${f.unit}. This is NOT an official closure order. Do not call it a closure level.`]),
     ...(f.thresholds.floodStageFt == null ? [] : [`Official flood stage: ${f.thresholds.floodStageFt} ft, assessed separately from the recreational optimal range.`]),
     `Supported location: ${f.supportedSection ?? f.gaugeName}.`,
     ...(f.requestedSection && !f.supportedSection ? [`The requested section (${f.requestedSection}) has no resolved gauge of its own. This is a fallback station observation, NOT a condition assessment of that section.`] : []),
-    'Do not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.',
-    'Say where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.',
-    'Lead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.',
-    'Keep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.',
+    'This reading is for this gauge\'s water only. General local knowledge is background, not a current reading for other places.',
+    'Name where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Do not turn a station assessment into a claim about the entire river.',
   ].join('\n');
 }
+
+/** Kept out of the reader-facing sentence: Reads were repeating it to people
+ * ("that gap does not by itself mean scraping or dragging"). */
+export const BELOW_OPTIMAL_NOTE = 'this comparison alone does not establish shallow water or scraping. Say those only when the notes for this stretch support them.';
 
 /** What the optimal-range comparison means on the water, for the ratings where
  * it adds anything. Too Low/Low already imply "below" and High/Dangerous
  * "above", so restating the comparison there is noise. */
 export function plainRelation(f: ReportFacts): string | null {
   if (f.conditionCode !== 'good' && f.conditionCode !== 'flowing') return null;
-  if (f.relation === 'below') return 'floatable, with a reading below the optimal range for this gauge. This comparison alone does not establish shallow water or scraping.';
+  if (f.relation === 'below') return 'floatable, with a reading below the optimal range for this gauge.';
   if (f.relation === 'above') return 'floatable, with more water and a quicker current than the sweet spot for this gauge.';
   if (f.relation === 'within') return 'right in the sweet spot for this gauge.';
   return null;
+}
+
+/**
+ * The gauge's ladder as the shared classifier applies it (classifyReading in
+ * shared/condition-ladder.ts), one level per line. Only levels the ladder
+ * defines are listed, so a partial ladder gives a partial list and never an
+ * "unknown".
+ */
+export function ladderLines(f: ReportFacts): string[] {
+  const t = f.thresholds;
+  const n = formatBound;
+  const flowing = t.levelOptimalMin != null && t.levelOptimalMax != null;
+  // Mirrors the classifier: Good starts at level_low, or at optimal_min when a
+  // partial ladder has no level_low; High starts above optimal_max.
+  const goodFloor = t.levelLow ?? t.levelOptimalMin;
+  const highStart = t.levelOptimalMax ?? t.levelHigh;
+  const floatFloor = t.levelTooLow ?? goodFloor;
+  const goodTop = flowing ? t.levelOptimalMin : highStart;
+  const lines: string[] = [];
+  if (floatFloor != null) lines.push(`- Too Low (not worth floating): below ${n(floatFloor)}`);
+  if (t.levelTooLow != null && (goodFloor == null || t.levelTooLow < goodFloor)) {
+    lines.push(`- Low (floatable, with some dragging): ${n(t.levelTooLow)}${goodFloor == null ? ' and up' : ` up to ${n(goodFloor)}`}`);
+  }
+  if (goodFloor != null && (goodTop == null || goodFloor < goodTop)) {
+    lines.push(`- Good (floats fine): ${n(goodFloor)}${goodTop == null ? ' and up' : ` up to ${n(goodTop)}`}`);
+  }
+  if (flowing) lines.push(`- Flowing (floats at its best, the optimal range): ${n(t.levelOptimalMin)} to ${n(t.levelOptimalMax)}`);
+  if (highStart != null) lines.push(`- High: above ${n(highStart)}${t.levelDangerous != null && t.levelDangerous > highStart ? `, up to ${n(t.levelDangerous)}` : ''}`);
+  if (t.levelDangerous != null) lines.push(`- Dangerous: ${n(t.levelDangerous)} and up`);
+  return lines;
+}
+
+/** "about half of that": a flow as a share of the flow it is short of. Flow
+ * only. A stage in feet is measured from an arbitrary zero, so half the feet
+ * is not half the water. */
+function shareOf(value: number, target: number): string {
+  const share = value / target;
+  if (!(share > 0)) return 'nowhere near that';
+  if (share < 0.15) return 'a small fraction of that';
+  if (share < 0.3) return 'about a quarter of that';
+  if (share < 0.42) return 'about a third of that';
+  if (share < 0.58) return 'about half of that';
+  if (share < 0.71) return 'about two thirds of that';
+  if (share < 0.88) return 'about three quarters of that';
+  return 'just short of that';
+}
+
+/**
+ * How far today's reading is from the next level up the ladder, in words a
+ * Read can use. Null where the ladder has no such level or the rating has
+ * nothing useful above it (Flowing is already the best of it).
+ */
+export function ladderPosition(f: ReportFacts): string | null {
+  const v = f.value;
+  if (v == null || !Number.isFinite(v)) return null;
+  const t = f.thresholds;
+  const goodFloor = t.levelLow ?? t.levelOptimalMin;
+  const floatFloor = t.levelTooLow ?? goodFloor;
+  const short = (target: number) => f.unit === 'cfs'
+    ? shareOf(v, target)
+    : `${formatReportMeasurement(Math.round((target - v) * 100) / 100, 'ft')} short of that`;
+  const today = `Today's ${formatReportMeasurement(v, f.unit)} is`;
+  switch (f.conditionCode) {
+    case 'too_low':
+      return floatFloor == null || v >= floatFloor ? null : `this gauge starts to float at ${formatBound(floatFloor)} ${f.unit}. ${today} ${short(floatFloor)}.`;
+    case 'low':
+      return goodFloor == null || v >= goodFloor ? null : `it floats fine (Good) from ${formatBound(goodFloor)} ${f.unit}. ${today} ${short(goodFloor)}.`;
+    case 'good':
+      return f.relation !== 'below' || f.min == null ? null : `it floats at its best from ${formatBound(f.min)} ${f.unit}. ${today} ${short(f.min)}.`;
+    case 'high':
+      return t.levelDangerous == null || v >= t.levelDangerous ? null
+        : `Dangerous starts at ${formatBound(t.levelDangerous)} ${f.unit}. ${today} ${formatReportMeasurement(Math.round((t.levelDangerous - v) * 100) / 100, f.unit)} below that.`;
+    default:
+      return null;
+  }
 }
 
 /** "near Big Piney, MO" from "Big Piney River near Big Piney, MO": the last
@@ -257,15 +343,21 @@ export function factualReportFallback(f: ReportFacts): ParsedEddyResponse {
   // people: one plain sentence per fact, the station named by its town.
   const place = gaugePlace(f.gaugeName);
   const gauge = place ? `The gauge ${place}` : `The ${f.gaugeName} gauge`;
-  const reading = !f.gaugeName ? `Gauge assessment unavailable for ${f.locationName ?? 'this river'}.`
-    : f.conditionCode === 'unknown' ? `${gauge} has no usable condition reading right now.`
+  // An unrated gauge with a reading still has something to tell: the reading.
+  // "A condition assessment is unavailable from the matching measurement and
+  // thresholds" was true and was what four rivers showed their readers.
+  const measured = f.gaugeHeightFt != null ? formatReportMeasurement(f.gaugeHeightFt, 'ft')
+    : f.dischargeCfs != null ? formatReportMeasurement(f.dischargeCfs, 'cfs') : null;
+  const unknown = f.conditionCode === 'unknown';
+  const reading = !f.gaugeName ? `No gauge rating for ${f.locationName ?? 'this river'} today.`
+    : unknown ? (measured ? `${gauge} is at ${measured}. Eddy has no float rating for it.` : `${gauge} is not reporting right now.`)
       : `${gauge} reads ${f.conditionLabel}.`;
   const summaryText = [alertLead, reading].filter(Boolean).join(' ');
-  const assessment = f.conditionCode === 'unknown'
-    ? 'A condition assessment is unavailable from the matching measurement and thresholds.'
-    : FALLBACK_MEANING[f.conditionCode];
+  const assessment = !f.gaugeName ? 'Eddy has no gauge it can rate this water from.'
+    : unknown ? (measured ? '' : 'Without a reading there is no rating.')
+      : FALLBACK_MEANING[f.conditionCode];
   const band = f.relation === 'unavailable' || f.conditionCode === 'dangerous' ? '' : `It is at ${formatReportMeasurement(f.value, f.unit)}, ${f.relation} the optimal range of ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}.`;
-  const scope = !f.gaugeName ? 'No usable reporting gauge is available.' : f.requestedSection && !f.supportedSection
+  const scope = !f.gaugeName || unknown ? '' : f.requestedSection && !f.supportedSection
     ? `Eddy has no gauge reading for ${f.requestedSection} itself, so conditions on that stretch may differ.`
     : 'Conditions elsewhere on the river may differ.';
   return { summaryText, eddyRead: `${summaryText} ${assessment} ${scope}`.replace(/\s+/g, ' ').trim(), quoteText: [summaryText, assessment, band, scope].filter(Boolean).join(' ') };

@@ -71,11 +71,35 @@ export function parseEddyResponse(rawText: string): ParsedEddyResponse {
   return { summaryText: null, eddyRead: null, quoteText: rawText };
 }
 
-/** The prompts forbid em dashes and models still write them. Swallow the
- * spacing around one so "15 cfs — well short" becomes "15 cfs, well short"
- * rather than "15 cfs , well short". */
+const DASH = String.raw`(?:\u2014|(?<!-)--(?!-))`;
+
+/**
+ * The prompts forbid em dashes and models still write them. A dash is removed
+ * with the spacing around it, and what replaces it depends on how it was used:
+ *
+ *   a pair in one sentence   an aside, so two commas
+ *                            "the Narrows — between the springs — runs thin"
+ *   one in a sentence        a new thought, so a full stop and a capital
+ *                            "Too low at Ponca — 24 cfs is well short"
+ *
+ * It used to be a comma every time. On 2026-11-19 that left 17 of 41 gauge
+ * Reads with at least one spliced sentence ("Too low to float near Boxley
+ * right now, this stretch needs a lot more water"): in this voice a lone dash
+ * nearly always starts a clause that stands alone.
+ */
 export function replaceEmDashes(text: string): string {
-  return text.replace(/\s*(?:\u2014|(?<!-)--(?!-))\s*/g, ', ');
+  if (!new RegExp(DASH).test(text)) return text;
+  // Sentence by sentence, so a pair is only a pair inside one sentence. A
+  // decimal point is not a sentence end: the split needs space after the mark.
+  return text.split(/(?<=[.!?])(?=\s)/).map((sentence) => {
+    const dashes = sentence.match(new RegExp(DASH, 'g'))?.length ?? 0;
+    if (dashes === 0) return sentence;
+    if (dashes === 2) return sentence.replace(new RegExp(String.raw`\s*${DASH}\s*`, 'g'), ', ');
+    return sentence.replace(
+      new RegExp(String.raw`\s*${DASH}\s*(\S?)`, 'g'),
+      (_match, next: string) => (next ? `. ${next.toUpperCase()}` : '.'),
+    );
+  }).join('');
 }
 
 /** Strip any stray section markers that leaked into parsed prose. */

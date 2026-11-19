@@ -71,6 +71,8 @@ interface SampleInfo {
   modelLabel: string | null;
   published: Report | null;
   systemPromptChanged: boolean;
+  /** True when today's prompt builder or knowledge file gives this morning a different message. */
+  inputsChanged?: boolean;
 }
 
 interface RunResult {
@@ -437,7 +439,7 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
               reason: r.info.reason,
               model: r.info.modelLabel,
               report: r.info.published,
-              writtenUnderOlderInstructions: r.info.systemPromptChanged,
+              writtenUnderOlderInstructions: r.info.systemPromptChanged || Boolean(r.info.inputsChanged),
             },
             baseline: baselineModel && r.baselines[baselineModel.id] ? strip(r.baselines[baselineModel.id]) : null,
             baselineError: baselineModel ? r.baselineErrors[baselineModel.id] ?? null : null,
@@ -467,8 +469,8 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
         <FlaskConical className="h-4 w-4" aria-hidden /> Try a model
       </h2>
       <p className="mt-1 text-sm text-neutral-400">
-        Replays a recorded river report on another model. Nothing is published, and each run is a
-        billed call.
+        Replays a recorded morning on another model, with today&apos;s instructions and knowledge.
+        Nothing is published, and each run is a billed call.
       </p>
 
       {loading ? (
@@ -611,10 +613,10 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
                       ) : (
                         <p className="text-sm text-neutral-400">This attempt published nothing.</p>
                       )}
-                      {info.systemPromptChanged && (
+                      {(info.systemPromptChanged || info.inputsChanged) && (
                         <p className="mt-3 text-xs text-amber-200">
-                          Written under older instructions than the test uses, so differences may
-                          come from the instructions.
+                          Written under older instructions or knowledge than the test uses, so
+                          differences may come from those.
                         </p>
                       )}
                       {baselineError && (

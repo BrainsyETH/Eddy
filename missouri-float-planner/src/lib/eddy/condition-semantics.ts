@@ -16,7 +16,7 @@ import type { RiverContext, RiverType } from '@/lib/rivers/context';
 export const RIVER_TYPE_GUIDANCE: Record<RiverType, { lowWater: string; risingWater: string }> = {
   spring_fed_float: {
     lowWater:
-      'The river IS floatable. Low water means scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Frame this as practical information, not a reason to stay home. Mention that lighter craft (kayaks, canoes) handle low water better than rafts. Do NOT say "too low to run," "wait for rain," or recommend against floating when the condition code is "low." That language is reserved for "too_low" only.',
+      'The river IS floatable. Low water means scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Frame this as practical information, not a reason to stay home. Do NOT say "too low to run," "wait for rain," or recommend against floating when the condition code is "low." That language is reserved for "too_low" only.',
     risingWater:
       'Explain what rising water means for hazards — stronger current, more debris, undercut banks, strainers harder to avoid. Rising water after dry conditions could mean incoming flooding upstream.',
   },

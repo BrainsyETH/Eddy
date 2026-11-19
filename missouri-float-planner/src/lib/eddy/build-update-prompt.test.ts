@@ -8,6 +8,7 @@ import { buildReportFacts } from './report-facts';
 import { spanDays } from './trajectory-window';
 import type { GaugeTrajectory } from './gauge-trajectory';
 import type { UpdateTarget } from '../../data/river-sections';
+import { GAUGE_READ_BRIEF, RIVER_READ_BRIEF } from './read-brief';
 
 const target: UpdateTarget = {
   riverSlug: 'jacks-fork', riverName: 'Jacks Fork', sectionSlug: null,
@@ -99,15 +100,25 @@ test('rain that is likely is named by day, at the threshold the Watch for sectio
   assert.deepEqual(materialOutlookLines(forecast([0, 50, 60]), NOW), []);
 });
 
-test('both system prompts send weather to the Weather section and name no forecast block', () => {
-  const read = (p: string) => readFileSync(p, 'utf8');
-  for (const file of ['src/lib/eddy/generate-update.ts', 'src/lib/eddy/generate-gauge-update.ts']) {
-    const source = read(file);
-    assert.match(source, /Do not describe the weather: no sky, temperature, wind or rain chance, today or ahead\./, file);
-    assert.match(source, /only as an \[OUTLOOK\] block, and only when rain is likely/, file);
-    assert.doesNotMatch(source, /3-DAY FORECAST|3-DAY WEATHER OUTLOOK|Current weather:/, file);
+test('both Read briefs send weather to the Weather section and name no forecast block', () => {
+  for (const [kind, brief] of [['river', RIVER_READ_BRIEF], ['gauge', GAUGE_READ_BRIEF]] as const) {
+    assert.match(brief, /Do not describe the weather: no sky, temperature, wind or rain chance, today or ahead\./, kind);
+    assert.match(brief, /only as an \[OUTLOOK\] block, and only when rain is likely/, kind);
+    assert.doesNotMatch(brief, /3-DAY FORECAST|3-DAY WEATHER OUTLOOK|Current weather:/, kind);
   }
   // Each prompt builder gets the days ahead from the one shared helper.
-  assert.match(read('src/lib/eddy/build-update-prompt.ts'), /materialOutlookLines\(forecast\)/);
+  const read = (p: string) => readFileSync(p, 'utf8');
+  assert.match(read('src/lib/eddy/build-update-prompt.ts'), /materialOutlookLines\(forecast, now\)/);
   assert.match(read('src/lib/eddy/generate-gauge-update.ts'), /materialOutlookLines\(forecast\)/);
+});
+
+// ── a replay is dated to its recorded morning ───────────────────────
+test('the date line and the stale-reading warning follow the time the prompt is for', () => {
+  const stale = { ...gauge, readingTimestamp: '2026-11-18T03:00:00Z' };
+  const then = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-18T05:00:00Z'));
+  assert.match(then, /^Date: Tuesday, November 17, 2026$/m);
+  assert.doesNotMatch(then, /WARNING: Reading is/);
+  const later = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-19T15:00:00Z'));
+  assert.match(later, /^Date: Thursday, November 19, 2026$/m);
+  assert.match(later, /WARNING: Reading is 36 hours old/);
 });

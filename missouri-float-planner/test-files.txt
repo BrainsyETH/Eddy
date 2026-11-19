@@ -227,10 +227,12 @@ src/lib/eddy/global-prose-gate.test.ts
 src/lib/eddy/knowledge.test.ts
 src/lib/eddy/parse-response.test.ts
 src/lib/eddy/reach-gauge-wiring.test.ts
+src/lib/eddy/read-brief.test.ts
 src/lib/eddy/read-checks.test.ts
 src/lib/eddy/report-facts.test.ts
 src/lib/eddy/river-note.test.ts
 src/lib/eddy/stretch-reads.test.ts
+src/lib/eddy/trend-lines.test.ts
 src/lib/email/inbound-bulk.test.ts
 src/lib/embed/branding-registration.test.ts
 src/lib/embed/display-events.test.ts

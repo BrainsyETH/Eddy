@@ -13,8 +13,11 @@
 // llm_config; a test changes no reader's page and no workload's model.
 //
 // Accept a prompt. The body names a recorded generation by id, and the prompt
-// sent is the one that row holds. A free-text prompt field would make this a
-// general-purpose model console behind the admin cookie, billed to Eddy.
+// sent is built from what that row holds: today's prompt builder and today's
+// knowledge file over the recorded morning's inputs (rebuildUserPrompt), or
+// the row's own stored message when it cannot be rebuilt. A free-text prompt
+// field would make this a general-purpose model console behind the admin
+// cookie, billed to Eddy.
 //
 // Call a model outside the registry. The model must be approved or test-only
 // FOR THE WORKLOAD, the same rule the save route applies, one tier wider.
@@ -43,10 +46,13 @@ import { generateText, MissingApiKeyError, providerConfigured } from '@/lib/ai/g
 import {
   evaluateRiverReport,
   latestPerTarget,
+  rebuildUserPrompt,
   recordedFacts,
   recordedReport,
   type SampleRow,
 } from '@/lib/ai/model-test';
+import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
+import { getRiverContext } from '@/lib/rivers/context';
 import { EDDY_SYSTEM_PROMPT } from '@/lib/eddy/generate-update';
 import { sha256 } from '@/lib/eddy/generation-record';
 import { estimatedCost } from '@/lib/telemetry/pricing';
@@ -166,7 +172,7 @@ async function handlePOST(request: NextRequest) {
   const { data, error } = await supabase
     .from('eddy_generation_log')
     .select(
-      'id, created_at, river_slug, section_slug, condition_code, outcome, reason, model_used, system_prompt_hash, user_prompt, inputs, published',
+      'id, created_at, river_slug, section_slug, usgs_site_id, condition_code, outcome, reason, model_used, system_prompt_hash, user_prompt, inputs, published',
     )
     .eq('id', sampleId)
     .eq('workload', TEST_WORKLOAD)
@@ -184,6 +190,22 @@ async function handlePOST(request: NextRequest) {
   if (typeof row.user_prompt !== 'string' || !row.user_prompt || !facts) {
     return json({ error: 'That record holds no prompt to replay. Choose another.' }, 422);
   }
+
+  // Today's inputs over the recorded water, so a change to what the prompt
+  // hands the model can be read here before it ships. A failed context lookup
+  // is not a failed test: the builder then uses what the record kept.
+  let riverCtx = null;
+  try {
+    riverCtx = await getRiverContext(row.river_slug);
+  } catch (e) {
+    console.warn(`${LOG_PREFIX} River context lookup failed for ${row.river_slug}:`, e);
+  }
+  const rebuilt = rebuildUserPrompt(row.inputs, {
+    createdAt: row.created_at,
+    riverCtx,
+    localKnowledge: getKnowledgeForTarget(row.river_slug, row.section_slug, row.usgs_site_id),
+  });
+  const userPrompt = rebuilt ?? row.user_prompt;
 
   const profile = MODELS[model.id];
   const base = {
@@ -210,6 +232,10 @@ async function handlePOST(request: NextRequest) {
       // record was written, the two texts answer different instructions and
       // the comparison is weaker than it looks; the panel says so.
       systemPromptChanged: row.system_prompt_hash !== sha256(EDDY_SYSTEM_PROMPT),
+      // `rebuilt`: today's builder and knowledge over the recorded inputs.
+      // `recorded`: the stored message, because the row could not be rebuilt.
+      promptSource: rebuilt ? 'rebuilt' : 'recorded',
+      inputsChanged: rebuilt != null && rebuilt !== row.user_prompt,
     },
   };
 
@@ -219,7 +245,7 @@ async function handlePOST(request: NextRequest) {
       feature: 'model_test',
       model,
       system: EDDY_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: row.user_prompt }],
+      messages: [{ role: 'user', content: userPrompt }],
     });
     const latencyMs = Math.round(performance.now() - started);
     const evaluation = evaluateRiverReport(result.text, facts, result.finished);
