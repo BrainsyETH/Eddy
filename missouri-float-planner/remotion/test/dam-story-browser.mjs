@@ -54,7 +54,9 @@ try {
   await mkdir('out/dam-story', { recursive: true });
   for (const platform of ['instagram', 'tiktok']) for (const [name, hours] of Object.entries(patterns)) {
     const id = 'social-dam-schedule';
-    const input = { platform, sample: true, snapshot: { ...snapshot, hours, minimumFlow: name === 'minimum' || name === 'mixedMinimum' } };
+    const minimumFlow = name === 'minimum' || name === 'mixedMinimum';
+    const hourlyMw = hours.map((on, i) => on ? [55, 115, 170, 230][i % 4] : minimumFlow ? 5 : 0);
+    const input = { platform, sample: true, snapshot: { ...snapshot, hours, hourlyMw, capacityMw: 230, minimumFlow } };
     await page.evaluateOnNewDocument(input => {
       window.remotion_inputProps = JSON.stringify(input);
       window.remotion_initialFrame = 0; window.remotion_attempt = 1;
@@ -95,7 +97,7 @@ try {
           text: [...document.querySelectorAll('[data-dam-text]')].map(el => { const range=document.createRange(); range.selectNodeContents(el); return {text:el.textContent,...bounds(range),parent:bounds(el.closest('[data-dam-region]'))}; }),
           copy: document.querySelector('[data-dam-safe]').textContent,
           windows: document.querySelector('[data-dam-windows]').textContent,
-          hourCount: document.querySelectorAll('[data-dam-hour]').length,
+          bars: [...document.querySelectorAll('[data-dam-hour]')].map(el => ({ height: el.height.baseVal.value, y: el.y.baseVal.value })),
           imageLoaded: [...document.querySelectorAll('img')].every(el => el.complete && el.naturalWidth > 0),
         };
       });
@@ -104,7 +106,13 @@ try {
       assert.ok(result.layeredCanoe, 'Eddy and canoe are layered vector artwork, not an image overlay');
       check(result.canoe.left >= result.lakeBounds.left.x && result.canoe.right < result.lakeBounds.right.x && result.canoe.top > result.lakeBounds.left.y && result.canoe.bottom > result.lakeBounds.surface.y && result.canoe.bottom < result.lakeBounds.right.y, `${platform}/${name}@${frame}: hull stays on the lake surface: ${JSON.stringify(result.canoe)}`);
       check(result.head.top > result.lakeBounds.left.y && result.head.bottom < result.lakeBounds.surface.y && result.head.left > result.canoe.left && result.head.right < result.canoe.right, `${platform}/${name}@${frame}: Eddy sits above the hull: ${JSON.stringify(result.head)}`);
-      assert.equal(result.hourCount, 24);
+      assert.equal(result.bars.length, 24);
+      for (const [i, bar] of result.bars.entries()) {
+        const plotHeight = bar.y + bar.height;
+        assert.ok(Math.abs(plotHeight - (result.bars[0].y + result.bars[0].height)) < 0.001, 'common baseline');
+        if (hours[i]) assert.ok(Math.abs(bar.height / plotHeight - hourlyMw[i] / 230) < 0.001, 'hourly MW on the fixed capacity scale');
+        else assert.ok(bar.height / plotHeight < 0.05, 'idle and minimum flow stay at the baseline');
+      }
       assert.ok(result.text.length >= 12, 'layout assertions must inspect rendered copy');
       const safe = platform === 'instagram' ? { top:250, bottom:1620, left:60, right:1020 } : { top:180, bottom:1500, left:60, right:810 };
       for (const rect of [...result.regions, ...result.text]) {
@@ -121,7 +129,8 @@ try {
       if (initialCopy === undefined) initialCopy = result.copy;
       assert.equal(result.copy, initialCopy, 'facts remain visible for the whole clip');
       assert.match(result.copy, /SAMPLE/);
-      assert.doesNotMatch(result.copy, /hours posted|At the dam|downstream water-level forecast|DESIGN PREVIEW/);
+      assert.match(result.copy, /0–230 MW/);
+      assert.doesNotMatch(result.copy, /Illustration|not live|hours posted|At the dam|downstream water-level forecast|DESIGN PREVIEW/i);
       if (name === 'noon') {
         assert.equal(result.windows, 'Noon–8 PM');
         assert.match(result.copy, /8 hours scheduled/);

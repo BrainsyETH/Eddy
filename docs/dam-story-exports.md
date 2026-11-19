@@ -19,12 +19,13 @@ render should be regenerated from the form, which checks the source again.
   or checks older than the shared 90-minute threshold block export. A missing
   date never borrows yesterday's schedule. Confirmed zero generation is valid.
 - Every generation window stays visible throughout the 12-second clip. The
-  timeline shows all 24 posted hours, with a diagonal shine over scheduled hours.
-  Minimum flow is not counted as generation.
+  timeline shows each hour’s posted megawatts on the same fixed capacity scale
+  as the dam widget. A diagonal shine follows the generating bars. Idle and
+  minimum-flow hours stay at the baseline.
 - Date, Central time, SWPA attribution and the source-check timestamp are burned
   into the video. No countdown, live cursor, measured cfs, seasonal pool line,
-  or downstream arrival estimate. The animation is labelled “not live”; it
-  uses a fixed illustrative water level. No scheduled generation stops the
+  or downstream arrival estimate. The animation uses a fixed illustrative
+  water level. No scheduled generation stops the
   decorative turbine, without claiming that the river is dry or safe.
 - Time labels use the shared window formatter’s compact style (Noon/Midnight).
   Minimum-flow-only days use the shared “Only minimum flow scheduled” label;
@@ -54,8 +55,9 @@ information remains readable without audio.
 Drafts use the existing `manual` post type with `auto_publish: false` and a saved
 `social-dam-schedule` render request. The callback leaves the video in review.
 Each owner-initiated send checks the latest complete schedule for the rendered
-date and destination before claiming the row for delivery. A changed schedule
-requires a new video. Background retries skip dam videos. Downloads require
+date and destination before claiming the row for delivery. A revised hourly MW
+value, changed chart scale, or older on/off-only draft requires a new video.
+Background retries skip dam videos. Downloads require
 owner access and proxy only a saved
 Vercel Blob `social-videos/` output. No migration or new environment variable.
 

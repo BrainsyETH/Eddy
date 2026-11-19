@@ -18,6 +18,19 @@ test('hour-ending data produces noon to 8 PM, preserves gaps and labels midnight
   assert.deepEqual(damStoryWindows(Array(24).fill(true)), ['All day']);
   assert.equal(damStoryWindows(Array.from({ length: 24 }, (_, i) => i % 2 === 0)).length, 12);
 });
+test('the export keeps the posted MW and minimum-flow flags in hour-ending order', () => {
+  const source = day([]);
+  Object.assign(source.hours[0], { megawatts: 5, minimumFlow: true });
+  source.hours[1].megawatts = 55;
+  source.hours[2].megawatts = 115;
+  source.hours.reverse();
+  const snapshot = damStorySnapshot(source, source.scheduleDate, now, 230);
+  assert.equal(snapshot.capacityMw, 230);
+  assert.deepEqual(snapshot.hourlyMw.slice(0, 4), [5, 55, 115, 0]);
+  assert.deepEqual(snapshot.hours.slice(0, 4), [false, true, true, false]);
+  assert.deepEqual(damStoryWindows(snapshot.hours), ['1–3 AM']);
+  assert.equal(damStorySnapshot(source, source.scheduleDate, now).capacityMw, null);
+});
 test('minimum flow and a confirmed zero day never imply that water is off', () => {
   const minimum = day([]); minimum.hours.forEach(h => { h.minimumFlow = true; h.megawatts = 5; });
   const snapshot = damStorySnapshot(minimum, minimum.scheduleDate, now);
@@ -70,9 +83,12 @@ test('a checked dam draft delivers the saved video to its own destination only a
     { render_request: { compositionId: 'social-dam-schedule' } },
     { render_request: { ...draft.render_request, inputProps: { ...draft.render_request.inputProps, sample: true } } },
   ]) assert.throws(() => savedPostMedia({ ...draft, ...patch }, checked), /Create a new dam video/);
-  for (const patch of [{ scheduleDate: '2026-11-10' }, { minimumFlow: true }, { hours: Array(24).fill(false) }]) {
+  const revised = checked.hourlyMw.map((mw, i) => i === 12 ? mw + 1 : mw);
+  for (const patch of [{ scheduleDate: '2026-11-10' }, { minimumFlow: true }, { hours: Array(24).fill(false) }, { capacityMw: 200 }, { hourlyMw: revised }]) {
     assert.throws(() => savedPostMedia(draft, { ...checked, ...patch }), /schedule has changed/);
   }
+  const legacy = { ...draft.render_request, inputProps: { ...draft.render_request.inputProps, snapshot: { ...checked, hourlyMw: undefined, capacityMw: undefined } } };
+  assert.throws(() => savedPostMedia({ ...draft, render_request: legacy }, checked), /Create a new dam video/);
 });
 
 test('Instagram Story and Reel submissions use their respective containers', async t => {

@@ -15,6 +15,7 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
   useEffect(() => { loadFonts().then(() => continueRender(fonts)).catch(cancelRender); }, [fonts]);
   const safe = videoSafeInsets(platform, platform === 'instagram' ? 'story' : 'reel');
   const width = 1080 - safe.left - safe.right - 16; // includes the hard shadow
+  if (snapshot.hourlyMw?.length !== 24) throw new Error('Create a new dam video with hourly megawatts.');
   const windows = damStoryWindows(snapshot.hours);
   const count = snapshot.hours.filter(Boolean).length;
   const many = windows.length > 4;
@@ -38,13 +39,15 @@ export const DamScheduleStory: React.FC<DamStoryProps> = ({ snapshot, platform, 
         </div>
         {count > 0 && <div data-dam-text style={{ fontSize: 25, color: colors.neutral[700] }}>{count} {count === 1 ? 'hour' : 'hours'} scheduled{snapshot.minimumFlow && ' · Plus minimum flow'}</div>}
       </section>
-      <div data-dam-region="illustration" style={{ flex: '1 0 270px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, minHeight: 240, position: 'relative' }}><div style={{ position: 'absolute', inset: 0 }}><DamStoryScene frame={frame} active={count > 0} /></div></div>
-        <div data-dam-text style={{ textAlign: 'center', fontSize: 24, color: colors.neutral[600] }}>Illustration · not live</div>
+      <div data-dam-region="illustration" style={{ flex: '1 0 240px', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0 }}><DamStoryScene frame={frame} active={count > 0} /></div>
       </div>
       <section data-dam-region="timeline" style={{ flexShrink: 0 }}>
-        <div data-dam-text style={{ fontSize: 29, fontWeight: 700, marginBottom: 14 }}>Hourly schedule</div>
-        <DamScheduleTimeline hours={snapshot.hours} width={width} frame={frame} />
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span data-dam-text style={{ fontSize: 29, fontWeight: 700 }}>Hourly generation</span>
+          <span data-dam-text style={{ fontSize: 24, color: colors.neutral[700] }}>{snapshot.capacityMw ? `0–${snapshot.capacityMw} MW` : 'MW scale unavailable'}</span>
+        </div>
+        <DamScheduleTimeline snapshot={snapshot} width={width} frame={frame} />
         <div style={{ position: 'relative', height: 32, marginTop: 9, fontSize: 23, color: colors.neutral[700] }}>{['Midnight', '6 AM', 'Noon', '6 PM', 'Midnight'].map((label, i) => <span data-dam-text key={i} style={{ position: 'absolute', left: `${i * 25}%`, transform: `translateX(${i === 0 ? 0 : i === 4 ? -100 : -50}%)`, whiteSpace: 'nowrap' }}>{label}</span>)}</div>
       </section>
       <footer data-dam-region="footer" style={{ flexShrink: 0, borderTop: `2px solid ${colors.neutral[300]}`, paddingTop: 14 }}>

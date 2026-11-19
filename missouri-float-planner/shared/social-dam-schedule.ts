@@ -7,7 +7,10 @@ export type DamStoryPlatform = 'instagram' | 'tiktok';
 export interface DamStorySnapshot {
   scheduleDate: string;
   checkedAt: string;
+  /** Generation flags used by saved drafts and the schedule copy. */
   hours: boolean[];
+  hourlyMw: number[];
+  capacityMw: number | null;
   minimumFlow: boolean;
 }
 export type DamStoryProps = {
@@ -18,7 +21,7 @@ export type DamStoryProps = {
 };
 
 /** Export only a complete, recently checked today/tomorrow schedule. No fallback dates. */
-export function damStorySnapshot(day: DamScheduleDay | undefined, date: string, now = Date.now()): DamStorySnapshot {
+export function damStorySnapshot(day: DamScheduleDay | undefined, date: string, now = Date.now(), capacityMw?: number): DamStorySnapshot {
   const today = centralDayKey(now);
   if (date !== today && date !== nextDayKey(today)) throw new Error('Choose today or tomorrow in Central time.');
   if (!day || day.scheduleDate !== date) throw new Error('The generation schedule for this date has not been posted.');
@@ -30,7 +33,14 @@ export function damStorySnapshot(day: DamScheduleDay | undefined, date: string, 
   if (hours.length !== 24 || hours.some((hour, index) => hour.hourEnding !== index + 1 || !Number.isFinite(hour.megawatts) || hour.megawatts < 0)) {
     throw new Error('The schedule is incomplete. Try again later.');
   }
-  return { scheduleDate: date, checkedAt: day.retrievedAt!, hours: hours.map(scheduledGeneration), minimumFlow: hours.some(h => h.minimumFlow === true) };
+  return {
+    scheduleDate: date,
+    checkedAt: day.retrievedAt!,
+    hours: hours.map(scheduledGeneration),
+    hourlyMw: hours.map(hour => hour.megawatts),
+    capacityMw: capacityMw !== undefined && Number.isFinite(capacityMw) && capacityMw > 0 ? capacityMw : null,
+    minimumFlow: hours.some(h => h.minimumFlow === true),
+  };
 }
 
 /** This is a tag check, deliberately also rejecting malformed exports at publish boundaries. */
@@ -68,7 +78,9 @@ export function damStoryRender(snapshot: DamStorySnapshot, platform: DamStoryPla
   };
 }
 
+const sampleHourlyMw = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 115, 170, 230, 230, 170, 115, 55, 0, 0, 0, 0];
 export const DAM_STORY_FIXTURE: DamStorySnapshot = {
   scheduleDate: '2026-11-09', checkedAt: '2026-11-09T16:00:00Z',
-  hours: Array.from({ length: 24 }, (_, hour) => hour >= 12 && hour < 20), minimumFlow: false,
+  hours: sampleHourlyMw.map(mw => mw > 0), hourlyMw: sampleHourlyMw,
+  capacityMw: 230, minimumFlow: false,
 };

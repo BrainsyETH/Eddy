@@ -25,10 +25,14 @@ export function savedPostMedia(post: {
       throw new Error('This draft has no valid video for this destination. Create a new dam video.');
     }
     const saved = props.snapshot;
+    if (saved && !Array.isArray(saved.hourlyMw)) {
+      throw new Error('This video predates hourly megawatt bars. Create a new dam video.');
+    }
     if (!saved || !Number.isFinite(Date.parse(saved.checkedAt)) ||
         saved.scheduleDate !== currentSchedule.scheduleDate || saved.minimumFlow !== currentSchedule.minimumFlow ||
-        !Array.isArray(saved.hours) || saved.hours.length !== 24 ||
-        !currentSchedule.hours.every((active, i) => active === saved.hours[i])) {
+        saved.capacityMw !== currentSchedule.capacityMw || !Array.isArray(saved.hours) || saved.hours.length !== 24 ||
+        saved.hourlyMw.length !== 24 ||
+        !currentSchedule.hours.every((active, i) => active === saved.hours[i] && currentSchedule.hourlyMw[i] === saved.hourlyMw[i])) {
       throw new Error('The schedule has changed. Create a new dam video.');
     }
     return {
