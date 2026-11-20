@@ -132,19 +132,20 @@ test('a dam with no known schedule this pass has nothing due', () => {
 test('the push is the dam and one sentence, with no countdown to go stale', () => {
   const { title, body } = buildDamGenerationNotification({ damName: 'Table Rock Dam', startAt: START_3PM });
   assert.equal(title, 'Table Rock Dam');
-  assert.equal(body, '3 PM Central: generation is posted to start at the dam.');
+  assert.equal(body, 'The posted schedule has generation starting at 3 PM Central at the dam.');
   // Nothing relative: a push sent at 2:00 can arrive at 2:25, or be read at 5.
   assert.doesNotMatch(body, /\bnow\b|from now|minutes|hour|ago|soon|shortly/i);
-  // And nothing that claims generation began.
-  assert.doesNotMatch(body, /has started|is running|generating|units|water (is )?(on|off)/i);
+  // And nothing that claims generation began, or is beginning as it is read.
+  assert.doesNotMatch(body, /has started|started|began|is running|generating|is starting|units|water (is )?(on|off)/i);
+  assert.match(body, /posted schedule/);
 });
 
 test('the time is the dam\u2019s, whatever the season', () => {
   // 3 PM CDT in July and 3 PM CST in January are different instants, one label.
   assert.equal(buildDamGenerationNotification({ damName: 'D', startAt: Date.parse('2026-01-15T21:00:00.000Z') }).body,
-    '3 PM Central: generation is posted to start at the dam.');
+    'The posted schedule has generation starting at 3 PM Central at the dam.');
   assert.equal(buildDamGenerationNotification({ damName: 'D', startAt: Date.parse('2026-07-25T05:00:00.000Z') }).body,
-    '12 AM Central: generation is posted to start at the dam.');
+    'The posted schedule has generation starting at 12 AM Central at the dam.');
 });
 
 test('a push expires with its send window, so an offline phone is not told late', () => {
@@ -230,7 +231,7 @@ test('one push an hour before and one at the posted time, each sent once across 
 
   assert.equal(t.messages[0].title, 'Table Rock Dam');
   // The same sentence an hour before and at the start: the clock time, no countdown.
-  assert.deepEqual(t.messages.map((m) => m.body), Array(2).fill('3 PM Central: generation is posted to start at the dam.'));
+  assert.deepEqual(t.messages.map((m) => m.body), Array(2).fill('The posted schedule has generation starting at 3 PM Central at the dam.'));
   // Each push dies with its own half-hour window.
   assert.deepEqual(t.messages.map((m) => m.ttl), [30 * 60, 30 * 60]);
   // One routing key, and no river or gauge for an older build to follow.
@@ -368,7 +369,7 @@ test('a failed send is retried on the next pass, inside the window', async () =>
   t.failing.clear();
   await run(db, '2026-07-25T19:05:00.000Z', t);
   assert.equal(t.messages.length, 1);
-  assert.equal(t.messages[0].body, '3 PM Central: generation is posted to start at the dam.');
+  assert.equal(t.messages[0].body, 'The posted schedule has generation starting at 3 PM Central at the dam.');
   assert.equal(events(db)[0].push_outcome, 'sent');
 });
 
@@ -447,4 +448,43 @@ test('any other failure reading the dam fallback record defers the pass before s
   const stats = await run(db, '2026-07-25T19:00:00.000Z', t);
   assert.ok(stats.error);
   assert.equal(t.messages.length, 0);
+});
+
+// ── Copy, by when the push is sent ───────────────────────────────────────────
+
+test('the push says what was posted whether it goes out an hour before, on time, or after a late sheet', async () => {
+  // Midnight Central in July is 05:00Z. The previous day's last hour is quiet,
+  // so hour ending 1 is a posted start.
+  const midnight = [day('2026-07-24', [], { retrievedAt: '2026-07-25T03:35:00.000Z' }), day('2026-07-25', [1, 2], { retrievedAt: '2026-07-25T03:35:00.000Z' })];
+  const posted = 'The posted schedule has generation starting at 12 AM Central at the dam.';
+
+  // An hour before (11 PM Central), and at the posted time.
+  const onTime = world({}, midnight);
+  const t = transport();
+  await run(onTime, '2026-07-25T04:00:00.000Z', t);
+  await run(onTime, '2026-07-25T05:00:00.000Z', t);
+  assert.deepEqual(t.messages.map((m) => m.body), [posted, posted]);
+
+  // A late weekday sheet: fetched at 12:10 AM, after the start it posts. The
+  // hour-before notice has missed its window and is never queued; the
+  // at-start notice goes out inside its window, after the posted time, and
+  // still only reports the sheet.
+  const late = world({}, [
+    day('2026-07-24', [], { retrievedAt: '2026-07-25T05:10:00.000Z' }),
+    day('2026-07-25', [1, 2], { retrievedAt: '2026-07-25T05:10:00.000Z' }),
+  ]);
+  const lateSend = transport();
+  await run(late, '2026-07-25T05:15:00.000Z', lateSend);
+  assert.deepEqual(lateSend.messages.map((m) => m.body), [posted]);
+  assert.deepEqual(events(late).map((e) => e.lead_minutes), [0]);
+});
+
+test('a late sheet without the day before does not invent a midnight start', async () => {
+  // Generation in hour ending 1 with no previous day may have carried over
+  // from the evening before. Unknown is not a start.
+  const db = world({}, [day('2026-07-25', [1, 2], { retrievedAt: '2026-07-25T05:10:00.000Z' })]);
+  const t = transport();
+  await run(db, '2026-07-25T05:15:00.000Z', t);
+  assert.equal(t.messages.length, 0);
+  assert.equal(events(db).length, 0);
 });

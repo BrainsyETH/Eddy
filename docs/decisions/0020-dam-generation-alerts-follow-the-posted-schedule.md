@@ -64,8 +64,14 @@ first two rows.
    to 30 minutes after it falls due (slack for a failed pass); after that it is
    not sent. The push carries a `ttl` that ends with the same window, so a
    phone that was offline is not handed it afterwards.
-   - **The push is one sentence with a clock time and no countdown:** "3 PM
-     Central: generation is posted to start at the dam." A wait ("about an hour
+   - **The push is one sentence with a clock time and no countdown:** "The
+     posted schedule has generation starting at 3 PM Central at the dam." It
+     reports the sheet, not the dam: the at-start push is sent at or after the
+     posted time, and a sheet that arrives after midnight can be the first
+     sign of a 12 AM start, so a late sheet establishes only what was posted,
+     never that generation began. (It first read "3 PM Central: generation is
+     posted to start at the dam.", which read as an announcement when it
+     arrived after the start.) A wait ("about an hour
      from now") was tried twice, computed from the lead and then from the send
      time, and was wrong both ways: a push sent at 2:00 can be delivered at
      2:25, inside its window, and would overstate the time left. A clock time

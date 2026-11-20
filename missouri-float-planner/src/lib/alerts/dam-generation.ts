@@ -287,12 +287,22 @@ export function pushTtlSeconds(startAt: number, leadMinutes: number, now: number
  * direction to be wrong in: it is the sentence someone times getting out of the
  * water against.
  *
- * A clock time cannot go stale. "3 PM Central: generation is posted to start
- * at the dam." is true when it is sent, when it arrives, and when it is opened
- * from Notification Center that evening. The phone's own timestamp says when
- * it came in. So the "hour before" push and the "at the start" push read the
- * same, by design: each states the one fact, and neither makes a claim about
- * how long is left that delivery could falsify.
+ * A clock time cannot go stale. "The posted schedule has generation starting
+ * at 3 PM Central at the dam." is true when it is sent, when it arrives, and
+ * when it is opened from Notification Center that evening. The phone's own
+ * timestamp says when it came in. So the "hour before" push and the "at the
+ * start" push read the same, by design: each states the one fact, and neither
+ * makes a claim about how long is left that delivery could falsify.
+ *
+ * ── It reports the sheet, even when it is sent after the start ──────────────
+ * The "at the start" push is always sent at or after the posted time (up to
+ * SEND_WINDOW_MINUTES late), and a sheet that reaches Eddy after midnight can
+ * be the first sign of a 12 AM start. All a late sheet establishes is what was
+ * POSTED for that hour, never that generation began. So the sentence is about
+ * the schedule ("the posted schedule has…"), not the dam: nothing in it says
+ * generation started, is running, or is starting now. It used to read "3 PM
+ * Central: generation is posted to start at the dam.", which said "posted" but
+ * still read as an announcement of the start when it arrived after it.
  *
  * ── Every word names the place and the source ───────────────────────────────
  * "Posted" because this reads a schedule and has not looked at the powerhouse;
@@ -306,6 +316,6 @@ export function buildDamGenerationNotification(input: {
 }): { title: string; body: string } {
   return {
     title: input.damName,
-    body: `${startTimeLabel(input.startAt)} Central: generation is posted to start at the dam.`,
+    body: `The posted schedule has generation starting at ${startTimeLabel(input.startAt)} Central at the dam.`,
   };
 }
