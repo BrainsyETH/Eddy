@@ -25,13 +25,19 @@ before(async () => {
     create table gauge_alert_subscriptions (id uuid primary key default gen_random_uuid(),
       user_id uuid, parent_subscription_id uuid, station text, mode text default 'condition',
       condition_kind text, one_shot boolean, enabled boolean default true,
-      one_shot_fired_at timestamptz, last_triggered_at timestamptz, constraint idx_gas_dedupe unique(user_id, station, condition_kind));
+      one_shot_fired_at timestamptz, last_triggered_at timestamptz,
+      last_state text, last_condition_code text, last_value numeric, last_reading_at timestamptz,
+      constraint idx_gas_dedupe unique(user_id, station, condition_kind));
     create table alert_push_deliveries (event_id uuid, event_source text, sent_at timestamptz, user_id uuid, device text,
       status text default 'sent', receipt_checked_at timestamptz);
   `);
-  const migration = readFileSync(new URL('../../../supabase/migrations/20261120174228_river_alert_delivery.sql', import.meta.url), 'utf8');
-  await db.exec(migration);
-  await db.exec(migration); // Operators can safely retry the pending migration.
+  // In ledger order. Each is applied twice: operators can safely retry a
+  // pending migration.
+  for (const file of ['20261120174228_river_alert_delivery.sql', '20261120201500_river_alert_resume_reseed.sql']) {
+    const migration = readFileSync(new URL(`../../../supabase/migrations/${file}`, import.meta.url), 'utf8');
+    await db.exec(migration);
+    await db.exec(migration);
+  }
 });
 after(() => db.close());
 beforeEach(() => db.exec('truncate alert_subscriptions, gauge_alert_subscriptions, alert_push_deliveries'));
@@ -196,6 +202,82 @@ test('pause writes no child, and rearm restores only spent matching gauges', asy
   assert.equal((await db.query<{ n: number }>('select count(*)::int as n from gauge_alert_subscriptions where enabled')).rows[0].n, 1);
   await save(null, null, null, true, false);
   assert.deepEqual((await db.query<{ enabled: boolean }>('select enabled from gauge_alert_subscriptions order by station')).rows.map(r => r.enabled), [true, false, true]);
+});
+
+/** A gauge's crossing state, as the evaluator last left it. */
+async function track(id: string) {
+  await db.query(`update gauge_alert_subscriptions set last_state='inside', last_condition_code='low',
+    last_value=1.2, last_reading_at=$1 where id=$2`, [stamp, id]);
+}
+async function crossing(station: string) {
+  const { rows } = await db.query<{ last_state: string | null; last_condition_code: string | null;
+    last_value: string | null; last_reading_at: string | null; last_triggered_at: string | null }>(
+    `select last_state, last_condition_code, last_value, last_reading_at, last_triggered_at
+       from gauge_alert_subscriptions where station=$1`, [station]);
+  return rows[0];
+}
+const unseeded = { last_state: null, last_condition_code: null, last_value: null, last_reading_at: null };
+const seenBefore = (row: Awaited<ReturnType<typeof crossing>>) =>
+  ({ last_state: row.last_state, last_condition_code: row.last_condition_code });
+
+test('resuming a paused river alert reseeds the gauges it held, and pausing writes none', async () => {
+  // While the river alert is off its gauges are dropped from the evaluation
+  // pass, so their state freezes. Resumed with that state, the first pass would
+  // push a change that happened while the alert was off.
+  const parent = await save('safety', false, true, false, true);
+  const held = await gauge(parent.id, 'A', 'safety');
+  const ownPause = await gauge(parent.id, 'B', 'safety', false, false);
+  const standalone = await gauge(null, 'C', 'safety');
+  for (const id of [held, ownPause, standalone]) await track(id);
+  await db.query('update gauge_alert_subscriptions set last_triggered_at=$1 where id=$2', [stamp, held]);
+
+  await save(null, null, false, false, false);
+  assert.deepEqual(seenBefore(await crossing('A')), { last_state: 'inside', last_condition_code: 'low' }, 'pause writes no child');
+
+  await save(null, null, true, false, false);
+  const resumed = await crossing('A');
+  assert.deepEqual({ ...resumed, last_triggered_at: undefined }, { ...unseeded, last_triggered_at: undefined });
+  // The cooldown is not a frozen reading: it is checked against what the user
+  // was actually told, which a pause does not change.
+  assert.ok(resumed.last_triggered_at, 'cooldown kept');
+  // A gauge paused on its own stays as it was, and so does an unrelated rule.
+  assert.deepEqual(seenBefore(await crossing('B')), { last_state: 'inside', last_condition_code: 'low' });
+  assert.deepEqual(seenBefore(await crossing('C')), { last_state: 'inside', last_condition_code: 'low' });
+
+  // An ordinary re-save of a live alert reseeds nothing: its gauges were
+  // evaluated all along.
+  await track(held);
+  await save('safety', false, true, true, true);
+  await save(null, null, true, false, false);
+  assert.deepEqual(seenBefore(await crossing('A')), { last_state: 'inside', last_condition_code: 'low' });
+});
+
+test('re-arming a spent one-time river alert reseeds its gauges, including revived ones', async () => {
+  const parent = await save('safety', true, true, false, true);
+  const spentGauge = await gauge(parent.id, 'A', 'safety', true, false);
+  const live = await gauge(parent.id, 'B', 'safety', true, true);
+  for (const id of [spentGauge, live]) await track(id);
+  await db.query('update gauge_alert_subscriptions set one_shot_fired_at=$1, last_triggered_at=$1 where id=$2', [stamp, spentGauge]);
+  // Spent: delivery switches the river alert off and stamps it.
+  await db.query('update alert_subscriptions set enabled=false, fired_at=$1 where id=$2', [stamp, parent.id]);
+
+  const rearmed = await save(null, null, null, true, false);
+  assert.equal(rearmed.enabled, true);
+  assert.deepEqual(await crossing('A'), { ...unseeded, last_triggered_at: null });
+  assert.deepEqual(seenBefore(await crossing('B')), { last_state: null, last_condition_code: null });
+  assert.equal((await db.query<{ enabled: boolean }>('select enabled from gauge_alert_subscriptions where id=$1', [spentGauge])).rows[0].enabled, true);
+});
+
+test('re-arming a live alert reseeds only the gauge it revives', async () => {
+  // The river alert never went off, so only the spent gauge was frozen.
+  const parent = await save('safety', true, true, false, true);
+  const spentGauge = await gauge(parent.id, 'A', 'safety', true, false);
+  const live = await gauge(parent.id, 'B', 'safety', true, true);
+  for (const id of [spentGauge, live]) await track(id);
+  await db.query('update gauge_alert_subscriptions set one_shot_fired_at=$1 where id=$2', [stamp, spentGauge]);
+  await save(null, null, null, true, false);
+  assert.deepEqual(seenBefore(await crossing('A')), { last_state: null, last_condition_code: null });
+  assert.deepEqual(seenBefore(await crossing('B')), { last_state: 'inside', last_condition_code: 'low' });
 });
 
 test('editing a missing rule does not create one or change another user’s rule', async () => {
