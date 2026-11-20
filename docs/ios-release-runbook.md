@@ -1678,3 +1678,47 @@ do not wait for App Review to find them. See Apple's
 - **A `pk.` Mapbox token and the RevenueCat public key are public by design**
   and ship inside every binary. Restrict them in their dashboards; do not try
   to hide them.
+
+### River alert delivery and recovery
+
+Apply the pending river alert migration before deploying the alert API and
+delivery workers. It installs the shared edit/replace transaction and adds the
+one-shot link to the delivery ledger. The widget changes require a new iOS
+binary. Confirm a Courtois widget tap opens the Courtois grading at the shared
+station. After a missed refresh, check that a named NWS warning keeps its issue
+identity and shows when it was last checked. Check the native VoiceOver pause
+and resume actions on a river alert.
+
+A provider outage or a project credential rejection can affect many working
+devices at once. Check Expo/APNs credentials, the delivery ledger and job errors.
+After correcting credentials, validate one send and its receipt on a consenting
+test device. Re-registration already restores that device's token. For older
+disabled tokens, inspect the disable time, the registered account, and the ticket
+and receipt error history. Recover only verified registrations affected by the
+provider incident. Leave ambiguous, revoked, or explicitly unregistered devices
+for the next authenticated registration. Older tickets have no rule/spend
+identifier for automatic one-time recovery.
+
+To measure river and gauge delays by alert type, use this read-only query on the
+existing ledger. It measures the interval to Expo ticket acceptance. A receipt
+cannot tell when a person saw the alert.
+
+```sql
+with events as (
+  select 'river_condition' as source, id, kind, reading_at, detected_at from river_condition_events
+  where detected_at >= now() - interval '7 days'
+  union all
+  select 'gauge_alert', id, kind, reading_at, detected_at from gauge_alert_events
+  where detected_at >= now() - interval '7 days'
+), first_sends as (
+  select event_source, event_id, min(sent_at) as sent_at from alert_push_deliveries
+  where sent_at >= now() - interval '7 days' and status = 'sent'
+  group by event_source, event_id
+)
+select source, kind, count(*) as accepted_events,
+  percentile_cont(0.5) within group (order by detected_at - reading_at) as median_detection_delay,
+  percentile_cont(0.95) within group (order by sent_at - reading_at) as p95_acceptance_delay
+from events join first_sends on event_source = source and event_id = id
+where reading_at is not null
+group by source, kind;
+```

@@ -42,7 +42,7 @@ import { useSession } from '@/hooks/useSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
-import { followsParent } from '@/lib/alertGroups';
+import { followsParent, sharesParentSetting } from '@/lib/alertGroups';
 
 /** A rated station on this river, paired with its link to it. */
 interface RiverGauge {
@@ -357,6 +357,11 @@ export function RiverGaugeAlerts({ rule }: Props) {
         // from its row on the Alerts tab.
         const ownSetting =
           existing != null && owned && existing.enabled && !followsParent(existing, rule);
+        const spentHint = rule.enabled
+          ? 'Already sent. Open this gauge alert on the Alerts tab to set it again.'
+          : rule.firedAt && existing && sharesParentSetting(existing, rule)
+            ? 'Already sent. Save this river alert to set the gauge again.'
+            : 'Already sent. Resume the river alert and set this gauge again on the Alerts tab.';
         return (
           <View
             key={row.id}
@@ -377,7 +382,9 @@ export function RiverGaugeAlerts({ rule }: Props) {
                         // locked beside this, because the only thing this
                         // section could do to it is delete it.
                         'On as an alert of its own — it is not part of this one. Manage it on the Alerts tab.'
-                      : owned && existing && !existing.enabled
+                      : owned && existing?.oneShot && existing.firedAt
+                        ? spentHint
+                        : owned && existing && !existing.enabled
                         ? // Paused from its own row on the Alerts tab. This
                           // switch deletes what it turns off, so it must not
                           // read as a plain "On" for a rule that is not firing.
@@ -388,7 +395,7 @@ export function RiverGaugeAlerts({ rule }: Props) {
                             ? // The same fact the Alerts tab reports: the
                               // river alert's switch holds this gauge too. It
                               // used to read "On" under a paused alert.
-                              `Included · paused with ${rule.riverName ?? 'this alert'}`
+                              `Paused with ${rule.riverName ?? 'this river alert'}.`
                             : on
                               ? 'Included — you will hear about this gauge separately.'
                               : 'Off'}

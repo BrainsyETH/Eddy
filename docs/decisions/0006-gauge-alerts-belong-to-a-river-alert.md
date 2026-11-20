@@ -138,9 +138,10 @@ not gated.
 
 Coverage is only true while parent and child agree, so a change to the river
 alert's **setting** — its kind, its one-time flag, or re-arming it — is applied
-to the children that were on the old setting. The server does it, in the river
-alert's own `PATCH`, children first
-([`parent-follow.ts`](../../missouri-float-planner/src/lib/alerts/parent-follow.ts)).
+to the children that were on the old setting. Both replacing an existing alert and editing it call the same database transaction.
+It locks the river subscription before updating its followers and commits both
+changes together. [Migration](../../missouri-float-planner/supabase/migrations/20261120150000_river_alert_delivery.sql)
+
 Without it, switching a river alert from floatable to high water left every
 covered gauge firing on the trigger just replaced, each one now an exception
 row.

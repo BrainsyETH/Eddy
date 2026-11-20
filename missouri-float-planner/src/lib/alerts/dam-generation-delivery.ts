@@ -45,7 +45,7 @@ import {
 } from './dam-generation';
 import { toPreferences } from './gauge-delivery';
 import { suppressedByQuietHours } from './quiet-hours';
-import { disableTokens, recordTokenFailures } from './token-health';
+import { disableTokens } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage, type ExpoTicket } from '@/lib/push/expo';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import type { DamScheduleDay } from '@shared/dam-types';
@@ -435,7 +435,7 @@ export async function deliverDamGenerationAlerts(
 
     let sent = 0;
     let failed = 0;
-    const failuresByToken = new Map<string, number>();
+
     const reachedRecipients = new Map<string, Set<string>>();
 
     const batches = chunkMessages(planned.map((m) => m.message));
@@ -452,7 +452,7 @@ export async function deliverDamGenerationAlerts(
           reachedRecipients.set(message.eventId, new Set([message.userId]));
         } else {
           failed++;
-          failuresByToken.set(message.deviceTokenId, (failuresByToken.get(message.deviceTokenId) ?? 0) + 1);
+
         }
         return {
           event_id: message.eventId,
@@ -482,7 +482,6 @@ export async function deliverDamGenerationAlerts(
       if (index < batches.length - 1 && pauseMs > 0) await sleep(pauseMs);
     }
 
-    await recordTokenFailures(supabase, failuresByToken);
 
     // An event with nothing planned — quiet hours, a switched-off time, no
     // active device — is drained rather than retried.

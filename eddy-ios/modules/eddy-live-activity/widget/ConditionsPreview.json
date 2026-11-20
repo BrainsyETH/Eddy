@@ -46,6 +46,7 @@
         "dischargeCfs": 860,
         "suspect": false,
         "floodAlerts": {
+          "checkedAt": 1767268800000,
           "validUntil": 1767269700000,
           "undatedWarningUntil": 1767355200000,
           "warnings": []
@@ -335,6 +336,7 @@
         "dischargeCfs": 320,
         "suspect": false,
         "floodAlerts": {
+          "checkedAt": 1767268800000,
           "validUntil": 1767269700000,
           "undatedWarningUntil": 1767355200000,
           "warnings": []
@@ -624,6 +626,7 @@
         "dischargeCfs": 540,
         "suspect": false,
         "floodAlerts": {
+          "checkedAt": 1767268800000,
           "validUntil": 1767269700000,
           "undatedWarningUntil": 1767355200000,
           "warnings": []

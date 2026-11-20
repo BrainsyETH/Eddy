@@ -106,3 +106,14 @@ the rule (delivery spends, at-least-one-success counts) but not on the mechanism
 — the river path stamps `fired_at` on `alert_subscriptions`, this one stamps a
 second column. That is fine, and worth collapsing only if a third alert source
 appears.
+
+### Expo receipt correction
+
+A successful ticket provisionally spends the rule to prevent further alerts
+while APNs processes it. River and gauge delivery record the rule ID and the
+exact spend timestamp on each accepted one-time ticket. When every accepted
+ticket for that spend receives an explicit failure, receipt processing restores
+the rule for the next qualifying crossing. A pending or successful ticket
+protects the spend, as does a later rearm or a different spend timestamp.
+Previously issued tickets lack this association. A device is retired only on
+an explicit unregistered-device result.

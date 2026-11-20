@@ -201,6 +201,10 @@ function AlertRuleRowInner({
       ]}
       accessibilityRole="button"
       accessibilityLabel={rowLabel}
+      accessibilityActions={gated ? undefined : [{ name: 'toggle', label: `${rule.enabled ? 'Pause' : 'Resume'} ${switchTarget}` }]}
+      onAccessibilityAction={({ nativeEvent }) => {
+        if (!gated && nativeEvent.actionName === 'toggle') onToggle(!rule.enabled);
+      }}
     >
       <View
         style={[

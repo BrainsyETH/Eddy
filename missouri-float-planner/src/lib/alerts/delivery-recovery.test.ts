@@ -12,7 +12,7 @@ import { DeliveryReadError } from './delivery-io';
 import { persistGaugeAlertPlan } from './gauge-alert-persist';
 import { loadLastTold } from './gauge-last-told';
 import { planGaugeAlerts, type GaugeAlertSubscription, type StationReading } from './gauge-threshold';
-import type { ExpoMessage, ExpoTicket } from '@/lib/push/expo';
+import { sendExpoPush, type ExpoMessage, type ExpoTicket } from '@/lib/push/expo';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const RIVER = 'river-1';
@@ -455,4 +455,57 @@ test('a failed state write after a good insert re-fires harmlessly: no second ev
   assert.equal(second.result.inserted, 0, 'The duplicate (subscription, reading) is ignored');
   assert.equal(db.rows('gauge_alert_events').length, 1);
   assert.equal(db.rows('gauge_alert_subscriptions')[0].last_state, 'inside');
+});
+
+test('one failed Expo batch cannot disable a healthy device and stop the retry', async () => {
+  const db = new FakeOutboxDb(NOW.toISOString());
+  for (let i = 0; i < 5; i++) {
+    db.seed('river_condition_events', [riverEvent({ id: `e${i}`, river_id: `r${i}` })]);
+    db.seed('alert_subscriptions', [{ id: `s${i}`, river_id: `r${i}`, user_id: 'a', kind: 'all', enabled: true, one_shot: false }]);
+  }
+  db.seed('device_tokens', [{ id: 't', user_id: 'a', expo_push_token: 'ExpoPushToken[fixture]', disabled_at: null, failure_count: 4 }]);
+  const failed = await drainRiverEvents(db, { now: NOW, pauseMs: 0, send: messages =>
+    sendExpoPush(messages, { fetchImpl: async () => new Response(null, { status: 503 }), sleepImpl: async () => {} })
+  });
+  assert.equal(failed.body.failed, 5);
+  assert.equal(db.rows('device_tokens')[0].disabled_at, null);
+  const healthy = transport();
+  await run(db, healthy);
+  assert.equal(healthy.sent.length, 5);
+});
+
+test('push deadlines use the reading and detection times and stay fixed across retries', async () => {
+  const db = riverWorld();
+  const messages: ExpoMessage[] = [];
+  await drainRiverEvents(db, { now: NOW, pauseMs: 0, send: async batch => {
+    messages.push(...batch);
+    return batch.map(() => ({ status: 'error' as const }));
+  } });
+  await drainRiverEvents(db, { now: new Date(NOW.getTime() + 300_000), pauseMs: 0, send: async batch => {
+    messages.push(...batch);
+    return batch.map(() => ({ status: 'ok' as const, id: 'ok' }));
+  } });
+  assert.equal(messages.length, 6);
+  for (const message of messages) {
+    assert.equal(message.expiration, Date.parse('2026-07-25T14:45:00Z') / 1000);
+    assert.match(message.body ?? '', /6:45 AM CDT on Saturday/);
+    assert.equal(message.interruptionLevel, 'time-sensitive');
+  }
+});
+
+test('a one-time river rule waits for its first crossing to resolve before draining the second', async () => {
+  const db = riverWorld();
+  const [rule] = db.rows('alert_subscriptions');
+  db.rows('alert_subscriptions').splice(1);
+  rule.one_shot = true;
+  db.seed('river_condition_events', [riverEvent({ id: 'second', kind: 'floatable', detected_at: NOW.toISOString() })]);
+  const t = transport(new Set(['ExponentPushToken[a]']));
+  await run(db, t);
+  assert.equal(event(db, 'second').push_delivered_at, null);
+  assert.equal(event(db, 'second').push_attempts, 0);
+  t.failing.clear();
+  await run(db, t);
+  await run(db, t);
+  assert.deepEqual(t.sent, ['ExponentPushToken[a]']);
+  assert.equal(event(db, 'second').push_outcome, 'skipped');
 });

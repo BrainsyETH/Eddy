@@ -903,8 +903,7 @@ function AlertsContent() {
             // Every row above is a stored reading. State the actual limitation
             // instead of substituting a generic safety disclaimer.
             <Text style={[styles.lagNote, { color: colors.textMuted }]}>
-              Gauge readings can trail the river by up to about an hour. Check again before
-              getting on the water.
+              Check the time on each reading. Water levels may have changed since then.
             </Text>
           ) : null
         }

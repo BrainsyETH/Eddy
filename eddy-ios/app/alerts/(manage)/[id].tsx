@@ -259,7 +259,7 @@ export default function EditAlertScreen() {
   const onDelete = () => {
     if (!rule || busyRef.current) return;
     const children = groupAlertRules(rules ?? []).find(group => group.rule.id === rule.id && group.rule.source === rule.source)?.children ?? [];
-    Alert.alert(children.length ? `Delete this alert and ${children.length} more?` : 'Delete this alert?',
+    Alert.alert('Delete this alert?',
       children.length ? `The ${children.length} gauge ${children.length === 1 ? 'alert' : 'alerts'} on ${rule.riverName ?? 'this river'} will also be deleted. This cannot be undone.` : 'You will stop getting notifications for it. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
@@ -564,10 +564,12 @@ export default function EditAlertScreen() {
           ]}
         >
           <View style={styles.optionBody}>
-            <Text style={[styles.optionTitle, { color: colors.text }]}>Just once</Text>
+            <Text style={[styles.optionTitle, { color: colors.text }]}>{rule.source === 'river_condition' && followerCount > 0 ? 'Once per gauge' : 'Just once'}</Text>
             <Text style={[styles.optionHint, { color: colors.textMuted }]}>
               {oneShot
-                ? 'Eddy tells you the first time, then switches this alert off.'
+                ? rule.source === 'river_condition' && followerCount > 0
+                  ? 'Each gauge using this setting can notify you once. When the main gauge sends an alert, all covered gauges pause.'
+                  : 'Eddy tells you the first time, then switches this alert off.'
                 : 'Eddy tells you every time it happens.'}
             </Text>
           </View>
@@ -582,12 +584,14 @@ export default function EditAlertScreen() {
             setting is also the setting of the gauges added to it, and the
             server changes them in the same request. Only while there is a
             change to save: at rest it would be a caveat about nothing. */}
-        {dirty && followerCount > 0 ? (
+        {(dirty || spent) && followerCount > 0 ? (
           <View style={[styles.notice, { borderColor: colors.border }]}>
             <Text style={[styles.noticeText, { color: colors.textMuted }]}>
-              {followerCount === 1
-                ? 'Saving also changes the other gauge this alert covers.'
-                : `Saving also changes the ${followerCount} other gauges this alert covers.`}
+              {spent && !dirty
+                ? 'Covered gauges that already sent an alert can notify you again after you save.'
+                : followerCount === 1
+                  ? 'Saving also changes the other gauge this alert covers.'
+                  : `Saving also changes the ${followerCount} other gauges this alert covers.`}
             </Text>
           </View>
         ) : null}

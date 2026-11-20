@@ -125,7 +125,7 @@ export function PushPrimer({ visible, riverName, promise, schedule, onAllow, onD
           <Text style={[styles.latency, { color: colors.textMuted }]}>
             {schedule
               ? schedule.caveat
-              : 'Gauge reporting and processing mean alerts can trail the river by roughly 20–75 minutes. Check conditions again before getting on the water.'}
+              : 'Alerts follow gauge readings. Some river changes need a second reading to confirm. Check the reading time before getting on the water.'}
           </Text>
         </View>
 

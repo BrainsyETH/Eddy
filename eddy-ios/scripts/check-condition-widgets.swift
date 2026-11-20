@@ -22,6 +22,14 @@ import Foundation
     precondition(widgetShortTrend("Holding steady") == "Steady")
     precondition(widgetShortTrend("Rising slowly") == "Slow rise")
     var namedChoice = choice
+    namedChoice.riverId = "courtois-id"
+    namedChoice.riverSlug = "courtois"
+    let query = URLComponents(url: namedChoice.url, resolvingAgainstBaseURL: false)?.queryItems
+    precondition(query?.first { $0.name == "riverId" }?.value == "courtois-id")
+    precondition(query?.first { $0.name == "riverSlug" }?.value == "courtois")
+    namedChoice.riverId = nil
+    namedChoice.riverSlug = nil
+    precondition(namedChoice.url.query == nil)
     namedChoice.riverName = "Current River"
     namedChoice.stationName = "Current River at Akers, MO"
     precondition(widgetStationLabel(namedChoice) == "Akers, MO")
@@ -111,7 +119,7 @@ import Foundation
 
     let ms = now.timeIntervalSince1970 * 1000
     let warning = WidgetFloodAlerts.Warning(label: "Flash Flood Warning", expiresAt: ms + 1800_000, ink: "#000000", chipBorder: "#FFFFFF")
-    let alerts = WidgetFloodAlerts(validUntil: ms + 900_000, warnings: [warning])
+    let alerts = WidgetFloodAlerts(checkedAt: ms, validUntil: ms + 900_000, warnings: [warning])
     precondition(alerts.warning(at: now)?.label == warning.label)
     precondition(alerts.isCurrent(at: now))
     precondition(!alerts.isCurrent(at: now.addingTimeInterval(900)))
@@ -137,6 +145,7 @@ import Foundation
     var next = snapshot
     next.floodAlerts = nil
     let offline = next.preservingUnavailableAlerts(from: snapshot)
+    precondition(offline.floodAlerts?.checkedAt == ms)
     precondition(offline.floodAlerts?.validUntil == alerts.validUntil)
     precondition(offline.observedAt == next.observedAt)
     next.floodAlerts = WidgetFloodAlerts(validUntil: ms + 900_000, warnings: [])

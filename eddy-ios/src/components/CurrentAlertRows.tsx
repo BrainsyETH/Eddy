@@ -17,14 +17,14 @@ function readingLine(entry: HighWaterEntry): string | null {
   }
   const age = readingAge(entry.readingAgeHours);
   if (age) parts.push(age);
-  return parts.length ? parts.join(' · ') : null;
+  return parts.length ? parts.join('. ') : null;
 }
 
 /** These rows also render in Alerts, so source attribution and destinations stay consistent. */
 export function HighWaterAlertRow({ entry }: { entry: HighWaterEntry }) {
   const { colors, elevation, isDark } = useTheme();
   const router = useRouter();
-  const detail = [entry.subtitle, readingLine(entry)].filter(Boolean).join(' · ');
+  const detail = [entry.subtitle, readingLine(entry)].filter(Boolean);
   const target = entry.damId ? `/dam/${entry.damId}` : entry.riverSlug ? `/river/${entry.riverSlug}`
     : entry.siteId ? `/gauge/${entry.siteId}` : null;
   return (
@@ -34,13 +34,15 @@ export function HighWaterAlertRow({ entry }: { entry: HighWaterEntry }) {
       style={({ pressed }) => [styles.row, { backgroundColor: colors.card, opacity: pressed && target ? 0.7 : 1 }, elevation(1)]}
       accessible
       accessibilityRole={target ? 'button' : 'text'}
-      accessibilityLabel={`${entry.name}, ${entry.conditionLabel}. ${detail}`}
+      accessibilityLabel={`${entry.name}, ${entry.conditionLabel}. ${detail.join('. ')}`}
     >
       <View style={[styles.stripe, { backgroundColor: conditionColor(entry.conditionCode) }]} />
       <View style={styles.rowBody}>
         <Text style={[styles.riverName, { color: colors.text }]}>{entry.name}</Text>
         <Text style={[styles.headline, { color: conditionInk(entry.conditionCode, isDark) }]}>{entry.conditionLabel}</Text>
-        <Text style={[styles.detail, { color: colors.textMuted }]}>{detail}</Text>
+        {detail.length > 0 ? (
+          <Text style={[styles.detail, { color: colors.textMuted }]}>{detail.join('\n')}</Text>
+        ) : null}
       </View>
       <View style={[styles.chip, { backgroundColor: conditionBg(entry.conditionCode, isDark) }]}>
         <ControlIcon name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'} size={16} color={conditionInk(entry.conditionCode, isDark)} />
@@ -67,7 +69,7 @@ export function PublicNoticeRow({ alert, showBody = false }: { alert: RiverAlert
       <View style={styles.rowBody}>
         <Text style={[styles.riverName, { color: colors.text }]}>{alert.riverName}</Text>
         <Text style={[styles.headline, { color: colors.text }]}>{alert.title}</Text>
-        <Text style={[styles.detail, { color: colors.textMuted }]}>{severity} · {alert.category} · {source}</Text>
+        <Text style={[styles.detail, { color: colors.textMuted }]}>{alert.category}{'\n'}{severity} from the {source}</Text>
         {showBody && alert.body ? <Text style={[styles.body, { color: colors.text }]}>{alert.body}</Text> : null}
       </View>
       {alert.url ? <ControlIcon name="open-outline" size={16} color={colors.textSubtle} style={styles.externalIcon} /> : null}

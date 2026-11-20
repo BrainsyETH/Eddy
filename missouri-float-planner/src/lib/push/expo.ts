@@ -37,6 +37,9 @@ export interface ExpoMessage {
    * is documented, and it takes precedence when both are sent.
    */
   ttl?: number;
+  /** Absolute Unix time in seconds, including transport retries. */
+  expiration?: number;
+  interruptionLevel?: 'time-sensitive';
 }
 
 export interface ExpoTicket {

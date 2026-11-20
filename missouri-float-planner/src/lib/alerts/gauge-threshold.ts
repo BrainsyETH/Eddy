@@ -30,6 +30,7 @@
 import { classifyReading, hasLadder, type ConditionThresholds } from '@shared/condition-ladder';
 import { classifyEventKind, elevatedRank, isPushableKind, worsensWhatWasTold } from './event-kind';
 import { subscriptionKindsFor } from './fanout';
+import { readingTimePhrase } from './observation-push';
 import { gateReading } from './gate';
 import { describeAlertRule, formatAlertValue } from './rule-copy';
 import type {
@@ -240,7 +241,7 @@ function conditionPhrase(code: string): string {
     case 'flowing': return 'flowing';
     case 'good': return 'floatable';
     case 'high': return 'high water';
-    case 'dangerous': return 'dangerous';
+    case 'dangerous': return 'a dangerous level';
     case 'low': return 'low';
     case 'too_low': return 'too low';
     default: return code;
@@ -249,6 +250,8 @@ function conditionPhrase(code: string): string {
 
 export interface GaugeNotificationInput {
   stationName: string;
+  readingAt?: string | null;
+  timeZone?: string | null;
   riverName: string | null;
   kind: GaugeEventKind;
   readingValue: number | null;
@@ -261,9 +264,9 @@ export function buildGaugeNotification(input: GaugeNotificationInput): {
   title: string;
   body: string;
 } {
-  // The river when we know it, because that is what the user calls the water.
-  // The station name is the fallback and the only option on the national tier.
-  const target = input.riverName ?? input.stationName;
+  // The station identifies which stretch crossed the threshold.
+  const target = input.stationName || input.riverName || 'Your gauge';
+  const when = readingTimePhrase(input.readingAt, input.timeZone);
 
   if (input.kind === 'threshold') {
     const metric: AlertMetric =
@@ -272,10 +275,10 @@ export function buildGaugeNotification(input: GaugeNotificationInput): {
       input.readingValue != null ? formatAlertValue(input.readingValue, metric) : null;
 
     return {
-      title: reading ? `${target} is at ${reading}` : `${target} hit your alert level`,
+      title: reading ? `${target} reported ${reading}` : `${target} hit your alert level`,
       // Reads back the rule so the notification explains itself. Someone with
       // several alerts on one river cannot otherwise tell which one fired.
-      body: `You asked to be told ${describeAlertRule(input.rule)} — it just did. Readings can lag the river, so verify locally before you go.`,
+      body: `The gauge crossed your alert level${when}. You asked to be told ${describeAlertRule(input.rule)}. Readings can lag the river, so verify locally before you go.`,
     };
   }
 
@@ -283,18 +286,18 @@ export function buildGaugeNotification(input: GaugeNotificationInput): {
   switch (input.kind) {
     case 'floatable':
       return {
-        title: `${target} is floatable`,
-        body: `Conditions just came up to ${conditionPhrase(code)}. Check the latest reading before you go.`,
+        title: target,
+        body: `${target} entered the floatable range${when}. Check the latest reading before you go.`,
       };
     case 'warning':
       return {
         title: code === 'dangerous' ? `${target}: dangerous water` : `${target}: high water`,
-        body: `Conditions changed to ${conditionPhrase(code)}. Planning aid only — verify locally before floating.`,
+        body: `The gauge reached ${conditionPhrase(code)}${when}. Planning aid only — verify locally before floating.`,
       };
     default:
       return {
         title: `${target} is easing`,
-        body: `Dropped from dangerous to ${conditionPhrase(code)}. Still elevated — verify locally.`,
+        body: `The gauge dropped from dangerous to ${conditionPhrase(code)}${when}. Still elevated — verify locally.`,
       };
   }
 }

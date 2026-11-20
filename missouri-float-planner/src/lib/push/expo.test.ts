@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createClient } from '@supabase/supabase-js';
+import { recordPushReceipt } from './receipts';
 import {
   EXPO_BATCH_SIZE,
   EXPO_RECEIPT_BATCH_SIZE,
@@ -247,4 +249,28 @@ test('receipt ids chunk at Expo documented maximum', () => {
   assert.equal(chunks.length, 3);
   assert.equal(chunks.flat().length, 2500);
   assert.equal(chunks[2].length, 500);
+});
+
+test('APNs credential receipts record failure without retiring devices, while unregistering checks the registration age', async () => {
+  const writes: { table: string; query: URLSearchParams; body: Record<string, unknown> }[] = [];
+  const db = createClient('https://push-fixture.invalid', 'fixture-key', {
+    global: { fetch: async (input, init) => {
+      const request = new Request(input, init);
+      const url = new URL(request.url);
+      writes.push({ table: url.pathname.split('/').at(-1)!, query: url.searchParams, body: await request.json() });
+      return Response.json(url.pathname.endsWith('/device_tokens') ? [{ id: 'phone' }] : []);
+    } },
+  });
+  const row = { device_token_id: 'phone', event_id: 'crossing', ticket_id: 'ticket', sent_at: '2026-11-20T12:00:00Z' };
+  const receiptError = (error: string) => classifyTicketError({ status: 'error', details: { error } });
+  assert.equal(await recordPushReceipt(db, row, receiptError('InvalidCredentials')), 0);
+  assert.deepEqual(writes.map(write => write.table), ['alert_push_deliveries']);
+  assert.equal(writes[0].body.error_code, 'mismatched_credentials');
+  assert.equal(writes[0].body.status, 'error');
+  assert.equal(writes[0].query.get('ticket_id'), 'eq.ticket');
+
+  writes.length = 0;
+  assert.equal(await recordPushReceipt(db, row, receiptError('DeviceNotRegistered')), 1);
+  assert.deepEqual(writes.map(write => write.table), ['device_tokens', 'alert_push_deliveries']);
+  assert.equal(writes[0].query.get('last_seen_at'), `lte.${row.sent_at}`);
 });

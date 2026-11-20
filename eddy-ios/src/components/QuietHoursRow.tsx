@@ -31,14 +31,15 @@ export function QuietHoursRow() {
   }, [getAccessToken, isAnonymous]));
   if (isAnonymous) return null;
   const summary = failed ? 'Couldn’t check schedule' : !prefs ? 'Loading…' : prefs.quietHoursEnabled
-    ? `${hourLabel(prefs.quietStartMinute ?? DEFAULT_START_MINUTE)}–${hourLabel(prefs.quietEndMinute ?? DEFAULT_END_MINUTE)}${prefs.timezone !== deviceTimezone() ? ` · ${timezoneLabel(prefs.timezone)}` : ''}` : 'Off';
+    ? `${hourLabel(prefs.quietStartMinute ?? DEFAULT_START_MINUTE)}–${hourLabel(prefs.quietEndMinute ?? DEFAULT_END_MINUTE)}${prefs.timezone !== deviceTimezone() ? ` ${timezoneLabel(prefs.timezone)}` : ''}` : 'Off';
   return <Pressable onPress={() => router.push('/alerts/quiet-hours')} accessibilityRole="button"
     accessibilityLabel={`Quiet hours, ${summary}. Edit schedule`}
     style={({ pressed }) => [styles.row, { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
     <ControlIcon name="moon-outline" size={20} color={colors.textMuted} />
     <View style={styles.body}>
-      <Text style={[styles.title, { color: colors.text }]}>Quiet hours · {summary}</Text>
-      {!failed && prefs?.quietHoursEnabled ? <Text style={[t.xs, { color: colors.textMuted }]}>{prefs.safetyOverridesQuiet ? 'Rising-water warnings allowed · custom levels skipped' : 'All notifications skipped during these hours'}</Text> : null}
+      <Text style={[styles.title, { color: colors.text }]}>Quiet hours</Text>
+      <Text style={[t.xs, { color: colors.textMuted }]}>{summary}</Text>
+      {!failed && prefs?.quietHoursEnabled ? <Text style={[t.xs, { color: colors.textMuted }]}>{prefs.safetyOverridesQuiet ? 'Rising-water warnings can come through. Custom level alerts stay quiet.' : 'All alerts stay quiet during these hours.'}</Text> : null}
     </View>
     <ControlIcon name="chevron-forward" size={16} color={colors.textMuted} />
   </Pressable>;
