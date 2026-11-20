@@ -347,8 +347,12 @@ is how the Alley Spring and Windyville gauges were shown to sit above their
 springs.
 
 The daily `eddy_knowledge` trust check reports `knowledge_gauge_mismatch` when
-the file tags a gauge the river is not linked to, or when a river has
-confirmed blocks but none for its main gauge.
+the file tags a gauge the river is not linked to, and `knowledge_gauge_no_block`
+when a gauge the river reports from has no confirmed block. A river reports
+from its main gauge and from every gauge an approved put-in reads, by stored
+mile or by map point, whether or not the river has any other blocks. The check
+works out a put-in's gauge with a copy of `get_river_condition_segment()`'s
+rules, and its test fails when a migration redefines that function.
 
 ## Generation records
 
