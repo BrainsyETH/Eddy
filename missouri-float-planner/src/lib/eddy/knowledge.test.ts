@@ -464,8 +464,14 @@ test('a note reaches the Read of the gauge that speaks for its stretch, and no o
     'morse-mill-to-cedar-hill': ['07018500'],
   });
   assert.deepEqual(listKnowledgeSectionGauges('james'), { 'james-galena': ['07052500'], 'james-upper': ['07052250'] });
+  // A stretch whose put-ins are split between two gauges carries both. On the upper Bourbeuse,
+  // High Gate grades Mint Spring to Highway H and Union grades Mill Rock to Noser Mill
+  // (migration 20261119184853); the middle Buffalo runs from the Pruitt gauge to St. Joe's.
   assert.deepEqual(listKnowledgeSectionGauges('bourbeuse'), {
-    'upper-mintspring-nosermill': ['07015720'], 'lower-nosermill-meramec': ['07016500'],
+    'upper-mintspring-nosermill': ['07015720', '07016500'], 'lower-nosermill-meramec': ['07016500'],
+  });
+  assert.deepEqual(listKnowledgeSectionGauges('buffalo'), {
+    'upper-ponca-pruitt': ['07055660'], 'middle-pruitt-gilbert': ['07055680', '07056000'], 'lower-gilbert-buffalocity': ['07056700'],
   });
   assert.deepEqual(listKnowledgeSectionGauges('st-francis'), { 'upper-whitewater': ['07034000'], 'lower-float': ['07037500'] });
   // Below Hardy the river is on the Imboden gauge's water and graded by Hardy.

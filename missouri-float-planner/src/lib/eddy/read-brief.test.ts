@@ -47,6 +47,13 @@ test('the rules that protect a reader are in both briefs', () => {
     /A reading below the optimal range does not by itself mean shallow riffles or scraping/,
     /never say "band"/,
     /Never call a level "ideal"/,
+    // From the first Reads written with every gauge block confirmed (2026-11-20): a
+    // short Read that toured the creeks, a put-in chosen for the reader, an example in
+    // the notes used as a cutoff, and "just above" where the notes said "above".
+    /One detail, not a tour: do not list the creeks and springs the notes name/,
+    /Do not pick a put-in, a stretch or a day for the reader unless the notes say so in as many words/,
+    /it is one example: never measure today's reading against it/,
+    /When they say only "above" or "below", do not add "just", "right" or a distance/,
   ];
   for (const brief of [RIVER_READ_BRIEF, GAUGE_READ_BRIEF]) for (const rule of rules) assert.match(brief, rule);
 });

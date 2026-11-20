@@ -482,10 +482,10 @@ The slowest large stream in the Ozarks and one of its crookedest — it winds ab
 - **Spring Creek** (fed by Kratz Spring) enters about ten miles below Noser Mill and can nearly double the flow — below it the river is almost always floatable even when the upper river is not.
 - Public access is scarce on the upper river, so trips there are often multi-day. Low-water bridges, logjams, and strainers are the main hazards; the gentle gradient means trouble comes from wood, not rapids.
 
-### Upper Bourbeuse (Mint Spring to Noser Mill) {#upper-mintspring-nosermill} {@07015720}
+### Upper Bourbeuse (Mint Spring to Noser Mill) {#upper-mintspring-nosermill} {@07015720} {@07016500}
 
 - The half that goes unfloatable first. In a dry summer this is dragging, not floating, and public access is scarce enough that a trip here is often multi-day whether you planned it that way or not.
-- High Gate is the gauge for this reach, and it is the unreliable one after rain — cross-check Union before trusting a rise.
+- High Gate grades the put-ins from Mint Spring to Highway H, and it is the unreliable one after rain — cross-check Union before trusting a rise. From Mill Rock down to Noser Mill the put-ins are graded by Union, which reads more water than this stretch has.
 
 ### Lower Bourbeuse (Noser Mill to the Meramec) {#lower-nosermill-meramec} {@07016500}
 
@@ -526,7 +526,7 @@ The Buffalo National River — America's first National River (1972) — is a fr
 - The classic float and the most level-sensitive water on the river — a narrow window between dragging and dangerous, under the tallest bluffs in the park.
 - Read Ponca for this reach, not St. Joe. When Ponca won't float, the put-in moves down to Steel Creek — an outfitter call made daily, not a number you can look up.
 
-### Middle (Pruitt to Gilbert / Tyler Bend) {#middle-pruitt-gilbert} {@07056000}
+### Middle (Pruitt to Gilbert / Tyler Bend) {#middle-pruitt-gilbert} {@07055680} {@07056000}
 
 - The middle district, represented by St. Joe (Tyler Bend). Holds floatable water later into the summer than the Ponca reach but is still rain-driven.
 

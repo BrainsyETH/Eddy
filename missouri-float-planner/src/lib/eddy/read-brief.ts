@@ -27,6 +27,14 @@
 // prefix across every call and stays cacheable. River-specific framing is in
 // the user message.
 //
+// HOW THE NOTES MAY BE USED. The first Reads written with every gauge block
+// confirmed (2026-11-20) used the notes accurately and at length, and three took
+// liberties: the James Read chose a put-in for the reader, the Gasconade's
+// measured today's reading against an example in its notes, and the Meramec's
+// put a place "just above" where the notes said only "above". The short Read had
+// also become a tour of where the creeks join. Those four lines are in [EDDY_READ]
+// and STAY ON YOUR WATER.
+//
 // The three examples use rivers that do not exist. The old prompt's one Good
 // example was the Current at Van Buren, and the live Current Read mirrored it
 // sentence for sentence.
@@ -71,7 +79,7 @@ Subscribers see all three stacked, so each has its own job and none repeats anot
 The answer. One or two short sentences, under 120 characters in all. It is also shown alone, on cards and to readers who see nothing else, so it must stand by itself: can I float here today, and what will it be like? Name the town or landmark the reading comes from, worked into the sentence. Plain words. The badge already shows the rating, so you rarely need its name.
 
 [EDDY_READ]
-What a local would add. One or two sentences, under 240 characters. Say what this stretch is like at this level: which riffles, pools, shoals, bridges or hazards matter today, or how this water behaves. Take it from the supplied notes about this gauge's stretch and describe it as a pattern, not as something seen today. This block is not the answer again and not a description of where the gauge sits. Where the gauge sits earns one plain sentence only when it changes the decision, such as put-ins well upstream on thinner water. No numbers of any kind here, no weather and no forecast. If the notes give you nothing specific to this stretch, say the single most useful thing the facts support and stop. Never invent a feature, a place or a cause to fill the space.
+What a local would add. One or two sentences, under 240 characters. Say what this stretch is like at this level: which riffles, pools, shoals, bridges or hazards matter today, or how this water behaves. Take it from the supplied notes about this gauge's stretch and describe it as a pattern, not as something seen today. This block is not the answer again and not a description of where the gauge sits. Where the gauge sits earns one plain sentence only when it changes the decision, such as put-ins well upstream on thinner water. One detail, not a tour: do not list the creeks and springs the notes name. No numbers of any kind here, no weather and no forecast. If the notes give you nothing specific to this stretch, say the single most useful thing the facts support and stop. Never invent a feature, a place or a cause to fill the space.
 
 [FULL]
 What to do about it. Two to four sentences. The numbers that help the decision belong here and only here: the reading, and how far it is from floating, from floating at its best, or from trouble. The facts give you this gauge's whole ladder so you can say that in plain terms ("about half the water it needs"). Then what to plan for on this stretch. Name the town or landmark once. Premium cards show the first two sentences as an excerpt, so make those useful without the rest. Stop when you have said what helps. Do not round the report off with general advice.
@@ -96,7 +104,9 @@ The levels are Too Low, Low, Good, Flowing, High and Dangerous. Flowing is the b
 STAY ON YOUR WATER
 - Keep every claim about today's conditions to this gauge's stretch. Background knowledge about another place is not a reading there. Do not say what the water is doing today upstream or downstream, do not compare gauge heights between stations, and do not treat two snapshots as a trend.
 - Do not invent a cause for a change or for a steady reading. A river's general character does not establish why the gauge did what it did today.
-- Only cite numbers that are in the facts. A number in the local knowledge is background for you, not a reading to quote.
+- Only cite numbers that are in the facts. A number in the local knowledge is background for you, not a reading to quote. Unless the notes call it a level or a limit, it is one example: never measure today's reading against it.
+- The notes tell you where the river changes. They do not make the reader's decisions. Do not pick a put-in, a stretch or a day for the reader unless the notes say so in as many words.
+- Say where a place is the way the notes do. When they say only "above" or "below", do not add "just", "right" or a distance.
 - Do not send the reader to a different river.
 - If the facts say a section is not supported, say this gauge does not assess it.
 

@@ -298,6 +298,25 @@ direction and NWS flood stage (the Spring River near Waco, the St. Francis near
 Patterson). A main gauge's ladder is not carried to a second gauge by a flow
 ratio: where trips have been logged at the gauge itself, they decide.
 
+Stretch notes are connected the same way: each is tagged with the gauge on its
+water, which on a river with two gauges is not always the main one. The upper
+Buffalo's note goes to Ponca's Read, the lower St. Francis's to Patterson's. A
+stretch whose put-ins are split between two gauges carries both tags: the
+upper Bourbeuse (High Gate and Union) and the middle Buffalo (Pruitt and St.
+Joe).
+
+How a Read may use a block. The first Reads written with every block confirmed
+(2026-11-20) used them accurately and at length: the share of short Reads at or
+under 240 characters fell from 52% to 17%, because the short Read became a tour
+of where the creeks join, the same text every day. Three took liberties: one
+chose a put-in for the reader, one turned an example in the notes into a
+threshold, one added "just" to a place the notes only put "above" the gauge.
+The shared brief now says so, once, for both Reads: the short Read gives one
+detail and not a tour of the creeks, the notes say where the river changes and
+do not pick a put-in, a stretch or a day for the reader, a number in them is
+an example unless they call it a level or a limit, and a place is located the
+way the notes locate it. `read-brief.test.ts` holds each of the four.
+
 Confirm a gauge line from the readings where they can speak: with a gauge on
 each side of an inflow, the gain between them at low water is the inflow. That
 is how the Alley Spring and Windyville gauges were shown to sit above their
