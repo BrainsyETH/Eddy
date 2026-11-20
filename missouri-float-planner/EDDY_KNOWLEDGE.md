@@ -217,7 +217,7 @@ Rivers system. Excellent for paddlers who want solitude.
 - Greer Spring (the 2nd largest spring in Missouri) feeds into the Eleven Point, adding significant cold, clear water.
 - The river below Greer Spring runs noticeably colder and clearer.
 - Fewer outfitters and services than the Current — plan ahead for shuttles.
-- **Bardley (07071500)** is the reference gauge, and Eddy reads it in **cfs**, not feet. The floatable band is narrow for a river this size, so a modest rise moves it out of optimal quickly.
+- **Bardley (07071500)** is the reference gauge, and Eddy reads it in **cfs**, not feet. The floatable range is narrow for a river this size, so a modest rise moves it out of its best levels quickly.
 - Great for multi-day camping trips. Less developed, more wilderness feel.
 - Wildlife is abundant — bald eagles, herons, otters are commonly spotted.
 
@@ -861,7 +861,7 @@ A free-flowing, undammed Ozark stream running about 90 miles north out of the Bo
 A scenic Class I northwest-Arkansas float running past Withrow Springs State Park and the historic War Eagle Mill to Beaver Lake, framed by tall limestone bluffs. Rain-dependent and flashy — a spring-runoff creek that usually goes too low by midsummer.
 
 - **War Eagle Mill's low-head dam must be portaged**, and it is a hard portage: steep banks on both sides. It sits just above the Beaver Lake backwater near the end of the float.
-- **The float key is in gauge height, not discharge.** Local sources all describe War Eagle in feet on the Hindsville gauge (07049000) — the "Hwy 45 gauge" people refer to is this same station, and roughly 2.0–3.5 ft is the commonly cited floatable band. Just over 4 ft is flood stage there, so the usable range and the dangerous range sit close together.
+- **The float key is in gauge height, not discharge.** Local sources all describe War Eagle in feet on the Hindsville gauge (07049000) — the "Hwy 45 gauge" people refer to is this same station, and Eddy's levels follow the range local paddlers cite. There is little room between a good level and a dangerous one on this creek: the usable range and the dangerous range sit close together.
 - The upper reaches, from the Hwy 23 fish hatchery down through Hwy 412, are the liveliest water (Class I–II) and the first to go too skinny. Withrow Springs down to Hindsville is the gentler, more reliable middle.
 - Low-water bridges and concrete slabs cross the creek and become strainers when water is up — scout and portage rather than running them.
 - **This creek rises fast.** It drains a small, steep watershed, so a storm upstream shows up quickly and leaves quickly. A rising gauge is a reason to stay off, not to hurry.
@@ -931,7 +931,7 @@ A clear, gravel-bottomed Ozark stream crossing north-central Arkansas to the Whi
 A clear Ouachita Mountain stream — **not** an Ozark river — and one of Arkansas's most popular family floats, running east past the boulder gorge at Caddo Gap toward DeGray Lake. The classic Caddo Gap to Glenwood run mixes fun Class I–II rock gardens with long, calm pools.
 
 - **Flash flooding is the number one danger.** The Caddo rises several feet very fast during and after heavy rain. The same region's 2010 Albert Pike flood on the nearby Little Missouri killed about twenty campers on gravel bars — never camp low on a bar, and get off the water when the gauge is rising or storms are working upstream.
-- **The float key is gauge height in feet** on the Caddo Gap gauge (07359610), matching the local outfitter key. The bottom of the band — roughly the low 5s — is the bony, rock-dodging, family-pace end: four to six hours, fine for beginners, plenty of scraping. The gauge also reports discharge, but the community talks in feet.
+- **The float key is gauge height in feet** on the Caddo Gap gauge (07359610), matching the local outfitter key. The bottom of the floatable range is the bony, rock-dodging, family-pace end: four to six hours, fine for beginners, plenty of scraping. The gauge also reports discharge, but the community talks in feet.
 - Caddo Gap to Glenwood is the classic run. Norman to Caddo Gap is the upper alternative (also I–II); Glenwood down toward Amity and the DeGray headwaters is easier and slower.
 - The long lower run below Glenwood holds an isolated Class III hole and wave train at high water — a genuine step up from the family float upstream.
 - **Ouachita, not Ozark.** The general Ozarks hydrology notes about spring inputs do not apply here: this is a mountain river with a flashier, rain-driven personality and a shorter reliable season.

@@ -206,8 +206,11 @@ Each input says what it measures, where and over what window, or it is left out.
   water. A partial ladder lists only the levels it defines, and the optimal
   range is printed only when it has both ends.
 - **Low-water guidance.** The type default no longer tells the model to
-  mention lighter craft. `river_characteristics.low_water_meaning` is curated
-  per river and is passed as written.
+  mention lighter craft, and `20261119235458` removed the same stock clause
+  from the eight rivers whose stored `river_characteristics.low_water_meaning`
+  carried it. That column is curated per river, passed as written, and read
+  by nothing but the Read prompt. Like the knowledge file, it says what a
+  level means and does not restate the ladder's numbers.
 - **Weather and the days ahead.** Neither Read prompt carries the current
   weather or a forecast. Weather belongs in the app's Weather section (owner,
   2026-11-18): that section is rebuilt on every view, and a Read is written

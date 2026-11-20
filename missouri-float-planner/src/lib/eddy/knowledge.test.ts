@@ -472,13 +472,19 @@ test('a note reaches the Read of the gauge that speaks for its stretch, and no o
   assert.deepEqual(listKnowledgeSectionGauges('spring-river')['spring-reach2'], ['07069305', '07069500']);
 });
 
-test('no reach note says "band": the Read brief never uses the word', () => {
+test('nothing a Read or chat is handed says "band", and War Eagle carries no second set of levels', () => {
+  // The brief never uses the word, and a model repeats the notes' words.
   for (const slug of listKnowledgeRiverSlugs()) {
-    for (const g of listKnowledgeGauges(slug)) {
-      const sections = getKnowledgeForTarget(slug, null, g.siteId).split('=== Section: ').slice(1).map((part) => part.split('\n=== ')[0]);
-      for (const section of sections) assert.doesNotMatch(section, /\bband\b/, `${slug}: ${section.slice(0, 60)}`);
-    }
+    for (const text of everySelection(slug)) assert.doesNotMatch(text, /\bband\b/, slug);
   }
+  // The river block used to cite "roughly 2.0-3.5 ft" beside a ladder whose
+  // optimal range starts at 2.5, and on 2026-11-19 the Read quoted "the
+  // roughly 2.0 ft minimum local paddlers look for". The ladder is in the
+  // prompt; the file says what it means (Format Rules).
+  const warEagle = riverBlock('war-eagle-creek');
+  assert.doesNotMatch(warEagle, /\d(?:\.\d)?\s*[–-]\s*\d(?:\.\d)?\s*ft|Just over 4 ft/);
+  assert.match(warEagle, /the usable range and the dangerous range sit close together/);
+  assert.doesNotMatch(riverBlock('caddo-river'), /low 5s/);
 });
 
 // ── trip planning is for chat ───────────────────────────────────────
