@@ -95,7 +95,7 @@ export async function recordDeliveryLedger(db: SupabaseClient, eventColumn: Even
   if (isMissingColumn(error) && error.message.includes('one_shot_rule_id')) {
     if (!warnedMissingSpendLink) {
       warnedMissingSpendLink = true;
-      logger.warn('[deliver-push] one_shot_rule_id missing; apply migration 20261120150000');
+      logger.warn('[deliver-push] one_shot_rule_id missing; apply migration 20261120174228');
     }
     retryRows = rows.map(row => {
       const legacy = { ...row };

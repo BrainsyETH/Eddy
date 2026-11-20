@@ -378,7 +378,7 @@ test('a one-time gauge alert spends once even when ticket persistence and the fi
 });
 
 test('a ledger without the one-time spend column still records every ticket', async () => {
-  // Code deployed before migration 20261120150000: the column is missing, so
+  // Code deployed before migration 20261120174228: the column is missing, so
   // the rows are written without it instead of not at all.
   const db = riverWorld()
     .fail({ table: 'alert_push_unrecorded_recipients', mode: 'select', code: 'PGRST205' })

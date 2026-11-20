@@ -38,7 +38,7 @@ import type { AlertSubscriptionsResponse } from '@/types/api';
 
 function saveErrorResponse(message: string, error: { code?: string }) {
   if (error.code === 'PGRST202') {
-    console.error('save_river_alert is unavailable. Check migration 20261120150000 and the schema cache.', error);
+    console.error('save_river_alert is unavailable. Check migration 20261120174228 and the schema cache.', error);
     return jsonPrivate({ error: 'Alert changes are temporarily unavailable. Try again shortly.' }, {
       status: 503, headers: { 'Retry-After': '60' },
     });

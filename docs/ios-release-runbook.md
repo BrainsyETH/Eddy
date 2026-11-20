@@ -1681,13 +1681,11 @@ do not wait for App Review to find them. See Apple's
 
 ### River alert delivery and recovery
 
-Vercel deploys the alert API on merge. Apply migration `20261120150000`
-first and verify that PostgREST exposes `save_river_alert`. When moving the
-migration to `[applied]`, regenerate the web app’s database types with
-`npm run db:gen-types` and run `make check-db`. The workers use
-the new columns to track one-time notifications and recover from failed ticket
-writes. Before the migration, delivery can use the old ledger, and attempts
-to save a river alert receive HTTP 503. The widget requires a new iOS binary.
+Vercel deploys the alert API on merge. Production recorded the river alert
+migration as `20261120174228`. On a fresh deployment, verify that PostgREST
+exposes `save_river_alert` and that a signed-in user can edit their alert.
+The workers use the new columns to track one-time notifications and recover
+from failed ticket writes. The widget requires a new iOS binary.
 
 - [ ] Confirm a Courtois widget tap opens the Courtois grading at the shared
       station.

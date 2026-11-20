@@ -24,19 +24,6 @@ import { MIGRATIONS_DIR, readRepoLedger } from '../../scripts/lib/migration-ledg
  */
 const KNOWN_MISSING = new Map<string, string>([
   ['chat_logs', 'does NOT exist in production (00078 never applied); chat is disabled — see api/chat/route.ts'],
-  // In production since 2026-11-17 (20261117041752_eddy_generation_log.sql), but database.ts has not been
-  // regenerated since. Run `npm run db:gen-types` and remove this entry; this test fails once it has.
-  ['eddy_generation_log', 'exists in production; database.ts not regenerated since 20261117041752'],
-  // In production since 2026-11-13 (20261113033326_release_arrival_trial.sql), but database.ts has not
-  // been regenerated since. Run `npm run db:gen-types` and remove these entries; this test fails once it has.
-  ['release_arrival_passes', 'exists in production; database.ts not regenerated since 20261113033326'],
-  ['release_arrival_predictions', 'exists in production; database.ts not regenerated since 20261113033326'],
-  ['release_arrival_outcomes', 'exists in production; database.ts not regenerated since 20261113033326'],
-  // In production since 2026-11-18 (20261118215519_dam_generation_alerts.sql, ADR 0020), but database.ts
-  // has not been regenerated since. Run `npm run db:gen-types` and remove these entries; this test fails
-  // once it has.
-  ['dam_generation_alerts', 'exists in production; database.ts not regenerated since 20261118215519'],
-  ['dam_generation_alert_events', 'exists in production; database.ts not regenerated since 20261118215519'],
 ]);
 
 function sourceFiles(dir: string): string[] {

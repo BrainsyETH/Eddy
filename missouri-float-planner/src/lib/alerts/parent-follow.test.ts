@@ -29,7 +29,7 @@ before(async () => {
     create table alert_push_deliveries (event_id uuid, event_source text, sent_at timestamptz, user_id uuid, device text,
       status text default 'sent', receipt_checked_at timestamptz);
   `);
-  const migration = readFileSync(new URL('../../../supabase/migrations/20261120150000_river_alert_delivery.sql', import.meta.url), 'utf8');
+  const migration = readFileSync(new URL('../../../supabase/migrations/20261120174228_river_alert_delivery.sql', import.meta.url), 'utf8');
   await db.exec(migration);
   await db.exec(migration); // Operators can safely retry the pending migration.
 });
