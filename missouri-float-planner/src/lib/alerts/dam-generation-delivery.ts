@@ -28,7 +28,16 @@
 // dam-generation.ts.
 
 import { planDrain } from './drain';
-import { checkedWrite, readAllIn, recordOutcomes, DeliveryReadError, IN_CHUNK, READ_PAGE } from './delivery-io';
+import {
+  checkedWrite,
+  priorPushRecipients,
+  readAllIn,
+  recordDeliveryLedger,
+  recordOutcomes,
+  DeliveryReadError,
+  IN_CHUNK,
+  READ_PAGE,
+} from './delivery-io';
 import {
   buildDamGenerationNotification,
   DAM_GENERATION_KIND,
@@ -327,17 +336,10 @@ export async function deliverDamGenerationAlerts(
           .order('user_id')
           .range(from, to),
       ),
-      // Events an earlier pass already delivered but could not stamp drained.
-      readAllIn<{ event_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
-        supabase
-          .from('alert_push_deliveries')
-          .select('event_id')
-          .in('event_id', chunk)
-          .eq('status', 'sent')
-          .order('event_id')
-          .order('device_token_id')
-          .range(from, to),
-      ),
+      // Events an earlier pass already delivered but could not stamp drained:
+      // the ledger, and the fallback record of acceptances whose tickets could
+      // not be written (see recordDeliveryLedger).
+      priorPushRecipients(supabase, eventIds, 'dam_event_id'),
     ]);
 
     const previouslyReached = new Map<string, number>();
@@ -452,9 +454,10 @@ export async function deliverDamGenerationAlerts(
           reachedRecipients.set(message.eventId, new Set([message.userId]));
         } else {
           failed++;
-
         }
         return {
+          sent_at: now.toISOString(),
+          receipt_checked_at: null,
           event_id: message.eventId,
           device_token_id: message.deviceTokenId,
           user_id: message.userId,
@@ -467,10 +470,12 @@ export async function deliverDamGenerationAlerts(
         };
       });
 
-      await checkedWrite(
-        'dam generation ledger write',
-        supabase.from('alert_push_deliveries').upsert(ledgerRows, { onConflict: 'event_id,device_token_id' }),
-      );
+      // Retried, then recorded in the fallback table, as the river and gauge
+      // passes do. A ticket that is not in the ledger never gets a receipt
+      // check, and an accepted push that is in neither place can be sent again
+      // if this pass's drain write fails too. Logged, never thrown: these
+      // pushes have left. See recordDeliveryLedger.
+      await recordDeliveryLedger(supabase, 'dam_event_id', ledgerRows);
 
       const dead = tickets
         .map((ticket, i) =>

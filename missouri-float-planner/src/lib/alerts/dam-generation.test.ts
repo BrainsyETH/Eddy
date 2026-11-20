@@ -395,3 +395,56 @@ test('a delivered notice whose drain write failed is not sent again', async () =
   assert.equal(t.messages.length, 1, 'No second push');
   assert.equal(events(db)[0].push_outcome, 'sent');
 });
+
+// ── A ticket write that fails is retried, then recorded where the next pass looks ──
+
+test('a dam ledger write that fails once is retried, so the ticket still gets a receipt check', async () => {
+  const db = world({ notify_at_start: false }).fail({ table: 'alert_push_deliveries', mode: 'upsert', times: 1 });
+  const t = transport();
+  await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(t.messages.length, 1);
+  const ledger = db.rows('alert_push_deliveries') as Array<Record<string, unknown>>;
+  assert.equal(ledger.length, 1, 'Written on the retry');
+  assert.equal(ledger[0].ticket_id, 'ticket-1');
+  assert.equal(ledger[0].event_source, 'dam_generation');
+  assert.equal(ledger[0].sent_at, '2026-07-25T19:00:00.000Z');
+  assert.equal(db.rows('alert_push_unrecorded_recipients').length, 0);
+});
+
+test('a dam push whose ticket and drain writes both fail is recorded, and not sent again', async () => {
+  // The push left. Without the fallback record, the next pass found no ledger
+  // row and an undrained event, and sent it a second time.
+  const db = world({ notify_at_start: false })
+    .fail({ table: 'alert_push_deliveries', mode: 'upsert' })
+    .fail({ table: 'dam_generation_alert_events', mode: 'update', times: 1 });
+  const t = transport();
+  await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(t.messages.length, 1);
+  assert.equal(events(db)[0].push_delivered_at, undefined, 'Drain write failed');
+  const fallback = db.rows('alert_push_unrecorded_recipients') as Array<Record<string, unknown>>;
+  assert.deepEqual(fallback.map((r) => [r.dam_event_id, r.user_id]), [[events(db)[0].id, 'u1']]);
+
+  await run(db, '2026-07-25T19:05:00.000Z', t);
+  assert.equal(t.messages.length, 1, 'No second push');
+  assert.equal(events(db)[0].push_outcome, 'sent');
+});
+
+test('before the fallback column exists the dam pass still sends', async () => {
+  // Code deployed ahead of migration 20261120203000: the read finds no column.
+  const db = world({ notify_at_start: false }).fail({
+    table: 'alert_push_unrecorded_recipients', mode: 'select', code: '42703', message: 'column dam_event_id does not exist',
+  });
+  const t = transport();
+  const stats = await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(stats.error, undefined);
+  assert.equal(t.messages.length, 1);
+  assert.equal(events(db)[0].push_outcome, 'sent');
+});
+
+test('any other failure reading the dam fallback record defers the pass before sending', async () => {
+  const db = world({ notify_at_start: false }).fail({ table: 'alert_push_unrecorded_recipients', mode: 'select' });
+  const t = transport();
+  const stats = await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.ok(stats.error);
+  assert.equal(t.messages.length, 0);
+});
