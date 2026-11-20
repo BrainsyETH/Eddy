@@ -48,7 +48,15 @@ async function gauge(parent: string | null, station: string, kind: string, once 
     values ($1,$2,$3,$4,$5,$6) returning id`, [user, parent, station, kind, once, enabled])).rows[0].id;
 }
 
-test('creating, editing and replacing through the HTTP routes update the same database rows', async (t) => {
+type TestContext = Parameters<NonNullable<Parameters<typeof test>[0]>>[0];
+
+/**
+ * The real POST/PATCH handlers against this PGlite database.
+ *
+ * Keeps auth and PostgREST local. The real route, Supabase client and
+ * migration own validation, RPC parameters, writes and response shape.
+ */
+function routes(t: TestContext) {
   const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const previousKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://alert-fixture.invalid';
@@ -59,46 +67,102 @@ test('creating, editing and replacing through the HTTP routes update the same da
     if (previousKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = previousKey;
   });
-  // Keep auth and PostgREST local. The real route, Supabase client and
-  // migration own validation, RPC parameters, writes and response shape.
-  let missingFunction = false;
+  const state = { missingFunction: false, rpcParams: [] as Record<string, unknown>[] };
   t.mock.method(globalThis, 'fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
     const path = new URL(request.url).pathname;
     if (path === '/auth/v1/user') return Response.json({ id: user, is_anonymous: false });
     assert.equal(path, '/rest/v1/rpc/save_river_alert');
-    if (missingFunction) return Response.json({ code: 'PGRST202', message: 'Function missing' }, { status: 404 });
+    if (state.missingFunction) return Response.json({ code: 'PGRST202', message: 'Function missing' }, { status: 404 });
     const params = await request.json();
+    state.rpcParams.push(params);
     const { rows } = await db.query(
       'select * from save_river_alert($1,$2,$3,$4,$5,$6)',
       [params.p_river_id, params.p_kind, params.p_one_shot, params.p_enabled, params.p_rearm, params.p_create],
     );
     return Response.json(request.headers.get('accept')?.includes('vnd.pgrst.object') ? rows[0] : rows);
   });
-  const send = (method: 'POST' | 'PATCH', kind: string) => {
+  const send = (method: 'POST' | 'PATCH', body: Record<string, unknown>) => {
     const request = new NextRequest('https://eddy.invalid/api/me/alert-subscriptions', {
       method, headers: { authorization: 'Bearer fixture', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ riverId: river, kind }),
+      body: JSON.stringify({ riverId: river, ...body }),
     });
     return method === 'POST' ? POST(request) : PATCH(request);
   };
-  const first = await send('POST', 'floatable');
+  return { state, send };
+}
+
+test('creating, editing and replacing through the HTTP routes update the same database rows', async (t) => {
+  const { state, send } = routes(t);
+  const first = await send('POST', { kind: 'floatable' });
   assert.equal(first.status, 200);
   const { subscription } = await first.json();
   await gauge(subscription.id, 'Sullivan', 'floatable');
   for (const [method, kind] of [['PATCH', 'safety'], ['POST', 'all']] as const) {
-    const response = await send(method, kind);
+    const response = await send(method, { kind });
     assert.equal(response.status, 200);
     assert.equal((await response.json()).subscription.id, subscription.id);
     const { rows } = await db.query<{ condition_kind: string }>('select condition_kind from gauge_alert_subscriptions');
     assert.equal(rows[0].condition_kind, kind);
   }
-  missingFunction = true;
+  state.missingFunction = true;
   for (const method of ['POST', 'PATCH'] as const) {
-    const unavailable = await send(method, 'safety');
+    const unavailable = await send(method, { kind: 'safety' });
     assert.equal(unavailable.status, 503);
     assert.equal(unavailable.headers.get('retry-after'), '60');
   }
+});
+
+test('a re-save that omits oneShot or kind keeps the stored setting, on POST and PATCH', async (t) => {
+  // The app's "replace existing" flow POSTs { riverId, kind } with no oneShot.
+  // POST used to send p_one_shot=false for that, which silently turned a
+  // one-time alert into a repeating one (and p_kind='all' when kind was
+  // omitted). save_river_alert keeps the stored value only for a null.
+  const { state, send } = routes(t);
+  const stored = async () => (await db.query<{ kind: string; one_shot: boolean }>(
+    'select kind, one_shot from alert_subscriptions')).rows[0];
+  const followers = async () => (await db.query<{ condition_kind: string; one_shot: boolean }>(
+    'select condition_kind, one_shot from gauge_alert_subscriptions')).rows[0];
+
+  // Created with both omitted: the defaults, chosen by the database.
+  assert.equal((await send('POST', {})).status, 200);
+  assert.deepEqual({ ...(await stored()) }, { kind: 'all', one_shot: false });
+  assert.equal(state.rpcParams.at(-1)?.p_kind, null);
+  assert.equal(state.rpcParams.at(-1)?.p_one_shot, null);
+
+  // Provided values are applied, and followers move with them.
+  const saved = await send('POST', { kind: 'safety', oneShot: true });
+  assert.equal(saved.status, 200);
+  const { subscription } = await saved.json();
+  assert.deepEqual({ ...(await stored()) }, { kind: 'safety', one_shot: true });
+  await gauge(subscription.id, 'A', 'safety', true);
+
+  for (const method of ['POST', 'PATCH'] as const) {
+    // kind only: the one-time setting survives.
+    let response = await send(method, { kind: 'floatable' });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).subscription.oneShot, true, `${method} kept oneShot`);
+    assert.deepEqual({ ...(await stored()) }, { kind: 'floatable', one_shot: true });
+    assert.deepEqual({ ...(await followers()) }, { condition_kind: 'floatable', one_shot: true });
+
+    // oneShot only: the kind survives.
+    response = await send(method, { oneShot: false });
+    assert.equal(response.status, 200);
+    assert.deepEqual({ ...(await stored()) }, { kind: 'floatable', one_shot: false }, `${method} kept kind`);
+
+    // Back to where the next method starts.
+    assert.equal((await send(method, { kind: 'safety', oneShot: true })).status, 200);
+    assert.deepEqual({ ...(await stored()) }, { kind: 'safety', one_shot: true });
+  }
+
+  // POST with neither field is a re-save, not a reset.
+  assert.equal((await send('POST', {})).status, 200);
+  assert.deepEqual({ ...(await stored()) }, { kind: 'safety', one_shot: true });
+  // A provided kind is still validated, on both methods.
+  for (const method of ['POST', 'PATCH'] as const) {
+    assert.equal((await send(method, { kind: 'floodable' })).status, 400);
+  }
+  assert.deepEqual({ ...(await stored()) }, { kind: 'safety', one_shot: true });
 });
 
 for (const create of [false, true]) {
