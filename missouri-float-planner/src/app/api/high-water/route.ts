@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
           kind: 'dam' as const,
           id: `dam:${d.id}`,
           name: d.name,
-          subtitle: [d.lakeName, d.generating ? 'generating' : null].filter(Boolean).join(' · ') || null,
+          subtitle: [d.lakeName, d.generating ? 'Generating' : null].filter(Boolean).join('. ') || null,
           conditionCode: station?.conditionCode ?? 'high',
           conditionLabel: conditionDef(station?.conditionCode ?? 'high').longLabel,
           readingValue: release ? release.value : (station?.readingValue ?? null),
