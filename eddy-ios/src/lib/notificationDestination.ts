@@ -39,7 +39,23 @@ export function notificationDestination(input: unknown) {
   const alertId = typeof data.alertId === 'string' ? data.alertId : null;
   const alertSource = typeof data.alertSource === 'string' ? data.alertSource : null;
   const alertParams = alertId ? { alertId, ...(alertSource ? { alertSource } : {}) } : {};
-  if (siteId) return { pathname: '/gauge/[siteId]' as const, params: { siteId, ...alertParams } };
+  if (siteId) {
+    // The river the gauge alert graded against (gauge-delivery.ts), passed as
+    // the gauge screen's riverId/riverSlug so a shared station opens that
+    // river's ladder rather than its primary river's. Pushes sent before these
+    // keys existed carry neither and keep the primary-river fallback.
+    const riverId = typeof data.gaugeRiverId === 'string' && data.gaugeRiverId ? data.gaugeRiverId : null;
+    const riverSlug = typeof data.gaugeRiverSlug === 'string' && data.gaugeRiverSlug ? data.gaugeRiverSlug : null;
+    return {
+      pathname: '/gauge/[siteId]' as const,
+      params: {
+        siteId,
+        ...(riverId ? { riverId } : {}),
+        ...(riverSlug ? { riverSlug } : {}),
+        ...alertParams,
+      },
+    };
+  }
   if (slug) return { pathname: '/river/[slug]' as const, params: { slug, ...alertParams } };
   // A dam generation alert names its dam and nothing else: the dam screen is
   // where the posted schedule it spoke about, and its two switches, live.

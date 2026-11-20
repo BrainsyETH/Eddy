@@ -304,8 +304,11 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       /**
        * A river alert's new setting reaches the gauges that follow it.
        *
-       * The server does this in the same request (lib/alerts/parent-follow.ts
-       * in the web app). Here it is applied to the local list first, so the
+       * The server does this in the same request: the alert-subscriptions
+       * route calls the save_river_alert database function, which updates the
+       * river alert and its followers in one transaction (migration
+       * 20261120174228_river_alert_delivery.sql in the web app's
+       * supabase/migrations). Here it is applied to the local list first, so the
        * covered gauges do not drop out of the river's row as exceptions until
        * the next refetch — and they are named as affected, so a failed save
        * puts them back too.

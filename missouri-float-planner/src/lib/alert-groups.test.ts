@@ -390,9 +390,11 @@ test('a folded-in station that has stopped reporting is surfaced', () => {
 
 // ── A change to the river alert reaches the gauges that follow it ───────────
 //
-// The server makes this change (lib/alerts/parent-follow.ts); the app applies
-// the same rule to its own list first, so covered gauges do not flash out into
-// exception rows. Both ask the same question of the same fields.
+// The server makes this change in the save_river_alert database function
+// (supabase/migrations/20261120174228_river_alert_delivery.sql, tested in
+// lib/alerts/parent-follow.test.ts); the app applies the same rule to its own
+// list first, so covered gauges do not flash out into exception rows. Both ask
+// the same question of the same fields.
 
 test('a new kind on the river alert carries to the gauges on the old one', () => {
   const ownKind = { ...currentVanBuren, conditionKind: 'safety' as const };
