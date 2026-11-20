@@ -10,13 +10,21 @@
 // the push body so the notification and this row cannot describe the same rule
 // differently.
 //
-// ── Two sizes, because the list is now a tree ───────────────────────────────
+// ── A river alert speaks for the gauges folded into it ──────────────────────
+//
+// A gauge switched on from a river alert's edit screen is that alert extended
+// to another station, so it is named on the river's row (`coverage`) rather
+// than drawn as a second alert. The row then answers for all of them: when any
+// of them last fired, and whether one of them has stopped reporting.
+//
+// ── Two sizes, for the child that is no longer the same alert ──────────────
 //
 // `nested` draws the same row as a CHILD of the river above it: indented,
 // unelevated, titled by its station rather than by the river whose name the
-// parent already carries. See src/lib/alertGroups.ts for why gauge alerts stop
-// being top-level cards, and app/(tabs)/alerts.tsx for the writes that make the
-// parent's switch mean what nesting says it means.
+// parent already carries. Only a child that differs from its parent gets one —
+// paused by hand, or given its own trigger. See src/lib/alertGroups.ts for the
+// split, and app/(tabs)/alerts.tsx for the writes that make the parent's switch
+// mean what nesting says it means.
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
@@ -24,6 +32,7 @@ import { describeAlertRule, type AlertRule } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { lastSentNote, staleReadingNote } from '@/lib/alertCopy';
+import { stationShortName } from '@/lib/alertGroups';
 import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {
@@ -39,24 +48,48 @@ interface Props {
    */
   nested?: boolean;
   /**
-   * How many gauge alerts hang off this one, for the row's own hint.
+   * Which gauges this river alert covers — "Main gauge + Sullivan".
+   *
+   * The stations switched on from its edit screen that still follow its
+   * setting. They have no rows of their own, so this line is where the list
+   * says they exist. From coverageLine in src/lib/alertGroups.ts.
+   */
+  coverage?: string | null;
+  /** How many stations `coverage` names, for the switch's spoken label. */
+  coveredCount?: number;
+  /**
+   * When anything this row speaks for last fired, if that is later than the
+   * rule's own. Without it a river row would read "Never sent" the morning
+   * after one of its folded-in gauges fired.
+   */
+  lastTriggeredAt?: string | null;
+  /**
+   * A folded-in station the alert engine cannot currently read. It is armed
+   * and cannot fire, and it has no row of its own to say so.
+   */
+  staleStation?: AlertRule | null;
+  /**
+   * How many gauge alerts are drawn as rows UNDER this one, for its hint.
    *
    * Stated because the parent's switch governs them: a switch whose reach is
    * larger than the row it sits on has to say so before it is flicked.
    */
-  childCount?: number;
+  separateCount?: number;
   /**
    * Held off by the river alert above it.
    *
-   * The rule's own `enabled` is still true and nothing has written to it — the
-   * server gates a child whose parent is paused rather than pausing it, which
-   * is what lets resuming the parent hand every child back untouched. So this
-   * row is the ONLY place that can explain a switch reading on beside an alert
-   * that will not fire, and it draws itself unavailable and says why.
+   * The rule's own `enabled` is untouched — the server gates a child whose
+   * parent is paused rather than pausing it, which is what lets resuming the
+   * parent hand every child back as it was. So this row is the ONLY place that
+   * can explain an alert that is on and will not fire, and it draws itself
+   * unavailable and says why.
    *
-   * The switch is disabled rather than shown off. Off would be a lie about
-   * stored state, and a live switch would offer to change something that
-   * changes nothing.
+   * NO SWITCH AT ALL while gated. It used to be shown on and disabled, on the
+   * reasoning that off would misstate stored state. But nobody reads a switch
+   * as stored state: they read it as "will this fire", and a disabled iOS
+   * switch barely dims, so the brightest thing in a paused group said ON. A
+   * switch that can change nothing is removed rather than explained; it comes
+   * back, in whatever position it was left, when the river alert resumes.
    */
   gated?: boolean;
 }
@@ -75,7 +108,11 @@ function AlertRuleRowInner({
   onPress,
   onToggle,
   nested = false,
-  childCount = 0,
+  coverage = null,
+  coveredCount = 0,
+  lastTriggeredAt,
+  staleStation = null,
+  separateCount = 0,
   gated = false,
 }: Props) {
   const { colors, elevation } = useTheme();
@@ -96,8 +133,25 @@ function AlertRuleRowInner({
 
   const spent = isSpent(rule);
   const dimmed = !rule.enabled || spent || gated;
-  const sentNote = lastSentNote(rule);
-  const staleNote = staleReadingNote(rule);
+  // The latest across everything this row speaks for; the rule's own otherwise.
+  const sentNote = lastSentNote({
+    ...rule,
+    lastTriggeredAt: lastTriggeredAt ?? rule.lastTriggeredAt,
+  });
+  // Its own station first. A paused river alert is not waiting on anything, so
+  // a folded-in station's silence is only worth a line while the alert is on.
+  const staleNote =
+    staleReadingNote(rule) ??
+    (staleStation && rule.enabled
+      ? staleReadingNote(staleStation, undefined, stationShortName(staleStation.gaugeName))
+      : null);
+
+  // What the switch reaches, for VoiceOver — the same reach the row prints.
+  const others = coveredCount + separateCount;
+  const switchTarget =
+    others > 0
+      ? `the alert for ${title} and ${others} other ${others === 1 ? 'gauge' : 'gauges'}`
+      : `alert for ${title}`;
 
   return (
     <Pressable
@@ -114,7 +168,9 @@ function AlertRuleRowInner({
         nested ? { borderLeftWidth: 2, borderLeftColor: colors.border } : elevation(1),
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`Edit alert for ${title}`}
+      accessibilityLabel={
+        gated ? `Edit alert for ${title}, paused with the river alert above it` : `Edit alert for ${title}`
+      }
     >
       <View
         style={[
@@ -157,17 +213,25 @@ function AlertRuleRowInner({
             {subtitle}
           </Text>
         ) : null}
-        {/* THE SWITCH'S REACH, said before it is flicked. A parent whose toggle
-            silently pauses three other rules is a control that does more than
-            it looks like it does, which is the one thing a switch may never be.
+        {/* WHICH GAUGES, on a river alert that covers more than its main one.
+            These used to be rows of their own, each repeating the sentence
+            above; they are the same alert on more of the river, so they are
+            named here once. */}
+        {coverage ? (
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>{coverage}</Text>
+        ) : null}
+        {/* THE SWITCH'S REACH, said before it is flicked — and only then. A
+            parent whose toggle silently holds off other rows is a control that
+            does more than it looks like it does.
 
-            "Pausing this pauses them" and not "the switch covers all", because
-            the switch does not overwrite them: the server GATES a child whose
-            parent is paused, so each one comes back exactly as it was. Claiming
-            symmetry would be promising to undo a choice the gate preserves. */}
-        {childCount > 0 ? (
+            It used to read "paused together" whether the alert was on or off,
+            which on a live alert looked like a status. Once the parent IS
+            paused, each row below says so itself. */}
+        {separateCount > 0 && rule.enabled ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
-            Includes {childCount} gauge {childCount === 1 ? 'alert' : 'alerts'} · paused together
+            {separateCount === 1
+              ? 'Also pauses the gauge alert below'
+              : `Also pauses the ${separateCount} gauge alerts below`}
           </Text>
         ) : null}
         {gated ? (
@@ -195,21 +259,14 @@ function AlertRuleRowInner({
         ) : null}
       </View>
 
-      <Switch
-        value={rule.enabled}
-        onValueChange={onToggle}
-        disabled={gated}
-        trackColor={{ true: colors.interactive, false: colors.border }}
-        accessibilityLabel={
-          gated
-            ? `${title} is paused with the river alert above it`
-            : childCount > 0
-              ? rule.enabled
-                ? `Pause the alert for ${title} and its ${childCount} gauge alerts`
-                : `Resume the alert for ${title} and its ${childCount} gauge alerts`
-              : `${rule.enabled ? 'Pause' : 'Resume'} alert for ${title}`
-        }
-      />
+      {gated ? null : (
+        <Switch
+          value={rule.enabled}
+          onValueChange={onToggle}
+          trackColor={{ true: colors.interactive, false: colors.border }}
+          accessibilityLabel={`${rule.enabled ? 'Pause' : 'Resume'} ${switchTarget}`}
+        />
+      )}
     </Pressable>
   );
 }

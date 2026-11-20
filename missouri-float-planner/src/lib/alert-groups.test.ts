@@ -3,9 +3,15 @@ import test from 'node:test';
 import type { AlertRule } from '@eddy/types';
 import {
   alertRuleKey,
+  coverageLine,
+  followsParent,
   groupAlertRules,
+  groupCoverage,
+  groupLastTriggeredAt,
   isGatedByParent,
   rulesInGroup,
+  staleCoveredStation,
+  stationShortName,
 } from '../../../eddy-ios/src/lib/alertGroups';
 
 // The Expo app has no test runner, so its pure logic is covered here — the same
@@ -235,4 +241,124 @@ test('a child paused by hand stays paused when the parent is resumed', () => {
       ['gauge-van-buren', false],
     ],
   );
+});
+
+// ── Coverage: a gauge that extends the river alert is not a row ─────────────
+//
+// A child created from the river alert's edit screen copies its setting, and
+// the list names it on the river's row instead of drawing a second alert. What
+// these protect is the other half of that claim: a child that has STOPPED doing
+// what its parent does must keep a row, because "Main gauge + Akers" over a
+// station that is paused, or on a different trigger, is the row lying.
+
+test('a child on the parent’s setting is folded into the parent’s row', () => {
+  const group = groupAlertRules([currentRiver, currentAkers, currentVanBuren])[0];
+  const { covered, separate } = groupCoverage(group);
+  assert.deepEqual(covered.map((c) => c.id), ['gauge-akers', 'gauge-van-buren']);
+  assert.deepEqual(separate, []);
+});
+
+test('a child paused by hand keeps a row of its own', () => {
+  // Otherwise the river's row would name a station nothing is watching, and
+  // the switch that paused it would have nowhere to be switched back.
+  const off = { ...currentVanBuren, enabled: false };
+  const group = groupAlertRules([currentRiver, currentAkers, off])[0];
+  const { covered, separate } = groupCoverage(group);
+  assert.deepEqual(covered.map((c) => c.id), ['gauge-akers']);
+  assert.deepEqual(separate.map((c) => c.id), ['gauge-van-buren']);
+});
+
+test('a child given its own trigger keeps a row of its own', () => {
+  const otherKind = { ...currentAkers, conditionKind: 'safety' as const };
+  const ownLevel = {
+    ...currentVanBuren,
+    mode: 'threshold' as const,
+    conditionKind: null,
+    metric: 'gauge_height_ft' as const,
+    comparator: 'above' as const,
+    thresholdValue: 3,
+  };
+  assert.equal(followsParent(otherKind, currentRiver), false);
+  assert.equal(followsParent(ownLevel, currentRiver), false);
+});
+
+test('a one-shot child of a repeating river alert keeps a row of its own', () => {
+  // It fires once and the river alert keeps firing; folded in, the row would
+  // promise coverage that ends after the first notification.
+  assert.equal(followsParent({ ...currentAkers, oneShot: true }, currentRiver), false);
+  assert.equal(
+    followsParent(
+      { ...currentAkers, oneShot: true, firedAt: '2026-08-02T00:00:00.000Z' },
+      { ...currentRiver, oneShot: true },
+    ),
+    false,
+  );
+});
+
+test('a paused parent still covers the same stations', () => {
+  // Pausing writes one row and touches no child, so the split must not move:
+  // a station that jumped out into its own row when the river alert was paused
+  // would be the "on beside a paused parent" row this change removed.
+  const group = groupAlertRules([{ ...currentRiver, enabled: false }, currentAkers])[0];
+  assert.deepEqual(groupCoverage(group).covered.map((c) => c.id), ['gauge-akers']);
+});
+
+test('every child is either covered or separate, never both or neither', () => {
+  const off = { ...currentVanBuren, enabled: false };
+  const group = groupAlertRules([currentRiver, currentAkers, off])[0];
+  const { covered, separate } = groupCoverage(group);
+  assert.deepEqual(
+    [...covered, ...separate].map(alertRuleKey).sort(),
+    group.children.map(alertRuleKey).sort(),
+  );
+});
+
+test('a station is named by the part that tells it from its neighbours', () => {
+  assert.equal(stationShortName('Meramec River near Sullivan, MO'), 'Sullivan');
+  assert.equal(stationShortName('Current River at Van Buren, MO'), 'Van Buren');
+  assert.equal(stationShortName('Jacks Fork at Alley Spring, MO'), 'Alley Spring');
+  assert.equal(stationShortName('Buffalo River at Carver'), 'Carver');
+  // "above Akers" and "Akers" are different places on the river.
+  assert.equal(stationShortName('Current River above Akers, MO'), 'above Akers');
+  assert.equal(stationShortName('White River below Bull Shoals Dam'), 'below Bull Shoals Dam');
+  // The first preposition splits, so a compound location stays whole.
+  assert.equal(
+    stationShortName('Niangua River at Tunnel Dam near Macks Creek, MO'),
+    'Tunnel Dam near Macks Creek',
+  );
+  // An unrecognised shape is left alone rather than guessed at.
+  assert.equal(stationShortName('Elsewhere'), 'Elsewhere');
+  assert.equal(stationShortName(null), 'another gauge');
+});
+
+test('the coverage line names the stations, then counts them', () => {
+  assert.equal(coverageLine([]), null);
+  assert.equal(coverageLine([currentAkers]), 'Main gauge + Akers');
+  assert.equal(coverageLine([currentAkers, currentVanBuren]), 'Main gauge + Akers and Van Buren');
+  const doniphan = { ...currentAkers, id: 'g3', gaugeName: 'Current River at Doniphan, MO' };
+  assert.equal(
+    coverageLine([currentAkers, currentVanBuren, doniphan]),
+    'Main gauge + Akers, Van Buren and Doniphan',
+  );
+  const eminence = { ...currentAkers, id: 'g4', gaugeName: 'Current River at Eminence, MO' };
+  assert.equal(
+    coverageLine([currentAkers, currentVanBuren, doniphan, eminence]),
+    'Main gauge + 4 more gauges',
+  );
+});
+
+test('the row reports the latest send across the stations folded into it', () => {
+  // A river row reading "Never sent" the morning after its Akers gauge fired
+  // would contradict the notification.
+  assert.equal(groupLastTriggeredAt(currentRiver, [currentAkers]), null);
+  const fired = { ...currentAkers, lastTriggeredAt: '2026-08-05T12:00:00.000Z' };
+  assert.equal(groupLastTriggeredAt(currentRiver, [fired]), '2026-08-05T12:00:00.000Z');
+  const parentLater = { ...currentRiver, lastTriggeredAt: '2026-08-06T12:00:00.000Z' };
+  assert.equal(groupLastTriggeredAt(parentLater, [fired]), '2026-08-06T12:00:00.000Z');
+});
+
+test('a folded-in station that has stopped reporting is surfaced', () => {
+  assert.equal(staleCoveredStation([currentAkers, currentVanBuren]), null);
+  const stale = { ...currentVanBuren, readingStale: true };
+  assert.equal(staleCoveredStation([currentAkers, stale])?.id, 'gauge-van-buren');
 });

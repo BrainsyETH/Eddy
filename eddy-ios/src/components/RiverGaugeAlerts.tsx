@@ -236,15 +236,15 @@ export function RiverGaugeAlerts({ rule }: Props) {
     <>
       <Text style={[styles.sectionLabel, { color: colors.textSubtle }]}>Gauges on this river</Text>
       <Text style={[styles.intro, { color: colors.textMuted }]}>
-        {/* Says what the river alert actually watches, and — since the Alerts
-            tab started nesting these under their river — where the switch you
-            are about to flick shows up. Without the first sentence the extra
+        {/* Says what the river alert actually watches, and where the switch you
+            are about to flick shows up: the Alerts tab names the gauges an
+            alert covers on its row. Without the first sentence the extra
             switches read as optional detail rather than as the answer to "which
             part of the river is this about"; without the second, switching one
             on looked like it had done nothing. */}
         This alert follows {rule.riverName ?? 'the river'}&apos;s main gauge. Switch on any other
-        one to be told about its stretch too, graded on its own levels — it appears under this
-        alert on the Alerts tab.
+        one to be told about its stretch too, graded on its own levels. The Alerts tab lists the
+        gauges this alert covers.
       </Text>
 
       {gauges === null ? (
@@ -277,9 +277,14 @@ export function RiverGaugeAlerts({ rule }: Props) {
                         // locked beside this, because the only thing this
                         // section could do to it is delete it.
                         'On as an alert of its own — it is not part of this one. Manage it on the Alerts tab.'
-                      : on
-                        ? 'On — you will hear about this gauge separately.'
-                        : 'Off'}
+                      : existing && !existing.enabled
+                        ? // Paused from its own row on the Alerts tab. This
+                          // switch deletes what it turns off, so it must not
+                          // read as a plain "On" for a rule that is not firing.
+                          'Paused on the Alerts tab. Resume it there.'
+                        : on
+                          ? 'On — you will hear about this gauge separately.'
+                          : 'Off'}
               </Text>
             </View>
             {busyId === row.gauge.id ? (

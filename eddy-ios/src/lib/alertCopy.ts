@@ -58,15 +58,21 @@ export function relativeTime(iso: string | null, now: Date = new Date()): string
  * the reading that tripped it is not on the rule payload, and inventing a
  * plausible one is worse than omitting it.
  *
+ * A PAUSED RULE IS NOT WATCHING. This used to print "watching since October"
+ * under a switch that was off, which is the one claim on the row that was
+ * false. Paused, it says so — and still says when it last fired, because that
+ * stays true and is the reason somebody might switch it back on.
+ *
  * Returns null when the rule has never fired AND has no creation date to
  * anchor "since" to — an unanchored "never sent" is closer to an error message
  * than to information.
  */
 export function lastSentNote(
-  rule: Pick<AlertRule, 'lastTriggeredAt' | 'createdAt'>,
+  rule: Pick<AlertRule, 'lastTriggeredAt' | 'createdAt'> & Partial<Pick<AlertRule, 'enabled'>>,
   now: Date = new Date(),
 ): string | null {
   const fired = relativeTime(rule.lastTriggeredAt ?? null, now);
+  if (rule.enabled === false) return fired ? `Paused · last sent ${fired}` : 'Paused';
   if (fired) return `Last sent ${fired}`;
 
   const since = watchingSince(rule.createdAt, now);
@@ -83,12 +89,18 @@ export function lastSentNote(
 export function staleReadingNote(
   rule: Pick<AlertRule, 'source' | 'enabled' | 'readingStale' | 'lastReadingAt'>,
   now: Date = new Date(),
+  /**
+   * Names the station, for a row that speaks for more than one — a river alert
+   * with other gauges folded into it. "Sullivan: waiting on the gauge".
+   */
+  station?: string,
 ): string | null {
   if (rule.source !== 'gauge' || !rule.enabled || !rule.readingStale) return null;
   const last = relativeTime(rule.lastReadingAt ?? null, now);
-  return last
-    ? `Waiting on the gauge · last usable reading ${last}`
-    : 'Waiting on the gauge · no usable reading yet';
+  const lead = station
+    ? `${station[0].toUpperCase()}${station.slice(1)}: waiting on the gauge`
+    : 'Waiting on the gauge';
+  return last ? `${lead} · last usable reading ${last}` : `${lead} · no usable reading yet`;
 }
 
 /**

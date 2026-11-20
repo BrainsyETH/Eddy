@@ -16,18 +16,23 @@
 // on the rules list is not a dead end either: it explains what an alert is, and
 // the + in the header is right there.
 //
-// ── The rules list is a TREE, not a list ────────────────────────────────────
+// ── One row per river alert, however many gauges it covers ─────────────────
 //
-// A river alert and the gauge alerts set on that river's other stations render
-// as one card with the gauges indented under it. They used to be four
-// top-level cards all titled "Current River", which is what a flat list makes
-// of one alert plus three refinements to it.
+// A river alert and the gauge alerts switched on from its edit screen are one
+// alert on more of the river, and render as ONE row that names the stations:
+// "Main gauge + Sullivan". They used to be four top-level cards all titled
+// "Current River", and then one card with a full row indented under it per
+// station — each with its own switch, repeating the parent's sentence, and
+// reading ON beside a paused parent.
 //
-// The nesting is a real relationship rather than a drawing: a child names its
+// A child keeps an indented row only when it no longer does what its parent
+// does: paused by hand, or given its own trigger. That difference is the one
+// thing the river's row cannot say for it.
+//
+// The grouping is a real relationship rather than a drawing: a child names its
 // parent on the wire, the evaluator skips a child whose parent is paused, and
 // deleting the parent cascades. So this screen writes ONE row for a group
-// switch and issues ONE delete for a group, and a gated child is drawn
-// unavailable because that is what it is. src/lib/alertGroups.ts has the
+// switch and issues ONE delete for a group. src/lib/alertGroups.ts has the
 // argument and names the migration.
 //
 // ── Why the second tab is a snapshot and not the old feed ──────────────────
@@ -96,7 +101,15 @@ import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { HomeScreenWidgetsIntro } from '@/components/HomeScreenWidgetsIntro';
 import { SwipeRow } from '@/components/SwipeRow';
-import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
+import {
+  coverageLine,
+  groupAlertRules,
+  groupCoverage,
+  groupLastTriggeredAt,
+  isGatedByParent,
+  staleCoveredStation,
+  type AlertRuleGroup,
+} from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useDamAlerts } from '@/hooks/useDamAlerts';
 import { useAlertNotificationSetup } from '@/hooks/useAlertNotificationSetup';
@@ -710,8 +723,11 @@ function AlertsContent() {
           renderItem={({ item }) => {
             const parent = item.rule;
             const name = parent.riverName ?? parent.gaugeName ?? 'this water';
+            // Every child goes with a delete, whether it has a row or not.
             const count = item.children.length;
             const gated = isGatedByParent(item);
+            // Folded into the river's row, or different enough to keep one.
+            const { covered, separate } = groupCoverage(item);
             return (
               // Swipe left to delete. The row's switch PAUSES an alert and the
               // screen behind it edits one; neither is how somebody gets rid of a
@@ -729,24 +745,31 @@ function AlertsContent() {
                 // alone ends on AlertRuleRow's 10pt bottom margin; a group ends
                 // on its last CHILD's 8pt one, and the default would leave two
                 // points of canvas showing under the action.
-                bottomInset={count > 0 ? 8 : 10}
+                bottomInset={separate.length > 0 ? 8 : 10}
                 accessibilityActionLabel={
                   count > 0
-                    ? `Delete the alert for ${name} and its ${count} gauge alerts`
+                    ? `Delete the alert for ${name} and ${count} other ${count === 1 ? 'gauge' : 'gauges'}`
                     : `Delete the alert for ${name}`
                 }
                 confirm={{
-                  title: count > 0 ? `Delete this alert and ${count} more?` : 'Delete this alert?',
+                  // One alert, as the row draws it. The message still counts
+                  // what goes with it: the delete cascades to every gauge
+                  // switched on from this alert, named on the row or not.
+                  title: 'Delete this alert?',
                   message:
                     count > 0
-                      ? `The ${count} gauge ${count === 1 ? 'alert' : 'alerts'} set on ${name} go with it. This cannot be undone.`
+                      ? `You will stop being notified about ${name}, including the ${count} other ${count === 1 ? 'gauge' : 'gauges'} it covers. This cannot be undone.`
                       : 'You will stop being notified about it. This cannot be undone.',
                 }}
               >
                 <View>
                   <AlertRuleRow
                     rule={parent}
-                    childCount={count}
+                    coverage={coverageLine(covered)}
+                    coveredCount={covered.length}
+                    lastTriggeredAt={groupLastTriggeredAt(parent, covered)}
+                    staleStation={staleCoveredStation(covered)}
+                    separateCount={separate.length}
                     // `source` rides along because the two tables are addressed
                     // differently on write — a gauge rule by its own id, a river
                     // subscription by riverId — and the edit screen must not have
@@ -760,21 +783,20 @@ function AlertsContent() {
                     onToggle={(enabled) => onToggleRule(parent, enabled)}
                   />
 
-                  {/* The gauges, under the river they are on. Each keeps its own
-                      switch and its own edit screen — they are still separate
-                      rules, and a stretch somebody added deliberately has to be
-                      removable without touching the river. What they lost is the
-                      right to sit at the top level pretending to be a fifth
-                      unrelated alert on the same water. */}
-                  {item.children.map((child) => (
+                  {/* Only the gauges that no longer do what the river alert
+                      does — paused by hand, or given their own trigger. Those
+                      keep a row, a switch and an edit screen, because the
+                      river's row cannot speak for them. A gauge that simply
+                      extends the alert is named on the row above and managed
+                      in its edit screen, where it was switched on. */}
+                  {separate.map((child) => (
                     <AlertRuleRow
                       key={`${child.source}:${child.id}`}
                       rule={child}
                       nested
-                      // Held off by the river alert above, with its own switch
-                      // still reading on — because it IS on, and the gate is
-                      // what stops it. Nothing else on the row could explain
-                      // that, so the row says it.
+                      // Held off by the river alert above. Its own `enabled`
+                      // is untouched, so the row shows no switch and says
+                      // why — see `gated` in AlertRuleRow.
                       gated={gated}
                       onPress={() =>
                         router.push({

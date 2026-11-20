@@ -70,8 +70,9 @@ What this buys, none of which is available without the column:
   so resuming restores each of them to whatever it was, and there is nothing to
   remember anywhere.
 - **`on delete cascade`** ends the orphan.
-- **The list can nest what actually belongs together** rather than everything
-  that shares a river.
+- **The list can group what actually belongs together** rather than everything
+  that shares a river. How it draws the group is its own decision — see
+  *How the list draws a group* below.
 
 Client-side, this deleted `alertPauseMemory.ts`, the batch mutations added to
 support the cascade, and the pause/resume selection logic — the whole of Option
@@ -79,9 +80,12 @@ B.
 
 ### The costs, stated
 
-- **A gated child's own `enabled` stays true.** Its switch reads on and it will
-  not fire, which is only honest because the row draws itself unavailable and
-  says "Paused with the river alert above." That copy is load-bearing.
+- **A gated child's own `enabled` stays true.** It is on and will not fire. A
+  child that has a row of its own therefore shows **no switch** while its parent
+  is paused, and says "Paused with the river alert above." That copy is
+  load-bearing. The first version showed the switch on and disabled, to avoid
+  misstating stored state; a disabled iOS switch barely dims, so the most
+  prominent control in a paused group read ON.
 - **Gating and pausing freeze the rule's crossing state identically.** A gated
   rule is dropped from the pass exactly like one the user paused, so resuming
   after a long gap can fire on the first crossing it sees. That is a property of
@@ -98,6 +102,41 @@ B.
   alert, because nothing ever recorded the difference. The migration adopts
   them; both alert tables were empty in production when it was written, so this
   cost was theoretical there and is real for any environment that is not.
+
+## How the list draws a group
+
+Amended 2026-11. The mechanism above is unchanged; this is what the Alerts tab
+shows for it.
+
+The first version drew every child as an indented row under its river: its own
+switch, its own trigger sentence, its own edit screen. That matched the rows in
+the database and not what the user had done. A child is created by one station
+switch inside the river alert's edit screen and copies the river alert's
+setting, so to the person who flipped it, it is the same alert on more of the
+river. Drawn as a row it repeated the parent's sentence, could be turned off
+three ways (its own switch, the edit-screen switch that deletes it, the parent's
+gate), and needed copy to explain why it read on beside a paused parent.
+
+So the list now splits a group's children
+([`groupCoverage`](../../eddy-ios/src/lib/alertGroups.ts)):
+
+- **A child that still follows its parent is coverage.** Same condition setting,
+  on, not a one-shot the parent is not. It has no row. The river's row names it
+  ("Main gauge + Sullivan"), reports the latest send across the stations it
+  covers, and says when one of them has stopped reporting. It is switched off
+  where it was switched on: the river alert's edit screen, which deletes it.
+- **A child that differs keeps an indented row** — paused by hand, given its own
+  trigger, or spent. That difference is the one thing the river's row cannot
+  say for it.
+
+What this gives up, on purpose: a covered station can no longer be paused or
+given its own trigger from the list. A different trigger on one station is a
+standalone gauge alert set from the gauge screen, which has no parent and is
+not gated.
+
+The row's hint about the parent's reach ("Also pauses the gauge alert below")
+shows only while the parent is on. It previously read "paused together" in both
+states, which on a live alert looked like a status.
 
 ## Failing open
 
