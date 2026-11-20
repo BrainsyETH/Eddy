@@ -231,6 +231,7 @@ src/lib/eddy/gauge-update-policy.test.ts
 src/lib/eddy/generation-record.test.ts
 src/lib/eddy/global-prose-gate.test.ts
 src/lib/eddy/knowledge.test.ts
+src/lib/eddy/outlook-prose.test.ts
 src/lib/eddy/parse-response.test.ts
 src/lib/eddy/reach-gauge-wiring.test.ts
 src/lib/eddy/read-brief.test.ts

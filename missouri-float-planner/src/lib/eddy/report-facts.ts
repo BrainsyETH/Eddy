@@ -245,9 +245,13 @@ export function gaugePlace(gaugeName: string | null): string | null {
   return match ? `${match[1].toLowerCase()} ${match[2].trim()}` : null;
 }
 
+// What each rating means in a code-written report, held to the Read brief's
+// meaning of the same rating (read-brief.ts, THE RATING). Low is floatable and
+// no more: shallow riffles or scraping are a fact about one stretch, which the
+// brief takes from that stretch's notes and code here does not have.
 const FALLBACK_MEANING: Record<ConditionCode, string> = {
   too_low: 'That is too low to float comfortably.',
-  low: 'Floatable, but expect shallow riffles.',
+  low: 'Floatable.',
   good: 'Floatable.',
   flowing: 'A good level for floating.',
   high: 'High water: use caution.',

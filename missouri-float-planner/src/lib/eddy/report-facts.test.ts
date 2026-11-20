@@ -87,6 +87,18 @@ test('missing rating uses a factual unavailable fallback, not confident floatabi
 });
 
 
+test('a Low fallback says floatable without the generic shallow-riffles meaning', () => {
+  // The Read brief removed "expect shallow riffles" as what Low means; it is
+  // true of some stretches and comes from their notes. Code has no notes.
+  const low = buildReportFacts({ ...input, dischargeCfs: 500 });
+  assert.equal(low.conditionCode, 'low');
+  const fallback = factualReportFallback(low);
+  for (const field of ['eddyRead', 'quoteText'] as const) {
+    assert.match(fallback[field] ?? '', /\bFloatable\./);
+    assert.doesNotMatch(fallback[field] ?? '', /riffle|scrap|drag/i);
+  }
+});
+
 test('compact rating claims are checked without confusing ordinary flowing water with a rating', () => {
   assert.ok(reportContradictions(report('Flowing at 2.6 ft.'), facts).includes('condition'));
   assert.deepEqual(reportContradictions(report('Water is flowing through the channel.'), facts), []);
