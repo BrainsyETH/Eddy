@@ -174,7 +174,7 @@ export default function AiModelsPage() {
               </li>
               <li>
                 Only models approved for a workload are listed. The panel below replays a recorded
-                river report on any of them, so you can read a model&apos;s work before switching.
+                river or gauge Read on any of them, so you can read a model&apos;s work before switching.
               </li>
             </ul>
           </div>
@@ -272,7 +272,12 @@ export default function AiModelsPage() {
             </button>
           )}
 
-          <ModelTestPanel productionModelId={rows.find((row) => row.workload === 'river_update')?.effectiveModel} />
+          <ModelTestPanel
+            productionModelIds={{
+              river_update: rows.find((row) => row.workload === 'river_update')?.effectiveModel,
+              gauge_update: rows.find((row) => row.workload === 'gauge_update')?.effectiveModel,
+            }}
+          />
         </div>
       )}
 

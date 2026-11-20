@@ -1,8 +1,10 @@
 // src/app/api/admin/ai-models/test/route.ts
 // GET + POST for the model test panel on /admin/ai-models.
 //
-// GET lists the recorded river Reads a test can replay and the models it may
-// call. POST replays one of them on one model and reports what came back and
+// GET lists the recorded Reads a test can replay and the models it may call,
+// for one workload: river Reads (the default) or, with ?workload=gauge_update,
+// secondary-gauge Reads. POST replays one of them on one model, under that
+// row's own workload, and reports what came back and
 // what production's automated checks would have done with it. Those checks are
 // narrow (see TestVerdict in src/lib/ai/model-test.ts): a pass is not a
 // finding that the report is true.
@@ -20,7 +22,9 @@
 // cookie, billed to Eddy.
 //
 // Call a model outside the registry. The model must be approved or test-only
-// FOR THE WORKLOAD, the same rule the save route applies, one tier wider.
+// FOR THE WORKLOAD THE ROW WAS RECORDED UNDER, the same rule the save route
+// applies, one tier wider. A gauge Read is judged as the gauge generator
+// judges it, under the gauge brief and the gauge workload's output cap.
 //
 // Fall back. A model that fails here reports the failure. Answering from the
 // code default would be a test of the wrong model.
@@ -44,14 +48,19 @@ import {
 import { resolveModels, resolveTestModel } from '@/lib/ai/resolve-models';
 import { generateText, MissingApiKeyError, providerConfigured } from '@/lib/ai/generate-text';
 import {
-  evaluateRiverReport,
+  evaluateReport,
+  isTestWorkload,
   latestPerTarget,
+  rebuildGaugePrompt,
   rebuildUserPrompt,
   recordedFacts,
   recordedReport,
+  TEST_WORKLOADS,
   type SampleRow,
+  type TestWorkload,
 } from '@/lib/ai/model-test';
-import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
+import { getKnowledgeForTarget, getRiverKnowledgeForGauge } from '@/lib/eddy/knowledge';
+import { GAUGE_READ_BRIEF } from '@/lib/eddy/read-brief';
 import { getRiverContext } from '@/lib/rivers/context';
 import { EDDY_SYSTEM_PROMPT } from '@/lib/eddy/generate-update';
 import { sha256 } from '@/lib/eddy/generation-record';
@@ -73,11 +82,14 @@ const CACHE_HEADERS = {
   'Vercel-CDN-Cache-Control': 'no-store',
 };
 
-/**
- * The one workload the panel can replay. The generation log records river
- * Reads only, so there is nothing to replay for the others yet.
- */
-const TEST_WORKLOAD: Workload = 'river_update';
+/** The workload a GET lists when it names none. */
+const DEFAULT_WORKLOAD: TestWorkload = 'river_update';
+
+/** Each Read's system prompt, as its generator sends it. */
+const SYSTEM_PROMPT: Record<TestWorkload, string> = {
+  river_update: EDDY_SYSTEM_PROMPT,
+  gauge_update: GAUGE_READ_BRIEF,
+};
 
 /** How many recent rows to read when building the one-per-river sample list. */
 const SAMPLE_SCAN_ROWS = 400;
@@ -88,11 +100,17 @@ export async function GET(request: NextRequest) {
   const authError = await requireAdminAuth(request);
   if (authError) return authError;
 
-  const models = testableProfiles(TEST_WORKLOAD).map((profile) => ({
+  const requested = request.nextUrl.searchParams.get('workload');
+  if (requested != null && !isTestWorkload(requested)) {
+    return json({ error: `Workload "${requested}" cannot be replayed. Replayable: ${TEST_WORKLOADS.join(', ')}` }, 400);
+  }
+  const workload: TestWorkload = requested ?? DEFAULT_WORKLOAD;
+
+  const models = testableProfiles(workload).map((profile) => ({
     id: profile.id,
     label: profile.label,
     provider: PROVIDERS[profile.provider].label,
-    approved: isApproved(TEST_WORKLOAD, profile.id),
+    approved: isApproved(workload, profile.id),
     // Whether the key is present, never the key. A model whose provider has
     // no key is listed but cannot be run, so the reason is visible.
     configured: providerConfigured(profile.provider),
@@ -102,41 +120,35 @@ export async function GET(request: NextRequest) {
   // Resolve the saved selection exactly as production does, including its
   // safe default for missing or invalid config. Both models answer today's
   // instructions; the published text may have used older ones.
-  const baselineId = (await resolveModels())[TEST_WORKLOAD].id;
+  const baselineId = (await resolveModels())[workload].id;
   const baseline = models.find((m) => m.id === baselineId) ?? null;
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('eddy_generation_log')
-    .select('id, created_at, river_slug, section_slug, condition_code, outcome, model_used, target:inputs->target')
-    .eq('workload', TEST_WORKLOAD)
+    .select('id, created_at, workload, river_slug, section_slug, usgs_site_id, condition_code, outcome, model_used, target:inputs->target')
+    .eq('workload', workload)
     // Only attempts that got as far as building a prompt can be replayed.
     .not('user_prompt', 'is', null)
     .order('created_at', { ascending: false })
     .limit(SAMPLE_SCAN_ROWS);
 
+  const shared = {
+    workload,
+    workloadLabel: WORKLOAD_SPECS[workload].label,
+    workloads: TEST_WORKLOADS.map((id) => ({ id, label: WORKLOAD_SPECS[id].label })),
+    models,
+    baseline,
+  };
+
   if (error) {
     console.error(`${LOG_PREFIX} Sample read failed: ${error.message}`);
     // The models are still worth returning: the panel can say what it would
     // run and why it cannot, rather than rendering as broken.
-    return json({
-      workload: TEST_WORKLOAD,
-      workloadLabel: WORKLOAD_SPECS[TEST_WORKLOAD].label,
-      models,
-      baseline,
-      samples: [],
-      samplesError: 'Recorded river reports could not be read.',
-    });
+    return json({ ...shared, samples: [], samplesError: 'Recorded reports could not be read.' });
   }
 
-  return json({
-    workload: TEST_WORKLOAD,
-    workloadLabel: WORKLOAD_SPECS[TEST_WORKLOAD].label,
-    models,
-    baseline,
-    samples: latestPerTarget((data ?? []) as unknown as SampleRow[]),
-    samplesError: null,
-  });
+  return json({ ...shared, samples: latestPerTarget((data ?? []) as unknown as SampleRow[]), samplesError: null });
 }
 
 async function handlePOST(request: NextRequest) {
@@ -156,26 +168,16 @@ async function handlePOST(request: NextRequest) {
 
   if (!isValidUUID(sampleId)) return json({ error: 'Choose a recorded report to test on.' }, 400);
 
-  const model = resolveTestModel(TEST_WORKLOAD, modelId);
-  if (!model) {
-    return json(
-      {
-        error:
-          `Model "${modelId}" cannot be tested for ${TEST_WORKLOAD}. ` +
-          `Testable: ${testableProfiles(TEST_WORKLOAD).map((p) => p.id).join(', ')}`,
-      },
-      400,
-    );
-  }
-
+  // The row first: the workload it was recorded under decides which models
+  // may be asked, which brief is sent and how the answer is judged.
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('eddy_generation_log')
     .select(
-      'id, created_at, river_slug, section_slug, usgs_site_id, condition_code, outcome, reason, model_used, system_prompt_hash, user_prompt, inputs, published',
+      'id, created_at, workload, river_slug, section_slug, usgs_site_id, condition_code, outcome, reason, model_used, system_prompt_hash, user_prompt, inputs, published',
     )
     .eq('id', sampleId)
-    .eq('workload', TEST_WORKLOAD)
+    .in('workload', [...TEST_WORKLOADS])
     .limit(1);
 
   if (error) {
@@ -184,7 +186,22 @@ async function handlePOST(request: NextRequest) {
   }
 
   const row = data?.[0];
-  if (!row) return json({ error: 'That recorded report no longer exists. Reload and choose another.' }, 404);
+  if (!row || !isTestWorkload(row.workload)) {
+    return json({ error: 'That recorded report no longer exists. Reload and choose another.' }, 404);
+  }
+  const workload: Workload & TestWorkload = row.workload;
+
+  const model = resolveTestModel(workload, modelId);
+  if (!model) {
+    return json(
+      {
+        error:
+          `Model "${modelId}" cannot be tested for ${workload}. ` +
+          `Testable: ${testableProfiles(workload).map((p) => p.id).join(', ')}`,
+      },
+      400,
+    );
+  }
 
   const facts = recordedFacts(row.inputs);
   if (typeof row.user_prompt !== 'string' || !row.user_prompt || !facts) {
@@ -200,12 +217,20 @@ async function handlePOST(request: NextRequest) {
   } catch (e) {
     console.warn(`${LOG_PREFIX} River context lookup failed for ${row.river_slug}:`, e);
   }
-  const rebuilt = rebuildUserPrompt(row.inputs, {
-    createdAt: row.created_at,
-    riverCtx,
-    localKnowledge: getKnowledgeForTarget(row.river_slug, row.section_slug, row.usgs_site_id),
-  });
+  const gaugeName = (row.inputs as { target?: { gaugeName?: unknown } } | null)?.target?.gaugeName;
+  const rebuilt = workload === 'gauge_update'
+    ? rebuildGaugePrompt(row.inputs, {
+        createdAt: row.created_at,
+        riverCtx,
+        riverKnowledge: getRiverKnowledgeForGauge(row.river_slug, typeof gaugeName === 'string' ? gaugeName : null, row.usgs_site_id),
+      })
+    : rebuildUserPrompt(row.inputs, {
+        createdAt: row.created_at,
+        riverCtx,
+        localKnowledge: getKnowledgeForTarget(row.river_slug, row.section_slug, row.usgs_site_id),
+      });
   const userPrompt = rebuilt ?? row.user_prompt;
+  const systemPrompt = SYSTEM_PROMPT[workload];
 
   const profile = MODELS[model.id];
   const base = {
@@ -213,12 +238,13 @@ async function handlePOST(request: NextRequest) {
       id: model.id,
       label: profile.label,
       provider: PROVIDERS[model.provider].label,
-      approved: isApproved(TEST_WORKLOAD, model.id),
+      approved: isApproved(workload, model.id),
       maxTokens: model.maxTokens,
       reasoningEffort: model.reasoningEffort ?? null,
     },
     sample: {
       id: row.id,
+      workload,
       createdAt: row.created_at,
       riverSlug: row.river_slug,
       sectionSlug: row.section_slug,
@@ -231,7 +257,7 @@ async function handlePOST(request: NextRequest) {
       // The replay sends TODAY's system prompt. When it has changed since the
       // record was written, the two texts answer different instructions and
       // the comparison is weaker than it looks; the panel says so.
-      systemPromptChanged: row.system_prompt_hash !== sha256(EDDY_SYSTEM_PROMPT),
+      systemPromptChanged: row.system_prompt_hash !== sha256(systemPrompt),
       // `rebuilt`: today's builder and knowledge over the recorded inputs.
       // `recorded`: the stored message, because the row could not be rebuilt.
       promptSource: rebuilt ? 'rebuilt' : 'recorded',
@@ -244,11 +270,11 @@ async function handlePOST(request: NextRequest) {
     const result = await generateText({
       feature: 'model_test',
       model,
-      system: EDDY_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
     const latencyMs = Math.round(performance.now() - started);
-    const evaluation = evaluateRiverReport(result.text, facts, result.finished);
+    const evaluation = evaluateReport(result.text, facts, result.finished, workload);
     const { usage } = result;
 
     console.log(

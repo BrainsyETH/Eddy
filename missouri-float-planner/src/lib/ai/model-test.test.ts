@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildReportFacts, reportClaimsLine } from '@/lib/eddy/report-facts';
-import { evaluateRiverReport, latestPerTarget, rebuildUserPrompt, recordedFacts, recordedReport, type SampleRow } from './model-test';
+import {
+  evaluateReport, evaluateRiverReport, isTestWorkload, latestPerTarget, rebuildGaugePrompt, rebuildUserPrompt, recordedFacts, recordedReport,
+  type SampleRow,
+} from './model-test';
 
 const facts = buildReportFacts({
   gaugeName: 'Current River at Van Buren, MO',
@@ -255,4 +258,82 @@ test('a record that cannot be rebuilt is refused, so the stored message is used'
     assert.equal(rebuildUserPrompt(inputs, options), null);
   }
   assert.equal(rebuildUserPrompt(recordedInputs(), { ...options, createdAt: 'not a date' }), null);
+});
+
+// ── Gauge Reads ─────────────────────────────────────────────────────────────
+// Nearly half of what is published is a secondary gauge's Read. They share the
+// river Read's brief and have their own message, model list and output cap.
+
+test('only the two recorded Reads can be replayed', () => {
+  assert.equal(isTestWorkload('river_update'), true);
+  assert.equal(isTestWorkload('gauge_update'), true);
+  for (const other of ['global_summary', 'social_caption', '', null, undefined]) assert.equal(isTestWorkload(other), false);
+});
+
+test('gauge samples are one per station and are named by the station', () => {
+  const gauge = (over: Partial<SampleRow>) => sample({ workload: 'gauge_update', usgs_site_id: '07064533',
+    target: { riverName: 'Current River', gaugeName: 'Current River above Akers, MO' }, ...over });
+  const samples = latestPerTarget([
+    gauge({ id: 'akers-new' }),
+    gauge({ id: 'akers-old', created_at: '2026-11-16T12:00:00Z' }),
+    gauge({ id: 'doniphan', usgs_site_id: '07068000', target: { riverName: 'Current River', gaugeName: 'Current River at Doniphan, MO' } }),
+    // A row that kept no station name falls back to its site number.
+    gauge({ id: 'unnamed', usgs_site_id: '07066510', target: { riverName: 'Current River' } }),
+    // A river Read written from the same station is a different target.
+    sample({ id: 'river', usgs_site_id: '07064533' }),
+  ]);
+  assert.deepEqual(samples.map((s) => [s.id, s.workload, s.gaugeName]), [
+    ['river', 'river_update', null],
+    ['unnamed', 'gauge_update', '07066510'],
+    ['akers-new', 'gauge_update', 'Current River above Akers, MO'],
+    ['doniphan', 'gauge_update', 'Current River at Doniphan, MO'],
+  ]);
+});
+
+test('a gauge Read is judged as its generator judges it: a missing block passes, a cut-off does not', () => {
+  // Finished, with no Eddy Read block. A river Read is incomplete; a gauge
+  // Read is published in production, so it passes here too.
+  const twoBlocks = `${reportClaimsLine(facts)}\n[SUMMARY]\nFine at Van Buren.\n\n[FULL]\nGood at Van Buren.`;
+  assert.equal(evaluateReport(twoBlocks, facts, true, 'river_update').verdict, 'incomplete');
+  assert.equal(evaluateReport(twoBlocks, facts, true, 'gauge_update').verdict, 'passed');
+  // Not finished: production refuses it while another model is waiting.
+  const whole = output('Fine.', 'Lower river.', 'Good at Van Buren.');
+  const cut = evaluateReport(whole, facts, false, 'gauge_update');
+  assert.equal(cut.verdict, 'incomplete');
+  assert.equal(cut.incomplete, 'cut_off');
+  assert.equal(evaluateReport(whole, facts, true, 'gauge_update').verdict, 'passed');
+  // The guard is the same one: a wrong rating is replaced under either.
+  const wrong = evaluateReport(output('Fine.', 'Lower river.', 'The gauge reads Flowing at Van Buren.'), facts, true, 'gauge_update');
+  assert.equal(wrong.verdict, 'replaced');
+  assert.deepEqual(wrong.contradictions, ['condition']);
+});
+
+const recordedGaugeInputs = (over: Record<string, unknown> = {}) => JSON.parse(JSON.stringify({
+  target: { riverSlug: 'current', riverName: 'Current River', usgsSiteId: '07064533', gaugeName: 'Current River above Akers, MO', coordinates: null },
+  facts,
+  readingTimestamp: '2026-11-19T16:45:00Z',
+  alerts: [],
+  forecast: null,
+  trajectory: null,
+  riverBehaviorApplies: true,
+  ...over,
+}));
+
+test("a recorded gauge morning is rebuilt with today's gauge builder, dated to that morning", () => {
+  const options = { createdAt: '2026-11-19T17:10:50Z', riverCtx: null, riverKnowledge: 'This gauge: Akers (07064533)' };
+  const prompt = rebuildGaugePrompt(recordedGaugeInputs(), options);
+  assert.ok(prompt);
+  assert.match(prompt, /^Date: Thursday, November 19, 2026$/m);
+  assert.match(prompt, /^Generate a secondary-gauge update for: Current River above Akers, MO on the Current River\.$/m);
+  assert.match(prompt, /This gauge: Akers \(07064533\)/);
+  assert.ok(prompt.includes(reportClaimsLine(facts)));
+  assert.match(prompt, /- Low \(floatable, with some dragging\): 400 up to 700/);
+  assert.doesNotMatch(prompt, /WARNING: Reading is/);
+  // It is the gauge message, not the river one.
+  assert.doesNotMatch(prompt, /Generate an Eddy condition update for|LOCAL KNOWLEDGE/);
+
+  for (const inputs of [null, {}, recordedGaugeInputs({ facts: null }), recordedGaugeInputs({ target: null }), recordedGaugeInputs({ target: { riverName: 'Current River' } })]) {
+    assert.equal(rebuildGaugePrompt(inputs, options), null);
+  }
+  assert.equal(rebuildGaugePrompt(recordedGaugeInputs(), { ...options, createdAt: 'not a date' }), null);
 });

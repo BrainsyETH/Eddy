@@ -33,6 +33,18 @@ export async function checkModelTests(browser, origin, out) {
       stored: productionId, source: 'override', rejected: null, defaultModel: models[0].id,
       defaultLabel: models[0].label, fallbackLabel: null, options: models.filter((m) => m.approved),
     }] });
+    // Gauge Reads: their own recorded mornings, model list and baseline.
+    const gaugeSampleId = '22222222-2222-4222-8222-222222222222';
+    const gaugeWritten = { summaryText: 'Floatable at Akers.', eddyRead: 'The pools hold.', quoteText: 'Akers is at 157 cfs.' };
+    const gaugeSample = {
+      id: gaugeSampleId, createdAt: '2026-11-19T17:10:00Z', workload: 'gauge_update', riverSlug: 'current', riverName: 'Current River',
+      sectionSlug: null, sectionName: null, gaugeName: 'Current River above Akers, MO', conditionCode: 'good', conditionLabel: 'Good',
+      outcome: 'model', reason: null, modelUsed: 'claude-haiku-4-5-20251001', modelLabel: 'Claude Haiku 4.5',
+      published: gaugeWritten, systemPromptChanged: true,
+    };
+    const gaugeModels = models.filter((m) => m.id !== 'claude-sonnet-4-6');
+    const gaugeCalls = [];
+    const listed = [];
     const calls = [];
     let failHaiku = true;
     await context.route('**/api/admin/**', async (route) => {
@@ -48,8 +60,24 @@ export async function checkModelTests(browser, origin, out) {
         return reply(settings());
       }
       if (path === '/api/admin/ai-models/test') {
-        if (request.method() === 'GET') return reply({ models, baseline: models.find((m) => m.id === productionId), samples: [sample] });
+        if (request.method() === 'GET') {
+          const workload = new URL(request.url()).searchParams.get('workload');
+          listed.push(workload);
+          if (workload === 'gauge_update') return reply({
+            workload, models: gaugeModels, baseline: gaugeModels.find((m) => m.id === 'claude-haiku-4-5-20251001'), samples: [gaugeSample],
+          });
+          return reply({ workload: 'river_update', models, baseline: models.find((m) => m.id === productionId), samples: [{ ...sample, workload: 'river_update' }] });
+        }
         const { model, sampleId: requestedSample } = request.postDataJSON();
+        if (requestedSample === gaugeSampleId) {
+          gaugeCalls.push(model);
+          return reply({
+            model: { ...gaugeModels.find((m) => m.id === model), reasoningEffort: null }, sample: gaugeSample,
+            ok: true, verdict: 'passed', written: gaugeWritten,
+            rawText: '[SUMMARY]\nFloatable at Akers.\n[EDDY_READ]\nThe pools hold.\n[FULL]\nAkers is at 157 cfs.',
+            latencyMs: 600, estimatedCostUsd: 0.0005,
+          });
+        }
         assert.equal(requestedSample, sampleId);
         calls.push(model);
         const failed = model === 'claude-haiku-4-5-20251001' && failHaiku;
@@ -132,6 +160,45 @@ export async function checkModelTests(browser, origin, out) {
       await panel.getByRole('button', { name: 'Clear this report', exact: true }).click();
       await panel.getByText(/This test also re-runs Claude Sonnet 5/).waitFor();
       assert.equal(await panel.getByRole('button', { name: 'Export results', exact: true }).count(), 0);
+
+      // Gauge Reads: the switch lists that workload's mornings and models, and
+      // a run is judged against the gauge workload's own current model.
+      const kinds = panel.getByRole('group', { name: 'Kind of Read' });
+      const river = kinds.getByRole('button', { name: 'River Reads', exact: true });
+      const gaugeKind = kinds.getByRole('button', { name: 'Gauge Reads', exact: true });
+      assert.equal(await river.getAttribute('aria-pressed'), 'true');
+      await gaugeKind.click();
+      const reportPicker = panel.getByLabel('Report', { exact: true });
+      await reportPicker.locator('option', { hasText: 'Current River above Akers, MO · Good' }).waitFor({ state: 'attached' });
+      assert.equal(await gaugeKind.getAttribute('aria-pressed'), 'true');
+      assert.equal(await reportPicker.locator('option').count(), 1);
+      // The river workload's Sonnet 4.6 is not offered for gauge Reads here.
+      assert.deepEqual(
+        await panel.getByLabel('Model', { exact: true }).locator('option').evaluateAll((options) => options.map((o) => o.value)),
+        gaugeModels.map((m) => m.id),
+      );
+      await panel.getByText(/This test also re-runs Claude Haiku 4.5/).waitFor();
+      await run();
+      assert.deepEqual([...gaugeCalls].sort(), ['claude-haiku-4-5-20251001', 'gpt-6.2-sol']);
+      await reference('Claude Haiku 4.5').waitFor();
+      await panel.getByText('Floatable at Akers.', { exact: true }).first().waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      const box = await gaugeKind.boundingBox();
+      // admin.css gives every workspace button a 40px minimum.
+      assert.ok(box && box.height >= 40, 'the Read switch keeps the workspace button height');
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+      await page.waitForFunction(() => window.scrollY === 0);
+      await page.screenshot({ path: `${out}/ai-models-gauge-${width}.png`, fullPage: true, style: 'nextjs-portal { display: none; }' });
+      // The export names the gauge report after the list has moved back.
+      await river.click();
+      await reportPicker.locator('option', { hasText: 'Current River · Good' }).waitFor({ state: 'attached' });
+      const gaugeDownload = page.waitForEvent('download');
+      await panel.getByRole('button', { name: 'Export results', exact: true }).click();
+      const gaugeExport = JSON.parse(await readFile(await (await gaugeDownload).path(), 'utf8'));
+      assert.equal(gaugeExport.reports.length, 1);
+      assert.equal(gaugeExport.reports[0].workload, 'gauge_update');
+      assert.equal(gaugeExport.reports[0].gauge, 'Current River above Akers, MO');
+      assert.deepEqual(listed.slice(-2), ['gauge_update', 'river_update']);
       assert.deepEqual(errors, []);
     } catch (error) {
       await page.screenshot({ path: `${out}/ai-models-${width}-failure.png`, fullPage: true }).catch(() => {});
@@ -140,5 +207,5 @@ export async function checkModelTests(browser, origin, out) {
       await context.close();
     }
   }
-  console.log('AI model panel: saved baseline, draft isolation, retries, retained references, export and responsive layout passed');
+  console.log('AI model panel: saved baseline, draft isolation, retries, retained references, gauge Reads, export and responsive layout passed');
 }

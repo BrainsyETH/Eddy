@@ -414,6 +414,12 @@ recorded inputs with today's prompt builder and today's `EDDY_KNOWLEDGE.md`
 (`rebuildUserPrompt` in `src/lib/ai/model-test.ts`), dated to the recorded
 morning. So a change to the brief, to what the prompt hands the model, or to
 which knowledge a gauge is given can be read on real water before it is
-deployed. A row that cannot be rebuilt is sent as it was stored. The panel
-replays river Reads only; a gauge Read has the same brief but its own message
-builder, which the panel does not exercise.
+deployed. A row that cannot be rebuilt is sent as it was stored.
+
+The panel replays both recorded Reads, chosen with its River Reads / Gauge
+Reads switch. A gauge Read is replayed under the gauge workload's own model
+list, output cap and current model, with the gauge brief and the gauge message
+builder (`src/lib/eddy/build-gauge-prompt.ts`), and is judged as its generator
+judges it: a finished gauge Read with a block missing passes, as it is
+published in production, and one that did not finish does not. A gauge record
+keeps no river context, so the replay uses today's.

@@ -12,10 +12,8 @@ import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/a
 import { generateText, MissingApiKeyError, type TextResult } from '@/lib/ai/generate-text';
 import { tryModels } from '@/lib/ai/attempts';
 import type { ConditionCode } from '@/types/api';
-import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
-import { buildSecondaryGaugeSemantics } from '@/lib/eddy/condition-semantics';
+import { getRiverContext } from '@/lib/rivers/context';
 import { getRiverKnowledgeForGauge } from '@/lib/eddy/knowledge';
-import { getLocalDateStrings } from '@/lib/social/local-time';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import type { ConditionThresholds } from '@/lib/conditions';
@@ -26,14 +24,12 @@ import { stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
-import type { RiverContext } from '@/lib/rivers/context';
-import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type ReportFacts } from './report-facts';
+import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts } from './report-facts';
 import { buildGaugeGenerationRecord, captureModel, type GaugeGenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
-import { materialOutlookLines } from './material-outlook';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 import { GAUGE_READ_BRIEF } from './read-brief';
-import { seasonPromptLines, trendPromptLines } from './trend-lines';
+import { buildGaugePrompt } from './build-gauge-prompt';
 
 // The model is resolved once per pass from llm_config and threaded in, so a
 // switch cannot split one run across two models. See src/lib/ai/resolve-models.ts.
@@ -308,12 +304,13 @@ export async function generateGaugeUpdate(
       console.warn('[GaugeUpdates] Section hydrology check failed:', e);
     }
   }
-  const prompt = buildGaugePrompt(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies);
+  // Selected once, so the text recorded is the text sent.
+  const riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName, target.usgsSiteId);
+  const prompt = buildGaugePrompt({ target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies, riverKnowledge });
   capture.trajectory = trajectory;
   capture.forecast = forecast;
   capture.riverBehaviorApplies = riverBehaviorApplies;
-  // The same call buildGaugePrompt makes, so the hash is of the text it sent.
-  capture.riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName, target.usgsSiteId) || null;
+  capture.riverKnowledge = riverKnowledge || null;
   capture.userPrompt = prompt;
 
   // The resolved model, then its fallback when it has one (see
@@ -410,63 +407,13 @@ export async function generateGaugeUpdate(
 }
 
 // ---------------------------------------------------------------------------
-// Prompt assembly
+// Prompt
 // ---------------------------------------------------------------------------
 
-// The shared Read brief, in its secondary-gauge form: see read-brief.ts.
+// The shared Read brief, in its secondary-gauge form: see read-brief.ts. The
+// user message is assembled in build-gauge-prompt.ts, which is pure so the
+// admin test panel can rebuild a recorded morning's message with it.
 const GAUGE_SYSTEM_PROMPT = GAUGE_READ_BRIEF;
 
-function buildGaugePrompt(
-  target: SecondaryGaugeTarget,
-  facts: ReportFacts,
-  readingTimestamp: string | null,
-  trajectory: GaugeTrajectory | null,
-  forecast: ForecastData | null,
-  riverCtx: RiverContext | null,
-  riverBehaviorApplies: boolean,
-): string {
-  const lines: string[] = [];
-
-  const { dayOfWeek, dateStr } = getLocalDateStrings(riverCtx?.timezone ?? DEFAULT_TIMEZONE);
-  lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
-  lines.push('');
-  lines.push(`Generate a secondary-gauge update for: ${target.gaugeName} on the ${target.riverName}.`);
-  // distanceFromSectionMiles is deliberately not in the prompt. It is the
-  // gauge's distance from its assigned reach (accuracy warnings), not a river
-  // mile, and labelled as one it had Eddy put Eureka "at river mile 5.0 this
-  // close to the Missouri confluence".
-
-  lines.push('');
-  lines.push('[CONDITION SEMANTICS — how to interpret conditions on THIS river]');
-  lines.push(buildSecondaryGaugeSemantics(riverCtx, riverBehaviorApplies));
-  const riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName, target.usgsSiteId);
-  if (riverKnowledge) {
-    lines.push('');
-    lines.push('[RIVER KNOWLEDGE: background for you, about the whole river unless it says "This gauge" or names a section. Use only what fits this gauge\'s stretch; never recite it]');
-    lines.push(riverKnowledge);
-  }
-  lines.push('');
-  lines.push('[THIS GAUGE]');
-  lines.push(reportFactsPrompt(facts));
-  if (readingTimestamp) {
-    const ageHours = (Date.now() - new Date(readingTimestamp).getTime()) / (1000 * 60 * 60);
-    if (ageHours > 6) {
-      lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
-    }
-  }
-
-  const trend = trendPromptLines(trajectory);
-  if (trend.length) lines.push('', ...trend);
-  const season = seasonPromptLines(trajectory, facts.conditionCode);
-  if (season.length) lines.push('', ...season);
-
-  // No weather outlook. The days ahead reach the Read only when rain is likely:
-  // see material-outlook.ts.
-  const outlook = materialOutlookLines(forecast);
-  if (outlook.length) {
-    lines.push('');
-    lines.push(...outlook);
-  }
-
-  return lines.join('\n');
-}
+/** The gauge Read's system prompt, for the test panel's replay. */
+export { GAUGE_SYSTEM_PROMPT };

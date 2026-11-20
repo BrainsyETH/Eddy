@@ -23,18 +23,34 @@ import { parseEddyResponse, replaceEmDashes, stripEddyMarkers, type ParsedEddyRe
 import { prepareGeneratedReport, type IncompleteReason, type ReportFacts, type ReportFallbackReason } from '@/lib/eddy/report-facts';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
 import { buildPrompt } from '@/lib/eddy/build-update-prompt';
+import { buildGaugePrompt } from '@/lib/eddy/build-gauge-prompt';
 import type { UpdateTarget } from '@/data/river-sections';
 import type { RiverContext } from '@/lib/rivers/context';
+
+/**
+ * The two Reads the panel can replay. Both are recorded in
+ * eddy_generation_log with their inputs; the statewide summary and social
+ * captions are not.
+ */
+export const TEST_WORKLOADS = ['river_update', 'gauge_update'] as const;
+export type TestWorkload = (typeof TEST_WORKLOADS)[number];
+
+export function isTestWorkload(value: unknown): value is TestWorkload {
+  return (TEST_WORKLOADS as readonly unknown[]).includes(value);
+}
 
 /** One recorded generation the panel can replay. */
 export interface TestSample {
   id: string;
   createdAt: string;
+  workload: TestWorkload;
   riverSlug: string;
   sectionSlug: string | null;
   /** Display names as recorded with the attempt; the slugs when it kept none. */
   riverName: string;
   sectionName: string | null;
+  /** A gauge Read's station, as USGS names it. Null for a river Read. */
+  gaugeName: string | null;
   conditionCode: string;
   /** Eddy's own label for the condition, such as "Too Low". */
   conditionLabel: string;
@@ -52,8 +68,11 @@ export interface SampleRow {
   condition_code: string;
   outcome: string;
   model_used: string | null;
+  /** Absent on rows read before the panel replayed gauge Reads: a river Read. */
+  workload?: string | null;
+  usgs_site_id?: string | null;
   /** inputs->target, selected on its own so the list never loads whole inputs. */
-  target?: { riverName?: unknown; sectionName?: unknown } | null;
+  target?: { riverName?: unknown; sectionName?: unknown; gaugeName?: unknown } | null;
 }
 
 /** The shared condition system's label, or the code itself for one it does not know. */
@@ -72,25 +91,32 @@ const nonEmpty = (value: unknown): string | null => (typeof value === 'string' &
 export function latestPerTarget(rows: SampleRow[]): TestSample[] {
   const latest = new Map<string, TestSample>();
   for (const row of rows) {
-    const key = `${row.river_slug}/${row.section_slug ?? ''}`;
+    const workload: TestWorkload = row.workload === 'gauge_update' ? 'gauge_update' : 'river_update';
+    // A gauge Read's target is its station. A river Read's is the river or
+    // section, whichever gauge it was written from that morning.
+    const key = workload === 'gauge_update'
+      ? `gauge/${row.river_slug}/${row.usgs_site_id ?? ''}`
+      : `${row.river_slug}/${row.section_slug ?? ''}`;
     if (latest.has(key)) continue;
     latest.set(key, {
       id: row.id,
       createdAt: row.created_at,
+      workload,
       riverSlug: row.river_slug,
       sectionSlug: row.section_slug,
       riverName: nonEmpty(row.target?.riverName) ?? row.river_slug,
       sectionName: row.section_slug ? nonEmpty(row.target?.sectionName) ?? row.section_slug : null,
+      gaugeName: workload === 'gauge_update' ? nonEmpty(row.target?.gaugeName) ?? row.usgs_site_id ?? null : null,
       conditionCode: row.condition_code,
       conditionLabel: conditionLabel(row.condition_code),
       outcome: row.outcome,
       modelUsed: row.model_used,
     });
   }
-  // Whole-river rows first within a river, then its sections by name.
+  // Whole-river rows first within a river, then its sections or gauges by name.
+  const within = (sample: TestSample) => sample.sectionName ?? sample.gaugeName ?? '';
   return Array.from(latest.values()).sort(
-    (a, b) =>
-      a.riverName.localeCompare(b.riverName) || (a.sectionName ?? '').localeCompare(b.sectionName ?? ''),
+    (a, b) => a.riverName.localeCompare(b.riverName) || within(a).localeCompare(within(b)),
   );
 }
 
@@ -136,10 +162,25 @@ export interface ReportEvaluation {
  * incomplete however whole it looks.
  */
 export function evaluateRiverReport(text: string | null, facts: ReportFacts, finished: boolean): ReportEvaluation {
+  return evaluateReport(text, facts, finished, 'river_update');
+}
+
+/**
+ * The same, for either Read, as that Read's generator judges it.
+ *
+ * A river Read must have finished AND hold all three blocks. A gauge Read is
+ * not required to hold all three (generate-gauge-update.ts: about three in ten
+ * stored rows lacked one when that was decided), so a finished gauge Read with
+ * a block missing passes here as it does in production. One that did not
+ * finish is `incomplete` for both: production refuses it while another model
+ * is waiting, and text cut off at the output cap can end anywhere.
+ */
+export function evaluateReport(text: string | null, facts: ReportFacts, finished: boolean, workload: TestWorkload): ReportEvaluation {
   const raw = text ? replaceEmDashes(text.trim()) : '';
   if (!raw) return { verdict: 'empty', reason: null, contradictions: [], incomplete: null, written: null };
 
-  const prepared = prepareGeneratedReport(raw, facts, { finished });
+  const guarded = prepareGeneratedReport(raw, facts, workload === 'river_update' ? { finished } : {});
+  const prepared = workload === 'gauge_update' && !finished ? { ...guarded, incomplete: 'cut_off' as const } : guarded;
   // A wrong claims line is rejected before anything is parsed, so parse it
   // here the way the guard would have: without the [CLAIMS] line, which is a
   // structured claim for the guard and never part of the published text.
@@ -240,4 +281,39 @@ export function rebuildUserPrompt(
     options.riverCtx ?? or<RiverContext | null>(recorded.river, null),
     now,
   );
+}
+
+/**
+ * The same for a recorded gauge Read: today's gauge message builder over the
+ * recorded station, facts, trend and forecast, with the knowledge today's file
+ * gives that station. A gauge record keeps no river context, so the caller
+ * loads today's; without one the builder writes its neutral guidance, as the
+ * generator does when the lookup fails.
+ */
+export function rebuildGaugePrompt(
+  inputs: unknown,
+  options: { createdAt: string; riverCtx: RiverContext | null; riverKnowledge: string },
+): string | null {
+  const facts = recordedFacts(inputs);
+  if (!facts) return null;
+  const recorded = inputs as Record<string, unknown>;
+  const target = recorded.target as { gaugeName?: unknown; riverName?: unknown } | null | undefined;
+  const gaugeName = nonEmpty(target?.gaugeName);
+  const riverName = nonEmpty(target?.riverName);
+  if (!gaugeName || !riverName) return null;
+  const now = new Date(options.createdAt);
+  if (Number.isNaN(now.getTime())) return null;
+  return buildGaugePrompt({
+    target: { gaugeName, riverName },
+    facts,
+    readingTimestamp: nonEmpty(recorded.readingTimestamp),
+    trajectory: (recorded.trajectory ?? null) as never,
+    forecast: (recorded.forecast ?? null) as never,
+    riverCtx: options.riverCtx,
+    // Recorded as decided that morning. Anything but a recorded `true` gets
+    // the neutral guidance, which is the generator's own rule.
+    riverBehaviorApplies: recorded.riverBehaviorApplies === true,
+    riverKnowledge: options.riverKnowledge,
+    now,
+  });
 }

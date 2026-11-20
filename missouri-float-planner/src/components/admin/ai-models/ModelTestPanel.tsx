@@ -1,8 +1,8 @@
 'use client';
 
 // src/components/admin/ai-models/ModelTestPanel.tsx
-// Replays a recorded river report on a chosen model and shows the result
-// beside a reference. Nothing here saves or publishes: the selection above
+// Replays a recorded Read (a river's, or a secondary gauge's) on a chosen
+// model and shows the result beside a reference. Nothing here saves or publishes: the selection above
 // this panel is the only thing that changes what readers get.
 //
 // ── The reference ──────────────────────────────────────────────────────────
@@ -44,9 +44,21 @@ interface TestModel {
   envVar: string;
 }
 
+/** The Reads the panel can replay. Each has its own models, baseline and recorded mornings. */
+type TestWorkload = 'river_update' | 'gauge_update';
+
+const WORKLOAD_TABS: ReadonlyArray<{ id: TestWorkload; label: string }> = [
+  { id: 'river_update', label: 'River Reads' },
+  { id: 'gauge_update', label: 'Gauge Reads' },
+];
+
 interface TestSample {
   id: string;
   createdAt: string;
+  /** Absent from an older server: a river Read. */
+  workload?: TestWorkload;
+  /** A gauge Read's station name. */
+  gaugeName?: string | null;
   riverSlug: string;
   sectionSlug: string | null;
   riverName: string;
@@ -117,8 +129,9 @@ const words = (value: string) => value.replace(/_/g, ' ');
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+/** A gauge Read is named by its station, which already says the river. */
 const sampleLabel = (sample: TestSample) =>
-  `${sample.riverName}${sample.sectionName ? `, ${sample.sectionName}` : ''} · ${sample.conditionLabel} · ${day(sample.createdAt)}`;
+  `${sample.gaugeName ?? `${sample.riverName}${sample.sectionName ? `, ${sample.sectionName}` : ''}`} · ${sample.conditionLabel} · ${day(sample.createdAt)}`;
 
 /** Stop reasons that mean the output cap was hit before the model finished. */
 const CAP_HIT = new Set(['max_tokens', 'max_output_tokens']);
@@ -271,10 +284,19 @@ function RunCard({ run, heading }: { run: RunResult; heading?: string }) {
 
 const TOGGLE = 'rounded border border-neutral-600 px-2 py-1 text-xs';
 
-export default function ModelTestPanel({ productionModelId }: { productionModelId?: string }) {
+export default function ModelTestPanel({
+  productionModelIds,
+}: {
+  /** The saved model per workload, updated only after a confirmed save. */
+  productionModelIds?: Partial<Record<TestWorkload, string>>;
+}) {
+  const [workload, setWorkload] = useState<TestWorkload>('river_update');
   const [models, setModels] = useState<TestModel[]>([]);
   const [loadedBaseline, setLoadedBaseline] = useState<TestModel | null>(null);
   const [samples, setSamples] = useState<TestSample[]>([]);
+  // Every sample this session has listed, in either workload: the export
+  // names a report by its sample after the list has moved to the other kind.
+  const [knownSamples, setKnownSamples] = useState<Record<string, TestSample>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sampleId, setSampleId] = useState('');
@@ -287,11 +309,11 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
   const sampleFieldId = useId();
   const modelFieldId = useId();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (kind: TestWorkload) => {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await adminFetch(`/api/admin/ai-models/test?_t=${Date.now()}`);
+      const res = await adminFetch(`/api/admin/ai-models/test?workload=${kind}&_t=${Date.now()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setLoadError(data.error || `Could not load the test panel (${res.status})`);
@@ -302,17 +324,20 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
       setModels(nextModels);
       setLoadedBaseline(data.baseline ?? null);
       setSamples(nextSamples);
+      setKnownSamples((known) => ({ ...known, ...Object.fromEntries(nextSamples.map((sample) => [sample.id, sample])) }));
       setLoadError(data.samplesError ?? null);
-      setSampleId((current) => current || nextSamples[0]?.id || '');
+      // Keep a choice that still exists in this workload's lists; the two
+      // workloads have their own recorded mornings and may allow different models.
+      setSampleId((current) => (nextSamples.some((s) => s.id === current) ? current : nextSamples[0]?.id || ''));
       // Default to the first model that is not yet approved and can run: the
       // ones worth testing are the ones nobody has read.
-      setModelId(
-        (current) =>
-          current ||
-          nextModels.find((m) => !m.approved && m.configured)?.id ||
-          nextModels.find((m) => m.configured)?.id ||
-          nextModels[0]?.id ||
-          '',
+      setModelId((current) =>
+        nextModels.some((m) => m.id === current)
+          ? current
+          : nextModels.find((m) => !m.approved && m.configured)?.id ||
+            nextModels.find((m) => m.configured)?.id ||
+            nextModels[0]?.id ||
+            '',
       );
     } catch {
       setLoadError('Could not load the test panel');
@@ -322,13 +347,13 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(workload);
+  }, [load, workload]);
 
   const selectedModel = models.find((m) => m.id === modelId);
   // The parent updates this only after a confirmed save, never for an unsaved
   // dropdown choice. Do not remount the panel and lose the session's runs.
-  const baselineModel = models.find((m) => m.id === productionModelId) ?? loadedBaseline;
+  const baselineModel = models.find((m) => m.id === productionModelIds?.[workload]) ?? loadedBaseline;
   const current = reports[sampleId];
   const baseline = baselineModel ? current?.baselines[baselineModel.id] ?? null : null;
   const baselineError = baselineModel ? current?.baselineErrors[baselineModel.id] : null;
@@ -427,9 +452,11 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
       reports: Object.entries(reports)
         .filter(([, r]) => r.runs.length > 0)
         .map(([id, r]) => {
-          const sample = samples.find((s) => s.id === id);
+          const sample = knownSamples[id];
           return {
             generationId: id,
+            workload: sample?.workload ?? null,
+            gauge: sample?.gaugeName ?? null,
             river: sample?.riverName ?? null,
             section: sample?.sectionName ?? null,
             condition: sample?.conditionLabel ?? null,
@@ -473,6 +500,28 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
         Nothing is published, and each run is a billed call.
       </p>
 
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Kind of Read">
+        {WORKLOAD_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            aria-pressed={workload === tab.id}
+            disabled={running}
+            onClick={() => {
+              if (tab.id === workload) return;
+              setWorkload(tab.id);
+              setRunError(null);
+              setShowPublished(false);
+            }}
+            className={`rounded-lg border border-neutral-600 px-3 py-2 text-sm disabled:opacity-40 ${
+              workload === tab.id ? 'bg-neutral-700 font-medium text-white' : 'text-neutral-300 hover:bg-neutral-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <p className="mt-4 text-sm text-neutral-400">Loading…</p>
       ) : (
@@ -487,7 +536,9 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
           {samples.length === 0 ? (
             !loadError && (
               <p className="mt-4 text-sm text-neutral-400">
-                No recorded river reports yet. They appear after the next river update runs.
+                {workload === 'gauge_update'
+                  ? 'No recorded gauge Reads yet. They appear after the next gauge update runs.'
+                  : 'No recorded river Reads yet. They appear after the next river update runs.'}
               </p>
             )
           ) : (

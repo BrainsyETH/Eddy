@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { buildPrompt, type GaugeContext } from './build-update-prompt';
+import { buildGaugePrompt } from './build-gauge-prompt';
 import { likelyRainDays, materialOutlookLines } from './material-outlook';
 import type { ForecastData, WeatherData } from '../weather/openweather';
 import { buildReportFacts } from './report-facts';
@@ -109,7 +110,7 @@ test('both Read briefs send weather to the Weather section and name no forecast 
   // Each prompt builder gets the days ahead from the one shared helper.
   const read = (p: string) => readFileSync(p, 'utf8');
   assert.match(read('src/lib/eddy/build-update-prompt.ts'), /materialOutlookLines\(forecast, now\)/);
-  assert.match(read('src/lib/eddy/generate-gauge-update.ts'), /materialOutlookLines\(forecast\)/);
+  assert.match(read('src/lib/eddy/build-gauge-prompt.ts'), /materialOutlookLines\(forecast, now\)/);
 });
 
 // ── a replay is dated to its recorded morning ───────────────────────
@@ -121,4 +122,26 @@ test('the date line and the stale-reading warning follow the time the prompt is 
   const later = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-19T15:00:00Z'));
   assert.match(later, /^Date: Thursday, November 19, 2026$/m);
   assert.match(later, /WARNING: Reading is 36 hours old/);
+});
+
+// ── the gauge Read's message ────────────────────────────────────────
+test("a gauge Read's message carries the knowledge it is handed and follows the time it is for", () => {
+  const inputs = {
+    target: { gaugeName: 'Current River above Akers, MO', riverName: 'Current River' },
+    facts: gauge.facts, readingTimestamp: '2026-11-18T03:00:00Z', trajectory: trajectory(10), forecast: forecast([0, 90, 0]),
+    riverCtx: null, riverBehaviorApplies: false, riverKnowledge: 'This gauge: Akers (07064533)\n- **Sits**: At Akers Ferry.',
+  };
+  const then = buildGaugePrompt({ ...inputs, now: NOW });
+  assert.match(then, /^Date: Wednesday, November 18, 2026$/m);
+  assert.match(then, /^Generate a secondary-gauge update for: Current River above Akers, MO on the Current River\.$/m);
+  assert.match(then, /\[RIVER KNOWLEDGE: [^\]]*\]\nThis gauge: Akers \(07064533\)/);
+  // No river context and no proven river-wide behaviour: the neutral guidance.
+  assert.match(then, /Local hydrology is not established for this station/);
+  assert.match(then, /\[THIS GAUGE\]\n\[AUTHORITATIVE GAUGE FACTS/);
+  assert.match(then, /\[GAUGE TRAJECTORY\]\n24h change: -0\.2 ft/);
+  assert.match(then, /\[OUTLOOK\]\nRain is likely tomorrow\./);
+  // Twelve hours after the reading, the stale warning; with no knowledge, no block.
+  assert.match(then, /WARNING: Reading is 12 hours old/);
+  const bare = buildGaugePrompt({ ...inputs, riverKnowledge: '', now: new Date('2026-11-18T05:00:00Z') });
+  assert.doesNotMatch(bare, /RIVER KNOWLEDGE|WARNING: Reading is/);
 });

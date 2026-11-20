@@ -141,9 +141,17 @@ test('secondary prompts require a successful section check before using river be
   assert.match(gauge, /let riverBehaviorApplies = false/);
   assert.match(gauge, /\.from\('river_sections'\)[\s\S]*?\.eq\('river_id', riverCtx\.id\)[\s\S]*?\.not\('river_type', 'is', null\)/);
   assert.match(gauge, /riverBehaviorApplies = !error && overrides != null && overrides\.length === 0/);
-  assert.match(gauge, /buildGaugePrompt\(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies\)/);
-  assert.match(gauge, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
-  assert.doesNotMatch(gauge, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote)/);
+  // The decision is handed to the message builder, which lives in its own
+  // SDK-free module so the admin test panel can rebuild a recorded morning.
+  assert.match(gauge, /buildGaugePrompt\(\{ target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies, riverKnowledge \}\)/);
+  const builder = src('src/lib/eddy/build-gauge-prompt.ts');
+  assert.match(builder, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
+  for (const source of [gauge, builder]) {
+    assert.doesNotMatch(source, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote)/);
+  }
+  // Pure: the panel imports it, so it may not pull in a model SDK, the
+  // database or a file read.
+  assert.doesNotMatch(builder, /from '@\/lib\/ai\/|supabase|from 'fs'|from '\.\/knowledge'/);
 });
 
 test('the river brief asks Eddy to know which stretch a gauge covers, without invented local facts', () => {
