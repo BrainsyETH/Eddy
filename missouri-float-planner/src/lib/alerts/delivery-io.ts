@@ -48,7 +48,14 @@ function isMissingColumn(error: { code?: string } | null): boolean {
   return error?.code === '42703' || error?.code === 'PGRST204';
 }
 
-type EventColumn = 'river_event_id' | 'gauge_event_id';
+type EventColumn = 'river_event_id' | 'gauge_event_id' | 'dam_event_id';
+
+/** The ledger's event_source for each outbox, as the three passes write it. */
+const EVENT_SOURCE: Record<EventColumn, string> = {
+  river_event_id: 'river_condition',
+  gauge_event_id: 'gauge_alert',
+  dam_event_id: 'dam_generation',
+};
 interface TicketRow {
   event_id: string;
   user_id: string;
@@ -62,16 +69,20 @@ export async function priorPushRecipients(db: SupabaseClient, eventIds: string[]
   const [tickets, unrecorded] = await Promise.all([
     readAllIn<{ event_id: string; user_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
       db.from('alert_push_deliveries').select('event_id, user_id')
-        .eq('event_source', eventColumn === 'river_event_id' ? 'river_condition' : 'gauge_alert')
+        .eq('event_source', EVENT_SOURCE[eventColumn])
         .eq('status', 'sent').in('event_id', chunk)
         .order('event_id').order('device_token_id').range(from, to)),
     readAllIn<{ event_id: string; user_id: string }>('unrecorded recipients', eventIds, async (chunk, from, to) => {
       const { data, error } = await db.from('alert_push_unrecorded_recipients')
-        .select('river_event_id, gauge_event_id, user_id').in(eventColumn, chunk)
+        .select(`${eventColumn}, user_id`).in(eventColumn, chunk)
         .order(eventColumn).order('user_id').range(from, to);
       // The table is additive. Any other read error must leave the outbox pending.
       if (error?.code === 'PGRST205' || error?.code === '42P01') return { data: [], error: null };
-      return { data: data?.map(row => ({ event_id: row[eventColumn], user_id: row.user_id })) ?? [], error };
+      // So is its dam column (20261120203000). Before it exists no dam row can
+      // have been recorded, so there is nothing to miss.
+      if (eventColumn === 'dam_event_id' && isMissingColumn(error)) return { data: [], error: null };
+      const rows = (data ?? []) as unknown as Array<Record<string, string>>;
+      return { data: rows.map(row => ({ event_id: row[eventColumn], user_id: row.user_id })), error };
     }),
   ]);
   return [...tickets, ...unrecorded];

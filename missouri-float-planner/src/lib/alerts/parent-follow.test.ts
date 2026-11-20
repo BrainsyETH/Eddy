@@ -18,6 +18,7 @@ before(async () => {
     insert into auth.users values ('${user}');
     create table river_condition_events(id uuid primary key);
     create table gauge_alert_events(id uuid primary key);
+    create table dam_generation_alert_events(id uuid primary key);
     create function auth.uid() returns uuid language sql as $$select '${user}'::uuid$$;
     create table alert_subscriptions (id uuid primary key default gen_random_uuid(),
       user_id uuid, river_id uuid, kind text, one_shot boolean, enabled boolean, fired_at timestamptz,
@@ -33,7 +34,8 @@ before(async () => {
   `);
   // In ledger order. Each is applied twice: operators can safely retry a
   // pending migration.
-  for (const file of ['20261120174228_river_alert_delivery.sql', '20261120201500_river_alert_resume_reseed.sql']) {
+  for (const file of ['20261120174228_river_alert_delivery.sql', '20261120201500_river_alert_resume_reseed.sql',
+    '20261120203000_dam_unrecorded_recipients.sql']) {
     const migration = readFileSync(new URL(`../../../supabase/migrations/${file}`, import.meta.url), 'utf8');
     await db.exec(migration);
     await db.exec(migration);
@@ -311,6 +313,25 @@ test('only the delivery worker can see fallback recipients', async () => {
   assert.deepEqual(rows.map(r => [r.role, r.can_read, r.can_write]), [
     ['anon', false, false], ['authenticated', false, false], ['service_role', true, true],
   ]);
+});
+
+test('a dam push can be recorded as reached when its ticket write fails, one event per row', async () => {
+  const damEvent = (await db.query<{ id: string }>('insert into dam_generation_alert_events values(gen_random_uuid()) returning id')).rows[0].id;
+  const insert = (columns: string, values: unknown[]) => db.query(
+    `insert into alert_push_unrecorded_recipients(${columns},user_id,sent_at) values (${values.map((_, i) => `$${i + 1}`).join(',')},$${values.length + 1},$${values.length + 2})`,
+    [...values, user, stamp]);
+  await insert('dam_event_id', [damEvent]);
+  // The worker's upsert conflict target exists.
+  await db.query(`insert into alert_push_unrecorded_recipients(dam_event_id,user_id,sent_at) values ($1,$2,$3)
+    on conflict (dam_event_id,user_id) do nothing`, [damEvent, user, stamp]);
+  assert.equal((await db.query('select * from alert_push_unrecorded_recipients')).rows.length, 1);
+  const gaugeEvent = (await db.query<{ id: string }>('insert into gauge_alert_events values(gen_random_uuid()) returning id')).rows[0].id;
+  await assert.rejects(insert('dam_event_id,gauge_event_id', [damEvent, gaugeEvent]), /one_event/);
+  await assert.rejects(db.query('insert into alert_push_unrecorded_recipients(user_id,sent_at) values ($1,$2)', [user, stamp]), /one_event/);
+  // Pruned with its event.
+  await db.query('delete from dam_generation_alert_events where id=$1', [damEvent]);
+  assert.equal((await db.query('select * from alert_push_unrecorded_recipients')).rows.length, 0);
+  await db.query('delete from gauge_alert_events where id=$1', [gaugeEvent]);
 });
 
 for (const source of ['river_condition', 'gauge_alert']) {
