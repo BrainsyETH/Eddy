@@ -232,7 +232,7 @@ test('a database without the push_outcome column still drains', async () => {
     const q = realFrom(table);
     const update = q.update.bind(q);
     q.update = (payload: Record<string, unknown>) => {
-      if ('push_outcome' in payload) db.fail({ table, mode: 'update', code: 'PGRST204', times: 1 });
+      if ('push_outcome' in payload) db.fail({ table, mode: 'update', code: 'PGRST204', message: "Could not find the 'one_shot_rule_id' column", times: 1 });
       return update(payload);
     };
     return q;
@@ -328,21 +328,61 @@ test('a river ledger write that fails after sending still drains, so nothing is 
   assert.equal(t.sent.length, 3, 'No second push');
 });
 
-test('a gauge ledger write that fails after sending still drains and spends nothing twice', async () => {
-  const db = gaugeWorld().fail({ table: 'alert_push_deliveries', mode: 'upsert', times: 1 });
+test('a mixed river send survives a failed ledger write and retries only the missed phone', async () => {
+  const db = riverWorld().fail({ table: 'alert_push_deliveries', mode: 'upsert' });
+  const t = transport(new Set(['ExponentPushToken[b]']));
+  await run(db, t);
+  assert.equal(event(db).push_delivered_at, null);
+  t.failing.clear();
+  await run(db, t);
+  assert.deepEqual(t.sent.sort(), ['ExponentPushToken[a]', 'ExponentPushToken[b]', 'ExponentPushToken[c]']);
+  assert.ok(event(db).push_delivered_at);
+});
+
+test('a failure reading the fallback recipients defers the pass before any send', async () => {
+  const db = riverWorld().fail({ table: 'alert_push_unrecorded_recipients', mode: 'select' });
+  const t = transport();
+  await assert.rejects(run(db, t), DeliveryReadError);
+  assert.deepEqual(t.sent, []);
+  assert.equal(event(db).push_delivered_at, null);
+});
+
+test('an unregistered ticket cannot retire a phone that registered again during the send', async () => {
+  const db = riverWorld();
+  for (const token of db.rows('device_tokens')) token.last_seen_at = NOW.toISOString();
+  await drainRiverEvents(db, { now: NOW, pauseMs: 0, send: async batch => {
+    db.rows('device_tokens')[0].last_seen_at = new Date(NOW.getTime() + 1000).toISOString();
+    return batch.map(() => ({ status: 'error', details: { error: 'DeviceNotRegistered' } }));
+  } });
+  const [fresh, older] = db.rows('device_tokens');
+  assert.equal(fresh.disabled_at, null);
+  assert.ok(older.disabled_at);
+});
+
+test('a one-time gauge alert spends once even when ticket persistence and the first drain fail', async () => {
+  const db = gaugeWorld().fail({ table: 'alert_push_deliveries', mode: 'upsert' })
+    .fail({ table: 'gauge_alert_events', mode: 'update', times: 1 });
+  const setting = { id: 'gsub-1', one_shot: true, one_shot_fired_at: null, enabled: true };
+  Object.assign(gaugeEvent(db).gauge_alert_subscriptions as object, setting);
+  db.seed('gauge_alert_subscriptions', [setting]);
   const t = transport();
   const stats = await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
   assert.equal(stats.error, undefined);
-  assert.ok(gaugeEvent(db).push_delivered_at);
+  assert.equal(gaugeEvent(db).push_delivered_at, null);
+  assert.equal(db.rows('gauge_alert_subscriptions')[0].one_shot_fired_at, NOW.toISOString());
+  assert.equal(db.rows('alert_push_unrecorded_recipients').length, 1);
 
   await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
   assert.deepEqual(t.sent, ['ExponentPushToken[a]'], 'No second push');
+  assert.ok(gaugeEvent(db).push_delivered_at);
 });
 
 test('a ledger without the one-time spend column still records every ticket', async () => {
   // Code deployed before migration 20261120150000: the column is missing, so
   // the rows are written without it instead of not at all.
-  const db = riverWorld().fail({ table: 'alert_push_deliveries', mode: 'upsert', code: 'PGRST204', times: 1 });
+  const db = riverWorld()
+    .fail({ table: 'alert_push_unrecorded_recipients', mode: 'select', code: 'PGRST205' })
+    .fail({ table: 'alert_push_deliveries', mode: 'upsert', code: 'PGRST204', message: "Could not find the 'one_shot_rule_id' column", times: 1 });
   const t = transport();
   await run(db, t);
   const rows = db.rows('alert_push_deliveries');

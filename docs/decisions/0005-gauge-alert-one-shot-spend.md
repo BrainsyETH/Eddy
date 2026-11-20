@@ -117,3 +117,8 @@ the rule for the next qualifying crossing. A pending or successful ticket
 protects the spend, as does a later rearm or a different spend timestamp.
 Previously issued tickets lack this association. A device is retired only on
 an explicit unregistered-device result.
+
+When both attempts to store a ticket batch fail, the worker records each
+accepted recipient in a service-only table. The next delivery pass skips those
+recipients. These acceptances also keep a one-time rule spent because their
+receipt outcome is unknown. The records expire with the corresponding event.

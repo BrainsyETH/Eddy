@@ -8,6 +8,7 @@
 // strategy doc names as a kill signal.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { checkedWrite } from './delivery-io';
 
 /**
  * Retire tokens Expo told us are gone.
@@ -19,10 +20,13 @@ export async function disableTokens(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient | any,
   tokenIds: string[],
+  sentAt: Date,
 ): Promise<void> {
   if (tokenIds.length === 0) return;
-  await supabase
+  await checkedWrite('retire unregistered tokens', supabase
     .from('device_tokens')
     .update({ disabled_at: new Date().toISOString() })
-    .in('id', tokenIds);
+    .in('id', tokenIds)
+    .is('disabled_at', null)
+    .lte('last_seen_at', sentAt.toISOString()));
 }

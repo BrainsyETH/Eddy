@@ -117,6 +117,23 @@ test('a whole-request rejection becomes one error ticket per message', async () 
   assert.match(tickets[0].message ?? '', /invalid credentials/);
 });
 
+test('the transport counts down from planning through backoff and preserves ticket positions when one expires', async () => {
+  let now = 101_000;
+  const attempts: ExpoMessage[][] = [];
+  const tickets = await sendExpoPush([{ ...msg('a'), ttl: 3 }, { ...msg('b'), ttl: 10 }], {
+    ttlReferenceSeconds: 100, nowMs: () => now,
+    sleepImpl: async () => { now = 104_000; },
+    fetchImpl: async (_url, init) => {
+      attempts.push(JSON.parse(String(init?.body)));
+      return attempts.length === 1 ? jsonResponse({}, 429) : jsonResponse({ data: [{ status: 'ok', id: 'b' }] });
+    },
+  });
+  assert.deepEqual(attempts.map(batch => batch.map(message => [message.to, message.ttl])), [
+    [['a', 2], ['b', 9]], [['b', 6]],
+  ]);
+  assert.deepEqual(tickets, [{ status: 'error', message: 'expired before dispatch' }, { status: 'ok', id: 'b' }]);
+});
+
 test('retries on 429 and succeeds', async () => {
   let calls = 0;
   const fetchImpl = async () => {

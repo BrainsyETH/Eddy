@@ -15,7 +15,7 @@
 
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken, type RecentDelivery } from './fanout';
 import { planDrain, spentOneShots, type DrainOutcome } from './drain';
-import { checkedWrite, readAllIn, recordDeliveryLedger, recordOutcomes, IN_CHUNK } from './delivery-io';
+import { checkedWrite, readAllIn, priorPushRecipients, recordDeliveryLedger, recordOutcomes, IN_CHUNK } from './delivery-io';
 import { one } from './rule-serialize';
 import { observationExpiration } from './observation-push';
 import { disableTokens } from './token-health';
@@ -66,7 +66,7 @@ export async function drainRiverEvents(
   options: RiverDeliveryOptions = {},
 ): Promise<RiverPassResult> {
   const now = options.now ?? new Date();
-  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages));
+  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages, { ttlReferenceSeconds: Math.floor(now.getTime() / 1000) }));
   const pauseMs = options.pauseMs ?? 300;
   const startedAt = Date.now();
 
@@ -234,16 +234,7 @@ export async function drainRiverEvents(
 
   // Who THIS batch of events already reached on an earlier pass. A retry is
   // for the recipients still missing, never for the ones already told.
-  const reachedRows = await readAllIn<{ event_id: string; user_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
-    supabase
-      .from('alert_push_deliveries')
-      .select('event_id, user_id')
-      .in('event_id', chunk)
-      .eq('status', 'sent')
-      .order('event_id')
-      .order('device_token_id')
-      .range(from, to),
-  );
+  const reachedRows = await priorPushRecipients(supabase, eventIds, 'river_event_id');
   const alreadyReached = new Set<string>();
   const previouslyReached = new Map<string, number>();
   for (const row of reachedRows) {
@@ -318,14 +309,14 @@ export async function drainRiverEvents(
     // Upserted on (event_id, device_token_id), so a retried pass records rather
     // than duplicates. Logged, never thrown: these pushes have left, and
     // aborting here would resend them. See recordDeliveryLedger.
-    await recordDeliveryLedger(supabase, 'delivery ledger write', ledgerRows);
+    await recordDeliveryLedger(supabase, 'river_event_id', ledgerRows);
 
     // Prune tokens Expo says are gone. DeviceNotRegistered usually arrives in
     // the receipt rather than the ticket, so the receipt poll also checks it.
     const dead = tickets
       .map((t, i) => (classifyTicketError(t) === 'device_not_registered' ? plan.messages[offset + i].deviceTokenId : null))
       .filter((id): id is string => !!id);
-    await disableTokens(supabase, dead);
+    await disableTokens(supabase, dead, now);
 
     // Jitter between batches so a fan-out doesn't become a synchronized
     // stampede back onto our own API when everyone opens the app.

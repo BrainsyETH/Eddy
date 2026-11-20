@@ -36,18 +36,15 @@ import { rateLimit } from '@/lib/rate-limit';
 import { requirePermanentUser, requireUser } from '@/lib/supabase/request';
 import type { AlertSubscriptionsResponse } from '@/types/api';
 
-/**
- * Log a failed save_river_alert call, naming the migration when the function
- * itself is missing (PostgREST PGRST202). Without it, code deployed ahead of
- * 20261120150000 fails every river-alert save with the same generic line as
- * any other database error.
- */
-function logSaveError(what: string, error: { code?: string }) {
+function saveErrorResponse(message: string, error: { code?: string }) {
   if (error.code === 'PGRST202') {
-    console.error(`${what}: save_river_alert is missing; apply migration 20261120150000`, error);
-  } else {
-    console.error(`${what}:`, error);
+    console.error('save_river_alert is unavailable. Check migration 20261120150000 and the schema cache.', error);
+    return jsonPrivate({ error: 'Alert changes are temporarily unavailable. Try again shortly.' }, {
+      status: 503, headers: { 'Retry-After': '60' },
+    });
   }
+  console.error(message, error);
+  return jsonPrivate({ error: message }, { status: 500 });
 }
 
 interface StoredSubscription {
@@ -179,8 +176,7 @@ export async function POST(request: NextRequest) {
       if (error.code === '23503') {
         return jsonPrivate({ error: 'River not found' }, { status: 404 });
       }
-      logSaveError('Error saving alert subscription', error);
-      return jsonPrivate({ error: 'Could not save subscription' }, { status: 500 });
+      return saveErrorResponse('Could not save subscription', error);
     }
 
     return jsonPrivate({
@@ -242,8 +238,7 @@ export async function PATCH(request: NextRequest) {
     }).maybeSingle<StoredSubscription>();
 
     if (error) {
-      logSaveError('Error updating alert subscription', error);
-      return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
+      return saveErrorResponse('Could not update subscription', error);
     }
     if (!saved) {
       return jsonPrivate({ error: 'Subscription not found' }, { status: 404 });

@@ -69,6 +69,22 @@ create index if not exists alert_push_one_shot_attempt_idx
   on public.alert_push_deliveries (event_source, one_shot_rule_id, sent_at)
   where one_shot_rule_id is not null;
 
+-- The fan-out still retries other recipients when a ticket write fails. Keep
+-- those acceptances private and remove them when the original event is pruned.
+create table if not exists public.alert_push_unrecorded_recipients (
+  river_event_id uuid references public.river_condition_events(id) on delete cascade,
+  gauge_event_id uuid references public.gauge_alert_events(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  one_shot_rule_id uuid,
+  sent_at timestamptz not null,
+  check (num_nonnulls(river_event_id, gauge_event_id) = 1),
+  unique (river_event_id, user_id),
+  unique (gauge_event_id, user_id)
+);
+alter table public.alert_push_unrecorded_recipients enable row level security;
+revoke all on public.alert_push_unrecorded_recipients from public, anon, authenticated;
+grant select, insert on public.alert_push_unrecorded_recipients to service_role;
+
 create or replace function public.restore_failed_alert_spend()
 returns trigger language plpgsql security invoker set search_path = '' as $$
 begin
@@ -87,6 +103,13 @@ begin
   if exists (select 1 from public.alert_push_deliveries where
       event_source = new.event_source and one_shot_rule_id = new.one_shot_rule_id
       and sent_at = new.sent_at and status = 'sent') then
+    return new;
+  end if;
+  -- An accepted ticket that never made the ledger has an unknown receipt.
+  if exists (select 1 from public.alert_push_unrecorded_recipients where user_id = new.user_id
+      and one_shot_rule_id = new.one_shot_rule_id and sent_at = new.sent_at
+      and ((new.event_source = 'river_condition' and river_event_id = new.event_id)
+        or (new.event_source = 'gauge_alert' and gauge_event_id = new.event_id))) then
     return new;
   end if;
   if new.event_source = 'river_condition' then

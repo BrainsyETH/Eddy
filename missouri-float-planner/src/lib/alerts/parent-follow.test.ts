@@ -13,7 +13,11 @@ const stamp = '2026-11-20T12:00:00Z';
 
 before(async () => {
   await db.exec(`
-    create role anon; create role authenticated; create schema auth;
+    create role anon; create role authenticated; create role service_role; create schema auth;
+    create table auth.users(id uuid primary key);
+    insert into auth.users values ('${user}');
+    create table river_condition_events(id uuid primary key);
+    create table gauge_alert_events(id uuid primary key);
     create function auth.uid() returns uuid language sql as $$select '${user}'::uuid$$;
     create table alert_subscriptions (id uuid primary key default gen_random_uuid(),
       user_id uuid, river_id uuid, kind text, one_shot boolean, enabled boolean, fired_at timestamptz,
@@ -22,10 +26,12 @@ before(async () => {
       user_id uuid, parent_subscription_id uuid, station text, mode text default 'condition',
       condition_kind text, one_shot boolean, enabled boolean default true,
       one_shot_fired_at timestamptz, last_triggered_at timestamptz, constraint idx_gas_dedupe unique(user_id, station, condition_kind));
-    create table alert_push_deliveries (event_source text, sent_at timestamptz, user_id uuid, device text,
+    create table alert_push_deliveries (event_id uuid, event_source text, sent_at timestamptz, user_id uuid, device text,
       status text default 'sent', receipt_checked_at timestamptz);
   `);
-  await db.exec(readFileSync(new URL('../../../supabase/migrations/20261120150000_river_alert_delivery.sql', import.meta.url), 'utf8'));
+  const migration = readFileSync(new URL('../../../supabase/migrations/20261120150000_river_alert_delivery.sql', import.meta.url), 'utf8');
+  await db.exec(migration);
+  await db.exec(migration); // Operators can safely retry the pending migration.
 });
 after(() => db.close());
 beforeEach(() => db.exec('truncate alert_subscriptions, gauge_alert_subscriptions, alert_push_deliveries'));
@@ -55,11 +61,13 @@ test('creating, editing and replacing through the HTTP routes update the same da
   });
   // Keep auth and PostgREST local. The real route, Supabase client and
   // migration own validation, RPC parameters, writes and response shape.
+  let missingFunction = false;
   t.mock.method(globalThis, 'fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
     const path = new URL(request.url).pathname;
     if (path === '/auth/v1/user') return Response.json({ id: user, is_anonymous: false });
     assert.equal(path, '/rest/v1/rpc/save_river_alert');
+    if (missingFunction) return Response.json({ code: 'PGRST202', message: 'Function missing' }, { status: 404 });
     const params = await request.json();
     const { rows } = await db.query(
       'select * from save_river_alert($1,$2,$3,$4,$5,$6)',
@@ -84,6 +92,12 @@ test('creating, editing and replacing through the HTTP routes update the same da
     assert.equal((await response.json()).subscription.id, subscription.id);
     const { rows } = await db.query<{ condition_kind: string }>('select condition_kind from gauge_alert_subscriptions');
     assert.equal(rows[0].condition_kind, kind);
+  }
+  missingFunction = true;
+  for (const method of ['POST', 'PATCH'] as const) {
+    const unavailable = await send(method, 'safety');
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.headers.get('retry-after'), '60');
   }
 });
 
@@ -143,7 +157,36 @@ test('an unexpected write failure rolls back both the river and its gauges', asy
   }
 });
 
+test('only the delivery worker can see fallback recipients', async () => {
+  const { rows } = await db.query<{ role: string; can_read: boolean; can_write: boolean }>(`
+    select role, has_table_privilege(role, 'alert_push_unrecorded_recipients', 'SELECT') as can_read,
+      has_table_privilege(role, 'alert_push_unrecorded_recipients', 'INSERT') as can_write
+    from unnest(array['anon','authenticated','service_role']) as role`);
+  assert.deepEqual(rows.map(r => [r.role, r.can_read, r.can_write]), [
+    ['anon', false, false], ['authenticated', false, false], ['service_role', true, true],
+  ]);
+});
+
 for (const source of ['river_condition', 'gauge_alert']) {
+  test(`${source} keeps a one-time alert spent when an accepted phone has an unknown receipt`, async () => {
+    const parent = await save('safety', true, true, false, true);
+    const isRiver = source === 'river_condition';
+    const ruleId = isRiver ? parent.id : await gauge(parent.id, 'A', 'safety', true);
+    const table = isRiver ? 'alert_subscriptions' : 'gauge_alert_subscriptions';
+    const firedAt = isRiver ? 'fired_at' : 'one_shot_fired_at';
+    const events = isRiver ? 'river_condition_events' : 'gauge_alert_events';
+    const eventColumn = isRiver ? 'river_event_id' : 'gauge_event_id';
+    const eventId = (await db.query<{ id: string }>(`insert into ${events} values(gen_random_uuid()) returning id`)).rows[0].id;
+    await db.query(`update ${table} set enabled=false,${firedAt}=$1 where id=$2`, [stamp, ruleId]);
+    await db.query(`insert into alert_push_unrecorded_recipients(${eventColumn},user_id,one_shot_rule_id,sent_at)
+      values ($1,$2,$3,$4)`, [eventId, user, ruleId, stamp]);
+    await db.query('insert into alert_push_deliveries(event_source,event_id,user_id,one_shot_rule_id,sent_at) values($1,$2,$3,$4,$5)',
+      [source, eventId, user, ruleId, stamp]);
+    await db.query("update alert_push_deliveries set status='error', receipt_checked_at=now() where event_id=$1", [eventId]);
+    assert.equal((await db.query<{ enabled: boolean }>(`select enabled from ${table} where id=$1`, [ruleId])).rows[0].enabled, false);
+    await db.query(`delete from ${events} where id=$1`, [eventId]);
+    assert.equal((await db.query('select * from alert_push_unrecorded_recipients')).rows.length, 0);
+  });
   test(`${source} one-shot is restored only when every accepted ticket for the same spend explicitly fails`, async () => {
     const parent = await save('safety', true, true, false, true);
     const isRiver = source === 'river_condition';

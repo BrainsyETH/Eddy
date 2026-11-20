@@ -1439,9 +1439,7 @@ export interface AppConfigResponse {
 
 /**
  * One condition change. `readingAt` is when the river was MEASURED and is what
- * UI must quote; `detectedAt` is when our cron noticed, which can trail the
- * reading by up to about two hours on a steady gauge (hourly grading plus a
- * confirming second reading).
+ * UI must quote; `detectedAt` is when our cron noticed, after the gauge reported and any confirming reading arrived.
  */
 export interface AlertFeedEntry {
   id: string;

@@ -17,7 +17,7 @@ type Row = Record<string, unknown>;
 type Mode = 'select' | 'update' | 'upsert' | 'insert';
 
 type Filter =
-  | { op: 'eq' | 'lt' | 'gte'; column: string; value: unknown }
+  | { op: 'eq' | 'lt' | 'lte' | 'gte'; column: string; value: unknown }
   | { op: 'is' | 'notnull'; column: string; value: null }
   | { op: 'in'; column: string; value: unknown[] };
 
@@ -90,6 +90,10 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
   }
   lt(column: string, value: unknown) {
     this.filters.push({ op: 'lt', column, value });
+    return this;
+  }
+  lte(column: string, value: unknown) {
+    this.filters.push({ op: 'lte', column, value });
     return this;
   }
   gte(column: string, value: unknown) {
@@ -168,6 +172,8 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
           return f.value.includes(v);
         case 'lt':
           return compare(v, f.value) < 0;
+        case 'lte':
+          return v != null && compare(v, f.value) <= 0;
         case 'gte':
           return compare(v, f.value) >= 0;
       }

@@ -21,7 +21,7 @@
 // though the phone stayed silent.
 
 import { planDrain } from './drain';
-import { checkedWrite, readAllIn, recordDeliveryLedger, recordOutcomes, DeliveryReadError, IN_CHUNK } from './delivery-io';
+import { checkedWrite, readAllIn, priorPushRecipients, recordDeliveryLedger, recordOutcomes, DeliveryReadError, IN_CHUNK } from './delivery-io';
 import { isRuleLive, parentIdsOf, type GatedRule } from './gating';
 import { buildGaugeNotification, type GaugeEventKind } from './gauge-threshold';
 import { suppressedByQuietHours } from './quiet-hours';
@@ -166,7 +166,7 @@ export async function deliverGaugeAlerts(
   now: Date = new Date(),
   options: GaugeDeliveryOptions = {},
 ): Promise<GaugeDeliveryStats> {
-  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages));
+  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages, { ttlReferenceSeconds: Math.floor(now.getTime() / 1000) }));
   const pauseMs = options.pauseMs ?? 300;
   try {
 
@@ -241,16 +241,7 @@ export async function deliverGaugeAlerts(
       ),
       // Events an earlier pass already delivered but could not stamp drained.
       // Their one recipient was reached; sending again would be a duplicate.
-      readAllIn<{ event_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
-        supabase
-          .from('alert_push_deliveries')
-          .select('event_id')
-          .in('event_id', chunk)
-          .eq('status', 'sent')
-          .order('event_id')
-          .order('device_token_id')
-          .range(from, to),
-      ),
+      priorPushRecipients(supabase, eventIds, 'gauge_event_id'),
     ]);
     const previouslyReached = new Map<string, number>();
     for (const row of reachedRows) previouslyReached.set(row.event_id, 1);
@@ -443,7 +434,7 @@ export async function deliverGaugeAlerts(
       });
 
       // Logged, never thrown: these pushes have left. See recordDeliveryLedger.
-      await recordDeliveryLedger(supabase, 'gauge delivery ledger write', ledgerRows);
+      await recordDeliveryLedger(supabase, 'gauge_event_id', ledgerRows);
 
       const dead = tickets
         .map((t, i) =>
@@ -452,7 +443,7 @@ export async function deliverGaugeAlerts(
             : null,
         )
         .filter((id): id is string => !!id);
-      await disableTokens(supabase, dead);
+      await disableTokens(supabase, dead, now);
 
       if (index < batches.length - 1 && pauseMs > 0) await sleep(pauseMs);
     }

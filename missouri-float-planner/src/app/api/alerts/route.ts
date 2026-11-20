@@ -7,11 +7,9 @@
 // client, which is why there is no per-user server state here.
 //
 // LATENCY HONESTY: each event carries `readingAt` — when the river was actually
-// measured — alongside `detectedAt`. UI must quote the former. USGS reporting lag,
-// hourly grading of steady gauges and the confirming second reading mean
-// detection can trail the reading by up to about two hours, so surfacing
-// `detectedAt` as though it were the moment the river changed would overstate
-// what we know. See ALERT_LATENCY_NOTE in packages/eddy-types.
+// measured — alongside `detectedAt`. Gauge reporting schedules, hourly grading
+// of steady gauges and any confirming reading affect the delay. Quote the
+// observation time and measure delivery latency separately.
 //
 // `info` events are excluded by default. The outbox records every transition
 // (good↔flowing jitter included) so the data is complete, but most of it is not

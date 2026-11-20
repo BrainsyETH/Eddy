@@ -23,7 +23,7 @@ export function observationExpiration(detectedAt: string, readingAt?: string | n
  * instead of sending it, and a zero ttl would mean "deliver once, never store".
  */
 export function pushTtlSeconds(deadlineSeconds: number, now: Date): number {
-  return Math.max(1, Math.floor(deadlineSeconds - now.getTime() / 1000));
+  return Math.max(1, deadlineSeconds - Math.floor(now.getTime() / 1000));
 }
 
 const defaultZone = 'America/Chicago';

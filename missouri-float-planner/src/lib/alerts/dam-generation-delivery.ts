@@ -477,7 +477,7 @@ export async function deliverDamGenerationAlerts(
           classifyTicketError(ticket) === 'device_not_registered' ? planned[offset + i].deviceTokenId : null,
         )
         .filter((id): id is string => !!id);
-      await disableTokens(supabase, dead);
+      await disableTokens(supabase, dead, now);
 
       if (index < batches.length - 1 && pauseMs > 0) await sleep(pauseMs);
     }

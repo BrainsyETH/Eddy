@@ -177,3 +177,8 @@ states, which on a live alert looked like a status.
 must not silently withhold a flood warning somebody explicitly asked for, and
 the cascade makes the deleted-parent case moot in practice — but a predicate
 should not depend on a foreign key to be safe.
+
+The alert API deploys on merge. Before merging the change, apply migration
+`20261120150000` and confirm that PostgREST exposes `save_river_alert` and the
+worker can read `alert_push_unrecorded_recipients`. The release runbook covers
+the rollout and native checks. [River alert delivery and recovery](../ios-release-runbook.md#river-alert-delivery-and-recovery)
