@@ -23,6 +23,7 @@ scripts/ingestion/agency-enrichment.test.ts
 scripts/ingestion/agency-gis.test.ts
 scripts/ingestion/audit-access-enrichment-2026-11.test.ts
 scripts/ingestion/import-dossier-access-points.test.ts
+scripts/ingestion/ladder-guard.test.ts
 scripts/ingestion/public-land-access-2026-11.test.ts
 scripts/ingestion/readiness.test.ts
 scripts/lakes/launch-queue.test.ts
@@ -31,11 +32,13 @@ scripts/lakes/recreation-status.test.ts
 scripts/lakes/savannah-schedule.test.ts
 scripts/lib/db.test.ts
 scripts/lib/eddy-read-audit.test.ts
+scripts/lib/dam-read-report.test.ts
 scripts/lib/eddy-read-report.test.ts
 scripts/lib/guide-refresh.test.ts
 scripts/lib/mcp-eval-review.test.ts
 scripts/lib/no-unguarded-clients.test.ts
 scripts/lib/tailwater-continuation.test.ts
+scripts/low-water-notes-migration.test.ts
 scripts/migration-ledger.test.ts
 scripts/negative-evidence.test.ts
 scripts/rain-lag-estimates-migration.test.ts
@@ -50,6 +53,7 @@ scripts/security/trust-supabase-error-handling.test.ts
 scripts/security/workflow-action-pins.test.ts
 scripts/service-quality.test.ts
 scripts/stretch-gauge-migration.test.ts
+scripts/white-river-gauge-stretches-migration.test.ts
 shared/camping-demand.test.ts
 shared/camping-rivers.test.ts
 shared/chart-model.test.ts
@@ -228,10 +232,13 @@ src/lib/eddy/global-prose-gate.test.ts
 src/lib/eddy/knowledge.test.ts
 src/lib/eddy/parse-response.test.ts
 src/lib/eddy/reach-gauge-wiring.test.ts
+src/lib/eddy/read-brief.test.ts
 src/lib/eddy/read-checks.test.ts
 src/lib/eddy/report-facts.test.ts
 src/lib/eddy/river-note.test.ts
 src/lib/eddy/stretch-reads.test.ts
+src/lib/eddy/tailwater-river-read.test.ts
+src/lib/eddy/trend-lines.test.ts
 src/lib/email/inbound-bulk.test.ts
 src/lib/embed/branding-registration.test.ts
 src/lib/embed/display-events.test.ts

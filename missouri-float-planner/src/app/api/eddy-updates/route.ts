@@ -16,6 +16,7 @@ import {
   WEBSITE_PROSE_STALE_HOURS,
 } from '@/lib/social/live-conditions';
 import { gateGlobalProse } from '@/lib/eddy/global-prose-gate';
+import { loadTailwaterRiverRead, tailwaterReadRiverSlugs } from '@/lib/eddy/tailwater-river-read';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,6 +137,30 @@ async function _GET() {
         generatedAt: u.generated_at,
       };
     }
+
+    // A river whose level is a dam's release: its summary is what is posted
+    // next at the dam, rendered now, in place of the stored "no assessment
+    // available". Only where the river already has a row, so an inactive river
+    // does not appear, and only when the dam has a servable Read. See
+    // tailwater-river-read.ts.
+    await Promise.all(tailwaterReadRiverSlugs().filter((slug) => latestBySlug.has(slug)).map(async (slug) => {
+      const tailwater = await loadTailwaterRiverRead(supabase, slug).catch((err) => {
+        console.error(`[EddyUpdates] Tailwater Read failed for ${slug}:`, err);
+        return null;
+      });
+      if (!tailwater) return;
+      // The reading the overlay attached, when it attached one, stays.
+      const existing: EddyUpdateEntry | undefined = updates[slug];
+      updates[slug] = {
+        conditionCode: existing?.conditionCode ?? 'unknown',
+        gaugeHeightFt: existing?.gaugeHeightFt ?? null,
+        dischargeCfs: existing?.dischargeCfs ?? null,
+        readingTimestamp: existing?.readingTimestamp ?? null,
+        snapshotId: existing?.snapshotId ?? null,
+        summaryText: tailwater.summaryText,
+        generatedAt: tailwater.generatedAt,
+      };
+    }));
 
     /**
      * The statewide summary, held to the same standard as everything else.

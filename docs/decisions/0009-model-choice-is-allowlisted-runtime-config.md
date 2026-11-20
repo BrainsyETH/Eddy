@@ -103,8 +103,10 @@ balance. Three things follow from that, and each is a rule rather than a detail.
 
 "Approved" still means someone has read a model's output for that workload. The
 registry now has a second list per workload, `testable`: models the test panel on
-`/admin/ai-models` may call and nothing else may. The panel replays a prompt
-recorded in `eddy_generation_log` on the chosen model and runs the answer through
+`/admin/ai-models` may call and nothing else may. The panel replays a morning
+recorded in `eddy_generation_log` on the chosen model, rebuilding the prompt from
+the recorded inputs with today's builder and knowledge file (or sending the
+stored prompt when a row cannot be rebuilt), and runs the answer through
 the same automated checks production runs. It publishes nothing, accepts no
 free-text prompt, and does not fall back. Moving an id from `testable` to
 `approved` remains a code change, and is the record that the reading happened.

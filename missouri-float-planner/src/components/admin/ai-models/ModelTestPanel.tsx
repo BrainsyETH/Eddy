@@ -1,8 +1,8 @@
 'use client';
 
 // src/components/admin/ai-models/ModelTestPanel.tsx
-// Replays a recorded river report on a chosen model and shows the result
-// beside a reference. Nothing here saves or publishes: the selection above
+// Replays a recorded Read (a river's, or a secondary gauge's) on a chosen
+// model and shows the result beside a reference. Nothing here saves or publishes: the selection above
 // this panel is the only thing that changes what readers get.
 //
 // ── The reference ──────────────────────────────────────────────────────────
@@ -44,9 +44,21 @@ interface TestModel {
   envVar: string;
 }
 
+/** The Reads the panel can replay. Each has its own models, baseline and recorded mornings. */
+type TestWorkload = 'river_update' | 'gauge_update';
+
+const WORKLOAD_TABS: ReadonlyArray<{ id: TestWorkload; label: string }> = [
+  { id: 'river_update', label: 'River Reads' },
+  { id: 'gauge_update', label: 'Gauge Reads' },
+];
+
 interface TestSample {
   id: string;
   createdAt: string;
+  /** Absent from an older server: a river Read. */
+  workload?: TestWorkload;
+  /** A gauge Read's station name. */
+  gaugeName?: string | null;
   riverSlug: string;
   sectionSlug: string | null;
   riverName: string;
@@ -69,8 +81,12 @@ interface SampleInfo {
   outcome: string;
   reason: string | null;
   modelLabel: string | null;
+  /** The kind of Read, as the server recorded it. */
+  workload?: TestWorkload;
   published: Report | null;
   systemPromptChanged: boolean;
+  /** True when today's prompt builder or knowledge file gives this morning a different message. */
+  inputsChanged?: boolean;
 }
 
 interface RunResult {
@@ -85,6 +101,8 @@ interface RunResult {
   reason?: string | null;
   contradictions?: string[];
   incomplete?: 'cut_off' | 'missing_blocks' | null;
+  /** The model stopped before finishing. Its own verdict for a river Read; a warning for a gauge Read. */
+  cutOff?: boolean;
   written?: Report | null;
   rawText?: string | null;
   stopReason?: string | null;
@@ -99,8 +117,20 @@ interface RunResult {
   estimatedCostUsd?: number | null;
 }
 
+/** What one kind of Read last loaded: its models, its current model and its recorded mornings. */
+interface WorkloadLists {
+  models: TestModel[];
+  baseline: TestModel | null;
+  samples: TestSample[];
+}
+
+const EMPTY_MODELS: TestModel[] = [];
+const EMPTY_SAMPLES: TestSample[] = [];
+
 /** Everything gathered for one recorded report. */
 interface ReportRuns {
+  /** The kind of Read this report is, so its baseline is that kind's model. */
+  workload: TestWorkload;
   info: SampleInfo;
   /** Keep earlier references when the production selection changes mid-session. */
   baselines: Record<string, RunResult>;
@@ -115,8 +145,9 @@ const words = (value: string) => value.replace(/_/g, ' ');
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+/** A gauge Read is named by its station, which already says the river. */
 const sampleLabel = (sample: TestSample) =>
-  `${sample.riverName}${sample.sectionName ? `, ${sample.sectionName}` : ''} · ${sample.conditionLabel} · ${day(sample.createdAt)}`;
+  `${sample.gaugeName ?? `${sample.riverName}${sample.sectionName ? `, ${sample.sectionName}` : ''}`} · ${sample.conditionLabel} · ${day(sample.createdAt)}`;
 
 /** Stop reasons that mean the output cap was hit before the model finished. */
 const CAP_HIT = new Set(['max_tokens', 'max_output_tokens']);
@@ -126,6 +157,7 @@ type Tone = 'good' | 'warn' | 'bad';
 /** The verdict in words. "Automated checks", because that is all a pass is. */
 function verdictOf(run: RunResult): { label: string; tone: Tone } {
   if (!run.ok) return { label: 'Call failed', tone: 'bad' };
+  if (run.verdict === 'passed' && run.cutOff) return { label: 'Checks passed, but cut off', tone: 'warn' };
   if (run.verdict === 'passed') return { label: 'Automated checks passed', tone: 'good' };
   if (run.verdict === 'incomplete') return { label: 'Incomplete', tone: 'bad' };
   if (run.verdict === 'empty') return { label: 'No text returned', tone: 'bad' };
@@ -195,16 +227,29 @@ function WhyNot({ run }: { run: RunResult }) {
           : 'The model stopped before finishing.';
     return <p className="mb-3 text-xs text-red-200">Not published as written. {why}</p>;
   }
+  // A gauge Read that did not finish. Production refuses it only while
+  // another model is waiting; from the last model it is published as written.
+  const cutOff = run.cutOff ? (
+    <p className="mb-3 text-xs text-amber-200">
+      {run.stopReason && CAP_HIT.has(run.stopReason)
+        ? `It stopped at the ${run.model.maxTokens.toLocaleString()}-token output cap before finishing.`
+        : 'The model stopped before finishing.'}{' '}
+      A gauge Read like this is published as written, unless a fallback model is waiting to be asked.
+    </p>
+  ) : null;
   if (run.verdict === 'replaced') {
     return (
-      <p className="mb-3 text-xs text-amber-200">
-        Readers would get the code-written report instead
-        {run.reason ? ` (${words(run.reason)})` : ''}
-        {run.contradictions?.length ? `: ${run.contradictions.map(words).join(', ')}` : ''}.
-      </p>
+      <>
+        {cutOff}
+        <p className="mb-3 text-xs text-amber-200">
+          Readers would get the code-written report instead
+          {run.reason ? ` (${words(run.reason)})` : ''}
+          {run.contradictions?.length ? `: ${run.contradictions.map(words).join(', ')}` : ''}.
+        </p>
+      </>
     );
   }
-  return null;
+  return cutOff;
 }
 
 function RunDetails({ run }: { run: RunResult }) {
@@ -228,9 +273,11 @@ function RunDetails({ run }: { run: RunResult }) {
         {tokens.length > 0 && <p>{tokens.join(' · ')}</p>}
         {run.ok && (
           <p>
-            Automated checks compare the condition, the reading and the optimal range with the gauge,
-            and require a finished report with all three blocks. They do not check local detail,
-            weather, advice or voice.
+            Automated checks compare the condition, the reading and the optimal range with the gauge
+            {run.sample.workload === 'gauge_update'
+              ? '. A gauge Read is not required to hold all three blocks.'
+              : ', and require a finished report with all three blocks.'}{' '}
+            They do not check local detail, weather, advice or voice.
           </p>
         )}
         {run.rawText && (
@@ -269,64 +316,92 @@ function RunCard({ run, heading }: { run: RunResult; heading?: string }) {
 
 const TOGGLE = 'rounded border border-neutral-600 px-2 py-1 text-xs';
 
-export default function ModelTestPanel({ productionModelId }: { productionModelId?: string }) {
-  const [models, setModels] = useState<TestModel[]>([]);
-  const [loadedBaseline, setLoadedBaseline] = useState<TestModel | null>(null);
-  const [samples, setSamples] = useState<TestSample[]>([]);
+export default function ModelTestPanel({
+  productionModelIds,
+}: {
+  /** The saved model per workload, updated only after a confirmed save. */
+  productionModelIds?: Partial<Record<TestWorkload, string>>;
+}) {
+  const [workload, setWorkload] = useState<TestWorkload>('river_update');
+  // What each kind of Read last loaded. The pickers read `lists[workload]`, so
+  // they can never show one kind's mornings or models under the other's tab:
+  // a late reply fills its own slot, and a failed load empties it.
+  const [lists, setLists] = useState<Partial<Record<TestWorkload, WorkloadLists>>>({});
+  // Every sample this session has listed, in either workload: the export
+  // names a report by its sample after the list has moved to the other kind.
+  const [knownSamples, setKnownSamples] = useState<Record<string, TestSample>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sampleId, setSampleId] = useState('');
-  const [modelId, setModelId] = useState('');
+  // What was picked. The pickers use it only while it is in the current lists.
+  const [chosenSampleId, setSampleId] = useState('');
+  const [chosenModelId, setModelId] = useState('');
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [reports, setReports] = useState<Record<string, ReportRuns>>({});
   const [showPublished, setShowPublished] = useState(false);
   const nextKey = useRef(1);
+  // The newest load. A reply to an older one is for a tab the user has left.
+  const latestLoad = useRef(0);
   const sampleFieldId = useId();
   const modelFieldId = useId();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (kind: TestWorkload) => {
+    const request = ++latestLoad.current;
+    const isLatest = () => request === latestLoad.current;
+    const forget = () => setLists((all) => {
+      const rest = { ...all };
+      delete rest[kind];
+      return rest;
+    });
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await adminFetch(`/api/admin/ai-models/test?_t=${Date.now()}`);
+      const res = await adminFetch(`/api/admin/ai-models/test?workload=${kind}&_t=${Date.now()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setLoadError(data.error || `Could not load the test panel (${res.status})`);
+        // Nothing of this kind is runnable until it loads: an older list of
+        // the same kind may name mornings that are gone.
+        forget();
+        if (isLatest()) setLoadError(data.error || `Could not load the test panel (${res.status})`);
         return;
       }
-      const nextModels: TestModel[] = data.models ?? [];
       const nextSamples: TestSample[] = data.samples ?? [];
-      setModels(nextModels);
-      setLoadedBaseline(data.baseline ?? null);
-      setSamples(nextSamples);
-      setLoadError(data.samplesError ?? null);
-      setSampleId((current) => current || nextSamples[0]?.id || '');
-      // Default to the first model that is not yet approved and can run: the
-      // ones worth testing are the ones nobody has read.
-      setModelId(
-        (current) =>
-          current ||
-          nextModels.find((m) => !m.approved && m.configured)?.id ||
-          nextModels.find((m) => m.configured)?.id ||
-          nextModels[0]?.id ||
-          '',
-      );
+      setLists((all) => ({ ...all, [kind]: { models: data.models ?? [], baseline: data.baseline ?? null, samples: nextSamples } }));
+      setKnownSamples((known) => ({ ...known, ...Object.fromEntries(nextSamples.map((sample) => [sample.id, sample])) }));
+      if (isLatest()) setLoadError(data.samplesError ?? null);
     } catch {
-      setLoadError('Could not load the test panel');
+      forget();
+      if (isLatest()) setLoadError('Could not load the test panel');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(workload);
+  }, [load, workload]);
+
+  const shown = lists[workload];
+  const models = shown?.models ?? EMPTY_MODELS;
+  const samples = shown?.samples ?? EMPTY_SAMPLES;
+  const sampleId = samples.some((s) => s.id === chosenSampleId) ? chosenSampleId : samples[0]?.id ?? '';
+  // Default to the first model that is not yet approved and can run: the ones
+  // worth testing are the ones nobody has read.
+  const modelId = models.some((m) => m.id === chosenModelId)
+    ? chosenModelId
+    : models.find((m) => !m.approved && m.configured)?.id ?? models.find((m) => m.configured)?.id ?? models[0]?.id ?? '';
 
   const selectedModel = models.find((m) => m.id === modelId);
-  // The parent updates this only after a confirmed save, never for an unsaved
-  // dropdown choice. Do not remount the panel and lose the session's runs.
-  const baselineModel = models.find((m) => m.id === productionModelId) ?? loadedBaseline;
+  /**
+   * The model a kind of Read runs on now. The parent updates the saved id only
+   * after a confirmed save, never for an unsaved dropdown choice, so the panel
+   * is not remounted and the session's runs are kept.
+   */
+  const baselineModelFor = (kind: TestWorkload): TestModel | null => {
+    const loaded = lists[kind];
+    return loaded?.models.find((m) => m.id === productionModelIds?.[kind]) ?? loaded?.baseline ?? null;
+  };
+  const baselineModel = baselineModelFor(workload);
   const current = reports[sampleId];
   const baseline = baselineModel ? current?.baselines[baselineModel.id] ?? null : null;
   const baselineError = baselineModel ? current?.baselineErrors[baselineModel.id] : null;
@@ -354,6 +429,7 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
   const run = async () => {
     if (!sampleId || !modelId) return;
     const sample = sampleId;
+    const kind = workload;
     const baselineId = baselineModel?.id;
     setRunning(true);
     setRunError(null);
@@ -378,7 +454,7 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
 
         const next: ReportRuns = existing
           ? { ...existing, info, baselines: { ...existing.baselines }, baselineErrors: { ...existing.baselineErrors } }
-          : { info, baselines: {}, baselineErrors: {}, runs: [], selectedKey: null };
+          : { workload: kind, info, baselines: {}, baselineErrors: {}, runs: [], selectedKey: null };
 
         if (typeof candidate !== 'string') {
           next.runs = [...next.runs, candidate];
@@ -417,17 +493,21 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
     };
     const payload = {
       exportedAt: new Date().toISOString(),
-      workload: 'river_update',
       note:
-        'Replays of recorded river reports from /admin/ai-models. Nothing here was published. ' +
-        '"passed" means the automated checks passed (condition, reading, optimal range, completeness); ' +
-        'it is not a finding that a report is accurate.',
+        'Replays of recorded river and gauge Reads from /admin/ai-models. Nothing here was published. ' +
+        '"passed" means the automated checks passed (condition, reading, optimal range, and for a river Read completeness); ' +
+        'it is not a finding that a report is accurate. Each report names its workload, and its baseline is that ' +
+        "workload's current model.",
       reports: Object.entries(reports)
         .filter(([, r]) => r.runs.length > 0)
         .map(([id, r]) => {
-          const sample = samples.find((s) => s.id === id);
+          const sample = knownSamples[id];
+          // The report's own kind, not the tab that happens to be open.
+          const reportBaseline = baselineModelFor(r.workload);
           return {
             generationId: id,
+            workload: r.workload,
+            gauge: sample?.gaugeName ?? null,
             river: sample?.riverName ?? null,
             section: sample?.sectionName ?? null,
             condition: sample?.conditionLabel ?? null,
@@ -437,10 +517,10 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
               reason: r.info.reason,
               model: r.info.modelLabel,
               report: r.info.published,
-              writtenUnderOlderInstructions: r.info.systemPromptChanged,
+              writtenUnderOlderInstructions: r.info.systemPromptChanged || Boolean(r.info.inputsChanged),
             },
-            baseline: baselineModel && r.baselines[baselineModel.id] ? strip(r.baselines[baselineModel.id]) : null,
-            baselineError: baselineModel ? r.baselineErrors[baselineModel.id] ?? null : null,
+            baseline: reportBaseline && r.baselines[reportBaseline.id] ? strip(r.baselines[reportBaseline.id]) : null,
+            baselineError: reportBaseline ? r.baselineErrors[reportBaseline.id] ?? null : null,
             baselines: Object.values(r.baselines).map(strip),
             baselineErrors: r.baselineErrors,
             runs: r.runs.map(strip),
@@ -467,9 +547,31 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
         <FlaskConical className="h-4 w-4" aria-hidden /> Try a model
       </h2>
       <p className="mt-1 text-sm text-neutral-400">
-        Replays a recorded river report on another model. Nothing is published, and each run is a
-        billed call.
+        Replays a recorded morning on another model, with today&apos;s instructions and knowledge.
+        Nothing is published, and each run is a billed call.
       </p>
+
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Kind of Read">
+        {WORKLOAD_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            aria-pressed={workload === tab.id}
+            disabled={running}
+            onClick={() => {
+              if (tab.id === workload) return;
+              setWorkload(tab.id);
+              setRunError(null);
+              setShowPublished(false);
+            }}
+            className={`rounded-lg border border-neutral-600 px-3 py-2 text-sm disabled:opacity-40 ${
+              workload === tab.id ? 'bg-neutral-700 font-medium text-white' : 'text-neutral-300 hover:bg-neutral-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {loading ? (
         <p className="mt-4 text-sm text-neutral-400">Loading…</p>
@@ -485,7 +587,9 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
           {samples.length === 0 ? (
             !loadError && (
               <p className="mt-4 text-sm text-neutral-400">
-                No recorded river reports yet. They appear after the next river update runs.
+                {workload === 'gauge_update'
+                  ? 'No recorded gauge Reads yet. They appear after the next gauge update runs.'
+                  : 'No recorded river Reads yet. They appear after the next river update runs.'}
               </p>
             )
           ) : (
@@ -611,10 +715,10 @@ export default function ModelTestPanel({ productionModelId }: { productionModelI
                       ) : (
                         <p className="text-sm text-neutral-400">This attempt published nothing.</p>
                       )}
-                      {info.systemPromptChanged && (
+                      {(info.systemPromptChanged || info.inputsChanged) && (
                         <p className="mt-3 text-xs text-amber-200">
-                          Written under older instructions than the test uses, so differences may
-                          come from the instructions.
+                          Written under older instructions or knowledge than the test uses, so
+                          differences may come from those.
                         </p>
                       )}
                       {baselineError && (

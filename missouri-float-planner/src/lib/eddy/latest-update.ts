@@ -7,6 +7,7 @@
 import { toNum } from '@/lib/utils/num';
 import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 import { tierGeneratedEddyProse } from '@/lib/eddy/tiered-prose';
+import { loadTailwaterRiverRead, tailwaterReadDamId } from '@/lib/eddy/tailwater-river-read';
 
 export interface LatestEddyUpdate {
   /** Premium long-form prose. Null for public callers. */
@@ -38,10 +39,23 @@ export async function loadLatestEddyUpdate(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   riverSlug: string,
-  options: { entitled?: boolean; sectionSlug?: string | null } = {},
+  options: { entitled?: boolean; sectionSlug?: string | null; loadTailwater?: typeof loadTailwaterRiverRead } = {},
 ): Promise<LatestEddyUpdateResult> {
   const entitled = options.entitled === true;
   const sectionSlug = options.sectionSlug ?? null;
+
+  // A river whose level is a dam's release has no ladder to write a Read
+  // against. Its prose is the dam's posted schedule and recent pattern, rendered
+  // now and never read from eddy_updates, where the generator can only store
+  // "no assessment available". See tailwater-river-read.ts. The stored row
+  // still supplies the live reading below; when the dam has no servable Read
+  // the stored prose is served, as before.
+  const tailwater = !sectionSlug && tailwaterReadDamId(riverSlug)
+    ? await (options.loadTailwater ?? loadTailwaterRiverRead)(supabase, riverSlug).catch((err) => {
+        console.error(`[EddyUpdate] Tailwater Read failed for ${riverSlug}:`, err);
+        return null;
+      })
+    : null;
 
   let query = supabase
     .from('eddy_updates')
@@ -57,7 +71,27 @@ export async function loadLatestEddyUpdate(
     console.error(`[EddyUpdate] Query error for ${riverSlug}:`, error);
     return { state: 'error' };
   }
-  if (!data) return { state: 'ok', update: null };
+  if (!data) {
+    const prose = tailwater ? tierGeneratedEddyProse(entitled, tailwater) : null;
+    if (!tailwater || !prose?.available) return { state: 'ok', update: null };
+    return {
+      state: 'ok',
+      update: {
+        quoteText: prose.quoteText,
+        summaryText: prose.summaryText,
+        eddyRead: prose.eddyRead,
+        // Unrated on purpose: a release is not a float verdict.
+        conditionCode: 'unknown',
+        gaugeHeightFt: null,
+        dischargeCfs: null,
+        sectionSlug: null,
+        sourcesUsed: tailwater.sourcesUsed,
+        generatedAt: tailwater.generatedAt,
+        readingTimestamp: null,
+        snapshotId: null,
+      },
+    };
+  }
 
   // Overlay the live gauge-derived condition + reading so the prose matches
   // the hero badge computed from gauge_readings + thresholds. When the live
@@ -77,7 +111,9 @@ export async function loadLatestEddyUpdate(
   // quote_text and summary_text are the fields the overlay clears when the
   // report is stale or contradicts current water. eddy_read comes from the
   // same model run, so it is returned only when one of those survived.
-  const prose = tierGeneratedEddyProse(entitled, {
+  // A tailwater Read is not subject to the overlay's verdict on the stored
+  // prose: it was rendered a moment ago from the current schedule.
+  const prose = tierGeneratedEddyProse(entitled, tailwater ?? {
     quoteText: overlaid.quote_text || null,
     summaryText: overlaid.summary_text ?? null,
     eddyRead: data.eddy_read ?? null,
@@ -94,8 +130,8 @@ export async function loadLatestEddyUpdate(
       gaugeHeightFt: toNum(overlaid.gauge_height_ft),
       dischargeCfs: toNum(overlaid.discharge_cfs),
       sectionSlug: data.section_slug,
-      sourcesUsed: data.sources_used || [],
-      generatedAt: data.generated_at,
+      sourcesUsed: tailwater?.sourcesUsed ?? data.sources_used ?? [],
+      generatedAt: tailwater?.generatedAt ?? data.generated_at,
       readingTimestamp: overlaid.reading_timestamp ?? null,
       snapshotId: overlaid.snapshot_id ?? null,
     },

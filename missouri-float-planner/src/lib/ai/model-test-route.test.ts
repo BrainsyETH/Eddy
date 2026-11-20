@@ -25,6 +25,7 @@ test('the test panel baseline follows production config, including its safe defa
   let configError = false;
   let samplesError = false;
   const paths: string[] = [];
+  const queries: URLSearchParams[] = [];
   // Exercise the real route, auth and Supabase client against fixture replies.
   // No database or model request can leave this test.
   t.mock.method(globalThis, 'fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -38,6 +39,7 @@ test('the test panel baseline follows production config, including its safe defa
         : Response.json(stored == null ? [] : [{ river_update: stored }]);
     }
     assert.equal(url.pathname, '/rest/v1/eddy_generation_log');
+    queries.push(url.searchParams);
     return samplesError
       ? Response.json({ message: 'Fixture samples unavailable' }, { status: 503 })
       : Response.json([]);
@@ -75,4 +77,26 @@ test('the test panel baseline follows production config, including its safe defa
     assert.equal(Boolean(payload.samplesError), samplesError);
   }
   assert.equal(paths.filter((path) => path === '/rest/v1/llm_config').length, 7);
+
+  // Gauge Reads have their own model list and baseline, and the samples asked
+  // for are that workload's rows.
+  configError = false;
+  samplesError = false;
+  queries.length = 0;
+  const get = (query: string) => GET(new NextRequest(`http://localhost/api/admin/ai-models/test${query}`, {
+    headers: { authorization: `Bearer ${createAdminToken()}` },
+  }));
+  const gauge = await (await get('?workload=gauge_update')).json();
+  assert.equal(gauge.workload, 'gauge_update');
+  assert.equal(gauge.baseline.id, WORKLOAD_SPECS.gauge_update.default);
+  assert.deepEqual(gauge.models.map((model: { id: string }) => model.id).sort(), [...WORKLOAD_SPECS.gauge_update.approved, ...WORKLOAD_SPECS.gauge_update.testable].sort());
+  assert.deepEqual(gauge.workloads.map((w: { id: string }) => w.id), ['river_update', 'gauge_update']);
+  assert.equal(queries.at(-1)?.get('workload'), 'eq.gauge_update');
+  // With no workload named, river Reads, as before.
+  const river = await (await get('')).json();
+  assert.equal(river.workload, 'river_update');
+  assert.equal(queries.at(-1)?.get('workload'), 'eq.river_update');
+  // A workload that is not recorded cannot be listed.
+  const refused = await get('?workload=global_summary');
+  assert.equal(refused.status, 400);
 });

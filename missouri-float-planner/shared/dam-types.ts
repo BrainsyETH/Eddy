@@ -512,7 +512,10 @@ export interface DamReadResponse {
   available: boolean;
   generatedAt: string | null;
   read: {
-    /** Compact interpretation for current clients; optional during API rollout. */
+    /**
+     * The compact Read for current clients: a headline and at most two
+     * sentences (ADR 0017 decision 4). Optional during API rollout.
+     */
     takeaway?: { headline: string; summary: string };
     /** Legacy report fields remain available to already-released app versions. */
     /** Today's posted generation and how it compares with recent days. */

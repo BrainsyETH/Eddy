@@ -112,7 +112,11 @@ export async function generateDamUpdate(damId: string, now = Date.now()): Promis
     damName: snapshot.name,
     floorCfs: dam.generationOnCfs,
     reference: snapshot.generationReference
-      ? { units: snapshot.generationReference.units, fullGenerationCfs: snapshot.generationReference.fullGenerationCfs }
+      ? {
+          units: snapshot.generationReference.units,
+          fullGenerationCfs: snapshot.generationReference.fullGenerationCfs,
+          schedulingCapacityMw: snapshot.generationReference.schedulingCapacityMw,
+        }
       : null,
     schedule: snapshot.schedule,
     observed,
