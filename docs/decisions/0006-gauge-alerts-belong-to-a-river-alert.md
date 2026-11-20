@@ -134,6 +134,38 @@ given its own trigger from the list. A different trigger on one station is a
 standalone gauge alert set from the gauge screen, which has no parent and is
 not gated.
 
+### A change of setting follows; a pause still does not
+
+Coverage is only true while parent and child agree, so a change to the river
+alert's **setting** — its kind, its one-time flag, or re-arming it — is applied
+to the children that were on the old setting. The server does it, in the river
+alert's own `PATCH`, children first
+([`parent-follow.ts`](../../missouri-float-planner/src/lib/alerts/parent-follow.ts)).
+Without it, switching a river alert from floatable to high water left every
+covered gauge firing on the trigger just replaced, each one now an exception
+row.
+
+This is not Option B. Option B wrote `enabled` to children on a pause and then
+had to remember what it had overwritten. Pausing is still a gate that writes
+nothing. A setting change writes the trigger, in the request where the user
+changed the trigger, to rows that held the old one because they inherited it; a
+child given its own trigger is left alone. A child the server cannot move — the
+new setting would duplicate a standalone alert on that station — keeps its old
+setting and shows as an exception.
+
+Gauges added from the edit screen are created on the river alert's saved
+setting, one-time flag included. When a one-time river alert sends, delivery
+switches it off, which gates its gauges until it is re-armed; re-arming it
+re-arms the spent gauges that follow it.
+
+### "Sent" means a notification went out
+
+A river alert's `lastTriggeredAt` is written by delivery. A gauge rule's is
+written by the evaluator when the reading crosses, before quiet hours, the gate
+and the push itself. So the list says "Last sent" only for a river alert, and
+"met its trigger" for a gauge — on a gauge's own row and when a covered gauge is
+the latest thing a river's row has to report.
+
 The row's hint about the parent's reach ("Also pauses the gauge alert below")
 shows only while the parent is on. It previously read "paused together" in both
 states, which on a live alert looked like a status.

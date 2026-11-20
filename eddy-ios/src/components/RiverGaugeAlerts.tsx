@@ -34,7 +34,7 @@
 // screens already make.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import type { AlertRule, AlertSubscriptionKind, MapGauge } from '@eddy/types';
 import { ApiError, createGaugeAlert, fetchGauges } from '@/api/client';
 import { useAlertRules } from '@/hooks/useAlertRules';
@@ -42,10 +42,14 @@ import { useSession } from '@/hooks/useSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
+import { followsParent } from '@/lib/alertGroups';
 
 /** A rated station on this river, paired with its link to it. */
 interface RiverGauge {
-  gauge: MapGauge;
+  /** gauge_stations uuid. */
+  id: string;
+  name: string;
+  usgsSiteId: string | null;
   isPrimary: boolean;
   /**
    * False when the river_gauges row exists with every level null.
@@ -65,7 +69,9 @@ function riverGauges(gauges: MapGauge[], riverId: string): RiverGauge[] {
     const link = (gauge.thresholds ?? []).find((entry) => entry.riverId === riverId);
     if (!link) continue;
     rows.push({
-      gauge,
+      id: gauge.id,
+      name: gauge.name,
+      usgsSiteId: gauge.usgsSiteId ?? null,
       isPrimary: link.isPrimary,
       // Any one level is enough: the classifier reads whichever bands are set,
       // and demanding all six would hide gauges Eddy genuinely does grade.
@@ -95,6 +101,11 @@ export function RiverGaugeAlerts({ rule }: Props) {
   const { rules, add, remove } = useAlertRules();
 
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
+  // The station directory could not be loaded. Not the same as "still
+  // loading": the gauges this alert already covers are in the rules list and
+  // can be shown, and switched off, without it.
+  const [directoryFailed, setDirectoryFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,35 +115,86 @@ export function RiverGaugeAlerts({ rule }: Props) {
     if (!riverId) return;
     const controller = new AbortController();
     fetchGauges(controller.signal)
-      .then(setGauges)
-      // Silent: the section renders nothing rather than an error about a list
-      // the screen above it does not need. The alert itself is unaffected.
-      .catch(() => {});
+      .then((next) => {
+        setGauges(next);
+        setDirectoryFailed(false);
+      })
+      .catch(() => {
+        // An unmount or a retry cancelled this one; its answer is not news.
+        if (!controller.signal.aborted) setDirectoryFailed(true);
+      });
     return () => controller.abort();
-  }, [riverId]);
+  }, [riverId, attempt]);
+
+  /**
+   * The gauges this alert already covers, read from the rules themselves.
+   *
+   * The Alerts tab names these on the alert's row, and this section is the
+   * only place they can be switched off. It used to render nothing at all when
+   * the directory request failed, so a dropped request left "Main gauge +
+   * Sullivan" on the list with no way to reach Sullivan.
+   */
+  const savedRows = useMemo<RiverGauge[]>(
+    () =>
+      rule.source !== 'river_condition'
+        ? []
+        : (rules ?? [])
+            .filter(
+              (candidate) =>
+                candidate.source === 'gauge' &&
+                candidate.mode === 'condition' &&
+                candidate.parentId === rule.id &&
+                candidate.gaugeId != null,
+            )
+            .map((candidate) => ({
+              id: candidate.gaugeId as string,
+              name: candidate.gaugeName ?? 'Gauge',
+              usgsSiteId: candidate.usgsSiteId,
+              isPrimary: false,
+              // It has a rule, so the server accepted it as rated.
+              rated: true,
+            })),
+    [rules, rule.source, rule.id],
+  );
 
   const rows = useMemo(
-    () => (gauges && riverId ? riverGauges(gauges, riverId) : []),
-    [gauges, riverId],
+    () => (gauges && riverId ? riverGauges(gauges, riverId) : directoryFailed ? savedRows : []),
+    [gauges, riverId, directoryFailed, savedRows],
   );
 
   /**
    * The existing condition rule for a station on this river, if any.
    *
-   * Deliberately matches REGARDLESS of parent, because the switch below has to
+   * THIS ALERT'S OWN RULE FIRST. A station can carry two condition rules on
+   * one river — the one switched on here, and a standalone one set from the
+   * gauge screen on a different setting — and the list comes newest first. A
+   * plain `find` therefore handed back whichever was newer: a later standalone
+   * alert shadowed the gauge this alert covers, and the row locked its switch
+   * and said "not part of this one" about a gauge the Alerts tab was naming as
+   * covered.
+   *
+   * Failing that, any rule on the station — because the switch below has to
    * answer "will I hear about this gauge?" and the answer is yes either way. It
    * is `ownedHere` that decides whether this section may act on it.
    */
   const ruleFor = useCallback(
-    (gaugeId: string): AlertRule | null =>
-      (rules ?? []).find(
+    (gaugeId: string): AlertRule | null => {
+      const onStation = (rules ?? []).filter(
         (candidate) =>
           candidate.source === 'gauge' &&
           candidate.mode === 'condition' &&
           candidate.gaugeId === gaugeId &&
           candidate.riverId === riverId,
-      ) ?? null,
-    [rules, riverId],
+      );
+      return (
+        onStation.find(
+          (candidate) => rule.source === 'river_condition' && candidate.parentId === rule.id,
+        ) ??
+        onStation[0] ??
+        null
+      );
+    },
+    [rules, riverId, rule.source, rule.id],
   );
 
   /**
@@ -165,9 +227,9 @@ export function RiverGaugeAlerts({ rule }: Props) {
     async (row: RiverGauge, next: boolean) => {
       if (!riverId) return;
       setError(null);
-      setBusyId(row.gauge.id);
+      setBusyId(row.id);
       try {
-        const existing = ruleFor(row.gauge.id);
+        const existing = ruleFor(row.id);
         if (!next) {
           // Only ever removes a rule this section created. The switch is
           // disabled for anything else, so this is the second lock on the same
@@ -181,16 +243,21 @@ export function RiverGaugeAlerts({ rule }: Props) {
         const token = await getAccessToken();
         if (!token) throw new ApiError('Sign in to change alerts', 401);
         const created = await createGaugeAlert(token, {
-          gaugeStationId: row.gauge.id,
-          usgsSiteId: row.gauge.usgsSiteId ?? undefined,
+          gaugeStationId: row.id,
+          usgsSiteId: row.usgsSiteId ?? undefined,
           riverId,
           riverSlug: rule.riverSlug ?? undefined,
           scope: 'gauge',
           mode: 'condition',
           // The same thing the river alert is set to tell you about, because
           // this is that alert extended to another station — not a new
-          // decision. It is editable afterwards like any other rule.
+          // decision. The SAVED setting, not whatever is being drafted above:
+          // saving the draft carries it to every gauge on the saved setting,
+          // this one included, and backing out leaves both as they were.
           conditionKind: (rule.conditionKind ?? 'all') as AlertSubscriptionKind,
+          // One-time with the river alert, too. A gauge that kept sending under
+          // an alert set to send once is not that alert on another station.
+          oneShot: rule.oneShot,
           // WHAT MAKES IT A CHILD, and the reason this screen can promise the
           // river alert governs it. Sent only from here: the same rule created
           // on the gauge screen is somebody's own alert and must not be
@@ -222,6 +289,7 @@ export function RiverGaugeAlerts({ rule }: Props) {
       getAccessToken,
       rule.riverSlug,
       rule.conditionKind,
+      rule.oneShot,
       rule.source,
       rule.id,
       add,
@@ -230,7 +298,12 @@ export function RiverGaugeAlerts({ rule }: Props) {
 
   // Nothing to say on a river with one gauge: the alert above IS that gauge,
   // and a section listing it alone would be a heading over a locked switch.
-  if (!riverId || rows.length < 2) return null;
+  //
+  // Without the directory there is no telling how many gauges the river has,
+  // so the section shows only when there is something of ours to show. A
+  // failed request on a river with no added gauges stays silent, as before.
+  if (!riverId) return null;
+  if (directoryFailed ? rows.length === 0 : rows.length < 2) return null;
 
   return (
     <>
@@ -242,30 +315,57 @@ export function RiverGaugeAlerts({ rule }: Props) {
             switches read as optional detail rather than as the answer to "which
             part of the river is this about"; without the second, switching one
             on looked like it had done nothing. */}
-        This alert follows {rule.riverName ?? 'the river'}&apos;s main gauge. Switch on any other
-        one to be told about its stretch too, graded on its own levels. The Alerts tab lists the
-        gauges this alert covers.
+        This alert follows {rule.riverName ?? 'the river'}&apos;s main gauge. Switch on another
+        gauge to hear about its stretch too, graded on its own levels. Added gauges use this
+        alert&apos;s settings and are listed with it on the Alerts tab.
       </Text>
 
-      {gauges === null ? (
+      {gauges === null && !directoryFailed ? (
         <ActivityIndicator style={styles.loading} color={colors.interactive} />
       ) : null}
 
+      {/* Says what is missing and offers the fix. The rows below are only the
+          gauges already added; the main gauge and the ones not yet switched on
+          come from the directory. */}
+      {directoryFailed ? (
+        <View style={styles.failedRow}>
+          <Text style={[styles.failedText, { color: colors.textMuted }]}>
+            Couldn&apos;t load this river&apos;s other gauges.
+          </Text>
+          <Pressable
+            onPress={() => {
+              setDirectoryFailed(false);
+              setAttempt((n) => n + 1);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading this river's gauges"
+            hitSlop={12}
+          >
+            <Text style={[styles.failedRetry, { color: colors.interactive }]}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {rows.map((row) => {
-        const existing = ruleFor(row.gauge.id);
+        const existing = ruleFor(row.id);
+        const owned = ownedHere(existing);
         const on = row.isPrimary || existing != null;
         // On, but somebody else's — set from the gauge screen rather than from
         // here, so it is not gated by this alert and does not go with it.
-        const separate = existing != null && !ownedHere(existing);
+        const separate = existing != null && !owned;
+        // Ours, and no longer on this alert's setting — given its own trigger
+        // from its row on the Alerts tab.
+        const ownSetting =
+          existing != null && owned && existing.enabled && !followsParent(existing, rule);
         return (
           <View
-            key={row.gauge.id}
+            key={row.id}
             style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}
           >
             <EddySymbol name="gauge" size={22} />
             <View style={styles.body}>
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-                {row.gauge.name}
+                {row.name}
               </Text>
               <Text style={[styles.hint, { color: colors.textMuted }]}>
                 {row.isPrimary
@@ -277,17 +377,24 @@ export function RiverGaugeAlerts({ rule }: Props) {
                         // locked beside this, because the only thing this
                         // section could do to it is delete it.
                         'On as an alert of its own — it is not part of this one. Manage it on the Alerts tab.'
-                      : existing && !existing.enabled
+                      : owned && existing && !existing.enabled
                         ? // Paused from its own row on the Alerts tab. This
                           // switch deletes what it turns off, so it must not
                           // read as a plain "On" for a rule that is not firing.
                           'Paused on the Alerts tab. Resume it there.'
-                        : on
-                          ? 'On — you will hear about this gauge separately.'
-                          : 'Off'}
+                        : ownSetting
+                          ? 'Included, with its own setting. Change it on the Alerts tab.'
+                          : on && !rule.enabled
+                            ? // The same fact the Alerts tab reports: the
+                              // river alert's switch holds this gauge too. It
+                              // used to read "On" under a paused alert.
+                              `Included · paused with ${rule.riverName ?? 'this alert'}`
+                            : on
+                              ? 'Included — you will hear about this gauge separately.'
+                              : 'Off'}
               </Text>
             </View>
-            {busyId === row.gauge.id ? (
+            {busyId === row.id ? (
               <ActivityIndicator color={colors.interactive} />
             ) : (
               <Switch
@@ -303,8 +410,8 @@ export function RiverGaugeAlerts({ rule }: Props) {
                 trackColor={{ true: colors.interactive, false: colors.border }}
                 accessibilityLabel={
                   separate
-                    ? `${row.gauge.name} has its own alert, managed on the Alerts tab`
-                    : `${on ? 'Stop' : 'Start'} alerts for ${row.gauge.name}`
+                    ? `${row.name} has its own alert, managed on the Alerts tab`
+                    : `${on ? 'Stop' : 'Start'} alerts for ${row.name}`
                 }
               />
             )}
@@ -329,6 +436,16 @@ const styles = StyleSheet.create({
   },
   intro: { ...t.xs, fontFamily: fonts.body, marginHorizontal: 4, marginBottom: 10, lineHeight: 17 },
   loading: { marginVertical: 12 },
+  failedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginHorizontal: 4,
+    marginBottom: 10,
+  },
+  failedText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
+  failedRetry: { ...t.sm, fontFamily: fonts.semibold },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

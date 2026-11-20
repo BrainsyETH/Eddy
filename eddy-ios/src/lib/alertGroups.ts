@@ -166,25 +166,90 @@ function isSpent(rule: AlertRule): boolean {
 }
 
 /**
+ * Is this child on its parent's own setting?
+ *
+ * True for a child as RiverGaugeAlerts creates it: a condition rule with the
+ * parent's kind and the parent's one-time flag. The server asks the same
+ * question, of the same columns, to decide which children a change to the
+ * river alert carries to — see lib/alerts/parent-follow.ts in the web app.
+ */
+export function sharesParentSetting(child: AlertRule, parent: AlertRule): boolean {
+  return (
+    child.mode === 'condition' &&
+    (child.conditionKind ?? 'all') === (parent.conditionKind ?? 'all') &&
+    child.oneShot === parent.oneShot
+  );
+}
+
+/**
  * Does this child still do exactly what its parent does?
  *
- * True for a child as RiverGaugeAlerts creates it: a condition rule on the
- * parent's own setting, on, and not a one-shot the parent is not. Anything else
- * was changed on purpose after it was created, and a row that folded it into
- * "Main gauge + Sullivan" would be claiming a setting it no longer has — or,
- * for one paused by hand, coverage that is not happening.
+ * On its parent's setting, on, and not spent. Anything else was changed after
+ * it was created — or, for a one-time alert, has already sent — and a row that
+ * folded it into "Main gauge + Sullivan" would be claiming a setting it no
+ * longer has or coverage that is not happening.
  *
  * The parent's `enabled` is deliberately NOT part of this. A paused parent
  * still covers the same stations; what it is not doing is watching any of
  * them, and the row says that once, for all of them.
  */
 export function followsParent(child: AlertRule, parent: AlertRule): boolean {
-  return (
-    child.enabled &&
-    child.mode === 'condition' &&
-    (child.conditionKind ?? 'all') === (parent.conditionKind ?? 'all') &&
-    child.oneShot === parent.oneShot &&
-    !isSpent(child)
+  return child.enabled && sharesParentSetting(child, parent) && !isSpent(child);
+}
+
+/** What an edit to a river alert changes about its setting. */
+export interface ParentSettingChange {
+  conditionKind?: AlertRule['conditionKind'];
+  oneShot?: boolean;
+  /** Clear a spent one-time alert so it can send again. */
+  rearm?: boolean;
+}
+
+/**
+ * The list as it will read once a river alert's new setting is saved.
+ *
+ * The server carries a change of setting to the gauges that were on the old
+ * one, in the same request (lib/alerts/parent-follow.ts in the web app). This
+ * is the app's guess at that result, applied before the response so the
+ * covered gauges do not flash out into exception rows and back. It is a GUESS:
+ * the caller refetches afterwards and the server's copy wins.
+ *
+ * Only the children change here. The parent's own fields are the caller's to
+ * patch, as for any other rule.
+ */
+export function applyParentChange(
+  rules: AlertRule[],
+  parent: AlertRule,
+  change: ParentSettingChange,
+): AlertRule[] {
+  if (parent.source !== 'river_condition') return rules;
+  const nextKind =
+    change.conditionKind != null && change.conditionKind !== (parent.conditionKind ?? 'all')
+      ? change.conditionKind
+      : null;
+  const nextOneShot =
+    change.oneShot !== undefined && change.oneShot !== parent.oneShot ? change.oneShot : null;
+  if (nextKind === null && nextOneShot === null && !change.rearm) return rules;
+
+  return rules.map((rule) => {
+    if (rule.source !== 'gauge' || rule.parentId !== parent.id) return rule;
+    if (!sharesParentSetting(rule, parent)) return rule;
+    const comesBack = isSpent(rule) && (change.rearm === true || nextOneShot === false);
+    return {
+      ...rule,
+      ...(nextKind !== null ? { conditionKind: nextKind } : {}),
+      ...(nextOneShot !== null ? { oneShot: nextOneShot } : {}),
+      ...(comesBack ? { firedAt: null, lastTriggeredAt: null, enabled: true } : {}),
+    };
+  });
+}
+
+/** The children of a river alert that a change to its setting would reach. */
+export function followersOf(rules: AlertRule[], parent: AlertRule): AlertRule[] {
+  if (parent.source !== 'river_condition') return [];
+  return rules.filter(
+    (rule) =>
+      rule.source === 'gauge' && rule.parentId === parent.id && sharesParentSetting(rule, parent),
   );
 }
 
@@ -258,25 +323,51 @@ export function coverageLine(covered: AlertRule[]): string | null {
   return `Main gauge + ${listed}`;
 }
 
+/** The most recent thing a river alert's row can report. */
+export type GroupActivity =
+  | { type: 'sent'; at: string }
+  | { type: 'trigger'; at: string; station: AlertRule };
+
 /**
- * When anything this row speaks for last fired — the river alert or a station
- * folded into it.
+ * The latest of: the river alert SENDING, or a covered gauge MEETING ITS
+ * TRIGGER.
  *
- * The covered stations no longer have rows to say "Last sent 2d ago" on, and a
- * river row reading "Never sent" the morning after its Sullivan gauge fired
- * would be the row contradicting the notification.
+ * Two different facts, kept apart on purpose. A river alert's `lastTriggeredAt`
+ * is written by delivery, once a notification has gone out. A gauge rule's is
+ * written by the evaluator when the reading crosses — before quiet hours, the
+ * pause gate and the push itself have had their say — so it can be true of a
+ * crossing nobody was told about. The first version of this folded both into
+ * one "Last sent", and a river row claimed a notification that quiet hours had
+ * suppressed.
+ *
+ * The covered stations no longer have rows of their own, so the river's row is
+ * where a crossing at one of them is reported — as a crossing.
  */
-export function groupLastTriggeredAt(parent: AlertRule, covered: AlertRule[]): string | null {
-  let latest: string | null = null;
+export function groupLastActivity(parent: AlertRule, covered: AlertRule[]): GroupActivity | null {
+  let latest: GroupActivity | null = null;
   let latestMs = Number.NEGATIVE_INFINITY;
-  for (const rule of [parent, ...covered]) {
-    if (!rule.lastTriggeredAt) continue;
-    const ms = new Date(rule.lastTriggeredAt).getTime();
-    if (Number.isNaN(ms) || ms <= latestMs) continue;
-    latest = rule.lastTriggeredAt;
+  const consider = (at: string | null, make: (at: string) => GroupActivity) => {
+    if (!at) return;
+    const ms = new Date(at).getTime();
+    if (Number.isNaN(ms) || ms <= latestMs) return;
+    latest = make(at);
     latestMs = ms;
+  };
+  consider(parent.lastTriggeredAt, (at) => ({ type: 'sent', at }));
+  for (const station of covered) {
+    consider(station.lastTriggeredAt, (at) => ({ type: 'trigger', at, station }));
   }
   return latest;
+}
+
+/**
+ * How many rows the Mine list draws for these groups.
+ *
+ * A river alert with three gauges folded into it is one row, and a count of
+ * four over a list of one reads as three alerts missing.
+ */
+export function visibleRuleCount(groups: AlertRuleGroup[]): number {
+  return groups.reduce((total, group) => total + 1 + groupCoverage(group).separate.length, 0);
 }
 
 /**

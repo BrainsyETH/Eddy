@@ -105,9 +105,11 @@ import {
   coverageLine,
   groupAlertRules,
   groupCoverage,
-  groupLastTriggeredAt,
+  groupLastActivity,
   isGatedByParent,
   staleCoveredStation,
+  stationShortName,
+  visibleRuleCount,
   type AlertRuleGroup,
 } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
@@ -538,8 +540,11 @@ function AlertsContent() {
           have to differ from each other. */}
       <View style={styles.toggleRow} accessibilityRole="tablist">
         {/* No count while the dam alerts are unknown: it would be a total with a
-            part missing, and "null is not zero" (see segmentButton). */}
-        {segmentButton('rules', 'Mine', rulesReady && rules && !damAlertsUnknown ? rules.length + damRows.length : null)}
+            part missing, and "null is not zero" (see segmentButton).
+
+            ROWS, not rules. A river alert with three gauges folded into it is
+            one row, and a badge of four over it read as three alerts missing. */}
+        {segmentButton('rules', 'Mine', rulesReady && rules && !damAlertsUnknown ? visibleRuleCount(ruleGroups) + damRows.length : null)}
         {segmentButton('high-water', 'Running high', highWater?.length ?? null)}
         {segmentButton('notices', 'Notices', notices?.length ?? null)}
       </View>
@@ -728,6 +733,13 @@ function AlertsContent() {
             const gated = isGatedByParent(item);
             // Folded into the river's row, or different enough to keep one.
             const { covered, separate } = groupCoverage(item);
+            // A crossing at a folded-in gauge, when that is the latest thing
+            // to report. The river alert's own send is on the rule already.
+            const activity = groupLastActivity(parent, covered);
+            const coveredTrigger =
+              activity?.type === 'trigger'
+                ? { station: stationShortName(activity.station.gaugeName), at: activity.at }
+                : null;
             return (
               // Swipe left to delete. The row's switch PAUSES an alert and the
               // screen behind it edits one; neither is how somebody gets rid of a
@@ -767,7 +779,7 @@ function AlertsContent() {
                     rule={parent}
                     coverage={coverageLine(covered)}
                     coveredCount={covered.length}
-                    lastTriggeredAt={groupLastTriggeredAt(parent, covered)}
+                    coveredTrigger={coveredTrigger}
                     staleStation={staleCoveredStation(covered)}
                     separateCount={separate.length}
                     // `source` rides along because the two tables are addressed

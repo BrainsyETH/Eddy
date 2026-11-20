@@ -134,6 +134,7 @@ src/lib/alerts/event-kind.test.ts
 src/lib/alerts/fanout.test.ts
 src/lib/alerts/gate.test.ts
 src/lib/alerts/gating.test.ts
+src/lib/alerts/parent-follow.test.ts
 src/lib/alerts/gauge-threshold.test.ts
 src/lib/alerts/river-alerts.test.ts
 src/lib/ameren/osage.test.ts

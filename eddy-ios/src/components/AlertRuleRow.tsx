@@ -58,11 +58,11 @@ interface Props {
   /** How many stations `coverage` names, for the switch's spoken label. */
   coveredCount?: number;
   /**
-   * When anything this row speaks for last fired, if that is later than the
-   * rule's own. Without it a river row would read "Never sent" the morning
-   * after one of its folded-in gauges fired.
+   * A folded-in station that met its trigger more recently than this alert
+   * last sent. Reported as a crossing, never as a send: only the river alert's
+   * own time records a notification going out. See groupLastActivity.
    */
-  lastTriggeredAt?: string | null;
+  coveredTrigger?: { station: string; at: string } | null;
   /**
    * A folded-in station the alert engine cannot currently read. It is armed
    * and cannot fire, and it has no row of its own to say so.
@@ -110,7 +110,7 @@ function AlertRuleRowInner({
   nested = false,
   coverage = null,
   coveredCount = 0,
-  lastTriggeredAt,
+  coveredTrigger = null,
   staleStation = null,
   separateCount = 0,
   gated = false,
@@ -133,11 +133,7 @@ function AlertRuleRowInner({
 
   const spent = isSpent(rule);
   const dimmed = !rule.enabled || spent || gated;
-  // The latest across everything this row speaks for; the rule's own otherwise.
-  const sentNote = lastSentNote({
-    ...rule,
-    lastTriggeredAt: lastTriggeredAt ?? rule.lastTriggeredAt,
-  });
+  const sentNote = lastSentNote(rule, undefined, coveredTrigger);
   // Its own station first. A paused river alert is not waiting on anything, so
   // a folded-in station's silence is only worth a line while the alert is on.
   const staleNote =
@@ -145,6 +141,42 @@ function AlertRuleRowInner({
     (staleStation && rule.enabled
       ? staleReadingNote(staleStation, undefined, stationShortName(staleStation.gaugeName))
       : null);
+
+  // ONE status line, chosen once, so the row and its spoken label cannot
+  // disagree about which of these outranks which.
+  //
+  // The gate wins because it says the same thing plus what to do about it:
+  // "Met its trigger 2d ago" on a rule that cannot currently fire is true and
+  // useless. A spent one-shot wins over the history for the same reason, and a
+  // silent station outranks the history because the rule is armed and cannot
+  // fire until it reports again.
+  const statusNote = gated
+    ? 'Paused with the river alert above'
+    : spent
+      ? 'Already sent — tap to set it again'
+      : (staleNote ?? sentNote);
+  const reachNote =
+    separateCount > 0 && rule.enabled
+      ? separateCount === 1
+        ? 'Also pauses the gauge alert below'
+        : `Also pauses the ${separateCount} gauge alerts below`
+      : null;
+  const triggerText = sentenceCase(describeAlertRule(rule));
+
+  // The Pressable's label replaces its children for VoiceOver, so everything
+  // the row prints has to be in it. It used to announce only the title, which
+  // left the covered stations and a silent gauge unspoken.
+  const rowLabel = [
+    `Edit alert for ${title}`,
+    triggerText,
+    subtitle,
+    // "+" is read as "plus", which is what the line means.
+    coverage,
+    reachNote,
+    statusNote,
+  ]
+    .filter(Boolean)
+    .join('. ');
 
   // What the switch reaches, for VoiceOver — the same reach the row prints.
   const others = coveredCount + separateCount;
@@ -168,9 +200,7 @@ function AlertRuleRowInner({
         nested ? { borderLeftWidth: 2, borderLeftColor: colors.border } : elevation(1),
       ]}
       accessibilityRole="button"
-      accessibilityLabel={
-        gated ? `Edit alert for ${title}, paused with the river alert above it` : `Edit alert for ${title}`
-      }
+      accessibilityLabel={rowLabel}
     >
       <View
         style={[
@@ -206,7 +236,7 @@ function AlertRuleRowInner({
               an earlier version matched the specific openings it expected and
               left "on any condition change" lowercase, which is the one a
               condition rule uses. */}
-          {sentenceCase(describeAlertRule(rule))}
+          {triggerText}
         </Text>
         {subtitle ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
@@ -227,35 +257,11 @@ function AlertRuleRowInner({
             It used to read "paused together" whether the alert was on or off,
             which on a live alert looked like a status. Once the parent IS
             paused, each row below says so itself. */}
-        {separateCount > 0 && rule.enabled ? (
-          <Text style={[styles.meta, { color: colors.textSubtle }]}>
-            {separateCount === 1
-              ? 'Also pauses the gauge alert below'
-              : `Also pauses the ${separateCount} gauge alerts below`}
-          </Text>
+        {reachNote ? (
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>{reachNote}</Text>
         ) : null}
-        {gated ? (
-          // Wins the slot over lastSentNote for the same reason `spent` does:
-          // it says the same thing plus what to do about it. "Last sent 2d ago"
-          // on a rule that cannot currently fire is true and useless.
-          <Text style={[styles.meta, { color: colors.textSubtle }]}>
-            Paused with the river alert above
-          </Text>
-        ) : spent ? (
-          // A one-shot that has fired looks identical to a live one otherwise,
-          // and the difference is the whole point of a one-shot. This wins the
-          // slot over lastSentNote because it says the same thing plus what to
-          // do about it — "Last sent 2d ago" on a rule that will never fire
-          // again is true and useless.
-          <Text style={[styles.meta, { color: colors.textSubtle }]}>
-            Already sent — tap to set it again
-          </Text>
-        ) : staleNote ? (
-          // Outranks "Last sent" for the same reason as the two above: the rule
-          // is armed and cannot fire until its station reports again.
-          <Text style={[styles.meta, { color: colors.textSubtle }]}>{staleNote}</Text>
-        ) : sentNote ? (
-          <Text style={[styles.meta, { color: colors.textSubtle }]}>{sentNote}</Text>
+        {statusNote ? (
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>{statusNote}</Text>
         ) : null}
       </View>
 
