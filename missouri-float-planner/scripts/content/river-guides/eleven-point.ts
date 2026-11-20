@@ -124,12 +124,30 @@ export default {
       {
         "mile": "21.5",
         "name": "Turner Mill (Turner Spring)",
-        "note": "An old mill site on river-right where a large iron overshot wheel still stands, fed by a small spring. A popular stop and float camp."
+        "note": "An old mill site on river-right where a large iron overshot wheel still stands, fed by a small spring. A popular stop and float camp.",
+        "photo": {
+          "url": "/images/river-guides/turner-mill-wheel.webp",
+          "alt": "The iron mill wheel at Turner Mill standing in the spring branch.",
+          "caption": "The mill wheel at Turner Spring, October 2023.",
+          "author": "Roman Watson / USDA Forest Service",
+          "source_url": "https://www.flickr.com/photos/usfs_eastern_region/53366980236/",
+          "license": "Public domain",
+          "license_url": "https://creativecommons.org/publicdomain/mark/1.0"
+        }
       },
       {
         "mile": "33.4",
         "name": "Boze Mill Spring",
-        "note": "A blue spring pool and the remains of an old mill, a short walk up from the float camp on river-right."
+        "note": "A blue spring pool and the remains of an old mill, a short walk up from the float camp on river-right.",
+        "photo": {
+          "url": "/images/river-guides/boze-mill-spring.webp",
+          "alt": "The clear blue pool of Boze Mill Spring ringed by trees.",
+          "caption": "Boze Mill Spring, July 2010.",
+          "author": "altonwoods",
+          "source_url": "https://www.flickr.com/photos/myboogers/4813047921/",
+          "license": "CC BY 2.0",
+          "license_url": "https://creativecommons.org/licenses/by/2.0"
+        }
       }
     ],
     "callouts": {

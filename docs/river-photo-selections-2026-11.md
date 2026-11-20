@@ -107,3 +107,15 @@ is deployed in the API, refreshed river responses supply the new images to the
 existing header implementation. An older cached API `photoUrl` still takes
 precedence over the bundled fallback until that response refreshes. There is
 no database migration or app-layout dependency.
+
+## November 20 update
+
+Elk and James, the two selections flagged above, were replaced after a search
+of Flickr's openly licensed photos.
+
+| River | Selected scene | Decision | Reason |
+| --- | --- | --- | --- |
+| Elk | Gravel bar and wooded bluff on a float, June 2008 | Replace Mount Shira | Shows the river itself rather than an access, with a credit and license (Thomas & Dianne Jones, CC BY 2.0). |
+| James | Riffle under summer trees | Replace the Springfield photo | Larger, sharper and a summer river view (Paulisawoof, public domain). |
+
+See [the November 20 review](photo-coverage-2026-11-20.md) for sources.

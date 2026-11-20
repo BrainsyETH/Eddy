@@ -156,3 +156,12 @@ existing selections, including Montauk for Current River, are retained.
 The shared catalog now covers 28 active rivers; image credits follow the exact
 selected photo. See that review for source provenance, remaining quality gaps,
 and API/cache delivery behavior.
+
+## Missing-image review — November 20, 2026
+
+A review of every photo slot on web and iOS added a Clearwater Dam photo,
+replaced the Elk and James headers, and added photos for six access points,
+one campground, two lake launches, three guide sights and one float card.
+[The November 20 review](photo-coverage-2026-11-20.md) lists each source, the
+places still without a reusable photo, and the guide refresh that has to be
+applied before guide photos appear.

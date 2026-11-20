@@ -129,7 +129,16 @@ export default {
       {
         "mile": "79.5",
         "name": "Ha Ha Tonka Spring & Castle",
-        "note": "An enormous spring feeding the Lake of the Ozarks beneath the stone 'castle' ruins at Ha Ha Tonka State Park — a worthwhile off-river stop at the river's end."
+        "note": "An enormous spring feeding the Lake of the Ozarks beneath the stone 'castle' ruins at Ha Ha Tonka State Park — a worthwhile off-river stop at the river's end.",
+        "photo": {
+          "url": "/images/river-guides/ha-ha-tonka-spring.webp",
+          "alt": "Ha Ha Tonka Spring flowing past a fallen tree below a rock bluff.",
+          "caption": "Ha Ha Tonka Spring, July 2009.",
+          "author": "mrwynd",
+          "source_url": "https://www.flickr.com/photos/mrwynd/3685186966/",
+          "license": "CC BY 2.0",
+          "license_url": "https://creativecommons.org/licenses/by/2.0"
+        }
       }
     ],
     "callouts": {
