@@ -78,6 +78,20 @@ scales on the Bourbeuse. An unrated second gauge is assigned like any other:
 its put-ins then show a reading and no condition on both paths, instead of
 another gauge's condition on one of them.
 
+A tailwater whose main gauge is the dam's release is the fourth. The release
+is measured at the dam, so without stretches every put-in reads it, however
+far downstream. `20261120142104` adds three stretches on the White below Bull
+Shoals Dam: the release for the first 24 miles, the gauge near Norfork down to
+the North Fork, and Calico Rock below it. A second dam joining is where
+position misleads: the gauge near Norfork is the nearest one upstream of Red's
+Landing, but it sits above the North Fork and never sees Norfork Dam's water.
+The same migration gives the links their miles, because the float plan's check
+of gauges inside a float reads only links that carry one; without a mile a
+gauge's flood stage cannot reach a plan that passes it. Put-ins on the two
+lower stretches show their own gauge alone, without the Bull Shoals release
+beside it (owner, 2026-11-20): by then Crooked Creek, the Buffalo and Norfork
+Dam's water have joined, so one dam's release no longer describes the river.
+
 While stretch Reads are paused, an assignment has one live effect: the
 planner's gauge for put-ins inside the stretch.
 
