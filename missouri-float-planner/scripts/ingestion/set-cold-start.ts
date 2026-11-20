@@ -8,7 +8,8 @@
  * Prose is written from the finalized dossier thresholds:
  *   elk  07189000 [ft]  too_low 2.5 / optimal 3.5-5 / dangerous 6
  *   james 07052500 [cfs] optimal 358-921 / high 921 / dangerous 3000 ; Boaz 07052250 opt_min 150
- *   north-fork-white 07057500 [cfs] optimal 628-1000 / high 1000 / dangerous 2200
+ *   north-fork-white 07057500 [cfs] too_low 200 / optimal 628-1000 / high 1000 / dangerous 2200
+ *     (too_low was 285 until 20261119233500; the owner set 200 on 2026-11-19)
  *
  * The james and north-fork ladders above were RECALIBRATED by migration 00177,
  * which retired their old danger lines (4,410 and 8,440) as flood-anchored
@@ -60,7 +61,7 @@ const META: Meta[] = [
     slug: 'north-fork-white',
     float_summary:
       "At the Tecumseh gauge (primary), 628–1,000 cfs is the ideal float range. " +
-      "Around 475 cfs it's low, and below ~285 cfs you'll drag. Above 1,000 cfs the North " +
+      "Below 475 cfs it's low and the riffles get scrapy, and below ~200 cfs it's too low to float. Above 1,000 cfs the North " +
       "Fork runs high and cold, and 2,200 cfs and up is dangerous. " +
       "Spring-fed baseflow from Rainbow and Blue Springs keeps it floatable " +
       "most of the year, but it can jump quickly after heavy rain.",

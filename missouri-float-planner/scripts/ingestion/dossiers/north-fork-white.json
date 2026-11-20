@@ -59,6 +59,15 @@
       },
       "thresholds": [
         {
+          "level": "too_low",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07057500",
+          "referenceGaugeIsPolled": true,
+          "source": "OWNER-APPROVED 2026-11-19, asked and answered directly (migration 20261119235608_north_fork_too_low_is_a_drought). Not derived from flow frequency: the USGS daily record (1944-2026, 29,999 days) is cited only as evidence that the earlier 285 line contradicted a reach the owner describes as floatable year-round below Rainbow Spring. Below 200 cfs on 62 days, in 1954 and 1956; record low 187 cfs.",
+          "confidence": "medium"
+        },
+        {
           "level": "optimal_min",
           "value": 282,
           "unit": "cfs",
@@ -153,7 +162,7 @@
           "rapid",
           "strainer"
         ],
-        "lowWaterMeaning": "below ~285 cfs the riffles get scrapy",
+        "lowWaterMeaning": "Low water means scrapy riffles, but the river below Rainbow Spring stays floatable.",
         "risingWaterHazards": "flash-flood capable despite the spring base flow (2017 flood)"
       },
       "hazards": [
@@ -407,6 +416,7 @@
       "Wikipedia / agent web research (length 109 mi; used only as a conflicting cross-check against the owner's 78 mi)"
     ],
     "openQuestions": [
+      "LADDER DISAGREES WITH PRODUCTION (found 2026-11-19, owner to decide): production holds too_low 200 / low 475 / optimal 628-1000 / high 1000 / dangerous 2200 (migration 00177, then 20261119235608 for the floor). This dossier holds too_low 200 / optimal 282-811 / high 1000 / dangerous 8440. 00177 used moherp's ESTIMATED 475 and 628, which this dossier rejects on the observed trips (Good at 282-811 cfs, including 363-428), and replaced 8440 with 2200 as an under-warning danger line. Until the owner settles which rungs are right, ingest-dossier refuses to re-ingest this river (ladder-guard.ts), so neither record overwrites the other.",
       "DANGEROUS ANCHOR RESOLVED 2026-07-12 (owner-provided NWS TNZM7 flood impacts): dangerous = 8440 cfs = 8 ft, where the Hwy H/Patrick low-water bridge floods and the canoe accesses are affected. Ladder now complete (optimal 282-811 / high 1000 / dangerous 8440). The wide high band reflects a big spring-fed river that carries high flows; refine if an outfitter publishes a lower do-not-float.",
       "CALIBRATION CORRECTED 2026-07-12 (owner-provided moherp screenshot): the earlier ladder (too_low 285 / optimal 475–628) used moherp's ESTIMATED column as if observed. Only High=1000 and Good=120 are OBSERVED. Reset to observed trip data: optimal 282–811 (observed Good range) / high 1000. No too_low anchor (moherp Poor observed = none; <282 reads too_low). dangerous still unsourced (call the outfitters).",
       "DANGEROUS ANCHOR UNSOURCED (dangerous anchor OMITTED, not guessed): no floater 'do-not-float' number exists — moherp OBSERVED tops out at 'High', and the highest logged trip, 1230 cfs, was still rated only 'High' and floated. The way to source a high-water cutoff is a phone call to the 5 North Fork outfitters — especially Sunburst Ranch 417-284-3443 and Dawt Mill Resort 417-284-3540 (also Twin Bridges 417-256-7507, River of Life Farm 417-261-7777, Pettit's 417-284-3290). Until then the badge cannot show 'dangerous' from this gauge. NWS flood 20 ft (TNZM7) is a CROSS-CHECK only (~10x floatable stage), not the anchor.",

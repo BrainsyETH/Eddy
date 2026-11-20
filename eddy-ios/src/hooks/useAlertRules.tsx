@@ -37,7 +37,7 @@ import {
   updateAlertRule,
   type UpdateAlertRuleInput,
 } from '@/api/client';
-import { alertRuleKey } from '@/lib/alertGroups';
+import { alertRuleKey, applyParentChange, followersOf } from '@/lib/alertGroups';
 import { useSession } from '@/hooks/useSession';
 
 interface AlertRulesValue {
@@ -278,28 +278,49 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
        * confusion switching it off was meant to end.
        */
       const rearm = needsRearm(rule, enabled);
+      // Re-arming a river alert re-arms the spent gauges that follow it,
+      // server-side. A plain pause or resume reaches no child — that is the
+      // gate — so `followers` is empty for it. See `update` below.
+      const followers = rearm ? followersOf(rulesRef.current ?? [], rule) : [];
       const result = await mutate(
         rule,
         (current) =>
-          current.map((r) =>
-            r.id === rule.id
+          (rearm ? applyParentChange(current, rule, { rearm: true }) : current).map((r) =>
+            alertRuleKey(r) === alertRuleKey(rule)
               ? { ...r, enabled, ...(rearm ? { firedAt: null, lastTriggeredAt: null } : {}) }
               : r,
           ),
         (token) => updateAlertRule(token, rule, { enabled, ...(rearm ? { rearm: true } : {}) }),
+        [rule, ...followers],
       );
       reconcile(result.rule);
+      if (followers.length > 0) void load();
     },
-    [mutate, reconcile],
+    [mutate, reconcile, load],
   );
 
   const update = useCallback(
     async (rule: AlertRule, patch: UpdateAlertRuleInput): Promise<AlertRuleSeed | null> => {
+      /**
+       * A river alert's new setting reaches the gauges that follow it.
+       *
+       * The server does this in the same request (lib/alerts/parent-follow.ts
+       * in the web app). Here it is applied to the local list first, so the
+       * covered gauges do not drop out of the river's row as exceptions until
+       * the next refetch — and they are named as affected, so a failed save
+       * puts them back too.
+       */
+      const followers = followersOf(rulesRef.current ?? [], rule);
+      const settingChange = {
+        conditionKind: patch.conditionKind,
+        oneShot: patch.oneShot,
+        rearm: patch.rearm,
+      };
       const result = await mutate(
         rule,
         (current) =>
-          current.map((r) =>
-            r.id === rule.id
+          applyParentChange(current, rule, settingChange).map((r) =>
+            alertRuleKey(r) === alertRuleKey(rule)
               ? {
                   ...r,
                   ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
@@ -326,12 +347,17 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
               : r,
           ),
         (token) => updateAlertRule(token, rule, patch),
+        [rule, ...followers],
       );
       // The server's copy wins over the guess above — see reconcile.
       reconcile(result.rule);
+      // The followers were a guess too, and the river route does not return
+      // them: a gauge the server could not move (it would have duplicated a
+      // standalone alert) stays on its old setting. Fetch what was stored.
+      if (followers.length > 0) void load();
       return result.seed;
     },
-    [mutate, reconcile],
+    [mutate, reconcile, load],
   );
 
   const remove = useCallback(

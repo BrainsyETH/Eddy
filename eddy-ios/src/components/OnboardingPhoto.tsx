@@ -93,6 +93,10 @@ export const DAM_PHOTOS: Record<string, { source: number; credit: string; url: s
     ...credits['swt-webbers-falls-dam'],
     source: require('../../assets/onboarding/swt-webbers-falls-dam.jpg'),
   },
+  'swl-clearwater-dam': {
+    ...credits['swl-clearwater-dam'],
+    source: require('../../assets/onboarding/swl-clearwater-dam.jpg'),
+  },
 };
 
 /** Editorial scenery only; missing photos use Eddy's own place illustration. */

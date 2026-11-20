@@ -180,7 +180,8 @@ HASHTAGS: none`);
   assert.ok(!body.includes('http'));
   assert.ok(!body.includes('#'));
   assert.ok(!body.includes('—'));
-  assert.ok(body.includes('scenery, you can see'));
+  // A lone dash starts a new thought, so it becomes a full stop, not a comma splice.
+  assert.ok(body.includes('scenery. You can see'));
   assert.ok(!/HOOK:|CAPTION:/.test(body));
   assert.ok(body.startsWith('The St. Francis has more than one mood.'));
   assert.ok(!body.includes('\n\n\n'));

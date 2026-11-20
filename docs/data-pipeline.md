@@ -51,7 +51,8 @@ The reviewed catalog also supplies read-time fallbacks on public place surfaces,
 so these photos do not require a database write to appear. The optional backfill
 persists the same selections. Deploy the photo-credits page and image optimizer
 support first. No schema migration is required. See
-`docs/photo-coverage-2026-10-11.md` for the current coverage and remaining gaps. See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
+`docs/photo-coverage-2026-11-20.md` for the current coverage and remaining gaps
+(`docs/photo-coverage-2026-10-11.md` records this batch). See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
 
 ## Reviewed spring repairs
 
@@ -119,7 +120,7 @@ when running the write phases.
 | Script | Phase | Writes (Supabase) | Guard |
 | --- | --- | --- | --- |
 | `scaffold-mo-dossiers.ts` | 1 — Scaffold | none — emits dossier stub JSON, skips existing files | n/a |
-| `ingest-dossier.ts` | 6 — Ingest | `rivers` update, `gauge_stations` insert, `river_gauges` insert/update, `river_sections` + `river_characteristics` upsert | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
+| `ingest-dossier.ts` | 6 — Ingest | `rivers` update, `gauge_stations` insert, `river_gauges` insert/update, `river_sections` + `river_characteristics` upsert | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF`; refuses to change an active river's float levels (`ladder-guard.ts`) |
 | `import-dossier-access-points.ts` | 8 — Access points | `access_points` upsert (lands `approved=false`), supplied parking/road/pass fields, miles RPC; `--approve` flips approved. `--write` also refreshes the descriptive columns of every existing row the dossier lists, so pass `--only=slug,…` when adding rows to an older file | dry-default, `--write` / `--approve` / `--only=` |
 | `import-agency-gis.ts` | Agency source inventory | `agency_gis_features` upsert only; preserves explicit place links and all curated places | `--download <dir>` fetches complete MDC/AGFC snapshots; `--from <dir>` previews; `--apply` uses the shared project guard. See the [agency ingestion record](../missouri-float-planner/scripts/ingestion/agency-gis/README.md). |
 | `oneoff-access-enrichment-2026-11.ts` | One-off enrichment | none: proposes parking facts (lots attach to their access point, no new pins), agency, amenities, links, fees and road surface for existing access points from MDC/AGFC/USFS/PAD-US data into a review CSV ([record](../missouri-float-planner/scripts/ingestion/agency-gis/2026-11-oneoff/README.md)) | writes nothing, ever |

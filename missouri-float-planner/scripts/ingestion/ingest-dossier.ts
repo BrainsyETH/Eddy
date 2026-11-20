@@ -36,6 +36,7 @@ import { sectionGaugeAssignment } from './section-gauges';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getScriptClient } from '../lib/db';
+import { ladderChanges, ladderRefusal, LADDER_COLUMNS, type Ladder } from './ladder-guard';
 import { unratedGaugePlan } from './unrated-gauges';
 
 type Level = 'too_low' | 'low' | 'optimal_min' | 'optimal_max' | 'high' | 'dangerous';
@@ -269,6 +270,27 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
     // Fail before any writes if the release-policy migration is not deployed.
     const { error } = await db.from('rivers').select('condition_rating_mode').eq('id', river.id).single();
     if (error) throw error;
+  }
+  // An active river keeps the float levels it has. A dossier that was not
+  // edited when a migration recalibrated a ladder would otherwise put the old
+  // one back: see ladder-guard.ts. Checked before the first write.
+  if (river.active) {
+    const { data: links, error } = await db.from('river_gauges')
+      .select(`gauge_stations(usgs_site_id), threshold_unit, ${LADDER_COLUMNS.join(', ')}`)
+      .eq('river_id', river.id);
+    if (error) throw error;
+    const changesBySite = new Map<string, string[]>();
+    for (const link of (links ?? []) as unknown as Array<Ladder & { gauge_stations: { usgs_site_id: string } | { usgs_site_id: string }[] | null }>) {
+      const station = Array.isArray(link.gauge_stations) ? link.gauge_stations[0] : link.gauge_stations;
+      const planned = station ? perGauge.get(station.usgs_site_id) : undefined;
+      if (!station || !planned) continue;
+      const changes = ladderChanges(link, {
+        threshold_unit: planned.unit,
+        ...Object.fromEntries(LEVEL_ORDER.map((level) => [LEVEL_COL[level], planned.values[level] ?? null])),
+      });
+      if (changes.length) changesBySite.set(station.usgs_site_id, changes);
+    }
+    if (changesBySite.size) throw new Error(ladderRefusal(dossier.slug, changesBySite));
   }
   if (unrated) {
     const { data: linked, error } = await db.from('river_gauges')
