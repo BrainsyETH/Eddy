@@ -149,6 +149,11 @@ export interface ReportEvaluation {
   /** Set exactly when the verdict is `incomplete`. */
   incomplete: IncompleteReason | null;
   /**
+   * True when the model did not finish its response. For a river Read that is
+   * always `incomplete`. For a gauge Read it is not a verdict: see evaluateReport.
+   */
+  cutOff: boolean;
+  /**
    * What the model wrote, parsed into its blocks. Kept whatever the verdict,
    * because a rejected or partial report is exactly the one worth reading. A
    * block the model never reached is null or empty.
@@ -168,19 +173,23 @@ export function evaluateRiverReport(text: string | null, facts: ReportFacts, fin
 /**
  * The same, for either Read, as that Read's generator judges it.
  *
- * A river Read must have finished AND hold all three blocks. A gauge Read is
- * not required to hold all three (generate-gauge-update.ts: about three in ten
- * stored rows lacked one when that was decided), so a finished gauge Read with
- * a block missing passes here as it does in production. One that did not
- * finish is `incomplete` for both: production refuses it while another model
- * is waiting, and text cut off at the output cap can end anywhere.
+ * A river Read must have finished AND hold all three blocks, or it is
+ * `incomplete`.
+ *
+ * A gauge Read is held to neither (generate-gauge-update.ts). It is not
+ * required to hold all three blocks, and one that did not finish is refused
+ * only while another model is waiting to be asked: from the last model it goes
+ * through the guard and is published as written. The panel asks one model and
+ * has no fallback, so it reports what that last model's text would get, which
+ * is the guard's verdict, and says separately that the response was cut off
+ * (`cutOff`). Calling it `incomplete` said "not published as written" about
+ * text production does publish.
  */
 export function evaluateReport(text: string | null, facts: ReportFacts, finished: boolean, workload: TestWorkload): ReportEvaluation {
   const raw = text ? replaceEmDashes(text.trim()) : '';
-  if (!raw) return { verdict: 'empty', reason: null, contradictions: [], incomplete: null, written: null };
+  if (!raw) return { verdict: 'empty', reason: null, contradictions: [], incomplete: null, cutOff: false, written: null };
 
-  const guarded = prepareGeneratedReport(raw, facts, workload === 'river_update' ? { finished } : {});
-  const prepared = workload === 'gauge_update' && !finished ? { ...guarded, incomplete: 'cut_off' as const } : guarded;
+  const prepared = prepareGeneratedReport(raw, facts, workload === 'river_update' ? { finished } : {});
   // A wrong claims line is rejected before anything is parsed, so parse it
   // here the way the guard would have: without the [CLAIMS] line, which is a
   // structured claim for the guard and never part of the published text.
@@ -192,6 +201,7 @@ export function evaluateReport(text: string | null, facts: ReportFacts, finished
     reason: prepared.fallbackReason,
     contradictions: prepared.contradictions,
     incomplete: prepared.incomplete,
+    cutOff: !finished,
     written: {
       summaryText: parsed.summaryText ? stripEddyMarkers(parsed.summaryText) : null,
       eddyRead: parsed.eddyRead ? stripEddyMarkers(parsed.eddyRead) : null,

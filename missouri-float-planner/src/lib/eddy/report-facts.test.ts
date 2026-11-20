@@ -3,8 +3,9 @@ import { matchAlertsByTerms } from '../nws/alert-matching';
 import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, plainRelation, BELOW_OPTIMAL_NOTE, ladderLines, ladderPosition, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine, reportIncompleteness } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, plainRelation, BELOW_OPTIMAL_NOTE, dangerLine, ladderLines, ladderPosition, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine, reportIncompleteness } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
+import { checkRead } from './read-checks';
 
 const input = {
   gaugeName: 'Current River at Van Buren, MO', gaugeHeightFt: 2.57, dischargeCfs: 756,
@@ -495,20 +496,42 @@ test('reportIncompleteness asks the stop reason before the text', () => {
 
 test('the facts carry every level the ladder defines, as the classifier applies them', () => {
   assert.deepEqual(ladderLines(facts), [
-    '- Too Low (not worth floating): below 400',
-    '- Low (floatable, with some dragging): 400 up to 700',
-    '- Good (floats fine): 700 up to 1,190',
-    '- Flowing (floats at its best, the optimal range): 1,190 to 2,700',
-    '- High: above 2,700, up to 5,000',
-    '- Dangerous: 5,000 and up',
+    '- Too Low (not worth floating): below 400 cfs',
+    '- Low (floatable; LOW WATER GUIDANCE says what low water means here): 400 cfs up to 700 cfs',
+    '- Good (floats fine): 700 cfs up to 1,190 cfs',
+    '- Flowing (floats at its best, the optimal range): 1,190 cfs to 2,700 cfs',
+    '- High: above 2,700 cfs, up to 5,000 cfs',
+    '- Dangerous: 5,000 cfs and up',
   ]);
   const prompt = reportFactsPrompt(facts);
   for (const line of ladderLines(facts)) assert.ok(prompt.includes(line), line);
-  assert.match(prompt, /This gauge's float levels, in cfs \(Eddy's own levels, not official limits\):/);
+  assert.match(prompt, /This gauge's float levels \(Eddy's own levels, not official limits, except where flood stage is named\):/);
   // Each boundary agrees with the classifier on both of its sides.
   const at = (dischargeCfs: number) => buildReportFacts({ ...input, dischargeCfs }).conditionCode;
   assert.deepEqual([at(399), at(400), at(699), at(700), at(1189), at(1190), at(2700), at(2701), at(5000)],
     ['too_low', 'low', 'low', 'good', 'good', 'flowing', 'flowing', 'high', 'dangerous']);
+});
+
+test('the Low level carries no generic meaning: what low water means is the river\'s own guidance', () => {
+  // "Low (floatable, with some dragging)" told every Read that Low means
+  // dragging. On big water low costs speed, and a secondary gauge is given
+  // neutral guidance for exactly this reason (the Meramec at Eureka was
+  // described as riffles). The level says floatable and points at the guidance.
+  const low = ladderLines(facts).find((line) => line.startsWith('- Low'))!;
+  assert.match(low, /^- Low \(floatable; LOW WATER GUIDANCE says what low water means here\)/);
+  for (const line of ladderLines(facts)) assert.doesNotMatch(line, /drag|scrap|riffle|shallow/i);
+});
+
+test('every ladder number carries its unit, so a Read that quotes one matches the inputs', () => {
+  for (const line of ladderLines(facts)) {
+    for (const number of line.match(/\d[\d,]*(?:\.\d+)?/g) ?? []) assert.ok(line.includes(`${number} cfs`), `${number} in "${line}"`);
+  }
+  const prompt = reportFactsPrompt(buildReportFacts({ ...input, dischargeCfs: 1500 }));
+  const check = (full: string) => checkRead({ summary: null, eddyRead: null, full }, { prompt }).find((r) => r.id === 'numbers_match_inputs')!.status;
+  // 400 is in the ladder and nowhere else in these facts.
+  assert.equal(check('It stops being worth it below 400 cfs.'), 'pass');
+  assert.equal(check('Good floating starts at 700 cfs and it gets pushy past 2,700 cfs.'), 'pass');
+  assert.equal(check('It stops being worth it below 450 cfs.'), 'fail');
 });
 
 test('a partial ladder lists only what it defines and never prints an unknown bound', () => {
@@ -518,13 +541,64 @@ test('a partial ladder lists only what it defines and never prints an unknown bo
   const jerome = buildReportFacts({ gaugeName: 'Gasconade River at Jerome, MO', gaugeHeightFt: 2.1, dischargeCfs: 421,
     thresholds: { thresholdUnit: 'cfs', levelTooLow: null, levelLow: null, levelOptimalMin: 400, levelOptimalMax: null, levelHigh: null, levelDangerous: null } });
   assert.equal(jerome.conditionCode, 'good');
-  assert.deepEqual(ladderLines(jerome), ['- Too Low (not worth floating): below 400', '- Good (floats fine): 400 and up']);
+  assert.deepEqual(ladderLines(jerome), ['- Too Low (not worth floating): below 400 cfs', '- Good (floats fine): 400 cfs and up']);
   const prompt = reportFactsPrompt(jerome);
   assert.doesNotMatch(prompt, /to unknown|Computed comparison|Optimal range:/);
   // No ladder at all: no heading either.
   const none = buildReportFacts({ ...input, thresholds: { levelTooLow: null, levelLow: null, levelOptimalMin: null, levelOptimalMax: null, levelHigh: null, levelDangerous: null } });
   assert.deepEqual(ladderLines(none), []);
   assert.doesNotMatch(reportFactsPrompt(none), /float levels/);
+});
+
+// ── Flood stage ─────────────────────────────────────────────────────────────
+// Official flood stage makes a reading Dangerous whatever the rating unit says
+// (classifyReading checks it first). A Read told only Eddy's own danger level
+// was told "3,800 cfs below Dangerous" on water 0.6 ft under flood stage.
+
+test('the distance to Dangerous is never given from Eddy\'s own level when flood stage is nearer', () => {
+  // Rated in feet: the two lines compare, and the nearer one is the line.
+  const feet = { thresholdUnit: 'ft' as const, levelTooLow: 1.2, levelLow: 1.5, levelOptimalMin: 2, levelOptimalMax: 3.5, levelHigh: 3.5, levelDangerous: 6, floodStageFt: 4 };
+  const nearFlood = buildReportFacts({ gaugeName: 'X River at Y, MO', gaugeHeightFt: 3.8, dischargeCfs: 900, thresholds: feet });
+  assert.equal(nearFlood.conditionCode, 'high');
+  assert.deepEqual(dangerLine(nearFlood), { inUnit: 4, floodStageFt: null, inUnitIsFloodStage: true });
+  assert.equal(ladderPosition(nearFlood), "Dangerous starts at 4 ft (official flood stage). Today's 3.8 ft is 0.2 ft below that.");
+  assert.deepEqual(ladderLines(nearFlood).slice(-2), ['- High: above 3.5 ft, up to 4 ft', '- Dangerous: 4 ft and up (official flood stage)']);
+  // The classifier agrees with the line the Read is given, on both sides.
+  const at = (gaugeHeightFt: number) => buildReportFacts({ gaugeName: 'X River at Y, MO', gaugeHeightFt, dischargeCfs: 900, thresholds: feet }).conditionCode;
+  assert.deepEqual([at(3.99), at(4), at(5)], ['high', 'dangerous', 'dangerous']);
+  // A flood stage above Eddy's own level changes nothing: Eddy's is nearer.
+  const ownNearer = buildReportFacts({ gaugeName: 'X River at Y, MO', gaugeHeightFt: 3.8, dischargeCfs: 900, thresholds: { ...feet, floodStageFt: 9 } });
+  assert.equal(ladderPosition(ownNearer), "Dangerous starts at 6 ft. Today's 3.8 ft is 2.2 ft below that.");
+  assert.deepEqual(ladderLines(ownNearer).slice(-2), ['- High: above 3.5 ft, up to 6 ft', '- Dangerous: 6 ft and up']);
+});
+
+test('a gauge rated in cfs with a flood stage in feet is given both distances, flood stage first', () => {
+  // The Current at Doniphan's ladder. The two lines cannot be compared, so
+  // neither is called THE distance to Dangerous.
+  const doniphan = { thresholdUnit: 'cfs' as const, levelTooLow: 950, levelLow: 1250, levelOptimalMin: 1600, levelOptimalMax: 3350, levelHigh: 3350, levelDangerous: 7800, floodStageFt: 13 };
+  const high = buildReportFacts({ gaugeName: 'Current River at Doniphan, MO', gaugeHeightFt: 12.4, dischargeCfs: 4000, thresholds: doniphan });
+  assert.equal(high.conditionCode, 'high');
+  const position = ladderPosition(high)!;
+  assert.match(position, /^Official flood stage is 13 ft and is Dangerous whatever the flow\. Today's gauge height of 12\.4 ft is 0\.6 ft below it\./);
+  assert.match(position, /Eddy's own danger level is separate: Dangerous starts at 7,800 cfs\. Today's 4,000 cfs is 3,800 cfs below that\./);
+  assert.match(position, /Never give the distance in cfs without the distance to flood stage\.$/);
+  assert.deepEqual(ladderLines(high).slice(-2), [
+    '- High: above 3,350 cfs, up to 7,800 cfs, or a gauge height of 13 ft (official flood stage), whichever comes first',
+    '- Dangerous: 7,800 cfs and up, or a gauge height of 13 ft (official flood stage), whichever comes first',
+  ]);
+  assert.ok(reportFactsPrompt(high).includes(`How far today is from the next level: ${position}`));
+  // At flood stage the classifier says Dangerous, whatever the flow.
+  assert.equal(buildReportFacts({ gaugeName: 'Current River at Doniphan, MO', gaugeHeightFt: 13, dischargeCfs: 4000, thresholds: doniphan }).conditionCode, 'dangerous');
+  // No gauge height: the Read is told not to state a distance at all.
+  const noHeight = ladderPosition(buildReportFacts({ gaugeName: 'Current River at Doniphan, MO', gaugeHeightFt: null, dischargeCfs: 4000, thresholds: doniphan }))!;
+  assert.match(noHeight, /Today's gauge height is not available, so do not say how far the river is from Dangerous\./);
+  // Flood stage with no danger level of Eddy's own.
+  const floodOnly = buildReportFacts({ gaugeName: 'X River at Y, MO', gaugeHeightFt: 5, dischargeCfs: 4000, thresholds: { ...doniphan, levelDangerous: null, floodStageFt: 9 } });
+  assert.deepEqual(ladderLines(floodOnly).slice(-2), [
+    '- High: above 3,350 cfs, until a gauge height of 9 ft (official flood stage)',
+    '- Dangerous: a gauge height of 9 ft (official flood stage) and up',
+  ]);
+  assert.equal(ladderPosition(floodOnly), "Official flood stage is 9 ft and is Dangerous whatever the flow. Today's gauge height of 5 ft is 4 ft below it.");
 });
 
 test('the distance to the next level is put in words a Read can use', () => {

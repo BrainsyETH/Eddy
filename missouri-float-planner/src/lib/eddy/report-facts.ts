@@ -77,7 +77,7 @@ export function reportFactsPrompt(f: ReportFacts): string {
     // The whole ladder, not only the optimal range. Until 2026-11-19 a Too Low
     // Read was told where floating is best and nothing about where floating
     // starts, so it could not say how far off the river was.
-    ...(ladder.length ? [`This gauge's float levels, in ${f.unit} (Eddy's own levels, not official limits):`, ...ladder] : []),
+    ...(ladder.length ? ["This gauge's float levels (Eddy's own levels, not official limits, except where flood stage is named):", ...ladder] : []),
     // Both ends or neither: a one-ended "400 to unknown cfs" had Reads telling
     // people the comparison "is not fully resolved at this reading".
     ...(f.relation === 'unavailable' ? [] : [`Optimal range: ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}. Computed comparison: ${f.relation}.`]),
@@ -110,14 +110,37 @@ export function plainRelation(f: ReportFacts): string | null {
 }
 
 /**
+ * Where Dangerous starts, as the shared classifier applies it. Two lines can
+ * make a reading Dangerous: Eddy's own danger level, in the gauge's rating
+ * unit, and official flood stage, which is always a gauge height in feet and
+ * wins whatever the flow (classifyReading checks it first).
+ *
+ * `inUnit` is the nearer of the two when both can be compared: always for a
+ * gauge rated in feet. For a gauge rated in cfs they cannot be compared, so
+ * `inUnit` is Eddy's level alone and `floodStageFt` has to be said beside it.
+ * A Read told only the first was told "3,800 cfs below Dangerous" on water
+ * 0.6 ft under flood stage.
+ */
+export function dangerLine(f: ReportFacts): { inUnit: number | null; floodStageFt: number | null; inUnitIsFloodStage: boolean } {
+  const own = f.thresholds.levelDangerous;
+  const flood = f.thresholds.floodStageFt ?? null;
+  if (f.unit === 'ft' && flood != null && (own == null || flood <= own)) {
+    return { inUnit: flood, floodStageFt: null, inUnitIsFloodStage: true };
+  }
+  // In feet with a nearer danger level of its own, flood stage adds nothing.
+  return { inUnit: own, floodStageFt: f.unit === 'cfs' ? flood : null, inUnitIsFloodStage: false };
+}
+
+/**
  * The gauge's ladder as the shared classifier applies it (classifyReading in
  * shared/condition-ladder.ts), one level per line. Only levels the ladder
  * defines are listed, so a partial ladder gives a partial list and never an
- * "unknown".
+ * "unknown". Every number carries its unit, so a Read that quotes one can be
+ * checked against the inputs (read-checks.ts).
  */
 export function ladderLines(f: ReportFacts): string[] {
   const t = f.thresholds;
-  const n = formatBound;
+  const n = (value: number | null) => `${formatBound(value)} ${f.unit}`;
   const flowing = t.levelOptimalMin != null && t.levelOptimalMax != null;
   // Mirrors the classifier: Good starts at level_low, or at optimal_min when a
   // partial ladder has no level_low; High starts above optimal_max.
@@ -125,17 +148,32 @@ export function ladderLines(f: ReportFacts): string[] {
   const highStart = t.levelOptimalMax ?? t.levelHigh;
   const floatFloor = t.levelTooLow ?? goodFloor;
   const goodTop = flowing ? t.levelOptimalMin : highStart;
+  const danger = dangerLine(f);
+  // "or flood stage", for a gauge rated in cfs whose flood stage is in feet.
+  const floodStage = danger.floodStageFt == null ? null : `a gauge height of ${formatBound(danger.floodStageFt)} ft (official flood stage)`;
+  const orFlood = floodStage ? `, or ${floodStage}, whichever comes first` : '';
   const lines: string[] = [];
   if (floatFloor != null) lines.push(`- Too Low (not worth floating): below ${n(floatFloor)}`);
   if (t.levelTooLow != null && (goodFloor == null || t.levelTooLow < goodFloor)) {
-    lines.push(`- Low (floatable, with some dragging): ${n(t.levelTooLow)}${goodFloor == null ? ' and up' : ` up to ${n(goodFloor)}`}`);
+    // No "with some dragging": what low water means differs by river and by
+    // stretch (speed on big water, a walk on a small creek), and the message's
+    // LOW WATER GUIDANCE says which. A generic label here is the Meramec at
+    // Eureka again, described as riffles on the wide lower river.
+    lines.push(`- Low (floatable; LOW WATER GUIDANCE says what low water means here): ${n(t.levelTooLow)}${goodFloor == null ? ' and up' : ` up to ${n(goodFloor)}`}`);
   }
   if (goodFloor != null && (goodTop == null || goodFloor < goodTop)) {
     lines.push(`- Good (floats fine): ${n(goodFloor)}${goodTop == null ? ' and up' : ` up to ${n(goodTop)}`}`);
   }
   if (flowing) lines.push(`- Flowing (floats at its best, the optimal range): ${n(t.levelOptimalMin)} to ${n(t.levelOptimalMax)}`);
-  if (highStart != null) lines.push(`- High: above ${n(highStart)}${t.levelDangerous != null && t.levelDangerous > highStart ? `, up to ${n(t.levelDangerous)}` : ''}`);
-  if (t.levelDangerous != null) lines.push(`- Dangerous: ${n(t.levelDangerous)} and up`);
+  if (highStart != null && (danger.inUnit == null || danger.inUnit > highStart)) {
+    const top = danger.inUnit != null ? `, up to ${n(danger.inUnit)}${orFlood}` : floodStage ? `, until ${floodStage}` : '';
+    lines.push(`- High: above ${n(highStart)}${top}`);
+  }
+  if (danger.inUnit != null) {
+    lines.push(`- Dangerous: ${n(danger.inUnit)} and up${danger.inUnitIsFloodStage ? ' (official flood stage)' : ''}${orFlood}`);
+  } else if (floodStage) {
+    lines.push(`- Dangerous: ${floodStage} and up`);
+  }
   return lines;
 }
 
@@ -176,9 +214,24 @@ export function ladderPosition(f: ReportFacts): string | null {
       return goodFloor == null || v >= goodFloor ? null : `it floats fine (Good) from ${formatBound(goodFloor)} ${f.unit}. ${today} ${short(goodFloor)}.`;
     case 'good':
       return f.relation !== 'below' || f.min == null ? null : `it floats at its best from ${formatBound(f.min)} ${f.unit}. ${today} ${short(f.min)}.`;
-    case 'high':
-      return t.levelDangerous == null || v >= t.levelDangerous ? null
-        : `Dangerous starts at ${formatBound(t.levelDangerous)} ${f.unit}. ${today} ${formatReportMeasurement(Math.round((t.levelDangerous - v) * 100) / 100, f.unit)} below that.`;
+    case 'high': {
+      // The nearer line, never Eddy's own level when flood stage comes first.
+      const danger = dangerLine(f);
+      const below = (line: number, at: number, unit: 'ft' | 'cfs') => formatReportMeasurement(Math.round((line - at) * 100) / 100, unit);
+      const own = danger.inUnit == null || v >= danger.inUnit ? null
+        : `Dangerous starts at ${formatBound(danger.inUnit)} ${f.unit}${danger.inUnitIsFloodStage ? ' (official flood stage)' : ''}. ${today} ${below(danger.inUnit, v, f.unit)} below that.`;
+      if (danger.floodStageFt == null) return own;
+      // Rated in cfs with a flood stage in feet: two lines that cannot be
+      // compared, so the distance to each is given and neither is called THE
+      // distance to Dangerous.
+      const height = f.gaugeHeightFt;
+      const flood = height == null || !Number.isFinite(height)
+        ? `Official flood stage is ${formatBound(danger.floodStageFt)} ft and is Dangerous whatever the flow. Today's gauge height is not available, so do not say how far the river is from Dangerous.`
+        : height >= danger.floodStageFt ? null
+          : `Official flood stage is ${formatBound(danger.floodStageFt)} ft and is Dangerous whatever the flow. Today's gauge height of ${formatReportMeasurement(height, 'ft')} is ${below(danger.floodStageFt, height, 'ft')} below it.`;
+      if (!flood) return own;
+      return own ? `${flood} Eddy's own danger level is separate: ${own} Either one makes it Dangerous. Never give the distance in cfs without the distance to flood stage.` : flood;
+    }
     default:
       return null;
   }

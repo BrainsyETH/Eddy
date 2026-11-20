@@ -322,7 +322,9 @@ export function flatForecasts(text: string): string[] {
  * water may honestly say to ask one.
  */
 const STOCK_LINES: ReadonlyArray<[string, RegExp]> = [
-  ['steady for 24 hours', /\b(?:held|holding|hold|sat|parked|steady|flat|unchanged|moved|budged|changed)\b[^.!?]*\b(?:24 hours|past day)\b/i],
+  // "Moved", "budged" and "changed" say steady only when negated. Unqualified,
+  // "the gauge moved up three feet over the past day" is the opposite.
+  ['steady for 24 hours', /(?:\b(?:held|holding|hold|sat|parked|steady|flat|unchanged)\b|(?:\b(?:not|never|barely|hardly|scarcely|no)|n't)\s+(?:\w+\s+){0,2}?(?:moved?|budged?|changed?|movement)\b)[^.!?]*\b(?:24 hours|past day)\b/i],
   ['call an outfitter', /\b(?:call|check(?:ing)? (?:in )?with|ask|reach out to|confirm with)\b[^.!?]*\boutfitters?\b/i],
   ['lighter boats', /\blighter (?:craft|boats?)\b|\b(?:canoes?|kayaks?)\b[^.!?]*\bthan (?:a |wider |heavier |loaded )?rafts?\b/i],
   ['check back after rain', /\b(?:check(?:ing)? (?:back|again|the gauge again)|worth (?:another|a second) (?:look|check))\b[^.!?]*\b(?:rain|storm|showers?)\b/i],

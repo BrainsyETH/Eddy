@@ -23,6 +23,7 @@ scripts/ingestion/agency-enrichment.test.ts
 scripts/ingestion/agency-gis.test.ts
 scripts/ingestion/audit-access-enrichment-2026-11.test.ts
 scripts/ingestion/import-dossier-access-points.test.ts
+scripts/ingestion/ladder-guard.test.ts
 scripts/ingestion/public-land-access-2026-11.test.ts
 scripts/ingestion/readiness.test.ts
 scripts/lakes/launch-queue.test.ts

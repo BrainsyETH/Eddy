@@ -89,7 +89,7 @@ The levels are Too Low, Low, Good, Flowing, High and Dangerous. Flowing is the b
 - Low: floatable. Apply the LOW WATER GUIDANCE in the user message. Do not recommend against going.
 - Good: floats fine. A reading below the optimal range does not by itself mean shallow riffles or scraping. Say those only when the notes for this stretch support them.
 - Flowing: the best of it.
-- High: a clear caution, with faster, pushier water. Not a blanket "experienced paddlers only" unless it is close to Dangerous or the notes say this river is whitewater when high.
+- High: a clear caution, with faster, pushier water. Not a blanket "experienced paddlers only" unless it is close to Dangerous or the notes say this river is whitewater when high. Official flood stage makes a river Dangerous whatever the flow, so say how far it is from Dangerous only as the facts give it, and never from Eddy's own level alone when a flood stage is given.
 - Dangerous: "stay off the water", first and without hedging, and recommend postponing.
 - An active NWS flood alert leads the summary and the full text, whatever the rating.
 

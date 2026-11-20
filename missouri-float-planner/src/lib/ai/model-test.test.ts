@@ -151,7 +151,7 @@ test('a pass is a pass of the automated checks, not a finding that the report is
 test('no text is its own verdict, not a pass', () => {
   // What a reasoning model returns when it spends its whole cap thinking.
   for (const text of [null, '', '   \n ']) {
-    assert.deepEqual(evaluateRiverReport(text, facts, true), { verdict: 'empty', reason: null, contradictions: [], incomplete: null, written: null });
+    assert.deepEqual(evaluateRiverReport(text, facts, true), { verdict: 'empty', reason: null, contradictions: [], incomplete: null, cutOff: false, written: null });
   }
 });
 
@@ -246,7 +246,7 @@ test("a recorded morning is rebuilt with today's builder, dated to that morning"
   assert.doesNotMatch(prompt, /WARNING: Reading is/);
   // Today's inputs: the claims line, the ladder, the one-line trend, the knowledge passed in.
   assert.ok(prompt.includes(reportClaimsLine(facts)));
-  assert.match(prompt, /- Low \(floatable, with some dragging\): 400 up to 700/);
+  assert.match(prompt, /- Low \(floatable; LOW WATER GUIDANCE says what low water means here\): 400 cfs up to 700 cfs/);
   assert.match(prompt, /^Steady: no meaningful change over the past 24 hours\.$/m);
   assert.doesNotMatch(prompt, /percentile|Median/);
   assert.match(prompt, /=== This gauge: Van Buren ===/);
@@ -290,22 +290,36 @@ test('gauge samples are one per station and are named by the station', () => {
   ]);
 });
 
-test('a gauge Read is judged as its generator judges it: a missing block passes, a cut-off does not', () => {
+test('a gauge Read is judged as its generator judges it', () => {
   // Finished, with no Eddy Read block. A river Read is incomplete; a gauge
   // Read is published in production, so it passes here too.
   const twoBlocks = `${reportClaimsLine(facts)}\n[SUMMARY]\nFine at Van Buren.\n\n[FULL]\nGood at Van Buren.`;
   assert.equal(evaluateReport(twoBlocks, facts, true, 'river_update').verdict, 'incomplete');
   assert.equal(evaluateReport(twoBlocks, facts, true, 'gauge_update').verdict, 'passed');
-  // Not finished: production refuses it while another model is waiting.
-  const whole = output('Fine.', 'Lower river.', 'Good at Van Buren.');
+
+  // Not finished. generate-gauge-update.ts refuses it only while another model
+  // is waiting; from the last model it goes through the guard and is published
+  // as written. The panel has no fallback, so the verdict is the guard's, and
+  // the cut-off is reported beside it, never as "not published as written".
+  const whole = output('Fine.', 'Lower river.', 'Good at Van Buren, and the');
   const cut = evaluateReport(whole, facts, false, 'gauge_update');
-  assert.equal(cut.verdict, 'incomplete');
-  assert.equal(cut.incomplete, 'cut_off');
-  assert.equal(evaluateReport(whole, facts, true, 'gauge_update').verdict, 'passed');
-  // The guard is the same one: a wrong rating is replaced under either.
-  const wrong = evaluateReport(output('Fine.', 'Lower river.', 'The gauge reads Flowing at Van Buren.'), facts, true, 'gauge_update');
-  assert.equal(wrong.verdict, 'replaced');
-  assert.deepEqual(wrong.contradictions, ['condition']);
+  assert.equal(cut.verdict, 'passed');
+  assert.equal(cut.incomplete, null);
+  assert.equal(cut.cutOff, true);
+  assert.equal(cut.written?.quoteText, 'Good at Van Buren, and the');
+  // The same text as a river Read is not published at all.
+  const river = evaluateReport(whole, facts, false, 'river_update');
+  assert.deepEqual([river.verdict, river.incomplete, river.cutOff], ['incomplete', 'cut_off', true]);
+  assert.equal(evaluateReport(whole, facts, true, 'gauge_update').cutOff, false);
+
+  // The guard is the same one: a wrong rating is replaced, cut off or not.
+  const wrong = output('Fine.', 'Lower river.', 'The gauge reads Flowing at Van Buren.');
+  for (const finished of [true, false]) {
+    const result = evaluateReport(wrong, facts, finished, 'gauge_update');
+    assert.equal(result.verdict, 'replaced');
+    assert.deepEqual(result.contradictions, ['condition']);
+    assert.equal(result.cutOff, !finished);
+  }
 });
 
 const recordedGaugeInputs = (over: Record<string, unknown> = {}) => JSON.parse(JSON.stringify({
@@ -327,7 +341,7 @@ test("a recorded gauge morning is rebuilt with today's gauge builder, dated to t
   assert.match(prompt, /^Generate a secondary-gauge update for: Current River above Akers, MO on the Current River\.$/m);
   assert.match(prompt, /This gauge: Akers \(07064533\)/);
   assert.ok(prompt.includes(reportClaimsLine(facts)));
-  assert.match(prompt, /- Low \(floatable, with some dragging\): 400 up to 700/);
+  assert.match(prompt, /- Low \(floatable; LOW WATER GUIDANCE says what low water means here\): 400 cfs up to 700 cfs/);
   assert.doesNotMatch(prompt, /WARNING: Reading is/);
   // It is the gauge message, not the river one.
   assert.doesNotMatch(prompt, /Generate an Eddy condition update for|LOCAL KNOWLEDGE/);

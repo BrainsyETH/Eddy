@@ -45,6 +45,8 @@ export async function checkModelTests(browser, origin, out) {
     const gaugeModels = models.filter((m) => m.id !== 'claude-sonnet-4-6');
     const gaugeCalls = [];
     const listed = [];
+    // How the next gauge list request behaves: 'ok', 'slow' (answers late) or 'fail'.
+    let gaugeList = 'ok';
     const calls = [];
     let failHaiku = true;
     await context.route('**/api/admin/**', async (route) => {
@@ -63,17 +65,26 @@ export async function checkModelTests(browser, origin, out) {
         if (request.method() === 'GET') {
           const workload = new URL(request.url()).searchParams.get('workload');
           listed.push(workload);
-          if (workload === 'gauge_update') return reply({
-            workload, models: gaugeModels, baseline: gaugeModels.find((m) => m.id === 'claude-haiku-4-5-20251001'), samples: [gaugeSample],
-          });
+          if (workload === 'gauge_update') {
+            const mode = gaugeList;
+            gaugeList = 'ok';
+            if (mode === 'fail') return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Fixture gauge list unavailable' }) });
+            if (mode === 'slow') await new Promise((resolve) => setTimeout(resolve, 900));
+            return reply({
+              workload, models: gaugeModels, baseline: gaugeModels.find((m) => m.id === 'claude-haiku-4-5-20251001'), samples: [gaugeSample],
+            });
+          }
           return reply({ workload: 'river_update', models, baseline: models.find((m) => m.id === productionId), samples: [{ ...sample, workload: 'river_update' }] });
         }
         const { model, sampleId: requestedSample } = request.postDataJSON();
         if (requestedSample === gaugeSampleId) {
           gaugeCalls.push(model);
+          // The current model's answer is cut off at the output cap. For a
+          // gauge Read that is a warning beside the verdict, not "incomplete".
+          const cutOff = model === 'claude-haiku-4-5-20251001';
           return reply({
             model: { ...gaugeModels.find((m) => m.id === model), reasoningEffort: null }, sample: gaugeSample,
-            ok: true, verdict: 'passed', written: gaugeWritten,
+            ok: true, verdict: 'passed', cutOff, stopReason: cutOff ? 'max_tokens' : 'end_turn', written: gaugeWritten,
             rawText: '[SUMMARY]\nFloatable at Akers.\n[EDDY_READ]\nThe pools hold.\n[FULL]\nAkers is at 157 cfs.',
             latencyMs: 600, estimatedCostUsd: 0.0005,
           });
@@ -182,6 +193,11 @@ export async function checkModelTests(browser, origin, out) {
       assert.deepEqual([...gaugeCalls].sort(), ['claude-haiku-4-5-20251001', 'gpt-6.2-sol']);
       await reference('Claude Haiku 4.5').waitFor();
       await panel.getByText('Floatable at Akers.', { exact: true }).first().waitFor();
+      // A cut-off gauge Read is published by production, so it is not shown as
+      // "Incomplete": the checks' verdict stands and the cut-off is said beside it.
+      await panel.getByText('Checks passed, but cut off', { exact: true }).waitFor();
+      await panel.getByText(/It stopped at the 1,000-token output cap before finishing\. A gauge Read like this is published as written/).waitFor();
+      assert.equal(await panel.getByText('Incomplete', { exact: true }).count(), 0);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       const box = await gaugeKind.boundingBox();
       // admin.css gives every workspace button a 40px minimum.
@@ -192,13 +208,45 @@ export async function checkModelTests(browser, origin, out) {
       // The export names the gauge report after the list has moved back.
       await river.click();
       await reportPicker.locator('option', { hasText: 'Current River · Good' }).waitFor({ state: 'attached' });
-      const gaugeDownload = page.waitForEvent('download');
-      await panel.getByRole('button', { name: 'Export results', exact: true }).click();
-      const gaugeExport = JSON.parse(await readFile(await (await gaugeDownload).path(), 'utf8'));
-      assert.equal(gaugeExport.reports.length, 1);
-      assert.equal(gaugeExport.reports[0].workload, 'gauge_update');
-      assert.equal(gaugeExport.reports[0].gauge, 'Current River above Akers, MO');
       assert.deepEqual(listed.slice(-2), ['gauge_update', 'river_update']);
+      // A river run in the same session, then one export from the River tab:
+      // each report is compared with its OWN kind's current model.
+      await run();
+      await reference('Claude Sonnet 5').waitFor();
+      const bothDownload = page.waitForEvent('download');
+      await panel.getByRole('button', { name: 'Export results', exact: true }).click();
+      const both = JSON.parse(await readFile(await (await bothDownload).path(), 'utf8'));
+      const exportedGauge = both.reports.find((r) => r.workload === 'gauge_update');
+      const exportedRiver = both.reports.find((r) => r.workload === 'river_update');
+      assert.equal(both.reports.length, 2);
+      assert.equal(exportedGauge.gauge, 'Current River above Akers, MO');
+      assert.equal(exportedGauge.baseline.model.id, 'claude-haiku-4-5-20251001');
+      assert.equal(exportedGauge.baseline.cutOff, true);
+      assert.equal(exportedRiver.baseline.model.id, 'claude-sonnet-5');
+      assert.equal(exportedRiver.river, 'Current River');
+
+      // A gauge list that answers after the user has gone back to River Reads
+      // must not put gauge mornings under the River tab.
+      const optionTexts = () => reportPicker.locator('option').evaluateAll((options) => options.map((o) => o.textContent));
+      gaugeList = 'slow';
+      await gaugeKind.click();
+      await river.click();
+      await reportPicker.locator('option', { hasText: 'Current River · Good' }).waitFor({ state: 'attached' });
+      await page.waitForTimeout(1300);
+      assert.equal(await river.getAttribute('aria-pressed'), 'true');
+      assert.deepEqual((await optionTexts()).map((text) => /above Akers/.test(text)), [false]);
+      await panel.getByRole('button', { name: 'Run test', exact: true }).waitFor();
+
+      // A gauge list that fails leaves nothing runnable under the Gauge tab:
+      // not the river morning that was on screen, and no Run button.
+      gaugeList = 'fail';
+      await gaugeKind.click();
+      await panel.getByRole('alert').filter({ hasText: 'Fixture gauge list unavailable' }).waitFor();
+      assert.equal(await gaugeKind.getAttribute('aria-pressed'), 'true');
+      assert.equal(await panel.getByRole('button', { name: 'Run test', exact: true }).count(), 0);
+      assert.equal(await reportPicker.count(), 0);
+      await river.click();
+      await reportPicker.locator('option', { hasText: 'Current River · Good' }).waitFor({ state: 'attached' });
       assert.deepEqual(errors, []);
     } catch (error) {
       await page.screenshot({ path: `${out}/ai-models-${width}-failure.png`, fullPage: true }).catch(() => {});
@@ -207,5 +255,5 @@ export async function checkModelTests(browser, origin, out) {
       await context.close();
     }
   }
-  console.log('AI model panel: saved baseline, draft isolation, retries, retained references, gauge Reads, export and responsive layout passed');
+  console.log('AI model panel: saved baseline, draft isolation, retries, retained references, gauge Reads, cut-off verdict, late and failed lists, per-kind export and responsive layout passed');
 }

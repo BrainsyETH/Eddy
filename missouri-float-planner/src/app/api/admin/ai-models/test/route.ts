@@ -288,6 +288,9 @@ async function handlePOST(request: NextRequest) {
       reason: evaluation.reason,
       contradictions: evaluation.contradictions,
       incomplete: evaluation.incomplete,
+      // The model stopped before finishing. A verdict for a river Read; a
+      // warning beside the verdict for a gauge Read (see evaluateReport).
+      cutOff: evaluation.cutOff,
       written: evaluation.written,
       // Exactly as returned, markers and claims line included. A partial or
       // malformed response is only fully visible here.

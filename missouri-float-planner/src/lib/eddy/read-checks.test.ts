@@ -174,6 +174,18 @@ test('a stock line is counted wherever it appears, and named', () => {
   assert.equal(detail({ full: "At 55 cfs the creek has about half the water it needs. It hasn't moved since yesterday." }).status, 'pass');
   assert.equal(detail({ eddyRead: 'The long pools hold their depth. It is the shoals between them that thin out first.' }).status, 'pass');
   assert.equal(detail({}).status, 'skip');
+  // "Moved" and "changed" say steady only when negated. A river that came up
+  // is news, and counting it as a stock line would hide the Reads worth reading.
+  for (const moved of [
+    'The gauge moved up three feet over the past day.',
+    'It changed fast over the past 24 hours.',
+    'The river came up a foot over the past day.',
+  ]) assert.equal(detail({ full: moved }).status, 'pass', moved);
+  for (const steady of [
+    "It hasn't moved over the past day.",
+    'The gauge has barely moved in the past 24 hours.',
+    'There has been no meaningful change over the past 24 hours.',
+  ]) assert.equal(detail({ full: steady }).detail, 'steady for 24 hours', steady);
 });
 
 test("the brief's and the notes' own words are counted when said to the reader", () => {

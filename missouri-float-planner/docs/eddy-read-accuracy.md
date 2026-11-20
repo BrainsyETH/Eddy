@@ -204,7 +204,19 @@ Each input says what it measures, where and over what window, or it is left out.
   400 cfs. Today's 200 cfs is about half of that."). A flow is given as a
   share; a stage is given in feet, because half the feet is not half the
   water. A partial ladder lists only the levels it defines, and the optimal
-  range is printed only when it has both ends.
+  range is printed only when it has both ends. Every number carries its unit,
+  so a Read that quotes one can be matched to the inputs. The Low level says
+  only that it is floatable and points at the low-water guidance: what low
+  water means differs by river and by stretch, and a generic "with some
+  dragging" is the Meramec at Eureka described as riffles again.
+- **Flood stage.** Two lines can make a reading Dangerous: Eddy's own danger
+  level, in the gauge's rating unit, and official flood stage, which is a
+  gauge height in feet and wins whatever the flow. `dangerLine()` in
+  `report-facts.ts` gives the nearer one where they compare (a gauge rated in
+  feet). For a gauge rated in cfs they do not compare, so the ladder says "or
+  a gauge height of 13 ft (official flood stage), whichever comes first" and a
+  High Read is given both distances, flood stage first. A Read is never told
+  how far a river is from Dangerous from Eddy's own level alone.
 - **Low-water guidance.** The type default no longer tells the model to
   mention lighter craft, and `20261119235458` removed the same stock clause
   from the eight rivers whose stored `river_characteristics.low_water_meaning`
@@ -375,6 +387,9 @@ news. On the last days the prompts still carried weather, 2026-11-17 and
 2026-11-18, 20% of river Reads passed it, and 32% of gauge Reads over the nine
 days to 2026-11-17. That is the number the prompt change is meant to move.
 
+`no-stock` counts "moved" or "changed" as steady only when negated ("hasn't
+moved over the past day"); a river that moved is news.
+
 `no-stock` is a rate to watch, not a count of mistakes: a Read whose notes
 name a put-in that outfitters move in low water may honestly say to ask one.
 On 2026-11-19, before the shared brief, it was the rule nearly every Read
@@ -420,6 +435,10 @@ The panel replays both recorded Reads, chosen with its River Reads / Gauge
 Reads switch. A gauge Read is replayed under the gauge workload's own model
 list, output cap and current model, with the gauge brief and the gauge message
 builder (`src/lib/eddy/build-gauge-prompt.ts`), and is judged as its generator
-judges it: a finished gauge Read with a block missing passes, as it is
-published in production, and one that did not finish does not. A gauge record
-keeps no river context, so the replay uses today's.
+judges it. A finished gauge Read with a block missing passes, as it is
+published in production. One that did not finish gets the guard's verdict and
+a "cut off" warning beside it, not "incomplete": production refuses a cut-off
+gauge Read only while another model is waiting, and from the last model it is
+published as written. A gauge record keeps no river context, so the replay
+uses today's. The lists on screen always belong to the selected kind, and the
+export compares each report with its own kind's current model.

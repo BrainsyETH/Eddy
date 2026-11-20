@@ -32,9 +32,16 @@
 --                      put in below Rainbow Spring, not a reason to skip the
 --                      river."
 --
--- Scrapy riffles are what Low means everywhere else in Eddy: floatable, with
--- some dragging. 285 was MOHERP's observed onset of exactly that, mapped one
--- rung too far down in 00177.
+-- Scrapy riffles are what Low describes on a river like this one: floatable.
+--
+-- CORRECTED 2026-11-20. This header first said 285 was MOHERP's OBSERVED onset
+-- of that. It was not. The river's dossier (scripts/ingestion/dossiers/
+-- north-fork-white.json, corrected 2026-07-12 from an owner-provided MOHERP
+-- screenshot) records 285, 475 and 628 as MOHERP's ESTIMATED column, rejected
+-- under the calibration policy, and records observed trips rated Good at 282
+-- to 811 cfs, including 363 to 428. 00177 then wrote the estimated numbers
+-- into river_gauges nine days later. So 285 was never an observed floor, and
+-- an observed Good trip at 282 cfs sits just under it.
 --
 -- ── The record, as evidence that the line contradicts the reach ─────────────
 --
@@ -59,7 +66,12 @@
 --                           notes" offered beside it. It leaves Too Low for a
 --                           drought like 1954 or 1956, and it sits above the
 --                           record low of 187, so the ladder can still say it.
---   07057500 low     = 475  UNCHANGED. MOHERP observed.
+--   07057500 low     = 475  UNCHANGED, and NOT observed (corrected 2026-11-20;
+--                           see above). It is MOHERP's estimated column, and
+--                           the dossier's observed trips at 363 to 428 cfs
+--                           were rated Good. Whether Good should start lower
+--                           is open, and is the owner's to decide: the dossier
+--                           names it under LADDER DISAGREES WITH PRODUCTION.
 --
 -- No trip is logged at this gauge in community_reports or float_archive, so
 -- there is no Eddy observation on either side of the line.
