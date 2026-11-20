@@ -37,6 +37,8 @@ const COLUMN: Record<ReadCheckId, string> = {
   flat_forecast: 'no-will',
   numbers_match_inputs: 'in-inputs',
   numbers_from_knowledge: 'not-file',
+  stock_lines: 'no-stock',
+  brief_talk: 'plain',
 };
 
 const KIND_TITLE: Record<ReadKind, string> = {

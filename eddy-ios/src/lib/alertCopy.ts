@@ -58,16 +58,43 @@ export function relativeTime(iso: string | null, now: Date = new Date()): string
  * the reading that tripped it is not on the rule payload, and inventing a
  * plausible one is worse than omitting it.
  *
+ * A PAUSED RULE IS NOT WATCHING. This used to print "watching since October"
+ * under a switch that was off, which is the one claim on the row that was
+ * false. Paused, it says so — and still says what last happened, because that
+ * stays true and is the reason somebody might switch it back on.
+ *
+ * "SENT" IS RESERVED FOR A NOTIFICATION THAT WENT OUT. A river alert's
+ * `lastTriggeredAt` is written by delivery, so it is a send. A gauge rule's is
+ * written by the evaluator when the reading crosses its trigger — quiet hours
+ * or a pause can still stop the push — so for a gauge this says the trigger was
+ * met, which is what the data knows. `covered` is a gauge folded into a river
+ * alert's row, reported the same way and by name.
+ *
  * Returns null when the rule has never fired AND has no creation date to
  * anchor "since" to — an unanchored "never sent" is closer to an error message
  * than to information.
  */
 export function lastSentNote(
-  rule: Pick<AlertRule, 'lastTriggeredAt' | 'createdAt'>,
+  rule: Pick<AlertRule, 'lastTriggeredAt' | 'createdAt'> &
+    Partial<Pick<AlertRule, 'enabled' | 'source'>>,
   now: Date = new Date(),
+  /** A covered gauge that met its trigger more recently than the rule's own. */
+  covered?: { station: string; at: string } | null,
 ): string | null {
+  const paused = rule.enabled === false;
+  const coveredWhen = covered ? relativeTime(covered.at, now) : '';
+  if (covered && coveredWhen) {
+    const station = `${covered.station[0].toUpperCase()}${covered.station.slice(1)}`;
+    const said = `${station} met its trigger ${coveredWhen}`;
+    return paused ? `Paused · ${said}` : said;
+  }
+
   const fired = relativeTime(rule.lastTriggeredAt ?? null, now);
-  if (fired) return `Last sent ${fired}`;
+  if (fired) {
+    const said = rule.source === 'gauge' ? `met its trigger ${fired}` : `last sent ${fired}`;
+    return paused ? `Paused · ${said}` : `${said[0].toUpperCase()}${said.slice(1)}`;
+  }
+  if (paused) return 'Paused';
 
   const since = watchingSince(rule.createdAt, now);
   return since ? `Never sent · watching since ${since}` : null;
@@ -83,12 +110,18 @@ export function lastSentNote(
 export function staleReadingNote(
   rule: Pick<AlertRule, 'source' | 'enabled' | 'readingStale' | 'lastReadingAt'>,
   now: Date = new Date(),
+  /**
+   * Names the station, for a row that speaks for more than one — a river alert
+   * with other gauges folded into it. "Sullivan: waiting on the gauge".
+   */
+  station?: string,
 ): string | null {
   if (rule.source !== 'gauge' || !rule.enabled || !rule.readingStale) return null;
   const last = relativeTime(rule.lastReadingAt ?? null, now);
-  return last
-    ? `Waiting on the gauge · last usable reading ${last}`
-    : 'Waiting on the gauge · no usable reading yet';
+  const lead = station
+    ? `${station[0].toUpperCase()}${station.slice(1)}: waiting on the gauge`
+    : 'Waiting on the gauge';
+  return last ? `${lead} · last usable reading ${last}` : `${lead} · no usable reading yet`;
 }
 
 /**

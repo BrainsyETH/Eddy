@@ -10,6 +10,7 @@ import { getLocalDateStrings } from '@/lib/social/local-time';
 import { buildConditionSemantics } from './condition-semantics';
 import { reportFactsPrompt, type ReportFacts } from './report-facts';
 import { materialOutlookLines } from './material-outlook';
+import { seasonPromptLines, trendPromptLines } from './trend-lines';
 
 export interface GaugeContext {
   facts: ReportFacts;
@@ -32,13 +33,15 @@ export function buildPrompt(
   trajectory: GaugeTrajectory | null = null,
   precipitation: PrecipitationSummary | null = null,
   riverCtx: RiverContext | null = null,
+  /** When the prompt is for. Now, except in a replay of a recorded morning. */
+  now: Date = new Date(),
 ): string {
   const riverNotes = riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug];
   const lines: string[] = [];
 
   // Date context in the river's local timezone so day-of-week and "this
   // weekend" references are right for the river, not for Missouri.
-  const { dayOfWeek, dateStr } = getLocalDateStrings(riverCtx?.timezone ?? DEFAULT_TIMEZONE);
+  const { dayOfWeek, dateStr } = getLocalDateStrings(riverCtx?.timezone ?? DEFAULT_TIMEZONE, now);
   lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
   lines.push('');
 
@@ -81,7 +84,7 @@ export function buildPrompt(
 
   lines.push(reportFactsPrompt(gauge.facts));
   if (gauge.readingTimestamp) {
-    const ageHours = (Date.now() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
+    const ageHours = (now.getTime() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
     if (ageHours > 6) lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
   }
 
@@ -91,40 +94,12 @@ export function buildPrompt(
   } else if (riverNotes) {
     lines.push(`Gauge notes: ${riverNotes}`);
   }
-  // Gauge trajectory. The changes and rate cover the past day; the peak and
-  // low cover trajectory.windowDays, and each line says which it is.
-  if (trajectory) {
-    lines.push('');
-    lines.push('[GAUGE TRAJECTORY]');
-    if (trajectory.change24h != null) {
-      const sign24 = trajectory.change24h >= 0 ? '+' : '';
-      const startHeight = trajectory.currentHeightFt != null
-        ? (trajectory.currentHeightFt - trajectory.change24h).toFixed(1)
-        : '?';
-      lines.push(`24h change: ${sign24}${trajectory.change24h.toFixed(1)} ft (was ${startHeight} ft yesterday)`);
-    }
-    if (trajectory.change6h != null) {
-      const sign6 = trajectory.change6h >= 0 ? '+' : '';
-      lines.push(`6h change: ${sign6}${trajectory.change6h.toFixed(1)} ft`);
-    }
-    if (trajectory.rateFtPerHour != null && trajectory.acceleration) {
-      lines.push(`Rate: ${trajectory.acceleration} at ${Math.abs(trajectory.rateFtPerHour).toFixed(2)} ft/hr`);
-    }
-    if (trajectory.windowPeak) {
-      lines.push(`${trajectory.windowDays}-day peak: ${trajectory.windowPeak.heightFt.toFixed(1)} ft`);
-    }
-    if (trajectory.windowLow) {
-      lines.push(`${trajectory.windowDays}-day low: ${trajectory.windowLow.heightFt.toFixed(1)} ft`);
-    }
-    lines.push(`Summary: ${trajectory.narrative}`);
-
-    // Historical percentile context
-    if (trajectory.percentileContext) {
-      lines.push('');
-      lines.push('[HISTORICAL CONTEXT]');
-      lines.push(trajectory.percentileContext);
-    }
-  }
+  // How the gauge has moved, and how today compares with the season. A flat
+  // gauge and an ordinary season are one line or nothing: see trend-lines.ts.
+  const trend = trendPromptLines(trajectory);
+  if (trend.length) lines.push('', ...trend);
+  const season = seasonPromptLines(trajectory, gauge.facts.conditionCode);
+  if (season.length) lines.push('', ...season);
 
   // Recent rain. Three states, and the model has to be able to tell them
   // apart: an amount, a measured zero, and no measurement at all. Leaving the
@@ -156,7 +131,7 @@ export function buildPrompt(
   // Weather section, which is rebuilt on every view; a Read is stored for the
   // day. The days ahead reach the Read only when rain is likely. See
   // material-outlook.ts.
-  const outlook = materialOutlookLines(forecast);
+  const outlook = materialOutlookLines(forecast, now);
   if (outlook.length) {
     lines.push('');
     lines.push(...outlook);
@@ -177,7 +152,7 @@ export function buildPrompt(
   // Local knowledge from EDDY_KNOWLEDGE.md
   if (localKnowledge) {
     lines.push('');
-    lines.push('[LOCAL KNOWLEDGE — use to inform your update, not recite]');
+    lines.push('[LOCAL KNOWLEDGE: background for you. Use what is about this gauge\'s water; never recite it]');
     lines.push(localKnowledge);
   }
 

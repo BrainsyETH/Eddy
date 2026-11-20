@@ -23,6 +23,7 @@ scripts/ingestion/agency-enrichment.test.ts
 scripts/ingestion/agency-gis.test.ts
 scripts/ingestion/audit-access-enrichment-2026-11.test.ts
 scripts/ingestion/import-dossier-access-points.test.ts
+scripts/ingestion/ladder-guard.test.ts
 scripts/ingestion/public-land-access-2026-11.test.ts
 scripts/ingestion/readiness.test.ts
 scripts/lakes/launch-queue.test.ts
@@ -37,6 +38,7 @@ scripts/lib/guide-refresh.test.ts
 scripts/lib/mcp-eval-review.test.ts
 scripts/lib/no-unguarded-clients.test.ts
 scripts/lib/tailwater-continuation.test.ts
+scripts/low-water-notes-migration.test.ts
 scripts/migration-ledger.test.ts
 scripts/negative-evidence.test.ts
 scripts/rain-lag-estimates-migration.test.ts
@@ -135,6 +137,7 @@ src/lib/alerts/event-kind.test.ts
 src/lib/alerts/fanout.test.ts
 src/lib/alerts/gate.test.ts
 src/lib/alerts/gating.test.ts
+src/lib/alerts/parent-follow.test.ts
 src/lib/alerts/gauge-threshold.test.ts
 src/lib/alerts/river-alerts.test.ts
 src/lib/ameren/osage.test.ts
@@ -228,11 +231,13 @@ src/lib/eddy/global-prose-gate.test.ts
 src/lib/eddy/knowledge.test.ts
 src/lib/eddy/parse-response.test.ts
 src/lib/eddy/reach-gauge-wiring.test.ts
+src/lib/eddy/read-brief.test.ts
 src/lib/eddy/read-checks.test.ts
 src/lib/eddy/report-facts.test.ts
 src/lib/eddy/river-note.test.ts
 src/lib/eddy/stretch-reads.test.ts
 src/lib/eddy/tailwater-river-read.test.ts
+src/lib/eddy/trend-lines.test.ts
 src/lib/email/inbound-bulk.test.ts
 src/lib/embed/branding-registration.test.ts
 src/lib/embed/display-events.test.ts

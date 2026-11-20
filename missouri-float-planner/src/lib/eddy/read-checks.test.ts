@@ -89,10 +89,12 @@ test('the short Read is held to its length, to no measurements and to no forecas
   // Mulberry, 2026-11-17: the outlook, and a weekday.
   const mulberry = 'This stretch lives and dies by rainfall, and the three-day outlook is clear skies all the way through Thursday.';
   assert.equal(status({ eddyRead: mulberry }).read_forecast_talk, 'fail');
-  // The prompt's own Van Buren example passes all three.
+  // The old prompt's Van Buren example passes these. It fails `brief_talk`
+  // ("speaks for"), which is why the shared brief's examples are new ones.
   const vanBuren = 'Van Buren sits well down the river, so this reading speaks for the lower Current. Up around Akers, a dry spell can leave a lot less water than this gauge suggests.';
   const s = status({ eddyRead: vanBuren, summary: 'An easygoing float looks good on the lower Current near Van Buren.' });
   assert.deepEqual([s.summary_length, s.read_length, s.read_measurements, s.read_forecast_talk, s.flat_forecast], ['pass', 'pass', 'pass', 'pass', 'pass']);
+  assert.equal(s.brief_talk, 'fail');
 });
 
 test('a missing block is skipped, not passed', () => {
@@ -154,4 +156,47 @@ test('a Read that describes the weather is counted; the river and its rain are n
   assert.equal(weather('It has dropped steadily since the last rain moved through.'), 'pass');
   // A dry spell is a pattern, not a sky.
   assert.equal(weather('Up around Akers, a dry spell can leave a lot less water than this gauge suggests.'), 'pass');
+});
+
+// ── stock lines and the brief's own words ───────────────────────────
+// Published on 2026-11-19, under the two old prompts.
+
+test('a stock line is counted wherever it appears, and named', () => {
+  const detail = (text: Partial<ReadCheckText>) => checkRead({ summary: null, eddyRead: null, full: null, ...text }, { prompt: null }).find((r) => r.id === 'stock_lines')!;
+  // Huzzah.
+  assert.deepEqual(detail({ full: 'Near Steelville, Huzzah Creek is running Too Low to float, and the gauge has held virtually flat for the past 24 hours with no sign of a turnaround.' }),
+    { id: 'stock_lines', status: 'fail', detail: 'steady for 24 hours' });
+  // Current.
+  assert.equal(detail({ full: "Lighter boats will handle it more comfortably than wider rafts. Call a local outfitter before you go, they'll know about any recent blowdowns." }).detail, 'call an outfitter; lighter boats');
+  // Kings.
+  assert.equal(detail({ full: 'Check the gauge again after any significant storm moves through the watershed.' }).detail, 'check back after rain');
+  // What the brief asks for instead passes.
+  assert.equal(detail({ full: "At 55 cfs the creek has about half the water it needs. It hasn't moved since yesterday." }).status, 'pass');
+  assert.equal(detail({ eddyRead: 'The long pools hold their depth. It is the shoals between them that thin out first.' }).status, 'pass');
+  assert.equal(detail({}).status, 'skip');
+  // "Moved" and "changed" say steady only when negated. A river that came up
+  // is news, and counting it as a stock line would hide the Reads worth reading.
+  for (const moved of [
+    'The gauge moved up three feet over the past day.',
+    'It changed fast over the past 24 hours.',
+    'The river came up a foot over the past day.',
+  ]) assert.equal(detail({ full: moved }).status, 'pass', moved);
+  for (const steady of [
+    "It hasn't moved over the past day.",
+    'The gauge has barely moved in the past 24 hours.',
+    'There has been no meaningful change over the past 24 hours.',
+  ]) assert.equal(detail({ full: steady }).detail, 'steady for 24 hours', steady);
+});
+
+test("the brief's and the notes' own words are counted when said to the reader", () => {
+  const status = (full: string) => checkRead({ summary: null, eddyRead: null, full }, { prompt: null }).find((r) => r.id === 'brief_talk')!;
+  for (const leaked of [
+    // Powder Mill, Poplar Bluff, Jerome, Spring River (MO), Buffalo at St. Joe.
+    'That puts it just below the optimal range of 2 to 3.5 ft, though Good and below optimal can both be true at once.',
+    'That gap from the optimal range floor does not by itself mean scraping or dragging.',
+    'The river is just inside the lower end, though the optimal-range comparison is not fully resolved at this reading.',
+    'At current levels, the thresholds here are statistical rather than outfitter-calibrated.',
+    'St. Joe sits in the middle district, and this reading speaks for the Tyler Bend reach.',
+  ]) assert.equal(status(leaked).status, 'fail', leaked);
+  assert.equal(status('St. Joe is running low but floatable, with slow pools and some dragging over the shallow riffles.').status, 'pass');
 });

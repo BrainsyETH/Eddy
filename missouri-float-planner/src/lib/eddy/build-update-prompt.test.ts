@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { buildPrompt, type GaugeContext } from './build-update-prompt';
+import { buildGaugePrompt } from './build-gauge-prompt';
 import { likelyRainDays, materialOutlookLines } from './material-outlook';
 import type { ForecastData, WeatherData } from '../weather/openweather';
 import { buildReportFacts } from './report-facts';
 import { spanDays } from './trajectory-window';
 import type { GaugeTrajectory } from './gauge-trajectory';
 import type { UpdateTarget } from '../../data/river-sections';
+import { GAUGE_READ_BRIEF, RIVER_READ_BRIEF } from './read-brief';
 
 const target: UpdateTarget = {
   riverSlug: 'jacks-fork', riverName: 'Jacks Fork', sectionSlug: null,
@@ -99,15 +101,47 @@ test('rain that is likely is named by day, at the threshold the Watch for sectio
   assert.deepEqual(materialOutlookLines(forecast([0, 50, 60]), NOW), []);
 });
 
-test('both system prompts send weather to the Weather section and name no forecast block', () => {
-  const read = (p: string) => readFileSync(p, 'utf8');
-  for (const file of ['src/lib/eddy/generate-update.ts', 'src/lib/eddy/generate-gauge-update.ts']) {
-    const source = read(file);
-    assert.match(source, /Do not describe the weather: no sky, temperature, wind or rain chance, today or ahead\./, file);
-    assert.match(source, /only as an \[OUTLOOK\] block, and only when rain is likely/, file);
-    assert.doesNotMatch(source, /3-DAY FORECAST|3-DAY WEATHER OUTLOOK|Current weather:/, file);
+test('both Read briefs send weather to the Weather section and name no forecast block', () => {
+  for (const [kind, brief] of [['river', RIVER_READ_BRIEF], ['gauge', GAUGE_READ_BRIEF]] as const) {
+    assert.match(brief, /Do not describe the weather: no sky, temperature, wind or rain chance, today or ahead\./, kind);
+    assert.match(brief, /only as an \[OUTLOOK\] block, and only when rain is likely/, kind);
+    assert.doesNotMatch(brief, /3-DAY FORECAST|3-DAY WEATHER OUTLOOK|Current weather:/, kind);
   }
   // Each prompt builder gets the days ahead from the one shared helper.
-  assert.match(read('src/lib/eddy/build-update-prompt.ts'), /materialOutlookLines\(forecast\)/);
-  assert.match(read('src/lib/eddy/generate-gauge-update.ts'), /materialOutlookLines\(forecast\)/);
+  const read = (p: string) => readFileSync(p, 'utf8');
+  assert.match(read('src/lib/eddy/build-update-prompt.ts'), /materialOutlookLines\(forecast, now\)/);
+  assert.match(read('src/lib/eddy/build-gauge-prompt.ts'), /materialOutlookLines\(forecast, now\)/);
+});
+
+// ── a replay is dated to its recorded morning ───────────────────────
+test('the date line and the stale-reading warning follow the time the prompt is for', () => {
+  const stale = { ...gauge, readingTimestamp: '2026-11-18T03:00:00Z' };
+  const then = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-18T05:00:00Z'));
+  assert.match(then, /^Date: Tuesday, November 17, 2026$/m);
+  assert.doesNotMatch(then, /WARNING: Reading is/);
+  const later = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-19T15:00:00Z'));
+  assert.match(later, /^Date: Thursday, November 19, 2026$/m);
+  assert.match(later, /WARNING: Reading is 36 hours old/);
+});
+
+// ── the gauge Read's message ────────────────────────────────────────
+test("a gauge Read's message carries the knowledge it is handed and follows the time it is for", () => {
+  const inputs = {
+    target: { gaugeName: 'Current River above Akers, MO', riverName: 'Current River' },
+    facts: gauge.facts, readingTimestamp: '2026-11-18T03:00:00Z', trajectory: trajectory(10), forecast: forecast([0, 90, 0]),
+    riverCtx: null, riverBehaviorApplies: false, riverKnowledge: 'This gauge: Akers (07064533)\n- **Sits**: At Akers Ferry.',
+  };
+  const then = buildGaugePrompt({ ...inputs, now: NOW });
+  assert.match(then, /^Date: Wednesday, November 18, 2026$/m);
+  assert.match(then, /^Generate a secondary-gauge update for: Current River above Akers, MO on the Current River\.$/m);
+  assert.match(then, /\[RIVER KNOWLEDGE: [^\]]*\]\nThis gauge: Akers \(07064533\)/);
+  // No river context and no proven river-wide behaviour: the neutral guidance.
+  assert.match(then, /Local hydrology is not established for this station/);
+  assert.match(then, /\[THIS GAUGE\]\n\[AUTHORITATIVE GAUGE FACTS/);
+  assert.match(then, /\[GAUGE TRAJECTORY\]\n24h change: -0\.2 ft/);
+  assert.match(then, /\[OUTLOOK\]\nRain is likely tomorrow\./);
+  // Twelve hours after the reading, the stale warning; with no knowledge, no block.
+  assert.match(then, /WARNING: Reading is 12 hours old/);
+  const bare = buildGaugePrompt({ ...inputs, riverKnowledge: '', now: new Date('2026-11-18T05:00:00Z') });
+  assert.doesNotMatch(bare, /RIVER KNOWLEDGE|WARNING: Reading is/);
 });

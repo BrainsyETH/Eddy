@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   getGeneralKnowledge, getKnowledgeForChat, getKnowledgeForTarget, getKnowledgeTowns, getRiverKnowledgeForGauge,
-  gaugeTown, listKnowledgeGauges, listKnowledgeRiverSlugs, listKnowledgeSectionGauges, parseKnowledge,
+  gaugeTown, getChatOnlyKnowledge, listKnowledgeGauges, listKnowledgeRiverSlugs, listKnowledgeSectionGauges,
+  listUntaggedSectionSlugs, parseKnowledge,
 } from './knowledge';
 
 // These run against the REAL EDDY_KNOWLEDGE.md (parseKnowledgeFile reads
@@ -347,7 +348,7 @@ test('chat is told everything about the river in view, towns included, and no Re
   assert.match(chat, /=== Section: lower-current ===/);
   assert.match(chat, /=== Towns and services ===[\s\S]*\*\*Van Buren\*\*/);
   // No river in view: the primer alone.
-  assert.equal(getKnowledgeForChat(null), `=== General Ozarks Knowledge ===\n${getGeneralKnowledge()}`);
+  assert.equal(getKnowledgeForChat(null), `=== General Ozarks Knowledge ===\n${getGeneralKnowledge()}\n\n=== Trip planning ===\n${getChatOnlyKnowledge()}`);
 
   for (const text of [getKnowledgeForTarget('current', null, VAN_BUREN), getRiverKnowledgeForGauge('current', 'Current River at Doniphan, MO', '07068000')]) {
     assert.doesNotMatch(text, /Towns and services|nearest town is/);
@@ -427,4 +428,88 @@ test('the Buffalo names its lowest gauge for where it is', () => {
   // The file called it "Rush". The station is near Harriet, at Highway 14.
   assert.doesNotMatch(getKnowledgeForChat('buffalo'), /\*\*Rush\*\* is the lowest|Rush is the lowest gauge/);
   assert.match(getKnowledgeForChat('buffalo'), /Harriet\*\*, at the Highway 14 bridge, is the lowest/);
+});
+
+// ── every reach note reaches a Read ─────────────────────────────────
+// Until 2026-11-19, 29 of the 38 reach notes carried no gauge tag, so chat saw
+// them and no Read did. Each now names the gauge that speaks for its stretch:
+// from river_sections.primary_gauge_station_id where the stretch is assigned
+// one, from the note's own words where it names its gauge, and the river's
+// only gauge where there is only one.
+
+test('every reach note is tagged with a gauge', () => {
+  for (const slug of listKnowledgeRiverSlugs()) {
+    assert.deepEqual(listUntaggedSectionSlugs(slug), [], `${slug}: a reach note with no {@site} tag reaches chat only`);
+  }
+});
+
+test('a note reaches the Read of the gauge that speaks for its stretch, and no other', () => {
+  // The two the owner named: neither reached a Read before.
+  const mulberry = getKnowledgeForTarget('mulberry', null, '07252000');
+  assert.match(mulberry, /=== Section: wolf-pen-to-redding ===\n- The stiffest reach on the river/);
+  const crooked = getKnowledgeForTarget('crooked-creek', null, '07055607');
+  assert.match(crooked, /=== Section: harmon-to-pyatt ===\n- The liveliest reach on the creek/);
+
+  // Where a river has more than one gauge, each note goes to its own.
+  const ponca = getRiverKnowledgeForGauge('buffalo', 'Buffalo River at Ponca, AR', '07055660');
+  assert.match(ponca, /Section upper-ponca-pruitt:/);
+  assert.doesNotMatch(ponca, /Section (?:middle-pruitt-gilbert|lower-gilbert-buffalocity):/);
+  const stJoe = getKnowledgeForTarget('buffalo', null, '07056000');
+  assert.match(stJoe, /=== Section: middle-pruitt-gilbert ===/);
+  assert.doesNotMatch(stJoe, /=== Section: (?:upper-ponca-pruitt|lower-gilbert-buffalocity) ===/);
+
+  assert.deepEqual(listKnowledgeSectionGauges('big-river'), {
+    'washington-state-park-to-mammoth': ['07018100'],
+    'mammoth-to-merrill-horne': ['07018100'],
+    'morse-mill-to-cedar-hill': ['07018500'],
+  });
+  assert.deepEqual(listKnowledgeSectionGauges('james'), { 'james-galena': ['07052500'], 'james-upper': ['07052250'] });
+  // A stretch whose put-ins are split between two gauges carries both. On the upper Bourbeuse,
+  // High Gate grades Mint Spring to Highway H and Union grades Mill Rock to Noser Mill
+  // (migration 20261119184853); the middle Buffalo runs from the Pruitt gauge to St. Joe's.
+  assert.deepEqual(listKnowledgeSectionGauges('bourbeuse'), {
+    'upper-mintspring-nosermill': ['07015720', '07016500'], 'lower-nosermill-meramec': ['07016500'],
+  });
+  assert.deepEqual(listKnowledgeSectionGauges('buffalo'), {
+    'upper-ponca-pruitt': ['07055660'], 'middle-pruitt-gilbert': ['07055680', '07056000'], 'lower-gilbert-buffalocity': ['07056700'],
+  });
+  assert.deepEqual(listKnowledgeSectionGauges('st-francis'), { 'upper-whitewater': ['07034000'], 'lower-float': ['07037500'] });
+  // Below Hardy the river is on the Imboden gauge's water and graded by Hardy.
+  assert.deepEqual(listKnowledgeSectionGauges('spring-river')['spring-reach2'], ['07069305', '07069500']);
+});
+
+test('nothing a Read or chat is handed says "band", and War Eagle carries no second set of levels', () => {
+  // The brief never uses the word, and a model repeats the notes' words.
+  for (const slug of listKnowledgeRiverSlugs()) {
+    for (const text of everySelection(slug)) assert.doesNotMatch(text, /\bband\b/, slug);
+  }
+  // The river block used to cite "roughly 2.0-3.5 ft" beside a ladder whose
+  // optimal range starts at 2.5, and on 2026-11-19 the Read quoted "the
+  // roughly 2.0 ft minimum local paddlers look for". The ladder is in the
+  // prompt; the file says what it means (Format Rules).
+  const warEagle = riverBlock('war-eagle-creek');
+  assert.doesNotMatch(warEagle, /\d(?:\.\d)?\s*[–-]\s*\d(?:\.\d)?\s*ft|Just over 4 ft/);
+  assert.match(warEagle, /the usable range and the dangerous range sit close together/);
+  assert.doesNotMatch(riverBlock('caddo-river'), /low 5s/);
+});
+
+// ── trip planning is for chat ───────────────────────────────────────
+// On 2026-11-19, 12 of 24 river Reads told the reader to call an outfitter.
+// "Always check with local outfitters before launching" was in the General
+// block every Read is handed.
+
+test("General's chat-only block reaches chat and no Read", () => {
+  const chatOnly = getChatOnlyKnowledge();
+  assert.match(chatOnly, /Always check with local outfitters before launching/);
+  assert.match(chatOnly, /Float season runs roughly/);
+  assert.doesNotMatch(getGeneralKnowledge(), /check with local outfitters|Float season runs|busiest|free access/);
+  assert.match(getKnowledgeForChat('current'), /=== Trip planning ===\n[\s\S]*Always check with local outfitters/);
+  for (const text of [getKnowledgeForTarget('current', null, VAN_BUREN), getRiverKnowledgeForGauge('current', 'Current River at Doniphan, MO', '07068000')]) {
+    assert.doesNotMatch(text, /Trip planning|check with local outfitters|Float season runs/);
+  }
+  // The primer the Reads keep: hydrology, cold water, strainers, the dams.
+  assert.match(getGeneralKnowledge(), /Low-head dams and low-water bridges are the deadliest structures/);
+  const parsed = parseKnowledge(['## General', 'Primer.', '### Chat only', '- Ask an outfitter.', '## Test River {#test}', 'True everywhere.'].join('\n'));
+  assert.equal(parsed.general, 'Primer.');
+  assert.equal(parsed.generalChat, '- Ask an outfitter.');
 });

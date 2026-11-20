@@ -24,9 +24,9 @@ test('the report gives a pass rate per rule per day and a total', () => {
   const report = readReport(rows, { by: 'day', examples: 1 });
   const line = (start: string) => report.split('\n').find((l) => l.trim().startsWith(start))!.trim().split(/\s{2,}/);
 
-  // day, reads, sum<=120, read<=240, no-nums, no-fcst, no-wx, no-will, in-inputs, not-file, med.len
-  assert.deepEqual(line('2026-11-16'), ['2026-11-16', '1', '100%', '100%', '100%', '100%', '100%', '100%', '100%', '100%', '17']);
-  assert.deepEqual(line('2026-11-17'), ['2026-11-17', '2', '100%', '100%', '50%', '100%', '100%', '100%', '100%', '100%', '18']);
+  // day, reads, sum<=120, read<=240, no-nums, no-fcst, no-wx, no-will, in-inputs, not-file, no-stock, plain, med.len
+  assert.deepEqual(line('2026-11-16'), ['2026-11-16', '1', '100%', '100%', '100%', '100%', '100%', '100%', '100%', '100%', '100%', '100%', '17']);
+  assert.deepEqual(line('2026-11-17'), ['2026-11-17', '2', '100%', '100%', '50%', '100%', '100%', '100%', '100%', '100%', '100%', '100%', '18']);
   assert.deepEqual(line('ALL').slice(0, 5), ['ALL', '3', '100%', '100%', '67%']);
   // The failing Read is quoted under its rule.
   assert.match(report, /no-nums: 2 of 3 passed\n\s+2026-11-17 current: 46 cfs/);
