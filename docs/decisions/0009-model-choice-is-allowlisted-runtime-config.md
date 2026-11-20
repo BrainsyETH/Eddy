@@ -161,11 +161,21 @@ as `incomplete_response`. From the last model it is replaced by the code-written
 report, recorded as a fallback with reason `incomplete` and the model's partial
 text kept beside it.
 
-The rule is opt-in on the shared guard, and only river and section reports opt
-in. Secondary-gauge updates have never reliably carried all three blocks (about
-three in ten stored rows lack one when this was written), so requiring them
-there would replace reports that are published today. Bringing that workload
-under the rule is a separate decision about its prompt.
+The rule has two parts on the shared guard. River and section reports take
+both. Secondary-gauge updates take only the first (2026-11-20): a response
+that did not finish is never a report, from any workload, so from the last
+model it is replaced the same way. They do not yet have to hold all three
+blocks. They have never reliably carried them (about three in ten stored rows
+lack one when this was written), so requiring them there would replace reports
+that are published today. Whether to require them is decided from the gauge
+replays, as a decision about that workload's prompt.
+
+When every model has been asked and none returned a report (each call failed,
+came back empty, or was refused as incomplete while another waited), the
+generator publishes the code-written report from the facts it already
+gathered, recorded as a fallback with reason `no_model_response` after each
+attempt's own error row (2026-11-20). An outage therefore leaves readers a
+factual Read, not none once the previous row expires.
 
 ## A failing provider is dropped for the rest of the pass (2026-11-18)
 

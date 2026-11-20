@@ -114,9 +114,9 @@ test('missing gauge does not bypass alert gathering or fallback publication', ()
   assert.match(generateUpdate, /conditionCode: gaugeResult\?\.conditionCode \?\? 'unknown'/);
   assert.match(generateUpdate, /gaugeName: gaugeResult\?\.gaugeName \?\? null/);
   for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
-    // The river generator also tells the guard whether the model finished,
-    // which turns on its completeness check; the gauge one does not.
-    assert.match(generator, /prepareGeneratedReport\(rawText, facts(?:, \{ finished: result\.finished \})?\)/);
+    // Both tell the guard whether the model finished. The river generator
+    // also requires every block; the gauge one does not yet (ADR 0009).
+    assert.match(generator, /prepareGeneratedReport\(rawText, facts, \{ finished: (?:result|completion\.result)\.finished(?:, requireAllBlocks: false)? \}\)/);
     assert.doesNotMatch(generator, /guardReport\(parsed/);
   }
 });

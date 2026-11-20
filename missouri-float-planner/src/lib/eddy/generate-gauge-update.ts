@@ -24,7 +24,7 @@ import { stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
-import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts } from './report-facts';
+import { buildReportFacts, factualReportFallback, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts } from './report-facts';
 import { buildGaugeGenerationRecord, captureModel, type GaugeGenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
@@ -318,10 +318,10 @@ export async function generateGaugeUpdate(
   // own record under the model that was asked.
   //
   // This workload does not require all three blocks (see PrepareOptions in
-  // report-facts.ts for why), so it has no completeness check to lean on. What
-  // it does refuse is a response that did not finish, while another model is
-  // still waiting to be asked: text cut off at the output cap can end anywhere.
-  // From the last model it is published as before.
+  // report-facts.ts for why). What it does refuse is a response that did not
+  // finish: text cut off at the output cap can end anywhere. While another
+  // model is still waiting it is a failed attempt; from the last model the
+  // guard replaces it with the code-written report.
   const completion = await tryModels<{ result: TextResult; rawText: string }>(
     model,
     async ({ model: attempt, hasNext }) => {
@@ -356,7 +356,30 @@ export async function generateGaugeUpdate(
       }
     },
   );
-  if (!completion) return null;
+  if (!completion) {
+    // Every model was asked and none answered (each attempt above wrote its
+    // own error row). Publish the code-written report from the facts already
+    // gathered, so an outage leaves this gauge a factual Read rather than
+    // none once its previous row expires.
+    const report = factualReportFallback(facts);
+    const update: GeneratedGaugeUpdate = {
+      gaugeStationId: target.gaugeStationId,
+      usgsSiteId: target.usgsSiteId,
+      riverSlug: target.riverSlug,
+      conditionCode,
+      gaugeHeightFt,
+      dischargeCfs,
+      ...report,
+      sourcesUsed: sourcesUsed.filter(source => ['USGS gauge', 'NWS alerts'].includes(source)),
+      usage: null,
+    };
+    await record({
+      outcome: 'fallback',
+      reason: 'no_model_response',
+      published: { summaryText: update.summaryText, eddyRead: update.eddyRead, quoteText: update.quoteText, sourcesUsed: update.sourcesUsed },
+    });
+    return update;
+  }
 
   const { rawText } = completion;
   const modelText = completion.result.text;
@@ -366,7 +389,7 @@ export async function generateGaugeUpdate(
   const stopReason = completion.result.stopReason;
 
   try {
-    const { report, usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(rawText, facts);
+    const { report, usedFallback, fallbackReason, contradictions } = prepareGeneratedReport(rawText, facts, { finished: completion.result.finished, requireAllBlocks: false });
     const { summaryText, eddyRead, quoteText } = report;
     const publishedSources = !usedFallback ? sourcesUsed
       : sourcesUsed.filter(source => ['USGS gauge', 'NWS alerts'].includes(source));

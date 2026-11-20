@@ -277,6 +277,12 @@ const FALLBACK_MEANING: Record<ConditionCode, string> = {
  */
 export type PreflightFallbackReason = 'no_gauge' | 'no_reading' | 'no_rating' | 'unsupported_section';
 export type GuardFallbackReason = 'claims_mismatch' | 'contradiction' | 'incomplete';
+/** Every model was asked and none returned a report the guard could judge
+ * (each call failed, came back empty, or was refused as incomplete while
+ * another model waited). The generator publishes the code-written report from
+ * the facts it already gathered, so an outage leaves readers a dated, factual
+ * Read rather than none once the previous row expires. */
+export type OutageFallbackReason = 'no_model_response';
 
 /**
  * Why a report is not a whole report.
@@ -295,15 +301,16 @@ export type IncompleteReason = 'cut_off' | 'missing_blocks';
  * its last line. That is why the stop reason is asked first and the text is
  * not trusted to show it.
  */
-export function reportIncompleteness(parsed: ParsedEddyResponse, finished: boolean): IncompleteReason | null {
+export function reportIncompleteness(parsed: ParsedEddyResponse, finished: boolean, requireAllBlocks = true): IncompleteReason | null {
   if (!finished) return 'cut_off';
+  if (!requireAllBlocks) return null;
   // Judge the prose readers receive. Repeated markers can look like content
   // to the parser, then disappear during the final cleanup before publishing.
   return [parsed.summaryText, parsed.eddyRead, parsed.quoteText].every(
     (text) => text != null && stripEddyMarkers(text).length > 0,
   ) ? null : 'missing_blocks';
 }
-export type ReportFallbackReason = PreflightFallbackReason | GuardFallbackReason;
+export type ReportFallbackReason = PreflightFallbackReason | GuardFallbackReason | OutageFallbackReason;
 
 /** Null when the model may write this report. */
 export function preflightFallbackReason(f: ReportFacts): PreflightFallbackReason | null {
@@ -448,15 +455,25 @@ export interface PreparedReport {
 export interface PrepareOptions {
   /**
    * Whether the model finished its response. Passing it turns on the
-   * completeness check: the response must have finished AND hold all three
-   * blocks, or it is replaced as `incomplete`.
+   * completeness check: the response must have finished AND (unless
+   * `requireAllBlocks` is false) hold all three blocks, or it is replaced as
+   * `incomplete`.
    *
-   * Opt-in because it is not true of every caller. River and section reports
+   * The block rule is not true of every caller. River and section reports
    * have always carried all three blocks; secondary-gauge updates have not
    * (about three in ten stored rows lack one), and requiring them there would
-   * replace reports that are published today.
+   * replace reports that are published today. Unfinished text is never a
+   * report, from any caller: it can end anywhere.
    */
   finished?: boolean;
+  /**
+   * With `finished`, whether a finished response must also hold all three
+   * blocks. Default true. Secondary-gauge updates pass false: a cut-off
+   * response is still replaced, but a finished one missing a block is
+   * published as it has been, until the gauge replays show whether requiring
+   * every block would replace Reads that serve readers well (ADR 0009).
+   */
+  requireAllBlocks?: boolean;
 }
 
 /** Only this entry point publishes generated prose. The model's own text is
@@ -474,7 +491,7 @@ export function prepareGeneratedReport(raw: string, f: ReportFacts, options: Pre
   const parsed = parseEddyResponse(lines.filter(line => !/\[CLAIMS\]/i.test(line)).join('\n'));
   // Before the contradiction guard: half a report has nothing to contradict,
   // and "no contradictions found" in one is not a pass.
-  const incomplete = options.finished === undefined ? null : reportIncompleteness(parsed, options.finished);
+  const incomplete = options.finished === undefined ? null : reportIncompleteness(parsed, options.finished, options.requireAllBlocks ?? true);
   if (incomplete) {
     console.warn(`[EddyFacts] Replacing incomplete report for ${f.gaugeName ?? f.locationName}: ${incomplete}`);
     return { report: factualReportFallback(f), usedFallback: true, fallbackReason: 'incomplete', contradictions: [], incomplete, written: parsed };

@@ -15,7 +15,7 @@ import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { getRiverContext } from '@/lib/rivers/context';
 import { parseEddyResponse, stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
-import { buildReportFacts, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type PreparedReport } from './report-facts';
+import { buildReportFacts, factualReportFallback, prepareGeneratedReport, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, type PreparedReport, type ReportFacts } from './report-facts';
 import { buildGenerationRecord, captureModel, type GenerationCapture, type GenerationResult, type GenerationTrigger } from './generation-record';
 import { recordGeneration } from './generation-log';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
@@ -271,7 +271,31 @@ export async function generateEddyUpdate(
       }
     },
   );
-  if (!completion) return null;
+  if (!completion) {
+    // Every model was asked and none answered with a report (the attempts
+    // above each wrote their own error row). Publish the code-written report
+    // from the facts already gathered, so an outage leaves readers a factual
+    // Read instead of nothing once yesterday's row expires. Its sources are
+    // the fallback's: the gauge, and NWS only when a flood alert is in it.
+    const report = factualReportFallback(facts);
+    const update: GeneratedUpdate = {
+      riverSlug: target.riverSlug,
+      sectionSlug: target.sectionSlug,
+      conditionCode: facts.conditionCode,
+      gaugeHeightFt: facts.gaugeHeightFt,
+      dischargeCfs: facts.dischargeCfs,
+      ...report,
+      sourcesUsed: fallbackSources(sourcesUsed, facts),
+      weather: buildWeatherSummary(weather, forecast),
+      usage: null,
+    };
+    await record({
+      outcome: 'fallback',
+      reason: 'no_model_response',
+      published: { summaryText: update.summaryText, eddyRead: update.eddyRead, quoteText: update.quoteText, sourcesUsed: update.sourcesUsed },
+    });
+    return update;
+  }
 
   const modelText = completion.result.text;
   // usage.modelUsed is the model that answered, which after a fallback is not
@@ -284,9 +308,7 @@ export async function generateEddyUpdate(
     // accepted it. What it decided is what is published.
     const { report, usedFallback, fallbackReason, contradictions } = completion.prepared;
     const { summaryText, eddyRead, quoteText } = report;
-    const publishedSources = !usedFallback ? sourcesUsed
-      : sourcesUsed.filter(source => source === 'USGS gauge' || source === 'OpenWeather'
-        || (source === 'NWS alerts' && !!facts.floodAlerts?.length));
+    const publishedSources = !usedFallback ? sourcesUsed : fallbackSources(sourcesUsed, facts);
 
     const update: GeneratedUpdate = {
       riverSlug: target.riverSlug,
@@ -321,6 +343,13 @@ export async function generateEddyUpdate(
     await record({ outcome: 'error', reason: 'model_error', rawResponse: modelText, stopReason, usage, errorMessage: e instanceof Error ? e.message : String(e) });
     return null;
   }
+}
+
+/** The sources a code-written report can claim: the gauge, the weather it
+ * carries, and NWS only when a flood alert is part of it. */
+function fallbackSources(sourcesUsed: string[], facts: ReportFacts): string[] {
+  return sourcesUsed.filter(source => source === 'USGS gauge' || source === 'OpenWeather'
+    || (source === 'NWS alerts' && !!facts.floodAlerts?.length));
 }
 
 // The parser lives in its own SDK-free module so it stays unit-testable.

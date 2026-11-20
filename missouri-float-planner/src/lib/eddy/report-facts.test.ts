@@ -449,6 +449,27 @@ test('with completeness on, a response must have finished and hold all three blo
   }
 });
 
+test('without the block rule, a cut-off response is still replaced and a finished one missing a block is not', () => {
+  // The secondary-gauge workload: about three in ten stored rows lack a block,
+  // so that rule waits on the gauge replays (ADR 0009). Unfinished text is
+  // never a report.
+  const whole = modelOutput(facts, 'Good at Van Buren, a little below the optimal range.');
+  const cut = prepareGeneratedReport(whole, facts, { finished: false, requireAllBlocks: false });
+  assert.equal(cut.fallbackReason, 'incomplete');
+  assert.equal(cut.incomplete, 'cut_off');
+  assert.deepEqual(cut.report, factualReportFallback(facts));
+
+  const noRead = `${reportClaimsLine(facts)}\n[SUMMARY]\nGood at Van Buren.\n\n[FULL]\nGood at Van Buren, below the optimal range.`;
+  const kept = prepareGeneratedReport(noRead, facts, { finished: true, requireAllBlocks: false });
+  assert.equal(kept.usedFallback, false);
+  assert.equal(kept.incomplete, null);
+  // The contradiction guard still runs on it.
+  const wrong = prepareGeneratedReport(`${reportClaimsLine(facts)}\n[SUMMARY]\nThe river is Flowing today.\n\n[FULL]\nThe river is Flowing today.`, facts, { finished: true, requireAllBlocks: false });
+  assert.equal(wrong.fallbackReason, 'contradiction');
+  assert.equal(reportIncompleteness({ summaryText: 'S.', eddyRead: null, quoteText: 'Q.' }, true, false), null);
+  assert.equal(reportIncompleteness({ summaryText: 'S.', eddyRead: null, quoteText: 'Q.' }, false, false), 'cut_off');
+});
+
 test('a wrong claims line is still reported as that, not as incomplete', () => {
   const wrong = modelOutput(facts, 'Good at Van Buren.').replace('condition=good', 'condition=flowing');
   const result = prepareGeneratedReport(wrong, facts, { finished: false });

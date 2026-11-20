@@ -186,13 +186,13 @@ test('every exit from the generator writes a record, and every caller names its 
   const fn = generator.slice(generator.indexOf('export async function generateEddyUpdate('), generator.indexOf('// The parser lives in its own SDK-free module'));
   // A null return publishes nothing, so the record is the only trace of it.
   const nullReturns = [...fn.matchAll(/return null;/g)];
-  assert.equal(nullReturns.length, 3);
+  assert.equal(nullReturns.length, 2);
 
   // The attempts run in the shared loop (src/lib/ai/attempts.ts): the resolved
   // model, then its fallback. Each one that yields nothing records itself, in
   // the attempt or in the error handler beside it, under the model that was
   // asked: no text, an incomplete report, no API key, or a call that threw.
-  const loopEnd = fn.indexOf('if (!completion) return null;');
+  const loopEnd = fn.indexOf('if (!completion) {');
   const attempts = fn.slice(fn.indexOf('const completion = await tryModels'), loopEnd);
   assert.ok(attempts.length > 0 && loopEnd > 0);
   for (const reason of ['empty_response', 'incomplete_response', 'missing_api_key', 'model_error']) {
@@ -209,10 +209,16 @@ test('every exit from the generator writes a record, and every caller names its 
   const refused = attempts.slice(attempts.indexOf('return { result, prepared };'), attempts.indexOf('return null;'));
   assert.equal([...refused.matchAll(/await record\(\{ outcome: 'error'/g)].length, 2);
 
-  // Then nothing came back from any model, and last, the failure to prepare a
-  // report from text that did arrive.
-  assert.equal(nullReturns[1].index, loopEnd + 'if (!completion) '.length);
-  assert.match(fn.slice(Math.max(0, nullReturns[2].index - 260), nullReturns[2].index), /await record\(\{ outcome: 'error'/);
+  // Then nothing came back from any model: an outage publishes the
+  // code-written report from the facts, recorded as a fallback, rather than
+  // nothing. And last, the failure to prepare a report from text that did
+  // arrive.
+  const outage = fn.slice(loopEnd, fn.indexOf('const modelText = completion.result.text;'));
+  assert.match(outage, /const report = factualReportFallback\(facts\);/);
+  assert.match(outage, /await record\(\{\s*outcome: 'fallback',\s*reason: 'no_model_response'/);
+  assert.match(outage, /return update;\s*\}\s*$/);
+  assert.ok(nullReturns[1].index > loopEnd);
+  assert.match(fn.slice(Math.max(0, nullReturns[1].index - 260), nullReturns[1].index), /await record\(\{ outcome: 'error'/);
   assert.match(fn, /if \(fallback\) await record\(\{\s*outcome: 'fallback',\s*reason: preflightFallbackReason\(facts\)/);
   assert.match(fn, /outcome: usedFallback \? 'fallback' : 'model'/);
 
@@ -283,7 +289,7 @@ test('every exit from the gauge generator writes a record, and every caller name
   // or the recorded update.
   const afterFacts = body.slice(body.indexOf('const record = '));
   const loopStart = afterFacts.indexOf('const completion = await tryModels');
-  const loopEnd = afterFacts.indexOf('if (!completion) return null;');
+  const loopEnd = afterFacts.indexOf('if (!completion) {');
   assert.ok(loopStart > 0 && loopEnd > loopStart);
   const count = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).length;
 
@@ -304,11 +310,16 @@ test('every exit from the gauge generator writes a record, and every caller name
   assert.equal(count(attempts, /\breturn /g), 2);
   assert.match(attempts, /if \(rawText && \(result\.finished \|\| !hasNext\)\) return \{ result, rawText \};/);
 
-  // After them: nothing came back from any model, the recorded update, and a
-  // recorded failure to prepare a report from text that did arrive.
+  // After them: nothing came back from any model (the code-written report,
+  // recorded as a fallback), the recorded update, and a recorded failure to
+  // prepare a report from text that did arrive. Every way out is recorded.
   const after = afterFacts.slice(loopEnd);
   assert.equal(count(after, /\breturn\b/g), 3);
-  assert.equal(count(after, /await record\(/g), 2);
+  assert.equal(count(after, /await record\(/g), 3);
+  assert.match(after, /await record\(\{\s*outcome: 'fallback',\s*reason: 'no_model_response'/);
+  // From the last model, an unfinished response reaches the guard told so,
+  // which replaces it; a finished one is not yet required to hold every block.
+  assert.match(after, /prepareGeneratedReport\(rawText, facts, \{ finished: completion\.result\.finished, requireAllBlocks: false \}\)/);
 
   for (const [file, trigger] of [
     ['src/app/api/cron/generate-gauge-updates/route.ts', 'scheduled'],
