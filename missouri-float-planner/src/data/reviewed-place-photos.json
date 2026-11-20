@@ -118,5 +118,110 @@
       "license": "Public domain",
       "licenseUrl": "https://www.nps.gov/aboutus/disclaimer.htm"
     }
+  },
+  {
+    "table": "access_points",
+    "id": "a2757a09-8faa-4cb4-b035-3e030d3b0156",
+    "name": "Rim Shoals Access",
+    "image": {
+      "url": "https://live.staticflickr.com/3247/2723908579_d9172b880a_b.jpg",
+      "title": "Rim Shoals Access",
+      "altText": "A kayak on the concrete ramp at Rim Shoals with morning mist over the White River",
+      "caption": "The ramp at Rim Shoals, July 2008. Location photograph; not current conditions.",
+      "credit": "Thomas & Dianne Jones",
+      "sourceUrl": "https://www.flickr.com/photos/freewine/2723908579/",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/"
+    }
+  },
+  {
+    "table": "access_points",
+    "id": "04bd028e-bd22-451b-8b86-a618dfc0fb83",
+    "name": "Gaston's Access",
+    "image": {
+      "url": "https://live.staticflickr.com/3422/3718327119_192c53b47c_b.jpg",
+      "title": "Gaston's Access",
+      "altText": "The White River seen from the lawn at Gaston's White River Resort",
+      "caption": "The White River from the grounds of Gaston's White River Resort, not the ramp itself. Location photograph; not current conditions.",
+      "credit": "Jason Hunter",
+      "sourceUrl": "https://www.flickr.com/photos/coreburn/3718327119/",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/"
+    }
+  },
+  {
+    "table": "access_points",
+    "id": "a50489c1-941f-4289-a5d6-75850fe6920c",
+    "name": "Echo Bluff State Park",
+    "image": {
+      "url": "https://live.staticflickr.com/634/20552668338_096193619d_b.jpg",
+      "title": "Echo Bluff State Park",
+      "altText": "Echo Bluff rising above Sinking Creek and a gravel bar",
+      "caption": "Echo Bluff on Sinking Creek, the park's namesake. Location photograph; not current conditions.",
+      "credit": "Missouri State Parks",
+      "sourceUrl": "https://www.flickr.com/photos/mostateparks/20552668338/",
+      "license": "Public domain",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+    }
+  },
+  {
+    "table": "access_points",
+    "id": "cb41f472-dc6e-4e45-ad8d-2548ad99d383",
+    "name": "Meramec State Park (Lower Ramp)",
+    "image": {
+      "url": "https://live.staticflickr.com/7504/16035405342_80ecffe2be_b.jpg",
+      "title": "Meramec State Park (Lower Ramp)",
+      "altText": "A wooded bluff reflected in the Meramec River at Meramec State Park",
+      "caption": "The Meramec River in Meramec State Park, not the ramp itself. Location photograph; not current conditions.",
+      "credit": "Missouri State Parks",
+      "sourceUrl": "https://www.flickr.com/photos/mostateparks/16035405342/",
+      "license": "Public domain",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+    }
+  },
+  {
+    "table": "access_points",
+    "id": "8b90fbd7-9e9d-4ae2-8e2e-756f418c548d",
+    "name": "St. Francois State Park Access 1",
+    "image": {
+      "url": "https://live.staticflickr.com/4552/38483191401_e654458b98_b.jpg",
+      "title": "St. Francois State Park Access 1",
+      "altText": "Rafters floating the Big River past a wooded bank in St. Francois State Park",
+      "caption": "Floating the Big River in St. Francois State Park, not this access itself. Location photograph; not current conditions.",
+      "credit": "Missouri State Parks",
+      "sourceUrl": "https://www.flickr.com/photos/mostateparks/38483191401/",
+      "license": "Public domain",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+    }
+  },
+  {
+    "table": "access_points",
+    "id": "4cbfec66-87fe-4712-bbb1-6e53ac1b0f6f",
+    "name": "St. Francois State Park Access 2",
+    "image": {
+      "url": "https://live.staticflickr.com/4552/38483191401_e654458b98_b.jpg",
+      "title": "St. Francois State Park Access 2",
+      "altText": "Rafters floating the Big River past a wooded bank in St. Francois State Park",
+      "caption": "Floating the Big River in St. Francois State Park, not this access itself. Location photograph; not current conditions.",
+      "credit": "Missouri State Parks",
+      "sourceUrl": "https://www.flickr.com/photos/mostateparks/38483191401/",
+      "license": "Public domain",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+    }
+  },
+  {
+    "table": "nearby_services",
+    "id": "2b82e10e-2a1e-4999-a9ae-c903a9a93f69",
+    "name": "Red Bluff Campground",
+    "image": {
+      "url": "https://live.staticflickr.com/65535/53903842609_c40f8a2346_b.jpg",
+      "title": "Red Bluff Campground",
+      "altText": "Paved loop and campsites among pines at Red Bluff Recreation Area",
+      "caption": "The rebuilt camping loop at Red Bluff Recreation Area, January 2024. Location photograph; not current conditions.",
+      "credit": "USDA Forest Service",
+      "sourceUrl": "https://www.flickr.com/photos/usfs_eastern_region/53903842609/",
+      "license": "Public domain",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+    }
   }
 ]

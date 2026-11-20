@@ -2,7 +2,7 @@
 
 Editorial scenery, not current water conditions. Bundled JPEGs avoid network requests in onboarding. Every photo's creator, source, license, and transformation are retained in `credits.json` and exposed by the picker's Photo credits sheet.
 
-The new photos are 640 × 400 JPEG crops (quality 82). The three pre-existing photos retain their original 330px derivatives. See `held.json` for the two catalog entries deliberately retaining Eddy artwork until review is complete. Adding a dam requires a photo or a documented hold; the catalog test enforces this.
+The new photos are 640 × 400 JPEG crops (quality 82). The three pre-existing photos retain their original 330px derivatives. See `held.json` for the catalog entry (Broken Bow) deliberately retaining Eddy artwork until a photo of the main dam is found. Adding a dam requires a photo or a documented hold; the catalog test enforces this.
 
 CC BY-SA derivatives retain the source license. Licenses apply to the photographs, not Eddy application code. U.S. federal imagery does not imply agency endorsement. Historical imagery does not represent current releases or site conditions.
 
@@ -30,3 +30,4 @@ CC BY-SA derivatives retain the source license. Licenses apply to the photograph
 | swt-robert-s-kerr-dam.jpg | U.S. Army Corps of Engineers · Public domain | [Source](https://commons.wikimedia.org/wiki/File:USACE_Robert_S_Kerr_Lock_and_Dam.jpg) | [Terms](https://commons.wikimedia.org/wiki/File:USACE_Robert_S_Kerr_Lock_and_Dam.jpg) |
 | swt-tenkiller-dam.jpg | U.S. Army Corps of Engineers · Public domain | [Source](https://commons.wikimedia.org/wiki/File:USACE_Tenkiller_Lake_and_Dam.jpg) | [Terms](https://commons.wikimedia.org/wiki/File:USACE_Tenkiller_Lake_and_Dam.jpg) |
 | swt-webbers-falls-dam.jpg | U.S. Army Corps of Engineers · Public domain | [Source](https://commons.wikimedia.org/wiki/File:USACE_Webbers_Falls_Lock_and_Dam.jpg) | [Terms](https://commons.wikimedia.org/wiki/File:USACE_Webbers_Falls_Lock_and_Dam.jpg) |
+| swl-clearwater-dam.jpg | U.S. Army Corps of Engineers, Little Rock District · Public domain | [Source](https://www.dvidshub.net/image/2143657/clearwater-lake) | [Terms](https://www.dvidshub.net/image/2143657/clearwater-lake) |

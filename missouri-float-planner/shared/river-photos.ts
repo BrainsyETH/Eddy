@@ -24,9 +24,9 @@ export const RIVER_PHOTOS: Record<string, string> = {
   "war-eagle-creek": "https://commons.wikimedia.org/wiki/Special:FilePath/War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg?width=1200",
   "big-river": "https://commons.wikimedia.org/wiki/Special:FilePath/Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG?width=1280",
   "bryant-creek": "https://commons.wikimedia.org/wiki/Special:FilePath/BryantCreek_02.jpg?width=1280",
-  "james": "https://commons.wikimedia.org/wiki/Special:FilePath/James_River_in_Springfield_Missouri_USA.jpg?width=1280",
+  "james": "https://eddy.guide/images/river-guides/james-river-summer.webp",
   "spring-river-mo": "https://commons.wikimedia.org/wiki/Special:FilePath/Spring_River%2C_La_Russell_Mo.JPG?width=1280",
-  "elk": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Mount%20Shira%20Access.JPG?itok=P5pXzCkz",
+  "elk": "https://live.staticflickr.com/3278/2619043871_84da143dff_b.jpg",
   "white": "https://eddy.guide/images/river-guides/white.webp",
   "taneycomo": "https://eddy.guide/images/river-guides/taneycomo.webp",
   "norfork-tailwater": "https://eddy.guide/images/river-guides/norfork-tailwater-river.webp"
@@ -58,8 +58,8 @@ export const RIVER_PHOTO_CREDITS: Record<string, { text: string; url: string }> 
     "url": "https://commons.wikimedia.org/wiki/File:BryantCreek_02.jpg"
   },
   "james": {
-    "text": "Cold417 · CC BY-SA 3.0",
-    "url": "https://commons.wikimedia.org/wiki/File:James_River_in_Springfield_Missouri_USA.jpg"
+    "text": "Paulisawoof · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:James_River_-_summer.tif"
   },
   "spring-river-mo": {
     "text": "Traveler7 · Public domain",
@@ -106,8 +106,8 @@ export const RIVER_PHOTO_CREDITS: Record<string, { text: string; url: string }> 
     "url": "https://commons.wikimedia.org/wiki/File:War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg"
   },
   "elk": {
-    "text": "Missouri Department of Conservation",
-    "url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Mount%20Shira%20Access.JPG?itok=P5pXzCkz"
+    "text": "Thomas & Dianne Jones · CC BY 2.0",
+    "url": "https://www.flickr.com/photos/freewine/2619043871/"
   },
   "white": {
     "text": "Brett Billings / USFWS · Public domain",
