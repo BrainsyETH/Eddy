@@ -32,6 +32,7 @@ scripts/lakes/recreation-status.test.ts
 scripts/lakes/savannah-schedule.test.ts
 scripts/lib/db.test.ts
 scripts/lib/eddy-read-audit.test.ts
+scripts/lib/dam-read-report.test.ts
 scripts/lib/eddy-read-report.test.ts
 scripts/lib/guide-refresh.test.ts
 scripts/lib/mcp-eval-review.test.ts
@@ -236,6 +237,7 @@ src/lib/eddy/read-checks.test.ts
 src/lib/eddy/report-facts.test.ts
 src/lib/eddy/river-note.test.ts
 src/lib/eddy/stretch-reads.test.ts
+src/lib/eddy/tailwater-river-read.test.ts
 src/lib/eddy/trend-lines.test.ts
 src/lib/email/inbound-bulk.test.ts
 src/lib/embed/branding-registration.test.ts

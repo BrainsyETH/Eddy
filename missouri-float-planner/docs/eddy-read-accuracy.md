@@ -23,6 +23,16 @@ start/end and gauge river miles inside [start, end). No proximity buffer is used
 If curation exists but its station cannot be loaded, a substitute does not inherit
 curated support, even if it lies within the section.
 
+A river whose only gauge is a dam's own release has no float ladder, so no
+river Read can be written against it. On the White, the Norfork tailwater and
+Taneycomo the Read is written by code from the controlling dam's posted
+schedule and recent pattern, and rendered when it is served; the generator's
+stored row for those rivers is its fallback and is not what readers see. See
+`src/lib/eddy/tailwater-river-read.ts` and
+[ADR 0017](../../docs/decisions/0017-dam-read-states-a-recent-pattern.md)
+decision 10. Those Reads are not model-written, so they are outside the
+generation log and `report:eddy-reads`; `report:dam-reads` covers the dam card.
+
 ### Connecting a stretch to a gauge
 
 `river_sections.primary_gauge_station_id` is not private to the Read.

@@ -7,6 +7,7 @@ import type { DamReadRow, DamScheduleDay, ScheduledHour } from '@shared/dam-type
 import {
   CONSISTENT_SPREAD_HOURS,
   DAM_READ_DAM_IDS,
+  TAKEAWAY_MAX_WORDS,
   advancePosted,
   buildDamReadFacts,
   clockLabel,
@@ -17,6 +18,7 @@ import {
   damReadTakeaway,
   observedDays,
   postedSchedule,
+  powerPhrase,
   recentShape,
   renderDamRead,
   scheduleReliability,
@@ -331,84 +333,250 @@ function inputs(overrides: Partial<DamReadInputs> = {}): DamReadInputs {
   };
 }
 
-test('a fragmented schedule yields one short takeaway, not a list of generation windows', () => {
-  const scheduled = scheduleDay('2026-10-31', null);
-  scheduled.hours = scheduled.hours.map((h) => ({ ...h, megawatts: [13, 16, 18, 20].includes(h.hourEnding) ? 50 : 0 }));
-  const facts = buildDamReadFacts(inputs({
-    schedule: [scheduled],
-    observed: fortnight((day) => day === '2026-10-17' ? 14 : 15),
-    scheduleVersions: [],
-  }));
-  assert.deepEqual(damReadTakeaway(facts), {
-    headline: 'An earlier start today',
-    summary: 'Today’s posted schedule starts at noon, about 2–3 hours earlier than recent weekends.',
-  });
-  assert.deepEqual(renderDamRead(facts).takeaway, damReadTakeaway(facts));
-});
+// ── The compact Read ───────────────────────────────────────────────────────
 
-test('compact comparisons keep weekdays and weekends apart and describe a posted plan', () => {
-  const facts = buildDamReadFacts(inputs({
-    observed: fortnight((_, weekend) => weekend ? 15 : 8), scheduleVersions: [],
-    schedule: [scheduleDay('2026-10-31', 18)],
-  }));
-  assert.deepEqual(damReadTakeaway(facts), {
-    headline: 'A later start today',
-    summary: 'Today’s posted schedule starts at 6 PM, about 3 hours later than recent weekends.',
-  });
-  const normal = buildDamReadFacts(inputs({ observed: fortnight(() => 15), scheduleVersions: [] }));
-  assert.equal(damReadTakeaway(normal).headline, 'A familiar start time');
-});
+/** A schedule day from posted megawatts per hour ending; unlisted hours are idle. */
+function megawattDay(scheduleDate: string, megawatts: Record<number, number>): DamScheduleDay {
+  const day = scheduleDay(scheduleDate, null);
+  return { ...day, hours: day.hours.map((h) => ({ ...h, megawatts: megawatts[h.hourEnding] ?? 0 })) };
+}
 
-test('a finished schedule does not announce an upcoming start or claim the water is low', () => {
-  const facts = buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', 6, 2)] }));
-  assert.deepEqual(damReadTakeaway(facts), {
-    headline: 'No more generation scheduled today',
-    summary: 'Today’s posted windows have ended; tomorrow’s schedule isn’t available yet.',
-  });
-  const withTomorrow = withCurrentSchedule(facts, [scheduleDay('2026-10-31', 6, 2), scheduleDay('2026-11-01', 15)], NOW);
-  assert.equal(damReadTakeaway(withTomorrow).summary, 'Today’s posted windows have ended; tomorrow’s schedule starts at 3 PM.');
-});
+/** Hours ending `from`..`to` at one posted figure. */
+function run(from: number, to: number, megawatts: number): Record<number, number> {
+  return Object.fromEntries(Array.from({ length: to - from + 1 }, (_, i) => [from + i, megawatts]));
+}
 
-test('missing, minimum-flow and zero-generation schedules stay distinct in the takeaway', () => {
-  const missing = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [] })));
-  assert.equal(missing.headline, 'Today’s schedule isn’t posted');
-  assert.match(missing.summary, /Recent weekends usually started around 3 PM; today’s timing is still unconfirmed/);
-  for (const minimum of [false, true]) {
-    const read = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', null, 4, minimum)] })));
-    assert.equal(read.headline, minimum ? 'Only minimum flow scheduled' : 'No generation scheduled today');
-    assert.match(read.summary, /generation ran without a posted start on 1 of 14 recently tracked days/);
+const at = (dayKey: string, hour: number) => centralDayStart(dayKey) + hour * HOUR;
+const QUIET_HISTORY = { observed: fortnight(() => 15), scheduleVersions: [] as ScheduleVersion[] };
+
+test('the lead is what is posted next from the serving clock, not the day\'s first start', () => {
+  // Bull Shoals on 2026-11-19: 5-8 AM, 9-10 AM, 11 AM-2 PM and 5-9 PM.
+  const schedule = [megawattDay('2026-10-31', { ...run(6, 8, 50), ...run(10, 10, 50), ...run(12, 14, 50), ...run(18, 21, 50) })];
+  const facts = buildDamReadFacts(inputs({ ...QUIET_HISTORY, schedule }));
+  const leadAt = (hour: number) => damReadTakeaway(withCurrentSchedule(facts, schedule, at('2026-10-31', hour))).summary.split('. ')[0];
+  assert.equal(leadAt(4), 'Generation is next posted from 5 AM to 8 AM, with 3 more runs posted after that, the last ending at 9 PM');
+  assert.equal(leadAt(6), 'Generation is posted until 8 AM, with 3 more runs posted after that, the last ending at 9 PM');
+  assert.equal(leadAt(12.8), 'Generation is posted until 2 PM, and again from 5 PM to 9 PM');
+  assert.equal(leadAt(15), 'Generation is next posted from 5 PM to 9 PM');
+  assert.equal(leadAt(19.8), 'Generation is posted until 9 PM, then none for the rest of the day');
+  for (const hour of [12.8, 15, 19.8]) {
+    assert.doesNotMatch(damReadTakeaway(withCurrentSchedule(facts, schedule, at('2026-10-31', hour))).summary, /5 AM/, 'a start that has passed is not the news');
   }
 });
 
-test('sparse, irregular and absent history never become a usual start in compact copy', () => {
-  const sparse = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 15 : null), scheduleVersions: [] })));
-  assert.match(sparse.summary, /generation ran on 1 of the last 4 weekend days/);
-  const scattered: Record<string, number> = { '2026-10-17': 2, '2026-10-18': 8, '2026-10-24': 15, '2026-10-25': 21 };
-  const irregular = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => scattered[day] ?? 15), scheduleVersions: [] })));
-  assert.equal(irregular.headline, 'Start times have varied lately');
-  assert.match(irregular.summary, /recent weekend starts have been too scattered/);
-  const absent = damReadTakeaway(buildDamReadFacts(inputs({ observed: [] })));
-  assert.match(absent.summary, /recent history is too limited/);
+test('a run to midnight and an all-day run are said as such', () => {
+  const late = [megawattDay('2026-10-31', run(20, 24, 50))];
+  assert.match(damReadTakeaway(buildDamReadFacts(inputs({ ...QUIET_HISTORY, schedule: late, now: at('2026-10-31', 21) }))).summary, /^Generation is posted through midnight\./);
+  const allDay = [megawattDay('2026-10-31', run(1, 24, 50))];
+  assert.match(damReadTakeaway(buildDamReadFacts(inputs({ ...QUIET_HISTORY, schedule: allDay }))).summary, /^Generation is posted all day\./);
 });
 
-test('compact copy stays concise and qualified even with old schedules or many historical exceptions', () => {
-  for (const shape of [
+test('a posted run states how hard the dam is posted to run, in plain fractions', () => {
+  for (const [share, phrase] of [
+    [0.05, 'well under a quarter of full power'], [0.25, 'about a quarter of full power'], [0.33, 'about a third of full power'],
+    [0.5, 'about half power'], [0.66, 'about two thirds of full power'], [0.75, 'about three quarters of full power'],
+    [0.95, 'close to full power'], [1.1, 'close to full power'],
+  ] as const) assert.equal(powerPhrase(share), phrase);
+  for (const none of [0, -1, Number.NaN, null, undefined]) assert.equal(powerPhrase(none), null);
+
+  const reference = { units: 4, fullGenerationCfs: 15_100, schedulingCapacityMw: 200 };
+  const steady = buildDamReadFacts(inputs({ ...QUIET_HISTORY, reference, schedule: [megawattDay('2026-10-31', run(17, 21, 100))] }));
+  assert.match(damReadTakeaway(steady).summary, /^Generation is next posted from 4 PM to 9 PM at about half power\./);
+  const building = buildDamReadFacts(inputs({ ...QUIET_HISTORY, reference, schedule: [megawattDay('2026-10-31', { ...run(17, 18, 50), ...run(19, 21, 190) })] }));
+  assert.match(damReadTakeaway(building).summary, /^Generation is next posted from 4 PM to 9 PM, peaking at close to full power\./);
+  // No capacity, no size: the reference stored before 2026-11-20 has none.
+  const unsized = buildDamReadFacts(inputs({ ...QUIET_HISTORY, schedule: [megawattDay('2026-10-31', run(17, 21, 100))] }));
+  assert.match(damReadTakeaway(unsized).summary, /^Generation is next posted from 4 PM to 9 PM\./);
+  // The route hands the snapshot's reference to facts stored without one.
+  const served = withCurrentSchedule(unsized, [megawattDay('2026-10-31', run(17, 21, 100))], NOW, reference);
+  assert.match(damReadTakeaway(served).summary, /at about half power/);
+  assert.doesNotMatch(JSON.stringify(renderDamRead(served).takeaway), /light|heavy|generators?/i);
+});
+
+test('a day much shorter or longer than recent days says so (Norfork, 2026-11-19)', () => {
+  // Recent days ran 12 hours from 5 AM; today is posted 5-8 AM only.
+  const history = { observed: fortnight(() => 5, 12), scheduleVersions: [] as ScheduleVersion[] };
+  const short = damReadTakeaway(buildDamReadFacts(inputs({ ...history, schedule: [scheduleDay('2026-10-31', 5, 3)], now: at('2026-10-31', 6.8) })));
+  assert.deepEqual(short, {
+    headline: 'A short day of generation',
+    summary: 'Generation is posted until 8 AM, then none for the rest of the day. That’s 3 hours posted for the whole day, against about 12 on a typical recent day.',
+  });
+  const long = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight(() => 15, 4), scheduleVersions: [], schedule: [scheduleDay('2026-10-31', 15, 9)] })));
+  assert.equal(long.headline, 'A long day of generation');
+  assert.match(long.summary, /That’s 9 hours posted for the whole day, against about 4 on a typical recent day\./);
+  // Two hours against four is half, but not three hours apart: not news.
+  const near = damReadTakeaway(buildDamReadFacts(inputs({ ...QUIET_HISTORY, schedule: [scheduleDay('2026-10-31', 15, 2)] })));
+  assert.doesNotMatch(near.summary, /whole day/);
+});
+
+test('a morning that departs from recent mornings says so, while it is still morning (Table Rock, 2026-11-19)', () => {
+  // Generation on 10 of the last 14 mornings, at scattered hours; nothing posted until 4 PM.
+  const mornings = fortnight((day) => (['2026-10-18', '2026-10-22', '2026-10-25', '2026-10-28'].includes(day) ? 15 : 5 + (Number(day.slice(-2)) % 4) * 2), 6);
+  const schedule = [scheduleDay('2026-10-31', 16, 5)];
+  const facts = buildDamReadFacts(inputs({ observed: mornings, scheduleVersions: [], schedule, now: at('2026-10-31', 6.8) }));
+  assert.deepEqual(damReadTakeaway(facts), {
+    headline: 'A quiet morning on the schedule',
+    summary: 'Generation is next posted from 4 PM to 9 PM. Mornings have had generation on 10 of the last 14 days.',
+  });
+  assert.doesNotMatch(damReadTakeaway(withCurrentSchedule(facts, schedule, at('2026-10-31', 13))).summary, /Mornings/, 'not after noon');
+
+  const quiet = buildDamReadFacts(inputs({ ...QUIET_HISTORY, schedule: [scheduleDay('2026-10-31', 7, 2)], now: at('2026-10-31', 7.5) }));
+  assert.deepEqual(damReadTakeaway(quiet), {
+    headline: 'Morning generation on the schedule',
+    summary: 'Generation is posted until 9 AM, then none for the rest of the day. There was no generation before noon on 14 of the last 14 days.',
+  });
+});
+
+test('an earlier or later start is news only while it is still ahead, and keeps weekdays and weekends apart', () => {
+  const facts = buildDamReadFacts(inputs({ observed: fortnight((_, weekend) => weekend ? 15 : 8), scheduleVersions: [], schedule: [scheduleDay('2026-10-31', 18)] }));
+  assert.deepEqual(damReadTakeaway(facts), {
+    headline: 'A later start today',
+    summary: 'Generation is next posted from 6 PM to 10 PM. That’s about 3 hours later than recent weekends.',
+  });
+  const early = [scheduleDay('2026-10-31', 12)];
+  const before = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 14 : 15), scheduleVersions: [], schedule: early, now: at('2026-10-31', 10) })));
+  assert.deepEqual(before, {
+    headline: 'An earlier start today',
+    summary: 'Generation is next posted from noon to 4 PM. That’s about 2–3 hours earlier than recent weekends.',
+  });
+  const during = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 14 : 15), scheduleVersions: [], schedule: early, now: at('2026-10-31', 13) })));
+  assert.equal(during.headline, 'Generation is on the schedule now');
+  assert.doesNotMatch(during.summary, /earlier/);
+});
+
+test('with nothing unusual, the second sentence is the schedule\'s track record', () => {
+  const read = damReadTakeaway(buildDamReadFacts(inputs()));
+  assert.deepEqual(read, {
+    headline: 'Generation scheduled this afternoon',
+    summary: 'Generation is next posted from 3 PM to 5 PM. It has started within an hour of the posted time on 12 of 14 tracked days.',
+  });
+  const noRecord = damReadTakeaway(buildDamReadFacts(inputs({ ...QUIET_HISTORY })));
+  assert.equal(noRecord.summary, 'Generation is next posted from 3 PM to 5 PM. That’s close to when recent weekends have started.');
+  const second = damReadTakeaway(withCurrentSchedule(buildDamReadFacts(inputs()), [megawattDay('2026-10-31', { ...run(7, 8, 50), ...run(18, 19, 50) })], NOW));
+  assert.equal(second.headline, 'More generation scheduled this evening');
+});
+
+test('the night before: tomorrow\'s sheet when it is posted, the recent pattern when it is not', () => {
+  // Saturday evening, today's run finished. Sunday is a weekend day.
+  const evening = at('2026-10-31', 19.8);
+  const done = buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', 6, 2)], now: evening }));
+  assert.deepEqual(damReadTakeaway(done), {
+    headline: 'No more generation scheduled today',
+    summary: 'Tomorrow’s schedule isn’t posted yet. On recent weekends generation has usually started around 3 PM, and it ran on each of the last 4 weekend days.',
+  });
+  const posted = withCurrentSchedule(done, [scheduleDay('2026-10-31', 6, 2), megawattDay('2026-11-01', { ...run(7, 9, 50), ...run(18, 21, 50) })], evening,
+    { units: 4, fullGenerationCfs: 15_100, schedulingCapacityMw: 200 });
+  assert.deepEqual(damReadTakeaway(posted), {
+    headline: 'No more generation scheduled today',
+    summary: 'Tomorrow, generation is first posted from 6 AM to 9 AM at about a quarter of full power, and again from 5 PM to 9 PM. That’s much earlier than recent weekends.',
+  });
+  const quietTomorrow = withCurrentSchedule(done, [scheduleDay('2026-10-31', 6, 2), scheduleDay('2026-11-01', null, 0, true)], evening);
+  assert.equal(damReadTakeaway(quietTomorrow).summary, 'Tomorrow’s schedule lists only minimum flow.');
+  // Friday evening looks ahead to Saturday's kind of day, not Friday's.
+  const friday = buildDamReadFacts(inputs({ observed: fortnight((_, weekend) => weekend ? 15 : 8), scheduleVersions: [],
+    schedule: [scheduleDay('2026-10-30', 6, 2)], now: at('2026-10-30', 19.8) }));
+  assert.match(damReadTakeaway(friday).summary, /On recent weekends generation has usually started around 3 PM/);
+});
+
+test('a missing schedule states the recent pattern with its count, and the earliest recent start', () => {
+  const missing = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [] })));
+  assert.deepEqual(missing, {
+    headline: 'Today’s schedule isn’t posted',
+    summary: 'On recent weekends generation has usually started around 3 PM, and it ran on each of the last 4 weekend days. The earliest start lately was 11 AM, on Wed, Oct 21.',
+  });
+  const scattered: Record<string, number> = { '2026-10-17': 2, '2026-10-18': 8, '2026-10-24': 15, '2026-10-25': 21 };
+  const irregular = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [], observed: fortnight((day) => scattered[day] ?? 15), scheduleVersions: [] })));
+  assert.equal(irregular.summary, 'Generation ran on 4 of the last 4 weekend days, with no usual start time.');
+  const sparse = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [], observed: fortnight((day) => day === '2026-10-17' ? 15 : null), scheduleVersions: [] })));
+  assert.equal(sparse.summary, 'Generation ran on 1 of the last 4 weekend days.');
+  const none = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [], observed: fortnight(() => null), scheduleVersions: [] })));
+  assert.equal(none.summary, 'There was no generation on any of the last 4 weekend days.');
+  assert.equal(damReadTakeaway(buildDamReadFacts(inputs({ schedule: [], observed: [], scheduleVersions: [] }))).summary,
+    'There’s no posted start to compare with recent generation yet.');
+});
+
+test('minimum-flow and zero-generation days stay distinct, and keep recent unposted generation', () => {
+  for (const minimum of [false, true]) {
+    const read = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', null, 4, minimum)] })));
+    assert.equal(read.headline, minimum ? 'Only minimum flow scheduled' : 'No generation scheduled today');
+    assert.equal(read.summary, `${minimum ? 'Only minimum flow' : 'No generation'} is posted today. Generation ran without a posted start on 1 of 14 tracked days.`);
+  }
+  const quieter = damReadTakeaway(buildDamReadFacts(inputs({ ...QUIET_HISTORY, schedule: [scheduleDay('2026-10-31', null)] })));
+  assert.equal(quieter.summary, 'No generation is posted today. Recent weekends had generation on 4 of 4 days.');
+  const alsoQuiet = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 15 : null), scheduleVersions: [], schedule: [scheduleDay('2026-10-31', null)] })));
+  assert.equal(alsoQuiet.summary, 'No generation is posted today. Recent weekends have also been quiet, with no generation on 3 of 4 days.');
+  // In the evening a quiet day looks ahead to tomorrow's sheet.
+  const evening = damReadTakeaway(buildDamReadFacts(inputs({ ...QUIET_HISTORY, now: at('2026-10-31', 19),
+    schedule: [scheduleDay('2026-10-31', null), scheduleDay('2026-11-01', 15, 5)] })));
+  assert.equal(evening.summary, 'No generation is posted today. Tomorrow, generation is first posted from 3 PM to 8 PM.');
+});
+
+test('a day that rarely generates says how often it has, when generation is posted', () => {
+  const sparse = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 15 : null), scheduleVersions: [] })));
+  assert.equal(sparse.summary, 'Generation is next posted from 3 PM to 5 PM. Generation ran on 1 of the last 4 weekend days.');
+  const never = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight(() => null), scheduleVersions: [] })));
+  assert.equal(never.summary, 'Generation is next posted from 3 PM to 5 PM. There was no generation on any of the last 4 weekend days.');
+  const absent = damReadTakeaway(buildDamReadFacts(inputs({ observed: [], scheduleVersions: [] })));
+  assert.equal(absent.summary, 'Generation is next posted from 3 PM to 5 PM.', 'no history is left out, not explained');
+});
+
+test('facts stored before the Read carried whole-day totals and sizes still render', () => {
+  const facts = buildDamReadFacts(inputs({ observed: fortnight(() => 5, 12), scheduleVersions: [], schedule: [scheduleDay('2026-10-31', 5, 3)], now: at('2026-10-31', 6.8) }));
+  const legacy = JSON.parse(JSON.stringify(facts)) as typeof facts;
+  for (const day of legacy.posted!.days) {
+    delete day.generatingHours;
+    delete day.morningGeneration;
+    for (const w of day.windows) { delete w.peakShare; delete w.lowShare; }
+  }
+  // No snapshot: the saved windows are advanced, with nothing to recompute them from.
+  const read = damReadTakeaway(withCurrentSchedule(legacy, null, at('2026-10-31', 7)));
+  assert.equal(read.summary, 'Generation is posted until 8 AM, then none for the rest of the day.');
+});
+
+test('the compact Read is a headline and at most two sentences, in every shape the facts take', () => {
+  const reference = { units: 4, fullGenerationCfs: 15_100, schedulingCapacityMw: 200 };
+  const fragmented = { ...run(2, 3, 20), ...run(5, 8, 150), ...run(10, 10, 60), ...run(12, 14, 190), ...run(16, 17, 90), ...run(19, 24, 200) };
+  const busy = megawattDay('2026-10-31', fragmented);
+  const shapes: Partial<DamReadInputs>[] = [
     {},
     { observed: fortnight(() => 6) },
     { observed: fortnight(() => null) },
+    { observed: [], scheduleVersions: [] },
     { schedule: [] },
     { schedule: [scheduleDay('2026-10-31', null)] },
     { schedule: [scheduleDay('2026-10-31', null, 4, true)] },
     { schedule: [scheduleDay('2026-10-31', 6, 2)] },
+    { schedule: [scheduleDay('2026-10-31', 6, 2), megawattDay('2026-11-01', fragmented)] },
+    { schedule: [busy] },
     { schedule: [{ ...scheduleDay('2026-10-31', 15), retrievedAt: new Date(NOW - 8 * HOUR).toISOString() }] },
-  ]) {
-    const read = renderDamRead(buildDamReadFacts(inputs(shape)));
-    const { headline, summary } = read.takeaway;
-    assert.ok(headline.length <= 45, headline);
-    assert.ok(summary.split(/\s+/).length <= 40, summary);
-    assert.equal(summary.split(/[.!?]/).filter(Boolean).length, 1, summary);
-    assert.doesNotMatch(`${headline} ${summary}`, /safe|will start|water is low|on time|units/i);
+  ];
+  const exceptions = [
+    {},
+    { startedEarlyDays: ['2026-10-28', '2026-10-29'], ranUnpostedDays: ['2026-10-27', '2026-10-30'] },
+    { startedEarlyDays: ['2026-10-30'], ranUnpostedDays: [] },
+  ];
+  let rendered = 0;
+  for (const shape of shapes) {
+    const facts = buildDamReadFacts(inputs({ reference, ...shape }));
+    for (const hour of [0.8, 4, 6.8, 9, 12.8, 15, 17.5, 19.8, 23.5]) {
+      for (const exception of exceptions) {
+        const served = withCurrentSchedule(facts, shape.schedule ?? inputs().schedule, at('2026-10-31', hour), reference);
+        const reliability = served.reliability ? { ...served.reliability, ...exception } : null;
+        const { headline, summary } = renderDamRead({ ...served, reliability }).takeaway;
+        const where = `${hour}: ${headline} / ${summary}`;
+        assert.ok(headline.length <= 45, where);
+        assert.ok(summary.split(/\s+/).length <= TAKEAWAY_MAX_WORDS, where);
+        const sentences = summary.split(/[.!?](?:\s|$)/).filter(Boolean);
+        assert.ok(sentences.length >= 1 && sentences.length <= 2, where);
+        assert.match(summary, /\.$/, where);
+        assert.doesNotMatch(`${headline} ${summary}`, /safe|will start|water is low|on time|undefined|null|NaN/i, where);
+        for (const pattern of NOT_EDDY) assert.doesNotMatch(`${headline} ${summary}`, pattern, where);
+        assert.doesNotMatch(`${headline} ${summary}`, /wad(?:e|ing)|downstream|arriv/i, where);
+        rendered += 1;
+      }
+    }
   }
+  assert.equal(rendered, shapes.length * 9 * exceptions.length);
 });
 
 test('the Read leads with today, then surprises, then the pattern (Table Rock shape)', () => {
@@ -622,7 +790,7 @@ test('a single exception holds a generic headline for only three complete Centra
       day = previousDay(day);
       const reliability = { ...facts.reliability, startedEarlyDays: [], ranUnpostedDays: [], [kind]: [day] };
       const read = damReadTakeaway({ ...facts, reliability });
-      const leads = read.headline !== 'A familiar start time';
+      const leads = read.headline !== 'Generation scheduled this afternoon';
       assert.equal(leads, age <= 3, `${kind}, age ${age}`);
       if (leads) held += 1;
     }
@@ -639,16 +807,17 @@ test('earlier and later starts keep the headline when exceptions compete for att
   const facts = buildDamReadFacts(inputs());
   assert.ok(facts.reliability);
   for (const start of [12, 18]) {
-    const current = withCurrentSchedule(facts, [scheduleDay('2026-10-31', start)], NOW);
+    // Mid-morning, with either start still ahead.
+    const current = withCurrentSchedule(facts, [scheduleDay('2026-10-31', start)], at('2026-10-31', 10));
     for (const early of [['2026-10-18'], ['2026-10-29'], ['2026-10-18', '2026-10-19']]) {
       for (const unposted of [[], ['2026-10-30'], ['2026-10-20', '2026-10-21']]) {
         const read = damReadTakeaway({ ...current, reliability: { ...facts.reliability,
           startedEarlyDays: early, ranUnpostedDays: unposted } });
         assert.equal(read.headline, start === 12 ? 'An earlier start today' : 'A later start today');
-        assert.ok(read.summary.split(/\s+/).length <= 40, read.summary);
-        assert.equal(read.summary.split(/[.!?]/).filter(Boolean).length, 1);
+        assert.ok(read.summary.split(/\s+/).length <= TAKEAWAY_MAX_WORDS, read.summary);
+        assert.equal(read.summary.split(/[.!?](?:\s|$)/).filter(Boolean).length, 2);
         if (early.length > 1 || early[0] === '2026-10-29') assert.match(read.summary, /over an hour early/);
-        else if (!unposted.length) assert.doesNotMatch(read.summary, /generation started/);
+        else if (!unposted.length) assert.doesNotMatch(read.summary, /started over an hour/);
       }
     }
   }
@@ -656,5 +825,5 @@ test('earlier and later starts keep the headline when exceptions compete for att
   assert.equal(damReadTakeaway({ ...facts, reliability: repeated }).headline, 'Generation has started early');
   assert.match(damReadTakeaway({ ...facts, reliability: repeated }).summary, /2 of 14 tracked days, most recently Mon, Oct 19/);
   const duplicates = { ...repeated, startedEarlyDays: ['2026-10-18', '2026-10-18'] };
-  assert.equal(damReadTakeaway({ ...facts, reliability: duplicates }).headline, 'A familiar start time');
+  assert.equal(damReadTakeaway({ ...facts, reliability: duplicates }).headline, 'Generation scheduled this afternoon');
 });

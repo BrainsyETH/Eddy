@@ -17,6 +17,7 @@
     "check:eddy-knowledge": "tsx scripts/check-eddy-knowledge.ts",
     "audit:eddy-reads": "tsx scripts/audit-eddy-reads.ts",
     "report:eddy-reads": "tsx scripts/report-eddy-reads.ts",
+    "report:dam-reads": "tsx scripts/report-dam-reads.ts",
     "test:links": "tsx scripts/check-dead-links.ts",
     "audit:pages": "tsx scripts/check-dead-links.ts",
     "db:import-rivers": "tsx scripts/import-nhd-rivers.ts",
