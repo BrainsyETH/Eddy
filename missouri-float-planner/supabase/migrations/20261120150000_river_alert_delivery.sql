@@ -64,8 +64,8 @@ grant execute on function public.save_river_alert(uuid,text,boolean,boolean,bool
 
 -- Expo can accept a ticket and later report an APNs failure. Match the exact
 -- spend to every accepted ticket for that rule (including its other devices).
-alter table public.alert_push_deliveries add column one_shot_rule_id uuid;
-create index alert_push_one_shot_attempt_idx
+alter table public.alert_push_deliveries add column if not exists one_shot_rule_id uuid;
+create index if not exists alert_push_one_shot_attempt_idx
   on public.alert_push_deliveries (event_source, one_shot_rule_id, sent_at)
   where one_shot_rule_id is not null;
 
@@ -101,6 +101,7 @@ begin
 end;
 $$;
 revoke all on function public.restore_failed_alert_spend() from public, anon, authenticated;
+drop trigger if exists restore_failed_alert_spend on public.alert_push_deliveries;
 create trigger restore_failed_alert_spend after update of receipt_checked_at on public.alert_push_deliveries
   for each row when (new.one_shot_rule_id is not null and old.status = 'sent' and new.status = 'error')
   execute function public.restore_failed_alert_spend();

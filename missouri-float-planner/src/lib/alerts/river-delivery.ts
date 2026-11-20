@@ -15,7 +15,7 @@
 
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken, type RecentDelivery } from './fanout';
 import { planDrain, spentOneShots, type DrainOutcome } from './drain';
-import { checkedWrite, readAllIn, recordOutcomes, IN_CHUNK } from './delivery-io';
+import { checkedWrite, readAllIn, recordDeliveryLedger, recordOutcomes, IN_CHUNK } from './delivery-io';
 import { one } from './rule-serialize';
 import { observationExpiration } from './observation-push';
 import { disableTokens } from './token-health';
@@ -315,15 +315,10 @@ export async function drainRiverEvents(
       };
     });
 
-    // onConflict: the PK is (event_id, device_token_id), so a retried pass
-    // records rather than duplicates. A failure here is the one write that can
-    // cause a duplicate push — the next pass learns who was reached from these
-    // rows — so it is logged as an error rather than swallowed.
-    const recorded = await checkedWrite(
-      'delivery ledger write',
-      supabase.from('alert_push_deliveries').upsert(ledgerRows, { onConflict: 'event_id,device_token_id' }),
-    );
-    if (!recorded) throw new Error('Could not record push tickets');
+    // Upserted on (event_id, device_token_id), so a retried pass records rather
+    // than duplicates. Logged, never thrown: these pushes have left, and
+    // aborting here would resend them. See recordDeliveryLedger.
+    await recordDeliveryLedger(supabase, 'delivery ledger write', ledgerRows);
 
     // Prune tokens Expo says are gone. DeviceNotRegistered usually arrives in
     // the receipt rather than the ticket, so the receipt poll also checks it.

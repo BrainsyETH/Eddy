@@ -623,6 +623,27 @@ test('the notification reads the rule back so it explains itself', () => {
   assert.match(note.body, /rises above 3\.00 ft/);
 });
 
+test('a floatable gauge push names the station once', () => {
+  const note = buildGaugeNotification({
+    stationName: 'Huzzah Creek near Steelville, MO',
+    riverName: 'Huzzah Creek',
+    kind: 'floatable',
+    readingValue: 3.4,
+    readingUnit: 'ft',
+    conditionCode: 'good',
+    rule: {
+      mode: 'condition',
+      conditionKind: 'floatable',
+      metric: null,
+      comparator: null,
+      thresholdValue: null,
+      thresholdValueMax: null,
+    },
+  });
+  assert.equal(note.title, 'Huzzah Creek near Steelville, MO: floatable');
+  assert.doesNotMatch(note.body, /Huzzah/);
+});
+
 test('the national tier falls back to the station name', () => {
   const note = buildGaugeNotification({
     stationName: 'SF PAYETTE R AT LOWMAN ID',

@@ -286,8 +286,9 @@ export function buildGaugeNotification(input: GaugeNotificationInput): {
   switch (input.kind) {
     case 'floatable':
       return {
-        title: target,
-        body: `${target} entered the floatable range${when}. Check the latest reading before you go.`,
+        // The station is named once, in the title, as the other kinds do.
+        title: `${target}: floatable`,
+        body: `The gauge entered the floatable range${when}. Check the latest reading before you go.`,
       };
     case 'warning':
       return {

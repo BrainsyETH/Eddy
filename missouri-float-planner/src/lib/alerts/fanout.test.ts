@@ -183,6 +183,16 @@ test('"high water" two hours ago does not withhold "dangerous water" now', () =>
   assert.equal(result.skipped.cooldown, undefined);
 });
 
+test('a floatable push names its condition in the title and carries a ttl', () => {
+  const result = plan({ events: [event('floatable')] });
+  assert.equal(result.messages.length, 1);
+  const { message } = result.messages[0];
+  assert.equal(message.title, 'Current River: floatable');
+  // Counts down to the event's fixed deadline: two hours after NOW here.
+  assert.equal(message.ttl, 7200);
+  assert.equal('expiration' in message, false);
+});
+
 test('a second "dangerous" inside the window is still a repeat', () => {
   // What keeps a gauge flapping across the flood line from buzzing every pass:
   // once the user's last word is "dangerous", nothing outranks it.

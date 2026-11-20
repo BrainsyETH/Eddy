@@ -1681,13 +1681,30 @@ do not wait for App Review to find them. See Apple's
 
 ### River alert delivery and recovery
 
-Apply the pending river alert migration before deploying the alert API and
-delivery workers. It installs the shared edit/replace transaction and adds the
-one-shot link to the delivery ledger. The widget changes require a new iOS
-binary. Confirm a Courtois widget tap opens the Courtois grading at the shared
-station. After a missed refresh, check that a named NWS warning keeps its issue
-identity and shows when it was last checked. Check the native VoiceOver pause
-and resume actions on a river alert.
+Apply the pending river alert migration (`20261120150000`) before merging: Vercel
+deploys the alert API and delivery workers on merge. It installs the shared
+edit/replace transaction and adds the one-shot link to the delivery ledger.
+Code that reaches production first still delivers and records every ticket,
+without one-time recovery, but every river-alert save fails until the migration
+is applied; the route logs the missing function by name. The widget changes
+require a new iOS binary.
+
+- [ ] Confirm a Courtois widget tap opens the Courtois grading at the shared
+      station.
+- [ ] After a missed refresh, check that a named NWS warning keeps its issue
+      identity and shows when it was last checked.
+- [ ] Check the native VoiceOver pause and resume actions on a river alert.
+- [ ] **Time Sensitive warnings:** with a Focus on that does not allow Eddy,
+      and again with Scheduled Summary on, a high- or dangerous-water push
+      arrives immediately, marked Time Sensitive. With the Quiet hours
+      "rising-water warnings can come through" exception off, the same push
+      is not marked Time Sensitive.
+- [ ] **Widget age and warning lines:** on the smallest supported iPhone at the
+      default and largest non-accessibility text sizes, check the small
+      widget, the medium Your rivers rows and the Lock Screen rectangular
+      widget with a reading 45 minutes old and one 3 hours old, and with a
+      warning whose refresh was missed ("Checked … ago"). The relative age must
+      not clip or push the status off the widget.
 
 A provider outage or a project credential rejection can affect many working
 devices at once. Check Expo/APNs credentials, the delivery ledger and job errors.

@@ -36,6 +36,20 @@ import { rateLimit } from '@/lib/rate-limit';
 import { requirePermanentUser, requireUser } from '@/lib/supabase/request';
 import type { AlertSubscriptionsResponse } from '@/types/api';
 
+/**
+ * Log a failed save_river_alert call, naming the migration when the function
+ * itself is missing (PostgREST PGRST202). Without it, code deployed ahead of
+ * 20261120150000 fails every river-alert save with the same generic line as
+ * any other database error.
+ */
+function logSaveError(what: string, error: { code?: string }) {
+  if (error.code === 'PGRST202') {
+    console.error(`${what}: save_river_alert is missing; apply migration 20261120150000`, error);
+  } else {
+    console.error(`${what}:`, error);
+  }
+}
+
 interface StoredSubscription {
   id: string;
   river_id: string;
@@ -165,7 +179,7 @@ export async function POST(request: NextRequest) {
       if (error.code === '23503') {
         return jsonPrivate({ error: 'River not found' }, { status: 404 });
       }
-      console.error('Error saving alert subscription:', error);
+      logSaveError('Error saving alert subscription', error);
       return jsonPrivate({ error: 'Could not save subscription' }, { status: 500 });
     }
 
@@ -228,7 +242,7 @@ export async function PATCH(request: NextRequest) {
     }).maybeSingle<StoredSubscription>();
 
     if (error) {
-      console.error('Error updating alert subscription:', error);
+      logSaveError('Error updating alert subscription', error);
       return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
     }
     if (!saved) {

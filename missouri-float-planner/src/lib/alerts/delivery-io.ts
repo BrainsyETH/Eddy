@@ -47,6 +47,57 @@ function isMissingColumn(error: { code?: string } | null): boolean {
   return error?.code === '42703' || error?.code === 'PGRST204';
 }
 
+let warnedMissingSpendLink = false;
+
+/**
+ * Record a batch of push tickets in alert_push_deliveries. Never throws.
+ *
+ * The batch has already been SENT when this runs, so a failure here must not
+ * abort the pass. Aborting skips the drain and the one-shot spend, and the
+ * next pass sends the same events again, every five minutes until they
+ * expire. Carrying on drains them from this pass's own tally, so the cost of a
+ * lost ledger write is receipt tracking and cooldown history for one batch,
+ * not a repeated notification.
+ *
+ * `one_shot_rule_id` arrives in migration 20261120150000. On a database
+ * without it the rows are written without it, so deploying this code before
+ * that migration loses one-time recovery (ADR 0005) rather than every ledger
+ * row.
+ */
+export async function recordDeliveryLedger(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  what: string,
+  rows: Array<Record<string, unknown>>,
+): Promise<boolean> {
+  const upsert = (batch: Array<Record<string, unknown>>) =>
+    supabase.from('alert_push_deliveries').upsert(batch, { onConflict: 'event_id,device_token_id' });
+
+  let error: { code?: string; message?: string } | null = null;
+  try {
+    ({ error } = await upsert(rows));
+  } catch (thrown) {
+    error = { message: thrown instanceof Error ? thrown.message : String(thrown) };
+  }
+  if (!error) return true;
+
+  if (isMissingColumn(error)) {
+    if (!warnedMissingSpendLink) {
+      warnedMissingSpendLink = true;
+      logger.warn('[deliver-push] alert_push_deliveries.one_shot_rule_id missing; apply migration 20261120150000');
+    }
+    const withoutLink = rows.map((row) => {
+      const copy = { ...row };
+      delete copy.one_shot_rule_id;
+      return copy;
+    });
+    return checkedWrite(what, upsert(withoutLink));
+  }
+
+  logger.error(`[deliver-push] ${what} failed`, new Error(error.message ?? 'unknown error'));
+  return false;
+}
+
 let warnedMissingOutcome = false;
 
 /**

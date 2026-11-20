@@ -21,12 +21,12 @@
 // though the phone stayed silent.
 
 import { planDrain } from './drain';
-import { checkedWrite, readAllIn, recordOutcomes, DeliveryReadError, IN_CHUNK } from './delivery-io';
+import { checkedWrite, readAllIn, recordDeliveryLedger, recordOutcomes, DeliveryReadError, IN_CHUNK } from './delivery-io';
 import { isRuleLive, parentIdsOf, type GatedRule } from './gating';
 import { buildGaugeNotification, type GaugeEventKind } from './gauge-threshold';
 import { suppressedByQuietHours } from './quiet-hours';
 import { one } from './rule-serialize';
-import { observationExpiration } from './observation-push';
+import { observationExpiration, pushTtlSeconds } from './observation-push';
 import { disableTokens } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage, type ExpoTicket } from '@/lib/push/expo';
 import type { AlertComparator, AlertMetric, AlertSubscriptionKind, NotificationPreferences } from '@/types/api';
@@ -369,7 +369,7 @@ export async function deliverGaugeAlerts(
             title: notification.title,
             body: notification.body,
             sound: 'default',
-            expiration: row.expiration,
+            ttl: pushTtlSeconds(row.expiration, now),
             ...(kind === 'warning' && (prefs?.safetyOverridesQuiet ?? true)
               ? { interruptionLevel: 'time-sensitive' as const } : {}),
             priority: kind === 'warning' ? 'high' : 'default',
@@ -442,11 +442,8 @@ export async function deliverGaugeAlerts(
         };
       });
 
-      const recorded = await checkedWrite(
-        'gauge delivery ledger write',
-        supabase.from('alert_push_deliveries').upsert(ledgerRows, { onConflict: 'event_id,device_token_id' }),
-      );
-      if (!recorded) throw new Error('Could not record push tickets');
+      // Logged, never thrown: these pushes have left. See recordDeliveryLedger.
+      await recordDeliveryLedger(supabase, 'gauge delivery ledger write', ledgerRows);
 
       const dead = tickets
         .map((t, i) =>

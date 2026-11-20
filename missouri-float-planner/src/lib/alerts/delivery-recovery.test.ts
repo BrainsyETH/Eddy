@@ -313,6 +313,44 @@ test('a gauge alert delivered but never stamped drained is not sent again', asyn
   assert.equal(gaugeEvent(db).push_outcome, 'sent');
 });
 
+// ── 5a. A ledger write that fails after the send does not resend ─────────────
+
+test('a river ledger write that fails after sending still drains, so nothing is sent twice', async () => {
+  // The pushes have left. Aborting the pass here used to leave every event
+  // pending, and the next pass sent them all again.
+  const db = riverWorld().fail({ table: 'alert_push_deliveries', mode: 'upsert', times: 1 });
+  const t = transport();
+  await run(db, t);
+  assert.equal(t.sent.length, 3);
+  assert.ok(event(db).push_delivered_at, 'Drained from this pass’s own tally');
+
+  await run(db, t);
+  assert.equal(t.sent.length, 3, 'No second push');
+});
+
+test('a gauge ledger write that fails after sending still drains and spends nothing twice', async () => {
+  const db = gaugeWorld().fail({ table: 'alert_push_deliveries', mode: 'upsert', times: 1 });
+  const t = transport();
+  const stats = await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  assert.equal(stats.error, undefined);
+  assert.ok(gaugeEvent(db).push_delivered_at);
+
+  await deliverGaugeAlerts(db, NOW, { send: t.send, pauseMs: 0 });
+  assert.deepEqual(t.sent, ['ExponentPushToken[a]'], 'No second push');
+});
+
+test('a ledger without the one-time spend column still records every ticket', async () => {
+  // Code deployed before migration 20261120150000: the column is missing, so
+  // the rows are written without it instead of not at all.
+  const db = riverWorld().fail({ table: 'alert_push_deliveries', mode: 'upsert', code: 'PGRST204', times: 1 });
+  const t = transport();
+  await run(db, t);
+  const rows = db.rows('alert_push_deliveries');
+  assert.equal(rows.length, 3);
+  for (const row of rows) assert.equal('one_shot_rule_id' in row, false);
+  assert.ok(event(db).push_delivered_at);
+});
+
 // ── 5b. A warning nobody received does not cool down the next one ────────────
 
 /** gaugeWorld, with its one event a condition rule's flood warning. */
@@ -476,18 +514,20 @@ test('one failed Expo batch cannot disable a healthy device and stop the retry',
 
 test('push deadlines use the reading and detection times and stay fixed across retries', async () => {
   const db = riverWorld();
-  const messages: ExpoMessage[] = [];
+  const messages: { sentAt: Date; message: ExpoMessage }[] = [];
+  const retryAt = new Date(NOW.getTime() + 300_000);
   await drainRiverEvents(db, { now: NOW, pauseMs: 0, send: async batch => {
-    messages.push(...batch);
+    messages.push(...batch.map(message => ({ sentAt: NOW, message })));
     return batch.map(() => ({ status: 'error' as const }));
   } });
-  await drainRiverEvents(db, { now: new Date(NOW.getTime() + 300_000), pauseMs: 0, send: async batch => {
-    messages.push(...batch);
+  await drainRiverEvents(db, { now: retryAt, pauseMs: 0, send: async batch => {
+    messages.push(...batch.map(message => ({ sentAt: retryAt, message })));
     return batch.map(() => ({ status: 'ok' as const, id: 'ok' }));
   } });
   assert.equal(messages.length, 6);
-  for (const message of messages) {
-    assert.equal(message.expiration, Date.parse('2026-07-25T14:45:00Z') / 1000);
+  for (const { sentAt, message } of messages) {
+    // Sent as a ttl that counts down to the same deadline on every retry.
+    assert.equal(sentAt.getTime() / 1000 + (message.ttl ?? 0), Date.parse('2026-07-25T14:45:00Z') / 1000);
     assert.match(message.body ?? '', /6:45 AM CDT on Saturday/);
     assert.equal(message.interruptionLevel, 'time-sensitive');
   }

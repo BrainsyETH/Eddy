@@ -3,7 +3,7 @@
 // the querying and sending, this module owns every policy decision, so the
 // rules can be tested exhaustively without a database or a network.
 
-import { readingTimePhrase } from './observation-push';
+import { pushTtlSeconds, readingTimePhrase } from './observation-push';
 import { elevatedRank, isPushableKind, worsensWhatWasTold, type EventKind } from './event-kind';
 import { suppressedByQuietHours } from './quiet-hours';
 import type { ExpoMessage } from '@/lib/push/expo';
@@ -206,7 +206,9 @@ export function buildNotification(event: FanoutEvent): { title: string; body: st
   switch (event.kind) {
     case 'floatable':
       return {
-        title: river,
+        // Labelled like the warning titles ("Current River: high water"), so
+        // the banner says what changed before the body is read.
+        title: `${river}: floatable`,
         body: `${place} entered the floatable range${when}.${reading} Check the latest reading before you go.`,
       };
     case 'warning':
@@ -412,7 +414,7 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
             title: notification.title,
             body: notification.body,
             sound: 'default',
-            expiration: event.expiration,
+            ttl: pushTtlSeconds(event.expiration, now),
             ...(event.kind === 'warning' && (input.preferences?.get(sub.user_id)?.safetyOverridesQuiet ?? true)
               ? { interruptionLevel: 'time-sensitive' as const } : {}),
             priority: event.kind === 'warning' ? 'high' : 'default',
