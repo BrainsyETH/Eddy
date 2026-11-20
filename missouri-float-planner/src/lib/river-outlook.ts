@@ -108,6 +108,12 @@ export interface RiverOutlookState {
 export interface BuildEddyTakeSectionsInput {
   outlook: RiverOutlookState;
   currentCondition: ConditionCode;
+  /**
+   * The model's short Read, used verbatim when present. Pass it only after the
+   * live-water guards and the Premium tier have run (loadOutlookProse in
+   * src/lib/eddy/outlook-prose.ts): nothing here checks it against
+   * `currentCondition`. Null or blank falls back to the live guidance line.
+   */
   generatedEddyRead?: string | null;
   /**
    * The selected water runs at what a dam releases. This can be a whole

@@ -63,10 +63,9 @@ import {
   mapConditionCode,
   type ConditionThresholds,
 } from '@/lib/conditions';
-import { isGaugeReportCompatible } from '@/lib/eddy/gauge-update-policy';
+import { loadOutlookProse } from '@/lib/eddy/outlook-prose';
 import { fetchNwsForecastStages } from '@/lib/nws/forecast';
 import { fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
-import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 import {
   HEAT_ADVISORY_TEMP_F,
   buildEddyTakeSections,
@@ -144,15 +143,18 @@ export interface RiverOutlookApiResponse {
   weatherLocation: string | null;
   weatherCoordinates?: { lat: number; lng: number } | null;
   /**
-   * The Premium long-form read, as opposed to `sections.eddyRead`, which is
-   * the shorter derived interpretation included in the public outlook.
+   * The Premium long-form read, as opposed to `sections.eddyRead`, the short
+   * Read every caller gets.
    *
    * Null without an active Premium entitlement. Entitled callers also receive
    * null when no model prose exists or live water has moved far enough that the
-   * prose would contradict the condition badge. See the overlay call below.
+   * prose would contradict the condition badge. See loadOutlookProse below.
+   * `sections.eddyRead` follows the same rule: the model's short Read for an
+   * entitled caller whose report survived those guards, otherwise a line
+   * written here from the live condition.
    */
   fullRead: string | null;
-  /** Present only when a model wrote the read; null means it is deterministic. */
+  /** When the served model prose was written; null means none was served. */
   generatedAt: string | null;
 }
 
@@ -410,7 +412,7 @@ async function _GET(
         ? Promise.resolve({ data: null })
         : supabase
             .from('gauge_updates')
-            .select('eddy_read, quote_text, condition_code, generated_at')
+            .select('eddy_read, quote_text, summary_text, condition_code, generated_at')
             .eq('usgs_site_id', station.usgs_site_id)
             .gt('expires_at', new Date().toISOString())
             .order('generated_at', { ascending: false })
@@ -480,63 +482,34 @@ async function _GET(
     const weatherLocation =
       weatherPoint?.city ?? (weatherOk ? weatherResult.value!.city || null : null);
 
-    // THE SAME GUARD /api/eddy-update APPLIES, and for the same reason.
+    // THE SAME GUARDS AND TIER THE SINGULAR REPORT ROUTES APPLY.
     //
-    // quote_text is written once a day against that morning's reading. If the
-    // river has since crossed into a different floatability class, the prose
-    // says "dialed in" while the badge a few hundred pixels up says High Water.
-    // The website has never shipped that quote without this overlay, and the
-    // app's river screen is the one place the two sit closest together — the
-    // condition chip is directly above it. WEBSITE_PROSE_STALE_HOURS (24), not
-    // the stricter social default: a routine multi-hour gauge gap should not
-    // drop a reader to nothing.
+    // One model run writes quote_text, summary_text and eddy_read once a day
+    // against that morning's reading. If the river has since crossed into a
+    // different floatability class, or the reading behind the run is stale,
+    // ALL of its prose is stale: the long Read and the short one alike. The
+    // app's river screen puts the Read directly under the condition chip, and
+    // falls back from `fullRead` to `sections.eddyRead`, so guarding only the
+    // long Read let the same run's short Read reach the screen anyway.
     //
-    // eddy_read is deliberately NOT put through it. It is one deterministic
-    // line derived from the condition when no model wrote one, and
-    // buildEddyTakeSections already reconciles it against currentCondition.
-    let fullRead: string | null = null;
-
-    // ── The picked gauge's own report ────────────────────────────────────────
-    // A DIFFERENT ROW AND A DIFFERENT GUARD, not the river's prose relabelled.
-    // gauge_updates is written per station by the generate-gauge-updates cron,
-    // and isGaugeReportCompatible is the same check /api/gauge-update applies
-    // before serving one: withhold when the reading behind the report is over a
-    // day old, or when the river has since made a material move. Withholding
-    // leaves buildEddyTakeSections' deterministic line, which is derived from
-    // THIS gauge's condition — so the read still changes with the gauge even
-    // when there is no written report for it, which for most stations there is
-    // not.
-    if (entitled && !usingPrimary && gaugeUpdate?.quote_text) {
-      const compatible = isGaugeReportCompatible({
-        storedCondition: gaugeUpdate.condition_code,
-        liveCondition: currentCondition,
-        readingTimestamp: latestReading?.reading_timestamp ?? null,
-      });
-      if (compatible) fullRead = gaugeUpdate.quote_text || null;
-    }
-
-    if (entitled && update?.quote_text) {
-      try {
-        const [overlaid] = await overlayLiveConditions(
-          supabase,
-          [{
-            river_slug: slug,
-            condition_code: update.condition_code,
-            gauge_height_ft: update.gauge_height_ft,
-            discharge_cfs: update.discharge_cfs,
-            quote_text: update.quote_text,
-            summary_text: update.summary_text,
-          }],
-          { proseStaleHours: WEBSITE_PROSE_STALE_HOURS, logLabel: 'river-outlook' },
-        );
-        fullRead = overlaid?.quote_text || null;
-      } catch (error) {
-        // Degrade to the short read rather than the stale long one. Withholding
-        // is the safe direction here: the failure mode this guard exists to
-        // prevent is showing prose, not hiding it.
-        console.warn(`[RiverOutlook] Live-condition overlay failed for ${slug}:`, error);
-      }
-    }
+    // On the primary gauge that is overlayLiveConditions with
+    // WEBSITE_PROSE_STALE_HOURS (24), as /api/eddy-update applies it. On a
+    // picked gauge it is isGaugeReportCompatible, as /api/gauge-update applies
+    // it to the station's own gauge_updates row — a different row and a
+    // different guard, not the river's prose relabelled. Both fields are
+    // Premium there and here. When nothing survives, buildEddyTakeSections
+    // writes the live line from THIS gauge's condition, so the Read still
+    // changes with the gauge when there is no servable report for it.
+    const prose = await loadOutlookProse(supabase, {
+      entitled,
+      slug,
+      // Only one of the two is non-null: they are set on opposite sides of
+      // `usingPrimary`.
+      riverReport: update,
+      gaugeReport: usingPrimary ? null : gaugeUpdate,
+      liveCondition: currentCondition,
+      readingTimestamp: latestReading?.reading_timestamp ?? null,
+    });
 
     const outlook = buildRiverOutlookState({
       weatherDays,
@@ -555,7 +528,8 @@ async function _GET(
       currentCondition,
       // Whichever report this outlook is about. Only one of the two can be
       // non-null — they are set on opposite sides of `usingPrimary`.
-      generatedEddyRead: update?.eddy_read ?? gaugeUpdate?.eddy_read ?? null,
+      // Already guarded and tiered above; null leaves the live line.
+      generatedEddyRead: prose.eddyRead,
       // Resolve through the actual station, so Lower Black's weather copy
       // describes dam releases without applying that guidance above Clearwater.
       damControlled: outlookIsDamControlled(slug, station?.usgs_site_id, river.controlling_dam_id),
@@ -594,13 +568,8 @@ async function _GET(
         gaugeStationId: gauge.gauge_station_id ?? null,
         weatherLocation,
         weatherCoordinates: weatherPoint ? { lat: weatherPoint.lat, lng: weatherPoint.lon } : gaugeCoords,
-        fullRead: premiumText(entitled, fullRead),
-        generatedAt:
-          update?.eddy_read
-            ? update.generated_at
-            : gaugeUpdate?.eddy_read
-              ? gaugeUpdate.generated_at
-              : null,
+        fullRead: premiumText(entitled, prose.fullRead),
+        generatedAt: prose.generatedAt,
       },
       // Short CDN life with a long stale window: the weather and NWS inputs
       // refresh hourly at best, and a slightly stale outlook beside a live
