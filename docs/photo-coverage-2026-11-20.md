@@ -34,16 +34,20 @@ service and blog APIs were requested. 420 returned an image on the first
 request. The other 20 were:
 
 - 14 Wikimedia Commons links, refused with HTTP 429 (rate limiting). All 14
-  files still exist, confirmed through the Commons API. On slow retries some
-  loaded and some were refused again.
+  files still exist, confirmed through the Commons API. On slow retries five
+  loaded and nine were refused again after four spaced attempts each.
 - 3 images on jeffcomo.gov and 3 on riverhillsretreats.com, which failed with
-  connection errors from the review environment. One of each was retried and
-  loaded.
+  connection errors from the review environment. All six loaded on retry.
 
-No link was shown to be dead. Whether visitors ever hit the Wikimedia limit
-could not be established from the review environment, which sent many
-requests from one address. The 72 Commons hot-links remain a reliability
-risk that local copies would remove.
+No link was shown to be dead. Whether visitors hit the Wikimedia limit could
+not be established from the review environment, which sent many requests
+from one address. The nine that kept failing are worth opening on a phone:
+the photos for Enke Road, Hog Trough Road and Hwy CC (Bourbeuse); Grinders
+Ferry, Gilbert and Dillards Ferry (Buffalo); Salvation Army Camp (Jacks
+Fork); Highway U (Meramec); the Highway 76 bridge (North Fork); Jewett
+(St. Francis); and Cotter (White), which hot-links a 5,248 px original. The
+72 Commons hot-links remain a reliability risk that local copies would
+remove.
 
 ## Photos added
 
@@ -168,6 +172,14 @@ were found for several state parks and not used.
 
 ## Checks
 
-See the pull request or commit for the commands run. Rendered surfaces were
-checked against local copies and crops; device checks of the iOS onboarding
-card and dam header are unconfirmed.
+- `make check` on Node 20: web typecheck, lint and all 5,912 registered tests
+  passed; iOS typecheck and lint passed with warnings only; the iOS production
+  bundle exported and the `.easignore` archive check passed.
+- Local dev server, no database credentials: `/photo-credits` showed the new
+  entries at 390 px and 1280 px with no horizontal overflow, the Clearwater
+  Dam page showed the new header, and each new local image copy loaded.
+- Every hot-linked photo added here returned an image.
+
+Unconfirmed: the access, campground and launch photos on their live pages
+(they need production data and a deploy), the iOS onboarding card and dam
+header on a device, and the guide photos until the guide refresh is applied.
