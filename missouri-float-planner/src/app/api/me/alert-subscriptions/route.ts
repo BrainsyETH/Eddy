@@ -146,8 +146,14 @@ export async function POST(request: NextRequest) {
       return jsonPrivate({ error: 'riverId or riverSlug required' }, { status: 400 });
     }
 
-    const kind = (body.kind ?? 'all') as SubscriptionKind;
-    if (!VALID_KINDS.includes(kind)) {
+    // An omitted field is NOT a default. POST is also how the app re-saves an
+    // alert that already exists (the "replace existing" flow), and the app does
+    // not send oneShot there. Defaulting it here used to turn a one-time alert
+    // into a repeating one on every re-save. null lets save_river_alert keep the
+    // stored value on an existing alert and apply the default ('all', repeating)
+    // only when it creates one — the same contract PATCH already uses.
+    const kind = body.kind == null ? null : (body.kind as SubscriptionKind);
+    if (kind !== null && !VALID_KINDS.includes(kind)) {
       return jsonPrivate(
         { error: `kind must be one of ${VALID_KINDS.join(', ')}` },
         { status: 400 }
@@ -168,7 +174,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: saved, error } = await supabase.rpc('save_river_alert', {
-      p_river_id: riverId, p_kind: kind, p_one_shot: body.oneShot ?? false,
+      p_river_id: riverId, p_kind: kind,
+      p_one_shot: typeof body.oneShot === 'boolean' ? body.oneShot : null,
       p_enabled: true, p_rearm: true, p_create: true,
     }).single<StoredSubscription>();
 
