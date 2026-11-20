@@ -237,6 +237,18 @@ direction and NWS flood stage (the Spring River near Waco, the St. Francis near
 Patterson). A main gauge's ladder is not carried to a second gauge by a flow
 ratio: where trips have been logged at the gauge itself, they decide.
 
+How a Read may use a block. The first Reads written with every block confirmed
+(2026-11-20) used them accurately and at length: the share of short Reads at or
+under 240 characters fell from 52% to 17%, because the short Read became a tour
+of where the creeks join, the same text every day. Three took liberties: one
+chose a put-in for the reader, one turned an example in the notes into a
+threshold, one added "just" to a place the notes only put "above" the gauge.
+Both prompts now say so: the short Read leads with what today's level means,
+may add one detail from the notes only when it changes what a reader would do
+today, and leaves the notes' miles and numbers out. The notes say where the
+river changes; they do not pick a put-in, and a number in them is an example
+unless they call it a level or a limit.
+
 Confirm a gauge line from the readings where they can speak: with a gauge on
 each side of an inflow, the gain between them at low water is the inflow. That
 is how the Alley Spring and Windyville gauges were shown to sit above their

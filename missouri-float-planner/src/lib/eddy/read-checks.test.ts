@@ -90,7 +90,7 @@ test('the short Read is held to its length, to no measurements and to no forecas
   const mulberry = 'This stretch lives and dies by rainfall, and the three-day outlook is clear skies all the way through Thursday.';
   assert.equal(status({ eddyRead: mulberry }).read_forecast_talk, 'fail');
   // The prompt's own Van Buren example passes all three.
-  const vanBuren = 'Van Buren sits well down the river, so this reading speaks for the lower Current. Up around Akers, a dry spell can leave a lot less water than this gauge suggests.';
+  const vanBuren = 'Easy water on the lower Current at this level. Up around Akers, a dry spell can leave a lot less than this gauge shows.';
   const s = status({ eddyRead: vanBuren, summary: 'An easygoing float looks good on the lower Current near Van Buren.' });
   assert.deepEqual([s.summary_length, s.read_length, s.read_measurements, s.read_forecast_talk, s.flat_forecast], ['pass', 'pass', 'pass', 'pass', 'pass']);
 });
