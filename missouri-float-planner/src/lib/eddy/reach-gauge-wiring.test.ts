@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { GAUGE_READ_BRIEF, RIVER_READ_BRIEF } from './read-brief';
 
 // A static guard, in the style of scripts/security/segment-cache-policy.test.ts.
 //
@@ -125,11 +126,13 @@ test('unavailable alert coverage is logged and yields no locally attributed aler
   assert.match(alerts, /if \(matched == null\) \{[\s\S]*?console.warn[\s\S]*?return \[\]/);
 });
 
-test('both model system prompts allow the required claims header', () => {
-  for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
-    assert.match(generator, /MUST begin with the exact \[CLAIMS\] line/);
-    assert.doesNotMatch(generator, /ONLY the \[SUMMARY\]/);
+test('both Read briefs ask for the claims header, and both generators send the shared brief', () => {
+  for (const brief of [RIVER_READ_BRIEF, GAUGE_READ_BRIEF]) {
+    assert.match(brief, /MUST begin with the exact \[CLAIMS\] line/);
+    assert.doesNotMatch(brief, /ONLY the \[SUMMARY\]/);
   }
+  assert.match(generateUpdate, /export const EDDY_SYSTEM_PROMPT = RIVER_READ_BRIEF;/);
+  assert.match(src('src/lib/eddy/generate-gauge-update.ts'), /const GAUGE_SYSTEM_PROMPT = GAUGE_READ_BRIEF;/);
 });
 
 
@@ -138,16 +141,25 @@ test('secondary prompts require a successful section check before using river be
   assert.match(gauge, /let riverBehaviorApplies = false/);
   assert.match(gauge, /\.from\('river_sections'\)[\s\S]*?\.eq\('river_id', riverCtx\.id\)[\s\S]*?\.not\('river_type', 'is', null\)/);
   assert.match(gauge, /riverBehaviorApplies = !error && overrides != null && overrides\.length === 0/);
-  assert.match(gauge, /buildGaugePrompt\(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies\)/);
-  assert.match(gauge, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
-  assert.doesNotMatch(gauge, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote)/);
+  // The decision is handed to the message builder, which lives in its own
+  // SDK-free module so the admin test panel can rebuild a recorded morning.
+  assert.match(gauge, /buildGaugePrompt\(\{ target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies, riverKnowledge \}\)/);
+  const builder = src('src/lib/eddy/build-gauge-prompt.ts');
+  assert.match(builder, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
+  for (const source of [gauge, builder]) {
+    assert.doesNotMatch(source, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote)/);
+  }
+  // Pure: the panel imports it, so it may not pull in a model SDK, the
+  // database or a file read.
+  assert.doesNotMatch(builder, /from '@\/lib\/ai\/|supabase|from 'fs'|from '\.\/knowledge'/);
 });
 
-test('river prompt asks Eddy to know which stretch a gauge speaks for, without invented local facts', () => {
-  assert.match(generateUpdate, /KNOW YOUR STRETCH: A good guide knows which water a gauge speaks for/);
-  assert.match(generateUpdate, /Never describe another stretch's conditions today, and never invent where the river changes/);
-  // The worked example must only use details the knowledge file actually holds.
-  assert.doesNotMatch(generateUpdate, /jetboat/i);
+test('the river brief asks Eddy to know which stretch a gauge covers, without invented local facts', () => {
+  assert.match(RIVER_READ_BRIEF, /A gauge covers one stretch of water, not the whole river/);
+  assert.match(RIVER_READ_BRIEF, /Do not say what the water is doing today upstream or downstream/);
+  assert.match(RIVER_READ_BRIEF, /Never invent a feature, a place or a cause/);
+  // The examples are on rivers that do not exist, so none can be copied onto a real one.
+  assert.doesNotMatch(RIVER_READ_BRIEF, /Van Buren|Akers|Steelville|jetboat/i);
 });
 
 test('secondary prompts carry river knowledge and never a mislabelled river mile', () => {
@@ -156,5 +168,5 @@ test('secondary prompts carry river knowledge and never a mislabelled river mile
   // By station, so a gauge with its own block in the knowledge file gets that
   // block and not a guess from its town's name.
   assert.match(gauge, /getRiverKnowledgeForGauge\(target\.riverSlug, target\.gaugeName, target\.usgsSiteId\)/);
-  assert.match(gauge, /a detail about the upper river, another town or another section is not a detail about this station/);
+  assert.match(GAUGE_READ_BRIEF, /a detail about another town or another stretch is not a detail about this water/);
 });

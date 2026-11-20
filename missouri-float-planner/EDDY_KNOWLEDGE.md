@@ -7,6 +7,9 @@ parts about the water its gauge speaks for (`src/lib/eddy/knowledge.ts`).
 ## Format Rules
 
 - **General** section: loaded into every river Read and every chat (keep it concise).
+  Its last block, `### Chat only`, goes to chat and to no Read: trip planning that is
+  true every day (the season, crowds, services, fees, "check with an outfitter"). A
+  Read handed one of those repeats it on every river, every morning.
 - **River sections** (`## Name {#slug}`): the text straight under the heading must be
   true along the WHOLE river. It goes to every Read on that river, at every gauge. A
   fact about one place does not belong there, however famous the place.
@@ -26,7 +29,9 @@ parts about the water its gauge speaks for (`src/lib/eddy/knowledge.ts`).
   first: the gain between them at low water is the inflow.
 - **Reach notes** (`### Upper Current {#upper-current} {@07064533}`): matched to
   `river_sections.section_slug`. Tag each with the gauge or gauges that speak for it. A
-  gauge's Read gets the reach notes tagged with it.
+  gauge's Read gets the reach notes tagged with it, and a note with no tag reaches chat
+  only, so every reach note is tagged (a test holds this). On a river with one gauge,
+  that gauge. Where a stretch sits well above its gauge, the note says so.
 - **`### Towns`**: food, fuel and supplies for the river. Chat only; no Read gets it.
 - **Anchor every river and subsection heading** with `{#slug}`. The slug must match
   `rivers.slug` / `river_sections.section_slug` exactly. Without an anchor the slug is
@@ -57,19 +62,22 @@ driven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkan
 except the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves
 like a rainfall-driven stream above Alley Spring but is stabilized by springs below it.
 
-- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.
 - Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).
 - Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.
 - After heavy rain, rivers may become less clear and turn muddy. 
-- Weekends in June and July are the busiest. For a quieter float, go mid-week.
-- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.
-- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.
-- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.
-- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.
 - **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.
 - **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.
 - **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.
 - **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.
+
+### Chat only
+
+- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.
+- Weekends in June and July are the busiest. For a quieter float, go mid-week.
+- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.
+- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.
+- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.
+- Take into account water level trends. A water level trending up should proceed with more caution than if it were trending down. Always seek guidance from local outfitters and authorities.
 
 ---
 
@@ -209,7 +217,7 @@ Rivers system. Excellent for paddlers who want solitude.
 - Greer Spring (the 2nd largest spring in Missouri) feeds into the Eleven Point, adding significant cold, clear water.
 - The river below Greer Spring runs noticeably colder and clearer.
 - Fewer outfitters and services than the Current — plan ahead for shuttles.
-- **Bardley (07071500)** is the reference gauge, and Eddy reads it in **cfs**, not feet. The floatable band is narrow for a river this size, so a modest rise moves it out of optimal quickly.
+- **Bardley (07071500)** is the reference gauge, and Eddy reads it in **cfs**, not feet. The floatable range is narrow for a river this size, so a modest rise moves it out of its best levels quickly.
 - Great for multi-day camping trips. Less developed, more wilderness feel.
 - Wildlife is abundant — bald eagles, herons, otters are commonly spotted.
 
@@ -474,12 +482,12 @@ The slowest large stream in the Ozarks and one of its crookedest — it winds ab
 - **Spring Creek** (fed by Kratz Spring) enters about ten miles below Noser Mill and can nearly double the flow — below it the river is almost always floatable even when the upper river is not.
 - Public access is scarce on the upper river, so trips there are often multi-day. Low-water bridges, logjams, and strainers are the main hazards; the gentle gradient means trouble comes from wood, not rapids.
 
-### Upper Bourbeuse (Mint Spring to Noser Mill) {#upper-mintspring-nosermill}
+### Upper Bourbeuse (Mint Spring to Noser Mill) {#upper-mintspring-nosermill} {@07015720}
 
 - The half that goes unfloatable first. In a dry summer this is dragging, not floating, and public access is scarce enough that a trip here is often multi-day whether you planned it that way or not.
 - High Gate is the gauge for this reach, and it is the unreliable one after rain — cross-check Union before trusting a rise.
 
-### Lower Bourbeuse (Noser Mill to the Meramec) {#lower-nosermill-meramec}
+### Lower Bourbeuse (Noser Mill to the Meramec) {#lower-nosermill-meramec} {@07016500}
 
 - Spring Creek enters about ten miles below Noser Mill and can nearly double the flow. Below that confluence the river is almost always floatable even when the upper half is not.
 - Union reads this reach well — except the Noser Mill to Spring Creek stretch above the confluence, which runs lower than Union shows.
@@ -513,16 +521,16 @@ The Buffalo National River — America's first National River (1972) — is a fr
 - When it's too low to launch at Ponca, outfitters shift the put-in about two miles down to Steel Creek — there's no published numeric cutoff, it's a daily operational call.
 - Flash floods and strainers are the serious hazards on the flashy upper reaches; the lower river below Gilbert is calmer, where low water mostly affects speed rather than whether you can float.
 
-### Upper (Ponca to Pruitt) {#upper-ponca-pruitt}
+### Upper (Ponca to Pruitt) {#upper-ponca-pruitt} {@07055660}
 
 - The classic float and the most level-sensitive water on the river — a narrow window between dragging and dangerous, under the tallest bluffs in the park.
 - Read Ponca for this reach, not St. Joe. When Ponca won't float, the put-in moves down to Steel Creek — an outfitter call made daily, not a number you can look up.
 
-### Middle (Pruitt to Gilbert / Tyler Bend) {#middle-pruitt-gilbert}
+### Middle (Pruitt to Gilbert / Tyler Bend) {#middle-pruitt-gilbert} {@07056000}
 
 - The middle district, represented by St. Joe (Tyler Bend). Holds floatable water later into the summer than the Ponca reach but is still rain-driven.
 
-### Lower (Gilbert to Buffalo City) {#lower-gilbert-buffalocity}
+### Lower (Gilbert to Buffalo City) {#lower-gilbert-buffalocity} {@07056700}
 
 - Calmer, holds water nearly year-round, and reads more like flatwater than float. Low water here mostly costs speed rather than ending the trip.
 - The Harriet gauge, at the Highway 14 bridge, is the lowest before the White River confluence.
@@ -570,12 +578,12 @@ Missouri's only whitewater river. The upper St. Francis through Millstream Garde
 - Levels on the upper river are read as **stage in feet from the Roselle (NWS) gauge**, not discharge — the old USGS discharge record ended in 1997. The Patterson gauge covers the lower river toward Wappapello.
 - Rain-dependent and flashy: it can be a runnable river one day and dry rock the next. The Missouri Whitewater Championships run the reach each spring, contingent on water level — verify before traveling.
 
-### Upper Whitewater {#upper-whitewater}
+### Upper Whitewater {#upper-whitewater} {@07034000}
 
 - Millstream Gardens to Silver Mines (the Tiemann Shut-ins): a Class II–IV pool-drop run, swift drops separated by calm pools, run mainly during spring high water. Cold water and committing at high flows.
 - Below the runnable minimum the shut-ins are unrunnable rock — a drag or portage, not a float.
 
-### Lower Float {#lower-float}
+### Lower Float {#lower-float} {@07037500}
 
 - Silver Mines down toward Sam A. Baker State Park and Wappapello: a normal-stream float, much calmer than the shut-ins.
 - On this reach low water mainly affects your speed rather than whether you can float.
@@ -612,16 +620,16 @@ A slow, long-pool Class I float rising in the St. Francois Mountains and winding
 - Popular short float: the roughly three-mile run from Washington State Park to Mammoth, beginner-friendly and dam-free. Mammoth to Merrill Horne is the quieter wooded reach below it, good smallmouth and rock bass water.
 - Nearest towns for food and fuel: De Soto, Potosi, and Bonne Terre. This is close-to-St. Louis water, so summer weekends at Washington State Park are busy.
 
-### Washington State Park to Mammoth {#washington-state-park-to-mammoth}
+### Washington State Park to Mammoth {#washington-state-park-to-mammoth} {@07018100}
 
 - The popular short float — about three miles, beginner-friendly, and dam-free. The park concession rents boats here Memorial Day through Labor Day, so summer weekends are busy.
 - Richwoods is the gauge that represents this reach; Byrnesville reads high for it.
 
-### Mammoth to Merrill Horne {#mammoth-to-merrill-horne}
+### Mammoth to Merrill Horne {#mammoth-to-merrill-horne} {@07018100}
 
 - The quieter wooded reach below the park float, and good smallmouth and rock bass water. Still dam-free.
 
-### Morse Mill to Cedar Hill {#morse-mill-to-cedar-hill}
+### Morse Mill to Cedar Hill {#morse-mill-to-cedar-hill} {@07018500}
 
 - Dam country: Morse Mill at the top (portage right) and the Cedar Hill mill dam at the bottom (portage left, where the MDC Cedar Hill Access is also the best take-out in the stretch). Portage both at every level.
 - Byrnesville is the nearest gauge to this reach and the right one to read here.
@@ -657,16 +665,16 @@ A wild, spring-influenced Ozark stream running south through Douglas and Ozark c
 - **The bottom end is lake, not creek.** When Norfork Lake is up, the last stretch above the confluence is backwater — flat paddling rather than floating, and the current quits before the take-out does.
 - Nearest towns: Ava to the north, Gainesville to the south. Services along the creek itself are essentially nonexistent — plan fuel and food before launching.
 
-### Vera Cruz to Highway 95 {#vera-cruz-to-hwy-95}
+### Vera Cruz to Highway 95 {#vera-cruz-to-hwy-95} {@07058000}
 
 - The upper reach: narrow, twisty, and frequently choked with deadfall and willow strainers. Needs higher water than anything below it and is often not floatable at all in summer without dragging.
 - This is the reach the Tecumseh gauge flatters most, since it sits at the far bottom of the creek. Treat a merely adequate reading as too low up here.
 
-### Sycamore / Hodgson Mill to Warren Bridge {#hodgson-mill-to-warren-bridge}
+### Sycamore / Hodgson Mill to Warren Bridge {#hodgson-mill-to-warren-bridge} {@07058000}
 
 - The traditionally popular reach, passing The Narrows bend. Sycamore is the only open MDC access on the creek, so this is the stretch with a real put-in rather than a road crossing.
 
-### Florence Cook to the North Fork confluence {#cooks-landing-to-north-fork-confluence}
+### Florence Cook to the North Fork confluence {#cooks-landing-to-north-fork-confluence} {@07058000}
 
 - Norfork Lake backwater when the lake is up: flat water rather than float, and the current quits well before the take-out does. Plan for paddling, and for wind.
 
@@ -695,7 +703,7 @@ The North Fork of the White is a cold, clear, spring-fed float and one of Missou
 - Hammond Camp, River of Life Farm, Blair Bridge, Patrick Bridge, and Sunburst Ranch are the access and lodging hubs; the lowest couple of miles below The Forks are Norfork Lake backwater.
 - Nearest towns: West Plains, Gainesville, Dora, and Tecumseh. Cell service through the river corridor is patchy.
 
-### North Fork main reach (SH 14 → Tecumseh) {#north-fork-main}
+### North Fork main reach (SH 14 → Tecumseh) {#north-fork-main} {@07057500}
 
 - The popular float, and the reach the Tecumseh gauge actually represents. Class I–II with two things to plan around: The Falls above River of Life Farm, and Dawt Mill Dam near the take-out.
 - Cold water year-round is a feature of this reach, not a seasonal caveat — dress for immersion even in midsummer.
@@ -725,12 +733,12 @@ A southwest-Missouri smallmouth stream draining the Springfield Plateau to Table
 - When Table Rock Lake is high, the bottom of the float near Galena feels the backwater — the current slows before the take-out arrives.
 - Nearest towns: Galena and Crane at the take-out end, Springfield and Nixa upstream.
 
-### Lower / Galena reach {#james-galena}
+### Lower / Galena reach {#james-galena} {@07052500}
 
 - Hootentown to the Galena Y-Bridge, roughly 22 miles — the classic float, clear and Class I, and the reach the Galena gauge represents.
 - The take-out end feels Table Rock backwater when the lake is high: slack water and slower going before you actually arrive.
 
-### Upper / urban reach {#james-upper}
+### Upper / urban reach {#james-upper} {@07052250}
 
 - Hwy 125 down to Hootentown: urban runoff and wastewater-treatment influence, flashy and rain-driven, floatable only at medium-to-high water. Not a summer trip.
 - Portage the Kissick low-head dam. Read Boaz or Springfield here — never the Galena number.
@@ -796,12 +804,12 @@ Arkansas's Spring River rises at Mammoth Spring and runs cold, clear, and remark
 - **Hardy (07069305)** at the Spring Street bridge is the primary gauge; **Imboden (07069500)** sits on the lower river toward the Black River confluence, which is larger, warmer, and has no float levels of its own. Put-ins there are graded by Hardy.
 - The Hardy stretch is a party-float destination on summer weekends. Nearest towns: Mammoth Spring, Hardy, and Cherokee Village.
 
-### Mammoth Spring / Dam 3 to Hardy {#spring-reach1}
+### Mammoth Spring / Dam 3 to Hardy {#spring-reach1} {@07069305}
 
 - The classic run, about 15 miles, holding all the named ledges — Saddler Falls, High Falls, and the low-head dams. Coldest, clearest water on the river and the busiest on a summer weekend.
 - Level is rarely the question here; cold, ledges, and boat choice are. Open canoes swamp in the drops that rafts shrug off.
 
-### Hardy toward Imboden and the Black {#spring-reach2}
+### Hardy toward Imboden and the Black {#spring-reach2} {@07069305} {@07069500}
 
 - Below Hardy the river grows, warms, and slows toward the Black River confluence. The Imboden gauge sits on it, but this reach has no vetted float key and is graded by the Hardy gauge upstream — be more hedged here than on the Hardy run.
 
@@ -853,21 +861,21 @@ A free-flowing, undammed Ozark stream running about 90 miles north out of the Bo
 A scenic Class I northwest-Arkansas float running past Withrow Springs State Park and the historic War Eagle Mill to Beaver Lake, framed by tall limestone bluffs. Rain-dependent and flashy — a spring-runoff creek that usually goes too low by midsummer.
 
 - **War Eagle Mill's low-head dam must be portaged**, and it is a hard portage: steep banks on both sides. It sits just above the Beaver Lake backwater near the end of the float.
-- **The float key is in gauge height, not discharge.** Local sources all describe War Eagle in feet on the Hindsville gauge (07049000) — the "Hwy 45 gauge" people refer to is this same station, and roughly 2.0–3.5 ft is the commonly cited floatable band. Just over 4 ft is flood stage there, so the usable range and the dangerous range sit close together.
+- **The float key is in gauge height, not discharge.** Local sources all describe War Eagle in feet on the Hindsville gauge (07049000) — the "Hwy 45 gauge" people refer to is this same station, and Eddy's levels follow the range local paddlers cite. There is little room between a good level and a dangerous one on this creek: the usable range and the dangerous range sit close together.
 - The upper reaches, from the Hwy 23 fish hatchery down through Hwy 412, are the liveliest water (Class I–II) and the first to go too skinny. Withrow Springs down to Hindsville is the gentler, more reliable middle.
 - Low-water bridges and concrete slabs cross the creek and become strainers when water is up — scout and portage rather than running them.
 - **This creek rises fast.** It drains a small, steep watershed, so a storm upstream shows up quickly and leaves quickly. A rising gauge is a reason to stay off, not to hurry.
 - Best March through June. Nearest towns: Huntsville, Springdale, and Rogers. The War Eagle Mill area gets very busy during the craft fair.
 
-### Hwy 23 hatchery to Hwy 412 {#hatchery-to-hwy-412}
+### Hwy 23 hatchery to Hwy 412 {#hatchery-to-hwy-412} {@07049000}
 
-- The liveliest water on the creek (Class I–II) and the first reach to go too skinny. It needs the upper half of the floatable band, not the bottom of it.
+- The liveliest water on the creek (Class I–II) and the first reach to go too skinny. It needs more water than the middle of the creek does.
 
-### Withrow Springs to Hwy 45 (Hindsville) {#withrow-springs-to-hwy-45}
+### Withrow Springs to Hwy 45 (Hindsville) {#withrow-springs-to-hwy-45} {@07049000}
 
 - The gentler, more reliable middle reach, past Withrow Springs State Park. The Hindsville gauge sits at the bottom of this stretch, so it represents this water better than anything else on the creek.
 
-### Hwy 45 (Hindsville) to War Eagle Mill {#hwy-45-to-war-eagle-mill}
+### Hwy 45 (Hindsville) to War Eagle Mill {#hwy-45-to-war-eagle-mill} {@07049000}
 
 - Ends at the War Eagle Mill low-head dam — a required portage with steep banks on both sides, just above Beaver Lake backwater.
 - When Beaver Lake is up, the last of this reach is flat lake water rather than creek.
@@ -896,11 +904,11 @@ A clear, gravel-bottomed Ozark stream crossing north-central Arkansas to the Whi
 - Smallmouth regulations here are stricter than general statewide rules — anglers should check current AGFC limits for the Blue Ribbon stretch before keeping fish.
 - Nearest towns: Yellville, Harrison, and Cotter.
 
-### Harmon to Pyatt {#harmon-to-pyatt}
+### Harmon to Pyatt {#harmon-to-pyatt} {@07055607}
 
 - The liveliest reach on the creek (Class I–II) and the farthest above the gauge, so it goes too skinny before the reading does.
 
-### Kelly's Slab to Yellville {#kellys-slab-to-yellville}
+### Kelly's Slab to Yellville {#kellys-slab-to-yellville} {@07055607}
 
 - Starts at the named hazard: Kelly's Slab, the concrete low-water crossing at the Fred Berry Conservation Education Center. Scout and portage — water moving over the slab is dangerous.
 - The gauge sits right here, so this is the reach its reading describes most honestly.
@@ -923,22 +931,22 @@ A clear, gravel-bottomed Ozark stream crossing north-central Arkansas to the Whi
 A clear Ouachita Mountain stream — **not** an Ozark river — and one of Arkansas's most popular family floats, running east past the boulder gorge at Caddo Gap toward DeGray Lake. The classic Caddo Gap to Glenwood run mixes fun Class I–II rock gardens with long, calm pools.
 
 - **Flash flooding is the number one danger.** The Caddo rises several feet very fast during and after heavy rain. The same region's 2010 Albert Pike flood on the nearby Little Missouri killed about twenty campers on gravel bars — never camp low on a bar, and get off the water when the gauge is rising or storms are working upstream.
-- **The float key is gauge height in feet** on the Caddo Gap gauge (07359610), matching the local outfitter key. The bottom of the band — roughly the low 5s — is the bony, rock-dodging, family-pace end: four to six hours, fine for beginners, plenty of scraping. The gauge also reports discharge, but the community talks in feet.
+- **The float key is gauge height in feet** on the Caddo Gap gauge (07359610), matching the local outfitter key. The bottom of the floatable range is the bony, rock-dodging, family-pace end: four to six hours, fine for beginners, plenty of scraping. The gauge also reports discharge, but the community talks in feet.
 - Caddo Gap to Glenwood is the classic run. Norman to Caddo Gap is the upper alternative (also I–II); Glenwood down toward Amity and the DeGray headwaters is easier and slower.
 - The long lower run below Glenwood holds an isolated Class III hole and wave train at high water — a genuine step up from the family float upstream.
 - **Ouachita, not Ozark.** The general Ozarks hydrology notes about spring inputs do not apply here: this is a mountain river with a flashier, rain-driven personality and a shorter reliable season.
 - The corridor is mostly private land between public accesses. Nearest towns: Glenwood, Caddo Gap, Norman, and Mount Ida.
 
-### Caddo Gap to Glenwood {#caddo-gap-to-glenwood}
+### Caddo Gap to Glenwood {#caddo-gap-to-glenwood} {@07359610}
 
-- The classic run and the one the Caddo Gap gauge is keyed to: Class I–II rock gardens separated by long calm pools, four to six hours at the low end of the band.
+- The classic run and the one the Caddo Gap gauge is keyed to: Class I–II rock gardens separated by long calm pools, four to six hours when the water is on the low side.
 - Flashy enough that a rising gauge ends the trip — this is gravel-bar country and gravel bars are exactly where flash floods kill people.
 
-### Norman to Caddo Gap {#norman-to-caddo-gap}
+### Norman to Caddo Gap {#norman-to-caddo-gap} {@07359610}
 
 - The upper alternative, also Class I–II, above the boulder gorge at Caddo Gap. Needs more water than the classic run and drops out sooner.
 
-### Glenwood to Amity / DeGray headwaters {#glenwood-to-amity}
+### Glenwood to Amity / DeGray headwaters {#glenwood-to-amity} {@07359610}
 
 - Easier and slower than the run above, trending toward DeGray Lake. The long version of this reach holds an isolated Class III hole and wave train that only shows up at high water.
 
@@ -966,15 +974,15 @@ Arkansas's premier whitewater float and a National Wild and Scenic River, runnin
 - Reach difficulty climbs upstream: Wolf Pen to Redding is the stiffest (II+), Redding to Turner Bend the classic I–III run, and Turner Bend downstream mellows to I–II.
 - This is the one Arkansas river in Eddy's set where "experienced paddlers" is the right framing at the high end — high water here is whitewater, not a fast float. Nearest towns: Ozark, Cass, and Oark.
 
-### Wolf Pen to Redding {#wolf-pen-to-redding}
+### Wolf Pen to Redding {#wolf-pen-to-redding} {@07252000}
 
-- The stiffest reach on the river (II+), highest in the corridor and the first to go too low. Needs the upper part of the band and rewards experience.
+- The stiffest reach on the river (II+), highest in the corridor and the first to go too low. It needs more water than the runs below it and rewards experience.
 
-### Redding to Turner Bend {#redding-to-turner-bend}
+### Redding to Turner Bend {#redding-to-turner-bend} {@07252000}
 
 - The classic run, I–III depending on level, ending at the outfitter-and-store hub. The low-water bridges near Redding and Turner Bend want the right-hand line at normal flow and are dangerous strainers once the water is up.
 
-### Turner Bend to Campbell Cemetery {#turner-bend-to-campbell-cemetery}
+### Turner Bend to Campbell Cemetery {#turner-bend-to-campbell-cemetery} {@07252000}
 
 - Below the hub the river mellows to I–II — the gentler end of the Mulberry, though still flashy and still not a beginner river on a rising gauge.
 

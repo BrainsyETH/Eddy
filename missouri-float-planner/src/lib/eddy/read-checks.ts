@@ -28,7 +28,9 @@ export type ReadCheckId =
   | 'weather_talk'
   | 'flat_forecast'
   | 'numbers_match_inputs'
-  | 'numbers_from_knowledge';
+  | 'numbers_from_knowledge'
+  | 'stock_lines'
+  | 'brief_talk';
 
 export const READ_CHECK_IDS: readonly ReadCheckId[] = [
   'summary_length',
@@ -39,6 +41,8 @@ export const READ_CHECK_IDS: readonly ReadCheckId[] = [
   'flat_forecast',
   'numbers_match_inputs',
   'numbers_from_knowledge',
+  'stock_lines',
+  'brief_talk',
 ];
 
 /** What each rule holds a Read to, for the report's legend. */
@@ -51,6 +55,8 @@ export const READ_CHECK_LABELS: Record<ReadCheckId, string> = {
   flat_forecast: 'no flat forecast ("will", "is coming") about water or weather',
   numbers_match_inputs: 'every measurement appears in the inputs with the same unit',
   numbers_from_knowledge: 'no measurement is copied from the knowledge file',
+  stock_lines: 'no stock line: steady for 24 hours, call an outfitter, lighter boats, check back after rain',
+  brief_talk: 'nothing from the brief or the notes is repeated to the reader ("speaks for", "threshold")',
 };
 
 export interface ReadCheckText {
@@ -305,6 +311,33 @@ export function flatForecasts(text: string): string[] {
   return found;
 }
 
+// ─── Stock lines and the brief's own words ──────────────────────────────────
+
+/**
+ * Lines that were true on most rivers on most days, so a reader who checked
+ * three rivers read them three times. On 2026-11-19, 41 of 46 Reads carried the
+ * first, and 12 of 24 river Reads the second. The brief (read-brief.ts) asks
+ * for each only when it is the point, so this is a rate to watch and not a
+ * count of mistakes: a Read whose notes name a put-in outfitters move in low
+ * water may honestly say to ask one.
+ */
+const STOCK_LINES: ReadonlyArray<[string, RegExp]> = [
+  // "Moved", "budged" and "changed" say steady only when negated. Unqualified,
+  // "the gauge moved up three feet over the past day" is the opposite.
+  ['steady for 24 hours', /(?:\b(?:held|holding|hold|sat|parked|steady|flat|unchanged)\b|(?:\b(?:not|never|barely|hardly|scarcely|no)|n't)\s+(?:\w+\s+){0,2}?(?:moved?|budged?|changed?|movement)\b)[^.!?]*\b(?:24 hours|past day)\b/i],
+  ['call an outfitter', /\b(?:call|check(?:ing)? (?:in )?with|ask|reach out to|confirm with)\b[^.!?]*\boutfitters?\b/i],
+  ['lighter boats', /\blighter (?:craft|boats?)\b|\b(?:canoes?|kayaks?)\b[^.!?]*\bthan (?:a |wider |heavier |loaded )?rafts?\b/i],
+  ['check back after rain', /\b(?:check(?:ing)? (?:back|again|the gauge again)|worth (?:another|a second) (?:look|check))\b[^.!?]*\b(?:rain|storm|showers?)\b/i],
+];
+
+/**
+ * The brief's and the notes' own vocabulary, said to the reader. "Speaks for"
+ * is how EDDY_KNOWLEDGE.md describes a gauge; "can both be true" and "not
+ * fully resolved" were sentences from the old prompts that Reads repeated on
+ * 2026-11-19; "threshold" and "percentile" are how the app talks to itself.
+ */
+const BRIEF_TALK = /\b(?:speaks? (?:only )?for|this reading (?:reflects|captures|covers)|reporting (?:gauge|station)|thresholds?|percentiles?|can both be (?:true|correct)|does not by itself|not (?:fully )?resolved|comparison (?:is|to)[^.!?]*(?:not available|unavailable)|statistical rather than|outfitter-calibrated|rain event|optimal[- ]range comparison)\b/i;
+
 // ─── The checks ─────────────────────────────────────────────────────────────
 
 const quote = (s: string) => (s.length > 140 ? `${s.slice(0, 137)}...` : s);
@@ -353,6 +386,12 @@ export function checkRead(text: ReadCheckText, inputs: ReadCheckInputs): ReadChe
     add('numbers_match_inputs', unmatched.length ? unmatched.map((m) => m.text).join('; ') : null);
     add('numbers_from_knowledge', fromKnowledge.length ? fromKnowledge.map((m) => m.text).join('; ') : null);
   }
+
+  const stock = STOCK_LINES.filter(([, pattern]) => all.some((block) => pattern.test(block))).map(([name]) => name);
+  add('stock_lines', stock.length ? stock.join('; ') : null, all.length > 0);
+
+  const briefTalk = all.map((block) => block.match(BRIEF_TALK)?.[0]).find(Boolean) ?? null;
+  add('brief_talk', briefTalk, all.length > 0);
 
   return results;
 }

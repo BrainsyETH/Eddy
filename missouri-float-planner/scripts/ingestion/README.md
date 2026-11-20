@@ -141,6 +141,14 @@ Writes `rivers` (multi-region fields), `gauge_stations`, `river_gauges`
 `rivers.active`. After ingest, set any discontinued reference gauges it created to
 `active=false` so the cron doesn't poll them.
 
+**An active river keeps the float levels it has.** `--apply` refuses, before
+writing anything, when the dossier would change a level or the rating unit on a
+gauge of an active river that already has levels, and names each change
+(`ladder-guard.ts`). A live ladder changes through a reviewed migration that
+records who approved the number; edit the dossier to match `river_gauges`
+afterwards, or the next re-ingest is refused. The dry run does not read the
+database and cannot show this.
+
 ### Phase 7 — Validate
 
 ```sql
