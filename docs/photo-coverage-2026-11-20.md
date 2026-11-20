@@ -98,15 +98,24 @@ All of these are listed on `/photo-credits` except the river headers, which
 show their credit on the header, and the guide photos, which show it under
 the image.
 
-## Needs a separate, authorized step
+## Guide refresh applied to production
 
-**Guide photos are not live until the guide refresh is applied.** The four
-guide photos above are in the reviewed content only. The same is true of most
-of the November 10 batch: the reviewed content carried 21 float-card photos
-and 19 sight photos before this change, and production holds 6 and 5. For
-example the two Lake Taneycomo float-card photos are not on the live guide.
-`scripts/refresh-river-guides.ts` previews the difference; `--apply` writes
-it and needs `EXPECTED_SUPABASE_REF`.
+Guide photos live in the guide content, which reaches production only
+through `scripts/refresh-river-guides.ts`. Before this review, production was
+a full editorial pass behind the reviewed content: it held 6 float-card
+photos and 5 sight photos against 21 and 19 in the content.
+
+On November 20 the refresh was previewed and then applied with explicit
+authorization. It updated 27 of 28 guides (Jacks Fork already matched), each
+written with a compare-and-set on `updated_at` and read back. A second
+preview reported no differences, and `refresh-baseline.json` was regenerated
+from the applied content. Besides photos, the refresh carried the rest of
+the reviewed pass: 25 shortened titles, corrected links and text edits.
+
+Four of the photos were applied before their image copies were deployed:
+Turner Mill and Boze Mill Spring (Eleven Point), Ha Ha Tonka Spring
+(Niangua) and the Twin Bridges to Hammond card (North Fork). Those four show
+as missing images until this branch is merged and deployed.
 
 The access, campground, launch, dam and header photos need no database
 write. They appear when the web app is deployed. The Clearwater onboarding
@@ -179,7 +188,10 @@ were found for several state parks and not used.
   entries at 390 px and 1280 px with no horizontal overflow, the Clearwater
   Dam page showed the new header, and each new local image copy loaded.
 - Every hot-linked photo added here returned an image.
+- After the guide refresh, the live Lake Taneycomo and Current River guides
+  showed the added photos and new titles.
 
 Unconfirmed: the access, campground and launch photos on their live pages
 (they need production data and a deploy), the iOS onboarding card and dam
-header on a device, and the guide photos until the guide refresh is applied.
+header on a device, and the four guide photos whose image copies are not
+deployed yet.
