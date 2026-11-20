@@ -241,6 +241,17 @@
     "title": "Webbers Falls Lock & Dam",
     "focus": "50% 50%"
   },
+  "swl-clearwater-dam": {
+    "title": "Clearwater Dam",
+    "asset": "swl-clearwater-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers, Little Rock District · Public domain",
+    "url": "https://www.dvidshub.net/image/2143657/clearwater-lake",
+    "license": "https://www.dvidshub.net/image/2143657/clearwater-lake",
+    "originalUrl": "https://d1ldvf68ux039x.cloudfront.net/thumbs/photos/1508/2143657/2000w_q95.jpg",
+    "originalSha256": "bdad4bd0009a0dd123fac49b553f653674112f1d516bdd518e8a50c6030bacdf",
+    "changes": "DVIDS derivative resized to the photograph's 1280px source width; cropped in the page layout. Shows the intake tower, photographed October 16, 2012",
+    "focus": "62% 62%"
+  },
   "lake-table-rock": {
     "title": "Sunset at Table Rock Lake",
     "credit": "Drew de F Fawkes · CC BY-SA 4.0",
@@ -268,5 +279,25 @@
     "originalUrl": "https://cdn.recreation.gov/public/2018/09/20/15/27/234371_0731eff0-e813-48e9-8fd9-8585deefbcb6_1440.webp",
     "sourceEndpoint": "https://www.recreation.gov/api/media/public/asset/234371",
     "changes": "Provider image; cropped in the page layout. Scenery, not current conditions"
+  },
+  "launch-table-rock-table-rock-state-park": {
+    "title": "State Park Marina at Table Rock State Park",
+    "asset": "table-rock-state-park-marina.webp",
+    "credit": "Missouri State Parks · Public domain",
+    "url": "https://www.flickr.com/photos/mostateparks/34047549820/",
+    "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "originalUrl": "https://live.staticflickr.com/4185/34047549820_4e5b4e8ea5_b.jpg",
+    "originalSha256": "4a28a4674ced26f757bc9b9306be7253144102ff374d406b3228ee20c2283227",
+    "changes": "Flickr 1024px derivative converted to WebP; cropped in the page layout. Shows the marina beside the public ramp, photographed October 2, 2010. Scenery, not current conditions"
+  },
+  "launch-truman-truman-state-park": {
+    "title": "Anglers off the shore of Harry S Truman State Park",
+    "asset": "truman-state-park-shore.webp",
+    "credit": "Missouri State Parks · Public domain",
+    "url": "https://www.flickr.com/photos/mostateparks/22344471124/",
+    "license": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "originalUrl": "https://live.staticflickr.com/631/22344471124_c1761d2f6f_b.jpg",
+    "originalSha256": "9e72dbd2e1daf48cd4fe6e84edd43103019df7cc924ba6944c1790b55582a3cf",
+    "changes": "Flickr 1024px derivative converted to WebP; cropped in the page layout. Shows the lake at the park, not the ramp itself, photographed October 22, 2015. Scenery, not current conditions"
   }
 }

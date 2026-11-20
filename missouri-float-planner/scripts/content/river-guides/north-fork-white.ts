@@ -61,7 +61,16 @@ export default {
         "photo": null,
         "body": "4.9 miles from Twin Bridges to the North Fork Recreation Area at Hammond. Highway 14 crosses both the North Fork and Spring Creek at Twin Bridges, so make sure you launch on the North Fork. Walk to Blue Spring after you load the boats.",
         "time": "About 2 hr",
-        "diff": "I–II"
+        "diff": "I–II",
+        "photo_detail": {
+          "url": "/images/river-guides/north-fork-recreation-area.webp",
+          "alt": "The North Fork River below a wooded bluff in autumn at North Fork Recreation Area.",
+          "caption": "The river at North Fork Recreation Area, the take-out, in October 2016.",
+          "author": "Chance Dry / USDA Forest Service",
+          "source_url": "https://www.flickr.com/photos/usfs_eastern_region/30325885295/",
+          "license": "Public domain",
+          "license_url": "https://creativecommons.org/publicdomain/mark/1.0"
+        }
       },
       {
         "id": 2,

@@ -51,7 +51,8 @@ The reviewed catalog also supplies read-time fallbacks on public place surfaces,
 so these photos do not require a database write to appear. The optional backfill
 persists the same selections. Deploy the photo-credits page and image optimizer
 support first. No schema migration is required. See
-`docs/photo-coverage-2026-10-11.md` for the current coverage and remaining gaps. See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
+`docs/photo-coverage-2026-11-20.md` for the current coverage and remaining gaps
+(`docs/photo-coverage-2026-10-11.md` records this batch). See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
 
 ## Reviewed spring repairs
 

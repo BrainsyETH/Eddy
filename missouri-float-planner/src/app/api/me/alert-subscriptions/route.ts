@@ -34,6 +34,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jsonPrivate } from '@/lib/api-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import { requirePermanentUser, requireUser } from '@/lib/supabase/request';
+import { planFollowerUpdates, type FollowerCandidate } from '@/lib/alerts/parent-follow';
 import type { AlertSubscriptionsResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
@@ -203,6 +204,20 @@ export async function POST(request: NextRequest) {
  * Deliberately keyed on riverId rather than the subscription id. That is what
  * the app holds — the bell on the river screen knows which river it is looking
  * at and nothing else — and the unique (user_id, river_id) makes it exact.
+ *
+ * ── A change of SETTING reaches the gauges that follow it ─────────────────
+ *
+ * Gauge alerts created from this river alert copy its setting and are drawn as
+ * part of it. Changing `kind`, `oneShot` or re-arming therefore updates the
+ * children that were on the old setting, here, in the same request — see
+ * lib/alerts/parent-follow.ts for which children and why. Pausing and resuming
+ * still write to no child: that is a gate (ADR 0006), not a cascade.
+ *
+ * CHILDREN FIRST, then the river alert. The writes are not one transaction, and
+ * "following" is judged against the river alert's stored setting, so this order
+ * is what makes a retry converge: if a child write fails the river alert still
+ * holds the old setting, and the next attempt finds the remaining followers.
+ * The other order would strand them on a setting nothing points at any more.
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -241,6 +256,61 @@ export async function PATCH(request: NextRequest) {
 
     if (Object.keys(update).length === 0) {
       return jsonPrivate({ error: 'Nothing to update' }, { status: 400 });
+    }
+
+    const settingChanged =
+      update.kind !== undefined || update.one_shot !== undefined || body.rearm === true;
+    if (settingChanged) {
+      const { data: current, error: currentError } = await supabase
+        .from('alert_subscriptions')
+        .select('id, kind, one_shot')
+        .eq('user_id', user.id)
+        .eq('river_id', body.riverId)
+        .maybeSingle();
+      if (currentError) {
+        console.error('Error reading alert subscription:', currentError);
+        return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
+      }
+      if (!current) {
+        return jsonPrivate({ error: 'Subscription not found' }, { status: 404 });
+      }
+
+      const { data: children, error: childrenError } = await supabase
+        .from('gauge_alert_subscriptions')
+        .select('id, mode, condition_kind, one_shot, one_shot_fired_at')
+        .eq('user_id', user.id)
+        .eq('parent_subscription_id', current.id);
+      if (childrenError) {
+        console.error('Error reading the gauge alerts of a river alert:', childrenError);
+        return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
+      }
+
+      const followerUpdates = planFollowerUpdates(
+        { kind: current.kind as SubscriptionKind, one_shot: current.one_shot },
+        {
+          kind: update.kind as SubscriptionKind | undefined,
+          oneShot: update.one_shot as boolean | undefined,
+          rearm: body.rearm === true,
+        },
+        (children ?? []) as unknown as FollowerCandidate[],
+      );
+      // One row at a time: there are at most a handful, and a batch would let
+      // one collision fail the rest.
+      for (const follower of followerUpdates) {
+        const { error: followerError } = await supabase
+          .from('gauge_alert_subscriptions')
+          .update(follower.update)
+          .eq('id', follower.id)
+          .eq('user_id', user.id);
+        if (!followerError) continue;
+        // 23505 = the dedupe index in 00200: the user already has a standalone
+        // alert on this station with the new setting. That gauge is covered
+        // either way, so this child keeps its old setting and shows as an
+        // exception under the river alert instead of failing the save.
+        if (followerError.code === '23505') continue;
+        console.error('Error updating a gauge alert with its river alert:', followerError);
+        return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
+      }
     }
 
     const { data: saved, error } = await supabase

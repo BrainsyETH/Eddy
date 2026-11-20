@@ -1,7 +1,13 @@
--- 20261120170000_white_river_put_ins_read_the_gauge_near_them.sql
+-- 20261120142104_white_river_put_ins_read_the_gauge_near_them.sql
 --
--- Drafted 2026-11-20. Whether production holds it is recorded in
--- supabase/production-migrations.txt, not here.
+-- Applied to production 2026-11-20 as 20261120142104, on the owner's
+-- go-ahead. Read back afterwards for all 26 approved put-ins, by stored mile,
+-- by map point and by both together as the planner calls it: 11 read the dam,
+-- 4 the gauge near Norfork and 11 Calico Rock, the same on every path. Red's
+-- Landing reads Calico Rock (5,130 cfs, 4.08 ft at 13:15 UTC), not rated.
+-- Written as 20261120170000 and renamed to the version production recorded.
+-- The statement production holds is the `do` block below under a shorter
+-- comment.
 --
 -- On the White River below Bull Shoals Dam, a put-in reads the gauge on its
 -- own stretch of river instead of the dam's release, in the planner and on

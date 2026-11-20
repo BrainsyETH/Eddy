@@ -10,7 +10,7 @@ import { classifyReading } from '../shared/condition-ladder';
 // These tests run the real file against production's put-ins and gauges as
 // read on 2026-11-20, and check both paths that choose a gauge.
 
-const migration = readFileSync('supabase/migrations/20261120170000_white_river_put_ins_read_the_gauge_near_them.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261120142104_white_river_put_ins_read_the_gauge_near_them.sql', 'utf8');
 
 const DAM = 'swl-bull-shoals-dam', NORFORK = '07057370', CALICO = '07060500', NORFORK_DAM = 'swl-norfork-dam';
 

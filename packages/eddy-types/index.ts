@@ -2630,6 +2630,13 @@ export interface AlertRule {
   oneShot: boolean;
   /** Set once a one-shot has been spent; clearing it re-arms the rule. */
   firedAt: string | null;
+  /**
+   * Two different facts, by `source`. On a river_condition rule it is written
+   * by delivery: a notification went out. On a gauge rule it is written by the
+   * evaluator when the reading crosses the trigger, before quiet hours, the
+   * parent gate and the push — so it can be true of a crossing nobody was told
+   * about. Say "sent" only for the first.
+   */
   lastTriggeredAt: string | null;
   createdAt: string;
   /**

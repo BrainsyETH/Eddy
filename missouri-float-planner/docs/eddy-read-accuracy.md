@@ -80,7 +80,7 @@ another gauge's condition on one of them.
 
 A tailwater whose main gauge is the dam's release is the fourth. The release
 is measured at the dam, so without stretches every put-in reads it, however
-far downstream. `20261120170000` adds three stretches on the White below Bull
+far downstream. `20261120142104` adds three stretches on the White below Bull
 Shoals Dam: the release for the first 24 miles, the gauge near Norfork down to
 the North Fork, and Calico Rock below it. A second dam joining is where
 position misleads: the gauge near Norfork is the nearest one upstream of Red's
