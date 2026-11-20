@@ -618,9 +618,30 @@ test('the notification reads the rule back so it explains itself', () => {
     },
   });
 
-  assert.equal(note.title, 'Huzzah Creek is at 3.40 ft');
+  assert.equal(note.title, 'Huzzah Creek near Steelville, MO reported 3.40 ft');
   // Someone with several alerts on one river cannot otherwise tell which fired.
   assert.match(note.body, /rises above 3\.00 ft/);
+});
+
+test('a floatable gauge push names the station once', () => {
+  const note = buildGaugeNotification({
+    stationName: 'Huzzah Creek near Steelville, MO',
+    riverName: 'Huzzah Creek',
+    kind: 'floatable',
+    readingValue: 3.4,
+    readingUnit: 'ft',
+    conditionCode: 'good',
+    rule: {
+      mode: 'condition',
+      conditionKind: 'floatable',
+      metric: null,
+      comparator: null,
+      thresholdValue: null,
+      thresholdValueMax: null,
+    },
+  });
+  assert.equal(note.title, 'Huzzah Creek near Steelville, MO: floatable');
+  assert.doesNotMatch(note.body, /Huzzah/);
 });
 
 test('the national tier falls back to the station name', () => {
@@ -640,5 +661,5 @@ test('the national tier falls back to the station name', () => {
       thresholdValueMax: null,
     },
   });
-  assert.equal(note.title, 'SF PAYETTE R AT LOWMAN ID is at 1,240 cfs');
+  assert.equal(note.title, 'SF PAYETTE R AT LOWMAN ID reported 1,240 cfs');
 });

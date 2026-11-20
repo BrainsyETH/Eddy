@@ -30,6 +30,7 @@ function widgetFloodAlerts(alerts: WidgetGaugeInput['floodAlerts'], now: number)
   if (alerts == null) return null; // unavailable is different from a successful empty lookup
   const { ink, chipBorder } = CONDITION_SYSTEM.dangerous;
   return {
+    checkedAt: now,
     validUntil: now + WIDGET_ALERT_LIFETIME_MS,
     // Carry the original deadline through offline refreshes. This retires the
     // warning reminder, not the fact that alert availability is still unknown.

@@ -109,7 +109,6 @@ import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useAccount } from '@/hooks/useAccount';
 import { useSession } from '@/hooks/useSession';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
-import { pickPrimaryRiverLink } from '@eddy/conditions/primary-river-link';
 import { observedStamp } from '@/lib/observedStamp';
 
 /**
@@ -149,9 +148,11 @@ function readingValue(gauge: GaugeSeed, unit: 'ft' | 'cfs' | null): number | nul
 }
 
 export default function GaugeDetailScreen() {
-  const { siteId, alertId, alertSource, chart, shareUnavailable } = useLocalSearchParams<{
+  const { siteId, alertId, alertSource, chart, shareUnavailable, riverId, riverSlug } = useLocalSearchParams<{
     siteId: string;
     chart?: string;
+    riverId?: string;
+    riverSlug?: string;
     shareUnavailable?: string;
     /** Set only by a push-notification tap — see routeTo in usePush. */
     alertId?: string;
@@ -289,7 +290,11 @@ export default function GaugeDetailScreen() {
     !candidateShareState.riverId || thresholdsForUnit(sharedRiver, candidateShareState.unit)
   );
   const initialShareState = sharedContextAvailable ? candidateShareState : null;
-  const link = chartSharePageRiver(gauge?.thresholds, initialShareState?.riverId, initialShareState?.riverSlug);
+  const link = chartSharePageRiver(
+    gauge?.thresholds,
+    initialShareState?.riverId ?? riverId,
+    initialShareState?.riverSlug ?? riverSlug,
+  );
   const rated = Boolean(link && hasLadder(link));
 
   /**
@@ -539,7 +544,7 @@ export default function GaugeDetailScreen() {
       name: gauge.name,
       // The river it rates, so a starred gauge taps through somewhere. Empty
       // for the national tier, which rates none — an honest empty, not a guess.
-      slug: pickPrimaryRiverLink(gauge.thresholds)?.riverSlug ?? '',
+      slug: link?.riverSlug ?? '',
       usgsSiteId: gauge.siteId,
       provider: gauge.provider,
     });

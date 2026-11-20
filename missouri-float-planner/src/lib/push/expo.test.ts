@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createClient } from '@supabase/supabase-js';
+import { recordPushReceipt } from './receipts';
 import {
   EXPO_BATCH_SIZE,
   EXPO_RECEIPT_BATCH_SIZE,
@@ -113,6 +115,23 @@ test('a whole-request rejection becomes one error ticket per message', async () 
   assert.equal(tickets.length, 3, 'alignment must survive a total failure');
   assert.ok(tickets.every((t) => t.status === 'error'));
   assert.match(tickets[0].message ?? '', /invalid credentials/);
+});
+
+test('the transport counts down from planning through backoff and preserves ticket positions when one expires', async () => {
+  let now = 101_000;
+  const attempts: ExpoMessage[][] = [];
+  const tickets = await sendExpoPush([{ ...msg('a'), ttl: 3 }, { ...msg('b'), ttl: 10 }], {
+    ttlReferenceSeconds: 100, nowMs: () => now,
+    sleepImpl: async () => { now = 104_000; },
+    fetchImpl: async (_url, init) => {
+      attempts.push(JSON.parse(String(init?.body)));
+      return attempts.length === 1 ? jsonResponse({}, 429) : jsonResponse({ data: [{ status: 'ok', id: 'b' }] });
+    },
+  });
+  assert.deepEqual(attempts.map(batch => batch.map(message => [message.to, message.ttl])), [
+    [['a', 2], ['b', 9]], [['b', 6]],
+  ]);
+  assert.deepEqual(tickets, [{ status: 'error', message: 'expired before dispatch' }, { status: 'ok', id: 'b' }]);
 });
 
 test('retries on 429 and succeeds', async () => {
@@ -247,4 +266,28 @@ test('receipt ids chunk at Expo documented maximum', () => {
   assert.equal(chunks.length, 3);
   assert.equal(chunks.flat().length, 2500);
   assert.equal(chunks[2].length, 500);
+});
+
+test('APNs credential receipts record failure without retiring devices, while unregistering checks the registration age', async () => {
+  const writes: { table: string; query: URLSearchParams; body: Record<string, unknown> }[] = [];
+  const db = createClient('https://push-fixture.invalid', 'fixture-key', {
+    global: { fetch: async (input, init) => {
+      const request = new Request(input, init);
+      const url = new URL(request.url);
+      writes.push({ table: url.pathname.split('/').at(-1)!, query: url.searchParams, body: await request.json() });
+      return Response.json(url.pathname.endsWith('/device_tokens') ? [{ id: 'phone' }] : []);
+    } },
+  });
+  const row = { device_token_id: 'phone', event_id: 'crossing', ticket_id: 'ticket', sent_at: '2026-11-20T12:00:00Z' };
+  const receiptError = (error: string) => classifyTicketError({ status: 'error', details: { error } });
+  assert.equal(await recordPushReceipt(db, row, receiptError('InvalidCredentials')), 0);
+  assert.deepEqual(writes.map(write => write.table), ['alert_push_deliveries']);
+  assert.equal(writes[0].body.error_code, 'mismatched_credentials');
+  assert.equal(writes[0].body.status, 'error');
+  assert.equal(writes[0].query.get('ticket_id'), 'eq.ticket');
+
+  writes.length = 0;
+  assert.equal(await recordPushReceipt(db, row, receiptError('DeviceNotRegistered')), 1);
+  assert.deepEqual(writes.map(write => write.table), ['device_tokens', 'alert_push_deliveries']);
+  assert.equal(writes[0].query.get('last_seen_at'), `lte.${row.sent_at}`);
 });

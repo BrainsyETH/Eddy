@@ -14,7 +14,7 @@
 // still reads it, and the change feed is a screen this app may well want back.
 // The two rules below are the expensive part of that module, both learned from
 // production, and re-deriving them later is how a repo ends up with four
-// condition ladders. src/lib/alert-copy.test.ts in the web app mirrors them.
+// condition ladders. src/lib/alert-copy.test.ts exercises these functions directly.
 //
 // Two constraints shape everything here.
 //
@@ -29,7 +29,7 @@
 //    this reason) and safety-adjacent wording must not soften.
 
 import type { AlertFeedEntry, AlertRule } from '@eddy/types';
-import { conditionLabel } from '@/theme/conditions';
+import { conditionLabel } from '../theme/conditions';
 
 /** Compact relative time — "just now", "40m ago", "3h ago", "2d ago". */
 export function relativeTime(iso: string | null, now: Date = new Date()): string {
@@ -83,21 +83,21 @@ export function lastSentNote(
 ): string | null {
   const paused = rule.enabled === false;
   const coveredWhen = covered ? relativeTime(covered.at, now) : '';
-  if (covered && coveredWhen) {
+  if (covered?.station && coveredWhen) {
     const station = `${covered.station[0].toUpperCase()}${covered.station.slice(1)}`;
     const said = `${station} met its trigger ${coveredWhen}`;
-    return paused ? `Paused · ${said}` : said;
+    return paused ? `Paused. ${said}.` : said;
   }
 
   const fired = relativeTime(rule.lastTriggeredAt ?? null, now);
   if (fired) {
-    const said = rule.source === 'gauge' ? `met its trigger ${fired}` : `last sent ${fired}`;
-    return paused ? `Paused · ${said}` : `${said[0].toUpperCase()}${said.slice(1)}`;
+    const said = rule.source === 'gauge' ? `Met its trigger ${fired}` : `Last sent ${fired}`;
+    return paused ? `Paused. ${said}.` : said;
   }
   if (paused) return 'Paused';
 
   const since = watchingSince(rule.createdAt, now);
-  return since ? `Never sent · watching since ${since}` : null;
+  return since ? `No alerts sent. Watching since ${since}` : null;
 }
 
 /**
@@ -119,9 +119,9 @@ export function staleReadingNote(
   if (rule.source !== 'gauge' || !rule.enabled || !rule.readingStale) return null;
   const last = relativeTime(rule.lastReadingAt ?? null, now);
   const lead = station
-    ? `${station[0].toUpperCase()}${station.slice(1)}: waiting on the gauge`
+    ? `Waiting for a reading from ${station}`
     : 'Waiting on the gauge';
-  return last ? `${lead} · last usable reading ${last}` : `${lead} · no usable reading yet`;
+  return last ? `${lead}. Last usable reading ${last}.` : `${lead}. No usable reading yet.`;
 }
 
 /**
@@ -169,9 +169,9 @@ export function alertDetail(alert: AlertFeedEntry, now?: Date): string {
     parts.push(value);
   }
   // readingAt, never detectedAt — see the note at the top of this file.
-  const when = relativeTime(alert.readingAt ?? alert.detectedAt, now);
+  const when = relativeTime(alert.readingAt, now);
   if (when) parts.push(when);
-  return parts.join(' · ');
+  return parts.join(' ');
 }
 
 /** Which brand role a row should be tinted with. */

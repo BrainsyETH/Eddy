@@ -34,8 +34,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jsonPrivate } from '@/lib/api-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import { requirePermanentUser, requireUser } from '@/lib/supabase/request';
-import { planFollowerUpdates, type FollowerCandidate } from '@/lib/alerts/parent-follow';
 import type { AlertSubscriptionsResponse } from '@/types/api';
+
+function saveErrorResponse(message: string, error: { code?: string }) {
+  if (error.code === 'PGRST202') {
+    console.error('save_river_alert is unavailable. Check migration 20261120174228 and the schema cache.', error);
+    return jsonPrivate({ error: 'Alert changes are temporarily unavailable. Try again shortly.' }, {
+      status: 503, headers: { 'Retry-After': '60' },
+    });
+  }
+  console.error(message, error);
+  return jsonPrivate({ error: message }, { status: 500 });
+}
+
+interface StoredSubscription {
+  id: string;
+  river_id: string;
+  kind: SubscriptionKind;
+  one_shot: boolean;
+  enabled: boolean;
+  fired_at: string | null;
+  created_at: string;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -147,36 +167,16 @@ export async function POST(request: NextRequest) {
       return jsonPrivate({ error: 'River not found' }, { status: 404 });
     }
 
-    // Re-subscribing updates the kind rather than erroring, and clears
-    // fired_at so a spent one-shot can be re-armed.
-    //
-    // enabled:true for the same reason the PATCH rearm sets it: a spent
-    // one-shot is now switched off, and tapping the bell again on the river
-    // screen is the plainest possible statement that the user wants it back. An
-    // upsert that left `enabled` alone would answer that tap with a
-    // subscription that exists and does nothing.
-    const { data: saved, error } = await supabase
-      .from('alert_subscriptions')
-      .upsert(
-        {
-          user_id: user.id,
-          river_id: riverId,
-          kind,
-          one_shot: body.oneShot ?? false,
-          fired_at: null,
-          enabled: true,
-        },
-        { onConflict: 'user_id,river_id' }
-      )
-      .select('id, river_id, kind, one_shot, created_at')
-      .single();
+    const { data: saved, error } = await supabase.rpc('save_river_alert', {
+      p_river_id: riverId, p_kind: kind, p_one_shot: body.oneShot ?? false,
+      p_enabled: true, p_rearm: true, p_create: true,
+    }).single<StoredSubscription>();
 
     if (error) {
       if (error.code === '23503') {
         return jsonPrivate({ error: 'River not found' }, { status: 404 });
       }
-      console.error('Error saving alert subscription:', error);
-      return jsonPrivate({ error: 'Could not save subscription' }, { status: 500 });
+      return saveErrorResponse('Could not save subscription', error);
     }
 
     return jsonPrivate({
@@ -205,19 +205,7 @@ export async function POST(request: NextRequest) {
  * the app holds — the bell on the river screen knows which river it is looking
  * at and nothing else — and the unique (user_id, river_id) makes it exact.
  *
- * ── A change of SETTING reaches the gauges that follow it ─────────────────
- *
- * Gauge alerts created from this river alert copy its setting and are drawn as
- * part of it. Changing `kind`, `oneShot` or re-arming therefore updates the
- * children that were on the old setting, here, in the same request — see
- * lib/alerts/parent-follow.ts for which children and why. Pausing and resuming
- * still write to no child: that is a gate (ADR 0006), not a cascade.
- *
- * CHILDREN FIRST, then the river alert. The writes are not one transaction, and
- * "following" is judged against the river alert's stored setting, so this order
- * is what makes a retry converge: if a child write fails the river alert still
- * holds the old setting, and the next attempt finds the remaining followers.
- * The other order would strand them on a setting nothing points at any more.
+ * The same database transaction updates followers on both POST and PATCH.
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -235,95 +223,22 @@ export async function PATCH(request: NextRequest) {
       return jsonPrivate({ error: 'riverId required' }, { status: 400 });
     }
 
-    const update: Record<string, unknown> = {};
-    if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
-    if (typeof body.oneShot === 'boolean') update.one_shot = body.oneShot;
-    if (body.kind !== undefined) {
-      if (!VALID_KINDS.includes(body.kind as SubscriptionKind)) {
-        return jsonPrivate({ error: `kind must be one of ${VALID_KINDS.join(', ')}` }, { status: 400 });
-      }
-      update.kind = body.kind;
+    if (body.kind !== undefined && !VALID_KINDS.includes(body.kind as SubscriptionKind)) {
+      return jsonPrivate({ error: `kind must be one of ${VALID_KINDS.join(', ')}` }, { status: 400 });
     }
-    // Re-arming a spent one-shot, the same way POST does by upserting fired_at
-    // back to null — and un-pausing it, because delivery now switches a spent
-    // one-shot off (see the spend block in /api/cron/deliver-push). Clearing
-    // only fired_at would leave it armed and paused. An explicit `enabled` in
-    // the same request still wins.
-    if (body.rearm) {
-      update.fired_at = null;
-      if (typeof body.enabled !== 'boolean') update.enabled = true;
-    }
-
-    if (Object.keys(update).length === 0) {
+    if (body.kind === undefined && typeof body.enabled !== 'boolean' &&
+        typeof body.oneShot !== 'boolean' && !body.rearm) {
       return jsonPrivate({ error: 'Nothing to update' }, { status: 400 });
     }
-
-    const settingChanged =
-      update.kind !== undefined || update.one_shot !== undefined || body.rearm === true;
-    if (settingChanged) {
-      const { data: current, error: currentError } = await supabase
-        .from('alert_subscriptions')
-        .select('id, kind, one_shot')
-        .eq('user_id', user.id)
-        .eq('river_id', body.riverId)
-        .maybeSingle();
-      if (currentError) {
-        console.error('Error reading alert subscription:', currentError);
-        return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
-      }
-      if (!current) {
-        return jsonPrivate({ error: 'Subscription not found' }, { status: 404 });
-      }
-
-      const { data: children, error: childrenError } = await supabase
-        .from('gauge_alert_subscriptions')
-        .select('id, mode, condition_kind, one_shot, one_shot_fired_at')
-        .eq('user_id', user.id)
-        .eq('parent_subscription_id', current.id);
-      if (childrenError) {
-        console.error('Error reading the gauge alerts of a river alert:', childrenError);
-        return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
-      }
-
-      const followerUpdates = planFollowerUpdates(
-        { kind: current.kind as SubscriptionKind, one_shot: current.one_shot },
-        {
-          kind: update.kind as SubscriptionKind | undefined,
-          oneShot: update.one_shot as boolean | undefined,
-          rearm: body.rearm === true,
-        },
-        (children ?? []) as unknown as FollowerCandidate[],
-      );
-      // One row at a time: there are at most a handful, and a batch would let
-      // one collision fail the rest.
-      for (const follower of followerUpdates) {
-        const { error: followerError } = await supabase
-          .from('gauge_alert_subscriptions')
-          .update(follower.update)
-          .eq('id', follower.id)
-          .eq('user_id', user.id);
-        if (!followerError) continue;
-        // 23505 = the dedupe index in 00200: the user already has a standalone
-        // alert on this station with the new setting. That gauge is covered
-        // either way, so this child keeps its old setting and shows as an
-        // exception under the river alert instead of failing the save.
-        if (followerError.code === '23505') continue;
-        console.error('Error updating a gauge alert with its river alert:', followerError);
-        return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
-      }
-    }
-
-    const { data: saved, error } = await supabase
-      .from('alert_subscriptions')
-      .update(update)
-      .eq('user_id', user.id)
-      .eq('river_id', body.riverId)
-      .select('id, river_id, kind, one_shot, enabled, fired_at, created_at')
-      .maybeSingle();
+    const { data: saved, error } = await supabase.rpc('save_river_alert', {
+      p_river_id: body.riverId, p_kind: body.kind ?? null,
+      p_one_shot: typeof body.oneShot === 'boolean' ? body.oneShot : null,
+      p_enabled: typeof body.enabled === 'boolean' ? body.enabled : null,
+      p_rearm: !!body.rearm, p_create: false,
+    }).maybeSingle<StoredSubscription>();
 
     if (error) {
-      console.error('Error updating alert subscription:', error);
-      return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
+      return saveErrorResponse('Could not update subscription', error);
     }
     if (!saved) {
       return jsonPrivate({ error: 'Subscription not found' }, { status: 404 });

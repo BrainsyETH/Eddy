@@ -23,6 +23,7 @@ function event(kind: EventKind, overrides: Partial<FanoutEvent> = {}): FanoutEve
     kind,
     old_condition_code: 'low',
     new_condition_code: kind === 'warning' ? 'dangerous' : 'good',
+    expiration: NOW.getTime() / 1000 + 7200,
     river_name: 'Current River',
     river_slug: 'current',
     ...overrides,
@@ -180,6 +181,16 @@ test('"high water" two hours ago does not withhold "dangerous water" now', () =>
   assert.equal(result.messages.length, 1);
   assert.match(result.messages[0].message.title ?? '', /dangerous water/);
   assert.equal(result.skipped.cooldown, undefined);
+});
+
+test('a floatable push names its condition in the title and carries a ttl', () => {
+  const result = plan({ events: [event('floatable')] });
+  assert.equal(result.messages.length, 1);
+  const { message } = result.messages[0];
+  assert.equal(message.title, 'Current River: floatable');
+  // Counts down to the event's fixed deadline: two hours after NOW here.
+  assert.equal(message.ttl, 7200);
+  assert.equal('expiration' in message, false);
 });
 
 test('a second "dangerous" inside the window is still a repeat', () => {
@@ -389,8 +400,6 @@ test('warnings send at high priority and carry a verify-locally caveat', () => {
 });
 
 test('floatable copy avoids promising real-time accuracy', () => {
-  // Alerts land ~20-75 min behind the real transition, so the copy must not
-  // imply "right now".
   const [planned] = plan().messages;
   assert.match(planned.message.body ?? '', /check the latest reading/i);
 });
@@ -413,7 +422,7 @@ test('a river alert names the gauge and the reading that moved', () => {
       }),
     ],
   }).messages;
-  assert.match(planned.message.body ?? '', /3,100 cfs at Black River at Poplar Bluff/);
+  assert.match(planned.message.body ?? '', /Black River at Poplar Bluff reached a dangerous level\. The gauge read 3,100 cfs/);
   // The safety caveat is not displaced by the enrichment.
   assert.match(planned.message.body ?? '', /verify locally/i);
 });
@@ -422,12 +431,12 @@ test('feet keep one decimal, cfs is whole and thousands-separated', () => {
   const [feet] = plan({
     events: [event('warning', { gauge_name: 'G', reading_value: 7.82, reading_unit: 'ft' })],
   }).messages;
-  assert.match(feet.message.body ?? '', /7\.8 ft at G/);
+  assert.match(feet.message.body ?? '', /The gauge read 7\.8 ft/);
 
   const [cfs] = plan({
     events: [event('warning', { gauge_name: 'G', reading_value: 14293.6, reading_unit: 'cfs' })],
   }).messages;
-  assert.match(cfs.message.body ?? '', /14,294 cfs at G/);
+  assert.match(cfs.message.body ?? '', /The gauge read 14,294 cfs/);
 });
 
 test('a partial reading is omitted entirely rather than half-stated', () => {
@@ -439,7 +448,7 @@ test('a partial reading is omitted entirely rather than half-stated', () => {
     { gauge_name: 'G', reading_value: 900, reading_unit: null },
   ]) {
     const [planned] = plan({ events: [event('warning', partial)] }).messages;
-    assert.doesNotMatch(planned.message.body ?? '', / at /);
+    assert.doesNotMatch(planned.message.body ?? '', /The gauge read/);
   }
 });
 
@@ -533,4 +542,17 @@ test('one subscriber being quiet does not suppress another', () => {
   });
   assert.equal(planned.messages.length, 1);
   assert.equal(planned.messages[0].userId, 'user-2');
+});
+
+test('Time Sensitive follows the warning preference and the timestamp follows the river', () => {
+  const preferences = quiet({ quietHoursEnabled: false, safetyOverridesQuiet: false });
+  const [warning] = plan({
+    events: [event('warning', { river_timezone: 'America/Denver', reading_at: NOW.toISOString() })],
+    preferences,
+  }).messages;
+  assert.equal(warning.message.interruptionLevel, undefined);
+  assert.match(warning.message.body ?? '', /6:00 AM MDT on Saturday/);
+  for (const kind of ['floatable', 'easing'] as const) {
+    assert.equal(plan({ events: [event(kind)] }).messages[0].message.interruptionLevel, undefined);
+  }
 });

@@ -452,6 +452,7 @@ export type Database = {
           event_id: string
           event_source: string
           kind: string
+          one_shot_rule_id: string | null
           receipt_checked_at: string | null
           river_id: string | null
           sent_at: string
@@ -465,6 +466,7 @@ export type Database = {
           event_id: string
           event_source?: string
           kind: string
+          one_shot_rule_id?: string | null
           receipt_checked_at?: string | null
           river_id?: string | null
           sent_at?: string
@@ -478,6 +480,7 @@ export type Database = {
           event_id?: string
           event_source?: string
           kind?: string
+          one_shot_rule_id?: string | null
           receipt_checked_at?: string | null
           river_id?: string | null
           sent_at?: string
@@ -498,6 +501,45 @@ export type Database = {
             columns: ["river_id"]
             isOneToOne: false
             referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_push_unrecorded_recipients: {
+        Row: {
+          gauge_event_id: string | null
+          one_shot_rule_id: string | null
+          river_event_id: string | null
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          gauge_event_id?: string | null
+          one_shot_rule_id?: string | null
+          river_event_id?: string | null
+          sent_at: string
+          user_id: string
+        }
+        Update: {
+          gauge_event_id?: string | null
+          one_shot_rule_id?: string | null
+          river_event_id?: string | null
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_push_unrecorded_recipients_gauge_event_id_fkey"
+            columns: ["gauge_event_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_alert_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_push_unrecorded_recipients_river_event_id_fkey"
+            columns: ["river_event_id"]
+            isOneToOne: false
+            referencedRelation: "river_condition_events"
             referencedColumns: ["id"]
           },
         ]
@@ -1260,6 +1302,83 @@ export type Database = {
         }
         Relationships: []
       }
+      dam_generation_alert_events: {
+        Row: {
+          alert_id: string
+          dam_id: string
+          detected_at: string
+          id: string
+          lead_minutes: number
+          push_attempts: number
+          push_delivered_at: string | null
+          push_outcome: string | null
+          start_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_id: string
+          dam_id: string
+          detected_at?: string
+          id?: string
+          lead_minutes: number
+          push_attempts?: number
+          push_delivered_at?: string | null
+          push_outcome?: string | null
+          start_at: string
+          user_id: string
+        }
+        Update: {
+          alert_id?: string
+          dam_id?: string
+          detected_at?: string
+          id?: string
+          lead_minutes?: number
+          push_attempts?: number
+          push_delivered_at?: string | null
+          push_outcome?: string | null
+          start_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dam_generation_alert_events_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "dam_generation_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dam_generation_alerts: {
+        Row: {
+          created_at: string
+          dam_id: string
+          id: string
+          notify_at_start: boolean
+          notify_hour_before: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dam_id: string
+          id?: string
+          notify_at_start?: boolean
+          notify_hour_before?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dam_id?: string
+          id?: string
+          notify_at_start?: boolean
+          notify_hour_before?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dam_history_backfill_marks: {
         Row: {
           applied_at: string
@@ -1469,6 +1588,93 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      eddy_generation_log: {
+        Row: {
+          cache_creation_tokens: number | null
+          cache_read_tokens: number | null
+          condition_code: string
+          contradictions: string[]
+          created_at: string
+          error_message: string | null
+          git_sha: string | null
+          id: string
+          input_tokens: number | null
+          inputs: Json
+          knowledge_blocks: string[]
+          knowledge_hash: string | null
+          model_used: string | null
+          outcome: string
+          output_tokens: number | null
+          published: Json | null
+          raw_response: string | null
+          reason: string | null
+          river_slug: string
+          section_slug: string | null
+          stop_reason: string | null
+          system_prompt_hash: string
+          trigger: string
+          user_prompt: string | null
+          usgs_site_id: string | null
+          workload: string
+        }
+        Insert: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
+          condition_code: string
+          contradictions?: string[]
+          created_at?: string
+          error_message?: string | null
+          git_sha?: string | null
+          id?: string
+          input_tokens?: number | null
+          inputs?: Json
+          knowledge_blocks?: string[]
+          knowledge_hash?: string | null
+          model_used?: string | null
+          outcome: string
+          output_tokens?: number | null
+          published?: Json | null
+          raw_response?: string | null
+          reason?: string | null
+          river_slug: string
+          section_slug?: string | null
+          stop_reason?: string | null
+          system_prompt_hash: string
+          trigger: string
+          user_prompt?: string | null
+          usgs_site_id?: string | null
+          workload: string
+        }
+        Update: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
+          condition_code?: string
+          contradictions?: string[]
+          created_at?: string
+          error_message?: string | null
+          git_sha?: string | null
+          id?: string
+          input_tokens?: number | null
+          inputs?: Json
+          knowledge_blocks?: string[]
+          knowledge_hash?: string | null
+          model_used?: string | null
+          outcome?: string
+          output_tokens?: number | null
+          published?: Json | null
+          raw_response?: string | null
+          reason?: string | null
+          river_slug?: string
+          section_slug?: string | null
+          stop_reason?: string | null
+          system_prompt_hash?: string
+          trigger?: string
+          user_prompt?: string | null
+          usgs_site_id?: string | null
+          workload?: string
+        }
+        Relationships: []
       }
       eddy_updates: {
         Row: {
@@ -3426,6 +3632,166 @@ export type Database = {
         }
         Relationships: []
       }
+      release_arrival_outcomes: {
+        Row: {
+          competing_increases: number
+          details: Json
+          evaluated_at: string
+          first_rise_at: string | null
+          matched_rise_at: string | null
+          prediction_id: string
+          rise_candidates: number
+          status: string
+          steepest_rise_at: string | null
+          steepest_rise_ft_per_hour: number | null
+          tributary_watch_tripped_at: string | null
+        }
+        Insert: {
+          competing_increases: number
+          details: Json
+          evaluated_at?: string
+          first_rise_at?: string | null
+          matched_rise_at?: string | null
+          prediction_id: string
+          rise_candidates: number
+          status: string
+          steepest_rise_at?: string | null
+          steepest_rise_ft_per_hour?: number | null
+          tributary_watch_tripped_at?: string | null
+        }
+        Update: {
+          competing_increases?: number
+          details?: Json
+          evaluated_at?: string
+          first_rise_at?: string | null
+          matched_rise_at?: string | null
+          prediction_id?: string
+          rise_candidates?: number
+          status?: string
+          steepest_rise_at?: string | null
+          steepest_rise_ft_per_hour?: number | null
+          tributary_watch_tripped_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "release_arrival_outcomes_prediction_id_fkey"
+            columns: ["prediction_id"]
+            isOneToOne: true
+            referencedRelation: "release_arrival_predictions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      release_arrival_passes: {
+        Row: {
+          id: number
+          ran_at: string
+          release_through: string | null
+          rule_version: string
+          state: string
+          summary: Json
+        }
+        Insert: {
+          id?: never
+          ran_at?: string
+          release_through?: string | null
+          rule_version: string
+          state: string
+          summary: Json
+        }
+        Update: {
+          id?: never
+          ran_at?: string
+          release_through?: string | null
+          rule_version?: string
+          state?: string
+          summary?: Json
+        }
+        Relationships: []
+      }
+      release_arrival_predictions: {
+        Row: {
+          all_reasons: string[]
+          dam_id: string
+          decided_at: string
+          decision: string
+          flags: string[]
+          gauge_site_id: string
+          id: string
+          inputs: Json
+          onset_hour: string
+          predicted_arrival_at: string | null
+          range_early_at: string | null
+          range_late_at: string | null
+          reason: string | null
+          rule_version: string
+        }
+        Insert: {
+          all_reasons?: string[]
+          dam_id: string
+          decided_at?: string
+          decision: string
+          flags?: string[]
+          gauge_site_id: string
+          id?: string
+          inputs: Json
+          onset_hour: string
+          predicted_arrival_at?: string | null
+          range_early_at?: string | null
+          range_late_at?: string | null
+          reason?: string | null
+          rule_version: string
+        }
+        Update: {
+          all_reasons?: string[]
+          dam_id?: string
+          decided_at?: string
+          decision?: string
+          flags?: string[]
+          gauge_site_id?: string
+          id?: string
+          inputs?: Json
+          onset_hour?: string
+          predicted_arrival_at?: string | null
+          range_early_at?: string | null
+          range_late_at?: string | null
+          reason?: string | null
+          rule_version?: string
+        }
+        Relationships: []
+      }
+      release_arrival_watch_events: {
+        Row: {
+          details: Json
+          id: number
+          kind: string
+          observed_at: string
+          prediction_id: string
+        }
+        Insert: {
+          details: Json
+          id?: never
+          kind: string
+          observed_at?: string
+          prediction_id: string
+        }
+        Update: {
+          details?: Json
+          id?: never
+          kind?: string
+          observed_at?: string
+          prediction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "release_arrival_watch_events_prediction_id_fkey"
+            columns: ["prediction_id"]
+            isOneToOne: false
+            referencedRelation: "release_arrival_predictions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       river_characteristics: {
         Row: {
           drop_rate_note: string | null
@@ -5378,6 +5744,34 @@ export type Database = {
           severity: string
         }[]
       }
+      save_river_alert: {
+        Args: {
+          p_create: boolean
+          p_enabled: boolean
+          p_kind: string
+          p_one_shot: boolean
+          p_rearm: boolean
+          p_river_id: string
+        }
+        Returns: {
+          created_at: string
+          enabled: boolean
+          fired_at: string | null
+          id: string
+          kind: string
+          last_triggered_at: string | null
+          one_shot: boolean
+          river_id: string
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "alert_subscriptions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       search_gauges:
         | {
             Args: {
@@ -5435,6 +5829,28 @@ export type Database = {
           p_role: string
         }
         Returns: Json
+      }
+      set_dam_generation_alert: {
+        Args: {
+          p_at_start?: boolean
+          p_dam_id: string
+          p_hour_before?: boolean
+        }
+        Returns: {
+          created_at: string
+          dam_id: string
+          id: string
+          notify_at_start: boolean
+          notify_hour_before: boolean
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "dam_generation_alerts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       set_float_contribution: {
         Args: { p_enabled: boolean; p_user: string }

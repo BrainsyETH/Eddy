@@ -171,7 +171,7 @@ function isSpent(rule: AlertRule): boolean {
  * True for a child as RiverGaugeAlerts creates it: a condition rule with the
  * parent's kind and the parent's one-time flag. The server asks the same
  * question, of the same columns, to decide which children a change to the
- * river alert carries to — see lib/alerts/parent-follow.ts in the web app.
+ * river alert carries to — see the save_river_alert database function.
  */
 export function sharesParentSetting(child: AlertRule, parent: AlertRule): boolean {
   return (
@@ -209,7 +209,7 @@ export interface ParentSettingChange {
  * The list as it will read once a river alert's new setting is saved.
  *
  * The server carries a change of setting to the gauges that were on the old
- * one, in the same request (lib/alerts/parent-follow.ts in the web app). This
+ * one, in the same request (the save_river_alert database function). This
  * is the app's guess at that result, applied before the response so the
  * covered gauges do not flash out into exception rows and back. It is a GUESS:
  * the caller refetches afterwards and the server's copy wins.

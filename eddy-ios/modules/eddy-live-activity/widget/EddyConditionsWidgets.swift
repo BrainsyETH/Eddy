@@ -180,7 +180,7 @@ private struct LockScreenGauge: View {
         }
         HStack(spacing: 4) {
           if display.confirmedWarning != nil || display.hasAlert || display.alertsUnavailable {
-            Text(display.status)
+            StatusText(display: display)
           } else if display.snapshot?.suspect == true {
             Text("Flagged")
           } else if !display.current, display.snapshot != nil {
@@ -263,8 +263,7 @@ struct GaugeDisplay {
   var value: Double? { unit == "cfs" ? snapshot?.dischargeCfs : snapshot?.heightFt }
   var reading: String { value.map { format($0, unit: unit) } ?? "—" }
   var status: String {
-    if let confirmedWarning { return confirmedWarning.label }
-    if hasAlert { return "Check flood alerts" }
+    if let warning { return warning.label }
     if alertsUnavailable { return "Alerts unavailable" }
     guard let snapshot else { return "No reading" }
     if snapshot.suspect { return "Flagged reading" }
@@ -289,8 +288,8 @@ struct GaugeDisplay {
     return Color(hex: dark ? condition.chipBorder : condition.ink)
   }
   func statusColor(dark: Bool) -> Color {
-    if let confirmedWarning { return Color(hex: dark ? confirmedWarning.chipBorder : confirmedWarning.ink) }
-    return hasAlert || alertsUnavailable ? .secondary : color(dark: dark)
+    if let warning { return Color(hex: dark ? warning.chipBorder : warning.ink) }
+    return alertsUnavailable ? .secondary : color(dark: dark)
   }
   private func format(_ value: Double, unit: String) -> String {
     value.formatted(.number.precision(.fractionLength(unit == "ft" ? 1 : 0)))
@@ -340,7 +339,7 @@ private struct RiverLevelCard: View {
               }
             }
           }
-          ObservationTime(snapshot: display.snapshot, isPreview: entry.isPreview, now: entry.date)
+          ObservationTime(snapshot: display.snapshot, isPreview: entry.isPreview)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       }
@@ -420,7 +419,7 @@ private struct FavoriteRow: View {
         Spacer(minLength: 0)
         StatusText(display: display).foregroundStyle(display.statusColor(dark: scheme == .dark))
           .fixedSize(horizontal: true, vertical: false).layoutPriority(1)
-        ObservationTime(snapshot: display.snapshot, isPreview: isPreview, now: display.date).layoutPriority(2)
+        ObservationTime(snapshot: display.snapshot, isPreview: isPreview).layoutPriority(2)
       }.font(.caption2)
     }.accessibilityElement(children: .combine)
   }
@@ -433,9 +432,18 @@ struct GaugeOtter: View {
 private struct StatusText: View {
   let display: GaugeDisplay
   var body: some View {
-    HStack(spacing: 3) {
-      if display.hasAlert { Image(systemName: "exclamationmark.triangle.fill").accessibilityHidden(true) }
-      Text(display.status)
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 3) {
+        if display.hasAlert { Image(systemName: "exclamationmark.triangle.fill").accessibilityHidden(true) }
+        Text(display.status)
+      }
+      if display.hasAlert, display.confirmedWarning == nil {
+        if let checked = display.snapshot?.floodAlerts?.checkedAt {
+          Text("Checked \(Date(timeIntervalSince1970: checked / 1000), style: .relative) ago")
+        } else {
+          Text("Last known warning")
+        }
+      }
     }
   }
 }
@@ -453,13 +461,12 @@ struct StatusPill: View {
 struct ObservationTime: View {
   let snapshot: WidgetGaugeSnapshot?
   var isPreview = false
-  var now = Date()
   var body: some View {
     Group {
       if isPreview {
         Text("Sample data")
       } else if let observed = snapshot?.observedDate {
-        Text(widgetObservationStamp(observed, now: now))
+        Text("\(observed, style: .relative) ago")
           .monospacedDigit().fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel("Observed \(observed.formatted(date: .complete, time: .shortened))\(snapshot?.suspect == true ? ", flagged reading" : "")")
       } else { Text("No time").accessibilityLabel("Observation time unavailable") }

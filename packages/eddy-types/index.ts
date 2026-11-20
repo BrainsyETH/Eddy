@@ -2138,11 +2138,10 @@ export interface RiverConditionEvent {
 }
 
 /**
- * USGS reporting lag plus the cron cadence means an alert lands roughly 20–75
- * minutes after the real transition. Copy must say "first to know", never
- * "instantly", and should surface `readingAt` rather than `detectedAt`.
+ * A change may need a confirming reading, and the gauge reporting schedule varies.
+ * Use the observation time when describing the river to a subscriber.
  */
-export const ALERT_LATENCY_NOTE = 'Conditions are checked regularly; readings can lag the river by up to about an hour.';
+export const ALERT_LATENCY_NOTE = 'Alerts follow gauge readings. Check when the gauge last reported.';
 
 /**
  * How far back the condition feed reaches.

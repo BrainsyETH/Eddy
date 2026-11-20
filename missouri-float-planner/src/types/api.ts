@@ -1439,8 +1439,7 @@ export interface AppConfigResponse {
 
 /**
  * One condition change. `readingAt` is when the river was MEASURED and is what
- * UI must quote; `detectedAt` is when our cron noticed, which trails reality by
- * roughly 20–75 minutes.
+ * UI must quote; `detectedAt` is when our cron noticed, after the gauge reported and any confirming reading arrived.
  */
 export interface AlertFeedEntry {
   id: string;

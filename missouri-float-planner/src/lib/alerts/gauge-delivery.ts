@@ -20,12 +20,14 @@
 // moment keeps the feed honest — the change is visible in the morning even
 // though the phone stayed silent.
 
-import { planDrain, spentOneShots } from './drain';
-import { checkedWrite, readAllIn, recordOutcomes, DeliveryReadError, IN_CHUNK } from './delivery-io';
+import { planDrain } from './drain';
+import { checkedWrite, readAllIn, priorPushRecipients, recordDeliveryLedger, recordOutcomes, DeliveryReadError, IN_CHUNK } from './delivery-io';
 import { isRuleLive, parentIdsOf, type GatedRule } from './gating';
 import { buildGaugeNotification, type GaugeEventKind } from './gauge-threshold';
 import { suppressedByQuietHours } from './quiet-hours';
-import { disableTokens, recordTokenFailures } from './token-health';
+import { one } from './rule-serialize';
+import { observationExpiration, pushTtlSeconds } from './observation-push';
+import { disableTokens } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage, type ExpoTicket } from '@/lib/push/expo';
 import type { AlertComparator, AlertMetric, AlertSubscriptionKind, NotificationPreferences } from '@/types/api';
 import { logger } from '@/lib/logger';
@@ -35,7 +37,7 @@ import { logger } from '@/lib/logger';
  * pass applies. After a delivery outage, "the Meramec is above 3 ft" must never
  * fire about water that has since dropped.
  */
-export const MAX_EVENT_AGE_HOURS = 3;
+export { MAX_EVENT_AGE_HOURS } from './observation-push';
 export const MAX_ATTEMPTS = 5;
 const EVENT_BATCH = 200;
 
@@ -91,16 +93,11 @@ interface PlannedGaugeMessage {
    * per device token, and success has to be counted per rule.
    */
   subscriptionId: string;
+  oneShot: boolean;
   deviceTokenId: string;
   userId: string;
   riverId: string | null;
   kind: GaugeEventKind;
-}
-
-/** PostgREST types a to-one embed as an array; at runtime it is one object. */
-function one<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
 }
 
 export function toPreferences(row: {
@@ -169,19 +166,19 @@ export async function deliverGaugeAlerts(
   now: Date = new Date(),
   options: GaugeDeliveryOptions = {},
 ): Promise<GaugeDeliveryStats> {
-  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages));
+  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages, { ttlReferenceSeconds: Math.floor(now.getTime() / 1000) }));
   const pauseMs = options.pauseMs ?? 300;
   try {
-    const cutoff = new Date(now.getTime() - MAX_EVENT_AGE_HOURS * 60 * 60 * 1000).toISOString();
+
 
     const { data: pending, error } = await supabase
       .from('gauge_alert_events')
       .select(
         'id, subscription_id, user_id, gauge_station_id, river_id, kind, reading_value, ' +
           'reading_unit, reading_at, condition_code, detected_at, push_attempts, ' +
-          'gauge_stations!inner(name, usgs_site_id, site_id_external), ' +
-          'rivers(name, slug), ' +
-          'gauge_alert_subscriptions!inner(scope, mode, condition_kind, metric, comparator, threshold_value, threshold_value_max, enabled, parent_subscription_id)',
+          'gauge_stations!inner(name, usgs_site_id, site_id_external, provider), ' +
+          'rivers(name, slug, timezone), ' +
+          'gauge_alert_subscriptions!inner(scope, mode, condition_kind, metric, comparator, threshold_value, threshold_value_max, enabled, one_shot, parent_subscription_id)',
       )
       .is('push_delivered_at', null)
       .lt('push_attempts', MAX_ATTEMPTS)
@@ -193,10 +190,12 @@ export async function deliverGaugeAlerts(
       return { ...EMPTY, error: 'could not read outbox' };
     }
 
-    const rows = pending ?? [];
+    const rows = (pending ?? []).map((row: { id: string; detected_at: string; reading_at: string | null; gauge_stations: { provider?: string } | null }) => ({
+      ...row, expiration: observationExpiration(row.detected_at, row.reading_at, one(row.gauge_stations)?.provider),
+    }));
     if (rows.length === 0) return EMPTY;
 
-    const expired = rows.filter((r: { detected_at: string }) => r.detected_at < cutoff);
+    const expired = rows.filter((r: { expiration: number }) => r.expiration <= now.getTime() / 1000);
     if (expired.length > 0) {
       const ids: string[] = expired.map((r: { id: string }) => r.id);
       if (await markDelivered(supabase, ids, now)) {
@@ -204,7 +203,7 @@ export async function deliverGaugeAlerts(
       }
     }
 
-    const fresh = rows.filter((r: { detected_at: string }) => r.detected_at >= cutoff);
+    const fresh = rows.filter((r: { expiration: number }) => r.expiration > now.getTime() / 1000);
     if (fresh.length === 0) {
       return { ...EMPTY, events: rows.length, expired: expired.length };
     }
@@ -242,16 +241,7 @@ export async function deliverGaugeAlerts(
       ),
       // Events an earlier pass already delivered but could not stamp drained.
       // Their one recipient was reached; sending again would be a duplicate.
-      readAllIn<{ event_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
-        supabase
-          .from('alert_push_deliveries')
-          .select('event_id')
-          .in('event_id', chunk)
-          .eq('status', 'sent')
-          .order('event_id')
-          .order('device_token_id')
-          .range(from, to),
-      ),
+      priorPushRecipients(supabase, eventIds, 'gauge_event_id'),
     ]);
     const previouslyReached = new Map<string, number>();
     for (const row of reachedRows) previouslyReached.set(row.event_id, 1);
@@ -267,6 +257,8 @@ export async function deliverGaugeAlerts(
     for (const row of prefsData ?? []) prefsByUser.set(row.user_id, toPreferences(row));
 
     const planned: PlannedGaugeMessage[] = [];
+    const pendingOneShots = new Set<string>();
+    const deferredEvents = new Set<string>();
     let quietSuppressed = 0;
     let gated = 0;
 
@@ -300,7 +292,7 @@ export async function deliverGaugeAlerts(
       const station = one<{ name: string; usgs_site_id: string | null; site_id_external: string | null }>(
         row.gauge_stations,
       );
-      const river = one<{ name: string; slug: string }>(row.rivers);
+      const river = one<{ name: string; slug: string; timezone: string | null }>(row.rivers);
       const rule = one<{
         scope: 'river' | 'gauge';
         mode: 'condition' | 'threshold';
@@ -310,6 +302,7 @@ export async function deliverGaugeAlerts(
         threshold_value: number | string | null;
         threshold_value_max: number | string | null;
         enabled: boolean;
+        one_shot: boolean;
         parent_subscription_id: string | null;
       }>(row.gauge_alert_subscriptions);
 
@@ -324,7 +317,13 @@ export async function deliverGaugeAlerts(
         continue;
       }
 
+      if (rule.one_shot && pendingOneShots.has(row.subscription_id)) {
+        deferredEvents.add(row.id);
+        continue;
+      }
       const notification = buildGaugeNotification({
+        readingAt: row.reading_at,
+        timeZone: river?.timezone ?? prefs?.timezone,
         stationName: station?.name ?? 'Your gauge',
         riverName: river?.name ?? null,
         kind,
@@ -352,13 +351,18 @@ export async function deliverGaugeAlerts(
           ? { riverSlug: river.slug, gaugeSiteId: null }
           : { riverSlug: null, gaugeSiteId: siteId };
 
-      for (const token of tokensByUser.get(row.user_id) ?? []) {
+      const userTokens = tokensByUser.get(row.user_id) ?? [];
+      if (rule.one_shot && userTokens.length > 0) pendingOneShots.add(row.subscription_id);
+      for (const token of userTokens) {
         planned.push({
           message: {
             to: token.expo_push_token,
             title: notification.title,
             body: notification.body,
             sound: 'default',
+            ttl: pushTtlSeconds(row.expiration, now),
+            ...(kind === 'warning' && (prefs?.safetyOverridesQuiet ?? true)
+              ? { interruptionLevel: 'time-sensitive' as const } : {}),
             priority: kind === 'warning' ? 'high' : 'default',
             data: {
               eventId: row.id,
@@ -373,6 +377,7 @@ export async function deliverGaugeAlerts(
           },
           eventId: row.id,
           subscriptionId: row.subscription_id,
+          oneShot: rule.one_shot,
           deviceTokenId: token.id,
           userId: row.user_id,
           riverId: row.river_id,
@@ -383,7 +388,7 @@ export async function deliverGaugeAlerts(
 
     let sent = 0;
     let failed = 0;
-    const failuresByToken = new Map<string, number>();
+
     // Per event, the recipient reached. Gauge events have exactly one.
     const reachedRecipients = new Map<string, Set<string>>();
     // Per RULE, not per event. A one-shot is spent by a push reaching a device,
@@ -391,7 +396,7 @@ export async function deliverGaugeAlerts(
     // across non-adjacent batches by the interleave — so the tally has to be
     // complete before anything is decided, which it is: the batch loop ends
     // before the update below.
-    const successBySubscription = new Map<string, number>();
+    const spent = new Set<string>();
 
     const batches = chunkMessages(planned.map((m) => m.message));
     for (const [index, batch] of batches.entries()) {
@@ -406,18 +411,14 @@ export async function deliverGaugeAlerts(
         if (ticket.status === 'ok') {
           sent++;
           reachedRecipients.set(message.eventId, new Set([message.userId]));
-          successBySubscription.set(
-            message.subscriptionId,
-            (successBySubscription.get(message.subscriptionId) ?? 0) + 1,
-          );
+          if (message.oneShot) spent.add(message.subscriptionId);
         } else {
           failed++;
-          failuresByToken.set(
-            message.deviceTokenId,
-            (failuresByToken.get(message.deviceTokenId) ?? 0) + 1,
-          );
         }
         return {
+          sent_at: now.toISOString(),
+          receipt_checked_at: null,
+          one_shot_rule_id: ticket.status === 'ok' && message.oneShot ? message.subscriptionId : null,
           event_id: message.eventId,
           device_token_id: message.deviceTokenId,
           user_id: message.userId,
@@ -432,10 +433,8 @@ export async function deliverGaugeAlerts(
         };
       });
 
-      await checkedWrite(
-        'gauge delivery ledger write',
-        supabase.from('alert_push_deliveries').upsert(ledgerRows, { onConflict: 'event_id,device_token_id' }),
-      );
+      // Logged, never thrown: these pushes have left. See recordDeliveryLedger.
+      await recordDeliveryLedger(supabase, 'gauge_event_id', ledgerRows);
 
       const dead = tickets
         .map((t, i) =>
@@ -444,23 +443,16 @@ export async function deliverGaugeAlerts(
             : null,
         )
         .filter((id): id is string => !!id);
-      await disableTokens(supabase, dead);
+      await disableTokens(supabase, dead, now);
 
       if (index < batches.length - 1 && pauseMs > 0) await sleep(pauseMs);
     }
 
-    await recordTokenFailures(supabase, failuresByToken);
 
     // ── Spend the one-shots that were actually delivered ────────────────────
     //
-    // Nothing here filters on one_shot: the WHERE clause does, which keeps the
-    // set of "which rules are one-shot" in one place instead of asking for it
-    // and then trusting the answer. `is null` makes the update idempotent, so a
-    // retried pass cannot move the timestamp of an already-spent rule.
-    //
-    // Delivered means AT LEAST ONE of the rule's messages succeeded, mirroring
-    // planDrain's partial-delivery rule — a person with two phones has been
-    // told once the first one buzzes.
+    // One accepted ticket spends a one-shot. A later receipt can restore
+    // that spend only if every accepted ticket subsequently fails.
     //
     // ── enabled:false is not bookkeeping, it is the promise being kept ──────
     //
@@ -473,14 +465,14 @@ export async function deliverGaugeAlerts(
     // Every path that clears one_shot_fired_at must therefore set enabled back
     // to true, or re-arming would leave a rule that is armed and paused. See the
     // rearm blocks in the two PATCH routes.
-    const spent = spentOneShots([...successBySubscription.keys()], successBySubscription);
-    for (let i = 0; i < spent.length; i += IN_CHUNK) {
+    const spentIds = [...spent];
+    for (let i = 0; i < spentIds.length; i += IN_CHUNK) {
       await checkedWrite(
         'gauge one-shot spend',
         supabase
           .from('gauge_alert_subscriptions')
           .update({ one_shot_fired_at: now.toISOString(), enabled: false })
-          .in('id', spent.slice(i, i + IN_CHUNK))
+          .in('id', spentIds.slice(i, i + IN_CHUNK))
           .eq('one_shot', true)
           .is('one_shot_fired_at', null),
       );
@@ -493,7 +485,7 @@ export async function deliverGaugeAlerts(
     for (const message of planned) plannedRecipients.set(message.eventId, new Set([message.userId]));
 
     const { delivered, outcomes, retryByNextAttempt, givenUp } = planDrain({
-      events: fresh.map((r: { id: string; push_attempts: number | null }) => ({
+      events: fresh.filter((r: { id: string }) => !deferredEvents.has(r.id)).map((r: { id: string; push_attempts: number | null }) => ({
         id: r.id,
         attempts: r.push_attempts ?? 0,
       })),

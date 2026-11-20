@@ -1678,3 +1678,71 @@ do not wait for App Review to find them. See Apple's
 - **A `pk.` Mapbox token and the RevenueCat public key are public by design**
   and ship inside every binary. Restrict them in their dashboards; do not try
   to hide them.
+
+### River alert delivery and recovery
+
+Vercel deploys the alert API on merge. Production recorded the river alert
+migration as `20261120174228`. On a fresh deployment, verify that PostgREST
+exposes `save_river_alert` and that a signed-in user can edit their alert.
+The workers use the new columns to track one-time notifications and recover
+from failed ticket writes. The widget requires a new iOS binary.
+
+- [ ] Confirm a Courtois widget tap opens the Courtois grading at the shared
+      station.
+- [ ] After a missed refresh, check that a named NWS warning keeps its issue
+      identity and shows when it was last checked.
+- [ ] Check the native VoiceOver pause and resume actions on a river alert.
+- [ ] On a test iPhone, enable Time Sensitive notifications for Eddy. Outside
+      Eddy’s quiet hours, activate a Focus that allows Time Sensitive
+      notifications and omits Eddy from its allowed apps. Confirm a high-water
+      warning appears during Focus with the Time Sensitive label. Repeat with
+      Eddy in Scheduled Summary and check it appears before the next summary.
+      Turn off Eddy’s rising-water override, repeat outside quiet hours and
+      check that the new warning has no Time Sensitive label.
+- [ ] **Widget age and warning lines:** on the smallest supported iPhone at the
+      default, largest standard and supported accessibility text sizes, check the small
+      widget, the medium Your rivers rows and the Lock Screen rectangular
+      widget with a reading 45 minutes old and one 3 hours old, and with a
+      warning whose refresh was missed ("Checked … ago"). The relative age must
+      not clip or push the status off the widget.
+
+If the ticket ledger write fails, the workers retry the database write. After
+a second failure they save the accepted recipients separately so subsequent
+passes can retry the people still waiting. An acceptance saved this way has
+no verifiable receipt. If both stores are unavailable after an Expo acceptance,
+a later pass can repeat a notification. Check the worker errors for failed
+recipient writes when investigating duplicate alerts.
+
+A provider outage or a project credential rejection can affect many working
+devices at once. Check Expo/APNs credentials, the delivery ledger and job errors.
+After correcting credentials, validate one send and its receipt on a consenting
+test device. Re-registration already restores that device's token. For older
+disabled tokens, inspect the disable time, the registered account, and the ticket
+and receipt error history. Recover only verified registrations affected by the
+provider incident. Leave ambiguous, revoked, or explicitly unregistered devices
+for the next authenticated registration. Older tickets have no rule/spend
+identifier for automatic one-time recovery.
+
+To measure river and gauge delays by alert type, use this read-only query on the
+existing ledger. It measures the interval to Expo ticket acceptance. A receipt
+cannot tell when a person saw the alert.
+
+```sql
+with events as (
+  select 'river_condition' as source, id, kind, reading_at, detected_at from river_condition_events
+  where detected_at >= now() - interval '7 days'
+  union all
+  select 'gauge_alert', id, kind, reading_at, detected_at from gauge_alert_events
+  where detected_at >= now() - interval '7 days'
+), first_sends as (
+  select event_source, event_id, min(sent_at) as sent_at from alert_push_deliveries
+  where sent_at >= now() - interval '7 days' and status = 'sent'
+  group by event_source, event_id
+)
+select source, kind, count(*) as accepted_events,
+  percentile_cont(0.5) within group (order by detected_at - reading_at) as median_detection_delay,
+  percentile_cont(0.95) within group (order by sent_at - reading_at) as p95_acceptance_delay
+from events join first_sends on event_source = source and event_id = id
+where reading_at is not null
+group by source, kind;
+```

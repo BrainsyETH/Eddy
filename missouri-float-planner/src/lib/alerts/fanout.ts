@@ -3,6 +3,7 @@
 // the querying and sending, this module owns every policy decision, so the
 // rules can be tested exhaustively without a database or a network.
 
+import { pushTtlSeconds, readingTimePhrase } from './observation-push';
 import { elevatedRank, isPushableKind, worsensWhatWasTold, type EventKind } from './event-kind';
 import { suppressedByQuietHours } from './quiet-hours';
 import type { ExpoMessage } from '@/lib/push/expo';
@@ -23,7 +24,9 @@ export interface FanoutEvent {
   old_condition_code: string;
   river_name?: string | null;
   river_slug?: string | null;
+  river_timezone?: string | null;
   reading_at?: string | null;
+  expiration: number;
   /**
    * WHICH GAUGE MOVED, and what it said.
    *
@@ -138,6 +141,7 @@ export interface FanoutPlan {
    * event itself.
    */
   oneShotSubscriptionIds: string[];
+  deferredEventIds: Set<string>;
   skipped: Partial<Record<SkipReason, number>>;
 }
 
@@ -165,7 +169,7 @@ function conditionPhrase(code: string): string {
     case 'flowing': return 'flowing';
     case 'good': return 'floatable';
     case 'high': return 'high water';
-    case 'dangerous': return 'dangerous';
+    case 'dangerous': return 'a dangerous level';
     case 'low': return 'low';
     case 'too_low': return 'too low';
     default: return code;
@@ -173,7 +177,7 @@ function conditionPhrase(code: string): string {
 }
 
 /**
- * " Reading 3,100 cfs at Black River at Poplar Bluff." or an empty string.
+ * " The gauge read 3,100 cfs." or an empty string.
  *
  * ALL OR NOTHING, on purpose. A gauge with no reading ("at Poplar Bluff" alone)
  * invites the recipient to assume a number we did not send; a reading with no
@@ -191,34 +195,36 @@ function readingSuffix(event: FanoutEvent): string {
     ? `${value.toFixed(1)} ft`
     : `${Math.round(value).toLocaleString('en-US')} ${unit}`;
 
-  return ` Reading ${reading} at ${gauge}.`;
+  return ` The gauge read ${reading}.`;
 }
 
 export function buildNotification(event: FanoutEvent): { title: string; body: string } {
+  const when = readingTimePhrase(event.reading_at, event.river_timezone);
+  const place = event.gauge_name ?? event.river_name ?? 'Your river';
   const river = event.river_name ?? 'Your river';
   const reading = readingSuffix(event);
   switch (event.kind) {
     case 'floatable':
       return {
-        title: `${river} is floatable`,
-        // Never promise instant: USGS lag plus the cron cadence means alerts
-        // land roughly 20-75 minutes behind the real transition.
-        body: `Conditions just came up to ${conditionPhrase(event.new_condition_code)}.${reading} Check the latest reading before you go.`,
+        // Labelled like the warning titles ("Current River: high water"), so
+        // the banner says what changed before the body is read.
+        title: `${river}: floatable`,
+        body: `${place} entered the floatable range${when}.${reading} Check the latest reading before you go.`,
       };
     case 'warning':
       return {
         title: event.new_condition_code === 'dangerous'
           ? `${river}: dangerous water`
           : `${river}: high water`,
-        body: `Conditions changed to ${conditionPhrase(event.new_condition_code)}.${reading} Planning aid only — verify locally before floating.`,
+        body: `${place} reached ${conditionPhrase(event.new_condition_code)}${when}.${reading} Planning aid only — verify locally before floating.`,
       };
     case 'easing':
       return {
         title: `${river} is easing`,
-        body: `Dropped from dangerous to ${conditionPhrase(event.new_condition_code)}.${reading} Still elevated — verify locally.`,
+        body: `${place} dropped from dangerous to ${conditionPhrase(event.new_condition_code)}${when}.${reading} Still elevated — verify locally.`,
       };
     default:
-      return { title: river, body: `Conditions changed to ${conditionPhrase(event.new_condition_code)}.${reading}` };
+      return { title: river, body: `${place} reached ${conditionPhrase(event.new_condition_code)}${when}.${reading}` };
   }
 }
 
@@ -316,6 +322,7 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
 
   const planned: PlannedMessage[] = [];
   const oneShotSubscriptionIds = new Set<string>();
+  const deferredEventIds = new Set<string>();
 
   for (const event of input.events) {
     if (!isPushableKind(event.kind)) {
@@ -369,6 +376,13 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
         continue;
       }
 
+      // Keep later crossings in the outbox until this pass knows whether the
+      // first send spent the rule. Other subscribers can still receive them.
+      if (sub.one_shot && oneShotSubscriptionIds.has(sub.id)) {
+        deferredEventIds.add(event.id);
+        continue;
+      }
+
       // No entitlement check. Alerting is free in its entirety — see the header
       // of /api/me/alert-subscriptions for why the tier was collapsed rather
       // than arbitrated. Holding a subscription IS the permission to be pushed.
@@ -400,6 +414,9 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
             title: notification.title,
             body: notification.body,
             sound: 'default',
+            ttl: pushTtlSeconds(event.expiration, now),
+            ...(event.kind === 'warning' && (input.preferences?.get(sub.user_id)?.safetyOverridesQuiet ?? true)
+              ? { interruptionLevel: 'time-sensitive' as const } : {}),
             priority: event.kind === 'warning' ? 'high' : 'default',
             data: {
               eventId: event.id,
@@ -446,5 +463,5 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
     .sort((a, b) => (KIND_PRIORITY[a[0]] ?? 9) - (KIND_PRIORITY[b[0]] ?? 9))
     .flatMap(([, group]) => interleaveByRiver(group));
 
-  return { messages, oneShotSubscriptionIds: [...oneShotSubscriptionIds], skipped };
+  return { messages, oneShotSubscriptionIds: [...oneShotSubscriptionIds], deferredEventIds, skipped };
 }

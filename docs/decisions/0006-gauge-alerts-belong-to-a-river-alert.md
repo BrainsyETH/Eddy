@@ -138,9 +138,10 @@ not gated.
 
 Coverage is only true while parent and child agree, so a change to the river
 alert's **setting** — its kind, its one-time flag, or re-arming it — is applied
-to the children that were on the old setting. The server does it, in the river
-alert's own `PATCH`, children first
-([`parent-follow.ts`](../../missouri-float-planner/src/lib/alerts/parent-follow.ts)).
+to the children that were on the old setting. Both replacing an existing alert and editing it call the same database transaction.
+It locks the river subscription before updating its followers and commits both
+changes together. [Migration](../../missouri-float-planner/supabase/migrations/20261120174228_river_alert_delivery.sql)
+
 Without it, switching a river alert from floatable to high water left every
 covered gauge firing on the trigger just replaced, each one now an exception
 row.
@@ -176,3 +177,8 @@ states, which on a live alert looked like a status.
 must not silently withhold a flood warning somebody explicitly asked for, and
 the cascade makes the deleted-parent case moot in practice — but a predicate
 should not depend on a foreign key to be safe.
+
+The alert API deploys on merge. It depends on migration `20261120174228` for
+the authenticated `save_river_alert` function and the worker’s private
+`alert_push_unrecorded_recipients` table. The release runbook covers
+the rollout and native checks. [River alert delivery and recovery](../ios-release-runbook.md#river-alert-delivery-and-recovery)

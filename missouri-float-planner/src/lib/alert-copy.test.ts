@@ -3,22 +3,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { CONDITION_KINDS } from '../../../eddy-ios/src/lib/alertKinds';
 
-// Mirrors eddy-ios/src/lib/alertCopy.ts. The app has no test runner yet, so the
-// pure logic is covered here — the timestamp rule below is a correctness claim
-// about what we tell users, not a formatting preference, and it should fail
-// loudly if someone "simplifies" it.
-
-function relativeTime(iso: string | null, now: Date): string {
-  if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const mins = Math.round((now.getTime() - then) / 60000);
-  if (mins < 2) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
+import { alertDetail, lastSentNote, relativeTime, staleReadingNote } from '../../../eddy-ios/src/lib/alertCopy';
+import type { AlertFeedEntry } from '../../../packages/eddy-types';
 
 const NOW = new Date('2026-07-26T12:00:00.000Z');
 
@@ -59,21 +45,25 @@ test('quoting readingAt rather than detectedAt changes what we claim', () => {
   assert.notEqual(fromReading, fromDetection);
 });
 
-test('detection lag on the first live events sat inside the stated window', () => {
-  // We tell users alerts land roughly 20-75 minutes behind the river. This is
-  // the measured value, kept as a regression check on that claim.
-  const lagMinutes =
-    (new Date('2026-07-26T09:00:30.000Z').getTime() -
-      new Date('2026-07-26T08:30:00.000Z').getTime()) /
-    60000;
-  assert.ok(lagMinutes >= 20 && lagMinutes <= 75, `lag was ${lagMinutes} min`);
+test('the feed reports the observation age only when the gauge supplies it', () => {
+  const entry = { readingValue: 3100, readingUnit: 'cfs', detectedAt: NOW.toISOString() } as AlertFeedEntry;
+  assert.equal(alertDetail({ ...entry, readingAt: null }, NOW), '3,100 cfs');
+  assert.equal(alertDetail({ ...entry, readingAt: '2026-07-26T11:20:00Z' }, NOW), '3,100 cfs 40m ago');
 });
 
-test('alert surfaces state their real latency instead of a generic caveat', () => {
+test('manage rows distinguish a notification from a gauge trigger and a missing reading', () => {
+  const rule = { enabled: false, createdAt: '2026-07-01T12:00:00Z', lastTriggeredAt: '2026-07-26T11:20:00Z' };
+  assert.equal(lastSentNote({ ...rule, source: 'river_condition' }, NOW), 'Paused. Last sent 40m ago.');
+  assert.equal(lastSentNote({ ...rule, source: 'gauge' }, NOW), 'Paused. Met its trigger 40m ago.');
+  assert.equal(staleReadingNote({ source: 'gauge', enabled: true, readingStale: true, lastReadingAt: null }, NOW, 'Sullivan'),
+    'Waiting for a reading from Sullivan. No usable reading yet.');
+});
+
+test('alert surfaces explain observation lag without promising a delivery window', () => {
   const primer = readFileSync('../eddy-ios/src/components/PushPrimer.tsx', 'utf8');
   const tab = readFileSync('../eddy-ios/app/(tabs)/(alerts)/alerts.tsx', 'utf8');
-  assert.match(primer, /roughly 20–75\s*minutes/i);
-  assert.match(tab, /up to about an hour/i);
+  assert.match(primer, /second reading to confirm/i);
+  assert.match(tab, /time on each reading/i);
 });
 
 test('the collapsed web alerts region keeps an accessible section heading', () => {

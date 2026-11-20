@@ -15,8 +15,10 @@
 
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken, type RecentDelivery } from './fanout';
 import { planDrain, spentOneShots, type DrainOutcome } from './drain';
-import { checkedWrite, readAllIn, recordOutcomes, IN_CHUNK } from './delivery-io';
-import { disableTokens, recordTokenFailures } from './token-health';
+import { checkedWrite, readAllIn, priorPushRecipients, recordDeliveryLedger, recordOutcomes, IN_CHUNK } from './delivery-io';
+import { one } from './rule-serialize';
+import { observationExpiration } from './observation-push';
+import { disableTokens } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage, type ExpoTicket } from '@/lib/push/expo';
 import type { NotificationPreferences } from '@/types/api';
 import { logger } from '@/lib/logger';
@@ -25,7 +27,7 @@ import { logger } from '@/lib/logger';
  * Events older than this are drained WITHOUT sending. After a delivery outage,
  * "your river is floatable" must never fire about water that has since dropped.
  */
-export const MAX_EVENT_AGE_HOURS = 3;
+export { MAX_EVENT_AGE_HOURS } from './observation-push';
 export const MAX_ATTEMPTS = 5;
 const EVENT_BATCH = 200;
 const COOLDOWN_WINDOW_MS = 4 * 60 * 60 * 1000;
@@ -64,10 +66,10 @@ export async function drainRiverEvents(
   options: RiverDeliveryOptions = {},
 ): Promise<RiverPassResult> {
   const now = options.now ?? new Date();
-  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages));
+  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages, { ttlReferenceSeconds: Math.floor(now.getTime() / 1000) }));
   const pauseMs = options.pauseMs ?? 300;
   const startedAt = Date.now();
-  const cutoff = new Date(now.getTime() - MAX_EVENT_AGE_HOURS * 60 * 60 * 1000).toISOString();
+
 
   const { data: pending, error: eventsError } = await supabase
     .from('river_condition_events')
@@ -76,7 +78,7 @@ export async function drainRiverEvents(
     // event whose pairing was deleted must still be delivered without it. An
     // inner join here would silently drop those alerts, which on a warning is
     // the worst possible way to save a line of copy.
-    .select('id, river_id, kind, old_condition_code, new_condition_code, reading_at, reading_value, reading_unit, detected_at, push_attempts, rivers!inner(name, slug), river_gauges(gauge_stations(name))')
+    .select('id, river_id, kind, old_condition_code, new_condition_code, reading_at, reading_value, reading_unit, detected_at, push_attempts, rivers!inner(name, slug, timezone), river_gauges(gauge_stations(name,provider))')
     .is('push_delivered_at', null)
     .lt('push_attempts', MAX_ATTEMPTS)
     .in('kind', ['floatable', 'warning', 'easing'])
@@ -88,13 +90,33 @@ export async function drainRiverEvents(
     return { body: { ok: false, error: 'Could not read outbox' }, status: 500 };
   }
 
-  const rows = pending ?? [];
+  type Station = { name: string; provider: string };
+  type River = { name: string; slug: string; timezone: string | null };
+  type Pairing = { gauge_stations: Station | Station[] | null };
+  type OutboxRow = Omit<FanoutEvent, 'expiration'> & {
+    detected_at: string;
+    push_attempts: number | null;
+    rivers: River | River[];
+    river_gauges: Pairing | Pairing[] | null;
+  };
+  const rows = ((pending ?? []) as OutboxRow[]).map((row) => {
+    const station = one(one(row.river_gauges)?.gauge_stations);
+    const river = one(row.rivers);
+    return {
+      ...row,
+      river_name: river?.name,
+      river_slug: river?.slug,
+      river_timezone: river?.timezone,
+      gauge_name: station?.name,
+      expiration: observationExpiration(row.detected_at, row.reading_at, station?.provider),
+    };
+  });
   if (rows.length === 0) {
     return { body: { ok: true, events: 0, sent: 0 }, status: 200 };
   }
 
   // Drain anything too old to be actionable, without sending.
-  const expired = rows.filter((r: { detected_at: string }) => r.detected_at < cutoff);
+  const expired = rows.filter((r: { expiration: number }) => r.expiration <= now.getTime() / 1000);
   if (expired.length > 0) {
     const ids = expired.map((r: { id: string }) => r.id);
     if (await markDelivered(supabase, ids, now)) {
@@ -102,41 +124,13 @@ export async function drainRiverEvents(
     }
   }
 
-  const fresh = rows.filter((r: { detected_at: string }) => r.detected_at >= cutoff);
+  const fresh = rows.filter((r: { expiration: number }) => r.expiration > now.getTime() / 1000);
   if (fresh.length === 0) {
     return { body: { ok: true, events: rows.length, expired: expired.length, sent: 0 }, status: 200 };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const events: FanoutEvent[] = fresh.map((r: any) => {
-    // PostgREST returns an embedded row as an object or a one-element array
-    // depending on the relationship it inferred; both shapes appear here.
-    const river = Array.isArray(r.rivers) ? r.rivers[0] : r.rivers;
-    const pairing = Array.isArray(r.river_gauges) ? r.river_gauges[0] : r.river_gauges;
-    const station = Array.isArray(pairing?.gauge_stations)
-      ? pairing.gauge_stations[0]
-      : pairing?.gauge_stations;
-    return {
-      id: r.id,
-      river_id: r.river_id,
-      kind: r.kind,
-      old_condition_code: r.old_condition_code,
-      new_condition_code: r.new_condition_code,
-      river_name: river?.name ?? null,
-      river_slug: river?.slug ?? null,
-      reading_at: r.reading_at,
-      gauge_name: station?.name ?? null,
-      reading_value: r.reading_value ?? null,
-      reading_unit: r.reading_unit ?? null,
-    };
-  });
-
-  // Kept out of FanoutEvent: how many times we've tried is delivery
-  // bookkeeping, and the fan-out policy has no business seeing it.
-  const attemptsByEvent = new Map<string, number>(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    fresh.map((r: any) => [r.id as string, (r.push_attempts as number) ?? 0])
-  );
+  const events: FanoutEvent[] = fresh;
+  const attemptsByEvent = new Map(fresh.map((row) => [row.id, row.push_attempts ?? 0]));
   const eventIds = events.map((e) => e.id);
   const riverIds = [...new Set(events.map((e) => e.river_id))];
 
@@ -240,16 +234,7 @@ export async function drainRiverEvents(
 
   // Who THIS batch of events already reached on an earlier pass. A retry is
   // for the recipients still missing, never for the ones already told.
-  const reachedRows = await readAllIn<{ event_id: string; user_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
-    supabase
-      .from('alert_push_deliveries')
-      .select('event_id, user_id')
-      .in('event_id', chunk)
-      .eq('status', 'sent')
-      .order('event_id')
-      .order('device_token_id')
-      .range(from, to),
-  );
+  const reachedRows = await priorPushRecipients(supabase, eventIds, 'river_event_id');
   const alreadyReached = new Set<string>();
   const previouslyReached = new Map<string, number>();
   for (const row of reachedRows) {
@@ -272,7 +257,7 @@ export async function drainRiverEvents(
   // ── Send ─────────────────────────────────────────────────────────────────
   let sent = 0;
   let failed = 0;
-  const failuresByToken = new Map<string, number>();
+
   /**
    * Recipients reached per event — the completion tally. Per USER, not per
    * message: a person with two phones is reached when the first one buzzes,
@@ -286,6 +271,7 @@ export async function drainRiverEvents(
    */
   const successBySubscription = new Map<string, number>();
 
+  const oneShotIds = new Set(plan.oneShotSubscriptionIds);
   const batches = chunkMessages(plan.messages.map((m) => m.message));
   for (const [index, batch] of batches.entries()) {
     const offset = index * 100;
@@ -304,9 +290,11 @@ export async function drainRiverEvents(
         successBySubscription.set(planned.subscriptionId, (successBySubscription.get(planned.subscriptionId) ?? 0) + 1);
       } else {
         failed++;
-        failuresByToken.set(planned.deviceTokenId, (failuresByToken.get(planned.deviceTokenId) ?? 0) + 1);
       }
       return {
+        sent_at: now.toISOString(),
+        receipt_checked_at: null,
+        one_shot_rule_id: ticket.status === 'ok' && oneShotIds.has(planned.subscriptionId) ? planned.subscriptionId : null,
         event_id: planned.eventId,
         device_token_id: planned.deviceTokenId,
         user_id: planned.userId,
@@ -318,29 +306,23 @@ export async function drainRiverEvents(
       };
     });
 
-    // onConflict: the PK is (event_id, device_token_id), so a retried pass
-    // records rather than duplicates. A failure here is the one write that can
-    // cause a duplicate push — the next pass learns who was reached from these
-    // rows — so it is logged as an error rather than swallowed.
-    await checkedWrite(
-      'delivery ledger write',
-      supabase.from('alert_push_deliveries').upsert(ledgerRows, { onConflict: 'event_id,device_token_id' }),
-    );
+    // Upserted on (event_id, device_token_id), so a retried pass records rather
+    // than duplicates. Logged, never thrown: these pushes have left, and
+    // aborting here would resend them. See recordDeliveryLedger.
+    await recordDeliveryLedger(supabase, 'river_event_id', ledgerRows);
 
     // Prune tokens Expo says are gone. DeviceNotRegistered usually arrives in
-    // the RECEIPT rather than the ticket, so this catches only some —
-    // failure_count below is the backstop.
+    // the receipt rather than the ticket, so the receipt poll also checks it.
     const dead = tickets
       .map((t, i) => (classifyTicketError(t) === 'device_not_registered' ? plan.messages[offset + i].deviceTokenId : null))
       .filter((id): id is string => !!id);
-    await disableTokens(supabase, dead);
+    await disableTokens(supabase, dead, now);
 
     // Jitter between batches so a fan-out doesn't become a synchronized
     // stampede back onto our own API when everyone opens the app.
     if (index < batches.length - 1 && pauseMs > 0) await sleep(pauseMs);
   }
 
-  await recordTokenFailures(supabase, failuresByToken);
 
   // When each subscription last reached somebody — every subscription a push
   // landed for, one-shot or not. `fired_at` is the one-shot SPEND marker and
@@ -381,7 +363,8 @@ export async function drainRiverEvents(
   }
 
   const drain = planDrain({
-    events: events.map((e) => ({ id: e.id, attempts: attemptsByEvent.get(e.id) ?? 0 })),
+    events: events.filter((event) => !plan.deferredEventIds.has(event.id))
+      .map((event) => ({ id: event.id, attempts: attemptsByEvent.get(event.id) ?? 0 })),
     plannedRecipients,
     reachedRecipients,
     previouslyReached,

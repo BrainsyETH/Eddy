@@ -12,7 +12,14 @@ struct WidgetGaugeChoice: Codable, Hashable, Identifiable {
   var defaultForGauge: Bool
 
   var url: URL {
-    URL(string: "eddy://gauge")!.appendingPathComponent(siteId)
+    let base = URL(string: "eddy://gauge")!.appendingPathComponent(siteId)
+    var parts = URLComponents(url: base, resolvingAgainstBaseURL: false)
+    let context = [
+      riverId.map { URLQueryItem(name: "riverId", value: $0) },
+      riverSlug.map { URLQueryItem(name: "riverSlug", value: $0) },
+    ].compactMap { $0 }
+    if !context.isEmpty { parts?.queryItems = context }
+    return parts?.url ?? base
   }
 }
 
@@ -40,6 +47,7 @@ struct WidgetFloodAlerts: Codable {
     var ink: String
     var chipBorder: String
   }
+  var checkedAt: Double?
   var validUntil: Double
   var warnings: [Warning]
   var undatedWarningUntil: Double?

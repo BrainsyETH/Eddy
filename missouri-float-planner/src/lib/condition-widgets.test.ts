@@ -11,6 +11,8 @@ import {
   WIDGET_GUIDE, WIDGET_ONBOARDING_KEY, widgetGuideSteps, widgetGuide,
   hasSeenWidgetGuide, markWidgetGuideSeen,
 } from '../../../eddy-ios/src/lib/widgetOnboarding';
+import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
+import { chartSharePageRiver } from '../../shared/chart-share';
 import type { MapGauge } from '../../../packages/eddy-types';
 
 const NOW = Date.parse('2026-10-15T12:00:00Z');
@@ -116,6 +118,7 @@ test('NWS warnings are independent of level grades, observation age and rating a
     { readingTimestamp: new Date(NOW - STALE_READING_MS - 1).toISOString() }]) {
     const result = widgetGaugeSnapshot({ ...gauge, ...changed, floodAlerts: [{ event: 'Flash Flood Warning', expires }] }, NOW);
     assert.deepEqual(result.floodAlerts, {
+      checkedAt: NOW,
       validUntil: NOW + WIDGET_ALERT_LIFETIME_MS,
       undatedWarningUntil: NOW + WIDGET_UNDATED_WARNING_LIFETIME_MS,
       warnings: [{ label: 'Flash Flood Warning', expiresAt: NOW + 3_600_000,
@@ -203,6 +206,20 @@ test('catalog chooses the physical primary for a gauge and the matching primary 
   assert.equal(widgetConfiguration(catalog, [riverStar]).favorites[0].riverSlug, 'courtois');
   assert.equal(catalog[0].stationName, 'Steelville, MO');
   assert.deepEqual(widgetGaugeCatalog([{ ...mapGauge, thresholds: [ladder, borrowed] }]), catalog);
+});
+
+test('a shared-gauge widget link selects the same river’s ladder on cold and warm launches', () => {
+  const courtois = { ...ladder, riverId: 'courtois-id', riverSlug: 'courtois', riverName: 'Courtois Creek', distanceFromSectionMiles: 5 };
+  const thresholds = [ladder, courtois];
+  const catalog = widgetGaugeCatalog([{ ...mapGauge, thresholds }]);
+  const choice = catalog.find(item => item.riverSlug === 'courtois')!;
+  const query = new URLSearchParams({ riverId: choice.riverId!, riverSlug: choice.riverSlug! });
+  for (const initial of [false, true]) {
+    const destination = redirectSystemPath({ path: `eddy://gauge/${choice.siteId}?${query}`, initial });
+    const url = new URL(destination, 'https://eddy.guide');
+    assert.equal(url.pathname, `${initial ? '/(tabs)/(today)' : ''}/gauge/07014000`);
+    assert.equal(chartSharePageRiver(thresholds, url.searchParams.get('riverId')!, url.searchParams.get('riverSlug')!), courtois);
+  }
 });
 
 test('favorites preserve order, deduplicate, exclude dams, cap at three and clear offline', () => {

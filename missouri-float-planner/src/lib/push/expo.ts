@@ -37,6 +37,7 @@ export interface ExpoMessage {
    * is documented, and it takes precedence when both are sent.
    */
   ttl?: number;
+  interruptionLevel?: 'time-sensitive';
 }
 
 export interface ExpoTicket {
@@ -95,6 +96,9 @@ export function chunkMessages(
 }
 
 export interface SendOptions {
+  /** Start of the delivery pass, in Unix seconds, for TTLs derived from an observation deadline. */
+  ttlReferenceSeconds?: number;
+  nowMs?: () => number;
   /** Injected for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
   /** Retries for transient failures (429 / 5xx). */
@@ -137,10 +141,19 @@ export async function sendExpoPush(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      const nowMs = (options.nowMs ?? Date.now)();
+      const active = messages.flatMap((message, index) => {
+        if (options.ttlReferenceSeconds == null || message.ttl == null) return [{ index, message }];
+        const deadline = options.ttlReferenceSeconds + message.ttl;
+        const ttl = Math.min(message.ttl, Math.floor(deadline - nowMs / 1000));
+        return ttl > 0 ? [{ index, message: { ...message, ttl } }] : [];
+      });
+      if (!active.length) return errorTickets(messages, 'expired before dispatch');
+
       const response = await doFetch(EXPO_PUSH_URL, {
         method: 'POST',
         headers,
-        body: JSON.stringify(messages),
+        body: JSON.stringify(active.map(item => item.message)),
       });
 
       // Transient: back off and retry the whole batch.
@@ -167,16 +180,12 @@ export async function sendExpoPush(
         return errorTickets(messages, 'malformed response: missing data[]');
       }
 
-      // Defensive: pad if Expo returns fewer tickets than messages so index
-      // alignment (ticket[i] ↔ messages[i]) always holds for the caller.
-      if (tickets.length < messages.length) {
-        return [
-          ...tickets,
-          ...errorTickets(messages.slice(tickets.length), 'missing ticket in response'),
-        ];
+      // Keep ticket indices stable when some readings expired during backoff.
+      const aligned = errorTickets(messages, 'expired before dispatch');
+      for (const [i, item] of active.entries()) {
+        aligned[item.index] = tickets[i] ?? { status: 'error', message: 'missing ticket in response' };
       }
-
-      return tickets.slice(0, messages.length) as ExpoTicket[];
+      return aligned;
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
       if (attempt < maxRetries) {

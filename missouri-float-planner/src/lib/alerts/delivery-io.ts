@@ -19,7 +19,8 @@ import type { DrainOutcome } from './drain';
 import { logger } from '@/lib/logger';
 
 export { READ_PAGE, IN_CHUNK, readAll, readAllIn, ReadError as DeliveryReadError } from '@/lib/supabase/paged-read';
-import { IN_CHUNK } from '@/lib/supabase/paged-read';
+import { IN_CHUNK, readAllIn } from '@/lib/supabase/paged-read';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Await a write and log it if it failed. Returns whether it succeeded.
@@ -45,6 +46,76 @@ export async function checkedWrite(
 /** Missing column (Postgres 42703) or one PostgREST's schema cache lacks (PGRST204). */
 function isMissingColumn(error: { code?: string } | null): boolean {
   return error?.code === '42703' || error?.code === 'PGRST204';
+}
+
+type EventColumn = 'river_event_id' | 'gauge_event_id';
+interface TicketRow {
+  event_id: string;
+  user_id: string;
+  status: string;
+  sent_at: string;
+  one_shot_rule_id?: string | null;
+}
+
+/** The normal ledger and the private record of acceptances whose tickets could not be saved. */
+export async function priorPushRecipients(db: SupabaseClient, eventIds: string[], eventColumn: EventColumn) {
+  const [tickets, unrecorded] = await Promise.all([
+    readAllIn<{ event_id: string; user_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
+      db.from('alert_push_deliveries').select('event_id, user_id')
+        .eq('event_source', eventColumn === 'river_event_id' ? 'river_condition' : 'gauge_alert')
+        .eq('status', 'sent').in('event_id', chunk)
+        .order('event_id').order('device_token_id').range(from, to)),
+    readAllIn<{ event_id: string; user_id: string }>('unrecorded recipients', eventIds, async (chunk, from, to) => {
+      const { data, error } = await db.from('alert_push_unrecorded_recipients')
+        .select('river_event_id, gauge_event_id, user_id').in(eventColumn, chunk)
+        .order(eventColumn).order('user_id').range(from, to);
+      // The table is additive. Any other read error must leave the outbox pending.
+      if (error?.code === 'PGRST205' || error?.code === '42P01') return { data: [], error: null };
+      return { data: data?.map(row => ({ event_id: row[eventColumn], user_id: row.user_id })) ?? [], error };
+    }),
+  ]);
+  return [...tickets, ...unrecorded];
+}
+
+let warnedMissingSpendLink = false;
+
+/** Once Expo has accepted a batch, retry its database write independently of sending. */
+export async function recordDeliveryLedger(db: SupabaseClient, eventColumn: EventColumn, rows: TicketRow[]): Promise<void> {
+  const upsert = async (batch: TicketRow[]) => {
+    try {
+      const { error } = await db.from('alert_push_deliveries').upsert(batch, { onConflict: 'event_id,device_token_id' });
+      return error;
+    } catch (error) {
+      return { code: '', message: String(error) };
+    }
+  };
+  const error = await upsert(rows);
+  if (!error) return;
+  let retryRows = rows;
+  if (isMissingColumn(error) && error.message.includes('one_shot_rule_id')) {
+    if (!warnedMissingSpendLink) {
+      warnedMissingSpendLink = true;
+      logger.warn('[deliver-push] one_shot_rule_id missing; apply migration 20261120174228');
+    }
+    retryRows = rows.map(row => {
+      const legacy = { ...row };
+      delete legacy.one_shot_rule_id;
+      return legacy;
+    });
+  }
+  const retryError = await upsert(retryRows);
+  if (!retryError) return;
+  logger.error('[deliver-push] could not record Expo tickets after retry', new Error(retryError.message));
+
+  // One phone may succeed while another subscriber still needs this crossing.
+  // The worker can use these acceptances on its next pass even without receipts.
+  const accepted = rows.filter(row => row.status === 'sent').map(row => ({
+    [eventColumn]: row.event_id, user_id: row.user_id, one_shot_rule_id: row.one_shot_rule_id, sent_at: row.sent_at,
+  }));
+  if (accepted.length) {
+    await checkedWrite('unrecorded recipient write', db.from('alert_push_unrecorded_recipients')
+      .upsert(accepted, { onConflict: `${eventColumn},user_id`, ignoreDuplicates: true }));
+  }
 }
 
 let warnedMissingOutcome = false;
