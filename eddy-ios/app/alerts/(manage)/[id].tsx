@@ -16,7 +16,7 @@ import { AlertCreationFrame } from '@/components/AlertCreationFrame';
 import { useAlertEditGuard } from '@/hooks/useAlertEditGuard';
 import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
 import { alertDraftChanged, parseThresholdInput, type AlertDraft } from '@/lib/alertCreation';
-import { groupAlertRules } from '@/lib/alertGroups';
+import { followersOf, groupAlertRules } from '@/lib/alertGroups';
 import { staleReadingNote } from '@/lib/alertCopy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -318,6 +318,8 @@ export default function EditAlertScreen() {
       ? (rule.gaugeName ?? rule.riverName ?? 'this water')
       : (rule.riverName ?? rule.gaugeName ?? 'this water');
   const canSave = valueValid && maxValid && (dirty || spent);
+  // The gauges on this river alert's own setting — the ones a save carries to.
+  const followerCount = followersOf(rules ?? [], rule).length;
 
   const chip = (selected: boolean) => [
     styles.chip,
@@ -575,6 +577,20 @@ export default function EditAlertScreen() {
             trackColor={{ true: colors.interactive, false: colors.border }}
           />
         </Pressable>
+
+        {/* THE REACH OF SAVE, said before it is pressed. A river alert's
+            setting is also the setting of the gauges added to it, and the
+            server changes them in the same request. Only while there is a
+            change to save: at rest it would be a caveat about nothing. */}
+        {dirty && followerCount > 0 ? (
+          <View style={[styles.notice, { borderColor: colors.border }]}>
+            <Text style={[styles.noticeText, { color: colors.textMuted }]}>
+              {followerCount === 1
+                ? 'Saving also changes the other gauge this alert covers.'
+                : `Saving also changes the ${followerCount} other gauges this alert covers.`}
+            </Text>
+          </View>
+        ) : null}
 
         <Pressable
           onPress={onDelete}

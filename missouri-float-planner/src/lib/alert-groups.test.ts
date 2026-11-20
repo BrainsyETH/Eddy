@@ -3,9 +3,18 @@ import test from 'node:test';
 import type { AlertRule } from '@eddy/types';
 import {
   alertRuleKey,
+  applyParentChange,
+  coverageLine,
+  followersOf,
+  followsParent,
   groupAlertRules,
+  groupCoverage,
+  groupLastActivity,
   isGatedByParent,
   rulesInGroup,
+  staleCoveredStation,
+  stationShortName,
+  visibleRuleCount,
 } from '../../../eddy-ios/src/lib/alertGroups';
 
 // The Expo app has no test runner, so its pure logic is covered here — the same
@@ -235,4 +244,209 @@ test('a child paused by hand stays paused when the parent is resumed', () => {
       ['gauge-van-buren', false],
     ],
   );
+});
+
+// ── Coverage: a gauge that extends the river alert is not a row ─────────────
+//
+// A child created from the river alert's edit screen copies its setting, and
+// the list names it on the river's row instead of drawing a second alert. What
+// these protect is the other half of that claim: a child that has STOPPED doing
+// what its parent does must keep a row, because "Main gauge + Akers" over a
+// station that is paused, or on a different trigger, is the row lying.
+
+test('a child on the parent’s setting is folded into the parent’s row', () => {
+  const group = groupAlertRules([currentRiver, currentAkers, currentVanBuren])[0];
+  const { covered, separate } = groupCoverage(group);
+  assert.deepEqual(covered.map((c) => c.id), ['gauge-akers', 'gauge-van-buren']);
+  assert.deepEqual(separate, []);
+});
+
+test('a child paused by hand keeps a row of its own', () => {
+  // Otherwise the river's row would name a station nothing is watching, and
+  // the switch that paused it would have nowhere to be switched back.
+  const off = { ...currentVanBuren, enabled: false };
+  const group = groupAlertRules([currentRiver, currentAkers, off])[0];
+  const { covered, separate } = groupCoverage(group);
+  assert.deepEqual(covered.map((c) => c.id), ['gauge-akers']);
+  assert.deepEqual(separate.map((c) => c.id), ['gauge-van-buren']);
+});
+
+test('a child given its own trigger keeps a row of its own', () => {
+  const otherKind = { ...currentAkers, conditionKind: 'safety' as const };
+  const ownLevel = {
+    ...currentVanBuren,
+    mode: 'threshold' as const,
+    conditionKind: null,
+    metric: 'gauge_height_ft' as const,
+    comparator: 'above' as const,
+    thresholdValue: 3,
+  };
+  assert.equal(followsParent(otherKind, currentRiver), false);
+  assert.equal(followsParent(ownLevel, currentRiver), false);
+});
+
+test('a one-time child of a repeating river alert keeps a row of its own', () => {
+  // It sends once and the river alert keeps sending; folded in, the row would
+  // promise coverage that ends after the first notification.
+  assert.equal(followsParent({ ...currentAkers, oneShot: true }, currentRiver), false);
+});
+
+test('a one-time river alert covers its one-time gauges until one has sent', () => {
+  // Gauges added to a one-time alert are created one-time with it. One that
+  // has sent is switched off by delivery, so the row stops naming it.
+  const oneTime = { ...currentRiver, oneShot: true };
+  assert.equal(followsParent({ ...currentAkers, oneShot: true }, oneTime), true);
+  assert.equal(
+    followsParent(
+      { ...currentAkers, oneShot: true, enabled: false, firedAt: '2026-08-02T00:00:00.000Z' },
+      oneTime,
+    ),
+    false,
+  );
+});
+
+test('a paused parent still covers the same stations', () => {
+  // Pausing writes one row and touches no child, so the split must not move:
+  // a station that jumped out into its own row when the river alert was paused
+  // would be the "on beside a paused parent" row this change removed.
+  const group = groupAlertRules([{ ...currentRiver, enabled: false }, currentAkers])[0];
+  assert.deepEqual(groupCoverage(group).covered.map((c) => c.id), ['gauge-akers']);
+});
+
+test('every child is either covered or separate, never both or neither', () => {
+  const off = { ...currentVanBuren, enabled: false };
+  const group = groupAlertRules([currentRiver, currentAkers, off])[0];
+  const { covered, separate } = groupCoverage(group);
+  assert.deepEqual(
+    [...covered, ...separate].map(alertRuleKey).sort(),
+    group.children.map(alertRuleKey).sort(),
+  );
+});
+
+test('a station is named by the part that tells it from its neighbours', () => {
+  assert.equal(stationShortName('Meramec River near Sullivan, MO'), 'Sullivan');
+  assert.equal(stationShortName('Current River at Van Buren, MO'), 'Van Buren');
+  assert.equal(stationShortName('Jacks Fork at Alley Spring, MO'), 'Alley Spring');
+  assert.equal(stationShortName('Buffalo River at Carver'), 'Carver');
+  // "above Akers" and "Akers" are different places on the river.
+  assert.equal(stationShortName('Current River above Akers, MO'), 'above Akers');
+  assert.equal(stationShortName('White River below Bull Shoals Dam'), 'below Bull Shoals Dam');
+  // The first preposition splits, so a compound location stays whole.
+  assert.equal(
+    stationShortName('Niangua River at Tunnel Dam near Macks Creek, MO'),
+    'Tunnel Dam near Macks Creek',
+  );
+  // An unrecognised shape is left alone rather than guessed at.
+  assert.equal(stationShortName('Elsewhere'), 'Elsewhere');
+  assert.equal(stationShortName(null), 'another gauge');
+});
+
+test('the coverage line names the stations, then counts them', () => {
+  assert.equal(coverageLine([]), null);
+  assert.equal(coverageLine([currentAkers]), 'Main gauge + Akers');
+  assert.equal(coverageLine([currentAkers, currentVanBuren]), 'Main gauge + Akers and Van Buren');
+  const doniphan = { ...currentAkers, id: 'g3', gaugeName: 'Current River at Doniphan, MO' };
+  assert.equal(
+    coverageLine([currentAkers, currentVanBuren, doniphan]),
+    'Main gauge + Akers, Van Buren and Doniphan',
+  );
+  const eminence = { ...currentAkers, id: 'g4', gaugeName: 'Current River at Eminence, MO' };
+  assert.equal(
+    coverageLine([currentAkers, currentVanBuren, doniphan, eminence]),
+    'Main gauge + 4 more gauges',
+  );
+});
+
+test('a crossing at a covered gauge is reported as a crossing, not a send', () => {
+  // A gauge rule's time is stamped when its reading crosses, before quiet hours
+  // or the push have had their say. Calling that "Last sent" claimed a
+  // notification quiet hours had suppressed. Only the river alert's own time
+  // records a send.
+  assert.equal(groupLastActivity(currentRiver, [currentAkers]), null);
+
+  const crossed = { ...currentAkers, lastTriggeredAt: '2026-08-05T12:00:00.000Z' };
+  const activity = groupLastActivity(currentRiver, [crossed]);
+  assert.equal(activity?.type, 'trigger');
+  assert.equal(activity?.at, '2026-08-05T12:00:00.000Z');
+  assert.equal(activity?.type === 'trigger' ? activity.station.id : null, 'gauge-akers');
+});
+
+test('the river alert’s own send is reported as a send, and the later one wins', () => {
+  const crossed = { ...currentAkers, lastTriggeredAt: '2026-08-05T12:00:00.000Z' };
+  const sentLater = { ...currentRiver, lastTriggeredAt: '2026-08-06T12:00:00.000Z' };
+  assert.deepEqual(groupLastActivity(sentLater, [crossed]), {
+    type: 'sent',
+    at: '2026-08-06T12:00:00.000Z',
+  });
+  const sentEarlier = { ...currentRiver, lastTriggeredAt: '2026-08-04T12:00:00.000Z' };
+  assert.equal(groupLastActivity(sentEarlier, [crossed])?.type, 'trigger');
+});
+
+test('a folded-in station that has stopped reporting is surfaced', () => {
+  assert.equal(staleCoveredStation([currentAkers, currentVanBuren]), null);
+  const stale = { ...currentVanBuren, readingStale: true };
+  assert.equal(staleCoveredStation([currentAkers, stale])?.id, 'gauge-van-buren');
+});
+
+// ── A change to the river alert reaches the gauges that follow it ───────────
+//
+// The server makes this change (lib/alerts/parent-follow.ts); the app applies
+// the same rule to its own list first, so covered gauges do not flash out into
+// exception rows. Both ask the same question of the same fields.
+
+test('a new kind on the river alert carries to the gauges on the old one', () => {
+  const ownKind = { ...currentVanBuren, conditionKind: 'safety' as const };
+  const next = applyParentChange([currentRiver, currentAkers, ownKind], currentRiver, {
+    conditionKind: 'floatable',
+  });
+  assert.equal(next.find((r) => r.id === 'gauge-akers')?.conditionKind, 'floatable');
+  // Given its own trigger on purpose; a change to the river alert leaves it.
+  assert.equal(next.find((r) => r.id === 'gauge-van-buren')?.conditionKind, 'safety');
+  // The parent is the caller's to patch.
+  assert.equal(next.find((r) => r.id === 'sub-current')?.conditionKind, 'all');
+});
+
+test('a gauge under a different river alert is never touched', () => {
+  const meramecChild = { ...currentAkers, id: 'gauge-other', parentId: 'sub-meramec' };
+  const next = applyParentChange([currentRiver, meramecChild], currentRiver, {
+    conditionKind: 'floatable',
+  });
+  assert.equal(next.find((r) => r.id === 'gauge-other')?.conditionKind, 'all');
+});
+
+test('re-sending the saved setting changes nothing', () => {
+  const input = [currentRiver, currentAkers];
+  assert.equal(applyParentChange(input, currentRiver, { conditionKind: 'all', oneShot: false }), input);
+});
+
+test('re-arming the river alert brings back the spent gauges that follow it', () => {
+  const oneTime = { ...currentRiver, oneShot: true };
+  const spent = {
+    ...currentAkers,
+    oneShot: true,
+    enabled: false,
+    firedAt: '2026-08-02T00:00:00.000Z',
+  };
+  const next = applyParentChange([oneTime, spent], oneTime, { rearm: true });
+  const akers = next.find((r) => r.id === 'gauge-akers');
+  assert.equal(akers?.firedAt, null);
+  assert.equal(akers?.enabled, true);
+});
+
+test('the followers are the children on the river alert’s setting, paused or not', () => {
+  const pausedByHand = { ...currentVanBuren, enabled: false };
+  const ownKind = { ...currentAkers, id: 'gauge-own', conditionKind: 'safety' as const };
+  assert.deepEqual(
+    followersOf([currentRiver, currentAkers, pausedByHand, ownKind], currentRiver).map((r) => r.id),
+    ['gauge-akers', 'gauge-van-buren'],
+  );
+});
+
+test('the Mine count is rows drawn, not rules stored', () => {
+  // One river alert with two gauges folded in is one row; a badge of three over
+  // it read as two alerts missing.
+  assert.equal(visibleRuleCount(groupAlertRules([currentRiver, currentAkers, currentVanBuren])), 1);
+  // A gauge paused by hand has a row of its own, and is counted.
+  const off = { ...currentVanBuren, enabled: false };
+  assert.equal(visibleRuleCount(groupAlertRules([currentRiver, currentAkers, off])), 2);
 });

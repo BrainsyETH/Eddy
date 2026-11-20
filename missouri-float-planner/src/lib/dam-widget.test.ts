@@ -7,6 +7,7 @@ import { damWidgetSnapshot } from '../../shared/dam-widget';
 import * as generation from '../../shared/dam-generation';
 import * as scheduleCopy from '../../shared/dam-schedule-copy';
 import { damFavoriteDisplay, packetHourGenerating } from '../../../eddy-ios/src/lib/damFavoriteDisplay';
+import * as typography from '../../../eddy-ios/src/theme/typography';
 import type { DamSnapshot } from '../../shared/dam-types';
 import { USACE_DAMS, hasPowerhouse } from './flow-providers/usace-registry';
 
@@ -303,7 +304,7 @@ test('Favorites renders total release and its age for flood-control dams and pow
     '@/hooks/useObservationClock': { useObservationClock: () => now },
     '@/lib/damFavoriteDisplay': { damFavoriteDisplay, packetHourGenerating },
     '@/theme/ThemeProvider': { useTheme: () => ({ colors: {}, elevation: () => ({}) }) },
-    '@/theme/typography': { fonts: {}, type: {} },
+    '@/theme/typography': typography,
     '@/theme/layout': { radii: {} },
     '@eddy/conditions/dam-generation': generation,
     '@eddy/conditions/dam-schedule-copy': scheduleCopy,
