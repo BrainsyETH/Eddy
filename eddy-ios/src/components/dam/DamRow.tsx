@@ -1,15 +1,8 @@
 // eddy-ios/src/components/dam/DamRow.tsx
 // One USACE project in a list.
 //
-// Leads with generating state rather than a release number, because that is the
-// fact a wading angler acts on and the number is context for it. A dam that
-// publishes no turbine flow says neither — Kansas City district posts nothing
-// to CWMS, and "Not generating" for those would be an observation nobody made.
-//
-// The state chip takes its colour from `accent`, never conditionColor():
-// generating is a fact about machinery, not a verdict about whether a river is
-// floatable, and borrowing that palette would make the app appear to have
-// issued a call it has not.
+// The release and its age sit beside the dam name. The turbine observation
+// gets its own line so the icon stays with its label when the text wraps.
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -63,6 +56,7 @@ function DamRowComponent({
   const generation = generationNow(dam, now);
   const status = generationStatusLabel(generation);
   const generatingNow = generation.kind === 'generating' && speaksForNow(generation.age);
+  const statusColor = generatingNow ? colors.interactive : colors.textSubtle;
   const release = dam.metrics.release;
   const releaseAge = release ? relativeAge(release.at, now) : null;
 
@@ -91,50 +85,46 @@ function DamRowComponent({
       ]}
       accessibilityRole="button"
     >
-      <View style={styles.topRow}>
+      <View style={styles.columns}>
         <KindMark kind="dam" color={colors.textMuted} />
-        <View style={styles.main}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {dam.name}
-          </Text>
-          <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-            {[
-              dam.lakeName,
-              dam.state,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        </View>
+        <View style={styles.body}>
+          <View style={styles.columns}>
+            <View style={styles.main}>
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                {dam.name}
+              </Text>
+              <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+                {[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
+              </Text>
+            </View>
+            {release ? (
+              <View style={styles.right}>
+                <Text style={[styles.release, { color: colors.text }]}>
+                  {Math.round(release.value).toLocaleString()} cfs
+                </Text>
+                <Text style={[styles.meta, { color: colors.textSubtle }]}>
+                  {releaseAge ?? 'Observation time unavailable'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
-        <View style={styles.right}>
           {status ? (
             <View style={styles.stateRow}>
               <ControlIcon
                 name={generation.kind === 'unavailable' ? 'help-circle-outline'
                   : generation.kind === 'generating' ? 'flash' : 'flash-off-outline'}
                 size={13}
-                color={generatingNow ? colors.interactive : colors.textSubtle}
+                color={statusColor}
+                style={styles.stateIcon}
+                allowFontScaling
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
               />
-              <Text
-                style={[
-                  styles.state,
-                  { color: generatingNow ? colors.interactive : colors.textSubtle },
-                ]}
-              >
+              <Text style={[styles.state, { color: statusColor }]}>
                 {status}
               </Text>
             </View>
-          ) : null}
-          {release ? (
-            <>
-              <Text style={[styles.release, { color: colors.text }]}>
-                {Math.round(release.value).toLocaleString()} cfs
-              </Text>
-              <Text style={[styles.meta, { color: colors.textSubtle }]}>
-                {releaseAge ?? 'Observation time unavailable'}
-              </Text>
-            </>
           ) : null}
         </View>
 
@@ -176,9 +166,6 @@ function DamRowComponent({
 export const DamRow = memo(DamRowComponent);
 
 const styles = StyleSheet.create({
-  // A column now, so a schedule can sit under the row rather than beside it.
-  // The horizontal line that WAS this style is `topRow`; nothing about its
-  // layout changed, so a row without a schedule renders identically.
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -186,14 +173,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 14,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  columns: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  body: { flex: 1, gap: 4 },
   schedule: { marginTop: 8 },
   idle: { ...t.xs, marginTop: 4 },
   main: { flex: 1, gap: 2 },
   name: { ...t.base, fontFamily: fonts.semibold },
   meta: { ...t.xs },
   right: { alignItems: 'flex-end', gap: 2, maxWidth: '48%', flexShrink: 1 },
-  stateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  state: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1, textAlign: 'right' },
+  stateRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
+  stateIcon: { lineHeight: t.xs.lineHeight },
+  state: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1 },
   release: { ...t.sm, fontFamily: fonts.heading },
 });
