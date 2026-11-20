@@ -31,6 +31,7 @@ scripts/lakes/recreation-status.test.ts
 scripts/lakes/savannah-schedule.test.ts
 scripts/lib/db.test.ts
 scripts/lib/eddy-read-audit.test.ts
+scripts/lib/dam-read-report.test.ts
 scripts/lib/eddy-read-report.test.ts
 scripts/lib/guide-refresh.test.ts
 scripts/lib/mcp-eval-review.test.ts

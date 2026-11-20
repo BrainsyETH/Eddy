@@ -18,9 +18,12 @@
 // something the numbers do not. ADR 0017.
 //
 // ── Current presentation ───────────────────────────────────────────────────
-// takeaway is one short headline and one interpretation sentence. The schedule
-// and generation-pattern chart already surround the Read. The full report
-// fields below remain for released clients during the mobile rollout.
+// takeaway is one short headline and at most two sentences: what is posted
+// next from the serving clock, with how long it runs and how hard, then the
+// one thing about today that most departs from the last two weeks. See "The
+// compact Read" below. The schedule and generation-pattern chart already
+// surround the Read. The full report fields below remain for released clients
+// during the mobile rollout.
 //
 // ── Legacy reading order ───────────────────────────────────────────────────
 //   headline   today's posted generation and how it compares with recent days
@@ -419,6 +422,14 @@ export interface PostedWindow {
   fromHour: number;
   toHour: number;
   label: string;
+  /**
+   * The window's strongest and weakest posted hour, as a share of the dam's
+   * scheduling capacity (posted megawatts over SWPA's capacity for the
+   * project). Null without that capacity; absent on facts stored before
+   * 2026-11-20.
+   */
+  peakShare?: number | null;
+  lowShare?: number | null;
 }
 
 export interface PostedDay {
@@ -429,6 +440,10 @@ export interface PostedDay {
   /** First posted start of the WHOLE day, hour-of-day; null when none. */
   firstStartHour: number | null;
   minimumFlowOnly: boolean;
+  /** Hours of posted generation in the WHOLE day. Absent on facts stored before 2026-11-20. */
+  generatingHours?: number;
+  /** Any posted generation before MORNING_ENDS_HOUR, in the WHOLE day. Absent as above. */
+  morningGeneration?: boolean;
 }
 
 export interface PostedSchedule {
@@ -447,6 +462,7 @@ export interface PostedSchedule {
 export function postedSchedule(
   schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   now = Date.now(),
+  reference: GenerationRef | null = null,
 ): PostedSchedule | null {
   const clock = centralClock(now);
   const todayIndex = schedule.findIndex((d) => d.scheduleDate === clock.dayKey);
@@ -457,8 +473,13 @@ export function postedSchedule(
   const next = schedule[todayIndex + 1];
   if (next && next.scheduleDate === nextDayKey(clock.dayKey)) picked.push(next);
 
+  const capacityMw = reference?.schedulingCapacityMw;
+  const share = (megawatts: number) =>
+    typeof capacityMw === 'number' && Number.isFinite(capacityMw) && capacityMw > 0 ? megawatts / capacityMw : null;
+
   const days = picked.map((day, offset): PostedDay => {
     const on = new Map(day.hours.map((h) => [h.hourEnding, scheduledGeneration(h)]));
+    const megawatts = new Map(day.hours.map((h) => [h.hourEnding, h.megawatts]));
     const windows: PostedWindow[] = [];
     let runStart: number | null = null;
     for (let he = 1; he <= 25; he += 1) {
@@ -466,7 +487,15 @@ export function postedSchedule(
       if (generating && runStart === null) runStart = he;
       if (!generating && runStart !== null) {
         const to = he - 1;
-        windows.push({ fromHour: runStart - 1, toHour: to, label: windowLabel(runStart, to) });
+        const posted: number[] = [];
+        for (let h = runStart; h <= to; h += 1) posted.push(megawatts.get(h) ?? 0);
+        windows.push({
+          fromHour: runStart - 1,
+          toHour: to,
+          label: windowLabel(runStart, to),
+          peakShare: share(Math.max(...posted)),
+          lowShare: share(Math.min(...posted)),
+        });
         runStart = null;
       }
     }
@@ -476,6 +505,8 @@ export function postedSchedule(
       windows: offset === 0 ? windows.filter((w) => w.toHour > currentHour) : windows,
       firstStartHour: windows.length ? windows[0].fromHour : null,
       minimumFlowOnly: windows.length === 0 && day.hours.some((h) => h.minimumFlow === true),
+      generatingHours: windows.reduce((sum, w) => sum + (w.toHour - w.fromHour), 0),
+      morningGeneration: windows.some((w) => w.fromHour < MORNING_ENDS_HOUR),
     };
   });
 
@@ -488,6 +519,12 @@ export function postedSchedule(
 export interface GenerationRef {
   units: number;
   fullGenerationCfs: number;
+  /**
+   * SWPA's scheduling capacity for the project, the denominator a posted
+   * megawatt figure is a share of. Absent on facts stored before 2026-11-20,
+   * and the Read then leaves the size of a posted run out.
+   */
+  schedulingCapacityMw?: number;
 }
 
 /**
@@ -544,7 +581,7 @@ export function buildDamReadFacts(input: DamReadInputs): DamReadFacts {
     damName: input.damName,
     reference: input.reference,
     todayGroup: isWeekendDay(centralClock(now).dayKey) ? 'weekend' : 'weekday',
-    posted: postedSchedule(input.schedule, now),
+    posted: postedSchedule(input.schedule, now, input.reference),
     weekday: startPattern(days, 'weekday'),
     weekend: startPattern(days, 'weekend'),
     shape: recentShape(days),
@@ -563,10 +600,11 @@ export function withCurrentSchedule(
   facts: DamReadFacts,
   schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>> | null,
   now = Date.now(),
+  reference: GenerationRef | null = facts.reference,
 ): DamReadFacts {
   return {
     ...facts,
-    posted: schedule === null ? advancePosted(facts.posted, now) : postedSchedule(schedule, now),
+    posted: schedule === null ? advancePosted(facts.posted, now) : postedSchedule(schedule, now, reference),
     todayGroup: isWeekendDay(centralClock(now).dayKey) ? 'weekend' : 'weekday',
     now,
   };
@@ -685,94 +723,283 @@ function compactException(f: DamReadFacts): { headline: string; clause: string }
   };
 }
 
+// ── The compact Read ───────────────────────────────────────────────────────
+//
+// A headline and at most two sentences (TAKEAWAY_MAX_WORDS). The first
+// sentence is what is posted NEXT, from the serving clock: the run in progress
+// or the next one, how long it lasts and how hard the dam is posted to run.
+// The second is the one thing about today that most departs from the last two
+// weeks, or the schedule's track record when nothing does.
+//
+// Why it changed (2026-11-20). The earlier takeaway compared the day's FIRST
+// posted start with the usual first start and said nothing else. Read against
+// the Reads stored on 2026-11-19: Norfork's said "A familiar start time" on a
+// day posted for 3 hours where recent days ran 12; Table Rock's said starts
+// were "too scattered for a usual time" on a morning with nothing posted until
+// 4 PM, after generation on 10 of the last 14 mornings; Bull Shoals' still led
+// with its 5 AM start at 1 PM; and every evening Read said tomorrow was not
+// posted and stopped, beside a pattern that could have answered. ADR 0017.
+
+/** Longest compact Read, in words. */
+export const TAKEAWAY_MAX_WORDS = 60;
+/** From this Central hour the reader is planning tomorrow. */
+export const EVENING_STARTS_HOUR = 17;
+/** Mornings are called busy at or above this share of known mornings with generation. */
+export const BUSY_MORNINGS_SHARE = 0.6;
+/** A posted day is short or long only when it is this many hours from the typical one, and half or double it. */
+export const DAY_LENGTH_GAP_HOURS = 3;
+
+/** The Central hour-of-day (0-23) the serving clock is in. */
+function servingHour(now: number): number {
+  return hourEndingNow(centralClock(now).hoursElapsed) - 1;
+}
+
 /**
- * One takeaway, not a transcription of the schedule or the pattern chart.
- * Every time refers to the posted plan, never observed generation. Recomputed
- * at serve time, with no truncation or model-written claims.
+ * A posted share of the dam's full power, in the fractions someone would say
+ * out loud. Not "light" or "heavy": on a tailwater "light generation" reads as
+ * an all-clear to someone wading, and nothing here may sound like one. Not
+ * "generators' worth" either (owner, 2026-11-20): the dam page keeps that for
+ * the measured rack, and a posted megawatt figure is a share of capacity, which
+ * says nothing about how many generators carry it.
+ */
+export function powerPhrase(share: number | null | undefined): string | null {
+  if (typeof share !== 'number' || !Number.isFinite(share) || share <= 0) return null;
+  if (share >= 0.875) return 'close to full power';
+  if (share >= 0.708) return 'about three quarters of full power';
+  if (share >= 0.583) return 'about two thirds of full power';
+  if (share >= 0.417) return 'about half power';
+  if (share >= 0.29) return 'about a third of full power';
+  if (share >= 0.18) return 'about a quarter of full power';
+  return 'well under a quarter of full power';
+}
+
+/** How hard a posted run is posted to go: one phrase when it holds, its peak when it does not. */
+function sizeClause(w: PostedWindow): string {
+  const peak = powerPhrase(w.peakShare);
+  if (!peak) return '';
+  return powerPhrase(w.lowShare) === peak ? ` at ${peak}` : `, peaking at ${peak}`;
+}
+
+function fromTo(w: PostedWindow): string {
+  return `from ${clockLabel(w.fromHour)} to ${clockLabel(w.toHour)}`;
+}
+
+/** The posted runs after the one just named, without listing every window. */
+function laterRuns(rest: readonly PostedWindow[]): string {
+  if (!rest.length) return '';
+  if (rest.length === 1) return `, and again ${fromTo(rest[0])}`;
+  return `, with ${rest.length} more runs posted after that, the last ending at ${clockLabel(rest.at(-1)!.toHour)}`;
+}
+
+/** What is posted next today. Call only with a window still to come or in progress. */
+function todayLead(today: PostedDay, hour: number): string {
+  const [next, ...rest] = today.windows;
+  const size = sizeClause(next);
+  if (next.fromHour > hour) return `Generation is next posted ${fromTo(next)}${size}${laterRuns(rest)}.`;
+  if (next.fromHour === 0 && next.toHour === 24) return `Generation is posted all day${size}.`;
+  if (next.toHour === 24) return `Generation is posted through midnight${size}.`;
+  const after = rest.length ? laterRuns(rest) : ', then none for the rest of the day';
+  return `Generation is posted until ${clockLabel(next.toHour)}${size}${after}.`;
+}
+
+/** What tomorrow's sheet posts, for the reader planning the night before. */
+function tomorrowLead(tomorrow: PostedDay): string {
+  const [first, ...rest] = tomorrow.windows;
+  if (!first) return `Tomorrow’s schedule lists ${tomorrow.minimumFlowOnly ? 'only minimum flow' : 'no generation'}.`;
+  const size = sizeClause(first);
+  if (first.fromHour === 0 && first.toHour === 24) return `Tomorrow, generation is posted all day${size}.`;
+  return `Tomorrow, generation is first posted ${fromTo(first)}${size}${laterRuns(rest)}.`;
+}
+
+/** How many recent days of one kind generated at all. */
+function ranCount(p: StartPattern): string {
+  const noun = daysNoun(p.group, p.days);
+  return p.daysWithGeneration === 0
+    ? `There was no generation on any of the last ${p.days} ${noun}.`
+    : `Generation ran on ${p.daysWithGeneration} of the last ${p.days} ${noun}.`;
+}
+
+/**
+ * What recent days of one kind did, for a day whose schedule is not posted.
+ * A usual start is stated only for a consistent pattern, and always with how
+ * many of those days generated at all.
+ */
+function expectation(p: StartPattern | null): string | null {
+  if (!p) return null;
+  const noun = daysNoun(p.group, p.days);
+  if (p.daysWithGeneration === 0) return ranCount(p);
+  if (p.consistent && mostlyGenerating(p) && p.rangeFromHour !== null && p.rangeToHour !== null) {
+    // "Weekend days" is said in full: four of them are two weekends.
+    const last = p.group === 'weekend' ? `${p.days} ${noun}` : `${p.days}`;
+    const ran = p.daysWithGeneration === p.days ? `each of the last ${last}` : `${p.daysWithGeneration} of the last ${last}`;
+    return `On recent ${plural(p.group)} generation has usually started ${rangePhrase(p.rangeFromHour, p.rangeToHour)}, and it ran on ${ran}.`;
+  }
+  return mostlyGenerating(p) && p.daysWithStart >= MIN_STARTS_FOR_PATTERN
+    ? `${ranCount(p).slice(0, -1)}, with no usual start time.`
+    : ranCount(p);
+}
+
+/**
+ * How the posted start has held up, with its count. "Within an hour" is the
+ * scoring rule itself. Always follows a sentence about posted generation, so
+ * "it" is the generation just named.
+ */
+function trackRecord(r: ScheduleReliability): string {
+  return `It has started within an hour of the posted time on ${r.onTime} of ${r.daysCompared} tracked days.`;
+}
+
+function sentence(clause: string): string {
+  return `${clause[0].toUpperCase()}${clause.slice(1)}.`;
+}
+
+/** An exception clause as the sentence after one about posted generation. */
+function sentenceAfterLead(clause: string): string {
+  return sentence(clause.replace('generation', 'it'));
+}
+
+interface Note { headline: string; sentence: string }
+
+/** A morning that departs from recent mornings, while it is still morning. */
+function morningNote(today: PostedDay, s: RecentShape, hour: number): Note | null {
+  if (hour >= MORNING_ENDS_HOUR || today.morningGeneration === undefined || s.morningsKnown < MIN_DAYS_FOR_SHAPE) return null;
+  const ran = s.morningsKnown - s.morningsOff;
+  if (!today.morningGeneration && ran / s.morningsKnown >= BUSY_MORNINGS_SHARE) {
+    return { headline: 'A quiet morning on the schedule', sentence: `Mornings have had generation on ${ran} of the last ${s.morningsKnown} days.` };
+  }
+  if (today.morningGeneration && s.morningsOff / s.morningsKnown >= QUIET_MORNINGS_SHARE) {
+    return { headline: 'Morning generation on the schedule', sentence: `There was no generation before noon on ${s.morningsOff} of the last ${s.morningsKnown} days.` };
+  }
+  return null;
+}
+
+/** A posted day much shorter or longer than the typical recent generating day. */
+function dayLengthNote(today: PostedDay, s: RecentShape): Note | null {
+  const posted = today.generatingHours;
+  const usual = s.typicalHours;
+  if (posted === undefined || posted <= 0 || usual === null || s.generatingDays < MIN_DAYS_FOR_SHAPE) return null;
+  const short = posted * 2 <= usual && usual - posted >= DAY_LENGTH_GAP_HOURS;
+  const long = posted >= usual * 2 && posted - usual >= DAY_LENGTH_GAP_HOURS;
+  if (!short && !long) return null;
+  return {
+    headline: short ? 'A short day of generation' : 'A long day of generation',
+    sentence: `That’s ${posted} ${posted === 1 ? 'hour' : 'hours'} posted for the whole day, against about ${usual} on a typical recent day.`,
+  };
+}
+
+function join(...sentences: Array<string | null | undefined>): string {
+  return sentences.filter(Boolean).join(' ');
+}
+
+/**
+ * The compact Read: what is posted next, then what stands out about it.
+ * Every time refers to the posted plan, never observed generation, and is at
+ * the dam. Recomputed at serve time, with no truncation or model-written
+ * claims.
  */
 export function damReadTakeaway(f: DamReadFacts): { headline: string; summary: string } {
+  const hour = servingHour(f.now);
   const today = f.posted?.days.find((d) => d.dayOffset === 0);
+  const tomorrow = f.posted?.days.find((d) => d.dayOffset === 1);
   const p = leadPattern(f);
-  const c = comparison(f, 0);
-  const usual = p?.consistent && mostlyGenerating(p) && p.rangeFromHour !== null && p.rangeToHour !== null
-    ? `Recent ${plural(p.group)} usually started ${rangePhrase(p.rangeFromHour, p.rangeToHour)}`
-    : null;
+  const exception = compactException(f);
 
   if (!today) {
+    const usual = expectation(p);
+    const earliest = f.shape.earliest;
+    // Early is the dangerous miss, so the earliest recent start rides along
+    // whenever it is ahead of the range just stated.
+    const early = p?.consistent && p.rangeFromHour !== null && earliest && earliest.hour < p.rangeFromHour
+      ? `The earliest start lately was ${clockLabel(earliest.hour)}, on ${dayName(earliest.dayKey)}.`
+      : null;
     return {
       headline: 'Today’s schedule isn’t posted',
-      summary: usual
-        ? `${usual}; today’s timing is still unconfirmed.`
-        : 'There’s no posted start to compare with recent generation yet.',
+      summary: usual ? join(usual, early) : 'There’s no posted start to compare with recent generation yet.',
     };
   }
 
   if (today.firstStartHour === null) {
     const minimum = today.minimumFlowOnly;
+    const c = comparison(f, 0);
     const unposted = f.reliability?.ranUnpostedDays.length ?? 0;
-    return {
-      headline: minimum ? 'Only minimum flow scheduled' : 'No generation scheduled today',
-      summary: unposted > 0
-        ? `${minimum ? 'Only minimum flow' : 'No generation'} is posted today, but generation ran without a posted start on ${unposted} of ${f.reliability!.daysCompared} recently tracked days.`
+    const second = unposted > 0
+      ? `Generation ran without a posted start on ${unposted} of ${f.reliability!.daysCompared} tracked days.`
+      : hour >= EVENING_STARTS_HOUR && tomorrow
+        ? tomorrowLead(tomorrow)
         : c?.versus === 'quieter'
-          ? `Today’s posted schedule is quieter than recent ${plural(c.group)}, which had generation on ${p!.daysWithGeneration} of ${p!.days} days.`
+          ? `Recent ${plural(c.group)} had generation on ${p!.daysWithGeneration} of ${p!.days} days.`
           : p
             ? `Recent ${plural(p.group)} have also been quiet, with no generation on ${p.days - p.daysWithGeneration} of ${p.days} days.`
-            : 'Recent history is too limited to compare today’s schedule with a usual day.',
+            : null;
+    return {
+      headline: minimum ? 'Only minimum flow scheduled' : 'No generation scheduled today',
+      summary: join(`${minimum ? 'Only minimum flow' : 'No generation'} is posted today.`, second),
     };
   }
 
   if (!today.windows.length) {
-    const tomorrow = f.posted?.days.find((d) => d.dayOffset === 1);
+    if (tomorrow) {
+      const c = comparison(f, 1);
+      const tp = c ? (c.group === 'weekend' ? f.weekend : f.weekday) : null;
+      const shifted = (c?.versus === 'earlier' || c?.versus === 'later') && tomorrow.firstStartHour !== null
+        && tp?.rangeFromHour != null && tp.rangeToHour !== null
+        ? `That’s ${shiftPhrase(tomorrow.firstStartHour, tp.rangeFromHour, tp.rangeToHour, c.versus)} than recent ${plural(c.group)}.`
+        : null;
+      return {
+        headline: 'No more generation scheduled today',
+        summary: join(tomorrowLead(tomorrow), shifted ?? (exception && tomorrow.windows.length ? sentenceAfterLead(exception.clause) : f.reliability && tomorrow.windows.length ? trackRecord(f.reliability) : null)),
+      };
+    }
+    const next = isWeekendDay(nextDayKey(centralClock(f.now).dayKey)) ? f.weekend : f.weekday;
     return {
       headline: 'No more generation scheduled today',
-      summary: tomorrow?.firstStartHour != null
-        ? `Today’s posted windows have ended; tomorrow’s schedule starts at ${clockLabel(tomorrow.firstStartHour)}.`
-        : tomorrow
-          ? `Today’s posted windows have ended; tomorrow’s schedule lists ${tomorrow.minimumFlowOnly ? 'only minimum flow' : 'no generation'}.`
-          : 'Today’s posted windows have ended; tomorrow’s schedule isn’t available yet.',
+      summary: join('Tomorrow’s schedule isn’t posted yet.', exception ? sentence(exception.clause) : expectation(next)),
     };
   }
 
-  const posted = `Today’s posted schedule starts at ${clockLabel(today.firstStartHour)}`;
-  const exception = compactException(f);
+  const lead = todayLead(today, hour);
+  const [next] = today.windows;
+  const inProgress = next.fromHour <= hour;
+  // A start is early or late only while it is still ahead.
+  const c = hour < today.firstStartHour ? comparison(f, 0) : null;
+
   if ((c?.versus === 'earlier' || c?.versus === 'later') && p?.rangeFromHour != null && p.rangeToHour !== null) {
-    const earlier = c.versus === 'earlier';
-    const low = earlier ? p.rangeFromHour - today.firstStartHour : today.firstStartHour - p.rangeToHour;
-    const high = earlier ? p.rangeToHour - today.firstStartHour : today.firstStartHour - p.rangeFromHour;
-    const difference = low === high ? `${low}` : `${low}–${high}`;
     return {
-      headline: earlier ? 'An earlier start today' : 'A later start today',
-      summary: exception
-        ? `${clockLabel(today.firstStartHour)} is posted today, ${c.versus} than recent ${plural(c.group)}; ${exception.clause}.`
-        : `${posted}, about ${difference} ${high === 1 ? 'hour' : 'hours'} ${c.versus} than recent ${plural(c.group)}.`,
+      headline: c.versus === 'earlier' ? 'An earlier start today' : 'A later start today',
+      summary: join(lead, exception
+        ? sentenceAfterLead(exception.clause)
+        : `That’s ${shiftPhrase(today.firstStartHour, p.rangeFromHour, p.rangeToHour, c.versus)} than recent ${plural(c.group)}.`),
     };
   }
 
-  if (exception) {
-    return { headline: exception.headline, summary: `${clockLabel(today.firstStartHour)} is posted today; ${exception.clause}.` };
-  }
+  if (exception) return { headline: exception.headline, summary: join(lead, sentenceAfterLead(exception.clause)) };
 
-  if (c?.versus === 'in-line') {
-    return {
-      headline: 'A familiar start time',
-      summary: `${posted}, close to recent ${c.group} starts.`,
-    };
-  }
+  const note = morningNote(today, f.shape, hour) ?? dayLengthNote(today, f.shape);
+  if (note) return { headline: note.headline, summary: join(lead, note.sentence) };
 
-  if (p && !mostlyGenerating(p)) {
-    return {
-      headline: 'Generation on today’s schedule',
-      summary: `${posted}; generation ran on ${p.daysWithGeneration} of the last ${p.days} ${daysNoun(p.group, p.days)}.`,
-    };
-  }
-
+  const more = today.firstStartHour < next.fromHour;
   return {
-    headline: p && p.daysWithStart >= MIN_STARTS_FOR_PATTERN ? 'Start times have varied lately' : 'Generation on today’s schedule',
-    summary: p && p.daysWithStart >= MIN_STARTS_FOR_PATTERN
-      ? `${posted}; recent ${c?.group ?? f.todayGroup} starts have been too scattered for a usual time.`
-      : `${posted}; recent history is too limited for a comparison.`,
+    headline: inProgress
+      ? 'Generation is on the schedule now'
+      : `${more ? 'More generation' : 'Generation'} scheduled this ${partOfDay(next.fromHour)}`,
+    summary: join(lead, p && !mostlyGenerating(p)
+      ? ranCount(p)
+      : f.reliability
+        ? trackRecord(f.reliability)
+        : c?.versus === 'in-line'
+          ? `That’s close to when recent ${plural(c.group)} have started.`
+          : null),
   };
+}
+
+/** A shift this large is a different kind of day, and an hour count would be false precision. */
+export const LARGE_SHIFT_HOURS = 6;
+
+/** "about 2-3 hours earlier", from a posted start and the middle half of recent ones. */
+function shiftPhrase(start: number, from: number, to: number, versus: 'earlier' | 'later'): string {
+  const low = versus === 'earlier' ? from - start : start - to;
+  const high = versus === 'earlier' ? to - start : start - from;
+  if (low >= LARGE_SHIFT_HOURS) return `much ${versus}`;
+  return `about ${low === high ? `${low}` : `${low}–${high}`} ${high === 1 ? 'hour' : 'hours'} ${versus}`;
 }
 
 /** One sentence about today: what is posted, and how it compares. */

@@ -55,31 +55,93 @@ Measured on that history (backtest in
    surprises first and plainly ("Heads up"), counts kept beside what they count.
    A test fails the build on "units", "first start", "came on", "accuracy",
    the company "we", promises and absolutes in any rendered Read.
-4. **Compact reading order (2026-11-04):** the existing otter mark and a teal
-   Fredoka “Eddy's Read” label, a short Geist headline, one interpretation
-   sentence, and a quiet “Updated” timestamp. An unverified/old schedule adds
-   “Schedule couldn’t be verified” beneath the summary in both native Read
-   placements, using the existing `mayBeOutdated` flag. No fact rows, pattern disclosure,
-   full list of generation windows, or repeated freshness/downstream paragraphs.
-   The free schedule and generation-pattern section carry that context. Copy is
+4. **Compact reading order (2026-11-04, rewritten 2026-11-20):** the existing
+   otter mark and a teal Fredoka “Eddy's Read” label, a short Geist headline,
+   at most two sentences, and a quiet “Updated” timestamp. An unverified/old
+   schedule adds “Schedule couldn’t be verified” beneath the summary in both
+   native Read placements, using the existing `mayBeOutdated` flag. No fact
+   rows, pattern disclosure, or repeated freshness/downstream paragraphs. The
+   free schedule and generation-pattern section carry that context. Copy is
    selected from the computed facts, never clipped or ellipsized; native text
    can grow with Dynamic Type. The API adds `read.takeaway` and retains its
    legacy report fields for released clients. New clients talking to an older
    API use its headline as body copy under a short neutral heading. The web
    teaser uses the same otter and concise pitch while remaining Premium-gated.
+
+   **The first sentence is what is posted next, from the serving clock.** A
+   run in progress is "posted until" its end; otherwise the next run is named
+   with its start and end. One further run is named ("and again from 5 PM to
+   9 PM"); more are counted with the hour the last one ends. A start that has
+   passed is never the lead. When the day's posted generation is finished the
+   sentence is tomorrow's sheet, or that tomorrow is not posted yet.
+
+   **A posted run states its size as a share of full power**, in plain
+   fractions: "about a quarter of full power", "about half power", "close to
+   full power". The share is the posted megawatts over SWPA's scheduling
+   capacity for the project, so it is a statement about the posted plan and
+   involves no flow conversion. A run whose hours fall in different fractions
+   is "peaking at" its strongest. The Read does not say "light" or "heavy"
+   (on a tailwater "light generation" reads as an all-clear to someone
+   wading), and does not say "generators' worth" (owner, 2026-11-20: too
+   technical for the Read; the dam page keeps it for the measured rack).
+   Without a scheduling capacity the size is left out.
+
+   **The second sentence is the one thing that most departs from the last 14
+   days**, chosen in this order:
+   1. An earlier or later posted start than recent days of the same kind,
+      only while that start is still ahead, and only against a consistent
+      pattern. A shift of six hours or more is "much earlier", not a count.
+   2. Early or unposted generation, by the eligibility rule below.
+   3. While it is still morning: no morning generation posted where at least
+      60% of recent mornings had some, or morning generation posted where at
+      least 80% had none.
+   4. A posted day at most half, or at least double, the typical recent
+      generating day, and at least three hours from it.
+   5. Otherwise: how many recent days of this kind generated, when most did
+      not; else the track record ("started within an hour of the posted time
+      on 12 of 14 tracked days"); else that the start is close to recent ones.
+   A limit that is not met leaves the sentence out. The Read does not tell
+   the reader that history is too short or too scattered to say.
+
+   **The night before.** When today's posted generation is done and tomorrow
+   is not posted, the Read states the recent pattern for tomorrow's kind of
+   day: the usual start when the pattern is consistent, always with how many
+   of those days generated, or only that count when it is not. An unposted
+   today does the same, and adds the earliest recent start when it is ahead
+   of the stated range. On a day with no generation posted, from 5 PM the
+   second sentence is tomorrow's sheet when it is posted.
+
+   Why it was rewritten: the 2026-11-04 card compared the day's first posted
+   start with the usual first start and said nothing else. Read against the
+   Reads stored on 2026-11-19, Norfork's said "A familiar start time" on a
+   day posted for 3 hours where recent days ran 12; Table Rock's said starts
+   were "too scattered for a usual time" on a morning with nothing posted
+   until 4 PM, after generation on 10 of the last 14 mornings; Bull Shoals'
+   still led with its 5 AM start at 1 PM; and none of the 20 Reads stored
+   that day carried tomorrow's schedule, so every evening Read said tomorrow
+   was not posted and stopped. Of the 410 Reads stored from 2026-11-02 to
+   2026-11-19, the old card headed 139 (34%) "A familiar start time", "Start
+   times have varied lately" or "Generation on today's schedule", none of
+   which says anything about the day beyond its first start.
+
    The compact copy handles unposted schedules, minimum flow, ended windows,
    sparse/irregular history, and weekdays/weekends independently. A posted quiet
-   day with recent unposted generation keeps that exception in the one sentence.
-   When generation is posted, an earlier/later start keeps the headline.
+   day with recent unposted generation keeps that exception in its second
+   sentence. When generation is posted and still ahead, an earlier/later start
+   keeps the headline.
    Early or unposted generation can qualify that summary or replace generic
-   familiar/variable timing only when the same kind occurred on at least two
+   timing only when the same kind occurred on at least two
    distinct tracked days, or on one of the previous three complete Central
    calendar days. A single older exception stays in the legacy detail data;
    it does not automatically lengthen the compact Read. Isolated recent events
    name their date; repeated events retain counts, with both kinds combined
-   when relevant. The card still uses one sentence of at most 40 words, with
-   no pattern disclosure. These thresholds select eligible warnings, not a
-   reason to hide today's earlier/later posted start.
+   when relevant. The card is a headline of at most 45 characters and at most
+   two sentences and 60 words (owner, 2026-11-20; it was one sentence of 40),
+   with no pattern disclosure. These thresholds select eligible warnings, not a
+   reason to hide today's earlier/later posted start. A test renders the card
+   across schedules, hours of the day and exception histories and fails on a
+   third sentence, a sixty-first word, or any mention of wading, downstream
+   water or arrival.
 5. **Definitions:** a typical generating day is total hours and number of
    runs, not the first run; runs carrying past midnight are counted, never
    dropped from the end time; the track record scores only days where
@@ -165,3 +227,12 @@ Measured on that history (backtest in
   that is modelled, every time stays "at the dam".
 - Whether the stated range should widen with the measured error per dam, for
   example for Bull Shoals.
+- Whether a posted run's size should be compared with recent days ("more
+  than most days lately"). The posted figure is megawatts and the record is
+  measured turbine flow; the conversion between them measured within about
+  10% at steady state and far worse on a ramp hour, so the comparison waits
+  for a backtest.
+- The thresholds in decision 4's second sentence (60%, 80%, half or double,
+  three hours, six hours) are judgment, not measurement. `npm run
+  report:dam-reads` counts how often each card is written, so they can be
+  tuned against what the Read said.

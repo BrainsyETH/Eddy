@@ -63,7 +63,16 @@ export async function GET(
     }
 
     const stored = data.facts as DamReadFacts;
-    const facts = withCurrentSchedule(stored, snapshot?.schedule ?? null, now);
+    // The snapshot's reference carries SWPA's scheduling capacity, which facts
+    // stored before the Read stated a run's size do not.
+    const reference = snapshot?.generationReference
+      ? {
+          units: snapshot.generationReference.units,
+          fullGenerationCfs: snapshot.generationReference.fullGenerationCfs,
+          schedulingCapacityMw: snapshot.generationReference.schedulingCapacityMw,
+        }
+      : stored.reference;
+    const facts = withCurrentSchedule(stored, snapshot?.schedule ?? null, now, reference);
     const read = tierDamRead(entitled, {
       ...renderDamRead(facts),
       sourcesUsed: Array.isArray(data.sources_used) ? data.sources_used : [],
