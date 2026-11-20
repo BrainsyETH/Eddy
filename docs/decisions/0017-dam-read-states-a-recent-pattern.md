@@ -221,6 +221,48 @@ Measured on that history (backtest in
    The native standalone Read fallback waits for the river outlook request to settle,
    avoiding an initial card replacement and duplicate member request.
 
+10. **A river whose level is a Read dam's release gets a river Read written
+    from that dam** (2026-11-20). The White below Bull Shoals, the Norfork
+    tailwater and Taneycomo below Table Rock have no float ladder, so the
+    river Read generator could only store its fallback ("Gauge assessment
+    unavailable for White River…"), every morning, and that was the summary
+    shown wherever a river's summary is shown. Their Read is now the three
+    blocks every river Read has, written by code
+    (`src/lib/eddy/tailwater-river-read.ts`):
+    - **Summary, public:** what is posted next at the dam, named, with its
+      size, by decision 4's first-sentence rules, held to the river summary's
+      120 characters (the runs after it are dropped first, then the size).
+      It restates the posted schedule, which is free on the dam page. This is
+      the one part of a dam's reading that is public (owner, 2026-11-20);
+      decision 7 is otherwise unchanged and the dam's own Read stays Premium.
+    - **Eddy's Read, Premium:** one local note for what the posted schedule
+      has the dam doing in the serving hour: idle, generating, or a run
+      posted at 87.5% of full power or more. The notes are in that file,
+      confirmed by the owner, and say only what `EDDY_KNOWLEDGE.md` says about
+      that water, as a pattern. No note when today's schedule is not posted.
+    - **Full, Premium:** the recent pattern for today's kind of day, then
+      early or unposted generation by decision 4's eligibility rule or else
+      the track record, then the at-the-dam caveat.
+
+    Nothing in it says whether or where the water can be waded, or when a
+    release reaches a place downstream; a test fails on either outside the
+    standing caveat. It is rendered on every request from the dam's stored
+    facts and the current snapshot, under the dam Read's own serving rules
+    (decision 6), and is never stored: a sentence about what is posted next,
+    written at 5 AM and read at 3 PM, is the stale schedule decision 6 exists
+    to prevent. `/api/eddy-update/[riverSlug]` and `/api/eddy-updates` serve
+    it in place of the stored prose; when the dam has no servable Read they
+    serve the stored row as before. The river is still unrated: the condition
+    stays `unknown`, because a release is not a float verdict.
+
+    A river qualifies when a dam with a Read names it as its tailwater and
+    the river's gauge is that dam's own release. The Black below Clearwater
+    is gauged by USGS, has a ladder, and keeps its model-written river Read.
+    Decision 9 still decides what a river page's release tab draws: the dam,
+    and the dam's Read. The embed keeps its one fixed sentence
+    (`missouri-float-planner/docs/embeds.md`): an embedded page can sit
+    cached on someone else's site, where a posted time would go stale.
+
 ## Not decided here
 
 - How long it takes a release to reach each access point downstream. Until

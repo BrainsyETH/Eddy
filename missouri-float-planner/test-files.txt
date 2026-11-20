@@ -232,6 +232,7 @@ src/lib/eddy/read-checks.test.ts
 src/lib/eddy/report-facts.test.ts
 src/lib/eddy/river-note.test.ts
 src/lib/eddy/stretch-reads.test.ts
+src/lib/eddy/tailwater-river-read.test.ts
 src/lib/email/inbound-bulk.test.ts
 src/lib/embed/branding-registration.test.ts
 src/lib/embed/display-events.test.ts

@@ -785,20 +785,32 @@ function fromTo(w: PostedWindow): string {
 }
 
 /** The posted runs after the one just named, without listing every window. */
-function laterRuns(rest: readonly PostedWindow[]): string {
+function laterRuns(rest: readonly PostedWindow[], brief = false): string {
   if (!rest.length) return '';
   if (rest.length === 1) return `, and again ${fromTo(rest[0])}`;
+  if (brief) return `, with ${rest.length} more runs after`;
   return `, with ${rest.length} more runs posted after that, the last ending at ${clockLabel(rest.at(-1)!.toHour)}`;
 }
 
+/** How much of the lead a caller with less room keeps. */
+interface LeadDetail {
+  /** State how hard the run is posted to go. */
+  size: boolean;
+  /** The runs after it: named or counted in full, counted briefly, or left out. */
+  later: 'full' | 'brief' | 'none';
+}
+
+const FULL_LEAD: LeadDetail = { size: true, later: 'full' };
+
 /** What is posted next today. Call only with a window still to come or in progress. */
-function todayLead(today: PostedDay, hour: number): string {
+function todayLead(today: PostedDay, hour: number, detail: LeadDetail = FULL_LEAD): string {
   const [next, ...rest] = today.windows;
-  const size = sizeClause(next);
-  if (next.fromHour > hour) return `Generation is next posted ${fromTo(next)}${size}${laterRuns(rest)}.`;
+  const size = detail.size ? sizeClause(next) : '';
+  const later = detail.later === 'none' ? '' : laterRuns(rest, detail.later === 'brief');
+  if (next.fromHour > hour) return `Generation is next posted ${fromTo(next)}${size}${later}.`;
   if (next.fromHour === 0 && next.toHour === 24) return `Generation is posted all day${size}.`;
   if (next.toHour === 24) return `Generation is posted through midnight${size}.`;
-  const after = rest.length ? laterRuns(rest) : ', then none for the rest of the day';
+  const after = rest.length ? later : ', then none for the rest of the day';
   return `Generation is posted until ${clockLabel(next.toHour)}${size}${after}.`;
 }
 
@@ -844,8 +856,8 @@ function expectation(p: StartPattern | null): string | null {
  * scoring rule itself. Always follows a sentence about posted generation, so
  * "it" is the generation just named.
  */
-function trackRecord(r: ScheduleReliability): string {
-  return `It has started within an hour of the posted time on ${r.onTime} of ${r.daysCompared} tracked days.`;
+function trackRecord(r: ScheduleReliability, subject = 'It'): string {
+  return `${subject} has started within an hour of the posted time on ${r.onTime} of ${r.daysCompared} tracked days.`;
 }
 
 function sentence(clause: string): string {
@@ -1000,6 +1012,85 @@ function shiftPhrase(start: number, from: number, to: number, versus: 'earlier' 
   const high = versus === 'earlier' ? to - start : start - from;
   if (low >= LARGE_SHIFT_HOURS) return `much ${versus}`;
   return `about ${low === high ? `${low}` : `${low}–${high}`} ${high === 1 ? 'hour' : 'hours'} ${versus}`;
+}
+
+// ── The tailwater river Read ───────────────────────────────────────────────
+//
+// On a river whose level IS a dam's release (the White below Bull Shoals, the
+// Norfork tailwater, Taneycomo below Table Rock) there is no float ladder, and
+// the river Read could only say that no assessment was available. These are
+// the parts of that river's Read the dam's facts can write: a summary of what
+// is posted next, and the recent pattern with how the schedule has held. The
+// local note between them is chosen by tailwater-river-read.ts from the state
+// returned here. ADR 0017 decision 10.
+
+/** The summary is shown alone on cards; the river Read brief holds it to this. */
+export const RIVER_SUMMARY_MAX_CHARS = 120;
+
+/** What the posted schedule has the dam doing in the serving hour. */
+export type PostedState = 'idle' | 'generating' | 'full';
+/** At or above this share of full power a posted run is "near full power". */
+export const NEAR_FULL_SHARE = 0.875;
+
+export interface DamRiverBlocks {
+  /** Public: what is posted next at the dam, named, with its size. Restates the free schedule. */
+  summary: string;
+  /** Premium: the recent pattern, how the posted start has held, and the at-the-dam caveat. */
+  full: string;
+  /** The posted state now, for the local note. Null when today's schedule is not posted. */
+  state: PostedState | null;
+}
+
+/** The longest candidate that fits the summary, else the last (shortest) one. */
+function fitSummary(candidates: readonly string[]): string {
+  return candidates.find((c) => c.length <= RIVER_SUMMARY_MAX_CHARS) ?? candidates.at(-1)!;
+}
+
+/** The dam's part of a tailwater river's Read. Rendered against the serving clock, like the card. */
+export function damRiverBlocks(f: DamReadFacts): DamRiverBlocks {
+  const hour = servingHour(f.now);
+  const today = f.posted?.days.find((d) => d.dayOffset === 0);
+  const tomorrow = f.posted?.days.find((d) => d.dayOffset === 1);
+  const at = `At ${f.damName}, `;
+  const lower = (lead: string) => `${at}${lead[0].toLowerCase()}${lead.slice(1)}`;
+
+  let summary: string;
+  let state: PostedState | null;
+  if (!today) {
+    summary = `${f.damName}’s schedule for today isn’t posted yet.`;
+    state = null;
+  } else if (today.firstStartHour === null) {
+    summary = `${at}${today.minimumFlowOnly ? 'only minimum flow' : 'no generation'} is posted today.`;
+    state = 'idle';
+  } else if (!today.windows.length) {
+    const first = tomorrow?.windows[0];
+    summary = fitSummary([
+      first
+        ? `${at}today’s posted generation is done. Tomorrow’s starts at ${clockLabel(first.fromHour)}.`
+        : tomorrow
+          ? `${at}today’s posted generation is done. Tomorrow’s schedule lists ${tomorrow.minimumFlowOnly ? 'only minimum flow' : 'no generation'}.`
+          : `${at}today’s posted generation is done.`,
+      `${at}today’s posted generation is done.`,
+    ]);
+    state = 'idle';
+  } else {
+    summary = fitSummary([
+      lower(todayLead(today, hour)),
+      lower(todayLead(today, hour, { size: true, later: 'brief' })),
+      lower(todayLead(today, hour, { size: true, later: 'none' })),
+      lower(todayLead(today, hour, { size: false, later: 'none' })),
+    ]);
+    const [next] = today.windows;
+    state = next.fromHour > hour ? 'idle' : (next.peakShare ?? 0) >= NEAR_FULL_SHARE ? 'full' : 'generating';
+  }
+
+  const exception = compactException(f);
+  const full = join(
+    expectation(leadPattern(f)),
+    exception ? sentence(exception.clause) : f.reliability ? trackRecord(f.reliability, 'Generation') : null,
+    AT_THE_DAM_CAVEAT,
+  );
+  return { summary, full, state };
 }
 
 /** One sentence about today: what is posted, and how it compares. */
