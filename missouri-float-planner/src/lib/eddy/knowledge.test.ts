@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   getGeneralKnowledge, getKnowledgeForChat, getKnowledgeForTarget, getKnowledgeTowns, getRiverKnowledgeForGauge,
-  gaugeTown, listKnowledgeGauges, listKnowledgeRiverSlugs, listKnowledgeSectionGauges, parseKnowledge,
+  gaugeTown, listKnowledgeGauges, listKnowledgeRiverSlugs, listKnowledgeSectionGauges, listKnowledgeSectionSlugs, parseKnowledge,
 } from './knowledge';
 
 // These run against the REAL EDDY_KNOWLEDGE.md (parseKnowledgeFile reads
@@ -268,6 +268,30 @@ test('the rivers whose gauge lines are confirmed are exactly these', () => {
     listKnowledgeRiverSlugs().flatMap((slug) => listKnowledgeGauges(slug).filter((g) => !g.confirmed).map((g) => `${slug} ${g.siteId}`)),
     [],
   );
+});
+
+test('every stretch note is connected to the gauge that speaks for its water', () => {
+  // Until 2026-11-20, 29 of 38 stretch notes carried no gauge tag, so chat saw
+  // them and no Read did. A note with no tag is fine if that is a decision;
+  // it has to show up here.
+  const untagged = listKnowledgeRiverSlugs().flatMap((slug) => {
+    const tagged = listKnowledgeSectionGauges(slug);
+    return listKnowledgeSectionSlugs(slug).filter((section) => !tagged[section]?.length).map((section) => `${slug}/${section}`);
+  });
+  assert.deepEqual(untagged, []);
+  // Notes on a river with two gauges go to the gauge on that water, not to the main one by default.
+  assert.deepEqual(listKnowledgeSectionGauges('buffalo'), {
+    'upper-ponca-pruitt': ['07055660'], 'middle-pruitt-gilbert': ['07055680', '07056000'], 'lower-gilbert-buffalocity': ['07056700'],
+  });
+  assert.deepEqual(listKnowledgeSectionGauges('st-francis'), { 'upper-whitewater': ['07034000'], 'lower-float': ['07037500'] });
+  assert.deepEqual(listKnowledgeSectionGauges('james'), { 'james-galena': ['07052500'], 'james-upper': ['07052250'] });
+  // So the river Read at St. Joe gets the middle Buffalo's note and not the upper river's.
+  const buffalo = getKnowledgeForTarget('buffalo', null, '07056000');
+  assert.match(buffalo, /=== Section: middle-pruitt-gilbert ===/);
+  assert.doesNotMatch(buffalo, /=== Section: upper-ponca-pruitt ===|=== Section: lower-gilbert-buffalocity ===/);
+  // And a single-gauge river's Read gets every stretch note it has.
+  const mulberry = getKnowledgeForTarget('mulberry', null, '07252000');
+  for (const section of ['wolf-pen-to-redding', 'redding-to-turner-bend', 'turner-bend-to-campbell-cemetery']) assert.ok(mulberry.includes(`=== Section: ${section} ===`), section);
 });
 
 test('no tag and no drafted line reaches any prompt', () => {

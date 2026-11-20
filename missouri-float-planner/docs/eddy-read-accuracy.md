@@ -237,6 +237,13 @@ direction and NWS flood stage (the Spring River near Waco, the St. Francis near
 Patterson). A main gauge's ladder is not carried to a second gauge by a flow
 ratio: where trips have been logged at the gauge itself, they decide.
 
+Stretch notes are connected the same way. Until 2026-11-20, 29 of the 38
+stretch notes carried no gauge tag, so chat saw them and no Read did. Each is
+now tagged with the gauge on its water, which on a river with two gauges is
+not always the main one: the upper Buffalo's note goes to Ponca's Read, the
+lower St. Francis's to Patterson's. `knowledge.test.ts` fails on a stretch
+note with no tag.
+
 How a Read may use a block. The first Reads written with every block confirmed
 (2026-11-20) used them accurately and at length: the share of short Reads at or
 under 240 characters fell from 52% to 17%, because the short Read became a tour
