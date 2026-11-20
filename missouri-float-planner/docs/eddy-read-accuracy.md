@@ -87,7 +87,10 @@ position misleads: the gauge near Norfork is the nearest one upstream of Red's
 Landing, but it sits above the North Fork and never sees Norfork Dam's water.
 The same migration gives the links their miles, because the float plan's check
 of gauges inside a float reads only links that carry one; without a mile a
-gauge's flood stage cannot reach a plan that passes it.
+gauge's flood stage cannot reach a plan that passes it. Put-ins on the two
+lower stretches show their own gauge alone, without the Bull Shoals release
+beside it (owner, 2026-11-20): by then Crooked Creek, the Buffalo and Norfork
+Dam's water have joined, so one dam's release no longer describes the river.
 
 While stretch Reads are paused, an assignment has one live effect: the
 planner's gauge for put-ins inside the stretch.
