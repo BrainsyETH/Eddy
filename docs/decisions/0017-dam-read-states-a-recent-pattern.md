@@ -251,8 +251,10 @@ Measured on that history (backtest in
     (decision 6), and is never stored: a sentence about what is posted next,
     written at 5 AM and read at 3 PM, is the stale schedule decision 6 exists
     to prevent. `/api/eddy-update/[riverSlug]` and `/api/eddy-updates` serve
-    it in place of the stored prose; when the dam has no servable Read they
-    serve the stored row as before. The river is still unrated: the condition
+    it in place of the stored prose, whether or not a stored row exists
+    (`/api/eddy-updates` for every active tailwater river, 2026-11-20); when
+    the dam has no servable Read they serve the stored row as before. The
+    river is still unrated: the condition
     stays `unknown`, because a release is not a float verdict.
 
     A river qualifies when a dam with a Read names it as its tailwater and

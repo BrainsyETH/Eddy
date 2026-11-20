@@ -16,7 +16,7 @@ import {
   WEBSITE_PROSE_STALE_HOURS,
 } from '@/lib/social/live-conditions';
 import { gateGlobalProse } from '@/lib/eddy/global-prose-gate';
-import { loadTailwaterRiverRead, tailwaterReadRiverSlugs } from '@/lib/eddy/tailwater-river-read';
+import { loadTailwaterRiverRead, tailwaterReadRiverSlugs, withTailwaterSummaries } from '@/lib/eddy/tailwater-river-read';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,27 +140,21 @@ async function _GET() {
 
     // A river whose level is a dam's release: its summary is what is posted
     // next at the dam, rendered now, in place of the stored "no assessment
-    // available". Only where the river already has a row, so an inactive river
-    // does not appear, and only when the dam has a servable Read. See
-    // tailwater-river-read.ts.
-    await Promise.all(tailwaterReadRiverSlugs().filter((slug) => latestBySlug.has(slug)).map(async (slug) => {
-      const tailwater = await loadTailwaterRiverRead(supabase, slug).catch((err) => {
-        console.error(`[EddyUpdates] Tailwater Read failed for ${slug}:`, err);
-        return null;
-      });
-      if (!tailwater) return;
-      // The reading the overlay attached, when it attached one, stays.
-      const existing: EddyUpdateEntry | undefined = updates[slug];
-      updates[slug] = {
-        conditionCode: existing?.conditionCode ?? 'unknown',
-        gaugeHeightFt: existing?.gaugeHeightFt ?? null,
-        dischargeCfs: existing?.dischargeCfs ?? null,
-        readingTimestamp: existing?.readingTimestamp ?? null,
-        snapshotId: existing?.snapshotId ?? null,
-        summaryText: tailwater.summaryText,
-        generatedAt: tailwater.generatedAt,
-      };
-    }));
+    // available". For every ACTIVE tailwater river, with or without a stored
+    // row, so a failed morning pass does not drop it here while the river
+    // page keeps it. If the active list cannot be read, the rivers with a row
+    // stand in for it, as before. See tailwater-river-read.ts.
+    const tailwaterSlugs = tailwaterReadRiverSlugs();
+    const { data: activeTailwater, error: activeError } = await supabase
+      .from('rivers')
+      .select('slug')
+      .eq('active', true)
+      .in('slug', tailwaterSlugs);
+    if (activeError) console.error('[EddyUpdates] Active tailwater query error:', activeError);
+    const servedTailwater = activeError || !activeTailwater
+      ? tailwaterSlugs.filter((slug) => latestBySlug.has(slug))
+      : (activeTailwater as { slug: string }[]).map((r) => r.slug);
+    const withTailwater = await withTailwaterSummaries(updates, servedTailwater, (slug) => loadTailwaterRiverRead(supabase, slug));
 
     /**
      * The statewide summary, held to the same standard as everything else.
@@ -194,7 +188,7 @@ async function _GET() {
       }
     }
 
-    return NextResponse.json<EddyUpdatesResponse>({ updates, statewide }, { headers: cdnCacheHeaders(300, 1800) });
+    return NextResponse.json<EddyUpdatesResponse>({ updates: withTailwater, statewide }, { headers: cdnCacheHeaders(300, 1800) });
   } catch (error) {
     console.error('[EddyUpdates] Unexpected error:', error);
     return NextResponse.json<EddyUpdatesResponse>({ updates: {}, statewide: null }, { status: 500 });

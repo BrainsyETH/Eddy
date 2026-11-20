@@ -22,6 +22,7 @@ import {
   tailwaterNote,
   tailwaterReadDamId,
   tailwaterReadRiverSlugs,
+  withTailwaterSummaries,
 } from './tailwater-river-read';
 
 const HOUR = 3_600_000;
@@ -261,4 +262,35 @@ test('the summary is public; the local note and the full report are Premium', as
   let asked = false;
   await loadLatestEddyUpdate(supabase, 'white', { sectionSlug: 'cotter', loadTailwater: async () => { asked = true; return null; } });
   assert.equal(asked, false);
+});
+
+// ── The batched summaries (Pulse and river cards) ──────────────────────────
+
+test('batched summaries carry each active tailwater river with or without a stored row', async () => {
+  const served = (summaryText: string) => ({ summaryText, eddyRead: null, quoteText: 'Q', damId: 'd', generatedAt: '2026-11-20T11:00:00Z', sourcesUsed: [] });
+  const stored = {
+    white: { summaryText: 'stored', conditionCode: 'unknown', gaugeHeightFt: 4.2, dischargeCfs: 3_340, readingTimestamp: '2026-11-20T12:00:00Z', snapshotId: 's1', generatedAt: '2026-11-20T10:00:00Z' },
+    current: { summaryText: 'Current summary', conditionCode: 'good', gaugeHeightFt: 2.1, dischargeCfs: 800, readingTimestamp: null, snapshotId: null, generatedAt: '2026-11-20T10:00:00Z' },
+  };
+  const asked: string[] = [];
+  const out = await withTailwaterSummaries(stored, ['white', 'taneycomo', 'norfork-tailwater', 'current'], async (slug) => {
+    asked.push(slug);
+    if (slug === 'norfork-tailwater') throw new Error('snapshot down');
+    return served(`${slug} posted next`);
+  });
+  // Only tailwater-Read rivers are asked for.
+  assert.deepEqual(asked.sort(), ['norfork-tailwater', 'taneycomo', 'white']);
+  // A stored row keeps the reading the overlay attached; the summary is the dam's.
+  assert.equal(out.white.summaryText, 'white posted next');
+  assert.equal(out.white.dischargeCfs, 3_340);
+  assert.equal(out.white.snapshotId, 's1');
+  // No stored row (the morning pass failed): still served, unrated.
+  assert.equal(out.taneycomo.summaryText, 'taneycomo posted next');
+  assert.equal(out.taneycomo.conditionCode, 'unknown');
+  assert.equal(out.taneycomo.dischargeCfs, null);
+  // A dam with no servable Read leaves what was there, here nothing.
+  assert.equal(out['norfork-tailwater'], undefined);
+  assert.equal(out.current, stored.current);
+  // The input is not modified.
+  assert.equal(stored.white.summaryText, 'stored');
 });

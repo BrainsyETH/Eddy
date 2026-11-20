@@ -44,6 +44,7 @@ import { damHasRead } from './dam-read-dams';
 import { damRiverBlocks, withCurrentSchedule, type DamReadFacts, type GenerationRef, type PostedState } from './dam-read-facts';
 import { servable } from './dam-update-policy';
 import type { DamSnapshot } from '@shared/dam-types';
+import type { EddyUpdateEntry } from '@/types/api';
 
 /** One note per posted state. Without `full`, near full power uses `generating`. */
 export interface TailwaterNotes {
@@ -176,4 +177,43 @@ export async function loadTailwaterRiverRead(
     generatedAt: data.generated_at,
     sourcesUsed: Array.isArray(data.sources_used) ? data.sources_used : [],
   };
+}
+
+/**
+ * The batched summaries (/api/eddy-updates: Pulse and the river cards) with
+ * each tailwater river's summary in place, for every river in `slugs`.
+ *
+ * `slugs` is the ACTIVE tailwater rivers, not the ones with a stored row. The
+ * summary is rendered from the dam, never read from eddy_updates, so it does
+ * not need one: when the morning river pass failed, the river page (which
+ * serves it without a row, latest-update.ts) kept its summary while Pulse and
+ * the cards lost it. The reading the live overlay attached, when there was a
+ * row to attach it to, stays. A river whose dam has no servable Read keeps
+ * whatever it had, including nothing.
+ */
+export async function withTailwaterSummaries(
+  updates: Record<string, EddyUpdateEntry>,
+  slugs: readonly string[],
+  load: (riverSlug: string) => Promise<ServedTailwaterRiverRead | null>,
+): Promise<Record<string, EddyUpdateEntry>> {
+  const out = { ...updates };
+  await Promise.all(slugs.filter((slug) => tailwaterReadDamId(slug)).map(async (slug) => {
+    const tailwater = await load(slug).catch((err) => {
+      console.error(`[EddyUpdates] Tailwater Read failed for ${slug}:`, err);
+      return null;
+    });
+    if (!tailwater) return;
+    const existing: EddyUpdateEntry | undefined = out[slug];
+    out[slug] = {
+      // Unrated on purpose: a release is not a float verdict.
+      conditionCode: existing?.conditionCode ?? 'unknown',
+      gaugeHeightFt: existing?.gaugeHeightFt ?? null,
+      dischargeCfs: existing?.dischargeCfs ?? null,
+      readingTimestamp: existing?.readingTimestamp ?? null,
+      snapshotId: existing?.snapshotId ?? null,
+      summaryText: tailwater.summaryText,
+      generatedAt: tailwater.generatedAt,
+    };
+  }));
+  return out;
 }
