@@ -305,8 +305,13 @@ river with no confirmed block for a gauge is selected as it was before gauge
 blocks existed: the river-wide block, plus, for a gauge Read, any reach note
 that names the gauge's town. Every reach note carries a gauge tag as of
 2026-11-19 (`knowledge.test.ts` fails on one without), so none is seen by chat
-alone. All 49 gauge blocks on 25 rivers are confirmed as
-of 2026-11-19; the three tailwaters carry none. Six rivers were confirmed with
+alone. All 52 gauge blocks on 26 rivers are confirmed as
+of 2026-11-20. The White carries three: the Bull Shoals Dam release, the gauge
+near Norfork and Calico Rock, placed from the miles the owner reviewed in
+`20261120142104` (the gauge near Norfork at mile 42.0, above the North Fork at
+43.12). The release needs its block because it is the main gauge, which the
+`eddy_knowledge` check below requires once a river has any. The Norfork
+tailwater and Taneycomo carry none. Six rivers were confirmed with
 the owner river by river. The other 30 blocks were confirmed, at the owner's
 direction, from two checks: where each sizeable creek joins, read from the
 national stream network (NHDPlus) and placed on Eddy's river lines, and which
