@@ -137,14 +137,23 @@ export default function Page() {
     page.setDefaultNavigationTimeout(90000);
     const errors=[];
     page.on('pageerror', error=>errors.push(error.message));
+    // Set just before this context closes; see the route.fetch below.
+    let closingContext=false;
     await page.route('**/*', async route => {
       const url=new URL(route.request().url());
       if(url.origin!==origin) return route.abort();
       // Exercise the real card links without invoking the production detail
       // loader; serve the local detail fixture at the canonical destination.
       if(url.pathname==='/dams/swl-table-rock-dam') {
-        const response=await route.fetch({url:`${origin}${root}/detail${url.search}`});
-        return route.fulfill({response});
+        // Still in flight when the context closes, this rejects after the checks
+        // have passed and would exit 1 unhandled. Ignore it only from then on.
+        try {
+          const response=await route.fetch({url:`${origin}${root}/detail${url.search}`});
+          return await route.fulfill({response});
+        } catch(error) {
+          if(!closingContext) throw error;
+          return;
+        }
       }
       // Next's image proxy is same-origin but can still fetch a remote CDN on
       // the server. Keep those requests local too, including the header logo.
@@ -179,6 +188,7 @@ export default function Page() {
       await page.screenshot({ path: `${out}/${label}-navigation.png` });
       assert.deepEqual(errors, [], `${label}: no runtime errors`);
       console.log(`PASS ${label}: state and footer destinations, river chart, dam timeline, and layout`);
+      closingContext=true;
       await context.close();
       continue;
     }
@@ -396,6 +406,7 @@ export default function Page() {
     }
     assert.deepEqual(errors,[],`${label}: no runtime errors`);
     console.log(`PASS ${label}: full reports, today’s timelines, hourly interaction, search, filters, history, entry URLs, sorts and layout`);
+    closingContext=true;
     await context.close();
   }
 } catch (error) {

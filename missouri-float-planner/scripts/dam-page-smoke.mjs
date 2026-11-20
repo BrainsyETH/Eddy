@@ -512,11 +512,20 @@ export default function Page() {
     socket.onClose(() => upstream.close());
     upstream.on('close', () => socket.close());
   });
+  // A request still inside route.fetch when the context closes rejects after the
+  // checks have finished; unhandled, that exits 1 behind a full set of PASS lines.
+  // Ignore it only once the close has begun. The route stays installed until
+  // then: unrouteAll() before close() lets late requests reach the real origin.
+  let closingContext = false;
   await context.route('**/*', async route => {
     const requestUrl = new URL(route.request().url());
     if (requestUrl.origin !== 'https://eddy.guide') return route.abort();
-    const response = await route.fetch({ url: `${origin}${requestUrl.pathname}${requestUrl.search}`, headers: { ...route.request().headers(), origin } });
-    await route.fulfill({ response });
+    try {
+      const response = await route.fetch({ url: `${origin}${requestUrl.pathname}${requestUrl.search}`, headers: { ...route.request().headers(), origin } });
+      await route.fulfill({ response });
+    } catch (error) {
+      if (!closingContext) throw error;
+    }
   });
   await context.route('**/api/dam-update/**', route => route.fulfill({ json: { available: true, generatedAt: at } }));
   await context.route('**/api/eddy-update/**', route => route.fulfill({ json: { available: true, update: { summaryText: 'A useful river summary', conditionCode: 'good', generatedAt: at } } }));
@@ -707,6 +716,7 @@ export default function Page() {
     await writeFile(`${out}/browser-errors.json`, JSON.stringify(errors, null, 2));
     throw error;
   } finally {
+    closingContext = true;
     await context.close();
   }
   const desktop = await browser.newPage({ viewport: { width: 700, height: 900 } });
