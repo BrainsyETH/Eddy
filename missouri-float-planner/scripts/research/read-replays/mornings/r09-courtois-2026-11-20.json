@@ -1,0 +1,309 @@
+{
+  "key": "r09-courtois-2026-11-20",
+  "why": "Too Low, written on a condition change (Low to Too Low). The Courtois is read from the Huzzah gauge.",
+  "derived": null,
+  "record": {
+    "id": "3caba621-9551-4ff9-82a8-8d71a303bd8f",
+    "created_at": "2026-11-20T13:00:32.690481+00:00",
+    "workload": "river_update",
+    "trigger": "condition_change",
+    "river_slug": "courtois",
+    "section_slug": null,
+    "usgs_site_id": "07014000",
+    "condition_code": "too_low",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 2299,
+    "output_tokens": 213,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "476a3360ec78dac1bbc6051641576ecb0c98580eab496a31e75e9874cc03f512",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:07014000"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate an Eddy condition update for: Courtois Creek\n\n[RIVER CHARACTER]\nType: spring fed float\nPrimary hazards: strainer\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Ozarks\nLOW WATER GUIDANCE: The river IS floatable unless the code is \"too_low\". On this river, low water means: Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable. Do NOT recommend against floating when the condition code is \"low\"; that language is reserved for \"too_low\" only.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: Stronger current, more debris, undercut banks, and strainers that are harder to avoid.\n\n[CURRENT GAUGE DATA]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=too_low relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Huzzah Creek near Steelville, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Too Low (too_low). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 55 cfs.\nSeparate measurements: height 2.66 ft; discharge 55 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 111 to 260 cfs. Computed comparison: below.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 1850 cfs. This is NOT an official closure order. Do not call it a closure level.\nSupported location: Huzzah Creek near Steelville, MO.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\nGauge notes: More secluded than Huzzah. Excellent for a quieter, scenic float.\n\n[GAUGE TRAJECTORY]\n24h change: +0.0 ft (was 2.7 ft yesterday)\n6h change: -0.0 ft\nRate: steady at 0.00 ft/hr\n10-day peak: 2.7 ft\n10-day low: 2.6 ft\nSummary: Gauge has held steady near 2.7 ft over the past 24 hours, now holding steady.\n\n[HISTORICAL CONTEXT]\nCurrent discharge of 54.7 cfs is at the 22nd percentile for this date. Median: 81.1 cfs (19 years of record).\n\nRecent rain: none reported at Steelville in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.\n\n[LOCAL KNOWLEDGE — use to inform your update, not recite]\n=== General Ozarks Knowledge ===\nEvery Ozarks river responds differently to rainfall depending on its spring inputs and\nwatershed size. What matters most for floaters is whether the water is **rising**, **falling**,\nor **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua,\nNorth Fork, Spring River in Arkansas) hold steadier base flows and change slowly. Rivers\ndriven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkansas river\nexcept the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves\nlike a rainfall-driven stream above Alley Spring but is stabilized by springs below it.\n\n- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.\n- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).\n- Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.\n- After heavy rain, rivers may become less clear and turn muddy. \n- Weekends in June and July are the busiest. For a quieter float, go mid-week.\n- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.\n- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.\n- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.\n- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.\n- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.\n- **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.\n- **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.\n- **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.\n\n=== courtois River Knowledge ===\nMore secluded than its neighbor Huzzah. Excellent for a quieter, scenic float without\nthe weekend crowds. Upper sections usually only floatable in early spring.\n\n- Less crowded than Huzzah despite similar quality — the locals' choice.\n- Same dependency on recent rainfall as Huzzah.\n- **Shared gauge**: Courtois Creek has no active real-time USGS gauge. Conditions are estimated using Huzzah Creek near Steelville (**07014000**). When Huzzah is low, Courtois is also low. Do not recommend pivoting to Courtois as an alternative when Huzzah is poor.\n- Slightly more remote access points than Huzzah.\n- Pairs well with Huzzah for a weekend float trip.\n- Beautiful bluffs and gravel bars. Great for wading and swimming when the water is up.\n- Steelville area outfitters serve both Courtois and Huzzah.\n\n=== This gauge: Steelville (07014000) ===\n- **Sits**: This gauge is on Huzzah Creek at Highway 8, not on the Courtois. The Courtois has no gauge. It joins the Huzzah about five miles below this gauge, so none of the Courtois's water is in the reading.\n- **Speaks for**: The Courtois by comparison only. The two creeks drain neighbouring valleys of about the same size and often rise and fall together, but a storm over one valley can miss the other.\n- Say the reading is from the Huzzah whenever you quote it for the Courtois.",
+    "inputs": {
+      "facts": {
+        "max": 260,
+        "min": 111,
+        "unit": "cfs",
+        "value": 54.7,
+        "relation": "below",
+        "gaugeName": "Huzzah Creek near Steelville, MO",
+        "thresholds": {
+          "levelLow": 66,
+          "levelHigh": 730,
+          "levelTooLow": 56,
+          "floodStageFt": null,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 1850,
+          "levelOptimalMax": 260,
+          "levelOptimalMin": 111
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 54.7,
+        "locationName": "Courtois Creek",
+        "conditionCode": "too_low",
+        "gaugeHeightFt": 2.66,
+        "conditionLabel": "Too Low",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "MO",
+        "timezone": "America/Chicago",
+        "riverType": "spring_fed_float",
+        "weatherLat": 37.9681,
+        "weatherLon": -91.3543,
+        "weatherCity": "Steelville",
+        "characteristics": {
+          "riverNote": "More secluded than Huzzah. Excellent for a quieter, scenic float.",
+          "speedCurve": null,
+          "isSpringFed": false,
+          "primaryHazards": [
+            "strainer"
+          ],
+          "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+          "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid."
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "Courtois Creek",
+        "riverSlug": "courtois",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Steelville",
+        "temp": 52,
+        "humidity": 85,
+        "condition": "Clear",
+        "windSpeed": 5,
+        "observedAt": "2026-11-20T12:38:12.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 171
+      },
+      "forecast": {
+        "city": "Steelville",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 53,
+            "humidity": 62,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 9,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 53,
+            "humidity": 69,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 47,
+            "humidity": 86,
+            "tempHigh": 60,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 34,
+            "humidity": 71,
+            "tempHigh": 46,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 29,
+            "humidity": 82,
+            "tempHigh": 44,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 53,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 65,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 72,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 53,
+            "localHour": 6,
+            "timestamp": "2026-11-21T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": "More secluded than Huzzah. Excellent for a quieter, scenic float.",
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": null,
+          "p10": 51,
+          "p20": null,
+          "p25": 55.6,
+          "p50": 81.1,
+          "p75": 107,
+          "p80": null,
+          "p90": 368,
+          "p95": 846,
+          "mean": 138.289,
+          "month": 11,
+          "siteId": "07014000",
+          "yearsOfRecord": 19
+        },
+        "change6h": -0.020000000000000018,
+        "change24h": 0,
+        "narrative": "Gauge has held steady near 2.7 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 2.64,
+          "timestamp": "2026-11-16T18:30:00+00:00"
+        },
+        "percentile": 22,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 2.69,
+          "timestamp": "2026-11-10T13:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": -0.004999999999999893,
+        "currentHeightFt": 2.66,
+        "percentileContext": "Current discharge of 54.7 cfs is at the 22nd percentile for this date. Median: 81.1 cfs (19 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T12:30:00+00:00"
+    },
+    "raw_response": "[CLAIMS] condition=too_low relation=below\n\n[SUMMARY]\nCourtois Creek is running too low to float right now, based on a steady Huzzah gauge near Steelville.\n\n[EDDY_READ]\nCourtois has no gauge of its own -- conditions here are estimated from the Huzzah reading near Steelville. The two creeks drain neighboring valleys and tend to move together, but a storm over one can miss the other entirely.\n\n[FULL]\nAt 55 cfs on the Huzzah near Steelville, the water is well below what Courtois needs for a worthwhile float. You would be dragging boats across gravel bars and picking through shallow riffles most of the day. The gauge has barely moved in the past 24 hours, so there is no improvement in sight at the moment. Rain is likely Sunday, which could change this picture -- worth another look early next week.",
+    "published": {
+      "eddyRead": "Courtois has no gauge of its own, conditions here are estimated from the Huzzah reading near Steelville. The two creeks drain neighboring valleys and tend to move together, but a storm over one can miss the other entirely.",
+      "quoteText": "At 55 cfs on the Huzzah near Steelville, the water is well below what Courtois needs for a worthwhile float. You would be dragging boats across gravel bars and picking through shallow riffles most of the day. The gauge has barely moved in the past 24 hours, so there is no improvement in sight at the moment. Rain is likely Sunday, which could change this picture, worth another look early next week.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "OpenWeather",
+        "local knowledge",
+        "gauge trajectory"
+      ],
+      "summaryText": "Courtois Creek is running too low to float right now, based on a steady Huzzah gauge near Steelville."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "862e34f5-cd5a-4ebc-98ba-de430069e5e0",
+    "slug": "courtois",
+    "name": "Courtois Creek",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Steelville",
+    "weatherLat": 37.9681,
+    "weatherLon": -91.3543,
+    "alertSearchTerms": [
+      "courtois",
+      "crawford county",
+      "steelville"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "More secluded than Huzzah. Excellent for a quieter, scenic float.",
+      "speedCurve": null
+    }
+  }
+}

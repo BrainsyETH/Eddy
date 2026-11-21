@@ -46,6 +46,7 @@ scripts/rainfall/source-contract.test.ts
 scripts/recovery-rates-migration.test.ts
 scripts/research/rain-lag-2026-11/lag.test.ts
 scripts/research/rain-lag-2026-11/results.test.ts
+scripts/research/read-replays/score.test.ts
 scripts/river-guide-review-migration.test.ts
 scripts/security/segment-cache-policy.test.ts
 scripts/security/trust-invariants-public-acl.test.ts

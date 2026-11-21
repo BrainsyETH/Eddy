@@ -1,0 +1,275 @@
+{
+  "key": "g06-current-07064533-2026-11-19",
+  "why": "Current above Akers on a condition change (Low), earlier gauge prompt (a51bff24...). Two section notes.",
+  "derived": null,
+  "record": {
+    "id": "0a2699b1-2bb8-41bb-a3f3-5d5f0b96c1c5",
+    "created_at": "2026-11-19T06:00:32.847247+00:00",
+    "workload": "gauge_update",
+    "trigger": "condition_change",
+    "river_slug": "current",
+    "section_slug": null,
+    "usgs_site_id": "07064533",
+    "condition_code": "low",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 3243,
+    "output_tokens": 261,
+    "git_sha": "63c409b1ea189cf84d6c24c4560688bec747ae19",
+    "system_prompt_hash": "a51bff24176e0fb2535514d9975c977748819864523cc28786d40ea18e9b5be9",
+    "knowledge_hash": "d5b50933cf3441a4f1fdf1596d95adf63059e8a42899f479d00758e893dbce24",
+    "knowledge_blocks": [
+      "river",
+      "gauge:07064533",
+      "section:upper-current",
+      "section:lower-current"
+    ],
+    "user_prompt": "Date: Thursday, November 19, 2026\n\nGenerate a secondary-gauge update for: Current River above Akers, MO on the Current River.\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Ozarks\nLOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, riffles, floatability, drought, or a release schedule unless the river knowledge describes this station's own stretch. Do not infer the cause.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: Stronger current, more debris, undercut banks, and strainers that are harder to avoid.\nSpring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.\nLarge spring inputs buffer light rain. Heavy rain shows in 6-12 hours.\n\n[RIVER KNOWLEDGE — about the whole river unless it says \"This gauge\"; use only what fits this station's stretch, do not recite]\nThe Current is the crown jewel of Ozarks floating — spring-fed, scenic, and reliable.\nA chain of big springs feeds it from top to bottom, so it holds water better than almost\nany river in the state. Where each spring enters decides which gauge sees its water.\n\n- Best all-around river for beginners and experienced paddlers alike.\n- NPS manages most access points. Akers Ferry, Pulltite, Round Spring, and Two Rivers have developed campgrounds.\n- Current River is part of the Ozark National Scenic Riverways (ONSR) — the first national park area to protect a river system.\n- The gauges sit far apart, on very different amounts of water. In a dry spell the upper gauges can read thin while the lower ones read fine, so quote the gauge nearest the put-in.\n\nThis gauge: Akers (07064533)\n- **Sits**: At Akers Ferry. Above it: Montauk Springs and Welch Spring, which enters about two and a half miles upstream. Below it: Cave Spring, Pulltite Spring, Round Spring and the springs beyond, so the river keeps gaining water below this gauge.\n- **Speaks for**: Cedar Grove to Pulltite.\n- Read in cfs. The staff-gauge numbers outfitters quote at Akers Ferry are a different reading.\n\nSection upper-current:\n- **Montauk to Cedar Grove** (~7 miles): Narrow, riffley, needs slightly more water than lower sections. Great half-day in a kayak.\n- **Baptist Camp to Cedar Grove** (~8 miles): Opens up a bit. A few fun riffles. Good for canoes.\n- **Cedar Grove to Akers** (~8 miles): Classic stretch. Bluffs start getting dramatic. The most popular day float on the upper section.\n- Montauk State Park at the headwaters has trout fishing (catch and release / tags) and a lodge.\n- **Cedar Grove is the year-round line on the Current.** From Cedar Grove down the river floats every month of the year — Welch Spring and the springs below it hold the base flow up even in a drought September. It is the upper river ABOVE Cedar Grove, the Montauk and Baptist Camp stretches, that goes scrapy and walk-it first. If the upper gauge is thin, move the put-in down to Cedar Grove rather than calling the Current off.\n- Note the units before quoting a level: Eddy reads **Current above Akers in cfs**, while Montauk and Powder Mill are gauge height in feet, and the staff-gauge numbers outfitters quote at Akers Ferry are a third reading again. Don't mix them.\n\nSection lower-current:\n- **Akers to Pulltite** (~10 miles): The signature stretch, and one of the finest float trips in the Midwest. Big bluffs, deep pools, springs. Full-day float.\n- **Pulltite to Round Spring** (~9 miles): More remote. Good overnight trip.\n- **Round Spring to Two Rivers** (~18 miles): Long section, often done as a 2-day. Two Rivers is the take-out where Jacks Fork joins.\n- This stretch handles low water better than the river above Akers, thanks to spring inputs along the way.\n- Cave Spring, Pulltite Spring and Round Spring are all right on the river and worth exploring.\n- Blue Spring, below Two Rivers near Powder Mill, is worth a stop — one of the deepest springs in Missouri.\n\n[THIS GAUGE]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=low relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Current River above Akers, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Low (low). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 110 cfs.\nSeparate measurements: height 0.53 ft; discharge 110 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 420 to 1,150 cfs. Computed comparison: below.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 2800 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 7 ft, assessed separately from the recreational optimal range.\nSupported location: Current River above Akers, MO.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\n\n[TRAJECTORY]\n24h change: +0.0 ft\n6h change: +0.0 ft\nRate: steady at 0.01 ft/hr\nSummary: Gauge has held steady near 0.5 ft over the past 24 hours, now holding steady.\nContext: Current discharge of 110 cfs is at the 4th percentile for this date. Median: 220 cfs (25 years of record).",
+    "inputs": {
+      "facts": {
+        "max": 1150,
+        "min": 420,
+        "unit": "cfs",
+        "value": 110,
+        "relation": "below",
+        "gaugeName": "Current River above Akers, MO",
+        "thresholds": {
+          "levelLow": 150,
+          "levelHigh": 1150,
+          "levelTooLow": 110,
+          "floodStageFt": 7,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 2800,
+          "levelOptimalMax": 1150,
+          "levelOptimalMin": 420
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 110,
+        "conditionCode": "low",
+        "gaugeHeightFt": 0.53,
+        "conditionLabel": "Low"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [],
+      "target": {
+        "gaugeName": "Current River above Akers, MO",
+        "riverName": "Current River",
+        "riverSlug": "current",
+        "usgsSiteId": "07064533",
+        "coordinates": {
+          "lat": 37.3756944444444,
+          "lon": -91.5528055555556
+        }
+      },
+      "forecast": {
+        "city": "Salem",
+        "days": [
+          {
+            "date": "2026-11-19",
+            "tempLow": 43,
+            "humidity": 60,
+            "tempHigh": 69,
+            "condition": "Clear",
+            "dayOfWeek": "Thu",
+            "windSpeed": 5,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-20",
+            "tempLow": 45,
+            "humidity": 72,
+            "tempHigh": 70,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 7,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 48,
+            "humidity": 75,
+            "tempHigh": 69,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 47,
+            "humidity": 84,
+            "tempHigh": 59,
+            "condition": "Clouds",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "04d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 36,
+            "humidity": 67,
+            "tempHigh": 49,
+            "condition": "Clouds",
+            "dayOfWeek": "Mon",
+            "windSpeed": 9,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 48,
+            "localHour": 3,
+            "timestamp": "2026-11-19T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 43,
+            "localHour": 6,
+            "timestamp": "2026-11-19T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 59,
+            "localHour": 9,
+            "timestamp": "2026-11-19T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 69,
+            "localHour": 12,
+            "timestamp": "2026-11-19T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 68,
+            "localHour": 15,
+            "timestamp": "2026-11-19T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 51,
+            "localHour": 18,
+            "timestamp": "2026-11-20T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 49,
+            "localHour": 21,
+            "timestamp": "2026-11-20T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 46,
+            "localHour": 0,
+            "timestamp": "2026-11-20T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-19"
+      },
+      "trajectory": {
+        "stats": {
+          "day": 19,
+          "p05": 139.7,
+          "p10": 160.2,
+          "p20": null,
+          "p25": 194,
+          "p50": 220,
+          "p75": 312,
+          "p80": null,
+          "p90": 1390,
+          "p95": 1991,
+          "mean": 417.8,
+          "month": 11,
+          "siteId": "07064533",
+          "yearsOfRecord": 25
+        },
+        "change6h": 0.010000000000000009,
+        "change24h": 0.010000000000000009,
+        "narrative": "Gauge has held steady near 0.5 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 0.5,
+          "timestamp": "2026-11-17T22:30:00+00:00"
+        },
+        "percentile": 4,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 0.58,
+          "timestamp": "2026-11-09T14:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0.0050000000000000044,
+        "currentHeightFt": 0.53,
+        "percentileContext": "Current discharge of 110 cfs is at the 4th percentile for this date. Median: 220 cfs (25 years of record)."
+      },
+      "readingTimestamp": "2026-11-19T05:30:00+00:00",
+      "riverBehaviorApplies": true
+    },
+    "raw_response": "[CLAIMS] condition=low relation=below\n\n[SUMMARY]\nRunning Low above Akers — floatable but expect some work; Cedar Grove put-in is the smarter call right now.\n\n[EDDY_READ]\nThis gauge speaks for Cedar Grove to Pulltite, and Cedar Grove is exactly the threshold the locals use: above it the river goes thin first, below it the springs hold the floor up. At 110 cfs, that line matters.\n\n[FULL]\nThe river above Akers is reading Low and has held steady for the past 24 hours, well below the optimal range of 420 to 1,150 cfs. For mid-November this is notably lean — 110 cfs sits in the bottom few percent of what this date typically sees in 25 years of record. The Cedar Grove to Akers stretch can still be run, but the upper sections above Cedar Grove are a tougher proposition at this flow; starting at Cedar Grove keeps you on the more forgiving water this gauge covers. Below Akers, Cave Spring and Pulltite Spring add flow the gauge here does not see, so conditions improve as you move downstream.",
+    "published": {
+      "eddyRead": "This gauge speaks for Cedar Grove to Pulltite, and Cedar Grove is exactly the threshold the locals use: above it the river goes thin first, below it the springs hold the floor up. At 110 cfs, that line matters.",
+      "quoteText": "The river above Akers is reading Low and has held steady for the past 24 hours, well below the optimal range of 420 to 1,150 cfs. For mid-November this is notably lean, 110 cfs sits in the bottom few percent of what this date typically sees in 25 years of record. The Cedar Grove to Akers stretch can still be run, but the upper sections above Cedar Grove are a tougher proposition at this flow; starting at Cedar Grove keeps you on the more forgiving water this gauge covers. Below Akers, Cave Spring and Pulltite Spring add flow the gauge here does not see, so conditions improve as you move downstream.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "gauge trajectory",
+        "OpenWeather forecast"
+      ],
+      "summaryText": "Running Low above Akers, floatable but expect some work; Cedar Grove put-in is the smarter call right now."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "4806d324-200f-42ba-bd17-79f1ee4e0467",
+    "slug": "current",
+    "name": "Current River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": "ozar",
+    "weatherCity": "Van Buren",
+    "weatherLat": 36.9956,
+    "weatherLon": -91.0146,
+    "alertSearchTerms": [
+      "current river",
+      "shannon county",
+      "dent county",
+      "carter county",
+      "van buren",
+      "eminence"
+    ],
+    "characteristics": {
+      "isSpringFed": true,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "Spring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.",
+      "speedCurve": null
+    }
+  }
+}

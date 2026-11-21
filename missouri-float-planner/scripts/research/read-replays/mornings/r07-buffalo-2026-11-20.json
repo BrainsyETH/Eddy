@@ -1,0 +1,328 @@
+{
+  "key": "r07-buffalo-2026-11-20",
+  "why": "Low at St. Joe, Arkansas: another state and a park river.",
+  "derived": null,
+  "record": {
+    "id": "7bb39d73-de67-4cd9-8a9d-86d97ebd99a9",
+    "created_at": "2026-11-20T11:10:49.524315+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "buffalo",
+    "section_slug": null,
+    "usgs_site_id": "07056000",
+    "condition_code": "low",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 2930,
+    "output_tokens": 262,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "532f42a050bd462c5012eb80b4815d45df963dba0ad83477e521862ed4b089b1",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:07056000",
+      "elsewhere"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate an Eddy condition update for: Buffalo National River\n\n[RIVER CHARACTER]\nType: rain flashy\nPrimary hazards: flash flood, strainer, committing wilderness, bluff hazard at high water, debris, flash flood upstream\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Buffalo National River\nLOW WATER GUIDANCE: The river IS floatable unless the code is \"too_low\". On this river, low water means: hailstone: The remote upper reaches drop too low to float in dry spells. | upper-ponca-pruitt: When it is too low to launch at Ponca, outfitters shift the put-in about 2 miles downriver to Steel Creek. | middle-pruitt-gilbert: Low water means dragging over shallow riffles. | lower-gilbert-buffalocity: Low water mainly affects speed here, not runnability. Do NOT recommend against floating when the condition code is \"low\"; that language is reserved for \"too_low\" only.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: hailstone: Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard. | upper-ponca-pruitt: Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution. | middle-pruitt-gilbert: Rain-driven rises; more forgiving than the upper but still flashy. | lower-gilbert-buffalocity: Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.\n\n[CURRENT GAUGE DATA]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=low relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Buffalo River near St. Joe, AR\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Low (low). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 72 cfs.\nSeparate measurements: height 2.96 ft; discharge 72 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 356 to 2,000 cfs. Computed comparison: below.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 4300 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 27 ft, assessed separately from the recreational optimal range.\nSupported location: Buffalo River near St. Joe, AR.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\n\n[GAUGE TRAJECTORY]\n24h change: -0.0 ft (was 3.0 ft yesterday)\n6h change: +0.0 ft\nRate: steady at 0.01 ft/hr\n10-day peak: 3.3 ft\n10-day low: 3.0 ft\nSummary: Gauge has held steady near 3.0 ft over the past 24 hours, now holding steady, peaked at 3.3 ft 10 days ago.\n\n[HISTORICAL CONTEXT]\nCurrent discharge of 74.2 cfs is at the 21st percentile for this date. Median: 193 cfs (87 years of record).\n\nRecent rain: none reported at Jasper in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.\n\n[LOCAL KNOWLEDGE — use to inform your update, not recite]\n=== General Ozarks Knowledge ===\nEvery Ozarks river responds differently to rainfall depending on its spring inputs and\nwatershed size. What matters most for floaters is whether the water is **rising**, **falling**,\nor **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua,\nNorth Fork, Spring River in Arkansas) hold steadier base flows and change slowly. Rivers\ndriven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkansas river\nexcept the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves\nlike a rainfall-driven stream above Alley Spring but is stabilized by springs below it.\n\n- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.\n- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).\n- Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.\n- After heavy rain, rivers may become less clear and turn muddy. \n- Weekends in June and July are the busiest. For a quieter float, go mid-week.\n- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.\n- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.\n- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.\n- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.\n- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.\n- **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.\n- **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.\n- **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.\n\n=== buffalo River Knowledge ===\nThe Buffalo National River — America's first National River (1972) — is a free-flowing, rain-driven stream draining the Boston Mountains of northwest Arkansas, managed by the National Park Service. Its personality changes sharply top to bottom: the upper river is flashy and seasonal, floatable mainly spring into early summer, while the lower river holds water nearly year-round and reads more like flatwater.\n\n- **Ponca to Pruitt** is the classic upper float and the most level-sensitive reach on the river — too low and you drag, too high and the bluffs turn hazardous. Season is typically March through June, sometimes into July with rain.\n- Read the gauge that matches your reach: **Ponca** is the canonical upper-river floatability gauge, **St. Joe** (Tyler Bend) is the middle-district reference and Eddy's primary for the river, and **Harriet**, at the Highway 14 bridge, is the lowest before the White River confluence.\n- When it's too low to launch at Ponca, outfitters shift the put-in about two miles down to Steel Creek — there's no published numeric cutoff, it's a daily operational call.\n- Flash floods and strainers are the serious hazards on the flashy upper reaches; the lower river below Gilbert is calmer, where low water mostly affects speed rather than whether you can float.\n\n=== This gauge: St. Joe (07056000) ===\n- **Sits**: At the Highway 65 bridge, by Grinders Ferry and just below Tyler Bend. Above it: the Little Buffalo, Big Creek at Carver, Cave Creek, Richland Creek at Woolum, and Calf Creek, all of which join between Pruitt and here. Below it: Bear Creek, about five miles down, just past Gilbert.\n- **Speaks for**: The middle river, Hasty to Gilbert.\n- It is truest from Woolum down. Between Hasty and Woolum, Big Creek, Cave Creek and Richland Creek have not all joined yet, so the river carries less than this reading shows.\n- Eddy's primary gauge for the river.\n\n=== Elsewhere on this river: patterns only, never today's conditions ===\n- Boxley gauge: Above Boxley, at the top of the valley. Above it: the headwaters only. Below it: Beech Creek, about two miles down at Boxley, and the side creeks of Boxley Valley. The river has doubled by Ponca. Speaks for: Boxley Valley, from Boxley down to Ponca.\n- Ponca gauge: At Ponca. Above it: Boxley Valley and its creeks. Below it: Cove Creek and small side creeks. The river gains slowly from here to Pruitt. Speaks for: The upper river, Ponca through Steel Creek and Kyles Landing to Erbie.\n- Pruitt gauge: At Pruitt. Above it: the upper river from Ponca. Below it: Mill Creek, just below the gauge, and then the Little Buffalo, which joins about four miles down and nearly doubles the river. Speaks for: Ozark and Pruitt, down to the Little Buffalo.\n- Harriet gauge: At the Highway 14 bridge (Dillards Ferry) near Harriet, about 26 miles below the St. Joe gauge. Above it: everything the St. Joe gauge carries and the creeks that join below Gilbert. Below it: Buffalo Point and Rush, then the White River. Speaks for: The lower Buffalo, from Gilbert down.",
+    "inputs": {
+      "facts": {
+        "max": 2000,
+        "min": 356,
+        "unit": "cfs",
+        "value": 72.3,
+        "relation": "below",
+        "gaugeName": "Buffalo River near St. Joe, AR",
+        "thresholds": {
+          "levelLow": 127,
+          "levelHigh": 2000,
+          "levelTooLow": 32,
+          "floodStageFt": 27,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 4300,
+          "levelOptimalMax": 2000,
+          "levelOptimalMin": 356
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 72.3,
+        "locationName": "Buffalo National River",
+        "conditionCode": "low",
+        "gaugeHeightFt": 2.96,
+        "conditionLabel": "Low",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "AR",
+        "timezone": "America/Chicago",
+        "riverType": "rain_flashy",
+        "weatherLat": 36.0081,
+        "weatherLon": -93.1866,
+        "weatherCity": "Jasper",
+        "characteristics": {
+          "riverNote": null,
+          "speedCurve": null,
+          "isSpringFed": false,
+          "primaryHazards": [
+            "flash_flood",
+            "strainer",
+            "committing_wilderness",
+            "bluff_hazard_at_high_water",
+            "debris",
+            "flash_flood_upstream"
+          ],
+          "lowWaterMeaning": "hailstone: The remote upper reaches drop too low to float in dry spells. | upper-ponca-pruitt: When it is too low to launch at Ponca, outfitters shift the put-in about 2 miles downriver to Steel Creek. | middle-pruitt-gilbert: Low water means dragging over shallow riffles. | lower-gilbert-buffalocity: Low water mainly affects speed here, not runnability.",
+          "risingWaterHazards": "hailstone: Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard. | upper-ponca-pruitt: Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution. | middle-pruitt-gilbert: Rain-driven rises; more forgiving than the upper but still flashy. | lower-gilbert-buffalocity: Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach."
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "Buffalo National River",
+        "riverSlug": "buffalo",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Jasper",
+        "temp": 48,
+        "humidity": 86,
+        "condition": "Clear",
+        "windSpeed": 4,
+        "observedAt": "2026-11-20T11:10:40.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 182
+      },
+      "forecast": {
+        "city": "Jasper",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 48,
+            "humidity": 76,
+            "tempHigh": 68,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 6,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 55,
+            "humidity": 81,
+            "tempHigh": 69,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 6,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 44,
+            "humidity": 89,
+            "tempHigh": 59,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 8,
+            "conditionIcon": "10d",
+            "precipitation": 96
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 34,
+            "humidity": 67,
+            "tempHigh": 48,
+            "condition": "Clouds",
+            "dayOfWeek": "Mon",
+            "windSpeed": 9,
+            "conditionIcon": "03d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 29,
+            "humidity": 82,
+            "tempHigh": 43,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 48,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 52,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 61,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 68,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 60,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 59,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": null,
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 34.4,
+          "p10": 45.26,
+          "p20": null,
+          "p25": 84,
+          "p50": 193,
+          "p75": 888,
+          "p80": null,
+          "p90": 1940,
+          "p95": 4614,
+          "mean": 855.922,
+          "month": 11,
+          "siteId": "07056000",
+          "yearsOfRecord": 87
+        },
+        "change6h": 0.010000000000000231,
+        "change24h": -0.009999999999999787,
+        "narrative": "Gauge has held steady near 3.0 ft over the past 24 hours, now holding steady, peaked at 3.3 ft 10 days ago.",
+        "windowLow": {
+          "heightFt": 2.96,
+          "timestamp": "2026-11-18T21:00:00+00:00"
+        },
+        "percentile": 21,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 3.29,
+          "timestamp": "2026-11-10T11:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0.0050000000000001155,
+        "currentHeightFt": 2.97,
+        "percentileContext": "Current discharge of 74.2 cfs is at the 21st percentile for this date. Median: 193 cfs (87 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T10:45:00+00:00"
+    },
+    "raw_response": "[CLAIMS] condition=low relation=below\n\n[SUMMARY]\nThe middle Buffalo near St. Joe is running low but floatable, with slow pools and some dragging over shallow riffles.\n\n[EDDY_READ]\nSt. Joe sits below where the Little Buffalo, Big Creek, Richland Creek, and several other tributaries have all joined in, so this reading captures the full middle-river volume. Between Hasty and Woolum, those tributaries haven't all added in yet, so the river runs noticeably thinner up there than this gauge suggests.\n\n[FULL]\nThe middle Buffalo is running low and steady near St. Joe, well below the optimal range of 356 to 2,000 cfs, and you can expect some dragging over the shallower riffles. The gauge has barely moved over the past 24 hours, which puts it lower than is typical for late November. If you are putting in above Woolum, toward Hasty, plan for even less water than this reading implies, since not all the tributaries have joined by that point. Rain is likely Sunday, so it is worth checking back before you commit to a launch day.",
+    "published": {
+      "eddyRead": "St. Joe sits below where the Little Buffalo, Big Creek, Richland Creek, and several other tributaries have all joined in, so this reading captures the full middle-river volume. Between Hasty and Woolum, those tributaries haven't all added in yet, so the river runs noticeably thinner up there than this gauge suggests.",
+      "quoteText": "The middle Buffalo is running low and steady near St. Joe, well below the optimal range of 356 to 2,000 cfs, and you can expect some dragging over the shallower riffles. The gauge has barely moved over the past 24 hours, which puts it lower than is typical for late November. If you are putting in above Woolum, toward Hasty, plan for even less water than this reading implies, since not all the tributaries have joined by that point. Rain is likely Sunday, so it is worth checking back before you commit to a launch day.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "OpenWeather",
+        "local knowledge",
+        "gauge trajectory"
+      ],
+      "summaryText": "The middle Buffalo near St. Joe is running low but floatable, with slow pools and some dragging over shallow riffles."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "f6738afd-4602-48f2-98ab-4378d22760be",
+    "slug": "buffalo",
+    "name": "Buffalo National River",
+    "region": "Buffalo National River",
+    "state": "AR",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "rain_flashy",
+    "parkCode": "buff",
+    "weatherCity": "Jasper",
+    "weatherLat": 36.0081,
+    "weatherLon": -93.1866,
+    "alertSearchTerms": [
+      "buffalo river",
+      "buffalo national river",
+      "newton county",
+      "searcy county",
+      "marion county",
+      "baxter county",
+      "ponca",
+      "jasper",
+      "st. joe",
+      "gilbert",
+      "yellville"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "flash_flood",
+        "strainer",
+        "committing_wilderness",
+        "bluff_hazard_at_high_water",
+        "debris",
+        "flash_flood_upstream"
+      ],
+      "lowWaterMeaning": "hailstone: The remote upper reaches drop too low to float in dry spells. | upper-ponca-pruitt: When it is too low to launch at Ponca, outfitters shift the put-in about 2 miles downriver to Steel Creek. | middle-pruitt-gilbert: Low water means dragging over shallow riffles. | lower-gilbert-buffalocity: Low water mainly affects speed here, not runnability.",
+      "risingWaterHazards": "hailstone: Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard. | upper-ponca-pruitt: Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution. | middle-pruitt-gilbert: Rain-driven rises; more forgiving than the upper but still flashy. | lower-gilbert-buffalocity: Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.",
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}

@@ -1,0 +1,311 @@
+{
+  "key": "r06-niangua-2026-11-20",
+  "why": "Good at Tunnel Dam. The gauge sits above Bennett Spring, which earlier Reads credited to it.",
+  "derived": null,
+  "record": {
+    "id": "a8662267-4c11-447a-833c-597431685beb",
+    "created_at": "2026-11-20T11:11:33.506273+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "niangua",
+    "section_slug": null,
+    "usgs_site_id": "06923950",
+    "condition_code": "good",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 2316,
+    "output_tokens": 275,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "ea7654f8ea86287ad89b4d857426e2bec2e2a4bc5ede04c74e0aa93304107509",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:06923950",
+      "elsewhere"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate an Eddy condition update for: Niangua River\n\n[RIVER CHARACTER]\nType: spring fed float\nPrimary hazards: strainer\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Central Missouri\nLOW WATER GUIDANCE: The river IS floatable unless the code is \"too_low\". On this river, low water means: Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable. Do NOT recommend against floating when the condition code is \"low\"; that language is reserved for \"too_low\" only.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: Stronger current, more debris, undercut banks, and strainers that are harder to avoid.\n\n[CURRENT GAUGE DATA]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=good relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Niangua River at Tunnel Dam near Macks Creek, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Good (good). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 173 cfs.\nSeparate measurements: height 1.25 ft; discharge 173 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 234 to 750 cfs. Computed comparison: below.\nIn plain words for the reader: floatable, with a reading below the optimal range for this gauge. This comparison alone does not establish shallow water or scraping.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 7900 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 11 ft, assessed separately from the recreational optimal range.\nSupported location: Niangua River at Tunnel Dam near Macks Creek, MO.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\nGauge notes: Fed by Bennett Spring. Generally consistent flows, a reliable choice.\n\n[GAUGE TRAJECTORY]\n24h change: +0.0 ft (was 1.2 ft yesterday)\n6h change: +0.0 ft\nRate: steady at 0.00 ft/hr\n10-day peak: 1.3 ft\n10-day low: 1.2 ft\nSummary: Gauge has held steady near 1.3 ft over the past 24 hours, now holding steady.\n\n[HISTORICAL CONTEXT]\nCurrent discharge of 173 cfs is at the 30th percentile for this date. Median: 209 cfs (30 years of record).\n\nRecent rain: none reported at Lebanon in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.\n\n[LOCAL KNOWLEDGE — use to inform your update, not recite]\n=== General Ozarks Knowledge ===\nEvery Ozarks river responds differently to rainfall depending on its spring inputs and\nwatershed size. What matters most for floaters is whether the water is **rising**, **falling**,\nor **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua,\nNorth Fork, Spring River in Arkansas) hold steadier base flows and change slowly. Rivers\ndriven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkansas river\nexcept the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves\nlike a rainfall-driven stream above Alley Spring but is stabilized by springs below it.\n\n- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.\n- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).\n- Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.\n- After heavy rain, rivers may become less clear and turn muddy. \n- Weekends in June and July are the busiest. For a quieter float, go mid-week.\n- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.\n- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.\n- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.\n- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.\n- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.\n- **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.\n- **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.\n- **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.\n\n=== niangua River Knowledge ===\nTwo rivers in one, split at Bennett Spring — one of Missouri's largest springs. From the\nspring down the Niangua holds a steady base flow through dry spells; above it the river\ndepends on rain.\n\n- Bennett Spring State Park is a major trout fishing destination. The river below the spring is cold and clear.\n- Moderate difficulty — suitable for most skill levels.\n- Less dramatic bluffs than the Current or Eleven Point, but pleasant scenery.\n- Several outfitters operate around Bennett Spring with good shuttle service.\n- Tunnel Dam, a hydroelectric diversion, sits on the lower river — the Niangua is not a wholly free-flowing float below that point.\n\n=== This gauge: Tunnel Dam (06923950) ===\n- **Sits**: At Tunnel Dam near Macks Creek, about 37 river miles below Bennett Spring. Above it: Bennett Spring's inflow and everything that joins the river below the spring.\n- **Speaks for**: The Niangua from Bennett Spring down. It is the only gauge below the spring, and it sits well below the popular floats, so it can read more water than they carry.\n\n=== Elsewhere on this river: patterns only, never today's conditions ===\n- Windyville gauge: At Windyville, about 14 river miles ABOVE Bennett Spring. Above it: the rain-fed upper river only. Below it: Bennett Spring's inflow, so this gauge does NOT include the spring's water. Speaks for: The Niangua above Bennett Spring.",
+    "inputs": {
+      "facts": {
+        "max": 750,
+        "min": 234,
+        "unit": "cfs",
+        "value": 173,
+        "relation": "below",
+        "gaugeName": "Niangua River at Tunnel Dam near Macks Creek, MO",
+        "thresholds": {
+          "levelLow": 142,
+          "levelHigh": 750,
+          "levelTooLow": 90,
+          "floodStageFt": 11,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 7900,
+          "levelOptimalMax": 750,
+          "levelOptimalMin": 234
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 173,
+        "locationName": "Niangua River",
+        "conditionCode": "good",
+        "gaugeHeightFt": 1.25,
+        "conditionLabel": "Good",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "MO",
+        "timezone": "America/Chicago",
+        "riverType": "spring_fed_float",
+        "weatherLat": 37.7156,
+        "weatherLon": -92.8564,
+        "weatherCity": "Bennett Spring",
+        "characteristics": {
+          "riverNote": "Fed by Bennett Spring. Generally consistent flows, a reliable choice.",
+          "speedCurve": null,
+          "isSpringFed": true,
+          "primaryHazards": [
+            "strainer"
+          ],
+          "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+          "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid."
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "Niangua River",
+        "riverSlug": "niangua",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Lebanon",
+        "temp": 53,
+        "humidity": 82,
+        "condition": "Clear",
+        "windSpeed": 5,
+        "observedAt": "2026-11-20T11:06:24.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 150
+      },
+      "forecast": {
+        "city": "Lebanon",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 53,
+            "humidity": 67,
+            "tempHigh": 70,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 10,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 52,
+            "humidity": 66,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 10,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 44,
+            "humidity": 84,
+            "tempHigh": 61,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 34,
+            "humidity": 71,
+            "tempHigh": 47,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 30,
+            "humidity": 84,
+            "tempHigh": 44,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 53,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 56,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 65,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 70,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 56,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 52,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": "Fed by Bennett Spring. Generally consistent flows, a reliable choice.",
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 80.65,
+          "p10": 134.8,
+          "p20": null,
+          "p25": 164,
+          "p50": 209,
+          "p75": 270.25,
+          "p80": null,
+          "p90": 938.6,
+          "p95": 1307,
+          "mean": 313.967,
+          "month": 11,
+          "siteId": "06923950",
+          "yearsOfRecord": 30
+        },
+        "change6h": 0,
+        "change24h": 0.010000000000000009,
+        "narrative": "Gauge has held steady near 1.3 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 1.2,
+          "timestamp": "2026-11-17T16:15:00+00:00"
+        },
+        "percentile": 30,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 1.29,
+          "timestamp": "2026-11-18T19:00:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 1.25,
+        "percentileContext": "Current discharge of 173 cfs is at the 30th percentile for this date. Median: 209 cfs (30 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T10:00:00+00:00"
+    },
+    "raw_response": "[CLAIMS] condition=good relation=below\n\n[SUMMARY]\nGood water near Macks Creek for a float on the Niangua, running a bit below the sweet spot but no trouble getting down the river.\n\n[EDDY_READ]\nTunnel Dam sits about 37 miles below Bennett Spring, so this reading captures the full spring contribution and everything that joins below it. That spring influence tends to hold the lower river steadier than much of the Ozarks, and that is showing in a rock-solid gauge right now.\n\n[FULL]\nThe Niangua is reading Good near Macks Creek, holding about as steady as it gets with no measurable change over the past 24 hours. The flow sits a notch below the optimal range at 173 cfs, but that alone does not mean shallow riffles or dragging -- check with a local outfitter about current channel conditions before you put in. The gauge sits well below the popular floats near Bennett Spring, and can read more water than those reaches carry, so the upper stretches may differ; the Windyville gauge is the one to watch above the spring. Rain is likely Sunday, so it is worth another look at the gauge before you head out that direction.",
+    "published": {
+      "eddyRead": "Tunnel Dam sits about 37 miles below Bennett Spring, so this reading captures the full spring contribution and everything that joins below it. That spring influence tends to hold the lower river steadier than much of the Ozarks, and that is showing in a rock-solid gauge right now.",
+      "quoteText": "The Niangua is reading Good near Macks Creek, holding about as steady as it gets with no measurable change over the past 24 hours. The flow sits a notch below the optimal range at 173 cfs, but that alone does not mean shallow riffles or dragging, check with a local outfitter about current channel conditions before you put in. The gauge sits well below the popular floats near Bennett Spring, and can read more water than those reaches carry, so the upper stretches may differ; the Windyville gauge is the one to watch above the spring. Rain is likely Sunday, so it is worth another look at the gauge before you head out that direction.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "OpenWeather",
+        "local knowledge",
+        "gauge trajectory"
+      ],
+      "summaryText": "Good water near Macks Creek for a float on the Niangua, running a bit below the sweet spot but no trouble getting down the river."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "47dc4aec-8858-4cec-aec5-f5b7078f3685",
+    "slug": "niangua",
+    "name": "Niangua River",
+    "region": "Central Missouri",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Bennett Spring",
+    "weatherLat": 37.7156,
+    "weatherLon": -92.8564,
+    "alertSearchTerms": [
+      "niangua",
+      "dallas county",
+      "laclede county",
+      "bennett spring"
+    ],
+    "characteristics": {
+      "isSpringFed": true,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "Fed by Bennett Spring. Generally consistent flows, a reliable choice.",
+      "speedCurve": null
+    }
+  }
+}

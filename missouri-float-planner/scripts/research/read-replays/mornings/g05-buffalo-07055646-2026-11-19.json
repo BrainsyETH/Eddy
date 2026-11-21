@@ -1,0 +1,282 @@
+{
+  "key": "g05-buffalo-07055646-2026-11-19",
+  "why": "Earlier gauge prompt (a51bff24...), when Boxley got the river block only: knowledge_blocks [river]. Too Low.",
+  "derived": null,
+  "record": {
+    "id": "f394602f-874e-4e2b-a06b-73329e3bc82f",
+    "created_at": "2026-11-19T17:11:02.234322+00:00",
+    "workload": "gauge_update",
+    "trigger": "scheduled",
+    "river_slug": "buffalo",
+    "section_slug": null,
+    "usgs_site_id": "07055646",
+    "condition_code": "too_low",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 2790,
+    "output_tokens": 237,
+    "git_sha": "59f5b86088f4db2d2944284e870fd7bd004234b2",
+    "system_prompt_hash": "a51bff24176e0fb2535514d9975c977748819864523cc28786d40ea18e9b5be9",
+    "knowledge_hash": "3ffc44b2d470782a64cfe376c4bf7922f7378710ca8b9da6c84a713af6cf434e",
+    "knowledge_blocks": [
+      "river"
+    ],
+    "user_prompt": "Date: Thursday, November 19, 2026\n\nGenerate a secondary-gauge update for: Buffalo River near Boxley, AR on the Buffalo National River.\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Buffalo National River\nLOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, riffles, floatability, drought, or a release schedule unless the river knowledge describes this station's own stretch. Do not infer the cause.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: hailstone: Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard. | upper-ponca-pruitt: Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution. | middle-pruitt-gilbert: Rain-driven rises; more forgiving than the upper but still flashy. | lower-gilbert-buffalocity: Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.\n\n[RIVER KNOWLEDGE — about the whole river unless it says \"This gauge\"; use only what fits this station's stretch, do not recite]\nThe Buffalo National River — America's first National River (1972) — is a free-flowing, rain-driven stream draining the Boston Mountains of northwest Arkansas, managed by the National Park Service. Its personality changes sharply top to bottom: the upper river is flashy and seasonal, floatable mainly spring into early summer, while the lower river holds water nearly year-round and reads more like flatwater.\n\n- **Ponca to Pruitt** is the classic upper float and the most level-sensitive reach on the river — too low and you drag, too high and the bluffs turn hazardous. Season is typically March through June, sometimes into July with rain.\n- Read the gauge that matches your reach: **Ponca** is the canonical upper-river floatability gauge, **St. Joe** (Tyler Bend) is the middle-district reference and Eddy's primary for the river, and **Harriet**, at the Highway 14 bridge, is the lowest before the White River confluence.\n- When it's too low to launch at Ponca, outfitters shift the put-in about two miles down to Steel Creek — there's no published numeric cutoff, it's a daily operational call.\n- Flash floods and strainers are the serious hazards on the flashy upper reaches; the lower river below Gilbert is calmer, where low water mostly affects speed rather than whether you can float.\n\n[THIS GAUGE]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=too_low relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Buffalo River near Boxley, AR\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Too Low (too_low). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 13 cfs.\nSeparate measurements: height 1.93 ft; discharge 13 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 730 to 1,500 cfs. Computed comparison: below.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 6500 cfs. This is NOT an official closure order. Do not call it a closure level.\nSupported location: Buffalo River near Boxley, AR.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\n\n[TRAJECTORY]\n24h change: -0.0 ft\n6h change: +0.0 ft\nRate: steady at 0.00 ft/hr\nSummary: Gauge has held steady near 1.9 ft over the past 24 hours, now holding steady.\nContext: Current discharge of 12.8 cfs is at the 37th percentile for this date. Median: 22 cfs (31 years of record).",
+    "inputs": {
+      "facts": {
+        "max": 1500,
+        "min": 730,
+        "unit": "cfs",
+        "value": 12.8,
+        "relation": "below",
+        "gaugeName": "Buffalo River near Boxley, AR",
+        "thresholds": {
+          "levelLow": 350,
+          "levelHigh": 1500,
+          "levelTooLow": 200,
+          "floodStageFt": null,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 6500,
+          "levelOptimalMax": 1500,
+          "levelOptimalMin": 730
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 12.8,
+        "conditionCode": "too_low",
+        "gaugeHeightFt": 1.93,
+        "conditionLabel": "Too Low"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [],
+      "target": {
+        "gaugeName": "Buffalo River near Boxley, AR",
+        "riverName": "Buffalo National River",
+        "riverSlug": "buffalo",
+        "usgsSiteId": "07055646",
+        "coordinates": {
+          "lat": 35.9388888888889,
+          "lon": -93.405
+        }
+      },
+      "forecast": {
+        "city": "Jasper",
+        "days": [
+          {
+            "date": "2026-11-19",
+            "tempLow": 56,
+            "humidity": 64,
+            "tempHigh": 66,
+            "condition": "Clear",
+            "dayOfWeek": "Thu",
+            "windSpeed": 6,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-20",
+            "tempLow": 55,
+            "humidity": 78,
+            "tempHigh": 69,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 7,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 52,
+            "humidity": 82,
+            "tempHigh": 68,
+            "condition": "Clouds",
+            "dayOfWeek": "Sat",
+            "windSpeed": 9,
+            "conditionIcon": "03d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 47,
+            "humidity": 87,
+            "tempHigh": 59,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 9,
+            "conditionIcon": "10d",
+            "precipitation": 84
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 38,
+            "humidity": 69,
+            "tempHigh": 51,
+            "condition": "Clouds",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 65,
+            "localHour": 12,
+            "timestamp": "2026-11-19T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 66,
+            "localHour": 15,
+            "timestamp": "2026-11-19T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 61,
+            "localHour": 18,
+            "timestamp": "2026-11-20T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 56,
+            "localHour": 21,
+            "timestamp": "2026-11-20T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 0,
+            "timestamp": "2026-11-20T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 56,
+            "localHour": 3,
+            "timestamp": "2026-11-20T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 58,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-19"
+      },
+      "trajectory": {
+        "stats": {
+          "day": 19,
+          "p05": 1.148,
+          "p10": 2.2,
+          "p20": null,
+          "p25": 3.89,
+          "p50": 22,
+          "p75": 83.7,
+          "p80": null,
+          "p90": 167.6,
+          "p95": 347.6,
+          "mean": 60.907,
+          "month": 11,
+          "siteId": "07055646",
+          "yearsOfRecord": 31
+        },
+        "change6h": 0,
+        "change24h": -0.010000000000000009,
+        "narrative": "Gauge has held steady near 1.9 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 1.89,
+          "timestamp": "2026-11-09T17:15:00+00:00"
+        },
+        "percentile": 37,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 1.98,
+          "timestamp": "2026-11-16T17:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 1.93,
+        "percentileContext": "Current discharge of 12.8 cfs is at the 37th percentile for this date. Median: 22 cfs (31 years of record)."
+      },
+      "readingTimestamp": "2026-11-19T16:30:00+00:00",
+      "riverBehaviorApplies": true
+    },
+    "raw_response": "[CLAIMS] condition=too_low relation=below\n\n[SUMMARY]\nToo low to float near Boxley right now — this stretch needs a lot more water before it's worth a trip.\n\n[EDDY_READ]\nThe upper Buffalo above Ponca is the most level-sensitive reach on the river, and 13 cfs is a trickle even by late-fall standards. The Ponca gauge is your floatability reference here, not this one.\n\n[FULL]\nAt 13 cfs near Boxley, the river is running Too Low — lower than typical for mid-November, well below the median for this date, and far short of the optimal range of 730 to 1,500 cfs. The gauge has held steady for the past 24 hours, so there is no momentum carrying it toward floatable levels. This is the most level-sensitive reach on the Buffalo, and there is nothing here to suggest a float is worth planning at the moment. Wait for meaningful rain to push the river up before reconsidering a launch.",
+    "published": {
+      "eddyRead": "The upper Buffalo above Ponca is the most level-sensitive reach on the river, and 13 cfs is a trickle even by late-fall standards. The Ponca gauge is your floatability reference here, not this one.",
+      "quoteText": "At 13 cfs near Boxley, the river is running Too Low, lower than typical for mid-November, well below the median for this date, and far short of the optimal range of 730 to 1,500 cfs. The gauge has held steady for the past 24 hours, so there is no momentum carrying it toward floatable levels. This is the most level-sensitive reach on the Buffalo, and there is nothing here to suggest a float is worth planning at the moment. Wait for meaningful rain to push the river up before reconsidering a launch.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "gauge trajectory",
+        "OpenWeather forecast"
+      ],
+      "summaryText": "Too low to float near Boxley right now, this stretch needs a lot more water before it's worth a trip."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "f6738afd-4602-48f2-98ab-4378d22760be",
+    "slug": "buffalo",
+    "name": "Buffalo National River",
+    "region": "Buffalo National River",
+    "state": "AR",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "rain_flashy",
+    "parkCode": "buff",
+    "weatherCity": "Jasper",
+    "weatherLat": 36.0081,
+    "weatherLon": -93.1866,
+    "alertSearchTerms": [
+      "buffalo river",
+      "buffalo national river",
+      "newton county",
+      "searcy county",
+      "marion county",
+      "baxter county",
+      "ponca",
+      "jasper",
+      "st. joe",
+      "gilbert",
+      "yellville"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "flash_flood",
+        "strainer",
+        "committing_wilderness",
+        "bluff_hazard_at_high_water",
+        "debris",
+        "flash_flood_upstream"
+      ],
+      "lowWaterMeaning": "hailstone: The remote upper reaches drop too low to float in dry spells. | upper-ponca-pruitt: When it is too low to launch at Ponca, outfitters shift the put-in about 2 miles downriver to Steel Creek. | middle-pruitt-gilbert: Low water means dragging over shallow riffles. | lower-gilbert-buffalocity: Low water mainly affects speed here, not runnability.",
+      "risingWaterHazards": "hailstone: Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard. | upper-ponca-pruitt: Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution. | middle-pruitt-gilbert: Rain-driven rises; more forgiving than the upper but still flashy. | lower-gilbert-buffalocity: Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.",
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}

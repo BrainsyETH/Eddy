@@ -1,0 +1,277 @@
+{
+  "key": "g07-big-river-07018500-2026-11-20",
+  "why": "Big River at Byrnesville. Low, with a section note.",
+  "derived": null,
+  "record": {
+    "id": "15a11edc-4c8f-4be0-9663-3fd6760058ad",
+    "created_at": "2026-11-20T17:10:29.932227+00:00",
+    "workload": "gauge_update",
+    "trigger": "scheduled",
+    "river_slug": "big-river",
+    "section_slug": null,
+    "usgs_site_id": "07018500",
+    "condition_code": "low",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 4517,
+    "output_tokens": 205,
+    "git_sha": "62c63b547b01ffb590fe3256c3638ba0d1325eee",
+    "system_prompt_hash": "55f53262426caf07bd4d368e157dd1ec7e13e15116ab1fc58552abb005d0b036",
+    "knowledge_hash": "12569fff0dbc8bbdb7ac19fa5413b28d67cc13c8665fde64cd17c4b477d8a35b",
+    "knowledge_blocks": [
+      "river",
+      "gauge:07018500",
+      "section:morse-mill-to-cedar-hill"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate a secondary-gauge update for: Big River at Byrnesville, MO on the Big River.\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: St. Francois Mountains / Missouri Ozarks (Old Lead Belt)\nLOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, riffles, floatability, drought, or a release schedule unless the river knowledge describes this station's own stretch. Do not infer the cause.\nRISING WATER GUIDANCE: Explain what rising water means for hazards — stronger current, more debris, undercut banks, strainers harder to avoid. Rising water after dry conditions could mean incoming flooding upstream.\n\n[RIVER KNOWLEDGE: background for you, about the whole river unless it says \"This gauge\" or names a section. Use only what fits this gauge's stretch; never recite it]\nA slow, long-pool Class I float rising in the St. Francois Mountains and winding north to the Meramec. Gentle water, gravel-bar riffles, and old mill sites — but it is the one river in Eddy's set defined by its dams rather than its rapids. Washington State Park is the float hub, with a park concession renting kayaks, canoes, and rafts Memorial Day through Labor Day.\n\n- **Low-head dams are the story here.** Morse Mill (portage right), the Cedar Hill mill dam (portage left), a private dam near river mile 127 (portage right), and Byrnes Mill (portage right) all sit on the lower river and all require portage. Their recirculating hydraulics do not wash out as flow rises — they get worse. Never treat a rising river as a reason to run one.\n- At Morse Mill specifically, the break in the dam on the left by the old mill foundation is dangerous; the concrete sluice just right of it is only a canoe-sliding option when the water is low enough to stand on the dam.\n- Read the gauge that matches the reach. **Richwoods (07018100) is Eddy's primary**, and it is the one for Washington State Park and the upper floats. **Byrnesville (07018500)** sits well downstream on a larger drainage, over-reads the park floats, and is the better reference for the Morse Mill / Cedar Hill dam reach.\n- The very upper river, up toward the Irondale gauge (07017200), thins out first in a dry summer and is the first stretch to become a drag.\n- Low water means dragging riffles between long pools, not an unfloatable river — the pools hold water when the connections between them do not. Trip lengths should shrink before trips get cancelled.\n- **Old Lead Belt legacy**: Big River drains historic lead mining country and MDC keeps a fish-consumption advisory on it. Worth mentioning to anglers, and a reason not to stir up or ingest bottom sediment.\n- Popular short float: the roughly three-mile run from Washington State Park to Mammoth, beginner-friendly and dam-free. Mammoth to Merrill Horne is the quieter wooded reach below it, good smallmouth and rock bass water.\n- Nearest towns for food and fuel: De Soto, Potosi, and Bonne Terre. This is close-to-St. Louis water, so summer weekends at Washington State Park are busy.\n\nThis gauge: Byrnesville (07018500)\n- **Sits**: At Byrnesville, about 14 miles above the Meramec. Above it: everything the Richwoods gauge reads and 40 more miles of river with no sizeable creek. Below it: the last miles to the Meramec.\n- **Speaks for**: The lower river: Morse Mill, Cedar Hill and Rockford Beach.\n- Rated on its own levels.\n\nSection morse-mill-to-cedar-hill:\n- Dam country: Morse Mill at the top (portage right) and the Cedar Hill mill dam at the bottom (portage left, where the MDC Cedar Hill Access is also the best take-out in the stretch). Portage both at every level.\n- Byrnesville is the nearest gauge to this reach and the right one to read here.\n\n[THIS GAUGE]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=low relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL]. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Big River at Byrnesville, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Low (low). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 139 cfs.\nSeparate measurements: height 1.87 ft; discharge 139 cfs. These are not interchangeable.\nIf you name the rating, use its capitalized label in a natural sentence. Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim.\nThis gauge's float levels (Eddy's own levels, not official limits, except where flood stage is named):\n- Too Low (not worth floating): below 90 cfs\n- Low (floatable; LOW WATER GUIDANCE says what low water means here): 90 cfs up to 150 cfs\n- Good (floats fine): 150 cfs up to 300 cfs\n- Flowing (floats at its best, the optimal range): 300 cfs to 600 cfs\n- High: above 600 cfs, up to 1,200 cfs, or a gauge height of 16 ft (official flood stage), whichever comes first\n- Dangerous: 1,200 cfs and up, or a gauge height of 16 ft (official flood stage), whichever comes first\nOptimal range: 300 to 600 cfs. Computed comparison: below.\nHow far today is from the next level: it floats fine (Good) from 150 cfs. Today's 139 cfs is just short of that.\nEditorial danger threshold: 1200 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 16 ft, assessed separately from the recreational optimal range.\nSupported location: Big River at Byrnesville, MO.\nThis reading is for this gauge's water only. General local knowledge is background, not a current reading for other places.\nName where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Do not turn a station assessment into a claim about the entire river.\n\n[GAUGE TRAJECTORY]\nSteady: no meaningful change over the past 24 hours.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.",
+    "inputs": {
+      "facts": {
+        "max": 600,
+        "min": 300,
+        "unit": "cfs",
+        "value": 139,
+        "relation": "below",
+        "gaugeName": "Big River at Byrnesville, MO",
+        "thresholds": {
+          "levelLow": 150,
+          "levelHigh": 900,
+          "levelTooLow": 90,
+          "floodStageFt": 16,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 1200,
+          "levelOptimalMax": 600,
+          "levelOptimalMin": 300
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 139,
+        "conditionCode": "low",
+        "gaugeHeightFt": 1.87,
+        "conditionLabel": "Low"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [],
+      "target": {
+        "gaugeName": "Big River at Byrnesville, MO",
+        "riverName": "Big River",
+        "riverSlug": "big-river",
+        "usgsSiteId": "07018500",
+        "coordinates": {
+          "lat": 38.3917222222222,
+          "lon": -90.6378055555556
+        }
+      },
+      "forecast": {
+        "city": "Cedar Hill",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 54,
+            "humidity": 61,
+            "tempHigh": 69,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 9,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 43,
+            "humidity": 69,
+            "tempHigh": 71,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 48,
+            "humidity": 87,
+            "tempHigh": 62,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 9,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 36,
+            "humidity": 71,
+            "tempHigh": 47,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 32,
+            "humidity": 81,
+            "tempHigh": 45,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 68,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 69,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 62,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 54,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 51,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 49,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 43,
+            "localHour": 6,
+            "timestamp": "2026-11-21T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 58,
+            "localHour": 9,
+            "timestamp": "2026-11-21T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 114,
+          "p10": 127.5,
+          "p20": null,
+          "p25": 168.75,
+          "p50": 250.5,
+          "p75": 594.25,
+          "p80": null,
+          "p90": 1685,
+          "p95": 2992.5,
+          "mean": 907.01,
+          "month": 11,
+          "siteId": "07018500",
+          "yearsOfRecord": 104
+        },
+        "change6h": -0.010000000000000009,
+        "change24h": 0.010000000000000009,
+        "narrative": "Gauge has held steady near 1.9 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 1.85,
+          "timestamp": "2026-11-16T06:00:00+00:00"
+        },
+        "percentile": 14,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 2.04,
+          "timestamp": "2026-11-10T17:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 1.86,
+        "percentileContext": "Current discharge of 138 cfs is at the 14th percentile for this date. Median: 250.5 cfs (104 years of record)."
+      },
+      "readingTimestamp": "2026-11-20T16:45:00+00:00",
+      "riverBehaviorApplies": true
+    },
+    "raw_response": "[CLAIMS] condition=low relation=below\n\n[SUMMARY]\nThe Big River at Byrnesville is running Low and just shy of floating well. Plan for some work between the pools.\n\n[EDDY_READ]\nThis is dam country: Morse Mill at the top of the reach and the Cedar Hill mill dam at the bottom, and both need a portage at every level, no exceptions. The pools hold depth when the connections between them thin out, so you will find good water in spots and lean water in between.\n\n[FULL]\nByrnesville is sitting at 139 cfs, just 11 cfs under the 150 where this stretch floats comfortably. The pools are still holding, but expect thin riffles between them and some dragging. Shorten the trip before you cancel it. Rain could come Sunday and bump this reading, so it is worth another look before you load up.",
+    "published": {
+      "eddyRead": "This is dam country: Morse Mill at the top of the reach and the Cedar Hill mill dam at the bottom, and both need a portage at every level, no exceptions. The pools hold depth when the connections between them thin out, so you will find good water in spots and lean water in between.",
+      "quoteText": "Byrnesville is sitting at 139 cfs, just 11 cfs under the 150 where this stretch floats comfortably. The pools are still holding, but expect thin riffles between them and some dragging. Shorten the trip before you cancel it. Rain could come Sunday and bump this reading, so it is worth another look before you load up.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "gauge trajectory",
+        "OpenWeather forecast"
+      ],
+      "summaryText": "The Big River at Byrnesville is running Low and just shy of floating well. Plan for some work between the pools."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "0c406697-4199-42ab-9836-a68a757768a9",
+    "slug": "big-river",
+    "name": "Big River",
+    "region": "St. Francois Mountains / Missouri Ozarks (Old Lead Belt)",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "De Soto, MO",
+    "weatherLat": 38.1395,
+    "weatherLon": -90.5551,
+    "alertSearchTerms": [
+      "Big River",
+      "Big River Byrnesville",
+      "Big River Washington State Park",
+      "Byrnesville",
+      "De Soto MO",
+      "Jefferson County MO",
+      "St. Francois County MO"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "low_water_dam",
+        "strainer",
+        "gravel_bar"
+      ],
+      "lowWaterMeaning": null,
+      "risingWaterHazards": null,
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}

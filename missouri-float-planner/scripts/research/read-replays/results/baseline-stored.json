@@ -1,0 +1,1315 @@
+{
+  "total": 23,
+  "outcomes": {
+    "model": 20,
+    "fallback": 3,
+    "error": 0
+  },
+  "reasons": {
+    "fallback:no_rating": 2,
+    "fallback:no_gauge": 1
+  },
+  "rules": {
+    "summary_length": {
+      "all": {
+        "pass": 20,
+        "checked": 23
+      },
+      "model": {
+        "pass": 17,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 17,
+        "of": 23
+      }
+    },
+    "read_length": {
+      "all": {
+        "pass": 9,
+        "checked": 23
+      },
+      "model": {
+        "pass": 6,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 6,
+        "of": 23
+      }
+    },
+    "read_measurements": {
+      "all": {
+        "pass": 18,
+        "checked": 23
+      },
+      "model": {
+        "pass": 16,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 16,
+        "of": 23
+      }
+    },
+    "read_forecast_talk": {
+      "all": {
+        "pass": 23,
+        "checked": 23
+      },
+      "model": {
+        "pass": 20,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 20,
+        "of": 23
+      }
+    },
+    "weather_talk": {
+      "all": {
+        "pass": 22,
+        "checked": 23
+      },
+      "model": {
+        "pass": 19,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 19,
+        "of": 23
+      }
+    },
+    "flat_forecast": {
+      "all": {
+        "pass": 22,
+        "checked": 23
+      },
+      "model": {
+        "pass": 19,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 19,
+        "of": 23
+      }
+    },
+    "numbers_match_inputs": {
+      "all": {
+        "pass": 17,
+        "checked": 20
+      },
+      "model": {
+        "pass": 17,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 17,
+        "of": 23
+      }
+    },
+    "numbers_from_knowledge": {
+      "all": {
+        "pass": 19,
+        "checked": 20
+      },
+      "model": {
+        "pass": 19,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 19,
+        "of": 23
+      }
+    },
+    "stock_lines": {
+      "all": {
+        "pass": 4,
+        "checked": 23
+      },
+      "model": {
+        "pass": 1,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 1,
+        "of": 23
+      }
+    },
+    "brief_talk": {
+      "all": {
+        "pass": 15,
+        "checked": 23
+      },
+      "model": {
+        "pass": 14,
+        "checked": 20
+      },
+      "strict": {
+        "pass": 14,
+        "of": 23
+      }
+    }
+  },
+  "outputs": [
+    {
+      "key": "g01-james-07052250-2026-11-20",
+      "workload": "gauge_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "g02-gasconade-06933500-2026-11-20",
+      "workload": "gauge_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "g03-meramec-07010350-2026-11-20",
+      "workload": "gauge_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "g04-current-07068000-2026-11-20",
+      "workload": "gauge_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "248 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "fail",
+          "detail": "50 cfs"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "g05-buffalo-07055646-2026-11-19",
+      "workload": "gauge_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "fail",
+          "detail": "13 cfs"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "g06-current-07064533-2026-11-19",
+      "workload": "gauge_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "fail",
+          "detail": "110 cfs"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "speaks for"
+        }
+      ]
+    },
+    {
+      "key": "g07-big-river-07018500-2026-11-20",
+      "workload": "gauge_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "282 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "fail",
+          "detail": "11 cfs"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "pass"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "g08-gasconade-06934000-2026-11-20",
+      "workload": "gauge_update",
+      "outcome": "fallback",
+      "reason": "no_rating",
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "fail",
+          "detail": "2.04 ft"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "skip"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "skip"
+        },
+        {
+          "id": "stock_lines",
+          "status": "pass"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r01-james-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "299 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r02-gasconade-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "402 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "fail",
+          "detail": "77 cfs; 75 cfs; 30 cfs"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours; call an outfitter"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "threshold"
+        }
+      ]
+    },
+    {
+      "key": "r03-meramec-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "259 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours; lighter boats"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r04-big-river-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "fail",
+          "detail": "125 characters"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "283 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r05-current-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "259 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "speaks for"
+        }
+      ]
+    },
+    {
+      "key": "r06-niangua-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "fail",
+          "detail": "129 characters"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "281 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "fail",
+          "detail": "37 miles"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours; call an outfitter"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "this reading captures"
+        }
+      ]
+    },
+    {
+      "key": "r07-buffalo-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "318 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "this reading captures"
+        }
+      ]
+    },
+    {
+      "key": "r08-black-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "253 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours; call an outfitter"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r09-courtois-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r10-big-piney-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "255 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours; call an outfitter"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r11-eleven-point-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "290 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "fail",
+          "detail": "21 miles"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "speak for"
+        }
+      ]
+    },
+    {
+      "key": "r12-caddo-river-2026-11-20",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "255 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours; check back after rain"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r13-gasconade-2026-11-17",
+      "workload": "river_update",
+      "outcome": "model",
+      "reason": null,
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "fail",
+          "detail": "133 characters"
+        },
+        {
+          "id": "read_length",
+          "status": "fail",
+          "detail": "286 characters"
+        },
+        {
+          "id": "read_measurements",
+          "status": "fail",
+          "detail": "79 cfs"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "fail",
+          "detail": "clear days"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "fail",
+          "detail": "The gauge has held flat for the past 24 hours, and three clear days ahead suggest no meaningful rise is coming soon."
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "pass"
+        },
+        {
+          "id": "stock_lines",
+          "status": "fail",
+          "detail": "steady for 24 hours; call an outfitter"
+        },
+        {
+          "id": "brief_talk",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "key": "r14-elk-2026-11-20",
+      "workload": "river_update",
+      "outcome": "fallback",
+      "reason": "no_rating",
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "skip"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "skip"
+        },
+        {
+          "id": "stock_lines",
+          "status": "pass"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "thresholds"
+        }
+      ]
+    },
+    {
+      "key": "r15-white-2026-11-20",
+      "workload": "river_update",
+      "outcome": "fallback",
+      "reason": "no_gauge",
+      "results": [
+        {
+          "id": "summary_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_length",
+          "status": "pass"
+        },
+        {
+          "id": "read_measurements",
+          "status": "pass"
+        },
+        {
+          "id": "read_forecast_talk",
+          "status": "pass"
+        },
+        {
+          "id": "weather_talk",
+          "status": "pass"
+        },
+        {
+          "id": "flat_forecast",
+          "status": "pass"
+        },
+        {
+          "id": "numbers_match_inputs",
+          "status": "skip"
+        },
+        {
+          "id": "numbers_from_knowledge",
+          "status": "skip"
+        },
+        {
+          "id": "stock_lines",
+          "status": "pass"
+        },
+        {
+          "id": "brief_talk",
+          "status": "fail",
+          "detail": "thresholds"
+        }
+      ]
+    }
+  ]
+}

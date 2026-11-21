@@ -233,7 +233,12 @@ Two things are knowingly not in place.
   That exclusion was not found wrong; the two are simply not consistent today.
 
 A saved sample set covering low, normal, high, dangerous, flood-alert and
-sparse-knowledge cases was proposed as a condition of approval and was not built.
+sparse-knowledge cases was proposed as a condition of approval. A set now
+exists, saved on 2026-11-21, with a script that replays it outside the panel:
+`missouri-float-planner/scripts/research/read-replays/`. It covers part of
+that list. It holds recorded Too Low through Flowing, sparse-knowledge and
+fallback mornings. Its flood-alert and stale-reading mornings are derived,
+because the log had recorded neither. It has no High or Dangerous morning.
 The panel still offers only the newest recorded report per river or section.
 
 ## What this does not cover

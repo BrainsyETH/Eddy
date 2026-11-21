@@ -1,0 +1,318 @@
+{
+  "key": "r04-big-river-2026-11-20",
+  "why": "Flowing, the highest condition production recorded in the window. High and Dangerous were never logged.",
+  "derived": null,
+  "record": {
+    "id": "f2b78f5b-263c-4572-8530-126ca039ceba",
+    "created_at": "2026-11-20T11:10:40.333796+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "big-river",
+    "section_slug": null,
+    "usgs_site_id": "07018100",
+    "condition_code": "flowing",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 2789,
+    "output_tokens": 300,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "278ea60491ecf190b25cec40360fdd205427f30aaa99fb7c83fea1029cfe712c",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:07018100",
+      "elsewhere"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate an Eddy condition update for: Big River\n\n[RIVER CHARACTER]\nType: spring fed float\nPrimary hazards: low water dam, strainer, gravel bar\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: St. Francois Mountains / Missouri Ozarks (Old Lead Belt)\nLOW WATER GUIDANCE: The river IS floatable. Low water means scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Frame this as practical information, not a reason to stay home. Mention that lighter craft (kayaks, canoes) handle low water better than rafts. Do NOT say \"too low to run,\" \"wait for rain,\" or recommend against floating when the condition code is \"low.\" That language is reserved for \"too_low\" only.\nRISING WATER GUIDANCE: Explain what rising water means for hazards — stronger current, more debris, undercut banks, strainers harder to avoid. Rising water after dry conditions could mean incoming flooding upstream.\n\n[CURRENT GAUGE DATA]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=flowing relation=within\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Big River near Richwoods, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Flowing (flowing). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 103 cfs.\nSeparate measurements: height 1.88 ft; discharge 103 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 100 to 400 cfs. Computed comparison: within.\nIn plain words for the reader: right in the sweet spot for this gauge.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 800 cfs. This is NOT an official closure order. Do not call it a closure level.\nSupported location: Big River near Richwoods, MO.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\n\n[GAUGE TRAJECTORY]\n24h change: +0.0 ft (was 1.9 ft yesterday)\n6h change: +0.0 ft\nRate: steady at 0.00 ft/hr\n10-day peak: 2.0 ft\n10-day low: 1.9 ft\nSummary: Gauge has held steady near 1.9 ft over the past 24 hours, now holding steady.\n\n[HISTORICAL CONTEXT]\nCurrent discharge of 103 cfs is at the 7th percentile for this date. Median: 224 cfs (76 years of record).\n\nRecent rain: none reported at De Soto in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.\n\n[LOCAL KNOWLEDGE — use to inform your update, not recite]\n=== General Ozarks Knowledge ===\nEvery Ozarks river responds differently to rainfall depending on its spring inputs and\nwatershed size. What matters most for floaters is whether the water is **rising**, **falling**,\nor **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua,\nNorth Fork, Spring River in Arkansas) hold steadier base flows and change slowly. Rivers\ndriven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkansas river\nexcept the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves\nlike a rainfall-driven stream above Alley Spring but is stabilized by springs below it.\n\n- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.\n- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).\n- Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.\n- After heavy rain, rivers may become less clear and turn muddy. \n- Weekends in June and July are the busiest. For a quieter float, go mid-week.\n- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.\n- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.\n- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.\n- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.\n- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.\n- **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.\n- **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.\n- **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.\n\n=== big-river River Knowledge ===\nA slow, long-pool Class I float rising in the St. Francois Mountains and winding north to the Meramec. Gentle water, gravel-bar riffles, and old mill sites — but it is the one river in Eddy's set defined by its dams rather than its rapids. Washington State Park is the float hub, with a park concession renting kayaks, canoes, and rafts Memorial Day through Labor Day.\n\n- **Low-head dams are the story here.** Morse Mill (portage right), the Cedar Hill mill dam (portage left), a private dam near river mile 127 (portage right), and Byrnes Mill (portage right) all sit on the lower river and all require portage. Their recirculating hydraulics do not wash out as flow rises — they get worse. Never treat a rising river as a reason to run one.\n- At Morse Mill specifically, the break in the dam on the left by the old mill foundation is dangerous; the concrete sluice just right of it is only a canoe-sliding option when the water is low enough to stand on the dam.\n- Read the gauge that matches the reach. **Richwoods (07018100) is Eddy's primary**, and it is the one for Washington State Park and the upper floats. **Byrnesville (07018500)** sits well downstream on a larger drainage, over-reads the park floats, and is the better reference for the Morse Mill / Cedar Hill dam reach.\n- The very upper river, up toward the Irondale gauge (07017200), thins out first in a dry summer and is the first stretch to become a drag.\n- Low water means dragging riffles between long pools, not an unfloatable river — the pools hold water when the connections between them do not. Trip lengths should shrink before trips get cancelled.\n- **Old Lead Belt legacy**: Big River drains historic lead mining country and MDC keeps a fish-consumption advisory on it. Worth mentioning to anglers, and a reason not to stir up or ingest bottom sediment.\n- Popular short float: the roughly three-mile run from Washington State Park to Mammoth, beginner-friendly and dam-free. Mammoth to Merrill Horne is the quieter wooded reach below it, good smallmouth and rock bass water.\n- Nearest towns for food and fuel: De Soto, Potosi, and Bonne Terre. This is close-to-St. Louis water, so summer weekends at Washington State Park are busy.\n\n=== This gauge: Richwoods (07018100) ===\n- **Sits**: Near Richwoods, about six miles below Mammoth Access and 54 miles above the Meramec. Above it: Cedar Creek, Flat River, Terre Bleue Creek, Mill Creek and Mineral Fork, which joins about eight miles up, between Washington State Park and Mammoth. Below it: no sizeable creek before Byrnesville.\n- **Speaks for**: The middle river, Mammoth to Brown's Ford.\n- From Washington State Park up, Mineral Fork has not joined yet and the river carries less than this reading shows.\n- Eddy's primary gauge for the river.\n\n=== Elsewhere on this river: patterns only, never today's conditions ===\n- Byrnesville gauge: At Byrnesville, about 14 miles above the Meramec. Above it: everything the Richwoods gauge reads and 40 more miles of river with no sizeable creek. Below it: the last miles to the Meramec. Speaks for: The lower river: Morse Mill, Cedar Hill and Rockford Beach.",
+    "inputs": {
+      "facts": {
+        "max": 400,
+        "min": 100,
+        "unit": "cfs",
+        "value": 103,
+        "relation": "within",
+        "gaugeName": "Big River near Richwoods, MO",
+        "thresholds": {
+          "levelLow": 90,
+          "levelHigh": 600,
+          "levelTooLow": 60,
+          "floodStageFt": null,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 800,
+          "levelOptimalMax": 400,
+          "levelOptimalMin": 100
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 103,
+        "locationName": "Big River",
+        "conditionCode": "flowing",
+        "gaugeHeightFt": 1.88,
+        "conditionLabel": "Flowing",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "MO",
+        "timezone": "America/Chicago",
+        "riverType": "spring_fed_float",
+        "weatherLat": 38.1395,
+        "weatherLon": -90.5551,
+        "weatherCity": "De Soto, MO",
+        "characteristics": {
+          "riverNote": null,
+          "speedCurve": null,
+          "isSpringFed": false,
+          "primaryHazards": [
+            "low_water_dam",
+            "strainer",
+            "gravel_bar"
+          ],
+          "lowWaterMeaning": null,
+          "risingWaterHazards": null
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "Big River",
+        "riverSlug": "big-river",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "De Soto",
+        "temp": 43,
+        "humidity": 89,
+        "condition": "Clear",
+        "windSpeed": 6,
+        "observedAt": "2026-11-20T09:27:11.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 178
+      },
+      "forecast": {
+        "city": "De Soto",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 40,
+            "humidity": 65,
+            "tempHigh": 71,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 7,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 38,
+            "humidity": 70,
+            "tempHigh": 73,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 7,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 48,
+            "humidity": 88,
+            "tempHigh": 65,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 34,
+            "humidity": 71,
+            "tempHigh": 46,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 30,
+            "humidity": 81,
+            "tempHigh": 44,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 40,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 42,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 71,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 58,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 50,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 45,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 41,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": null,
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 96.985,
+          "p10": 116.4,
+          "p20": null,
+          "p25": 141.75,
+          "p50": 224,
+          "p75": 482.25,
+          "p80": null,
+          "p90": 1774,
+          "p95": 3009,
+          "mean": 1089.301,
+          "month": 11,
+          "siteId": "07018100",
+          "yearsOfRecord": 76
+        },
+        "change6h": 0,
+        "change24h": 0,
+        "narrative": "Gauge has held steady near 1.9 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 1.85,
+          "timestamp": "2026-11-19T19:15:00+00:00"
+        },
+        "percentile": 7,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 1.96,
+          "timestamp": "2026-11-10T11:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 1.88,
+        "percentileContext": "Current discharge of 103 cfs is at the 7th percentile for this date. Median: 224 cfs (76 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T10:30:00+00:00"
+    },
+    "raw_response": "[CLAIMS] condition=flowing relation=within\n\n[SUMMARY]\nThe Big River near Richwoods is sitting right in the sweet spot -- a solid float at Washington State Park and the middle river.\n\n[EDDY_READ]\nMineral Fork joins the river between Washington State Park and Mammoth, so the park floats carry a little less water than this gauge shows -- still a good stretch, just read accordingly. The Byrnesville gauge is the right reference for the lower river around Morse Mill and Cedar Hill.\n\n[FULL]\nNear Richwoods, the Big River is running Flowing and sitting right inside the optimal range, which puts the Washington State Park stretch and the Mammoth-to-Brown's Ford reach in fine shape for a Friday float. The gauge has held rock-steady through the past 24 hours, so what you plan for is what you will find. Keep in mind that every low-head dam on this river -- Morse Mill, Cedar Hill, Byrnes Mill -- requires a portage regardless of level, and rising water makes those hydraulics worse, not better. Rain is likely Sunday, so it is worth checking back this weekend to see if the reading shifts before you go. If you are fishing, note that MDC keeps a fish-consumption advisory on Big River due to the river's lead-mining past -- worth knowing before you keep anything.",
+    "published": {
+      "eddyRead": "Mineral Fork joins the river between Washington State Park and Mammoth, so the park floats carry a little less water than this gauge shows, still a good stretch, just read accordingly. The Byrnesville gauge is the right reference for the lower river around Morse Mill and Cedar Hill.",
+      "quoteText": "Near Richwoods, the Big River is running Flowing and sitting right inside the optimal range, which puts the Washington State Park stretch and the Mammoth-to-Brown's Ford reach in fine shape for a Friday float. The gauge has held rock-steady through the past 24 hours, so what you plan for is what you will find. Keep in mind that every low-head dam on this river, Morse Mill, Cedar Hill, Byrnes Mill, requires a portage regardless of level, and rising water makes those hydraulics worse, not better. Rain is likely Sunday, so it is worth checking back this weekend to see if the reading shifts before you go. If you are fishing, note that MDC keeps a fish-consumption advisory on Big River due to the river's lead-mining past, worth knowing before you keep anything.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "OpenWeather",
+        "local knowledge",
+        "gauge trajectory"
+      ],
+      "summaryText": "The Big River near Richwoods is sitting right in the sweet spot, a solid float at Washington State Park and the middle river."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "0c406697-4199-42ab-9836-a68a757768a9",
+    "slug": "big-river",
+    "name": "Big River",
+    "region": "St. Francois Mountains / Missouri Ozarks (Old Lead Belt)",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "De Soto, MO",
+    "weatherLat": 38.1395,
+    "weatherLon": -90.5551,
+    "alertSearchTerms": [
+      "Big River",
+      "Big River Byrnesville",
+      "Big River Washington State Park",
+      "Byrnesville",
+      "De Soto MO",
+      "Jefferson County MO",
+      "St. Francois County MO"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "low_water_dam",
+        "strainer",
+        "gravel_bar"
+      ],
+      "lowWaterMeaning": null,
+      "risingWaterHazards": null,
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}

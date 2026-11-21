@@ -1,0 +1,272 @@
+{
+  "key": "g03-meramec-07010350-2026-11-20",
+  "why": "Meramec at Cook Station, named in PR #1932. Flowing. Sparse notes: river and gauge blocks, no section.",
+  "derived": null,
+  "record": {
+    "id": "8ff8ed5a-7cce-4bbf-92e1-5cedee65730a",
+    "created_at": "2026-11-20T17:10:41.764139+00:00",
+    "workload": "gauge_update",
+    "trigger": "scheduled",
+    "river_slug": "meramec",
+    "section_slug": null,
+    "usgs_site_id": "07010350",
+    "condition_code": "flowing",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 4064,
+    "output_tokens": 189,
+    "git_sha": "62c63b547b01ffb590fe3256c3638ba0d1325eee",
+    "system_prompt_hash": "55f53262426caf07bd4d368e157dd1ec7e13e15116ab1fc58552abb005d0b036",
+    "knowledge_hash": "6c59a0f78a1758f6d43bd72dcf45a2819e36585def42121e785b3f2b96b36e8d",
+    "knowledge_blocks": [
+      "river",
+      "gauge:07010350"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate a secondary-gauge update for: Meramec River at Cook Station, MO on the Meramec River.\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Ozarks\nLOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, riffles, floatability, drought, or a release schedule unless the river knowledge describes this station's own stretch. Do not infer the cause.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: Stronger current, more debris, undercut banks, and strainers that are harder to avoid.\nLargest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.\n\n[RIVER KNOWLEDGE: background for you, about the whole river unless it says \"This gauge\" or names a section. Use only what fits this gauge's stretch; never recite it]\nThe largest Ozarks float river by volume. Rain-fed, so it's more variable than spring-fed\nrivers. The upper sections above Meramec State Park are the most scenic and popular for\nfloating; below the park it widens and slows.\n\n- Popular with St. Louis area floaters — it's the closest quality float to the city.\n- Upper Meramec (above MSP) has bluffs, riffles, and a wilder feel.\n- Lower Meramec is wider, calmer, better for tubes and beginners.\n- Onondaga Cave State Park is along the river with cave tours available.\n- Meramec State Park has camping, cabins, and cave tours. Major hub for float access.\n- The Meramec can flood dramatically — it's one of the flashiest rivers in the Ozarks. When it rains hard, expect the gauge to spike 5-10 ft in hours.\n- The gauges cover very different amounts of river: the Meramec at Steelville can be a different river from the Meramec at Eureka on the same afternoon. Quote the gauge that speaks for the put-in.\n\nThis gauge: Cook Station (07010350)\n- **Sits**: At Cook Station, in the headwaters. Above it: the rain-fed upper river only. Below it: Maramec Spring, so this gauge does NOT include the spring's water.\n- **Speaks for**: The Meramec above Maramec Spring.\n- Eddy reads it in gauge height (feet), not cfs.\n\n[THIS GAUGE]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=flowing relation=within\nThen write [SUMMARY], [EDDY_READ], and [FULL]. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Meramec River at Cook Station, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Flowing (flowing). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: gauge height; value: 2.07 ft.\nSeparate measurements: height 2.07 ft; discharge 19 cfs. These are not interchangeable.\nIf you name the rating, use its capitalized label in a natural sentence. Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim.\nThis gauge's float levels (Eddy's own levels, not official limits, except where flood stage is named):\n- Too Low (not worth floating): below 1 ft\n- Low (floatable; LOW WATER GUIDANCE says what low water means here): 1 ft up to 1.5 ft\n- Good (floats fine): 1.5 ft up to 2 ft\n- Flowing (floats at its best, the optimal range): 2 ft to 4 ft\n- High: above 4 ft, up to 5.5 ft\n- Dangerous: 5.5 ft and up\nOptimal range: 2 to 4 ft. Computed comparison: within.\nIn plain words for the reader: right in the sweet spot for this gauge.\nEditorial danger threshold: 5.5 ft. This is NOT an official closure order. Do not call it a closure level.\nSupported location: Meramec River at Cook Station, MO.\nThis reading is for this gauge's water only. General local knowledge is background, not a current reading for other places.\nName where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Do not turn a station assessment into a claim about the entire river.\n\n[GAUGE TRAJECTORY]\nSteady: no meaningful change over the past 24 hours.\n\n[SEASON]\nThe flow at this gauge is far lower than usual for this time of year.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.",
+    "inputs": {
+      "facts": {
+        "max": 4,
+        "min": 2,
+        "unit": "ft",
+        "value": 2.07,
+        "relation": "within",
+        "gaugeName": "Meramec River at Cook Station, MO",
+        "thresholds": {
+          "levelLow": 1.5,
+          "levelHigh": 4.01,
+          "levelTooLow": 1,
+          "floodStageFt": null,
+          "thresholdUnit": "ft",
+          "levelDangerous": 5.5,
+          "levelOptimalMax": 4,
+          "levelOptimalMin": 2
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 19,
+        "conditionCode": "flowing",
+        "gaugeHeightFt": 2.07,
+        "conditionLabel": "Flowing"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [],
+      "target": {
+        "gaugeName": "Meramec River at Cook Station, MO",
+        "riverName": "Meramec River",
+        "riverSlug": "meramec",
+        "usgsSiteId": "07010350",
+        "coordinates": {
+          "lat": 37.8291472222222,
+          "lon": -91.4374833333333
+        }
+      },
+      "forecast": {
+        "city": "Steelville",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 60,
+            "humidity": 57,
+            "tempHigh": 69,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 10,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 52,
+            "humidity": 68,
+            "tempHigh": 71,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 9,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 46,
+            "humidity": 90,
+            "tempHigh": 62,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 35,
+            "humidity": 72,
+            "tempHigh": 46,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 30,
+            "humidity": 83,
+            "tempHigh": 45,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 7,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 69,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 69,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 60,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 53,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 54,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 52,
+            "localHour": 6,
+            "timestamp": "2026-11-21T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 9,
+            "timestamp": "2026-11-21T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 17.775,
+          "p10": 20,
+          "p20": null,
+          "p25": 24,
+          "p50": 30.35,
+          "p75": 62.775,
+          "p80": null,
+          "p90": 132.5,
+          "p95": 304.5,
+          "mean": 60.403,
+          "month": 11,
+          "siteId": "07010350",
+          "yearsOfRecord": 34
+        },
+        "change6h": 0,
+        "change24h": 0,
+        "narrative": "Gauge has held steady near 2.1 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 2.06,
+          "timestamp": "2026-11-13T12:00:00+00:00"
+        },
+        "percentile": 8,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 2.08,
+          "timestamp": "2026-11-10T17:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 2.07,
+        "percentileContext": "Current discharge of 19 cfs is at the 8th percentile for this date. Median: 30.35 cfs (34 years of record)."
+      },
+      "readingTimestamp": "2026-11-20T16:00:00+00:00",
+      "riverBehaviorApplies": true
+    },
+    "raw_response": "[CLAIMS] condition=flowing relation=within\n\n[SUMMARY]\nCook Station is sitting right in the sweet spot today. The upper Meramec is ready to float.\n\n[EDDY_READ]\nThis is the headwaters stretch, above where Maramec Spring joins the river. It has the bluffs and riffles that make the upper Meramec worth the drive, and at this level you get the full run of them.\n\n[FULL]\nAt 2.07 ft, Cook Station is well inside the optimal range of 2 to 4 ft. The water is lower than you'd normally see in late November, but it is floating at its best right now and has held steady through the past day. Rain is likely Sunday, which could move this reading, so check back before you finalize plans for the weekend.",
+    "published": {
+      "eddyRead": "This is the headwaters stretch, above where Maramec Spring joins the river. It has the bluffs and riffles that make the upper Meramec worth the drive, and at this level you get the full run of them.",
+      "quoteText": "At 2.07 ft, Cook Station is well inside the optimal range of 2 to 4 ft. The water is lower than you'd normally see in late November, but it is floating at its best right now and has held steady through the past day. Rain is likely Sunday, which could move this reading, so check back before you finalize plans for the weekend.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "gauge trajectory",
+        "OpenWeather forecast"
+      ],
+      "summaryText": "Cook Station is sitting right in the sweet spot today. The upper Meramec is ready to float."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "18892256-88a7-4d13-b985-e0640fa37ca7",
+    "slug": "meramec",
+    "name": "Meramec River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Steelville",
+    "weatherLat": 37.9681,
+    "weatherLon": -91.3543,
+    "alertSearchTerms": [
+      "meramec",
+      "crawford county",
+      "franklin county",
+      "sullivan",
+      "steelville"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+      "speedCurve": null
+    }
+  }
+}

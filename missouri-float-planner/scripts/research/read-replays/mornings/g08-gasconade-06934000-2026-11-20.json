@@ -1,0 +1,129 @@
+{
+  "key": "g08-gasconade-06934000-2026-11-20",
+  "why": "Fallback, no_rating: Rich Fountain has no float levels. What readers got.",
+  "derived": null,
+  "record": {
+    "id": "83b09687-f832-40b8-94d6-ab194b0205e2",
+    "created_at": "2026-11-20T17:10:30.359489+00:00",
+    "workload": "gauge_update",
+    "trigger": "scheduled",
+    "river_slug": "gasconade",
+    "section_slug": null,
+    "usgs_site_id": "06934000",
+    "condition_code": "unknown",
+    "outcome": "fallback",
+    "reason": "no_rating",
+    "contradictions": [],
+    "model_used": null,
+    "stop_reason": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "git_sha": "62c63b547b01ffb590fe3256c3638ba0d1325eee",
+    "system_prompt_hash": "55f53262426caf07bd4d368e157dd1ec7e13e15116ab1fc58552abb005d0b036",
+    "knowledge_hash": null,
+    "knowledge_blocks": [],
+    "user_prompt": null,
+    "inputs": {
+      "facts": {
+        "max": null,
+        "min": null,
+        "unit": "cfs",
+        "value": 530,
+        "relation": "unavailable",
+        "gaugeName": "Gasconade River near Rich Fountain, MO",
+        "thresholds": {
+          "levelLow": null,
+          "levelHigh": null,
+          "levelTooLow": null,
+          "floodStageFt": 20,
+          "thresholdUnit": "cfs",
+          "levelDangerous": null,
+          "levelOptimalMax": null,
+          "levelOptimalMin": null
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 530,
+        "conditionCode": "unknown",
+        "gaugeHeightFt": 2.04,
+        "conditionLabel": "Unknown"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [],
+      "target": {
+        "gaugeName": "Gasconade River near Rich Fountain, MO",
+        "riverName": "Gasconade River",
+        "riverSlug": "gasconade",
+        "usgsSiteId": "06934000",
+        "coordinates": {
+          "lat": 38.3888055555556,
+          "lon": -91.8198888888889
+        }
+      },
+      "forecast": null,
+      "trajectory": null,
+      "readingTimestamp": "2026-11-20T16:30:00+00:00",
+      "riverBehaviorApplies": null
+    },
+    "raw_response": null,
+    "published": {
+      "eddyRead": "The gauge near Rich Fountain, MO is at 2.04 ft. Eddy has no float rating for it.",
+      "quoteText": "The gauge near Rich Fountain, MO is at 2.04 ft. Eddy has no float rating for it.",
+      "sourcesUsed": [
+        "USGS gauge"
+      ],
+      "summaryText": "The gauge near Rich Fountain, MO is at 2.04 ft. Eddy has no float rating for it."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "f067668b-b9a2-4482-aad6-4952155162d2",
+    "slug": "gasconade",
+    "name": "Gasconade River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Waynesville",
+    "weatherLat": 37.8287,
+    "weatherLon": -92.2007,
+    "alertSearchTerms": [
+      "gasconade river",
+      "webster county",
+      "wright county",
+      "laclede county",
+      "texas county",
+      "pulaski county",
+      "phelps county",
+      "maries county",
+      "gasconade county",
+      "osage county",
+      "hartville",
+      "waynesville",
+      "jerome",
+      "vienna",
+      "hermann"
+    ],
+    "characteristics": {
+      "isSpringFed": true,
+      "primaryHazards": [
+        "losing_reach_low_water",
+        "rockslide_bluff_rapid",
+        "low_water_bridge",
+        "strainer",
+        "gravel_bar"
+      ],
+      "lowWaterMeaning": "upper-hazelgreen: The upper Gasconade has a documented losing reach (Ozark Springs to Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to under 30 cfs below as the river sinks underground, weed-choked and often a walk-the-canoe. Water returns about a mile downstream at Rockslide Bluff via Falling, Creasy and Bartless Mill Springs, so an upstream gauge reading can badly overstate floatability through the losing reach. | mid-jerome: Low water mainly means scraping over riffles; the reach stays floatable. | lower-richfountain: On the larger lower river low water mainly affects speed.",
+      "risingWaterHazards": "upper-hazelgreen: Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. | mid-jerome: Runoff-responsive; low-water bridges and strainers become hazards as water rises. | lower-richfountain: Rises arrive from the large upstream drainage.",
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}

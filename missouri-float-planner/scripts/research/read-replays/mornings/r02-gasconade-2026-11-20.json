@@ -1,0 +1,331 @@
+{
+  "key": "r02-gasconade-2026-11-20",
+  "why": "Gasconade, named in PR #1932. Low at Hazelgreen, with a section note for the gauge.",
+  "derived": null,
+  "record": {
+    "id": "e2d9836e-7892-4427-af92-f41f3f0de8dc",
+    "created_at": "2026-11-20T11:11:12.359897+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "gasconade",
+    "section_slug": null,
+    "usgs_site_id": "06928000",
+    "condition_code": "low",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 3040,
+    "output_tokens": 358,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "4c3e0c2f62e9e1ff9b66cd523359838c87a529d1f1731d9c78138937787e6403",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:06928000",
+      "section:upper-hazelgreen",
+      "elsewhere"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate an Eddy condition update for: Gasconade River\n\n[RIVER CHARACTER]\nType: spring fed float\nPrimary hazards: losing reach low water, rockslide bluff rapid, low water bridge, strainer, gravel bar\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Ozarks\nLOW WATER GUIDANCE: The river IS floatable unless the code is \"too_low\". On this river, low water means: upper-hazelgreen: The upper Gasconade has a documented losing reach (Ozark Springs to Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to under 30 cfs below as the river sinks underground, weed-choked and often a walk-the-canoe. Water returns about a mile downstream at Rockslide Bluff via Falling, Creasy and Bartless Mill Springs, so an upstream gauge reading can badly overstate floatability through the losing reach. | mid-jerome: Low water mainly means scraping over riffles; the reach stays floatable. | lower-richfountain: On the larger lower river low water mainly affects speed. Do NOT recommend against floating when the condition code is \"low\"; that language is reserved for \"too_low\" only.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: upper-hazelgreen: Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. | mid-jerome: Runoff-responsive; low-water bridges and strainers become hazards as water rises. | lower-richfountain: Rises arrive from the large upstream drainage.\n\n[CURRENT GAUGE DATA]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=low relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Gasconade River near Hazelgreen, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Low (low). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 77 cfs.\nSeparate measurements: height 0.31 ft; discharge 77 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 200 to 1,000 cfs. Computed comparison: below.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 3000 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 21 ft, assessed separately from the recreational optimal range.\nSupported location: Gasconade River near Hazelgreen, MO.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\n\n[GAUGE TRAJECTORY]\n24h change: +0.0 ft (was 0.3 ft yesterday)\n6h change: +0.0 ft\nRate: steady at 0.00 ft/hr\n10-day peak: 0.4 ft\n10-day low: 0.3 ft\nSummary: Gauge has held steady near 0.3 ft over the past 24 hours, now holding steady.\n\n[HISTORICAL CONTEXT]\nCurrent discharge of 77.3 cfs is at the 6th percentile for this date. Median: 246 cfs (69 years of record).\n\nRecent rain: none reported at Waynesville in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.\n\n[LOCAL KNOWLEDGE — use to inform your update, not recite]\n=== General Ozarks Knowledge ===\nEvery Ozarks river responds differently to rainfall depending on its spring inputs and\nwatershed size. What matters most for floaters is whether the water is **rising**, **falling**,\nor **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua,\nNorth Fork, Spring River in Arkansas) hold steadier base flows and change slowly. Rivers\ndriven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkansas river\nexcept the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves\nlike a rainfall-driven stream above Alley Spring but is stabilized by springs below it.\n\n- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.\n- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).\n- Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.\n- After heavy rain, rivers may become less clear and turn muddy. \n- Weekends in June and July are the busiest. For a quieter float, go mid-week.\n- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.\n- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.\n- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.\n- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.\n- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.\n- **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.\n- **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.\n- **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.\n\n=== gasconade River Knowledge ===\nThe Gasconade is the longest river entirely within Missouri (~280 miles) and the longest undammed river in the Ozarks — a winding, low-gradient float stream often called \"one of the world's crookedest.\" Spring-influenced but runoff-responsive, with dolostone and sandstone bluffs, numerous springs and caves, and a strong smallmouth bass fishery. Mostly Class I (Class II is rare), and one of the least-crowded floats in the region — it's common to go miles without seeing another boat.\n\n- The float hub is around **Jerome and Waynesville** on the middle river. Waynesville and Dixon serve the upper river; the town of Gasconade serves the lower river near the Missouri confluence.\n- Three reference gauges span the river: **Hazelgreen** (upper, Eddy's primary), **Jerome** (middle, the most-cited float gauge), and **Rich Fountain** (lower). Each represents its own reach, so read the gauge nearest the put-in rather than one headline number for the whole river.\n- Major tributaries include the Osage Fork, Roubidoux Creek, and the Big Piney. Many access points are low-water bridges, which become hazards when the river is up.\n- **Losing reach on the upper river**: through the Narrows bend between Ozark Springs and Highway 17 (above Schlict Spring), much of the flow sinks underground in low water — roughly 75 cfs above the Narrows can drop below 30 cfs through it, leaving a weed-choked, walk-the-canoe trickle. The water returns about a mile downstream near Rockslide Bluff. An upstream gauge reading can overstate floatability through this stretch, so be cautious about the upper river in low water.\n- **Rockslide Bluff**: a section of cliff collapsed into the river in 1971 and is now an interesting little rapid; springs bubble up from the riverbed here and the flow, and the floating, picks up noticeably below it.\n- Strainers (downed trees) and low-water bridges are the main hazards. The gradient is gentle, so trouble comes from wood and structures more than from rapids.\n\n=== This gauge: Hazelgreen (06928000) ===\n- **Sits**: Near Hazelgreen, on the upper river. Above it: the Osage Fork, which joins just upstream of the gauge. Below it: Roubidoux Creek, which joins near Waynesville, and then the Big Piney, so the river carries far more water by Jerome than this gauge reads.\n- **Speaks for**: The upper Gasconade, from the Osage Fork down to Roubidoux Creek.\n- Eddy's primary gauge for the river.\n\n=== Section: upper-hazelgreen ===\n- Represented by the Hazelgreen gauge, the upper-river reference. Winding, spring-influenced, good smallmouth water.\n- Watch the losing reach above Schlict Spring in low water (see the river notes above) — the Hazelgreen reading can overstate what you will actually find through the Narrows.\n- Floatable from around Highway E downstream; the highest put-ins need more water and can be scrapy.\n\n=== Elsewhere on this river: patterns only, never today's conditions ===\n- Jerome gauge: At Jerome, on the middle river. Above it: Roubidoux Creek and the Big Piney, which joins about nine miles upstream, so this gauge DOES include the Big Piney's water. Speaks for: The middle Gasconade from the Big Piney down past Jerome.\n- Rich Fountain gauge: Near Rich Fountain, on the lower river, about 54 miles below Jerome. Above it: everything the Jerome gauge carries. Below it: the Missouri River, about 50 miles on. Speaks for: The lower Gasconade toward the Missouri River.",
+    "inputs": {
+      "facts": {
+        "max": 1000,
+        "min": 200,
+        "unit": "cfs",
+        "value": 77.3,
+        "relation": "below",
+        "gaugeName": "Gasconade River near Hazelgreen, MO",
+        "thresholds": {
+          "levelLow": 100,
+          "levelHigh": 1000,
+          "levelTooLow": 70,
+          "floodStageFt": 21,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 3000,
+          "levelOptimalMax": 1000,
+          "levelOptimalMin": 200
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 77.3,
+        "locationName": "Gasconade River",
+        "conditionCode": "low",
+        "gaugeHeightFt": 0.31,
+        "conditionLabel": "Low",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "MO",
+        "timezone": "America/Chicago",
+        "riverType": "spring_fed_float",
+        "weatherLat": 37.8287,
+        "weatherLon": -92.2007,
+        "weatherCity": "Waynesville",
+        "characteristics": {
+          "riverNote": null,
+          "speedCurve": null,
+          "isSpringFed": true,
+          "primaryHazards": [
+            "losing_reach_low_water",
+            "rockslide_bluff_rapid",
+            "low_water_bridge",
+            "strainer",
+            "gravel_bar"
+          ],
+          "lowWaterMeaning": "upper-hazelgreen: The upper Gasconade has a documented losing reach (Ozark Springs to Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to under 30 cfs below as the river sinks underground, weed-choked and often a walk-the-canoe. Water returns about a mile downstream at Rockslide Bluff via Falling, Creasy and Bartless Mill Springs, so an upstream gauge reading can badly overstate floatability through the losing reach. | mid-jerome: Low water mainly means scraping over riffles; the reach stays floatable. | lower-richfountain: On the larger lower river low water mainly affects speed.",
+          "risingWaterHazards": "upper-hazelgreen: Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. | mid-jerome: Runoff-responsive; low-water bridges and strainers become hazards as water rises. | lower-richfountain: Rises arrive from the large upstream drainage."
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "Gasconade River",
+        "riverSlug": "gasconade",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Waynesville",
+        "temp": 53,
+        "humidity": 84,
+        "condition": "Clear",
+        "windSpeed": 7,
+        "observedAt": "2026-11-20T11:09:31.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 166
+      },
+      "forecast": {
+        "city": "Waynesville",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 53,
+            "humidity": 68,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 9,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 50,
+            "humidity": 69,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 9,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 45,
+            "humidity": 85,
+            "tempHigh": 60,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 11,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 34,
+            "humidity": 70,
+            "tempHigh": 46,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 30,
+            "humidity": 82,
+            "tempHigh": 44,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 53,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 54,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 67,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 72,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 65,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 56,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 53,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 50,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": null,
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 69,
+          "p10": 100,
+          "p20": null,
+          "p25": 152.5,
+          "p50": 246,
+          "p75": 553.5,
+          "p80": null,
+          "p90": 1540,
+          "p95": 2815,
+          "mean": 632.01,
+          "month": 11,
+          "siteId": "06928000",
+          "yearsOfRecord": 69
+        },
+        "change6h": 0,
+        "change24h": 0,
+        "narrative": "Gauge has held steady near 0.3 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 0.29,
+          "timestamp": "2026-11-18T18:00:00+00:00"
+        },
+        "percentile": 6,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 0.41,
+          "timestamp": "2026-11-10T11:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 0.31,
+        "percentileContext": "Current discharge of 77.3 cfs is at the 6th percentile for this date. Median: 246 cfs (69 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T10:15:00+00:00"
+    },
+    "raw_response": "[CLAIMS] condition=low relation=below\n\n[SUMMARY]\nThe upper Gasconade near Hazelgreen is floatable but running low and well below normal for late November.\n\n[EDDY_READ]\nAt 77 cfs, the upper river is well into the range where the losing reach through the Narrows becomes a real problem -- flow can drop from around 75 cfs above that bend to under 30 cfs below as the river sinks underground, leaving a weed-choked trickle you will likely be walking more than paddling. Water does return near Rockslide Bluff, where the springs kick back in and the float improves noticeably.\n\n[FULL]\nNear Hazelgreen the upper Gasconade is running at a level where the losing reach through the Narrows deserves serious attention before you launch -- at 77 cfs you are right at the threshold where flow through that stretch can drop dramatically, and what the gauge reads above it may not reflect what you find in the channel. If your put-in is below Rockslide Bluff, where the springs return and the river recovers, the float is more workable, though riffles will be on the shallow side and the pace will be slow. The reading has held steady for the past 24 hours, with the optimal range starting at 200 cfs, so there is a meaningful gap to close. Rain is likely Sunday, which could change things -- worth another look at the gauge before you commit to a date. Check with a local outfitter about conditions through the Narrows before you go.",
+    "published": {
+      "eddyRead": "At 77 cfs, the upper river is well into the range where the losing reach through the Narrows becomes a real problem, flow can drop from around 75 cfs above that bend to under 30 cfs below as the river sinks underground, leaving a weed-choked trickle you will likely be walking more than paddling. Water does return near Rockslide Bluff, where the springs kick back in and the float improves noticeably.",
+      "quoteText": "Near Hazelgreen the upper Gasconade is running at a level where the losing reach through the Narrows deserves serious attention before you launch, at 77 cfs you are right at the threshold where flow through that stretch can drop dramatically, and what the gauge reads above it may not reflect what you find in the channel. If your put-in is below Rockslide Bluff, where the springs return and the river recovers, the float is more workable, though riffles will be on the shallow side and the pace will be slow. The reading has held steady for the past 24 hours, with the optimal range starting at 200 cfs, so there is a meaningful gap to close. Rain is likely Sunday, which could change things, worth another look at the gauge before you commit to a date. Check with a local outfitter about conditions through the Narrows before you go.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "OpenWeather",
+        "local knowledge",
+        "gauge trajectory"
+      ],
+      "summaryText": "The upper Gasconade near Hazelgreen is floatable but running low and well below normal for late November."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "f067668b-b9a2-4482-aad6-4952155162d2",
+    "slug": "gasconade",
+    "name": "Gasconade River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Waynesville",
+    "weatherLat": 37.8287,
+    "weatherLon": -92.2007,
+    "alertSearchTerms": [
+      "gasconade river",
+      "webster county",
+      "wright county",
+      "laclede county",
+      "texas county",
+      "pulaski county",
+      "phelps county",
+      "maries county",
+      "gasconade county",
+      "osage county",
+      "hartville",
+      "waynesville",
+      "jerome",
+      "vienna",
+      "hermann"
+    ],
+    "characteristics": {
+      "isSpringFed": true,
+      "primaryHazards": [
+        "losing_reach_low_water",
+        "rockslide_bluff_rapid",
+        "low_water_bridge",
+        "strainer",
+        "gravel_bar"
+      ],
+      "lowWaterMeaning": "upper-hazelgreen: The upper Gasconade has a documented losing reach (Ozark Springs to Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to under 30 cfs below as the river sinks underground, weed-choked and often a walk-the-canoe. Water returns about a mile downstream at Rockslide Bluff via Falling, Creasy and Bartless Mill Springs, so an upstream gauge reading can badly overstate floatability through the losing reach. | mid-jerome: Low water mainly means scraping over riffles; the reach stays floatable. | lower-richfountain: On the larger lower river low water mainly affects speed.",
+      "risingWaterHazards": "upper-hazelgreen: Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. | mid-jerome: Runoff-responsive; low-water bridges and strainers become hazards as water rises. | lower-richfountain: Rises arrive from the large upstream drainage.",
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}

@@ -1,0 +1,313 @@
+{
+  "key": "r05-current-2026-11-20",
+  "why": "Good at Van Buren. The river whose Reads misplaced Big Spring on 2026-11-17.",
+  "derived": null,
+  "record": {
+    "id": "fb2cfee2-34d0-4bf6-8b16-69b784adf894",
+    "created_at": "2026-11-20T11:11:05.592803+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "current",
+    "section_slug": null,
+    "usgs_site_id": "07067000",
+    "condition_code": "good",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 2656,
+    "output_tokens": 287,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "9711ab51238946e0a6fdfbfbc8941c5e7289ac41452b248e613b3de0ac319ceb",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:07067000",
+      "elsewhere"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate an Eddy condition update for: Current River\n\n[RIVER CHARACTER]\nType: spring fed float\nPrimary hazards: strainer\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Ozarks\nLOW WATER GUIDANCE: The river IS floatable unless the code is \"too_low\". On this river, low water means: Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable. Do NOT recommend against floating when the condition code is \"low\"; that language is reserved for \"too_low\" only.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: Stronger current, more debris, undercut banks, and strainers that are harder to avoid.\n\n[CURRENT GAUGE DATA]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=good relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Current River at Van Buren, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Good (good). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 756 cfs.\nSeparate measurements: height 2.57 ft; discharge 756 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 1,190 to 2,700 cfs. Computed comparison: below.\nIn plain words for the reader: floatable, with a reading below the optimal range for this gauge. This comparison alone does not establish shallow water or scraping.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 3450 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 20 ft, assessed separately from the recreational optimal range.\nSupported location: Current River at Van Buren, MO.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\nGauge notes: Spring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.\n\n[GAUGE TRAJECTORY]\n24h change: +0.0 ft (was 2.6 ft yesterday)\n6h change: +0.0 ft\nRate: steady at 0.00 ft/hr\n10-day peak: 2.6 ft\n10-day low: 2.5 ft\nSummary: Gauge has held steady near 2.6 ft over the past 24 hours, now holding steady.\n\n[HISTORICAL CONTEXT]\nCurrent discharge of 756 cfs is at the 22nd percentile for this date. Median: 1,060 cfs (105 years of record).\n\nRecent rain: none reported at Van Buren in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.\n\n[LOCAL KNOWLEDGE — use to inform your update, not recite]\n=== General Ozarks Knowledge ===\nEvery Ozarks river responds differently to rainfall depending on its spring inputs and\nwatershed size. What matters most for floaters is whether the water is **rising**, **falling**,\nor **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua,\nNorth Fork, Spring River in Arkansas) hold steadier base flows and change slowly. Rivers\ndriven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkansas river\nexcept the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves\nlike a rainfall-driven stream above Alley Spring but is stabilized by springs below it.\n\n- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.\n- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).\n- Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.\n- After heavy rain, rivers may become less clear and turn muddy. \n- Weekends in June and July are the busiest. For a quieter float, go mid-week.\n- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.\n- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.\n- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.\n- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.\n- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.\n- **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.\n- **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.\n- **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.\n\n=== current River Knowledge ===\nThe Current is the crown jewel of Ozarks floating — spring-fed, scenic, and reliable.\nA chain of big springs feeds it from top to bottom, so it holds water better than almost\nany river in the state. Where each spring enters decides which gauge sees its water.\n\n- Best all-around river for beginners and experienced paddlers alike.\n- NPS manages most access points. Akers Ferry, Pulltite, Round Spring, and Two Rivers have developed campgrounds.\n- Current River is part of the Ozark National Scenic Riverways (ONSR) — the first national park area to protect a river system.\n- The gauges sit far apart, on very different amounts of water. In a dry spell the upper gauges can read thin while the lower ones read fine, so quote the gauge nearest the put-in.\n\n=== This gauge: Van Buren (07067000) ===\n- **Sits**: At Van Buren, well down the river. Above it: the Jacks Fork, which joins at Two Rivers, and Blue Spring, which enters about 25 miles upstream. Below it: Big Spring, which enters about four miles downstream, so this gauge does NOT include Big Spring's water.\n- **Speaks for**: The lower Current around Van Buren, from Blue Spring down to Big Spring.\n- Eddy's primary gauge for the river, read in cfs.\n- Akers, Montauk, and Powder Mill are the upstream references, and they can disagree with Van Buren by a lot in a dry spell.\n\n=== Elsewhere on this river: patterns only, never today's conditions ===\n- Montauk gauge: At Montauk State Park, a mile and a half below the head of the river. Above it: Montauk Springs. Below it: Welch Spring and every other spring on the Current, so it reads far less water than any gauge downstream. Speaks for: The headwaters stretch, from Montauk down to Cedar Grove.\n- Akers gauge: At Akers Ferry. Above it: Montauk Springs and Welch Spring, which enters about two and a half miles upstream. Below it: Cave Spring, Pulltite Spring, Round Spring and the springs beyond, so the river keeps gaining water below this gauge. Speaks for: Cedar Grove to Pulltite.\n- Powder Mill gauge: Just above Powder Mill, about seven miles below Two Rivers. Above it: the Jacks Fork, which joins at Two Rivers. Below it: Blue Spring, which enters a mile and a half downstream, so this gauge does NOT include Blue Spring's water. Speaks for: Two Rivers down to Blue Spring.\n- Doniphan gauge: At Doniphan, about 38 miles below Van Buren. Above it: Big Spring, which enters about 34 miles upstream, and everything above Van Buren. Speaks for: The Current below Big Spring, which is wide and deep, more like a slow river than a float stream.",
+    "inputs": {
+      "facts": {
+        "max": 2700,
+        "min": 1190,
+        "unit": "cfs",
+        "value": 756,
+        "relation": "below",
+        "gaugeName": "Current River at Van Buren, MO",
+        "thresholds": {
+          "levelLow": 700,
+          "levelHigh": 3000,
+          "levelTooLow": 645,
+          "floodStageFt": 20,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 3450,
+          "levelOptimalMax": 2700,
+          "levelOptimalMin": 1190
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 756,
+        "locationName": "Current River",
+        "conditionCode": "good",
+        "gaugeHeightFt": 2.57,
+        "conditionLabel": "Good",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "MO",
+        "timezone": "America/Chicago",
+        "riverType": "spring_fed_float",
+        "weatherLat": 36.9956,
+        "weatherLon": -91.0146,
+        "weatherCity": "Van Buren",
+        "characteristics": {
+          "riverNote": "Spring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.",
+          "speedCurve": null,
+          "isSpringFed": true,
+          "primaryHazards": [
+            "strainer"
+          ],
+          "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+          "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid."
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "Current River",
+        "riverSlug": "current",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Van Buren",
+        "temp": 54,
+        "humidity": 88,
+        "condition": "Clear",
+        "windSpeed": 3,
+        "observedAt": "2026-11-20T09:49:48.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 120
+      },
+      "forecast": {
+        "city": "Van Buren",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 49,
+            "humidity": 66,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 5,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 43,
+            "humidity": 75,
+            "tempHigh": 71,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 6,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 50,
+            "humidity": 87,
+            "tempHigh": 67,
+            "condition": "Clouds",
+            "dayOfWeek": "Sun",
+            "windSpeed": 8,
+            "conditionIcon": "04d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 38,
+            "humidity": 63,
+            "tempHigh": 50,
+            "condition": "Clouds",
+            "dayOfWeek": "Mon",
+            "windSpeed": 9,
+            "conditionIcon": "02d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 32,
+            "humidity": 76,
+            "tempHigh": 47,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 8,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 49,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 50,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 65,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 72,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 50,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 46,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 43,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": "Spring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.",
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 623.5,
+          "p10": 677.4,
+          "p20": null,
+          "p25": 776.5,
+          "p50": 1060,
+          "p75": 1745,
+          "p80": null,
+          "p90": 4780,
+          "p95": 6972,
+          "mean": 2380.895,
+          "month": 11,
+          "siteId": "07067000",
+          "yearsOfRecord": 105
+        },
+        "change6h": 0,
+        "change24h": 0.009999999999999787,
+        "narrative": "Gauge has held steady near 2.6 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 2.55,
+          "timestamp": "2026-11-18T18:00:00+00:00"
+        },
+        "percentile": 22,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 2.6,
+          "timestamp": "2026-11-10T14:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 2.57,
+        "percentileContext": "Current discharge of 756 cfs is at the 22nd percentile for this date. Median: 1,060 cfs (105 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T10:30:00+00:00"
+    },
+    "raw_response": "[CLAIMS] condition=good relation=below\n\n[SUMMARY]\nGood floating near Van Buren right now, though the river is running quieter than a typical November.\n\n[EDDY_READ]\nVan Buren sits well down the river, below the Jacks Fork confluence and Blue Spring but above Big Spring, so this reading speaks for a well-fed stretch of the lower Current. Up at Akers or Montauk, the picture can look quite different in low-water conditions.\n\n[FULL]\nNear Van Buren the Current is floating fine, with a steady, unhurried feel and no meaningful change over the past day. The gauge reads Good, though the discharge sits below the optimal range for this stretch, which starts at 1,190 cfs -- the river is running lower than usual for mid-November, quieter than average this time of year. That said, low for the Current is still a passable float, and a steady reading means you are not chasing a moving target. Rain is likely Sunday, which could nudge this reading up, so it is worth another look before you launch. If you are putting in farther up near Akers or Montauk, check those gauges separately -- they can tell a different story when the river is running on the thin side.",
+    "published": {
+      "eddyRead": "Van Buren sits well down the river, below the Jacks Fork confluence and Blue Spring but above Big Spring, so this reading speaks for a well-fed stretch of the lower Current. Up at Akers or Montauk, the picture can look quite different in low-water conditions.",
+      "quoteText": "Near Van Buren the Current is floating fine, with a steady, unhurried feel and no meaningful change over the past day. The gauge reads Good, though the discharge sits below the optimal range for this stretch, which starts at 1,190 cfs, the river is running lower than usual for mid-November, quieter than average this time of year. That said, low for the Current is still a passable float, and a steady reading means you are not chasing a moving target. Rain is likely Sunday, which could nudge this reading up, so it is worth another look before you launch. If you are putting in farther up near Akers or Montauk, check those gauges separately, they can tell a different story when the river is running on the thin side.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "OpenWeather",
+        "local knowledge",
+        "gauge trajectory"
+      ],
+      "summaryText": "Good floating near Van Buren right now, though the river is running quieter than a typical November."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "4806d324-200f-42ba-bd17-79f1ee4e0467",
+    "slug": "current",
+    "name": "Current River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": "ozar",
+    "weatherCity": "Van Buren",
+    "weatherLat": 36.9956,
+    "weatherLon": -91.0146,
+    "alertSearchTerms": [
+      "current river",
+      "shannon county",
+      "dent county",
+      "carter county",
+      "van buren",
+      "eminence"
+    ],
+    "characteristics": {
+      "isSpringFed": true,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "Spring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.",
+      "speedCurve": null
+    }
+  }
+}

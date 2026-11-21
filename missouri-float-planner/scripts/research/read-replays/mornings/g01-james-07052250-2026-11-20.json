@@ -1,0 +1,277 @@
+{
+  "key": "g01-james-07052250-2026-11-20",
+  "why": "James near Boaz, named in PR #1932. Too Low.",
+  "derived": null,
+  "record": {
+    "id": "c953668a-659d-4973-8e65-4573f3ea64df",
+    "created_at": "2026-11-20T17:10:40.525201+00:00",
+    "workload": "gauge_update",
+    "trigger": "scheduled",
+    "river_slug": "james",
+    "section_slug": null,
+    "usgs_site_id": "07052250",
+    "condition_code": "too_low",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 4390,
+    "output_tokens": 180,
+    "git_sha": "62c63b547b01ffb590fe3256c3638ba0d1325eee",
+    "system_prompt_hash": "55f53262426caf07bd4d368e157dd1ec7e13e15116ab1fc58552abb005d0b036",
+    "knowledge_hash": "aab391db08e95f399ec62405525ff485d831ec312678a5e6897cbe35e9d31473",
+    "knowledge_blocks": [
+      "river",
+      "gauge:07052250",
+      "section:james-upper"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate a secondary-gauge update for: James River near Boaz, MO on the James River.\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Ozarks\nLOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, riffles, floatability, drought, or a release schedule unless the river knowledge describes this station's own stretch. Do not infer the cause.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: james-galena: outfitter closes above 8 ft gage height | james-upper: flashy urban runoff; Springfield WWTP water-quality\n\n[RIVER KNOWLEDGE: background for you, about the whole river unless it says \"This gauge\" or names a section. Use only what fits this gauge's stretch; never recite it]\nA southwest-Missouri smallmouth stream draining the Springfield Plateau to Table Rock Lake. The lower Galena reach is the classic float — clear, spring-influenced Class I water; the upper river above Hootentown drains Springfield and behaves like a different stream.\n\n- Hootentown to the Galena Y-Bridge, about 22 miles, is the recreational reach and the one the outfitters serve. A Smallmouth Bass Special Management Area begins near Hootentown, so expect anglers as well as floaters.\n- **Three gauges, three different rivers.** Read **Galena (07052500, Eddy's primary)** for the classic float. **Boaz (07052250)** covers the middle river, and **Springfield (07050700)** is the urban headwater gauge on a fraction of the drainage — Springfield's numbers are much flashier and must never be applied to the Galena reach.\n- Eddy's Galena ladder is in **cfs**. The Galena outfitters also publish a **gauge-height** key for the high end — caution around 7 ft, do-not-float at 8 ft — which is a different unit off the same station. Don't blend the two into one number.\n- **The upper river is not a summer float.** From about Highway 125 down to Hootentown it carries Springfield's urban runoff and wastewater-treatment influence, runs flashy and rain-driven, floats only at medium-to-high water, and has the Kissick Dam low-head hazard to portage.\n- In low water, put in at Hootentown rather than farther upstream — the upper James drops out quickly in summer.\n- When Table Rock Lake is high, the bottom of the float near Galena feels the backwater — the current slows before the take-out arrives.\n- Nearest towns: Galena and Crane at the take-out end, Springfield and Nixa upstream.\n\nThis gauge: Boaz (07052250)\n- **Sits**: Near Boaz, between Delaware Town and Shelvin Rock. Above it: Wilsons Creek, which joins about seven miles up. Below it: Finley Creek, which joins about four miles down, above Hootentown, and adds more than half again.\n- **Speaks for**: The James above Finley Creek: Joe Crighton, Delaware Town and Shelvin Rock.\n- Rated on its own levels. Its High and Dangerous lines are provisional, set by the owner on 2026-11-19.\n\nSection james-upper:\n- Hwy 125 down to Hootentown: urban runoff and wastewater-treatment influence, flashy and rain-driven, floatable only at medium-to-high water. Not a summer trip.\n- Portage the Kissick low-head dam. Read Boaz or Springfield here — never the Galena number.\n\n[THIS GAUGE]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=too_low relation=unavailable\nThen write [SUMMARY], [EDDY_READ], and [FULL]. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: James River near Boaz, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Too Low (too_low). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 70 cfs.\nSeparate measurements: height 2.38 ft; discharge 70 cfs. These are not interchangeable.\nIf you name the rating, use its capitalized label in a natural sentence. Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim.\nThis gauge's float levels (Eddy's own levels, not official limits, except where flood stage is named):\n- Too Low (not worth floating): below 80 cfs\n- Low (floatable; LOW WATER GUIDANCE says what low water means here): 80 cfs up to 150 cfs\n- Good (floats fine): 150 cfs up to 650 cfs\n- High: above 650 cfs, up to 1,500 cfs, or a gauge height of 10 ft (official flood stage), whichever comes first\n- Dangerous: 1,500 cfs and up, or a gauge height of 10 ft (official flood stage), whichever comes first\nHow far today is from the next level: this gauge starts to float at 80 cfs. Today's 70 cfs is about three quarters of that.\nEditorial danger threshold: 1500 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 10 ft, assessed separately from the recreational optimal range.\nSupported location: James River near Boaz, MO.\nThis reading is for this gauge's water only. General local knowledge is background, not a current reading for other places.\nName where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Do not turn a station assessment into a claim about the entire river.\n\n[GAUGE TRAJECTORY]\nSteady: no meaningful change over the past 24 hours.\n\n[SEASON]\nThe flow at this gauge is far lower than usual for this time of year.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.",
+    "inputs": {
+      "facts": {
+        "max": null,
+        "min": 150,
+        "unit": "cfs",
+        "value": 69.8,
+        "relation": "unavailable",
+        "gaugeName": "James River near Boaz, MO",
+        "thresholds": {
+          "levelLow": null,
+          "levelHigh": 650,
+          "levelTooLow": 80,
+          "floodStageFt": 10,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 1500,
+          "levelOptimalMax": null,
+          "levelOptimalMin": 150
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 69.8,
+        "conditionCode": "too_low",
+        "gaugeHeightFt": 2.38,
+        "conditionLabel": "Too Low"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [],
+      "target": {
+        "gaugeName": "James River near Boaz, MO",
+        "riverName": "James River",
+        "riverSlug": "james",
+        "usgsSiteId": "07052250",
+        "coordinates": {
+          "lat": 37.0065833333333,
+          "lon": -93.3646666666667
+        }
+      },
+      "forecast": {
+        "city": "Nixa",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 55,
+            "humidity": 66,
+            "tempHigh": 68,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 12,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 52,
+            "humidity": 76,
+            "tempHigh": 73,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 10,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 45,
+            "humidity": 88,
+            "tempHigh": 59,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 11,
+            "conditionIcon": "10d",
+            "precipitation": 94
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 36,
+            "humidity": 71,
+            "tempHigh": 47,
+            "condition": "Clouds",
+            "dayOfWeek": "Mon",
+            "windSpeed": 9,
+            "conditionIcon": "02d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 32,
+            "humidity": 79,
+            "tempHigh": 46,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 7,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 68,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 68,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 64,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 53,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 52,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 52,
+            "localHour": 6,
+            "timestamp": "2026-11-21T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 9,
+            "timestamp": "2026-11-21T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 65.59,
+          "p10": 75.98,
+          "p20": null,
+          "p25": 99.7,
+          "p50": 142,
+          "p75": 315.5,
+          "p80": null,
+          "p90": 683.8,
+          "p95": 972,
+          "mean": 259.742,
+          "month": 11,
+          "siteId": "07052250",
+          "yearsOfRecord": 33
+        },
+        "change6h": 0,
+        "change24h": -0.040000000000000036,
+        "narrative": "Gauge has held steady near 2.4 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 2.34,
+          "timestamp": "2026-11-16T05:45:00+00:00"
+        },
+        "percentile": 8,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 2.48,
+          "timestamp": "2026-11-10T17:45:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 2.39,
+        "percentileContext": "Current discharge of 71.6 cfs is at the 8th percentile for this date. Median: 142 cfs (33 years of record)."
+      },
+      "readingTimestamp": "2026-11-20T16:45:00+00:00",
+      "riverBehaviorApplies": true
+    },
+    "raw_response": "[CLAIMS] condition=too_low relation=unavailable\n\n[SUMMARY]\nNot enough water near Boaz to float. At 70 cfs, you'd be dragging more than paddling.\n\n[EDDY_READ]\nThis stretch covers the middle James, above where Finley Creek comes in and fills the river out. What comes through here is a leaner, thinner version of what reaches the classic Galena float downstream.\n\n[FULL]\nThe James near Boaz is sitting at 70 cfs, short of the 80 it needs to carry a boat, and it hasn't moved in the past day. That's lower than you'd normally expect for late November. Rain is likely Sunday, which could change this reading, so it's worth checking back before you plan anything.",
+    "published": {
+      "eddyRead": "This stretch covers the middle James, above where Finley Creek comes in and fills the river out. What comes through here is a leaner, thinner version of what reaches the classic Galena float downstream.",
+      "quoteText": "The James near Boaz is sitting at 70 cfs, short of the 80 it needs to carry a boat, and it hasn't moved in the past day. That's lower than you'd normally expect for late November. Rain is likely Sunday, which could change this reading, so it's worth checking back before you plan anything.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "gauge trajectory",
+        "OpenWeather forecast"
+      ],
+      "summaryText": "Not enough water near Boaz to float. At 70 cfs, you'd be dragging more than paddling."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "e6cd9b24-7837-4ae2-b7fc-c4dcf205443f",
+    "slug": "james",
+    "name": "James River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Galena",
+    "weatherLat": 36.8069,
+    "weatherLon": -93.4618,
+    "alertSearchTerms": [
+      "james river",
+      "greene county",
+      "christian county",
+      "stone county",
+      "galena",
+      "hootentown",
+      "springfield"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "strainer",
+        "rapid",
+        "low_water_dam"
+      ],
+      "lowWaterMeaning": "james-galena: below ~180 cfs boats drag on riffles | james-upper: floats only at medium/high water",
+      "risingWaterHazards": "james-galena: outfitter closes above 8 ft gage height | james-upper: flashy urban runoff; Springfield WWTP water-quality",
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}

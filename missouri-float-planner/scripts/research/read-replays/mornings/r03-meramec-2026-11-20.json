@@ -1,0 +1,313 @@
+{
+  "key": "r03-meramec-2026-11-20",
+  "why": "Meramec, named in PR #1932. Good at Steelville while below the optimal range: a label and a comparison that pull apart.",
+  "derived": null,
+  "record": {
+    "id": "4fb9b5dd-bff8-4e6b-a584-0abe6b9e11f3",
+    "created_at": "2026-11-20T11:11:28.879549+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "meramec",
+    "section_slug": null,
+    "usgs_site_id": "07013000",
+    "condition_code": "good",
+    "outcome": "model",
+    "reason": null,
+    "contradictions": [],
+    "model_used": "claude-sonnet-4-6",
+    "stop_reason": "end_turn",
+    "input_tokens": 2770,
+    "output_tokens": 278,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "9a681c6ba99db2c6c06d36d48c450d03c3e686fca62678a6321b1a76da495e15",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:07013000",
+      "section:upper-meramec",
+      "elsewhere"
+    ],
+    "user_prompt": "Date: Friday, November 20, 2026\n\nGenerate an Eddy condition update for: Meramec River\n\n[RIVER CHARACTER]\nType: spring fed float\nPrimary hazards: strainer\n\n[CONDITION SEMANTICS — how to interpret conditions on THIS river]\nRegion: Ozarks\nLOW WATER GUIDANCE: The river IS floatable unless the code is \"too_low\". On this river, low water means: Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable. Do NOT recommend against floating when the condition code is \"low\"; that language is reserved for \"too_low\" only.\nRISING WATER GUIDANCE: Explain what rising water means for hazards on this river: Stronger current, more debris, undercut banks, and strainers that are harder to avoid.\n\n[CURRENT GAUGE DATA]\n[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]\nBegin your response with exactly this single line: [CLAIMS] condition=good relation=below\nThen write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.\nReporting gauge: Meramec River near Steelville, MO\nIf no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.\nComputed condition: Good (good). Do not upgrade, downgrade, or reinterpret this label.\nRating measurement: discharge; value: 174 cfs.\nSeparate measurements: height 1.32 ft; discharge 174 cfs. These are not interchangeable.\nUse these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.\nYou do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example \"the gauge reads Good\" or \"running Too Low\". Never write it as a field such as \"condition: Good\"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.\nOptimal range: 300 to 900 cfs. Computed comparison: below.\nIn plain words for the reader: floatable, with a reading below the optimal range for this gauge. This comparison alone does not establish shallow water or scraping.\nGood and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.\nEditorial danger threshold: 5000 cfs. This is NOT an official closure order. Do not call it a closure level.\nOfficial flood stage: 12 ft, assessed separately from the recreational optimal range.\nSupported location: Meramec River near Steelville, MO.\nDo not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.\nSay where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.\nLead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.\nKeep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.\nGauge notes: Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.\n\n[GAUGE TRAJECTORY]\n24h change: -0.0 ft (was 1.3 ft yesterday)\n6h change: +0.0 ft\nRate: steady at 0.01 ft/hr\n10-day peak: 1.3 ft\n10-day low: 1.3 ft\nSummary: Gauge has held steady near 1.3 ft over the past 24 hours, now holding steady.\n\n[HISTORICAL CONTEXT]\nCurrent discharge of 170 cfs is at the 26th percentile for this date. Median: 216.5 cfs (104 years of record).\n\nRecent rain: none reported at Steelville in the past 3 hours. That is one weather point, not the watershed upstream, and it says nothing about rain before that.\n\n[OUTLOOK]\nRain is likely Sunday.\nThis is all you are told about the days ahead. You may say once, in [FULL] only and conditionally, that rain could change this reading and that it is worth another look. Do not describe the weather itself; the app's Weather section does that.\n\n[LOCAL KNOWLEDGE — use to inform your update, not recite]\n=== General Ozarks Knowledge ===\nEvery Ozarks river responds differently to rainfall depending on its spring inputs and\nwatershed size. What matters most for floaters is whether the water is **rising**, **falling**,\nor **stable**. Rivers with large spring inputs (Current, Eleven Point, Big Piney, Niangua,\nNorth Fork, Spring River in Arkansas) hold steadier base flows and change slowly. Rivers\ndriven mainly by rainfall (Meramec, Huzzah, Courtois, Bourbeuse, and every Arkansas river\nexcept the Spring) can drop fast in summer and spike hard after storms. Jacks Fork behaves\nlike a rainfall-driven stream above Alley Spring but is stabilized by springs below it.\n\n- Float season runs roughly **April through October**, with peak traffic Memorial Day through Labor Day.\n- Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).\n- Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.\n- After heavy rain, rivers may become less clear and turn muddy. \n- Weekends in June and July are the busiest. For a quieter float, go mid-week.\n- The Ozarks are rural. Most river access points have no services: no restaurants, gas or groceries. Each river's towns are listed with the river.\n- Always check with local outfitters before launching — they know about recent blowdowns, low-water bridges, and temporary hazards that gauges can't tell you.\n- Missouri conservation areas along rivers typically have free access. National Park Service areas (Current, Jacks Fork, Buffalo) may have fees at developed access points.\n- Take into account water level trends. A water level trending up should proceed with more caution then if it were trending down. Always seek guidance from local outfitters and authorities.\n- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.\n- **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.\n- **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.\n- **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.\n\n=== meramec River Knowledge ===\nThe largest Ozarks float river by volume. Rain-fed, so it's more variable than spring-fed\nrivers. The upper sections above Meramec State Park are the most scenic and popular for\nfloating; below the park it widens and slows.\n\n- Popular with St. Louis area floaters — it's the closest quality float to the city.\n- Upper Meramec (above MSP) has bluffs, riffles, and a wilder feel.\n- Lower Meramec is wider, calmer, better for tubes and beginners.\n- Onondaga Cave State Park is along the river with cave tours available.\n- Meramec State Park has camping, cabins, and cave tours. Major hub for float access.\n- The Meramec can flood dramatically — it's one of the flashiest rivers in the Ozarks. When it rains hard, expect the gauge to spike 5-10 ft in hours.\n- The gauges cover very different amounts of river: the Meramec at Steelville can be a different river from the Meramec at Eureka on the same afternoon. Quote the gauge that speaks for the put-in.\n\n=== This gauge: Steelville (07013000) ===\n- **Sits**: Near Steelville. Above it: Maramec Spring. Below it: the Huzzah, carrying the Courtois, which joins about 15 miles downstream.\n- **Speaks for**: Maramec Spring down to the Huzzah.\n- Eddy's primary gauge for the river, read in cfs.\n\n=== Section: upper-meramec ===\n- Above Meramec State Park. More rapids, narrower channel, scenic bluffs.\n- St. James to Meramec State Park is the classic upper float.\n- Needs a bit more water to float cleanly than the lower section.\n- More experienced paddlers preferred — some Class II sections when water is up.\n- **The Steelville outfitters run rafts well into the thin part of the season.** A typical late-summer reading here usually means shallow riffles and a lighter boat rather than a cancelled trip — the numbers on this gauge read worse than the water generally is. That is a correction to the numbers, not a promise about any given day: in a genuinely dry spell this stretch does drop too low, and the live condition is what decides.\n\n=== Elsewhere on this river: patterns only, never today's conditions ===\n- Cook Station gauge: At Cook Station, in the headwaters. Above it: the rain-fed upper river only. Below it: Maramec Spring, so this gauge does NOT include the spring's water. Speaks for: The Meramec above Maramec Spring.\n- Sullivan gauge: Near Sullivan. Above it: the Huzzah and Courtois, which join about 17 miles upstream. Below it: the Bourbeuse, which joins about 51 miles downstream. Speaks for: The Huzzah down to the Bourbeuse.\n- Eureka gauge: Near Eureka, on the lower river. Above it: the Bourbeuse, which joins about 32 miles upstream, and the Big River, which joins about three miles upstream. Speaks for: The lower Meramec from the Bourbeuse down. No gauge sits between the Bourbeuse and the Big River, so on that stretch this reading includes Big River water the river has not met yet.",
+    "inputs": {
+      "facts": {
+        "max": 900,
+        "min": 300,
+        "unit": "cfs",
+        "value": 174,
+        "relation": "below",
+        "gaugeName": "Meramec River near Steelville, MO",
+        "thresholds": {
+          "levelLow": 145,
+          "levelHigh": 2300,
+          "levelTooLow": 130,
+          "floodStageFt": 12,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 5000,
+          "levelOptimalMax": 900,
+          "levelOptimalMin": 300
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 174,
+        "locationName": "Meramec River",
+        "conditionCode": "good",
+        "gaugeHeightFt": 1.32,
+        "conditionLabel": "Good",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "MO",
+        "timezone": "America/Chicago",
+        "riverType": "spring_fed_float",
+        "weatherLat": 37.9681,
+        "weatherLon": -91.3543,
+        "weatherCity": "Steelville",
+        "characteristics": {
+          "riverNote": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+          "speedCurve": null,
+          "isSpringFed": false,
+          "primaryHazards": [
+            "strainer"
+          ],
+          "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+          "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid."
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "Meramec River",
+        "riverSlug": "meramec",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Steelville",
+        "temp": 52,
+        "humidity": 85,
+        "condition": "Clear",
+        "windSpeed": 5,
+        "observedAt": "2026-11-20T11:10:50.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 170
+      },
+      "forecast": {
+        "city": "Steelville",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 52,
+            "humidity": 66,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 53,
+            "humidity": 69,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 47,
+            "humidity": 86,
+            "tempHigh": 60,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 34,
+            "humidity": 71,
+            "tempHigh": 46,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 29,
+            "humidity": 82,
+            "tempHigh": 44,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 52,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 54,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 65,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 72,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 123.5,
+          "p10": 135,
+          "p20": null,
+          "p25": 168.75,
+          "p50": 216.5,
+          "p75": 398.75,
+          "p80": null,
+          "p90": 1065,
+          "p95": 1830,
+          "mean": 613.712,
+          "month": 11,
+          "siteId": "07013000",
+          "yearsOfRecord": 104
+        },
+        "change6h": 0,
+        "change24h": -0.010000000000000009,
+        "narrative": "Gauge has held steady near 1.3 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 1.3,
+          "timestamp": "2026-11-13T15:45:00+00:00"
+        },
+        "percentile": 26,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 1.34,
+          "timestamp": "2026-11-10T11:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": -0.0050000000000000044,
+        "currentHeightFt": 1.31,
+        "percentileContext": "Current discharge of 170 cfs is at the 26th percentile for this date. Median: 216.5 cfs (104 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T10:15:00+00:00"
+    },
+    "raw_response": "[CLAIMS] condition=good relation=below\n\n[SUMMARY]\nNear Steelville, the Meramec is floatable and steady -- expect a relaxed trip with some picking through shallower spots.\n\n[EDDY_READ]\nMaramec Spring feeds into this stretch just above Steelville, which is part of why the outfitters here keep running trips when the numbers look thin. At this level the riffles will be readable and the channel is workable, though a lighter boat earns its keep.\n\n[FULL]\nThe water near Steelville is reading Good and has been rock steady for the past day, so you are not chasing a moving target. At 174 cfs this sits below the optimal range of 300 to 900 cfs, but on this stretch that tends to read worse than the water actually is -- the Steelville outfitters float rafts well into the lean part of the season. Expect some shallow riffles where you will need to pick your line, and keep an eye out for strainers, especially at this lower flow where downed trees can span more of the channel. Rain is likely Sunday, which could change this reading, so it is worth another look before you head out.",
+    "published": {
+      "eddyRead": "Maramec Spring feeds into this stretch just above Steelville, which is part of why the outfitters here keep running trips when the numbers look thin. At this level the riffles will be readable and the channel is workable, though a lighter boat earns its keep.",
+      "quoteText": "The water near Steelville is reading Good and has been rock steady for the past day, so you are not chasing a moving target. At 174 cfs this sits below the optimal range of 300 to 900 cfs, but on this stretch that tends to read worse than the water actually is, the Steelville outfitters float rafts well into the lean part of the season. Expect some shallow riffles where you will need to pick your line, and keep an eye out for strainers, especially at this lower flow where downed trees can span more of the channel. Rain is likely Sunday, which could change this reading, so it is worth another look before you head out.",
+      "sourcesUsed": [
+        "USGS gauge",
+        "OpenWeather",
+        "local knowledge",
+        "gauge trajectory"
+      ],
+      "summaryText": "Near Steelville, the Meramec is floatable and steady, expect a relaxed trip with some picking through shallower spots."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "18892256-88a7-4d13-b985-e0640fa37ca7",
+    "slug": "meramec",
+    "name": "Meramec River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Steelville",
+    "weatherLat": 37.9681,
+    "weatherLon": -91.3543,
+    "alertSearchTerms": [
+      "meramec",
+      "crawford county",
+      "franklin county",
+      "sullivan",
+      "steelville"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+      "speedCurve": null
+    }
+  }
+}

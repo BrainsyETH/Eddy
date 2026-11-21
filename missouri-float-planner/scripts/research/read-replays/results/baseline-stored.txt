@@ -1,0 +1,110 @@
+Read checks on the saved mornings. stored: what production published on each recorded morning.
+Outputs: 23. Model-written 20, fallback 3, error 0.
+Not model-written: fallback:no_gauge 1, fallback:no_rating 2.
+
+  rule                     all outputs   model-written      strict
+  summary_length             87% 20/23       85% 17/20   74% 17/23
+  read_length                 39% 9/23        30% 6/20    26% 6/23
+  read_measurements          78% 18/23       80% 16/20   70% 16/23
+  read_forecast_talk        100% 23/23      100% 20/20   87% 20/23
+  weather_talk               96% 22/23       95% 19/20   83% 19/23
+  flat_forecast              96% 22/23       95% 19/20   83% 19/23
+  numbers_match_inputs       85% 17/20       85% 17/20   74% 17/23
+  numbers_from_knowledge     95% 19/20       95% 19/20   83% 19/23
+  stock_lines                 17% 4/23         5% 1/20     4% 1/23
+  brief_talk                 65% 15/23       70% 14/20   61% 14/23
+
+  all: every published text, fallback included. model-written: what report-eddy-reads.ts counts.
+  strict: model-written passes over every morning judged, each fallback or error a miss.
+
+Rules:
+  summary_length: summary is 120 characters or fewer
+  read_length: short Read is 240 characters or fewer
+  read_measurements: short Read quotes no reading, temperature or rain percentage
+  read_forecast_talk: short Read leaves the forecast to the Watch for panel
+  weather_talk: no block describes the weather; the Weather section owns it
+  flat_forecast: no flat forecast ("will", "is coming") about water or weather
+  numbers_match_inputs: every measurement appears in the inputs with the same unit
+  numbers_from_knowledge: no measurement is copied from the knowledge file
+  stock_lines: no stock line: steady for 24 hours, call an outfitter, lighter boats, check back after rain
+  brief_talk: nothing from the brief or the notes is repeated to the reader ("speaks for", "threshold")
+
+Per morning (failed rules):
+  g01-james-07052250-2026-11-20 [model]
+      stock_lines: steady for 24 hours
+  g02-gasconade-06933500-2026-11-20 [model]
+      stock_lines: steady for 24 hours
+  g03-meramec-07010350-2026-11-20 [model]
+      stock_lines: steady for 24 hours
+  g04-current-07068000-2026-11-20 [model]
+      read_length: 248 characters
+      numbers_match_inputs: 50 cfs
+      stock_lines: steady for 24 hours
+  g05-buffalo-07055646-2026-11-19 [model]
+      read_measurements: 13 cfs
+      stock_lines: steady for 24 hours
+  g06-current-07064533-2026-11-19 [model]
+      read_measurements: 110 cfs
+      stock_lines: steady for 24 hours
+      brief_talk: speaks for
+  g07-big-river-07018500-2026-11-20 [model]
+      read_length: 282 characters
+      numbers_match_inputs: 11 cfs
+  g08-gasconade-06934000-2026-11-20 [fallback:no_rating]
+      read_measurements: 2.04 ft
+  r01-james-2026-11-20 [model]
+      read_length: 299 characters
+      stock_lines: steady for 24 hours
+  r02-gasconade-2026-11-20 [model]
+      read_length: 402 characters
+      read_measurements: 77 cfs; 75 cfs; 30 cfs
+      stock_lines: steady for 24 hours; call an outfitter
+      brief_talk: threshold
+  r03-meramec-2026-11-20 [model]
+      read_length: 259 characters
+      stock_lines: steady for 24 hours; lighter boats
+  r04-big-river-2026-11-20 [model]
+      summary_length: 125 characters
+      read_length: 283 characters
+      stock_lines: steady for 24 hours
+  r05-current-2026-11-20 [model]
+      read_length: 259 characters
+      stock_lines: steady for 24 hours
+      brief_talk: speaks for
+  r06-niangua-2026-11-20 [model]
+      summary_length: 129 characters
+      read_length: 281 characters
+      numbers_match_inputs: 37 miles
+      stock_lines: steady for 24 hours; call an outfitter
+      brief_talk: this reading captures
+  r07-buffalo-2026-11-20 [model]
+      read_length: 318 characters
+      stock_lines: steady for 24 hours
+      brief_talk: this reading captures
+  r08-black-2026-11-20 [model]
+      read_length: 253 characters
+      stock_lines: steady for 24 hours; call an outfitter
+  r09-courtois-2026-11-20 [model]
+      stock_lines: steady for 24 hours
+  r10-big-piney-2026-11-20 [model]
+      read_length: 255 characters
+      stock_lines: steady for 24 hours; call an outfitter
+  r11-eleven-point-2026-11-20 [model]
+      read_length: 290 characters
+      numbers_from_knowledge: 21 miles
+      stock_lines: steady for 24 hours
+      brief_talk: speak for
+  r12-caddo-river-2026-11-20 [model]
+      read_length: 255 characters
+      stock_lines: steady for 24 hours; check back after rain
+  r13-gasconade-2026-11-17 [model]
+      summary_length: 133 characters
+      read_length: 286 characters
+      read_measurements: 79 cfs
+      weather_talk: clear days
+      flat_forecast: The gauge has held flat for the past 24 hours, and three clear days ahead suggest no meaningful rise is coming soon.
+      stock_lines: steady for 24 hours; call an outfitter
+  r14-elk-2026-11-20 [fallback:no_rating]
+      brief_talk: thresholds
+  r15-white-2026-11-20 [fallback:no_gauge]
+      brief_talk: thresholds

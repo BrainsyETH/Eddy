@@ -1,0 +1,324 @@
+{
+  "key": "d01-meramec-flood-warning",
+  "why": "Adds a river Flood Warning for the Meramec at Valley Park, downstream of the reporting gauge, which reads Good.",
+  "derived": {
+    "from": "r03-meramec-2026-11-20",
+    "change": "Adds a river Flood Warning for the Meramec at Valley Park, downstream of the reporting gauge, which reads Good."
+  },
+  "record": {
+    "id": "4fb9b5dd-bff8-4e6b-a584-0abe6b9e11f3",
+    "created_at": "2026-11-20T11:11:28.879549+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "meramec",
+    "section_slug": null,
+    "usgs_site_id": "07013000",
+    "condition_code": "good",
+    "outcome": null,
+    "reason": null,
+    "contradictions": [],
+    "model_used": null,
+    "stop_reason": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": "9a681c6ba99db2c6c06d36d48c450d03c3e686fca62678a6321b1a76da495e15",
+    "knowledge_blocks": [
+      "general",
+      "river",
+      "gauge:07013000",
+      "section:upper-meramec",
+      "elsewhere"
+    ],
+    "user_prompt": null,
+    "inputs": {
+      "facts": {
+        "max": 900,
+        "min": 300,
+        "unit": "cfs",
+        "value": 174,
+        "relation": "below",
+        "gaugeName": "Meramec River near Steelville, MO",
+        "thresholds": {
+          "levelLow": 145,
+          "levelHigh": 2300,
+          "levelTooLow": 130,
+          "floodStageFt": 12,
+          "thresholdUnit": "cfs",
+          "levelDangerous": 5000,
+          "levelOptimalMax": 900,
+          "levelOptimalMin": 300
+        },
+        "floodAlerts": [
+          {
+            "event": "Flood Warning",
+            "severity": "Moderate",
+            "headline": "Flood Warning issued for the Meramec River at Valley Park until further notice",
+            "areaDesc": "St. Louis, MO",
+            "description": "The Flood Warning continues for the Meramec River at Valley Park. Minor flooding is forecast. The river is expected to rise above flood stage this evening and fall below it tomorrow afternoon.",
+            "expires": "2026-11-21T11:11:28.879Z"
+          }
+        ],
+        "dischargeCfs": 174,
+        "locationName": "Meramec River",
+        "conditionCode": "good",
+        "gaugeHeightFt": 1.32,
+        "conditionLabel": "Good",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "MO",
+        "timezone": "America/Chicago",
+        "riverType": "spring_fed_float",
+        "weatherLat": 37.9681,
+        "weatherLon": -91.3543,
+        "weatherCity": "Steelville",
+        "characteristics": {
+          "riverNote": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+          "speedCurve": null,
+          "isSpringFed": false,
+          "primaryHazards": [
+            "strainer"
+          ],
+          "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+          "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid."
+        }
+      },
+      "alerts": [
+        {
+          "event": "Flood Warning",
+          "severity": "Moderate",
+          "headline": "Flood Warning issued for the Meramec River at Valley Park until further notice",
+          "areaDesc": "St. Louis, MO",
+          "description": "The Flood Warning continues for the Meramec River at Valley Park. Minor flooding is forecast. The river is expected to rise above flood stage this evening and fall below it tomorrow afternoon.",
+          "expires": "2026-11-21T11:11:28.879Z"
+        }
+      ],
+      "target": {
+        "riverName": "Meramec River",
+        "riverSlug": "meramec",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Steelville",
+        "temp": 52,
+        "humidity": 85,
+        "condition": "Clear",
+        "windSpeed": 5,
+        "observedAt": "2026-11-20T11:10:50.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 170
+      },
+      "forecast": {
+        "city": "Steelville",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 52,
+            "humidity": 66,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 53,
+            "humidity": 69,
+            "tempHigh": 72,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 47,
+            "humidity": 86,
+            "tempHigh": 60,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 34,
+            "humidity": 71,
+            "tempHigh": 46,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 29,
+            "humidity": 82,
+            "tempHigh": 44,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 52,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 54,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 65,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 72,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 123.5,
+          "p10": 135,
+          "p20": null,
+          "p25": 168.75,
+          "p50": 216.5,
+          "p75": 398.75,
+          "p80": null,
+          "p90": 1065,
+          "p95": 1830,
+          "mean": 613.712,
+          "month": 11,
+          "siteId": "07013000",
+          "yearsOfRecord": 104
+        },
+        "change6h": 0,
+        "change24h": -0.010000000000000009,
+        "narrative": "Gauge has held steady near 1.3 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 1.3,
+          "timestamp": "2026-11-13T15:45:00+00:00"
+        },
+        "percentile": 26,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 1.34,
+          "timestamp": "2026-11-10T11:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": -0.0050000000000000044,
+        "currentHeightFt": 1.31,
+        "percentileContext": "Current discharge of 170 cfs is at the 26th percentile for this date. Median: 216.5 cfs (104 years of record)."
+      },
+      "precipitation": {
+        "rain1h": 0,
+        "rain3h": 0
+      },
+      "readingTimestamp": "2026-11-20T10:15:00+00:00"
+    },
+    "raw_response": null,
+    "published": null,
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "18892256-88a7-4d13-b985-e0640fa37ca7",
+    "slug": "meramec",
+    "name": "Meramec River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Steelville",
+    "weatherLat": 37.9681,
+    "weatherLon": -91.3543,
+    "alertSearchTerms": [
+      "meramec",
+      "crawford county",
+      "franklin county",
+      "sullivan",
+      "steelville"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+      "speedCurve": null
+    }
+  }
+}

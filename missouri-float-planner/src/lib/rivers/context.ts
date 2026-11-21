@@ -58,8 +58,17 @@ interface CacheEntry {
 
 let cache: CacheEntry | null = null;
 
+/** The rivers columns a context is built from, for loadAll and for callers that read them with their own client. */
+export const RIVER_CONTEXT_COLUMNS = `id, slug, name, region, state, country, timezone, river_type, park_code,
+       weather_city, weather_lat, weather_lon, alert_search_terms, active,
+       river_characteristics (
+         is_spring_fed, primary_hazards, low_water_meaning, rising_water_hazards,
+         river_note, speed_curve
+       )`;
+
+/** One rivers row, selected with RIVER_CONTEXT_COLUMNS, as a context. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRow(row: any): RiverContext {
+export function riverContextFromRow(row: any): RiverContext {
   const rc = Array.isArray(row.river_characteristics)
     ? row.river_characteristics[0]
     : row.river_characteristics;
@@ -100,14 +109,7 @@ async function loadAll(strict = false): Promise<Map<string, RiverContext>> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('rivers')
-    .select(
-      `id, slug, name, region, state, country, timezone, river_type, park_code,
-       weather_city, weather_lat, weather_lon, alert_search_terms, active,
-       river_characteristics (
-         is_spring_fed, primary_hazards, low_water_meaning, rising_water_hazards,
-         river_note, speed_curve
-       )`
-    )
+    .select(RIVER_CONTEXT_COLUMNS)
     .eq('active', true);
 
   if (error || !data) {
@@ -120,7 +122,7 @@ async function loadAll(strict = false): Promise<Map<string, RiverContext>> {
 
   const contexts = new Map<string, RiverContext>();
   for (const row of data) {
-    const ctx = mapRow(row);
+    const ctx = riverContextFromRow(row);
     contexts.set(ctx.slug, ctx);
   }
   cache = { contexts, loadedAt: Date.now() };

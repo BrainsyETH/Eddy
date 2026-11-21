@@ -1,0 +1,268 @@
+{
+  "key": "r15-white-2026-11-20",
+  "why": "Fallback, no_gauge: the White has no reporting gauge. What readers got.",
+  "derived": null,
+  "record": {
+    "id": "36a908b4-bfbe-4d47-9b60-37cf35a8089b",
+    "created_at": "2026-11-20T11:11:43.740528+00:00",
+    "workload": "river_update",
+    "trigger": "scheduled",
+    "river_slug": "white",
+    "section_slug": null,
+    "usgs_site_id": null,
+    "condition_code": "unknown",
+    "outcome": "fallback",
+    "reason": "no_gauge",
+    "contradictions": [],
+    "model_used": null,
+    "stop_reason": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "git_sha": "a6e45f68f2b3851b87442a599ebbbfc9c684b455",
+    "system_prompt_hash": "6a122bc7be839830735c0769d7ddedb69ec77a0401ab1bc1acb3763741a454f6",
+    "knowledge_hash": null,
+    "knowledge_blocks": [],
+    "user_prompt": null,
+    "inputs": {
+      "facts": {
+        "max": null,
+        "min": null,
+        "unit": "ft",
+        "value": null,
+        "relation": "unavailable",
+        "gaugeName": null,
+        "thresholds": {
+          "levelLow": null,
+          "levelHigh": null,
+          "levelTooLow": null,
+          "levelDangerous": null,
+          "levelOptimalMax": null,
+          "levelOptimalMin": null
+        },
+        "floodAlerts": [],
+        "dischargeCfs": null,
+        "locationName": "White River",
+        "conditionCode": "unknown",
+        "gaugeHeightFt": null,
+        "conditionLabel": "Unknown",
+        "requestedSection": null,
+        "supportedSection": null
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 800,
+        "cacheSystemPrompt": true
+      },
+      "river": {
+        "state": "AR",
+        "timezone": "America/Chicago",
+        "riverType": "dam_tailwater",
+        "weatherLat": 36.2812,
+        "weatherLon": -92.5266,
+        "weatherCity": "Cotter",
+        "characteristics": {
+          "riverNote": "Bull Shoals releases drive the upper reach; tributaries and Norfork Dam releases also affect water farther downstream, so a Bull Shoals reading does not describe every access point.",
+          "speedCurve": null,
+          "isSpringFed": false,
+          "primaryHazards": [
+            "cold_water",
+            "fluctuating_flow"
+          ],
+          "lowWaterMeaning": "Low observed release at the dam does not establish wading safety or a downstream water level.",
+          "risingWaterHazards": "Changing releases can raise water levels and strengthen current. Follow posted dam restrictions and warning signals."
+        }
+      },
+      "alerts": [],
+      "target": {
+        "riverName": "White River",
+        "riverSlug": "white",
+        "sectionName": null,
+        "sectionSlug": null,
+        "sectionRiverType": null,
+        "sectionDescription": null,
+        "sectionLowWaterMeaning": null,
+        "sectionRisingWaterHazards": null
+      },
+      "weather": {
+        "city": "Gassville",
+        "temp": 51,
+        "humidity": 87,
+        "condition": "Clear",
+        "windSpeed": 3,
+        "observedAt": "2026-11-20T11:11:43.000Z",
+        "rain1hInches": 0,
+        "rain3hInches": 0,
+        "conditionIcon": "01n",
+        "windDirection": 110
+      },
+      "forecast": {
+        "city": "Gassville",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 51,
+            "humidity": 69,
+            "tempHigh": 73,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 7,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 45,
+            "humidity": 74,
+            "tempHigh": 74,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 6,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 49,
+            "humidity": 83,
+            "tempHigh": 69,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 8,
+            "conditionIcon": "10d",
+            "precipitation": 99
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 39,
+            "humidity": 62,
+            "tempHigh": 52,
+            "condition": "Clouds",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "02d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 33,
+            "humidity": 75,
+            "tempHigh": 48,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 6,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 51,
+            "localHour": 6,
+            "timestamp": "2026-11-20T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 51,
+            "localHour": 9,
+            "timestamp": "2026-11-20T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 65,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 73,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 62,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 55,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 49,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 45,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "gaugeNotes": "Bull Shoals releases drive the upper reach; tributaries and Norfork Dam releases also affect water farther downstream, so a Bull Shoals reading does not describe every access point.",
+      "trajectory": null,
+      "precipitation": null,
+      "readingTimestamp": null
+    },
+    "raw_response": null,
+    "published": {
+      "eddyRead": "Gauge assessment unavailable for White River. A condition assessment is unavailable from the matching measurement and thresholds. No usable reporting gauge is available.",
+      "quoteText": "Gauge assessment unavailable for White River. A condition assessment is unavailable from the matching measurement and thresholds. No usable reporting gauge is available.",
+      "sourcesUsed": [
+        "OpenWeather"
+      ],
+      "summaryText": "Gauge assessment unavailable for White River."
+    },
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "bdb3e12a-5a9a-4163-9e41-e5f41ebc8fa6",
+    "slug": "white",
+    "name": "White River",
+    "region": "Ozarks",
+    "state": "AR",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "dam_tailwater",
+    "parkCode": null,
+    "weatherCity": "Cotter",
+    "weatherLat": 36.2812,
+    "weatherLon": -92.5266,
+    "alertSearchTerms": [
+      "white river",
+      "bull shoals",
+      "baxter county",
+      "marion county",
+      "izard county",
+      "stone county"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "cold_water",
+        "fluctuating_flow"
+      ],
+      "lowWaterMeaning": "Low observed release at the dam does not establish wading safety or a downstream water level.",
+      "risingWaterHazards": "Changing releases can raise water levels and strengthen current. Follow posted dam restrictions and warning signals.",
+      "riverNote": "Bull Shoals releases drive the upper reach; tributaries and Norfork Dam releases also affect water farther downstream, so a Bull Shoals reading does not describe every access point.",
+      "speedCurve": null
+    }
+  }
+}

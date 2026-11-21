@@ -1,0 +1,284 @@
+{
+  "key": "d04-meramec-07010350-flood-warning",
+  "why": "Adds a river Flood Warning for the Meramec near Sullivan, downstream of Cook Station, which reads Flowing.",
+  "derived": {
+    "from": "g03-meramec-07010350-2026-11-20",
+    "change": "Adds a river Flood Warning for the Meramec near Sullivan, downstream of Cook Station, which reads Flowing."
+  },
+  "record": {
+    "id": "8ff8ed5a-7cce-4bbf-92e1-5cedee65730a",
+    "created_at": "2026-11-20T17:10:41.764139+00:00",
+    "workload": "gauge_update",
+    "trigger": "scheduled",
+    "river_slug": "meramec",
+    "section_slug": null,
+    "usgs_site_id": "07010350",
+    "condition_code": "flowing",
+    "outcome": null,
+    "reason": null,
+    "contradictions": [],
+    "model_used": null,
+    "stop_reason": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "git_sha": "62c63b547b01ffb590fe3256c3638ba0d1325eee",
+    "system_prompt_hash": "55f53262426caf07bd4d368e157dd1ec7e13e15116ab1fc58552abb005d0b036",
+    "knowledge_hash": "6c59a0f78a1758f6d43bd72dcf45a2819e36585def42121e785b3f2b96b36e8d",
+    "knowledge_blocks": [
+      "river",
+      "gauge:07010350"
+    ],
+    "user_prompt": null,
+    "inputs": {
+      "facts": {
+        "max": 4,
+        "min": 2,
+        "unit": "ft",
+        "value": 2.07,
+        "relation": "within",
+        "gaugeName": "Meramec River at Cook Station, MO",
+        "thresholds": {
+          "levelLow": 1.5,
+          "levelHigh": 4.01,
+          "levelTooLow": 1,
+          "floodStageFt": null,
+          "thresholdUnit": "ft",
+          "levelDangerous": 5.5,
+          "levelOptimalMax": 4,
+          "levelOptimalMin": 2
+        },
+        "floodAlerts": [
+          {
+            "event": "Flood Warning",
+            "severity": "Moderate",
+            "headline": "Flood Warning issued for the Meramec River near Sullivan until further notice",
+            "areaDesc": "Crawford, MO; Franklin, MO",
+            "description": "The Flood Warning continues for the Meramec River near Sullivan. Minor flooding is forecast. The river is expected to crest just above flood stage tonight.",
+            "expires": "2026-11-21T17:10:41.764Z"
+          }
+        ],
+        "dischargeCfs": 19,
+        "conditionCode": "flowing",
+        "gaugeHeightFt": 2.07,
+        "conditionLabel": "Flowing"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [
+        {
+          "event": "Flood Warning",
+          "severity": "Moderate",
+          "headline": "Flood Warning issued for the Meramec River near Sullivan until further notice",
+          "areaDesc": "Crawford, MO; Franklin, MO",
+          "description": "The Flood Warning continues for the Meramec River near Sullivan. Minor flooding is forecast. The river is expected to crest just above flood stage tonight.",
+          "expires": "2026-11-21T17:10:41.764Z"
+        }
+      ],
+      "target": {
+        "gaugeName": "Meramec River at Cook Station, MO",
+        "riverName": "Meramec River",
+        "riverSlug": "meramec",
+        "usgsSiteId": "07010350",
+        "coordinates": {
+          "lat": 37.8291472222222,
+          "lon": -91.4374833333333
+        }
+      },
+      "forecast": {
+        "city": "Steelville",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 60,
+            "humidity": 57,
+            "tempHigh": 69,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 10,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 52,
+            "humidity": 68,
+            "tempHigh": 71,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 9,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 46,
+            "humidity": 90,
+            "tempHigh": 62,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 35,
+            "humidity": 72,
+            "tempHigh": 46,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 30,
+            "humidity": 83,
+            "tempHigh": 45,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 7,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 69,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 69,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 63,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 60,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 53,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 54,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 52,
+            "localHour": 6,
+            "timestamp": "2026-11-21T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 9,
+            "timestamp": "2026-11-21T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 17.775,
+          "p10": 20,
+          "p20": null,
+          "p25": 24,
+          "p50": 30.35,
+          "p75": 62.775,
+          "p80": null,
+          "p90": 132.5,
+          "p95": 304.5,
+          "mean": 60.403,
+          "month": 11,
+          "siteId": "07010350",
+          "yearsOfRecord": 34
+        },
+        "change6h": 0,
+        "change24h": 0,
+        "narrative": "Gauge has held steady near 2.1 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 2.06,
+          "timestamp": "2026-11-13T12:00:00+00:00"
+        },
+        "percentile": 8,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 2.08,
+          "timestamp": "2026-11-10T17:15:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 2.07,
+        "percentileContext": "Current discharge of 19 cfs is at the 8th percentile for this date. Median: 30.35 cfs (34 years of record)."
+      },
+      "readingTimestamp": "2026-11-20T16:00:00+00:00",
+      "riverBehaviorApplies": true
+    },
+    "raw_response": null,
+    "published": null,
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "18892256-88a7-4d13-b985-e0640fa37ca7",
+    "slug": "meramec",
+    "name": "Meramec River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Steelville",
+    "weatherLat": 37.9681,
+    "weatherLon": -91.3543,
+    "alertSearchTerms": [
+      "meramec",
+      "crawford county",
+      "franklin county",
+      "sullivan",
+      "steelville"
+    ],
+    "characteristics": {
+      "isSpringFed": false,
+      "primaryHazards": [
+        "strainer"
+      ],
+      "lowWaterMeaning": "Scraping on gravel bars, dragging over shallow spots, and picking your line through riffles. Floatable.",
+      "risingWaterHazards": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+      "riverNote": "Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.",
+      "speedCurve": null
+    }
+  }
+}

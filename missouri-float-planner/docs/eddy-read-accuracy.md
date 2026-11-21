@@ -434,6 +434,12 @@ moved. The rules live in `src/lib/eddy/read-checks.ts`:
 | `no-stock` | no block carries a stock line: steady for 24 hours, call an outfitter, lighter boats, check back after rain |
 | `plain` | nothing from the brief or the notes is repeated to the reader: "speaks for", "threshold", "can both be true" |
 
+To compare a change on the same water, use the saved mornings in
+`scripts/research/read-replays/`. That README explains how to replay them with
+today's prompts and score the result. Its scorer counts fallbacks and errors
+alongside the pass rates. This report counts model-written Reads only, so here
+a change can look better just because more Reads fell back.
+
 These are evidence, not a gate. They never change what is published; the
 publish guard above stays narrow. The length limits are targets the owner set
 for readability, not truncation points, so a long Read is counted and still

@@ -1,0 +1,281 @@
+{
+  "key": "d05-gasconade-06933500-stale-reading",
+  "why": "Moves the reading time back to 8 hours before the morning, so the prompt warns that the reading is stale.",
+  "derived": {
+    "from": "g02-gasconade-06933500-2026-11-20",
+    "change": "Moves the reading time back to 8 hours before the morning, so the prompt warns that the reading is stale."
+  },
+  "record": {
+    "id": "ecaa560e-8c74-4726-b203-76dd0ac82a02",
+    "created_at": "2026-11-20T17:10:36.385677+00:00",
+    "workload": "gauge_update",
+    "trigger": "scheduled",
+    "river_slug": "gasconade",
+    "section_slug": null,
+    "usgs_site_id": "06933500",
+    "condition_code": "good",
+    "outcome": null,
+    "reason": null,
+    "contradictions": [],
+    "model_used": null,
+    "stop_reason": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "git_sha": "62c63b547b01ffb590fe3256c3638ba0d1325eee",
+    "system_prompt_hash": "55f53262426caf07bd4d368e157dd1ec7e13e15116ab1fc58552abb005d0b036",
+    "knowledge_hash": "31261b056c1b6febee2c9424203ab67f7432424854d8303b7153a73d0836ff40",
+    "knowledge_blocks": [
+      "river",
+      "gauge:06933500",
+      "section:mid-jerome"
+    ],
+    "user_prompt": null,
+    "inputs": {
+      "facts": {
+        "max": null,
+        "min": 400,
+        "unit": "cfs",
+        "value": 415,
+        "relation": "unavailable",
+        "gaugeName": "Gasconade River at Jerome, MO",
+        "thresholds": {
+          "levelLow": null,
+          "levelHigh": null,
+          "levelTooLow": null,
+          "floodStageFt": 15,
+          "thresholdUnit": "cfs",
+          "levelDangerous": null,
+          "levelOptimalMax": null,
+          "levelOptimalMin": 400
+        },
+        "floodAlerts": [],
+        "dischargeCfs": 415,
+        "conditionCode": "good",
+        "gaugeHeightFt": 1.12,
+        "conditionLabel": "Good"
+      },
+      "model": {
+        "id": "claude-sonnet-4-6",
+        "source": "override",
+        "provider": "anthropic",
+        "maxTokens": 600,
+        "cacheSystemPrompt": false
+      },
+      "alerts": [],
+      "target": {
+        "gaugeName": "Gasconade River at Jerome, MO",
+        "riverName": "Gasconade River",
+        "riverSlug": "gasconade",
+        "usgsSiteId": "06933500",
+        "coordinates": {
+          "lat": 37.9299166666667,
+          "lon": -91.9773333333333
+        }
+      },
+      "forecast": {
+        "city": "Dixon",
+        "days": [
+          {
+            "date": "2026-11-20",
+            "tempLow": 57,
+            "humidity": 57,
+            "tempHigh": 70,
+            "condition": "Clear",
+            "dayOfWeek": "Fri",
+            "windSpeed": 10,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-21",
+            "tempLow": 51,
+            "humidity": 68,
+            "tempHigh": 73,
+            "condition": "Clear",
+            "dayOfWeek": "Sat",
+            "windSpeed": 9,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-22",
+            "tempLow": 46,
+            "humidity": 86,
+            "tempHigh": 58,
+            "condition": "Rain",
+            "dayOfWeek": "Sun",
+            "windSpeed": 10,
+            "conditionIcon": "10d",
+            "precipitation": 100
+          },
+          {
+            "date": "2026-11-23",
+            "tempLow": 35,
+            "humidity": 71,
+            "tempHigh": 47,
+            "condition": "Clear",
+            "dayOfWeek": "Mon",
+            "windSpeed": 8,
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "date": "2026-11-24",
+            "tempLow": 31,
+            "humidity": 82,
+            "tempHigh": 44,
+            "condition": "Clouds",
+            "dayOfWeek": "Tue",
+            "windSpeed": 7,
+            "conditionIcon": "04d",
+            "precipitation": 0
+          }
+        ],
+        "periods": [
+          {
+            "temp": 70,
+            "localHour": 12,
+            "timestamp": "2026-11-20T18:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 70,
+            "localHour": 15,
+            "timestamp": "2026-11-20T21:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          },
+          {
+            "temp": 64,
+            "localHour": 18,
+            "timestamp": "2026-11-21T00:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 57,
+            "localHour": 21,
+            "timestamp": "2026-11-21T03:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 52,
+            "localHour": 0,
+            "timestamp": "2026-11-21T06:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 53,
+            "localHour": 3,
+            "timestamp": "2026-11-21T09:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 51,
+            "localHour": 6,
+            "timestamp": "2026-11-21T12:00:00.000Z",
+            "conditionIcon": "01n",
+            "precipitation": 0
+          },
+          {
+            "temp": 62,
+            "localHour": 9,
+            "timestamp": "2026-11-21T15:00:00.000Z",
+            "conditionIcon": "01d",
+            "precipitation": 0
+          }
+        ],
+        "localDate": "2026-11-20"
+      },
+      "trajectory": {
+        "stats": {
+          "day": 20,
+          "p05": 457.7,
+          "p10": 507.6,
+          "p20": null,
+          "p25": 656.5,
+          "p50": 907.5,
+          "p75": 1995,
+          "p80": null,
+          "p90": 5505,
+          "p95": 8404.5,
+          "mean": 2417.547,
+          "month": 11,
+          "siteId": "06933500",
+          "yearsOfRecord": 106
+        },
+        "change6h": 0.009999999999999787,
+        "change24h": 0,
+        "narrative": "Gauge has held steady near 1.1 ft over the past 24 hours, now holding steady.",
+        "windowLow": {
+          "heightFt": 1.12,
+          "timestamp": "2026-11-17T07:30:00+00:00"
+        },
+        "percentile": 5,
+        "windowDays": 10,
+        "windowPeak": {
+          "heightFt": 1.2,
+          "timestamp": "2026-11-11T19:00:00+00:00"
+        },
+        "acceleration": "steady",
+        "rateFtPerHour": 0,
+        "currentHeightFt": 1.13,
+        "percentileContext": "Current discharge of 421 cfs is at the 5th percentile for this date. Median: 907.5 cfs (106 years of record)."
+      },
+      "readingTimestamp": "2026-11-20T09:10:36.385Z",
+      "riverBehaviorApplies": true
+    },
+    "raw_response": null,
+    "published": null,
+    "error_message": null
+  },
+  "riverContext": {
+    "id": "f067668b-b9a2-4482-aad6-4952155162d2",
+    "slug": "gasconade",
+    "name": "Gasconade River",
+    "region": "Ozarks",
+    "state": "MO",
+    "country": "US",
+    "timezone": "America/Chicago",
+    "riverType": "spring_fed_float",
+    "parkCode": null,
+    "weatherCity": "Waynesville",
+    "weatherLat": 37.8287,
+    "weatherLon": -92.2007,
+    "alertSearchTerms": [
+      "gasconade river",
+      "webster county",
+      "wright county",
+      "laclede county",
+      "texas county",
+      "pulaski county",
+      "phelps county",
+      "maries county",
+      "gasconade county",
+      "osage county",
+      "hartville",
+      "waynesville",
+      "jerome",
+      "vienna",
+      "hermann"
+    ],
+    "characteristics": {
+      "isSpringFed": true,
+      "primaryHazards": [
+        "losing_reach_low_water",
+        "rockslide_bluff_rapid",
+        "low_water_bridge",
+        "strainer",
+        "gravel_bar"
+      ],
+      "lowWaterMeaning": "upper-hazelgreen: The upper Gasconade has a documented losing reach (Ozark Springs to Hwy 17, at the Narrows bend above Schlict Spring) where in low water flow drops from ~75 cfs above the Narrows to under 30 cfs below as the river sinks underground, weed-choked and often a walk-the-canoe. Water returns about a mile downstream at Rockslide Bluff via Falling, Creasy and Bartless Mill Springs, so an upstream gauge reading can badly overstate floatability through the losing reach. | mid-jerome: Low water mainly means scraping over riffles; the reach stays floatable. | lower-richfountain: On the larger lower river low water mainly affects speed.",
+      "risingWaterHazards": "upper-hazelgreen: Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. | mid-jerome: Runoff-responsive; low-water bridges and strainers become hazards as water rises. | lower-richfountain: Rises arrive from the large upstream drainage.",
+      "riverNote": null,
+      "speedCurve": null
+    }
+  }
+}
