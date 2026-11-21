@@ -345,11 +345,24 @@ export async function deliverGaugeAlerts(
       // letting the app pick would put the decision in the client, where a
       // gauge alert on a station that happens to rate a river would open the
       // river screen — which never mentions the station the user chose.
+      //
+      // A gauge push still names the river the rule graded against, as context
+      // rather than a second routing key. A station can rate several rivers
+      // (07014000 is primary for the Huzzah and also rates the Courtois), and
+      // without it the gauge screen falls back to the station's primary river:
+      // a Courtois alert would open the Huzzah ladder. Rules covered by a river
+      // alert carry that alert's river_id, so this is the river the user chose.
+      // Absent for a station that rates no river.
       const siteId = station?.usgs_site_id ?? station?.site_id_external ?? null;
       const routing =
         rule.scope === 'river' && river?.slug
           ? { riverSlug: river.slug, gaugeSiteId: null }
-          : { riverSlug: null, gaugeSiteId: siteId };
+          : {
+              riverSlug: null,
+              gaugeSiteId: siteId,
+              ...(row.river_id ? { gaugeRiverId: row.river_id } : {}),
+              ...(river?.slug ? { gaugeRiverSlug: river.slug } : {}),
+            };
 
       const userTokens = tokensByUser.get(row.user_id) ?? [];
       if (rule.one_shot && userTokens.length > 0) pendingOneShots.add(row.subscription_id);

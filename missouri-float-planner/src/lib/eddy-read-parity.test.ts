@@ -21,6 +21,14 @@
 // is also withheld when live water has crossed into a different floatability
 // class or the row is stale. Each platform must fall through to the public
 // summary rather than reach around either guard.
+//
+// On iOS the fall-through is `outlook.fullRead || sections.eddyRead`. That is
+// only a fall-through if the outlook's short Read went through the same
+// guards and tier as fullRead: it is the same model run's eddy_read when one
+// survives, and the code-written live line otherwise. The outlook route takes
+// both from loadOutlookProse (src/lib/eddy/outlook-prose.ts); its behaviour is
+// pinned in outlook-prose.test.ts, and the wiring is pinned below. Reading
+// `eddy_read` straight off a stored row is the reach-around.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -29,15 +37,35 @@ import { join } from 'node:path';
 
 const IOS = join(process.cwd(), '../eddy-ios/src/components/EddyTake.tsx');
 const WEB = join(process.cwd(), 'src/components/gauge/RiverGaugeDetail.tsx');
+const OUTLOOK = join(process.cwd(), 'src/app/api/rivers/[slug]/outlook/route.ts');
 
-test('iOS prefers the entitled report while public web links to an available Read', () => {
+test('iOS prefers the entitled report, then the outlook\'s guarded short Read', () => {
   // iOS: `outlook.fullRead || sections?.eddyRead || ''` — fullRead is quote_text.
+  // A source check only pins the order; the next test pins that the fallback
+  // it lands on is guarded.
   assert.match(
     readFileSync(IOS, 'utf8'),
     /outlook\.fullRead\s*\|\|\s*sections\?\.eddyRead/,
     'EddyTake.tsx no longer prefers fullRead over sections.eddyRead',
   );
+});
 
+test('the outlook\'s short Read falls through to the live line rather than reaching around the guards', () => {
+  const route = readFileSync(OUTLOOK, 'utf8');
+  // Both Reads come from the one guarded, tiered result.
+  assert.match(route, /await loadOutlookProse\(/, 'outlook route no longer guards its prose through loadOutlookProse');
+  assert.match(route, /generatedEddyRead:\s*prose\.eddyRead\b/, 'sections.eddyRead is no longer the guarded short Read');
+  assert.match(route, /fullRead:\s*premiumText\(entitled,\s*prose\.fullRead\)/, 'fullRead is no longer the guarded long Read');
+  // No stored column reaches the response directly. Select lists are strings,
+  // so they do not match a property access.
+  assert.doesNotMatch(
+    route,
+    /\w\??\.(?:eddy_read|quote_text|summary_text)\b/,
+    'outlook route reads stored prose off a row instead of through loadOutlookProse',
+  );
+});
+
+test('public web links to an available Read', () => {
   // The web hook deliberately narrows the public response before handing it
   // to the renderer, so premium fields cannot survive under another name.
   assert.match(

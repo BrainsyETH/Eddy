@@ -248,6 +248,20 @@ test('notification destinations keep the exact subject and alert context', () =>
   assert.deepEqual(notificationDestination({ gaugeSiteId: '07067000', alertId: 'rule-1', alertSource: 'gauge' }), {
     pathname: '/gauge/[siteId]', params: { siteId: '07067000', alertId: 'rule-1', alertSource: 'gauge' },
   });
+  // A gauge alert names the river it graded against, so a station shared by
+  // two rivers (07014000: Huzzah and Courtois) opens the alert's ladder.
+  assert.deepEqual(
+    notificationDestination({ gaugeSiteId: '07014000', riverSlug: null, gaugeRiverId: 'courtois-id', gaugeRiverSlug: 'courtois', alertId: 'rule-3', alertSource: 'gauge' }),
+    { pathname: '/gauge/[siteId]', params: { siteId: '07014000', riverId: 'courtois-id', riverSlug: 'courtois', alertId: 'rule-3', alertSource: 'gauge' } },
+  );
+  // Either half alone still passes through; the gauge screen resolves both.
+  assert.deepEqual(notificationDestination({ gaugeSiteId: '07014000', gaugeRiverSlug: 'courtois' }), {
+    pathname: '/gauge/[siteId]', params: { siteId: '07014000', riverSlug: 'courtois' },
+  });
+  // Malformed context is dropped rather than passed to the screen.
+  assert.deepEqual(notificationDestination({ gaugeSiteId: '07014000', gaugeRiverId: 42, gaugeRiverSlug: '' }), {
+    pathname: '/gauge/[siteId]', params: { siteId: '07014000' },
+  });
   assert.deepEqual(notificationDestination({ riverSlug: 'current', alertId: 'rule-2' }), {
     pathname: '/river/[slug]', params: { slug: 'current', alertId: 'rule-2' },
   });

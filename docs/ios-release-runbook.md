@@ -1689,6 +1689,14 @@ from failed ticket writes. The widget requires a new iOS binary.
 
 - [ ] Confirm a Courtois widget tap opens the Courtois grading at the shared
       station.
+- [ ] **Covered-gauge push tap:** with a Courtois river alert covering
+      07014000, tap a gauge push for that station, once from a cold launch
+      and once with the app open. It must open 07014000 on the Courtois
+      grading, not the Huzzah. Pushes now carry `gaugeRiverId` and
+      `gaugeRiverSlug`. The app reads them in `notificationDestination`, which
+      is JavaScript only, so an OTA update or the next binary delivers it.
+      Notifications sent before the deploy lack the keys and still open the
+      station's primary river.
 - [ ] After a missed refresh, check that a named NWS warning keeps its issue
       identity and shows when it was last checked.
 - [ ] Check the native VoiceOver pause and resume actions on a river alert.
