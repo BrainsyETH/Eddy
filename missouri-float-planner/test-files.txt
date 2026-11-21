@@ -54,6 +54,7 @@ scripts/security/workflow-action-pins.test.ts
 scripts/service-quality.test.ts
 scripts/stretch-gauge-migration.test.ts
 scripts/white-river-gauge-stretches-migration.test.ts
+scripts/meramec-gauge-stretches-migration.test.ts
 shared/camping-demand.test.ts
 shared/camping-rivers.test.ts
 shared/chart-model.test.ts

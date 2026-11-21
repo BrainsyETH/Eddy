@@ -271,8 +271,9 @@ test('gauge knowledge blocks are read from the text that was sent', () => {
   assert.deepEqual(gaugeKnowledgeBlocks(null), []);
   assert.deepEqual(gaugeKnowledgeBlocks('River block only.'), ['river']);
   assert.deepEqual(gaugeKnowledgeBlocks('Section upper-current:\n- Montauk.'), ['section:upper-current']);
-  // The real file: Sullivan is named in the Lower Meramec reach note, Eureka in none.
-  assert.deepEqual(gaugeKnowledgeBlocks(getRiverKnowledgeForGauge('meramec', 'Meramec River near Sullivan, MO')), ['river', 'section:lower-meramec']);
+  // The real file: Sullivan is named in both Meramec reach notes (the upper one
+  // runs past the Huzzah onto its water), Eureka in none.
+  assert.deepEqual(gaugeKnowledgeBlocks(getRiverKnowledgeForGauge('meramec', 'Meramec River near Sullivan, MO')), ['river', 'section:upper-meramec', 'section:lower-meramec']);
   assert.deepEqual(gaugeKnowledgeBlocks(getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO')), ['river']);
 });
 

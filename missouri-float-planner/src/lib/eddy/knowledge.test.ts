@@ -257,6 +257,7 @@ test('the rivers whose gauge lines are confirmed are exactly these', () => {
     'spring-river-mo': ['07185765', '07186000'],
     'st-francis': ['07034000', '07037500'],
     'war-eagle-creek': ['07049000'],
+    white: ['swl-bull-shoals-dam', '07057370', '07060500'],
   };
   assert.deepEqual(confirmed, Object.keys(gauges).sort());
   assert.deepEqual(
@@ -326,12 +327,12 @@ test('each spring is placed on the right side of its gauge', () => {
 });
 
 test('a river with no block for the gauge is selected as it always was', () => {
-  // The White has no gauge blocks at all, so naming its gauge changes nothing.
-  assert.deepEqual(listKnowledgeGauges('white'), []);
-  assert.equal(getKnowledgeForTarget('white', null, '07057370'), getKnowledgeForTarget('white', null));
+  // Taneycomo has no gauge blocks at all, so naming its gauge changes nothing.
+  assert.deepEqual(listKnowledgeGauges('taneycomo'), []);
+  assert.equal(getKnowledgeForTarget('taneycomo', null, 'swl-table-rock-dam'), getKnowledgeForTarget('taneycomo', null));
   assert.equal(
-    getRiverKnowledgeForGauge('white', 'White River at Calico Rock, AR', '07060500'),
-    getRiverKnowledgeForGauge('white', 'White River at Calico Rock, AR'),
+    getRiverKnowledgeForGauge('taneycomo', 'White River below Table Rock Dam', 'swl-table-rock-dam'),
+    getRiverKnowledgeForGauge('taneycomo', 'White River below Table Rock Dam'),
   );
   // And a confirmed river asked about a gauge it has no block for: the older
   // rule, a reach note that names the gauge's town. (A drafted block is treated
@@ -353,6 +354,21 @@ test('chat is told everything about the river in view, towns included, and no Re
   for (const text of [getKnowledgeForTarget('current', null, VAN_BUREN), getRiverKnowledgeForGauge('current', 'Current River at Doniphan, MO', '07068000')]) {
     assert.doesNotMatch(text, /Towns and services|nearest town is/);
   }
+});
+
+test('no river hands a Read its towns or its trip planning', () => {
+  // Towns went chat-only in #1900 and trip planning in #1928, but eleven main
+  // blocks kept a "Nearest towns" line, and the Elk's kept its campground
+  // operators and planner instructions. A main block reaches every Read.
+  const chatOnly = /Towns and services|nearest towns?\b|nearest city|Tent\/RV camping|planner endpoints|main bases/i;
+  for (const slug of listKnowledgeRiverSlugs()) {
+    const reads = everySelection(slug).filter((text) => text !== getKnowledgeForChat(slug));
+    for (const text of reads) assert.doesNotMatch(text, chatOnly, slug);
+  }
+  // Moved, not lost: chat still has them.
+  assert.match(getKnowledgeTowns('elk'), /Tent\/RV camping is available through the river's operators/);
+  assert.match(getKnowledgeTowns('elk'), /use the actual access inventory for planner endpoints/);
+  assert.match(getKnowledgeForChat('mulberry'), /=== Towns and services ===\n- \*\*Ozark\*\*/);
 });
 
 test('no knowledge sends a reader to another river', () => {
@@ -463,7 +479,21 @@ test('a note reaches the Read of the gauge that speaks for its stretch, and no o
     'mammoth-to-merrill-horne': ['07018100'],
     'morse-mill-to-cedar-hill': ['07018500'],
   });
-  assert.deepEqual(listKnowledgeSectionGauges('james'), { 'james-galena': ['07052500'], 'james-upper': ['07052250'] });
+  // The upper James note runs to Hootentown, but Finley Creek to Hootentown is
+  // graded by Galena (migration 20261119184853), so it carries both.
+  assert.deepEqual(listKnowledgeSectionGauges('james'), { 'james-galena': ['07052500'], 'james-upper': ['07052250', '07052500'] });
+  assert.match(getRiverKnowledgeForGauge('james', 'James River at Galena, MO', '07052500'), /From Finley Creek to Hootentown the put-ins are graded by Galena/);
+  // St. James to Meramec State Park runs past the Huzzah onto the Sullivan gauge's water.
+  assert.deepEqual(listKnowledgeSectionGauges('meramec')['upper-meramec'], ['07013000', '07014500']);
+  const sullivan = getRiverKnowledgeForGauge('meramec', 'Meramec River near Sullivan, MO', '07014500');
+  assert.match(sullivan, /Section upper-meramec:[\s\S]*the Sullivan gauge for the last stretch from the Huzzah to the park/);
+  // The Steelville outfitters' correction is about Steelville's numbers, so it stays with that gauge.
+  assert.doesNotMatch(sullivan, /Steelville outfitters run rafts/);
+  assert.match(getRiverKnowledgeForGauge('meramec', 'Meramec River near Steelville, MO', '07013000'), /This gauge: Steelville[\s\S]*Steelville outfitters run rafts/);
+  // The lower Current note is Akers to Two Rivers. Blue Spring is below the Powder Mill gauge.
+  const akers = getRiverKnowledgeForGauge('current', 'Current River above Akers, MO', '07064533');
+  assert.doesNotMatch(akers, /Blue Spring, .*worth a stop/);
+  assert.match(getRiverKnowledgeForGauge('current', 'Current River above Powder Mill, MO', '07066510'), /This gauge: Powder Mill[\s\S]*Blue Spring, a mile and a half below this gauge, is worth a stop/);
   // A stretch whose put-ins are split between two gauges carries both. On the upper Bourbeuse,
   // High Gate grades Mint Spring to Highway H and Union grades Mill Rock to Noser Mill
   // (migration 20261119184853); the middle Buffalo runs from the Pruitt gauge to St. Joe's.
@@ -512,4 +542,26 @@ test("General's chat-only block reaches chat and no Read", () => {
   const parsed = parseKnowledge(['## General', 'Primer.', '### Chat only', '- Ask an outfitter.', '## Test River {#test}', 'True everywhere.'].join('\n'));
   assert.equal(parsed.general, 'Primer.');
   assert.equal(parsed.generalChat, '- Ask an outfitter.');
+});
+
+// ── the White below Bull Shoals ─────────────────────────────────────
+// Since 20261120142104 put-ins read the gauge on their own stretch: the dam's
+// release to Crooked Creek (mile 24), the gauge near Norfork (mile 42.0) to the
+// North Fork (43.12), Calico Rock (60.7) below it.
+
+test("the White's gauges say which side of the North Fork they sit on", () => {
+  const norfork = getRiverKnowledgeForGauge('white', 'White River near Norfork, AR', '07057370');
+  assert.match(norfork, /This gauge: Near Norfork \(07057370\)/);
+  assert.match(norfork, /about a mile above the North Fork/);
+  assert.match(norfork, /this gauge does NOT include Norfork's water/);
+  const calico = getKnowledgeForTarget('white', null, '07060500');
+  assert.match(calico, /=== This gauge: Calico Rock \(07060500\) ===[\s\S]*the only gauge that measures the water from both dams/);
+  const elsewhere = calico.split('=== Elsewhere on this river')[1];
+  assert.match(elsewhere, /- Bull Shoals Dam gauge: At Bull Shoals Dam\. It reports what the dam is releasing/);
+  assert.match(elsewhere, /- Near Norfork gauge: .*does NOT include Norfork's water/);
+
+  // The river-wide block put both thirty-five miles down and denied the gauges existed.
+  const main = riverBlock('white');
+  assert.doesNotMatch(main, /thirty-five|no USGS flow gauge in the tailwater/);
+  assert.match(main, /Norfork's release joins about forty-three river miles below Bull Shoals Dam/);
 });
