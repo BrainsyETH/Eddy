@@ -424,6 +424,18 @@ test('the Gasconade and the Black say what joins between their gauges', () => {
   assert.match(elsewhere, /Poplar Bluff gauge: .*about 49 miles below Clearwater Dam/);
 });
 
+test("the Gasconade's losing reach and Rockslide Bluff reach the Hazelgreen Read only", () => {
+  // Both sit in the Narrows around Schlicht Spring (chart mile 106.1), above
+  // Roubidoux Creek: the water the Hazelgreen block says it speaks for. In
+  // the river-wide block they went to Jerome's and Rich Fountain's Reads too.
+  assert.doesNotMatch(riverBlock('gasconade'), /Losing reach|Rockslide Bluff|Narrows/);
+  const hazelgreen = getRiverKnowledgeForGauge('gasconade', 'Gasconade River near Hazelgreen, MO', '06928000');
+  assert.match(hazelgreen, /Section upper-hazelgreen:[\s\S]*\*\*Losing reach\*\*[\s\S]*\*\*Rockslide Bluff\*\*/);
+  for (const site of ['06933500', '06934000']) {
+    assert.doesNotMatch(getKnowledgeForTarget('gasconade', null, site), /Losing reach|Rockslide Bluff/, site);
+  }
+});
+
 test('the Buffalo names its lowest gauge for where it is', () => {
   // The file called it "Rush". The station is near Harriet, at Highway 14.
   assert.doesNotMatch(getKnowledgeForChat('buffalo'), /\*\*Rush\*\* is the lowest|Rush is the lowest gauge/);

@@ -335,14 +335,13 @@ The Gasconade is the longest river entirely within Missouri (~280 miles) and the
 - The float hub is around **Jerome and Waynesville** on the middle river. Waynesville and Dixon serve the upper river; the town of Gasconade serves the lower river near the Missouri confluence.
 - Three reference gauges span the river: **Hazelgreen** (upper, Eddy's primary), **Jerome** (middle, the most-cited float gauge), and **Rich Fountain** (lower). Each represents its own reach, so read the gauge nearest the put-in rather than one headline number for the whole river.
 - Major tributaries include the Osage Fork, Roubidoux Creek, and the Big Piney. Many access points are low-water bridges, which become hazards when the river is up.
-- **Losing reach on the upper river**: through the Narrows bend between Ozark Springs and Highway 17 (above Schlict Spring), much of the flow sinks underground in low water — roughly 75 cfs above the Narrows can drop below 30 cfs through it, leaving a weed-choked, walk-the-canoe trickle. The water returns about a mile downstream near Rockslide Bluff. An upstream gauge reading can overstate floatability through this stretch, so be cautious about the upper river in low water.
-- **Rockslide Bluff**: a section of cliff collapsed into the river in 1971 and is now an interesting little rapid; springs bubble up from the riverbed here and the flow, and the floating, picks up noticeably below it.
 - Strainers (downed trees) and low-water bridges are the main hazards. The gradient is gentle, so trouble comes from wood and structures more than from rapids.
 
 ### Upper Hazelgreen {#upper-hazelgreen} {@06928000}
 
 - Represented by the Hazelgreen gauge, the upper-river reference. Winding, spring-influenced, good smallmouth water.
-- Watch the losing reach above Schlict Spring in low water (see the river notes above) — the Hazelgreen reading can overstate what you will actually find through the Narrows.
+- **Losing reach**: through the Narrows bend between Ozark Springs and Highway 17 (above Schlict Spring), much of the flow sinks underground in low water — roughly 75 cfs above the Narrows can drop below 30 cfs through it, leaving a weed-choked, walk-the-canoe trickle. The water returns about a mile downstream near Rockslide Bluff. The Hazelgreen gauge sits about 30 river miles upstream, above the Narrows, so its reading can overstate what you will actually find through this stretch in low water.
+- **Rockslide Bluff**: a section of cliff collapsed into the river in 1971 and is now an interesting little rapid; springs bubble up from the riverbed here and the flow, and the floating, picks up noticeably below it.
 - Floatable from around Highway E downstream; the highest put-ins need more water and can be scrapy.
 
 ### Mid Jerome {#mid-jerome} {@06933500}
