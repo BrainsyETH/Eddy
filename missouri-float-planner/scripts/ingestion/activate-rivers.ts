@@ -3,7 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getScriptClient } from '../lib/db';
-import { readinessProblems, tailwaterPilotProblems } from './readiness';
+import { listKnowledgeRiverSlugs } from '../../src/lib/eddy/knowledge';
+import { knowledgeSectionProblems, readinessProblems, tailwaterPilotProblems } from './readiness';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -23,6 +24,14 @@ async function main() {
       for (const problem of tailwaterPilotProblems(dossier.readiness)) console.log(`${slug}: ${problem}`);
     }
   }
+  // The one gate the database cannot hold: it has no copy of the knowledge file.
+  const knowledge = knowledgeSectionProblems(slugs, listKnowledgeRiverSlugs());
+  for (const problem of knowledge) console.log(`error: ${problem}`);
+  if (apply && knowledge.length) {
+    console.log('Blocked. No river was activated.');
+    process.exitCode = 2;
+    return;
+  }
   const db = getScriptClient({ script: 'activate-rivers', write: apply });
   // The database rechecks the evidence. Preview rolls back temporary visibility
   // inside a subtransaction, including when validation fails.
@@ -32,7 +41,7 @@ async function main() {
   if (error) throw error;
   const found = (data ?? []) as { river_slug: string; check_name: string; severity: string; detail: string }[];
   for (const f of found) console.log(`${f.severity}: ${f.river_slug} / ${f.check_name}: ${f.detail}`);
-  const blocked = found.some(f => f.severity === 'error');
+  const blocked = knowledge.length > 0 || found.some(f => f.severity === 'error');
   console.log(blocked ? 'Blocked. No river was activated.' : apply ? `Activated: ${slugs.join(', ')}` : 'Preview passed. No river was activated.');
   if (blocked) process.exitCode = 2;
 }

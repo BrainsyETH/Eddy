@@ -38,6 +38,19 @@ export function tailwaterPilotProblems(value: unknown): string[] {
   return [];
 }
 
+/**
+ * A river with no `## <River> {#slug}` section in EDDY_KNOWLEDGE.md. Checked
+ * here because the database's activation review cannot read the file. Without
+ * a section Eddy writes the river up from the General primer alone, which is
+ * how Gasconade shipped; the eddy_knowledge trust check
+ * (knowledge_missing_section) only sees it once the river is live.
+ */
+export function knowledgeSectionProblems(slugs: readonly string[], knowledgeSlugs: readonly string[]): string[] {
+  const known = new Set(knowledgeSlugs);
+  return slugs.filter(slug => !known.has(slug))
+    .map(slug => `${slug}: no "## " section with {#${slug}} in EDDY_KNOWLEDGE.md`);
+}
+
 /** Fresh worksheets carry no implied approval. */
 export function pendingReadiness(): RiverReadiness {
   return READINESS_CRITERIA.reduce((reviews, key) => {

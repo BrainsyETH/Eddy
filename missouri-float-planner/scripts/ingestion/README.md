@@ -279,6 +279,9 @@ legal access, representative fresh gauge, sourced conditions, hazard review, and
 validated routing. Each needs `status: verified`, evidence, reviewer and review
 date. A hazard review may conclude there are no mapped fixed hazards; that is
 different from an unreviewed empty table and never means hazard-free.
+The river also needs a `## <River> {#slug}` section in `EDDY_KNOWLEDGE.md`:
+`activate-rivers.ts` refuses `--apply` without one and reports a preview as
+blocked, because the database's review cannot read the file.
 
 ```bash
 npm run db:readiness                                      # read-only live catalog audit
