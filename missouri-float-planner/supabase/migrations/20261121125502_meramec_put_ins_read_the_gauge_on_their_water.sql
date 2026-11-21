@@ -1,8 +1,13 @@
--- 20261121170000_meramec_put_ins_read_the_gauge_on_their_water.sql
+-- 20261121125502_meramec_put_ins_read_the_gauge_on_their_water.sql
 --
--- NOT YET APPLIED. Drafted 2026-11-21 for the owner's review; listed under
--- [pending] in supabase/production-migrations.txt. Apply only on the owner's
--- go-ahead, then rename to the version production records.
+-- Applied to production 2026-11-21 as 20261121125502, on the owner's
+-- go-ahead. Read back afterwards for all 33 approved put-ins: by stored mile
+-- and in the planner's call (stored mile and point together) every one reads
+-- the gauge on its water (8 Cook Station, 7 Steelville, 13 Sullivan, 5
+-- Eureka); by map point alone 31 do, and Woodson K. Woods (Steelville) and
+-- River 'Round (Eureka) read as they did before. Written as 20261121170000 and
+-- renamed to the version production recorded. The statement production holds
+-- is the `do` block below under a shorter comment.
 --
 -- On the Meramec, a put-in reads the gauge on its own water instead of the
 -- Steelville gauge, in the planner and on its access page.
@@ -106,10 +111,6 @@
 -- scripts/meramec-gauge-stretches-migration.test.ts runs this file against
 -- production's put-ins as read on 2026-11-21, on both paths.
 --
--- After applying, read back every approved put-in on both paths, by stored
--- mile and by map point (coalesce(location_orig, location_snap), as
--- estimateRoute passes it): 31 should agree, and only Woodson K. Woods and
--- River 'Round should differ, as above.
 
 do $$
 declare

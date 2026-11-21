@@ -106,10 +106,10 @@ A river whose two mile scales interleave is the fifth. On the Meramec every
 put-in read the main gauge, Steelville, by stored mile. Its stored miles
 (Float Missouri's) and its line miles are 22 to 27 miles apart, so bounds at
 Maramec Spring, the Huzzah and the Bourbeuse on the stored scale would send 11
-put-ins to the wrong gauge on the point path. `20261121170000` (pending, owner's
-choice of 2026-11-21) fits seven stretches between put-ins on both scales, and
-leaves the gaps to the main gauge by stored mile and to the nearest gauge by
-map point. The result is right for all 33 put-ins by stored mile and 31 by map
+put-ins to the wrong gauge on the point path. `20261121125502` (applied
+2026-11-21, the owner's choice) fits seven stretches between put-ins on both
+scales, and leaves the gaps to the main gauge by stored mile and to the
+nearest gauge by map point. The result is right for all 33 put-ins by stored mile and 31 by map
 point. Its bounds hold only for the put-ins it was reviewed against: the
 migration refuses a 34th, and a put-in approved after it is applied has to be
 checked on both paths by hand. Reconciling the Meramec's stored miles with its

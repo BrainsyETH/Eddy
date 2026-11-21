@@ -11,7 +11,7 @@ import { PGlite } from '@electric-sql/pglite';
 // to 27 miles apart here. These tests run the real file against production's
 // put-ins and gauges as read on 2026-11-21, and check both paths.
 
-const migration = readFileSync('supabase/migrations/20261121170000_meramec_put_ins_read_the_gauge_on_their_water.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261121125502_meramec_put_ins_read_the_gauge_on_their_water.sql', 'utf8');
 
 const COOK = '07010350', STEELVILLE = '07013000', SULLIVAN = '07014500', EUREKA = '07019000';
 
