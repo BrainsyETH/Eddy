@@ -65,7 +65,7 @@ like a rainfall-driven stream above Alley Spring but is stabilized by springs be
 - Water temperatures on spring-fed rivers stay cold year-round (mid-50s to low 60s F).
 - Most Ozark rivers are Class I-II. Serious whitewater is rare, but strainers (downed trees across the channel) are the #1 hazard.
 - After heavy rain, rivers may become less clear and turn muddy. 
-- **Recovery after high water**: Rivers with large spring inputs (Current, Niangua, Eleven Point) recover slowly over days. Rivers with smaller watersheds and less spring input (Huzzah, Courtois, upper Jacks Fork) can go from flooded to optimal quickly once rain stops. Watch the gauge trend — a steep drop means conditions are changing fast.
+- **After high water, watch the gauge trend** — a steep drop means conditions are changing fast. Rivers with large spring inputs come down more slowly than small, rain-fed ones.
 - **Not every river here is an Ozark river.** The Arkansas rivers (Buffalo, Kings, War Eagle, Crooked, Mulberry) drain the Boston Mountains: steeper, flashier, rain-driven, with a season that usually ends by midsummer. The Caddo is a **Ouachita** Mountain river, a different range with a different personality — the Ozarks spring-input reasoning does not apply to it at all.
 - **Low water does not mean the same thing everywhere.** On big or dam-influenced water (lower Gasconade, lower Black, lower Buffalo, Big River's long pools) low water mostly costs you speed. On small rain-fed streams (Crooked, War Eagle, upper Bryant, upper Bourbeuse) low water genuinely ends the trip.
 - **Low-head dams and low-water bridges are the deadliest structures in this set** — they appear on Big River, the James, War Eagle, the Spring River in both states, and across the Gasconade, Bryant, and Bourbeuse. Unlike rapids they get **more** dangerous as flow rises, and a rising river is never a reason to run one. Portage.
@@ -159,7 +159,7 @@ floating; below the park it widens and slows.
 - Lower Meramec is wider, calmer, better for tubes and beginners.
 - Onondaga Cave State Park is along the river with cave tours available.
 - Meramec State Park has camping, cabins, and cave tours. Major hub for float access.
-- The Meramec can flood dramatically — it's one of the flashiest rivers in the Ozarks. When it rains hard, expect the gauge to spike 5-10 ft in hours.
+- The Meramec can flood dramatically — it's one of the flashiest rivers in the Ozarks.
 - The gauges cover very different amounts of river: the Meramec at Steelville can be a different river from the Meramec at Eureka on the same afternoon. Quote the gauge that speaks for the put-in.
 
 ### Upper Meramec {#upper-meramec} {@07013000}
@@ -259,7 +259,6 @@ Alley Spring. It joins the Current River at Two Rivers.
 - **Speaks for**: The upper Jacks Fork, above Alley Spring.
 - A low reading here says nothing about the river below the spring. The Eminence gauge speaks for that.
 - The upper Jacks Fork is narrow, twisty, and technical. Not for beginners.
-- It can go from floatable to unfloatable in 24 hours during dry spells.
 
 ### Gauge: Mountain View {@07065200}
 
@@ -576,7 +575,7 @@ Missouri's only whitewater river. The upper St. Francis through Millstream Garde
 
 - **The whitewater reach is genuinely serious** — Class II–IV pool-drop through the shut-ins, committing at high water, and unrunnable rock when too low. This is the one Missouri float where "experienced paddlers only" is the right framing for the upper run.
 - Levels on the upper river are read as **stage in feet from the Roselle (NWS) gauge**, not discharge — the old USGS discharge record ended in 1997. The Patterson gauge covers the lower river toward Wappapello.
-- Rain-dependent and flashy: it can be a runnable river one day and dry rock the next. The Missouri Whitewater Championships run the reach each spring, contingent on water level — verify before traveling.
+- Rain-dependent and flashy: it runs after rain and is dry rock in a dry spell. The Missouri Whitewater Championships run the reach each spring, contingent on water level — verify before traveling.
 
 ### Upper Whitewater {#upper-whitewater} {@07034000}
 
@@ -967,7 +966,7 @@ A clear Ouachita Mountain stream — **not** an Ozark river — and one of Arkan
 
 Arkansas's premier whitewater float and a National Wild and Scenic River, running free out of the Boston Mountains through the Ozark National Forest. Reliable Class I–II rapids that stiffen toward II+ and III at high water, under scenic canyon walls. Best fall through spring — it is usually too low by midsummer.
 
-- **Notoriously flashy.** It runs a few hundred cfs on a normal day and peaks in the tens of thousands after a big storm. Rises arrive within hours of upstream rain. Never launch on a rising gauge or with heavy rain in the forecast upstream.
+- **Notoriously flashy.** It runs a few hundred cfs on a normal day and peaks in the tens of thousands after a big storm. Never launch on a rising gauge or with heavy rain in the forecast upstream.
 - **Levels are read in feet** on the Mulberry near Mulberry gauge (07252000). Every authoritative source — the Turner Bend key, Byrd's, American Whitewater — publishes in gauge height, and essentially nobody publishes cfs floatability numbers for this river.
 - Turner Bend is the hub: outfitter, store, shuttle, and the traditional staff-gauge reference. Redding, Wolf Pen, and Byrd's are the Forest Service and private campgrounds along the corridor.
 - **Low-water bridges** near Turner Bend and Redding need the right-hand line at normal flow and become impassable, dangerous strainers when the water comes up — outfitters stop renting well before the river becomes unrunnable.
