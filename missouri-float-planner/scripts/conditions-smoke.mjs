@@ -35,6 +35,11 @@ const gauges = rivers.map((r, i) => ({ id: `g-${i}`, usgsSiteId: `0706700${i}`, 
   readingTimestamp: at, readingAgeHours: .2, readingSuspect: false, qualifierNote: null,
   thresholds: [{ riverId: r.id, riverName: r.name, riverSlug: r.slug, isPrimary: true, thresholdUnit: 'cfs', levelTooLow: 50, levelLow: 100, levelOptimalMin: 200, levelOptimalMax: 800, levelHigh: 1000, levelDangerous: 2000 }],
 }));
+// Output steps every two hours, so a change is always ahead of the fixture
+// clock, and reaches full load in one block (2–4 PM), as a posted day does.
+// With every high block at full load the card listed six peak windows, a
+// sentence no real schedule produces and one that overran the 320px card.
+const scheduledMw = i => i%4<2 ? 200 : i===14||i===15 ? 400 : 300;
 const dams = [
   ['swl-table-rock-dam', 'Table Rock Dam', 'Table Rock Lake', 'MO'],
   ['swl-bull-shoals-dam', 'Bull Shoals Dam', 'Bull Shoals Lake', 'AR'],
@@ -49,7 +54,7 @@ const dams = [
   hasTurbines: true, generating: true, generationFloorCfs: 100,
   generationReference:{units:8, fullGenerationCfs:20000, schedulingCapacityMw:400, source:'SWPA'},
   metrics: { generationFlow: { value: 10000, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 10500, unit: 'cfs', at, staleness: 'fresh' }, tailwaterTempF:{value:52,unit:'F',at,staleness:'fresh'},tailwaterElevation:{value:650.25,unit:'ft',at,staleness:'fresh'} },
-  schedule: scheduleDates.map(scheduleDate => ({scheduleDate,retrievedAt:at,idle:[],hours:Array.from({length:24},(_,i)=>({hourEnding:i+1,megawatts:i%4<2?200:400,cfs:i%4<2?10000:20000,isRamp:i%2===0}))})), sources: ['USACE','SWPA'],
+  schedule: scheduleDates.map(scheduleDate => ({scheduleDate,retrievedAt:at,idle:[],hours:Array.from({length:24},(_,i)=>({hourEnding:i+1,megawatts:scheduledMw(i),cfs:scheduledMw(i)*50,isRamp:i%2===0}))})), sources: ['USACE','SWPA'],
 }));
 // A single low peak and older schedule reproduce the compact-card review case.
 dams[1].metrics.release.value = 722;
@@ -221,7 +226,7 @@ export default function Page() {
     assert(await featuredDam.getByText('52.0 °F',{exact:true}).isVisible());
     assert.equal(await featuredDam.getByText(/Generating now|of full generation|Below-dam elevation/).count(),0);
     assert.equal(await featuredDam.locator('dt').count(),2,'dam cards show only release and temperature readings');
-    assert(await featuredDam.getByText(/(?:Increases|Decreases) at/).isVisible());
+    assert(await featuredDam.getByText(/Generation scheduled to (?:increase|decrease) at /).isVisible());
     for (const control of [page.getByLabel('Filter by state'),page.getByLabel('Sort destinations')]) {
       const fit=await control.evaluate(select=>{
         const style=getComputedStyle(select);
@@ -245,13 +250,22 @@ export default function Page() {
     assert.equal(await tomorrowSchedules.count(),0,'cards show only Today even when Tomorrow is posted');
     const schedule=featuredDam.getByRole('region',{name:'Today’s generation schedule',exact:true});
     const timeline=schedule.getByRole('img');
-    assert(await featuredDam.locator('.bg-secondary-100').count(), 'directory uses the warm reading panel');
-    assert.equal(await schedule.locator('[data-peak-window]').count(), 0, 'directory has no duplicate peak band');
-    assert.equal(await timeline.locator('.bg-accent-500').count(), 1, 'only Now is orange');
-    assert((await featuredDam.locator('.bg-secondary-100').boundingBox()).height<140,`${label}: compact dam header`);
+    // The readings sit in an inset secondary-50 panel (formerly a full-width secondary-100 strip).
+    const readings=featuredDam.locator('.bg-secondary-50:has(> dl)');
+    assert.equal(await readings.count(), 1, 'directory uses the warm reading panel');
+    // The card states the peak window once, under the next move; the chart at rest does not repeat it.
+    const peakWindow=schedule.locator('[data-peak-window]');
+    assert.equal(await peakWindow.count(), 1, 'directory states the peak window once');
+    assert.equal(await peakWindow.innerText(), 'Highest scheduled generation: 2–4 PM');
+    assert.equal(await schedule.getByText(await peakWindow.innerText(),{exact:true}).count(), 1, 'directory has no duplicate peak band');
+    assert.equal(await timeline.locator('[class*="bg-accent-"]').count(), 1, 'only Now is orange');
+    assert.equal(await timeline.locator('[data-schedule-now].bg-accent-600').count(), 1, 'the Now line is coral');
+    assert((await readings.boundingBox()).height<140,`${label}: compact dam header`);
+    // The check time sits in the card's footer corner; the dialog says where to find it.
+    assert.equal(await featuredDam.locator('[data-schedule-check="current"]').getByText(/^Schedule checked \d/).count(), 1, 'Today keeps its schedule check time on the card');
     await featuredDam.getByRole('button', {name:'About table rock dam schedule',exact:true}).click();
     const scheduleInfo=page.getByRole('dialog', {name:'Table Rock Dam schedule',exact:true});
-    assert.equal(await scheduleInfo.getByText(/Schedule checked/).count(), 1, 'Today retains full schedule provenance in the info dialog');
+    assert.equal(await scheduleInfo.getByText(/the time Eddy last checked it is shown at the bottom of the card/).count(), 1, 'the info dialog points to the schedule check time');
     await scheduleInfo.getByRole('button', {name:'Close explanation',exact:true}).click();
     assert.equal(await timeline.evaluate(node=>node.closest('a')),null,'chart interaction is separate from navigation');
     const beforeTimeline=page.url();
@@ -261,18 +275,22 @@ export default function Page() {
     const hourPosition={x:bounds.width*1.5/24,y:bounds.height/2};
     if(width<900) await timeline.tap({position:hourPosition});
     else await timeline.hover({position:hourPosition});
-    await schedule.getByText('1 AM–2 AM · ~10,000 cfs scheduled',{exact:true}).waitFor();
+    await schedule.getByText('1 AM–2 AM · 200 MW scheduled · Est. turbine flow 10,000 cfs',{exact:true}).waitFor();
     assert.equal(page.url(),beforeTimeline,'hover or tap does not navigate');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: hourly readout fits`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await featuredDam.screenshot({path:`${out}/${label}-dam-hour.png`});
     assert((await featuredDam.boundingBox()).height<550,`${label}: Today-only dam card stays compact with an hourly readout`);
     const bullShoals=featured.locator('[data-destination="dam:swl-bull-shoals-dam"]');
-    assert(await bullShoals.getByRole('region', {name:'Today’s generation schedule',exact:true}).getByText(/May have changed/).isVisible(), 'outdated schedule keeps a visible warning');
+    // Outdated is carried by a word and a clock mark as well as the amber ink.
+    const outdated=bullShoals.locator('[data-schedule-check="stale"]');
+    assert(await outdated.isVisible(), 'outdated schedule keeps a visible warning');
+    assert.match(await outdated.textContent(), /^Outdated: Schedule checked \d/, 'the outdated warning is named, not only coloured');
+    assert.equal(await outdated.locator('svg').count(), 1, 'the outdated warning carries a clock mark');
     assert((await bullShoals.boundingBox()).height<550,`${label}: Today-only outdated schedules stay compact`);
     await bullShoals.getByRole('button', {name:'About bull shoals dam schedule',exact:true}).click();
     const olderScheduleInfo=page.getByRole('dialog', {name:'Bull Shoals Dam schedule',exact:true});
-    assert.equal(await olderScheduleInfo.getByText(/may have been revised since/).count(), 1);
+    assert.equal(await olderScheduleInfo.getByText(/Schedules may change without notice\./).count(), 1);
     await olderScheduleInfo.getByRole('button', {name:'Close explanation',exact:true}).click();
     await bullShoals.screenshot({path:`${out}/${label}-bull-shoals.png`});
     console.log(`${label} card heights: Table Rock ${Math.round((await featuredDam.boundingBox()).height)}px; Bull Shoals ${Math.round((await bullShoals.boundingBox()).height)}px`);
@@ -282,10 +300,15 @@ export default function Page() {
     await timeline.focus();
     await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).focus();
     await timeline.focus();
+    // At rest the readout is the current hour, so the arrow steps on from there;
+    // Home reaches the day's first hour whatever the clock says.
+    const restWindowEnd=(await schedule.locator('[data-schedule-readout]').innerText()).split(' · ')[0].split('–')[1];
     await timeline.press('ArrowRight');
-    await schedule.getByText('12 AM–1 AM · 200 megawatts scheduled',{exact:true}).waitFor();
+    await schedule.locator('[data-schedule-readout]').getByText(new RegExp(`^${restWindowEnd}–`)).waitFor();
+    await timeline.press('Home');
+    await schedule.getByText('12 AM–1 AM · 200 MW scheduled',{exact:true}).waitFor();
     await timeline.press('ArrowRight');
-    await schedule.getByText('1 AM–2 AM · ~10,000 cfs scheduled',{exact:true}).waitFor();
+    await schedule.getByText('1 AM–2 AM · 200 MW scheduled · Est. turbine flow 10,000 cfs',{exact:true}).waitFor();
     assert.equal(page.url(),beforeTimeline,'keyboard exploration does not navigate');
     await timeline.press('Tab');
     assert.equal(await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).evaluate(node=>node===document.activeElement),true,'keyboard focus moves from Today to Full report');
@@ -302,7 +325,7 @@ export default function Page() {
     assert.equal(await page.locator('[data-result]').getAttribute('data-result'),'dam:ameren-bagnell-dam');
     assert.equal(await page.getByLabel('Sort destinations').inputValue(),'relevance');
     assert(await page.locator('[data-result]').getByText('Water temp',{exact:true}).isVisible(), 'search retains dam detail');
-    assert(await page.locator('[data-result]').getByText(/(?:Increases|Decreases) at/).isVisible());
+    assert(await page.locator('[data-result]').getByText(/Generation scheduled to (?:increase|decrease) at /).isVisible());
     assert(await page.locator('[data-result]').getByRole('region',{name:'Today’s generation schedule',exact:true}).getByRole('img').isVisible(),'search retains the hourly dam timeline');
     await search.fill('Current River');
     await page.locator('[data-result="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
@@ -370,7 +393,8 @@ export default function Page() {
     if (label==='desktop') {
       await page.getByLabel('Filter by state').selectOption('MO');
       await search.fill('Table Rock');
-      for (const name of ['Table Rock Dam Table Rock Lake','Full report for Table Rock Dam']) {
+      // The title link also carries the state and today's dateline, which changes daily.
+      for (const name of [/^Table Rock Dam Table Rock Lake · MO /,'Full report for Table Rock Dam']) {
         await page.locator('[data-result="dam:swl-table-rock-dam"]').getByRole('link',{name,exact:true}).click();
         await page.getByRole('heading',{name:'Fixture detail',exact:true}).waitFor();
         assert.equal(new URL(page.url()).pathname,'/dams/swl-table-rock-dam');
