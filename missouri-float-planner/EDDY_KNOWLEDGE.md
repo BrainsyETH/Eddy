@@ -896,7 +896,7 @@ A scenic Class I northwest-Arkansas float running past Withrow Springs State Par
 A clear, gravel-bottomed Ozark stream crossing north-central Arkansas to the White River near Cotter. A Blue Ribbon smallmouth fishery and an AGFC Water Trail — easy Class I floating past long gravel bars and riffles, with fishing rather than paddling as the main draw.
 
 - **Entirely rain-fed, with no spring support.** It drops skinny quickly in summer, so spring is the float window and a dry July usually means wading, not floating. On this creek, low water genuinely stops trips rather than just slowing them.
-- **Kelly's Slab is the named hazard** — a concrete low-water crossing at the Fred Berry Conservation Education Center near Yellville. Scout and portage; water flowing over the slab makes it dangerous.
+- **Kelley's Slab is the named hazard** — a concrete low-water crossing at the Fred Berry Conservation Education Center near Yellville. Scout and portage; water flowing over the slab makes it dangerous.
 - Flashy on the other end too: it can go from a clear gravel creek to a torrent quickly after upstream rain, and it clears slowly compared to a spring-fed stream. There is no official flood gauge here — treat any rapid rise as dangerous on its own terms.
 - **Kelly Crossing at Yellville (07055607)** is the reference gauge, near the middle of the floatable water, and it reads in **gauge height (feet)**. The upper reach from Harmon to Pyatt is the liveliest (Class I–II); everything below is easy Class I.
 - Smallmouth regulations here are stricter than general statewide rules — anglers should check current AGFC limits for the Blue Ribbon stretch before keeping fish.
@@ -906,9 +906,9 @@ A clear, gravel-bottomed Ozark stream crossing north-central Arkansas to the Whi
 
 - The liveliest reach on the creek (Class I–II) and the farthest above the gauge, so it goes too skinny before the reading does.
 
-### Kelly's Slab to Yellville {#kellys-slab-to-yellville} {@07055607}
+### Kelley's Slab to Yellville {#kellys-slab-to-yellville} {@07055607}
 
-- Starts at the named hazard: Kelly's Slab, the concrete low-water crossing at the Fred Berry Conservation Education Center. Scout and portage — water moving over the slab is dangerous.
+- Starts at the named hazard: Kelley's Slab, the concrete low-water crossing at the Fred Berry Conservation Education Center. Scout and portage — water moving over the slab is dangerous.
 - The gauge sits right here, so this is the reach its reading describes most honestly.
 
 ### Gauge: Yellville {@07055607}
