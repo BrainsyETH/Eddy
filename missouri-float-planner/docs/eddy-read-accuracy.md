@@ -352,7 +352,9 @@ when a gauge the river reports from has no confirmed block. A river reports
 from its main gauge and from every gauge an approved put-in reads, by stored
 mile or by map point, whether or not the river has any other blocks. The check
 works out a put-in's gauge with a copy of `get_river_condition_segment()`'s
-rules, and its test fails when a migration redefines that function.
+rules, and its test fails when a migration redefines that function. A
+tailwater-Read river's own dam release gauge is exempt: its river Read and
+release tab are the dam's code-written Read, so no block is ever read for it.
 
 ## Generation records
 
