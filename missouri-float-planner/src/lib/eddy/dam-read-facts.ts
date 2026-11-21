@@ -62,7 +62,7 @@ import {
   windowLabel,
 } from '@shared/dam-schedule-copy';
 import { generatorEquivalentPhrase } from '@shared/dam-generation';
-import type { DamReadRow, DamScheduleDay } from '@shared/dam-types';
+import type { DamReadRow, DamScheduleCheck, DamScheduleDay } from '@shared/dam-types';
 import { centralDayHours, centralDayStart, patternDayKeys } from '@/lib/data/dam-history';
 
 export { DAM_READ_DAM_IDS, damHasRead } from './dam-read-dams';
@@ -571,6 +571,12 @@ export interface DamReadFacts {
   shape: RecentShape;
   reliability: ScheduleReliability | null;
   now: number;
+  /**
+   * What the serving snapshot's last read of SWPA's sheets found. Set when
+   * served (withCurrentSchedule), never stored: absent, or from another day,
+   * a missing sheet is said as unverified. See missingScheduleLine.
+   */
+  scheduleCheck?: DamScheduleCheck | null;
 }
 
 export function buildDamReadFacts(input: DamReadInputs): DamReadFacts {
@@ -601,13 +607,38 @@ export function withCurrentSchedule(
   schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>> | null,
   now = Date.now(),
   reference: GenerationRef | null = facts.reference,
+  scheduleCheck: DamScheduleCheck | null = null,
 ): DamReadFacts {
   return {
     ...facts,
     posted: schedule === null ? advancePosted(facts.posted, now) : postedSchedule(schedule, now, reference),
     todayGroup: isWeekendDay(centralClock(now).dayKey) ? 'weekend' : 'weekday',
     now,
+    scheduleCheck,
   };
+}
+
+const CHECK_TIME = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit' });
+
+/**
+ * What to say where a posted day would go, when Eddy holds none.
+ *
+ * "Isn't posted yet" claimed something about SWPA that a failed request
+ * cannot establish. So the line says only what the last read found:
+ * - the sheet was read today and did not have this day: "No schedule
+ *   available as of 9:10 AM CT", the time being that read's;
+ * - anything else (the read failed, there is no record of one, or it was
+ *   made on an earlier Central day, so it was about another day's sheet):
+ *   the schedule couldn't be verified.
+ */
+export function missingScheduleLine(f: DamReadFacts, day: 'today' | 'tomorrow'): { verified: true; asOf: string } | { verified: false } {
+  const check = f.scheduleCheck;
+  const outcome = check ? check[day] : undefined;
+  if (!check || !outcome || outcome === 'failed') return { verified: false };
+  const at = Date.parse(check.checkedAt);
+  if (!Number.isFinite(at) || at > f.now + 5 * 60_000) return { verified: false };
+  if (centralClock(at).dayKey !== centralClock(f.now).dayKey) return { verified: false };
+  return { verified: true, asOf: `${CHECK_TIME.format(at)} CT` };
 }
 
 /** Whether there is anything worth writing a Read about. */
@@ -962,9 +993,13 @@ export function damReadTakeaway(f: DamReadFacts): { headline: string; summary: s
       };
     }
     const next = isWeekendDay(nextDayKey(centralClock(f.now).dayKey)) ? f.weekend : f.weekday;
+    const missing = missingScheduleLine(f, 'tomorrow');
     return {
       headline: 'No more generation scheduled today',
-      summary: join('Tomorrow’s schedule isn’t posted yet.', exception ? sentence(exception.clause) : expectation(next)),
+      summary: join(
+        missing.verified ? `No schedule for tomorrow is available as of ${missing.asOf}.` : 'Tomorrow’s schedule couldn’t be verified.',
+        exception ? sentence(exception.clause) : expectation(next),
+      ),
     };
   }
 
@@ -1057,7 +1092,10 @@ export function damRiverBlocks(f: DamReadFacts): DamRiverBlocks {
   let summary: string;
   let state: PostedState | null;
   if (!today) {
-    summary = `${f.damName}’s schedule for today isn’t posted yet.`;
+    const missing = missingScheduleLine(f, 'today');
+    summary = missing.verified
+      ? `${at}no schedule is available for today as of ${missing.asOf}.`
+      : `${f.damName}’s schedule for today couldn’t be verified.`;
     state = null;
   } else if (today.firstStartHour === null) {
     summary = `${at}${today.minimumFlowOnly ? 'only minimum flow' : 'no generation'} is posted today.`;
@@ -1110,10 +1148,14 @@ export function damReadHeadline(f: DamReadFacts): string {
     const base = today.minimumFlowOnly ? 'Only minimum flow is posted for the rest of today' : 'No generation is posted for the rest of today';
     return c?.versus === 'quieter' ? `${base}, quieter than most recent ${plural(c.group)}.` : `${base}.`;
   }
+  const missing = missingScheduleLine(f, 'today');
+  const base = missing.verified
+    ? `No schedule is available for today as of ${missing.asOf}.`
+    : 'Today\'s schedule couldn\'t be verified.';
   if (p?.consistent && p.rangeFromHour !== null && p.rangeToHour !== null && mostlyGenerating(p)) {
-    return `Today's schedule isn't posted yet. Recent ${plural(p.group)} have usually started ${rangePhrase(p.rangeFromHour, p.rangeToHour)}.`;
+    return `${base} Recent ${plural(p.group)} have usually started ${rangePhrase(p.rangeFromHour, p.rangeToHour)}.`;
   }
-  return 'Today\'s schedule isn\'t posted yet.';
+  return base;
 }
 
 /** Recent surprises against the posted schedule, said first and plainly. */

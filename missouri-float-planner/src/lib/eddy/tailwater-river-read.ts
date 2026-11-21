@@ -170,7 +170,7 @@ export async function loadTailwaterRiverRead(
   if (!data?.facts) return null;
   if (!servable({ generatedAt: data.generated_at, expiresAt: data.expires_at }, snapshot !== null, now)) return null;
 
-  const facts = withCurrentSchedule(data.facts, snapshot?.schedule ?? null, now, referenceOf(snapshot, data.facts.reference));
+  const facts = withCurrentSchedule(data.facts, snapshot?.schedule ?? null, now, referenceOf(snapshot, data.facts.reference), snapshot?.scheduleCheck ?? null);
   return {
     ...renderTailwaterRiverRead(riverSlug, facts),
     damId,

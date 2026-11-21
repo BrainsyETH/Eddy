@@ -34,7 +34,7 @@ import {
   type TimeseriesChange,
   type TimeseriesPoint,
 } from '@/lib/usace/cda';
-import { fetchProjectSchedule, idleWindows, projectSchedulesFrom, SWPA_PROJECTS, type DaySchedule } from '@/lib/usace/swpa';
+import { fetchScheduleDaysChecked, idleWindows, projectSchedulesFrom, SWPA_PROJECTS, type DaySchedule, type ProjectSchedule } from '@/lib/usace/swpa';
 import { hasResolverSpec, parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
   USACE_DAMS,
@@ -140,6 +140,7 @@ export type {
   DamForecastWindow,
   DamMetricValue,
   DamPatternDay,
+  DamScheduleCheck,
   DamScheduleDay,
   DamSnapshot,
   DamStaleness,
@@ -151,6 +152,7 @@ import type {
   DamGenerationForecast,
   DamMetricValue,
   DamPatternDay,
+  DamScheduleCheck,
   DamScheduleDay,
   DamSnapshot,
   ScheduledHour,
@@ -536,16 +538,37 @@ export async function readSchedule(
   days: number,
   pages?: ReadonlyArray<DaySchedule | null>,
 ): Promise<DamScheduleDay[]> {
+  return (await readScheduleWithCheck(dam, days, pages)).schedule;
+}
+
+/**
+ * readSchedule, with what the read of today's sheet found (DamScheduleCheck):
+ * the caller's own when it read the pages for a whole pass, else this read's.
+ * Undefined when the dam has no SWPA schedule or none was asked for.
+ */
+export async function readScheduleWithCheck(
+  dam: UsaceDam,
+  days: number,
+  pages?: ReadonlyArray<DaySchedule | null>,
+  pagesCheck?: DamScheduleCheck | null,
+): Promise<{ schedule: DamScheduleDay[]; check: DamScheduleCheck | undefined }> {
   // Zero days is a caller saying it does not render a schedule at all — see
   // fetchTailwaterDams. Distinct from a dam with no SWPA code, but the answer is
   // the same and the contract is unchanged: an empty schedule renders nothing.
-  if (days <= 0) return [];
-  if (!dam.swpaCode) return [];
+  if (days <= 0) return { schedule: [], check: undefined };
+  if (!dam.swpaCode) return { schedule: [], check: undefined };
   // Pages the caller already read for this pass (sync-dam-snapshots), today first.
-  const schedules = pages
-    ? projectSchedulesFrom(pages.slice(0, days), dam.swpaCode)
-    : await fetchProjectSchedule(dam.swpaCode, days);
-  return schedules.map((s) => {
+  let schedules: ProjectSchedule[];
+  let check: DamScheduleCheck | undefined;
+  if (pages) {
+    schedules = projectSchedulesFrom(pages.slice(0, days), dam.swpaCode);
+    check = pagesCheck ?? undefined;
+  } else {
+    const read = await fetchScheduleDaysChecked(days);
+    schedules = projectSchedulesFrom(read.pages, dam.swpaCode);
+    check = read.today ?? undefined;
+  }
+  const schedule = schedules.map((s) => {
     const hours = markMinimumFlowHours(dam, s.hours);
     return {
       scheduleDate: s.scheduleDate,
@@ -554,6 +577,7 @@ export async function readSchedule(
       retrievedAt: s.retrievedAt,
     };
   });
+  return { schedule, check };
 }
 
 /**
@@ -647,6 +671,8 @@ async function fetchSnapshot(
     metrics: UsaceMetric[];
     scheduleDays: number;
     schedulePages?: ReadonlyArray<DaySchedule | null>;
+    /** What reading those pages found for today. */
+    scheduleCheck?: DamScheduleCheck | null;
     pattern?: boolean;
     forecast?: boolean;
   }
@@ -658,12 +684,14 @@ async function fetchSnapshot(
     (dam.amerenMetrics ? readAmerenMetrics(dam, options.metrics) : readMetrics(dam, options.metrics)).catch(
       () => ({}) as Partial<Record<UsaceMetric, DamMetricValue>>
     ),
-    readSchedule(dam, options.scheduleDays, options.schedulePages).catch(() => [] as DamScheduleDay[]),
+    readScheduleWithCheck(dam, options.scheduleDays, options.schedulePages, options.scheduleCheck)
+      .catch(() => ({ schedule: [] as DamScheduleDay[], check: undefined })),
     options.pattern ? readPattern(damId) : Promise.resolve(undefined),
     options.forecast ? readForecast(dam).catch(() => undefined) : Promise.resolve(undefined),
   ]);
 
-  return buildSnapshot(dam, metrics, schedule, pattern, forecast);
+  const snapshot = buildSnapshot(dam, metrics, schedule.schedule, pattern, forecast);
+  return schedule.check ? { ...snapshot, scheduleCheck: schedule.check } : snapshot;
 }
 
 /**
@@ -800,12 +828,15 @@ export async function fetchDamDetail(
     scheduleDays?: number;
     /** SWPA pages read once for a whole pass (fetchScheduleDays), today first. */
     schedulePages?: ReadonlyArray<DaySchedule | null>;
+    /** What reading those pages found for today (fetchScheduleDaysChecked). */
+    scheduleCheck?: DamScheduleCheck | null;
   }
 ): Promise<DamSnapshot | null> {
   return fetchSnapshot(damId, {
     metrics: DETAIL_METRICS,
     scheduleDays: options?.scheduleDays ?? DETAIL_SCHEDULE_DAYS,
     schedulePages: options?.schedulePages,
+    scheduleCheck: options?.scheduleCheck,
     // Detail only. A twenty-dam index has no room to draw a week per row and no
     // reason to pay twenty database reads for one that is never seen.
     pattern: true,
@@ -1007,7 +1038,7 @@ export function carryForwardMetrics(
   }
 
   if (carried === 0) return live;
-  return buildSnapshot(dam, merged, live.schedule, live.pattern, live.generationForecast, now);
+  return withScheduleCheck(buildSnapshot(dam, merged, live.schedule, live.pattern, live.generationForecast, now), live);
 }
 
 /**
@@ -1089,7 +1120,14 @@ export function carryForwardSchedule(
   const schedule = [...live.schedule, ...carried.values()].sort((a, b) =>
     a.scheduleDate.localeCompare(b.scheduleDate)
   );
-  return buildSnapshot(dam, live.metrics, schedule, live.pattern, live.generationForecast, now);
+  // A carried day is served, but this read of today's sheet still found what
+  // it found: the check stays the live one.
+  return withScheduleCheck(buildSnapshot(dam, live.metrics, schedule, live.pattern, live.generationForecast, now), live);
+}
+
+/** A rebuilt snapshot keeps the schedule check of the read it was rebuilt from. */
+function withScheduleCheck(rebuilt: DamSnapshot, from: DamSnapshot): DamSnapshot {
+  return from.scheduleCheck ? { ...rebuilt, scheduleCheck: from.scheduleCheck } : rebuilt;
 }
 
 /**

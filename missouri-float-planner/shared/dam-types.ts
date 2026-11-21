@@ -148,6 +148,26 @@ export interface DamScheduleDay {
 }
 
 /**
+ * What Eddy's last read of today's (and tomorrow's) SWPA sheet found, for a
+ * dam SWPA schedules.
+ *
+ * Without it, a missing day could only be said one way, "isn't posted yet",
+ * which claimed something about SWPA that a failed request cannot establish.
+ * - `posted`: the sheet was read and covers today.
+ * - `not_posted`: the sheet was read, and it still covers an earlier day.
+ * - `failed`: the request failed, or the page did not parse.
+ * `checkedAt` is when that read happened (the response's own date when there
+ * was one). Absent on dams SWPA does not schedule and on payloads stored
+ * before this field existed; absent renders as unverified, never as posted.
+ */
+export interface DamScheduleCheck {
+  checkedAt: string;
+  today: 'posted' | 'not_posted' | 'failed';
+  /** The same for tomorrow's sheet, when the read asked for it. */
+  tomorrow?: 'posted' | 'not_posted' | 'failed';
+}
+
+/**
  * The reach below a dam, when Eddy carries it.
  *
  * Only a TAILWATER qualifies — a river whose level IS the release. A river that
@@ -439,6 +459,8 @@ export interface DamSnapshot {
   generating: boolean | null;
   /** Hourly forward schedule, today first. Empty when the dam has no SWPA code. */
   schedule: DamScheduleDay[];
+  /** The last read of today's SWPA sheet. See DamScheduleCheck. */
+  scheduleCheck?: DamScheduleCheck;
   /**
    * What the powerhouse ACTUALLY DID, hour by hour, over the past week.
    *

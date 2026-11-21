@@ -392,13 +392,16 @@ test('the cron reads the SWPA pages once, uncached, and builds every dam from th
   // the previous pass's expired page — an hour old at write — and Table Rock
   // and Bull Shoals read "check the latest schedule" for half of every hour.
   const source = readFileSync('src/app/api/cron/sync-dam-snapshots/route.ts', 'utf8');
-  const read = source.indexOf('fetchScheduleDays(DETAIL_SCHEDULE_DAYS, { skipCache: true })');
+  const read = source.indexOf('fetchScheduleDaysChecked(DETAIL_SCHEDULE_DAYS, { skipCache: true })');
   assert.ok(read > 0, 'the pages are read uncached');
-  assert.equal(source.match(/fetchScheduleDays\(/g)?.length, 1, 'once per pass');
+  assert.equal(source.match(/fetchScheduleDays(?:Checked)?\(/g)?.length, 1, 'once per pass');
   assert.ok(read < source.indexOf('mapWithConcurrency(ids'), 'before any dam is assembled');
   const calls = source.match(/fetchDamDetail\([^)]*\)/g) ?? [];
   assert.ok(calls.length > 0);
   assert.ok(calls.every((call) => /schedulePages/.test(call)), `every dam reads the pass's pages: ${calls}`);
+  // And is told what the read of today's sheet found, so a missing day is
+  // said as "not available as of" or "couldn't be verified", never guessed.
+  assert.ok(calls.every((call) => /scheduleCheck/.test(call)), `every dam carries the check: ${calls}`);
   assert.match(source, /schedulePagesRead,/, 'the count is in the cron response');
 });
 

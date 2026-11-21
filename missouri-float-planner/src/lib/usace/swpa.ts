@@ -127,7 +127,7 @@ export const SWPA_PROJECTS: Record<string, SwpaProject> = {
  * back, which is what keeps it consumable by Metro and tsx as well as Next.
  */
 export type { ScheduledHour } from '@shared/dam-types';
-import type { ScheduledHour } from '@shared/dam-types';
+import type { DamScheduleCheck, ScheduledHour } from '@shared/dam-types';
 import { nextDayKey } from '@shared/dam-schedule-copy';
 
 /**
@@ -395,6 +395,27 @@ export async function fetchDayScheduleForKey(
   dayKey: string,
   options?: { skipCache?: boolean }
 ): Promise<DaySchedule | null> {
+  return (await fetchDayScheduleChecked(dayKey, options)).page;
+}
+
+/** One day's page, and what reading it found. See DamScheduleCheck. */
+export interface CheckedDaySchedule {
+  page: DaySchedule | null;
+  outcome: DamScheduleCheck['today'];
+  checkedAt: string;
+}
+
+/**
+ * fetchDayScheduleForKey, saying which way a missing page went: read but still
+ * covering an earlier day (`not_posted`), or not read at all (`failed`). The
+ * two are said differently to readers, so they must not collapse to one null.
+ * Never throws.
+ */
+export async function fetchDayScheduleChecked(
+  dayKey: string,
+  options?: { skipCache?: boolean }
+): Promise<CheckedDaySchedule> {
+  const failed = (): CheckedDaySchedule => ({ page: null, outcome: 'failed', checkedAt: new Date().toISOString() });
   const file = weekdayFileForKey(dayKey);
   const expected = dayKey;
   const url = `${SWPA_BASE}/${file}.htm`;
@@ -410,7 +431,7 @@ export async function fetchDayScheduleForKey(
     });
     if (!res.ok) {
       console.error(`[SWPA] ${file}.htm returned ${res.status}`);
-      return null;
+      return failed();
     }
     // Read from the headers, not the clock. Next replays cached headers along
     // with the cached body, so this stays pinned to the real fetch across the
@@ -419,7 +440,7 @@ export async function fetchDayScheduleForKey(
     html = await res.text();
   } catch (e) {
     console.error(`[SWPA] ${file}.htm fetch failed`, e);
-    return null;
+    return failed();
   }
 
   const parsed = parseSchedulePage(html, retrievedAt);
@@ -428,15 +449,16 @@ export async function fetchDayScheduleForKey(
     // is the failure mode a scraper is most likely to hit and least likely to
     // notice on its own.
     console.error(`[SWPA] ${file}.htm did not parse as a schedule — format may have changed`);
-    return null;
+    return failed();
   }
+  const checkedAt = retrievedAt ?? new Date().toISOString();
   if (parsed.scheduleDate !== expected) {
     console.warn(
       `[SWPA] ${file}.htm covers ${parsed.scheduleDate}, expected ${expected} — dropping (not yet refreshed)`
     );
-    return null;
+    return { page: null, outcome: 'not_posted', checkedAt };
   }
-  return parsed;
+  return { page: parsed, outcome: 'posted', checkedAt };
 }
 
 /**
@@ -471,10 +493,34 @@ export async function fetchScheduleDays(
   days = 3,
   options?: { skipCache?: boolean }
 ): Promise<Array<DaySchedule | null>> {
+  return (await fetchScheduleDaysChecked(days, options)).pages;
+}
+
+/** The day pages, and what the read of today's and tomorrow's pages found. */
+export interface CheckedSchedulePages {
+  pages: Array<DaySchedule | null>;
+  /** Null only when no day was asked for. */
+  today: DamScheduleCheck | null;
+}
+
+/** fetchScheduleDays, keeping what the read of today's page found. Never throws. */
+export async function fetchScheduleDaysChecked(
+  days = 3,
+  options?: { skipCache?: boolean }
+): Promise<CheckedSchedulePages> {
   const results = await Promise.allSettled(
-    scheduleDayKeys(days).map((key) => fetchDayScheduleForKey(key, options))
+    scheduleDayKeys(days).map((key) => fetchDayScheduleChecked(key, options))
   );
-  return results.map((r) => (r.status === 'fulfilled' ? r.value : null));
+  const checked = results.map((r): CheckedDaySchedule => (r.status === 'fulfilled'
+    ? r.value
+    : { page: null, outcome: 'failed', checkedAt: new Date().toISOString() }));
+  const [first, second] = checked;
+  return {
+    pages: checked.map((c) => c.page),
+    today: first
+      ? { checkedAt: first.checkedAt, today: first.outcome, ...(second ? { tomorrow: second.outcome } : {}) }
+      : null,
+  };
 }
 
 /** One project's schedules from pages already read; absent days are skipped. */

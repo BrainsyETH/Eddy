@@ -44,7 +44,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
 import { DETAIL_SCHEDULE_DAYS, fetchDamDetail, listDamIds } from '@/lib/data/dams';
-import { fetchScheduleDays } from '@/lib/usace/swpa';
+import { fetchScheduleDaysChecked } from '@/lib/usace/swpa';
 import {
   carryFromPrevious,
   decideWrites,
@@ -120,12 +120,14 @@ async function runSync(request: NextRequest) {
     const previousPromise = readStoredSnapshots({ now: startedAt });
 
     // Once for the pass, uncached: see the header. Never throws.
-    const schedulePages = await fetchScheduleDays(DETAIL_SCHEDULE_DAYS, { skipCache: true });
+    // `today` records which way a missing sheet went (read but not yet
+    // refreshed, or not read), so readers are told the right one.
+    const { pages: schedulePages, today: scheduleCheck } = await fetchScheduleDaysChecked(DETAIL_SCHEDULE_DAYS, { skipCache: true });
     schedulePagesRead = schedulePages.filter(Boolean).length;
 
     const snapshots = await mapWithConcurrency(ids, DAM_CONCURRENCY, async (id) => {
       try {
-        return await fetchDamDetail(id, { schedulePages });
+        return await fetchDamDetail(id, { schedulePages, scheduleCheck });
       } catch (err) {
         // fetchDamDetail is documented as never throwing; this is here so that
         // if that ever stops being true, one bad project costs one row rather

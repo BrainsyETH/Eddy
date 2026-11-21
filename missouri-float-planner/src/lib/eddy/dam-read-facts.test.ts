@@ -462,8 +462,13 @@ test('the night before: tomorrow\'s sheet when it is posted, the recent pattern 
   const done = buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', 6, 2)], now: evening }));
   assert.deepEqual(damReadTakeaway(done), {
     headline: 'No more generation scheduled today',
-    summary: 'Tomorrow’s schedule isn’t posted yet. On recent weekends generation has usually started around 3 PM, and it ran on each of the last 4 weekend days.',
+    summary: 'Tomorrow’s schedule couldn’t be verified. On recent weekends generation has usually started around 3 PM, and it ran on each of the last 4 weekend days.',
   });
+  // Read this evening, and tomorrow's sheet still covered an earlier day: say
+  // so, with the read's time. A failed read stays unverified.
+  const readTonight = { ...done, scheduleCheck: { checkedAt: new Date(evening - 20 * 60_000).toISOString(), today: 'posted' as const, tomorrow: 'not_posted' as const } };
+  assert.match(damReadTakeaway(readTonight).summary, /^No schedule for tomorrow is available as of 7:28 PM CT\. On recent weekends/);
+  assert.match(damReadTakeaway({ ...readTonight, scheduleCheck: { ...readTonight.scheduleCheck, tomorrow: 'failed' } }).summary, /^Tomorrow’s schedule couldn’t be verified\./);
   const posted = withCurrentSchedule(done, [scheduleDay('2026-10-31', 6, 2), megawattDay('2026-11-01', { ...run(7, 9, 50), ...run(18, 21, 50) })], evening,
     { units: 4, fullGenerationCfs: 15_100, schedulingCapacityMw: 200 });
   assert.deepEqual(damReadTakeaway(posted), {
@@ -624,7 +629,15 @@ test('the posted part follows the CURRENT schedule and day when served', () => {
 });
 
 test('headline when nothing is posted yet, and when today is quieter than usual', () => {
-  assert.equal(damReadHeadline(buildDamReadFacts(inputs({ schedule: [] }))), 'Today\'s schedule isn\'t posted yet. Recent weekends have usually started around 3 PM.');
+  // No record of a read, or a failed one: unverified, never "not posted".
+  const none = buildDamReadFacts(inputs({ schedule: [] }));
+  assert.equal(damReadHeadline(none), 'Today\'s schedule couldn\'t be verified. Recent weekends have usually started around 3 PM.');
+  const checkedAt = new Date(none.now - 50 * 60_000).toISOString();
+  assert.equal(damReadHeadline({ ...none, scheduleCheck: { checkedAt, today: 'failed' } }), 'Today\'s schedule couldn\'t be verified. Recent weekends have usually started around 3 PM.');
+  // Read today, and the sheet did not have today: say when.
+  assert.match(damReadHeadline({ ...none, scheduleCheck: { checkedAt, today: 'not_posted' } }), /^No schedule is available for today as of \d{1,2}:\d{2} [AP]M CT\. Recent weekends have usually started around 3 PM\.$/);
+  // A read from an earlier Central day was about another day's sheet.
+  assert.match(damReadHeadline({ ...none, scheduleCheck: { checkedAt: new Date(none.now - 26 * HOUR).toISOString(), today: 'not_posted' } }), /^Today's schedule couldn't be verified\./);
   assert.equal(damReadHeadline(buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', null)] }))), 'No generation is posted for the rest of today, quieter than most recent weekends.');
 });
 

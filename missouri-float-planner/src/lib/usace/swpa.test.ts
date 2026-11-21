@@ -15,6 +15,7 @@ import {
   centralDateKey,
   scheduleDayKeys,
   fetchScheduleDays,
+  fetchScheduleDaysChecked,
   projectSchedulesFrom,
   type DaySchedule,
   type ProjectSchedule,
@@ -270,7 +271,7 @@ test('the schedule walk names each Central day once, across both clock changes',
   // And the fetch walks the keys, not a Date stepped in the server's zone.
   const source = readFileSync('src/lib/usace/swpa.ts', 'utf8');
   assert.doesNotMatch(source, /\.setDate\(/, 'no Date stepped in the server zone');
-  assert.match(source, /scheduleDayKeys\(days\)\.map\(\(key\) => fetchDayScheduleForKey\(key, options\)\)/);
+  assert.match(source, /scheduleDayKeys\(days\)\.map\(\(key\) => fetchDaySchedule(?:ForKey|Checked)\(key, options\)\)/);
 });
 
 test('the file for a day key agrees with the file for every instant in that Central day', () => {
@@ -327,5 +328,43 @@ test('the pass reads each day\'s page once, uncached when asked, and a failed pa
   } finally {
     globalThis.fetch = original;
     console.error = errors;
+  }
+});
+
+// ── which way a missing sheet went ─────────────────────────────────────────
+// "Isn't posted yet" was said for both a failed request and a sheet that still
+// covered yesterday. Only the second is something SWPA did; readers are told
+// the two apart (DamScheduleCheck).
+
+test('today\'s check says failed for a failed request and keeps the time it was tried', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => new Response('unavailable', { status: 503 })) as typeof fetch;
+  const errors = console.error;
+  console.error = () => {};
+  try {
+    const before = Date.now();
+    const read = await fetchScheduleDaysChecked(2, { skipCache: true });
+    assert.deepEqual(read.pages, [null, null]);
+    assert.equal(read.today?.today, 'failed');
+    assert.ok(Date.parse(read.today!.checkedAt) >= before - 1000);
+  } finally {
+    globalThis.fetch = original;
+    console.error = errors;
+  }
+});
+
+test('today\'s check says not_posted when the sheet read still covers an earlier day', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(FIXTURE, { status: 200, headers: { date: 'Fri, 20 Nov 2026 13:05:00 GMT' } })) as typeof fetch;
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const read = await fetchScheduleDaysChecked(1, { skipCache: true });
+    // The fixture is a fixed past day, so for any real today it is "not yet refreshed".
+    assert.deepEqual(read.pages, [null]);
+    assert.deepEqual(read.today, { checkedAt: '2026-11-20T13:05:00.000Z', today: 'not_posted' });
+  } finally {
+    globalThis.fetch = original;
+    console.warn = warn;
   }
 });

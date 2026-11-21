@@ -128,7 +128,10 @@ test('the local note follows what the posted schedule has the dam doing in the s
   assert.equal(served(23).eddyRead, TAILWATER_NOTES.taneycomo.idle);
   const unposted = renderTailwaterRiverRead('taneycomo', withCurrentSchedule(stored, [], at(6), REFERENCE));
   assert.equal(unposted.eddyRead, null);
-  assert.equal(unposted.summaryText, 'Table Rock Dam’s schedule for today isn’t posted yet.');
+  assert.equal(unposted.summaryText, 'Table Rock Dam’s schedule for today couldn’t be verified.');
+  const checked = renderTailwaterRiverRead('taneycomo', withCurrentSchedule(stored, [], at(6), REFERENCE, { checkedAt: new Date(at(5.5)).toISOString(), today: 'not_posted' }));
+  assert.equal(checked.summaryText, 'At Table Rock Dam, no schedule is available for today as of 5:30 AM CT.');
+  assert.equal(checked.eddyRead, null);
 });
 
 test('the full report is the recent pattern, how the schedule has held, and that times are at the dam', () => {

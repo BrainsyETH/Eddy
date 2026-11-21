@@ -72,7 +72,7 @@ export async function GET(
           schedulingCapacityMw: snapshot.generationReference.schedulingCapacityMw,
         }
       : stored.reference;
-    const facts = withCurrentSchedule(stored, snapshot?.schedule ?? null, now, reference);
+    const facts = withCurrentSchedule(stored, snapshot?.schedule ?? null, now, reference, snapshot?.scheduleCheck ?? null);
     const read = tierDamRead(entitled, {
       ...renderDamRead(facts),
       sourcesUsed: Array.isArray(data.sources_used) ? data.sources_used : [],
