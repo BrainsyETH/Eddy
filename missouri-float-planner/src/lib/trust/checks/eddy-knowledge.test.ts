@@ -252,8 +252,11 @@ test('a gauge the river reports from with no block is reported, even when the ri
   assert.equal(findings[0].entityKey, 'white');
   assert.equal(
     findings[0].detail,
-    'EDDY_KNOWLEDGE.md has no confirmed "### Gauge:" block for 07057370 (read by 1 put-in); 07060500 (read by 2 put-ins); swl-bull-shoals-dam (the main gauge, read by 1 put-in). A Read from that gauge is not told where it sits or which water it speaks for.',
+    'EDDY_KNOWLEDGE.md has no confirmed "### Gauge:" block for 07057370 (read by 1 put-in); 07060500 (read by 2 put-ins). A Read from that gauge is not told where it sits or which water it speaks for.',
   );
+  // Bull Shoals' own release gauge is not asked for a block: the White's
+  // river Read and its release tab are the dam's code-written Read.
+  assert.doesNotMatch(findings[0].detail, /swl-bull-shoals-dam/);
 });
 
 test('a drafted block does not cover its gauge, and a confirmed one does', () => {

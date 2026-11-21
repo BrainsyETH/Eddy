@@ -12,6 +12,7 @@
 
 import { getGeneralKnowledge, listKnowledgeGauges, listKnowledgeRiverSlugs, listKnowledgeSectionGauges } from '@/lib/eddy/knowledge';
 import { riverNoteDefect } from '@/lib/eddy/river-note';
+import { tailwaterReadDamId } from '@/lib/eddy/tailwater-river-read';
 import { toNum } from '@/lib/utils/num';
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 
@@ -225,8 +226,13 @@ export function deriveReportingGaugeFindings(gauges: ReadonlyArray<KnowledgeGaug
       ?? (river.primarySiteId ? [{ siteId: river.primarySiteId, main: true, putIns: 0 }] : []);
     const confirmed = new Set(river.fileGauges.filter((g) => g.confirmed).map((g) => g.siteId));
     const drafted = new Set(river.fileGauges.filter((g) => !g.confirmed).map((g) => g.siteId));
+    // A tailwater-Read river's own release gauge (the dam's site id) is never
+    // written about by a model: its river Read and its release tab are the
+    // dam's code-written Read (ADR 0017 decisions 9 and 10), so no block is
+    // read for it and its absence is not a gap.
+    const damRead = tailwaterReadDamId(river.slug);
     const missing = reporting
-      .filter((site) => !confirmed.has(site.siteId))
+      .filter((site) => !confirmed.has(site.siteId) && site.siteId !== damRead)
       .sort((a, b) => a.siteId.localeCompare(b.siteId));
     if (!missing.length) return [];
 
