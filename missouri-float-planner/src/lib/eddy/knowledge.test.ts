@@ -436,6 +436,16 @@ test("the Gasconade's losing reach and Rockslide Bluff reach the Hazelgreen Read
   }
 });
 
+test("Crooked Creek's slab is Kelley's, as AGFC and the access point spell it", () => {
+  // 20261011203745 renamed the access point to "Kelley's Slab Access" from
+  // AGFC's water-trail page. The USGS gauge's own name, "Kelly Crossing", is
+  // USGS's spelling and stays.
+  const chat = getKnowledgeForChat('crooked-creek');
+  assert.doesNotMatch(chat, /Kelly's/);
+  assert.match(chat, /Kelley's Slab is the named hazard/);
+  assert.match(chat, /Kelly Crossing at Yellville \(07055607\)/);
+});
+
 test('the Buffalo names its lowest gauge for where it is', () => {
   // The file called it "Rush". The station is near Harriet, at Highway 14.
   assert.doesNotMatch(getKnowledgeForChat('buffalo'), /\*\*Rush\*\* is the lowest|Rush is the lowest gauge/);
