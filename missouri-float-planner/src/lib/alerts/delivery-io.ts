@@ -78,7 +78,7 @@ export async function priorPushRecipients(db: SupabaseClient, eventIds: string[]
         .order(eventColumn).order('user_id').range(from, to);
       // The table is additive. Any other read error must leave the outbox pending.
       if (error?.code === 'PGRST205' || error?.code === '42P01') return { data: [], error: null };
-      // So is its dam column (20261120203000). Before it exists no dam row can
+      // So is its dam column (20261121131051). Before it exists no dam row can
       // have been recorded, so there is nothing to miss.
       if (eventColumn === 'dam_event_id' && isMissingColumn(error)) return { data: [], error: null };
       const rows = (data ?? []) as unknown as Array<Record<string, string>>;

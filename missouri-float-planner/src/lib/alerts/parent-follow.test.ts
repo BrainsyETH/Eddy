@@ -34,8 +34,8 @@ before(async () => {
   `);
   // In ledger order. Each is applied twice: operators can safely retry a
   // pending migration.
-  for (const file of ['20261120174228_river_alert_delivery.sql', '20261120201500_river_alert_resume_reseed.sql',
-    '20261120203000_dam_unrecorded_recipients.sql']) {
+  for (const file of ['20261120174228_river_alert_delivery.sql', '20261121131024_river_alert_resume_reseed.sql',
+    '20261121131051_dam_unrecorded_recipients.sql']) {
     const migration = readFileSync(new URL(`../../../supabase/migrations/${file}`, import.meta.url), 'utf8');
     await db.exec(migration);
     await db.exec(migration);

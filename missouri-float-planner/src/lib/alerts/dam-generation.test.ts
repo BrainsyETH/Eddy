@@ -431,7 +431,7 @@ test('a dam push whose ticket and drain writes both fail is recorded, and not se
 });
 
 test('before the fallback column exists the dam pass still sends', async () => {
-  // Code deployed ahead of migration 20261120203000: the read finds no column.
+  // Code deployed ahead of migration 20261121131051: the read finds no column.
   const db = world({ notify_at_start: false }).fail({
     table: 'alert_push_unrecorded_recipients', mode: 'select', code: '42703', message: 'column dam_event_id does not exist',
   });
