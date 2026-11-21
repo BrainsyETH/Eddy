@@ -119,6 +119,10 @@ export async function generateEddyUpdate(
     floodAlerts,
     requestedSection: target.sectionName,
     supportedSection: gaugeResult?.sectionGaugeMatched ? target.sectionName : null,
+    // Judged by the shared trust rule: too old or flagged, and the river is
+    // not rated today (preflightFallbackReason).
+    readingTimestamp: gaugeResult ? gaugeResult.readingTimestamp : undefined,
+    qualifiers: gaugeResult?.qualifiers ?? null,
   });
   const fallback = preflightReportFallback(facts);
 

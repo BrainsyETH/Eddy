@@ -30,6 +30,8 @@ export interface GaugeConditionResult {
   thresholds: ConditionThresholds;
   /** USGS qualifier note (e.g. "USGS estimated this reading. It may be off."), null when clean. */
   qualifierNote: string | null;
+  /** The qualifier codes themselves, for the Read's trust rule (report-facts.ts). */
+  qualifiers: string[];
 }
 
 const GAUGE_LINK_SELECT = `
@@ -252,5 +254,6 @@ export async function getGaugeConditions(
       const q = classifyQualifiers(qualifiers);
       return q.suspect ? q.note : null;
     })(),
+    qualifiers: qualifiers ?? [],
   };
 }

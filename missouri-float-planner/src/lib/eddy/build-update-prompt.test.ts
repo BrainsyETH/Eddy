@@ -114,14 +114,21 @@ test('both Read briefs send weather to the Weather section and name no forecast 
 });
 
 // ── a replay is dated to its recorded morning ───────────────────────
-test('the date line and the stale-reading warning follow the time the prompt is for', () => {
+test('the date line and the reading time follow the time the prompt is for', () => {
   const stale = { ...gauge, readingTimestamp: '2026-11-18T03:00:00Z' };
   const then = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-18T05:00:00Z'));
   assert.match(then, /^Date: Tuesday, November 17, 2026$/m);
+  // Two hours old: still rated, and said with its time. The old warning, which
+  // told the model the data was doubtful, is gone.
+  assert.match(then, /^Reading taken at 9:00 PM CT, about 2 hours before this report\. When you give today's level or condition, say it is as of 9:00 PM\.$/m);
   assert.doesNotMatch(then, /WARNING: Reading is/);
   const later = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-19T15:00:00Z'));
   assert.match(later, /^Date: Thursday, November 19, 2026$/m);
-  assert.match(later, /WARNING: Reading is 36 hours old/);
+  // A reading from another Central day names its day. (A reading this old is
+  // never sent to the model by the generator: preflightFallbackReason.)
+  assert.match(later, /^Reading taken at 9:00 PM CT Tuesday, about 36 hours before this report\./m);
+  const fresh = buildPrompt(target, stale, null, null, [], '', null, null, null, new Date('2026-11-18T03:20:00Z'));
+  assert.doesNotMatch(fresh, /Reading taken at/);
 });
 
 // ── the gauge Read's message ────────────────────────────────────────
@@ -140,8 +147,9 @@ test("a gauge Read's message carries the knowledge it is handed and follows the 
   assert.match(then, /\[THIS GAUGE\]\n\[AUTHORITATIVE GAUGE FACTS/);
   assert.match(then, /\[GAUGE TRAJECTORY\]\n24h change: -0\.2 ft/);
   assert.match(then, /\[OUTLOOK\]\nRain is likely tomorrow\./);
-  // Twelve hours after the reading, the stale warning; with no knowledge, no block.
-  assert.match(then, /WARNING: Reading is 12 hours old/);
-  const bare = buildGaugePrompt({ ...inputs, riverKnowledge: '', now: new Date('2026-11-18T05:00:00Z') });
-  assert.doesNotMatch(bare, /RIVER KNOWLEDGE|WARNING: Reading is/);
+  // Twelve hours after the reading, its time; with no knowledge, no block.
+  assert.match(then, /^Reading taken at 9:00 PM CT Tuesday, about 12 hours before this report\./m);
+  assert.doesNotMatch(then, /WARNING: Reading is/);
+  const bare = buildGaugePrompt({ ...inputs, riverKnowledge: '', now: new Date('2026-11-18T03:30:00Z') });
+  assert.doesNotMatch(bare, /RIVER KNOWLEDGE|Reading taken at/);
 });

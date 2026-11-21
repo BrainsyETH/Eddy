@@ -2,6 +2,8 @@
 // This is deliberately SDK/DB-free so the production failure can be replayed.
 import { classifyReading, type ConditionThresholds } from '@shared/condition-ladder';
 import { CONDITION_SYSTEM, type ConditionCode } from '@shared/condition-system';
+import { hasSuspectQualifier, suspectQualifierNote } from '@shared/reading-trust';
+import { isReadingStale } from '@shared/reading-staleness';
 import type { NWSAlert } from '../nws/alerts';
 import { parseEddyResponse, stripEddyMarkers, type ParsedEddyResponse } from './parse-response';
 
@@ -18,6 +20,70 @@ export interface ReportFactsInput {
   /** Set only when the section's database-resolved or explicitly assigned station was loaded. */
   supportedSection?: string | null;
   requestedSection?: string | null;
+  /**
+   * When the reading was taken. Omitted (undefined) by callers that do not
+   * judge the reading's age, which leaves it trusted; null means the reading
+   * has no time, which is not trusted (reading-trust.ts).
+   */
+  readingTimestamp?: string | null;
+  /** The provider's qualifier codes on the reading. */
+  qualifiers?: readonly string[] | null;
+  /** The clock the report is written against. Default now. */
+  now?: number;
+}
+
+/**
+ * Codes that make only the DISCHARGE unreliable: a rating extension and
+ * backwater both distort the flow computed from the stage, not the stage. A
+ * gauge rated in feet is still rated on them.
+ */
+const DISCHARGE_ONLY_QUALIFIERS: ReadonlySet<string> = new Set(['Rat', 'Bkw']);
+
+export type ReadingDistrust = 'stale' | 'suspect_qualifier';
+
+/**
+ * Whether the reading this report would rate is fit to rate, by the one rule
+ * the rest of Eddy uses (shared/reading-trust.ts): older than six hours, or
+ * flagged by a suspect qualifier on the measurement that is rated, and it
+ * keeps its value and time but gets no condition. Suspect outranks stale.
+ */
+function readingDistrust(input: ReportFactsInput, unit: 'ft' | 'cfs', ageHours: number | null): { distrust: ReadingDistrust | null; note: string | null } {
+  if (input.gaugeHeightFt == null && input.dischargeCfs == null) return { distrust: null, note: null };
+  const relevant = (input.qualifiers ?? []).filter((code) => unit === 'cfs' || !DISCHARGE_ONLY_QUALIFIERS.has(code));
+  if (hasSuspectQualifier(relevant)) return { distrust: 'suspect_qualifier', note: suspectQualifierNote(relevant, 'USGS') };
+  if (input.readingTimestamp !== undefined && isReadingStale(ageHours)) return { distrust: 'stale', note: null };
+  return { distrust: null, note: null };
+}
+
+const READING_TIME = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit' });
+const READING_DAY = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', weekday: 'long' });
+const CENTRAL_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+/** "7:15 AM CT", or "11:40 PM CT Thursday" when the reading is from another Central day. */
+export function readingTimeLabel(readingAt: string, now: number): string | null {
+  const ms = Date.parse(readingAt);
+  if (!Number.isFinite(ms)) return null;
+  const time = `${READING_TIME.format(ms)} CT`;
+  return CENTRAL_DAY.format(ms) === CENTRAL_DAY.format(now) ? time : `${time} ${READING_DAY.format(ms)}`;
+}
+
+/** A reading this old is still rated, but its time is said with it. */
+export const READING_TIME_SHOWN_HOURS = 1;
+
+/**
+ * The prompt's line about when the reading was taken, or null for a current
+ * one. Replaces "WARNING: Reading is N hours old, data may be stale", which
+ * told the model the data was doubtful while the brief tells it never to say
+ * so: a reading old enough to doubt is no longer handed to the model at all
+ * (preflightFallbackReason), and one still usable is said with its time.
+ */
+export function readingTimePromptLine(readingTimestamp: string | null | undefined, now: Date): string | null {
+  if (!readingTimestamp) return null;
+  const ageHours = (now.getTime() - Date.parse(readingTimestamp)) / 3_600_000;
+  if (!Number.isFinite(ageHours) || ageHours < READING_TIME_SHOWN_HOURS) return null;
+  const label = readingTimeLabel(readingTimestamp, now.getTime());
+  if (!label) return null;
+  return `Reading taken at ${label}, about ${Math.round(ageHours)} hour${Math.round(ageHours) === 1 ? '' : 's'} before this report. When you give today's level or condition, say it is as of ${label.replace(/ CT.*/, '')}.`;
 }
 
 /** Input comes from the active-alert endpoint and the river-area filter.
@@ -52,7 +118,20 @@ export function buildReportFacts(input: ReportFactsInput) {
     ? 'unavailable'
     : value < min ? 'below' : value > max ? 'above' : 'within';
   const conditionCode = input.conditionCode ?? classifyReading(input.gaugeHeightFt, input.thresholds, input.dischargeCfs);
-  return { ...input, unit, value, min, max, relation, conditionCode, conditionLabel: CONDITION_SYSTEM[conditionCode].label };
+  const { now: clock, ...rest } = input;
+  const now = clock ?? Date.now();
+  const readingAgeHours = input.readingTimestamp ? (now - Date.parse(input.readingTimestamp)) / 3_600_000 : null;
+  const ageHours = readingAgeHours != null && Number.isFinite(readingAgeHours) ? readingAgeHours : null;
+  const trust = readingDistrust(input, unit, ageHours);
+  return {
+    ...rest, unit, value, min, max, relation, conditionCode, conditionLabel: CONDITION_SYSTEM[conditionCode].label,
+    /** Hours between the reading and the clock the facts were built on. */
+    readingAgeHours: ageHours,
+    readingDistrust: trust.distrust,
+    /** What a suspect qualifier means for the number, in readers' words. */
+    readingQualifierNote: trust.note,
+    factsBuiltAt: now,
+  };
 }
 export type ReportFacts = ReturnType<typeof buildReportFacts>;
 
@@ -275,7 +354,7 @@ const FALLBACK_MEANING: Record<ConditionCode, string> = {
  * no calibrated rating" and "Eddy has no reading" are separate problems with
  * separate fixes, and until this existed both were just rows with no model.
  */
-export type PreflightFallbackReason = 'no_gauge' | 'no_reading' | 'no_rating' | 'unsupported_section';
+export type PreflightFallbackReason = 'no_gauge' | 'no_reading' | 'no_rating' | 'stale_reading' | 'suspect_reading' | 'unsupported_section';
 export type GuardFallbackReason = 'claims_mismatch' | 'contradiction' | 'incomplete';
 /** Every model was asked and none returned a report the guard could judge
  * (each call failed, came back empty, or was refused as incomplete while
@@ -318,6 +397,11 @@ export function preflightFallbackReason(f: ReportFacts): PreflightFallbackReason
     if (!f.gaugeName) return 'no_gauge';
     return f.gaugeHeightFt == null && f.dischargeCfs == null ? 'no_reading' : 'no_rating';
   }
+  // A reading too old or too doubtful to rate is never handed to the model:
+  // the claim about today's water is withheld by code, not by a request in
+  // the prompt. Named before the section, the more basic gap.
+  if (f.readingDistrust === 'suspect_qualifier') return 'suspect_reading';
+  if (f.readingDistrust === 'stale') return 'stale_reading';
   // An unrated station is the more basic gap, so it is named first when a
   // section is also unsupported.
   if (f.requestedSection && !f.supportedSection) return 'unsupported_section';
@@ -409,9 +493,24 @@ export function factualReportFallback(f: ReportFacts): ParsedEddyResponse {
   const measured = f.gaugeHeightFt != null ? formatReportMeasurement(f.gaugeHeightFt, 'ft')
     : f.dischargeCfs != null ? formatReportMeasurement(f.dischargeCfs, 'cfs') : null;
   const unknown = f.conditionCode === 'unknown';
+  // A reading too old or doubtful to rate keeps its value and its time, and
+  // makes no claim about the water today. Any flood alert still leads.
+  if (f.gaugeName && !unknown && f.readingDistrust) {
+    const rated = f.value != null ? formatReportMeasurement(f.value, f.unit) : measured;
+    const when = f.readingTimestamp ? readingTimeLabel(f.readingTimestamp, f.factsBuiltAt) : null;
+    const reading = `${gauge} last read ${rated}${when ? ` at ${when}` : ''}.`;
+    const hours = f.readingAgeHours != null ? Math.round(f.readingAgeHours) : null;
+    const why = f.readingDistrust === 'suspect_qualifier'
+      ? `${f.readingQualifierNote ?? 'USGS flagged this reading.'} Eddy isn't rating the river on it.`
+      : `${hours != null && hours < 48 ? `That is ${hours} hours old, too old` : 'That reading is too old'} to rate the river on.`;
+    const summaryText = [alertLead, reading].filter(Boolean).join(' ');
+    return { summaryText, eddyRead: `${summaryText} ${why}`.replace(/\s+/g, ' ').trim(), quoteText: [summaryText, why].join(' ') };
+  }
+  const shownAt = f.readingTimestamp && f.readingAgeHours != null && f.readingAgeHours >= READING_TIME_SHOWN_HOURS
+    ? readingTimeLabel(f.readingTimestamp, f.factsBuiltAt) : null;
   const reading = !f.gaugeName ? `No gauge rating for ${f.locationName ?? 'this river'} today.`
     : unknown ? (measured ? `${gauge} is at ${measured}. Eddy has no float rating for it.` : `${gauge} is not reporting right now.`)
-      : `${gauge} reads ${f.conditionLabel}.`;
+      : `${gauge} reads ${f.conditionLabel}${shownAt ? ` as of ${shownAt}` : ''}.`;
   const summaryText = [alertLead, reading].filter(Boolean).join(' ');
   const assessment = !f.gaugeName ? 'Eddy has no gauge it can rate this water from.'
     : unknown ? (measured ? '' : 'Without a reading there is no rating.')

@@ -3,7 +3,7 @@ import { matchAlertsByTerms } from '../nws/alert-matching';
 import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, plainRelation, BELOW_OPTIMAL_NOTE, dangerLine, ladderLines, ladderPosition, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine, reportIncompleteness } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, plainRelation, BELOW_OPTIMAL_NOTE, dangerLine, ladderLines, ladderPosition, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, preflightFallbackReason, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine, reportIncompleteness } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
 import { checkRead } from './read-checks';
 
@@ -635,4 +635,68 @@ test('the distance to the next level is put in words a Read can use', () => {
   const stage = ladderPosition(buildReportFacts({ gaugeName: 'Mulberry River near Mulberry, AR', gaugeHeightFt: 1.03, dischargeCfs: 46,
     thresholds: { thresholdUnit: 'ft', levelTooLow: 1.5, levelLow: 1.8, levelOptimalMin: 2, levelOptimalMax: 3.5, levelHigh: 3.5, levelDangerous: 5 } }));
   assert.equal(stage, "this gauge starts to float at 1.5 ft. Today's 1.03 ft is 0.47 ft short of that.");
+});
+
+// ── Old and flagged readings ────────────────────────────────────────────────
+// One rule for what may be said about a reading (shared/reading-trust.ts):
+// while it is usable it is rated and said with its time; past six hours, or
+// flagged on the measurement that is rated, code withholds the condition and
+// keeps any flood warning. The model is never handed such a reading.
+
+const NOW_MS = Date.parse('2026-11-20T18:00:00Z'); // noon CT, Friday
+const hoursAgo = (h: number) => new Date(NOW_MS - h * 3_600_000).toISOString();
+
+test('a usable reading is rated and said with its time', () => {
+  const current = buildReportFacts({ ...input, readingTimestamp: hoursAgo(0.25), now: NOW_MS });
+  assert.equal(current.readingDistrust, null);
+  assert.equal(preflightReportFallback(current), null);
+  assert.equal(factualReportFallback(current).summaryText, 'The gauge at Van Buren, MO reads Good.');
+
+  const older = buildReportFacts({ ...input, readingTimestamp: hoursAgo(3), now: NOW_MS });
+  assert.equal(older.readingDistrust, null);
+  assert.equal(preflightReportFallback(older), null);
+  assert.equal(factualReportFallback(older).summaryText, 'The gauge at Van Buren, MO reads Good as of 9:00 AM CT.');
+
+  // A caller that does not judge age leaves the reading trusted.
+  assert.equal(buildReportFacts(input).readingDistrust, null);
+});
+
+test('past six hours, the condition is withheld and the reading kept with its time', () => {
+  const stale = buildReportFacts({ ...input, readingTimestamp: hoursAgo(9), now: NOW_MS });
+  assert.equal(stale.readingDistrust, 'stale');
+  assert.equal(preflightFallbackReason(stale), 'stale_reading');
+  const report = preflightReportFallback(stale)!;
+  assert.equal(report.summaryText, 'The gauge at Van Buren, MO last read 756 cfs at 3:00 AM CT.');
+  assert.equal(report.quoteText, 'The gauge at Van Buren, MO last read 756 cfs at 3:00 AM CT. That is 9 hours old, too old to rate the river on.');
+  for (const text of [report.summaryText, report.eddyRead, report.quoteText]) {
+    assert.doesNotMatch(text!, /\bGood\b|Floatable|optimal/);
+  }
+  // From yesterday, the day is named.
+  const overnight = buildReportFacts({ ...input, readingTimestamp: hoursAgo(20), now: NOW_MS });
+  assert.match(preflightReportFallback(overnight)!.summaryText!, /at 4:00 PM CT Thursday\.$/);
+  // No time at all is not trusted.
+  assert.equal(buildReportFacts({ ...input, readingTimestamp: null, now: NOW_MS }).readingDistrust, 'stale');
+});
+
+test('a flagged reading is withheld only when the flag touches the rated measurement', () => {
+  const ice = buildReportFacts({ ...input, readingTimestamp: hoursAgo(1), qualifiers: ['P', 'Ice'], now: NOW_MS });
+  assert.equal(preflightFallbackReason(ice), 'suspect_reading');
+  assert.match(preflightReportFallback(ice)!.quoteText, /Ice at the gauge\. This reading may be off\. Eddy isn't rating the river on it\.$/);
+  // Suspect outranks stale.
+  assert.equal(buildReportFacts({ ...input, readingTimestamp: hoursAgo(9), qualifiers: ['Eqp'], now: NOW_MS }).readingDistrust, 'suspect_qualifier');
+  // Provisional is normal.
+  assert.equal(buildReportFacts({ ...input, readingTimestamp: hoursAgo(1), qualifiers: ['P'], now: NOW_MS }).readingDistrust, null);
+  // A rating extension or backwater distorts discharge, not stage: a gauge
+  // rated in cfs is withheld, one rated in feet is not.
+  assert.equal(buildReportFacts({ ...input, readingTimestamp: hoursAgo(1), qualifiers: ['Rat'], now: NOW_MS }).readingDistrust, 'suspect_qualifier');
+  const feet = { ...input, thresholds: { ...input.thresholds, thresholdUnit: 'ft' as const, levelTooLow: 1, levelLow: 1.5, levelOptimalMin: 2, levelOptimalMax: 3, levelHigh: 3, levelDangerous: 5 } };
+  assert.equal(buildReportFacts({ ...feet, readingTimestamp: hoursAgo(1), qualifiers: ['Bkw'], now: NOW_MS }).readingDistrust, null);
+});
+
+test('an active flood warning still leads when the reading is withheld', () => {
+  const floodAlerts = [{ event: 'Flood Warning', areaDesc: 'Carter, MO' }];
+  const stale = buildReportFacts({ ...input, floodAlerts, readingTimestamp: hoursAgo(10), now: NOW_MS });
+  const report = preflightReportFallback(stale)!;
+  assert.match(report.summaryText!, /^NWS Flood Warning for Carter, MO\. Follow NWS instructions\. The gauge at Van Buren, MO last read 756 cfs/);
+  assert.match(report.quoteText, /^NWS Flood Warning/);
 });

@@ -175,7 +175,7 @@ export async function generateGaugeUpdate(
   // 1. Fetch this gauge's latest reading (DB first, live fallback if stale).
   const { data: dbReading } = await supabase
     .from('gauge_readings')
-    .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+    .select('gauge_height_ft, discharge_cfs, reading_timestamp, qualifiers')
     .eq('gauge_station_id', target.gaugeStationId)
     .order('reading_timestamp', { ascending: false })
     .limit(1)
@@ -184,6 +184,7 @@ export async function generateGaugeUpdate(
   let gaugeHeightFt = toNum(dbReading?.gauge_height_ft);
   let dischargeCfs = toNum(dbReading?.discharge_cfs);
   let readingTimestamp = dbReading?.reading_timestamp ?? null;
+  let qualifiers: string[] | null = dbReading?.qualifiers ?? null;
 
   const ageMs = readingTimestamp ? Date.now() - new Date(readingTimestamp).getTime() : Infinity;
   if (ageMs > STALE_READING_MS) {
@@ -193,6 +194,7 @@ export async function generateGaugeUpdate(
         if (live.gaugeHeightFt != null) gaugeHeightFt = live.gaugeHeightFt;
         if (live.dischargeCfs != null) dischargeCfs = live.dischargeCfs;
         if (live.readingTimestamp) readingTimestamp = live.readingTimestamp;
+        qualifiers = live.qualifiers?.length ? live.qualifiers : qualifiers;
       }
     } catch (e) {
       console.warn(`[GaugeUpdates] Live USGS fetch failed for ${target.usgsSiteId}:`, e);
@@ -213,7 +215,7 @@ export async function generateGaugeUpdate(
   }
 
   // 2. Compute condition.
-  const facts = buildReportFacts({ gaugeName: target.gaugeName, gaugeHeightFt, dischargeCfs, thresholds: target.thresholds, floodAlerts: alerts });
+  const facts = buildReportFacts({ gaugeName: target.gaugeName, gaugeHeightFt, dischargeCfs, thresholds: target.thresholds, floodAlerts: alerts, readingTimestamp, qualifiers });
   const conditionCode = facts.conditionCode;
 
   // What this attempt was handed. Later steps fill in the rest, so an early

@@ -8,7 +8,7 @@ import type { RiverContext } from '@/lib/rivers/context';
 import { DEFAULT_TIMEZONE } from '@/lib/rivers/defaults';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { buildConditionSemantics } from './condition-semantics';
-import { reportFactsPrompt, type ReportFacts } from './report-facts';
+import { readingTimePromptLine, reportFactsPrompt, type ReportFacts } from './report-facts';
 import { materialOutlookLines } from './material-outlook';
 import { seasonPromptLines, trendPromptLines } from './trend-lines';
 
@@ -83,10 +83,8 @@ export function buildPrompt(
   lines.push('[CURRENT GAUGE DATA]');
 
   lines.push(reportFactsPrompt(gauge.facts));
-  if (gauge.readingTimestamp) {
-    const ageHours = (now.getTime() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
-    if (ageHours > 6) lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
-  }
+  const readingTime = readingTimePromptLine(gauge.readingTimestamp, now);
+  if (readingTime) lines.push(readingTime);
 
   // Gauge threshold knowledge
   if (gauge.notes) {

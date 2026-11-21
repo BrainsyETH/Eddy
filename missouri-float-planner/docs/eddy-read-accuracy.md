@@ -13,6 +13,21 @@ Official flood-stage overrides remain independent of recreational thresholds.
 A Dangerous fallback omits its optimal-band sentence. An editorial danger
 threshold is not an official closure order.
 
+### Old and flagged readings (2026-11-20)
+
+A Read follows the rule the rest of Eddy uses for a reading
+(`shared/reading-trust.ts`). While a reading is usable it is rated, and from an
+hour old it is said with its time: the prompt carries "Reading taken at 9:00 AM
+CT", and the code-written report says "reads Good as of 9:00 AM CT". Past six
+hours, or with a suspect qualifier on the measurement that is rated (a rating
+extension or backwater flag touches discharge only, so it does not withhold a
+gauge rated in feet), the reading is not handed to the model. The code-written
+report keeps the value and its time, says why it is not rated, makes no claim
+about the water today, and still leads with any active flood alert. These
+fallbacks are recorded as `stale_reading` and `suspect_reading`. The old prompt
+line "WARNING: Reading is N hours old, data may be stale" is gone: it asked the
+model to hedge while the brief forbids saying data is doubtful.
+
 ## Geographic scope and missing gauges
 
 Explicit curated station assignments take priority and are never erased by an

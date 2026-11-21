@@ -14,7 +14,7 @@ import type { ForecastData } from '@/lib/weather/openweather';
 import { buildSecondaryGaugeSemantics } from './condition-semantics';
 import type { GaugeTrajectory } from './gauge-trajectory';
 import { materialOutlookLines } from './material-outlook';
-import { reportFactsPrompt, type ReportFacts } from './report-facts';
+import { readingTimePromptLine, reportFactsPrompt, type ReportFacts } from './report-facts';
 import { seasonPromptLines, trendPromptLines } from './trend-lines';
 
 /** What the message names: the station and its river. */
@@ -62,12 +62,8 @@ export function buildGaugePrompt(inputs: GaugePromptInputs): string {
   lines.push('');
   lines.push('[THIS GAUGE]');
   lines.push(reportFactsPrompt(facts));
-  if (readingTimestamp) {
-    const ageHours = (now.getTime() - new Date(readingTimestamp).getTime()) / (1000 * 60 * 60);
-    if (ageHours > 6) {
-      lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
-    }
-  }
+  const readingTime = readingTimePromptLine(readingTimestamp, now);
+  if (readingTime) lines.push(readingTime);
 
   const trend = trendPromptLines(trajectory);
   if (trend.length) lines.push('', ...trend);
