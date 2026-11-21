@@ -44,6 +44,7 @@ import { damHasRead } from './dam-read-dams';
 import { damRiverBlocks, withCurrentSchedule, type DamReadFacts, type GenerationRef, type PostedState } from './dam-read-facts';
 import { servable } from './dam-update-policy';
 import type { DamSnapshot } from '@shared/dam-types';
+import { generatingForNow } from '@shared/dam-generation';
 import type { EddyUpdateEntry } from '@/types/api';
 
 /** One note per posted state. Without `full`, near full power uses `generating`. */
@@ -105,12 +106,27 @@ export interface TailwaterRiverRead {
   quoteText: string;
 }
 
-/** The three blocks, from a dam's facts already set to the serving clock. */
-export function renderTailwaterRiverRead(riverSlug: string, facts: DamReadFacts): TailwaterRiverRead {
+/**
+ * The three blocks, from a dam's facts already set to the serving clock.
+ *
+ * `observedGenerating` is a FRESH turbine observation (generatingForNow: null
+ * when there is none, or it is too old to speak for now). The note follows the
+ * posted schedule, so on a day the dam generates with nothing posted the idle
+ * note ("a siphon keeps a small, steady release going") would describe a
+ * river that is running. A fresh observation of generation drops the idle
+ * note; nothing is put in its place, because the schedule is what the note is
+ * about and a reading is not a pattern.
+ */
+export function renderTailwaterRiverRead(
+  riverSlug: string,
+  facts: DamReadFacts,
+  observedGenerating: boolean | null = null,
+): TailwaterRiverRead {
   const blocks = damRiverBlocks(facts);
+  const contradicted = blocks.state === 'idle' && observedGenerating === true;
   return {
     summaryText: blocks.summary,
-    eddyRead: tailwaterNote(riverSlug, blocks.state),
+    eddyRead: contradicted ? null : tailwaterNote(riverSlug, blocks.state),
     quoteText: blocks.full,
   };
 }
@@ -172,7 +188,7 @@ export async function loadTailwaterRiverRead(
 
   const facts = withCurrentSchedule(data.facts, snapshot?.schedule ?? null, now, referenceOf(snapshot, data.facts.reference), snapshot?.scheduleCheck ?? null);
   return {
-    ...renderTailwaterRiverRead(riverSlug, facts),
+    ...renderTailwaterRiverRead(riverSlug, facts, snapshot ? generatingForNow(snapshot, now) : null),
     damId,
     generatedAt: data.generated_at,
     sourcesUsed: Array.isArray(data.sources_used) ? data.sources_used : [],

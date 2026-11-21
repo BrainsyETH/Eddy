@@ -126,6 +126,13 @@ test('the local note follows what the posted schedule has the dam doing in the s
   assert.equal(served(12).eddyRead, TAILWATER_NOTES.taneycomo.idle, 'between runs');
   assert.equal(served(19).eddyRead, TAILWATER_NOTES.taneycomo.full, 'a run posted near full power');
   assert.equal(served(23).eddyRead, TAILWATER_NOTES.taneycomo.idle);
+  // A fresh observation of generation drops the idle note; an old or absent
+  // one leaves it, and a generating note is never dropped by it.
+  const idleAt4 = withCurrentSchedule(stored, schedule, at(4), REFERENCE);
+  assert.equal(renderTailwaterRiverRead('taneycomo', idleAt4, true).eddyRead, null);
+  assert.equal(renderTailwaterRiverRead('taneycomo', idleAt4, null).eddyRead, TAILWATER_NOTES.taneycomo.idle);
+  assert.equal(renderTailwaterRiverRead('taneycomo', idleAt4, false).eddyRead, TAILWATER_NOTES.taneycomo.idle);
+  assert.equal(renderTailwaterRiverRead('taneycomo', withCurrentSchedule(stored, schedule, at(6), REFERENCE), true).eddyRead, TAILWATER_NOTES.taneycomo.generating);
   const unposted = renderTailwaterRiverRead('taneycomo', withCurrentSchedule(stored, [], at(6), REFERENCE));
   assert.equal(unposted.eddyRead, null);
   assert.equal(unposted.summaryText, 'Table Rock Dam’s schedule for today couldn’t be verified.');
