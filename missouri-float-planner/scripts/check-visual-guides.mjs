@@ -121,6 +121,8 @@ async function exercises(page, file) {
       break;
     }
     case 'eddys-day.html': {
+      const season = await page.evaluate(() => /CST/.test(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', timeZoneName: 'short' }).format(new Date())) ? 'standard' : 'central');
+      expect(await page.locator('#tz [aria-pressed="true"]').getAttribute('data-tz') === season, 'schedule opens on the current Central season');
       for(const timezone of ['central','standard','utc']) {
         await page.locator(`[data-tz="${timezone}"]`).click();
         for(let day=0;day<7;day++) {
@@ -139,6 +141,9 @@ async function exercises(page, file) {
       for (const tab of order) {
         await page.locator(`[data-tab="${tab}"]`).click();
         expect(await page.locator('.view.on').getAttribute('data-view') === tab, 'correct tour panel');
+        const markers = await page.locator('.view.on .hs').evaluateAll(nodes => nodes.map(node => node.dataset.n).sort());
+        const notes = await page.locator('#n-list .note').evaluateAll(nodes => nodes.map(node => node.dataset.n).sort());
+        assert.deepEqual(markers, notes, `${tab}: every note has a marker on the phone`); checks++;
         for(const marker of await page.locator('.view.on .hs').all()) {
           await marker.click();
           expect(await page.locator('#vx-tour-tip').isVisible(), 'mobile marker explanation opens');
@@ -163,9 +168,14 @@ try {
       await page.goto(pathToFileURL(resolve(root,file)).href);
       await page.evaluate(()=>document.fonts.ready);
       await exercises(page,file);
-      for(const width of [320,390,1280]) {
+      for(const width of [320,390,700,1280]) {
         await page.setViewportSize({width,height:900});
         expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth), `${file}: overflow at ${width} ${colorScheme}`);
+        if (await page.locator('.vx-map-toggle').count()) expect(await page.locator('.vx-map-toggle').evaluate(node => getComputedStyle(node).borderTopStyle === 'solid'), `${file}: diagram toggle is styled at ${width}`);
+        if (file === 'float-board.html') {
+          const [putin, takeout] = await page.locator('#putin, #takeout').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); return { top: Math.round(box.top), left: Math.round(box.left), width: box.width }; }));
+          if (putin.left !== takeout.left) expect(putin.top === takeout.top && putin.width >= 200 && takeout.width >= 200, `${file}: side-by-side stops line up and fit at ${width}`);
+        }
       }
       assert.deepEqual(errors,[],`${file}: browser errors`);
       assert.deepEqual(requests,[],`${file}: standalone guide made an external request`);
@@ -173,5 +183,5 @@ try {
     }
     console.log(`PASS ${file}`);
   }
-  console.log(`${checks} interaction/layout checks passed across ${files.length} guides, light/dark, 320/390/1280px.`);
+  console.log(`${checks} interaction/layout checks passed across ${files.length} guides, light/dark, 320/390/700/1280px.`);
 } finally { await browser.close(); }

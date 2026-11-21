@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 import { checkSocialReview } from './social-review-smoke.mjs';
 import { checkModelTests } from './ai-models-smoke.mjs';
+import { checkVisualGuidesGallery } from './visual-guides-smoke.mjs';
 const require = createRequire(import.meta.url);
 const origin = 'http://127.0.0.1:3152';
 const out = process.env.ADMIN_SMOKE_OUTPUT || '/tmp/eddy-admin-smoke';
@@ -414,6 +415,7 @@ try {
   await page.getByRole('button', { name: 'Try again' }).waitFor();
   await checkAccessChanges(browser, origin, post, reports);
   await checkModelTests(browser, origin, out);
+  await checkVisualGuidesGallery(browser, origin, out, secret);
   assert.deepEqual(pageErrors, []);
   console.log(
     'PASS: direct subpage login, save conflict, discard, session renewal, search history, scoped selections, responsive detail focus, mobile drawer, role changes, revocation, sign-out and network recovery.',

@@ -155,3 +155,13 @@ test('schedule examples shift weekly jobs across midnight in CDT and CST', async
   assert.deepEqual(runs('standard', [375], [1], 1), [15]);
   assert.deepEqual(runs('utc', [375], [1], 1), [375]);
 });
+
+test('the offline guide legend lists exactly the dot colors the demo uses', async () => {
+  const html = await readFile('content/admin-visuals/ios-plumbing.html', 'utf8');
+  const legend = html.slice(html.indexOf('<div class="legend">'), html.indexOf('</div>', html.indexOf('<div class="legend">')));
+  const shown = [...legend.matchAll(/background:var\((--[\w-]+)\)/g)].map(match => match[1]);
+  const palette = Object.fromEntries([...html.match(/const C = \{([^}]*)\}/)![1].matchAll(/(\w+): "var\((--[\w-]+)\)"/g)].map(match => [match[1], match[2]]));
+  // log() colors a line C.data unless told otherwise.
+  const used = new Set(['data', ...[...html.matchAll(/\bC\.(\w+)/g)].map(match => match[1])]);
+  assert.deepEqual([...shown].sort(), [...used].map(key => palette[key]).sort());
+});

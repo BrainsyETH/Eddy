@@ -60,8 +60,10 @@ scratch generators are not retained. Shared collection chrome is now generated:
 
 Keep assets inline and example labels honest. The iPhone tour follows Today,
 Map, Floats, Favorites, Alerts; Settings is reached from the account button.
-The daily schedule offers explicit CDT, CST, and UTC examples. Changing its
-weekday or timezone refreshes the jobs shown at the selected minute.
+The daily schedule offers explicit CDT, CST, and UTC examples and opens on the
+one Central time is using today. Changing its weekday or timezone refreshes
+the jobs shown at the selected minute. Each phone tab in the tour has a
+numbered marker for every note beside it.
 
 The condition guide places app/alert results beside the slider and keeps
 missing-data controls optional. Float planning puts route choices and time
@@ -106,8 +108,9 @@ to admin navigation must work with the response security headers. Try a direct
 diagram URL after signing out; it must return to sign-in without serving HTML.
 Run `npm run test:visual-guides` after `npx playwright install chromium` for
 browser checks across all nine guides. They cover the scenarios above, light
-and dark appearances, 320/390/1280px layouts, reduced motion, runtime errors,
-and unexpected network requests. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can
+and dark appearances, 320/390/700/1280px layouts, reduced motion, runtime errors,
+and unexpected network requests. `npm run test:admin-browser` checks that the
+gallery's headings stay readable in light and dark appearances. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can
 point to an existing Chromium installation. Gallery/route tests also check
 catalog assets, the native tab order, and the deployed cron catalog.
 

@@ -301,6 +301,7 @@ button:disabled { cursor:default; opacity:.45; }
 .vx-workspace #detail { min-width:0; margin:0; }
 .vx-workspace .vx-explorer { margin:0; }
 .vx-workspace .vx-map-toggle { min-height:44px; }
+@media(min-width:761px) { .vx-map-toggle { padding:8px 14px; border:1px solid var(--vx-border); border-radius:999px; background:var(--vx-surface); color:var(--vx-link); font-size:15px; cursor:pointer; } }
 @media(max-width:900px) { .vx-workspace { grid-template-columns:1fr; } }
 @media(max-width:640px) {
   .vx-nav { padding:12px 16px; gap:8px 12px; }
@@ -430,7 +431,7 @@ const DAYNAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 const meta = (p) => META[p] || META[p.split("?")[0]] || ["ops", p.split("?")[0].split("/").pop().replaceAll("-", " "), "No description yet."];
 JOBS.forEach((j, i) => { j.i = i; const m = meta(j.path); j.group = m[0]; j.name = m[1]; j.what = m[2]; if (j.path.includes("source=")) j.name += j.path.includes("mo_state_parks") ? " \u00b7 MO State Parks" : " \u00b7 Recreation.gov"; });
 
-const S = { tz: "central", dow: new Date().getDay(), min: 6 * 60 + 5, playing: false, sel: null };
+const S = { tz: /CST/.test(new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", timeZoneName: "short" }).format(new Date())) ? "standard" : "central", dow: new Date().getDay(), min: 6 * 60 + 5, playing: false, sel: null };
 const offset = () => S.tz === "standard" ? -360 : -300; // Explicit seasonal examples, not a date forecast.
 const local = (m) => S.tz === "utc" ? m : ((m + offset()) % 1440 + 1440) % 1440;
 // a job's runs on the selected LOCAL day: convert, and shift the cron day-of-week when CDT crosses midnight
@@ -560,6 +561,7 @@ function showFiring(ids) {
   document.getElementById("firing-lbl").textContent = `Demo jobs at ${fmt(Math.floor(S.min))}`;
 }
 
+document.querySelectorAll("#tz button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tz === S.tz)));
 document.querySelectorAll("#tz button").forEach((b) => b.addEventListener("click", () => {
   S.tz = b.dataset.tz; document.querySelectorAll("#tz button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); drawDow(); redraw();
 }));
