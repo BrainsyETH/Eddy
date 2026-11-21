@@ -1,8 +1,2 @@
-/** Shared by the public display, ramp cautions and collector health checks. */
-export const LAKE_READING_MAX_AGE_HOURS = { hourly: 6, daily: 36 } as const;
-
-export function lakeObservationIsCurrent(at: string, cadence: keyof typeof LAKE_READING_MAX_AGE_HOURS, now: number): boolean {
-  const observedAt = Date.parse(at);
-  return Number.isFinite(observedAt) && observedAt <= now + 3_600_000
-    && now - observedAt <= LAKE_READING_MAX_AGE_HOURS[cadence] * 3_600_000;
-}
+// The rule lives in shared/lake-reading.ts, where the iOS lake screen reads it too.
+export { LAKE_READING_MAX_AGE_HOURS, lakeObservationIsCurrent } from '@shared/lake-reading';

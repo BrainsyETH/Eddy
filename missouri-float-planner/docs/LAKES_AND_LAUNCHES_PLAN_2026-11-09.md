@@ -376,6 +376,11 @@ the unknown field, exactly as `generationForecast` established. The block
 is promoted to its own `/api/lakes/<slug>` response when a lake earns a
 page. iOS draws it only once the shape has stopped moving (§4, step 3).
 
+*Promoted 2026-11-19: both pilot lakes have pages, so the section is served at
+`/api/lakes/<slug>` with wind and the lake's neighbours added, and the iOS lake
+screen reads it. The dam snapshot carries only `lake: { slug, name }`, not the
+block. ADR 0019 items 8 to 10 record the rules.*
+
 ---
 
 ## 4. The order of work

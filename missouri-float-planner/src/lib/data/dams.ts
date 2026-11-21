@@ -48,6 +48,8 @@ import { readPatternHours } from '@/lib/data/dam-history-store';
 import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
 import { centralDayKey, nextDayKey, READING_STALE_AFTER_HOURS } from '@shared/dam-schedule-copy';
 import { generatingForNow } from '@shared/dam-generation';
+import { lakePageHref } from '@/lib/lakes/public-pages';
+import { lakeForDam } from '@/lib/lakes/registry';
 import { damSourceLinks } from '@/lib/data/dam-source-links';
 
 /**
@@ -693,6 +695,17 @@ async function readPattern(damId: string): Promise<DamPatternDay[] | undefined> 
  * function actually emits. See dams-route-contract.test.ts, which calls this
  * with no metrics and no schedule and asserts on the keys.
  */
+/**
+ * The lake destination a dam may name: its lake, only while that lake's page
+ * is released (lakes/public-pages.ts). Asked at build time AND when a stored
+ * row is served (refreshStaleness), because the gate is an editorial decision
+ * that can change between the hourly assembly and the request.
+ */
+function publishedLakeFor(damId: string): { slug: string; name: string } | null {
+  const lake = lakeForDam(damId);
+  return lake && lakePageHref(lake.slug) ? { slug: lake.slug, name: lake.name } : null;
+}
+
 export function buildSnapshot(
   dam: UsaceDam,
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>,
@@ -705,6 +718,7 @@ export function buildSnapshot(
   // refreshStaleness re-derives it on the serving clock, because a stored row
   // can be served an hour after it was assembled. The reference pair sizes a
   // reading and does not decide on/off, so it is not needed here.
+  const publishedLake = publishedLakeFor(dam.id);
   const generating = generatingForNow(
     {
       hasTurbines: hasPowerhouse(dam),
@@ -775,6 +789,9 @@ export function buildSnapshot(
     // it" without a second round trip — which is what lets the iOS river screen
     // show a dam panel with no /api/rivers/[slug]/dam route existing.
     ...(dam.tailwater ? { tailwater: dam.tailwater } : {}),
+    // The lake destination, only once its page is released (public-pages.ts).
+    // What lets the iOS dam screen offer the lake without shipping the gate.
+    ...(publishedLake ? { lake: publishedLake } : {}),
     metrics,
     generating,
     schedule,
@@ -931,6 +948,13 @@ export function refreshStaleness(snapshot: DamSnapshot, now = Date.now()): DamSn
   const sourceLinks = dam ? damSourceLinks(dam) : [];
   if (sourceLinks.length > 0) refreshed.sourceLinks = sourceLinks;
   else delete refreshed.sourceLinks;
+  // Same reason as the links above: a stored row carries the gate as it stood
+  // when the cron assembled it. Served as stored, a newly published lake's
+  // button would appear from the summary and vanish when the detail landed,
+  // and an unpublished lake's button would open a 404 until the next rebuild.
+  const lake = publishedLakeFor(snapshot.id);
+  if (lake) refreshed.lake = lake;
+  else delete refreshed.lake;
   return refreshed;
 }
 

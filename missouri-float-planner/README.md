@@ -615,13 +615,48 @@ Reviewed launch locations are not live opening/closure reports. Each fact is
 stated once: the header names the states and links the controlling dam, the lake
 level card carries the conservation pool, and the launch list carries its count.
 Launch rows use verified ramp photography where
-available and Eddy artwork otherwise, with compact method filters and expandable
-operator/fee/threshold details. Paired recreation and dam cards link to official
-visitor information and the existing generation page. No surface-area or lake
-fishery claims are inferred from the dam registry.
+available and Eddy artwork otherwise, with expandable operator/fee/threshold
+details. The trailer/hand filter is drawn only when the lake has both kinds of
+reviewed launch. "Nearest first" asks for the reader's location on the tap,
+never on load, and labels every distance as straight-line. No surface-area or
+lake fishery claims are inferred from the dam registry.
+
+The page reads in the order a lake visitor decides in: level, wind, launches,
+then the water around the lake. **Wind & weather** is one observation at one
+named point (the dam's verified coordinates, "Near Table Rock Dam"), with the
+gust when the source reports one. It is a measurement: no card says whether the
+lake is safe, and weather older than two hours is marked outdated. An outage
+draws no card. **Water in and out** lists the lake's neighbours upstream to
+downstream: measured inflow, registry dams above with the river that carries
+their release, feeder rivers Eddy carries, the lake's own dam, and where the
+release goes (a tailwater river, or the next lake). Relationships are declared
+in `src/lib/lakes/registry.ts` (`system`) and the dam registry's `tailwater`,
+never inferred from a gauge. Rows state observations with their age and link to
+the existing river and dam pages; they never state a schedule, which stays on
+the dam page with its caveat. A neighbour with no reading keeps a row only when
+the row is still a useful link. A turbine state travels with the time of the
+turbine reading behind it and is shown only while that reading is under two
+hours old on the reader's clock, the dam page's own line; a river reading with
+no observation time is not shown at all. Neighbour readings come through
+bounded readers (`src/lib/lakes/bounded-reader.ts`, the dam directory's row
+reader), never the `unstable_cache` page loaders, which hand an expired entry
+of any age to the first request after a quiet stretch. A cached wind already
+past the two-hour line is fetched once more without the cache. The recreation card links to official visitor
+information.
+
+`GET /api/lakes/[slug]` returns the same `LakeSection` (`shared/lake-types.ts`)
+the page renders, from the same loader (`src/lib/lakes/page-data.ts`), and
+answers only for a published lake. It is the iOS lake screen's one request. A
+dam snapshot carries `lake: { slug, name }` only when that lake's page is
+published; clients offer the lake from that field. Stored snapshots re-derive
+it from the gate when served, so a publish or an un-publish does not wait
+for the hourly rebuild (the CDN's cache of the dam response still applies). The row copy, wind line,
+launch order, level freshness and chart model live in `shared/` (`lake-system`,
+`lake-launch-order`, `lake-reading`, `lake-chart`) so web and iOS agree.
 
 `src/lib/lakes/public-pages.ts` is the shared publication gate for lake routes,
-dam links, Conditions discovery and the sitemap. It starts empty. Add a pilot
+dam links, Conditions discovery and the sitemap. It lists Table Rock and
+Truman. Add a lake
 only after the migration, real history and useful reviewed launch coverage
 meet `docs/LAKES_DAMS_EXPERIENCE_PLAN_2026-11-09.md`. Publication is a release
 decision: a later data outage renders unavailable states, not a disappearing
@@ -630,7 +665,8 @@ route. Existing dam canonical URLs and the embed/iOS contracts are retained.
 `npm run test:lakes` checks fixture pages at 1440, 768, 390 and 320 pixels,
 including release/schedule order, the release reading on the first screen,
 time-label spacing, daily cadence,
-launch filters, map keyboard selection, chart controls and missing/stale data.
+launch filters, nearest-first ordering, the wind card, neighbour rows and their
+links, map keyboard selection, chart controls and missing/stale data.
 It uses port 3141 and the same Chromium setup as `test:dam-page`. Temporary
 fixtures are development-only and removed on exit; screenshots are clearly
 labelled as fixtures and written to `/tmp/eddy-lakes` (`LAKES_SMOKE_OUTPUT`).

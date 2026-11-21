@@ -71,7 +71,9 @@ shared/gauge-freshness.test.ts
 shared/gauge-recent.test.ts
 shared/gauge-trend.test.ts
 shared/history-normalize.test.ts
+shared/lake-launch-order.test.ts
 shared/lake-status.test.ts
+shared/lake-system.test.ts
 shared/primary-river-link.test.ts
 shared/reading-staleness.test.ts
 shared/reading-trust.test.ts
@@ -320,6 +322,7 @@ src/lib/ios-review-fixes.test.ts
 src/lib/ios-river-sections.test.ts
 src/lib/ios-routes.test.ts
 src/lib/ios-share-fallback.test.ts
+src/lib/ios-stack-return.test.ts
 src/lib/ios-today-navigation.test.ts
 src/lib/ios-trust-state.test.ts
 src/lib/ios-unrated-flood.test.ts
@@ -331,6 +334,7 @@ src/lib/lakes/pool-history.test.ts
 src/lib/lakes/presentation.test.ts
 src/lib/lakes/registry.test.ts
 src/lib/lakes/section.test.ts
+src/lib/lakes/system.test.ts
 src/lib/llms/content.test.ts
 src/lib/load-plan-access.test.ts
 src/lib/load-plan-support.test.ts

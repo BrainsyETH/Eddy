@@ -1875,7 +1875,6 @@ select.input {
    first two labels overlapped. The card still overlaps the photo's lower edge. */
 .place-content { position: relative; margin: -1.75rem 0 0; }
 .lake-destination { display: flex; overflow: hidden; min-width: 0; }
-.lake-destination-photo { position: relative; width: 4rem; flex-shrink: 0; }
 .lake-preview-main { display: grid; }
 .lake-preview-photo { position: relative; min-height: 8rem; }
 .lake-launch-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; }
@@ -1885,7 +1884,6 @@ select.input {
 @media (min-width: 640px) {
   .place-header-copy { min-height: 18rem; padding: 1.5rem 2rem 4rem; }
   .place-content { margin: -2rem 1.5rem 0; }
-  .lake-destination-photo { width: 8rem; }
   .lake-launch-row { grid-template-columns: 7rem minmax(0, 1fr) auto; gap: 1rem; align-items: center; }
   .lake-launch-art { height: 5rem; }
   .lake-launch-actions { grid-column: 3; flex-direction: column; align-items: flex-end; gap: 0; }

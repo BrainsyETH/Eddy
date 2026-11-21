@@ -29,6 +29,16 @@ const lake = {
     { id: 'one', slug: 'moonshine-beach', name: 'Example trailer ramp', lon: -93.3, lat: 36.6, thresholds: { bottomFt: 704, closureFt: 724, datum: 'NGVD29', source: 'Unreviewed fixture thresholds', sourceUpdatedAt: null }, launchMethods: ['trailer'], amenities: ['parking', 'restroom'], managingAgency: 'Example operator', feeRequired: null },
     { id: 'two', slug: 'example-hand-launch', name: 'Example hand launch', lon: -93.33, lat: 36.63, launchMethods: ['hand'], amenities: ['parking'], managingAgency: 'Example operator', feeRequired: false },
   ], cautionsVerified: false, sources: [],
+  weather: { place: 'Near Table Rock Dam', windMph: 12, windGustMph: 22, windFrom: 'SW', tempF: 58, condition: 'Clouds', conditionIcon: '04d', observedAt: new Date(now - 20 * 60_000).toISOString() },
+  dam: { id: 'swl-table-rock-dam', name: 'Table Rock Dam' },
+  system: [
+    { kind: 'inflow', stage: 'coming_in', flow: { cfs: 8200, at } },
+    { kind: 'dam', stage: 'coming_in', damId: 'swl-beaver-dam', name: 'Beaver Dam', via: 'White River', release: { cfs: 3900, at }, generation: { on: false, at } },
+    { kind: 'river', stage: 'coming_in', slug: 'james', state: 'MO', name: 'James River', condition: { code: 'good', label: 'Good' }, reading: { value: 640, unit: 'cfs', at } },
+    { kind: 'river', stage: 'coming_in', slug: 'kings-river', state: 'AR', name: 'Kings River' },
+    { kind: 'dam', stage: 'dam', damId: 'swl-table-rock-dam', name: 'Table Rock Dam', release: { cfs: 7200, at }, generation: { on: true, at } },
+    { kind: 'river', stage: 'below', slug: 'taneycomo', state: 'MO', name: 'Lake Taneycomo', condition: { code: 'flowing', label: 'Flowing' }, reading: { value: 7200, unit: 'cfs', at } },
+  ],
 };
 let server, browser, log = '';
 let cleanupPromise;
@@ -58,16 +68,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     lake.pool = { valueFt: 705.4, at: '2026-11-08T22:00:00Z', staleness: 'stale', daily: true };
     lake.history = lake.history.map(([at, ft]) => [at, ft - 209]);
     lake.operatingRange = { conservationFt: 706, floodFt: 739.6, source: 'Preview reference', asOf: '2026-11-09' };
+    lake.weather!.place = 'Near Harry S. Truman Dam';
+    lake.dam = { id: 'nwk-truman-dam', name: 'Harry S. Truman Dam' };
+    lake.system = [
+      { kind: 'dam', stage: 'dam', damId: 'nwk-truman-dam', name: 'Harry S. Truman Dam', release: { cfs: 12000, at: '2026-11-08T22:00:00Z', daily: true } },
+      { kind: 'dam', stage: 'below', damId: 'ameren-bagnell-dam', name: 'Bagnell Dam', lakeName: 'Lake of the Ozarks', pool: { valueFt: 658.92, at: '${at}' } },
+    ];
   }
+  if (variant === 'trailerOnly') lake.launches = lake.launches.filter((launch) => launch.launchMethods.includes('trailer'));
   if (variant === 'caution') { lake.cautionsVerified = true; lake.pool!.at = new Date(${now} - 5.9 * 3600000).toISOString(); lake.launches[0].caution = 'low_water'; }
   if (variant === 'noSchedule') dam.schedule = [];
   if (variant === 'gate') { dam.id = 'mvs-wappapello-dam'; dam.hasTurbines = false; dam.schedule = []; dam.metrics = { release: { value: 0, unit: 'cfs', at: '2026-11-07T18:00:00Z', staleness: 'stale' } }; }
-  if (variant === 'missing') { lake.pool = undefined; lake.history = []; lake.launches = []; dam.metrics = {}; }
-  if (variant === 'stale') { lake.pool!.at = '2026-11-07T18:00:00Z'; for (const metric of Object.values(dam.metrics)) if (metric) metric.at = '2026-11-07T18:00:00Z'; }
+  if (variant === 'missing') { lake.pool = undefined; lake.history = []; lake.launches = []; dam.metrics = {}; lake.weather = undefined; lake.system = undefined; }
+  if (variant === 'stale') { lake.pool!.at = '2026-11-07T18:00:00Z'; lake.weather!.observedAt = '2026-11-09T14:00:00Z'; for (const metric of Object.values(dam.metrics)) if (metric) metric.at = '2026-11-07T18:00:00Z'; }
   if (variant === 'mixed') { lake.pool!.at = '2026-11-08T18:00:00Z'; dam.metrics.poolElevation!.at = lake.pool!.at; }
   if (variant === 'baseline') dam.id = 'swl-bull-shoals-dam';
   const enabled = variant !== 'held' && damLakeExperienceEnabled(dam.id);
-  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader kind={kind === 'lake' ? 'lake' : 'dam'} damId={dam.id} actions={kind === 'lake' ? undefined : <StationShareButton station={{ provider: 'usace', siteId: dam.id }} title={dam.name} label="Share" />} lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader><div className="place-content">{kind === 'lake' ? <LakeDetail lake={lake} damId={dam.id} damName={dam.name} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div></div>;
+  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"><p className="mb-3 text-xs text-accent-900">Layout preview · All readings and launches are fixtures</p><PlaceHeader kind={kind === 'lake' ? 'lake' : 'dam'} damId={dam.id} actions={kind === 'lake' ? undefined : <StationShareButton station={{ provider: 'usace', siteId: dam.id }} title={dam.name} label="Share" />} lakeSlug={kind === 'lake' || enabled ? lake.slug : ''} title={kind === 'lake' ? lake.name : dam.name}><p>Missouri · {kind === 'lake' ? dam.name : lake.name}</p></PlaceHeader><div className="place-content">{kind === 'lake' ? <LakeDetail lake={lake} renderedAt={${now}} /> : <DamDetail dam={dam} lakeExperienceEnabled={enabled} lake={variant === 'baseline' || variant === 'gate' ? undefined : lake} renderedAt={${now}} lakeHref={enabled ? lakePageHref(lake.slug) : undefined} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Preview availability state.' }} />}</div></div></div>;
 }
 `);
   assert.equal(spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]).status, 0);
@@ -83,7 +100,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
   const errors = [];
   // 360 is the narrowest phone that still gets the two-column release row.
   for (const width of [1440, 768, 390, 360, 320]) {
-    const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 900 });
+    // A reader standing nearer the fixture's second launch than its first.
+    const page = await browser.newPage({ viewport: { width, height: 1000 }, hasTouch: width < 900, permissions: ['geolocation'], geolocation: { latitude: 36.64, longitude: -93.34 } });
     page.setDefaultTimeout(60000);
     page.setDefaultNavigationTimeout(90000);
     await page.clock.install({ time: now });
@@ -116,6 +134,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
           const directions = new URL(await page.getByRole('link', { name: /^Directions to/ }).first().getAttribute('href'));
           assert.equal(directions.pathname, '/maps/dir/');
           assert.equal(directions.searchParams.get('destination'), '36.6,-93.3');
+          const weather = page.locator('[data-lake-weather]');
+          assert((await weather.innerText()).includes('12 mph from the SW, gusts 22'), 'wind states speed, origin and gust');
+          assert((await weather.innerText()).includes(variant === 'truman' ? 'Near Harry S. Truman Dam' : 'Near Table Rock Dam'), 'wind names the point it was observed at');
+          const [levelBox, weatherBox, launchBox, systemBox] = await Promise.all(['[aria-labelledby="lake-level-heading"]', '[data-lake-weather]', '#boat-launches', '[data-lake-system]'].map(sel => page.locator(sel).boundingBox()));
+          assert(levelBox.y < weatherBox.y && weatherBox.y < launchBox.y && launchBox.y < systemBox.y, 'level, wind, launches, then the water around the lake');
+          const system = page.locator('[data-lake-system]');
+          const systemText = await system.innerText();
+          assert(!/scheduled|until/i.test(systemText), 'neighbour rows state observations, never a schedule');
+          if (variant === 'truman') {
+            assert(systemText.includes('Lake of the Ozarks') && systemText.includes('Held by Bagnell Dam') && systemText.includes('(daily report)') && !systemText.includes('Outdated') && !systemText.includes('Coming in'), 'Truman names where its release goes, keeps its daily report current and invents no feeders');
+            assert.equal(await system.locator('a[href="/dams/ameren-bagnell-dam"]').count(), 1);
+          } else {
+            assert.deepEqual(await system.locator('h3').allInnerTexts(), ['Coming in', 'At the dam', 'Below the dam']);
+            for (const href of ['/dams/swl-beaver-dam', '/rivers/missouri/james', '/rivers/arkansas/kings-river', '/dams/swl-table-rock-dam', '/rivers/missouri/taneycomo']) assert.equal(await system.locator(`a[href="${href}"]`).count(), 1, `${href} is linked once`);
+            assert.equal(await system.locator('[data-lake-system-row="inflow"]').count(), 1, 'the measured inflow has its row');
+            assert.equal(await system.locator('[data-lake-system-row="inflow"] a').count(), 0, 'inflow is a reading, not a destination');
+            assert(systemText.includes('Release 7,200 cfs · Generating') && systemText.includes('Release 3,900 cfs · Not generating'), 'a fresh turbine reading states the turbine state');
+          }
+          assert(await system.locator('li > *').evaluateAll(nodes => nodes.every(n => n.getBoundingClientRect().height >= 44 && n.scrollWidth <= n.clientWidth)), 'system rows are full touch targets and do not overflow');
         }
         if (kind === 'dam') {
           const lakeLink = page.locator(`[data-lake-section] a[href="/lakes/${variant === 'truman' ? 'truman' : 'table-rock'}"]`);
@@ -161,6 +198,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     await page.getByRole('button', { name: 'Hand launch', exact: true }).click();
     assert.equal(await page.locator('[data-launch-id]').count(), 1);
     await page.getByRole('button', { name: 'All launches', exact: true }).click();
+    assert.equal(await page.locator('[data-launch-distance]').count(), 0, 'no distance is claimed before the reader shares a location');
+    assert.equal(await page.locator('[data-launch-id]').first().getAttribute('data-launch-id'), 'one', 'name order until asked');
+    await page.getByRole('button', { name: 'Nearest first', exact: true }).click();
+    await page.locator('[data-launch-distance]').first().waitFor();
+    assert.equal(await page.locator('[data-launch-id]').first().getAttribute('data-launch-id'), 'two', 'the nearer launch leads once location is shared');
+    assert(await page.locator('[data-launch-distance]').evaluateAll(nodes => nodes.length === 2 && nodes.every(n => n.textContent.includes('straight line'))), 'every distance says it is straight-line');
+    assert((await page.locator('[data-launch-order]').innerText()).includes('not the drive'));
+    assert.equal(await page.getByRole('button', { name: 'Nearest first', exact: true }).count(), 0, 'the sort control leaves once it has done its job');
+    await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+    await page.locator('#boat-launches').screenshot({ path: `${out}/launches-nearest-${width}.png` });
     await page.getByRole('button', { name: 'View map', exact: true }).click();
     await page.getByRole('button', { name: 'Show Example trailer ramp', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Show Example trailer ramp', exact: true }).focus();
@@ -181,11 +228,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ k
     await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=missing`, { waitUntil: 'networkidle' });
     assert((await page.locator('[data-lake-detail]').innerText()).includes('Lake level is currently unavailable'));
     assert.equal(await page.locator('[data-launch-id]').count(), 0);
+    assert.equal(await page.locator('[data-lake-weather], [data-lake-system]').count(), 0, 'no weather or neighbours draws no empty card');
+    await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=trailerOnly`, { waitUntil: 'networkidle' });
+    assert.equal(await page.locator('[data-launch-id]').count(), 1);
+    assert.equal(await page.locator('.lake-launch-filter').count(), 0, 'a method filter with one method to offer is not drawn');
     await page.goto(`${origin}/lakes-layout-check?kind=dam&variant=mixed`, { waitUntil: 'networkidle' });
     assert((await page.locator('[data-dam-measurements]').innerText()).includes('Lake level'), 'mixed-age measurements remain visible');
     await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=stale`, { waitUntil: 'networkidle' });
     assert((await page.locator('[aria-labelledby="lake-level-heading"]').innerText()).includes('Outdated'));
     assert(!(await page.locator('[aria-labelledby="lake-level-heading"]').innerText()).includes('in 24h'), 'stale level does not present current movement');
+    assert((await page.locator('[data-lake-weather]').innerText()).includes('Outdated'), 'four-hour-old wind is not presented as current');
     await page.goto(`${origin}/lakes-layout-check?kind=lake&variant=caution`, { waitUntil: 'networkidle' });
     await page.clock.runFor(1000);
     assert.equal(await page.locator('[data-launch-id] [role=note]').count(), 1, 'verified fresh caution is visible');

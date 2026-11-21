@@ -65,6 +65,25 @@ status nobody has looked at since 2022.
    operating range, a status source and a launch count are optional and render
    honestly or are omitted.
 
+8. **Wind is a measurement at a named point, never advice.** A lake page may
+   show one weather observation, labelled with where it was taken. It never
+   says whether the lake is safe or rough: Eddy does not know the boat.
+   Weather older than two hours is marked outdated.
+9. **A lake links its neighbours and does not repeat them.** What feeds the
+   lake, the dam that holds it and where the release goes are declared facts
+   in the registries, never inferred from readings. Each row states an
+   observation with its age and opens the river or dam page that owns the
+   detail. A row never states a schedule or forecast; those stay on the dam
+   page, where SWPA's caveat sits beside them. A present-tense state
+   ("Generating") carries the time of its own reading and is shown only while
+   that reading speaks for now on the reader's clock, because a phone at a
+   ramp can hold a payload for hours. A reading with no time is not shown.
+10. **One lake payload for every client.** `GET /api/lakes/<slug>` returns the
+    object the web page renders, from the same loader, only for a published
+    lake. A dam snapshot names its lake (`lake: { slug, name }`) only when that
+    lake is published, decided when the snapshot is served and not only when
+    it was assembled. The words and rules clients need live in `shared/`.
+
 ## Consequences
 
 - `scripts/lakes/recreation-status.ts`, `nwk-ramps.ts` and `launch-queue.ts`
@@ -73,5 +92,7 @@ status nobody has looked at since 2022.
   wording that says "available".
 - The daily ledger workflow writes to a data branch, never to production or to
   `main`; it is evidence, not a feed.
-- The pilot is Table Rock and Truman on the web; iOS follows a stable wire
-  block; the remaining lakes and new districts follow the plan's order.
+- The pilot is Table Rock and Truman, on the web and (from 2026-11) as an iOS
+  lake screen reached from the dam screen; the remaining lakes and new
+  districts follow the plan's order. Lake favorites, alerts, search and map
+  layers on iOS remain later steps.

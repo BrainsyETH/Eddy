@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { lakeChartModel, nearestPoint } from './chart';
+import { lakeChartModel, lakeValueTickLabels, nearestPoint } from './chart';
 
 const NOW = Date.parse('2026-11-09T19:00:00Z');
 const iso = (hoursAgo: number) => new Date(NOW - hoursAgo * 3_600_000).toISOString();
@@ -41,4 +41,17 @@ test('the hover readout picks the nearest reading', () => {
   assert.equal(nearestPoint(points, 12)?.ft, 2);
   assert.equal(nearestPoint(points, 16)?.ft, 3);
   assert.equal(nearestPoint([], 5), null);
+});
+
+test('axis labels never round a gridline to a place it is not', () => {
+  // A week that moved seven feet picks a 2.5 ft step: 917.5 must not be labelled "918".
+  const big = lakeChartModel([[iso(160), 917.3], [iso(80), 921.0], [iso(1), 924.6]], { now: NOW })!;
+  const labels = lakeValueTickLabels(big.valueTicks);
+  assert.ok(big.valueTicks.some((tick) => !Number.isInteger(tick.value)), 'the case under test: a tick between whole feet');
+  big.valueTicks.forEach((tick, index) => assert.equal(Number(labels[index]), tick.value, `${labels[index]} labels a line at ${tick.value}`));
+  assert.ok(labels.every((label) => /\.\d$/.test(label)), 'one precision for the whole axis');
+  // Whole-foot gridlines carry no decimal.
+  assert.deepEqual(lakeValueTickLabels([{ value: 915 }, { value: 920 }, { value: 925 }]), ['915', '920', '925']);
+  assert.deepEqual(lakeValueTickLabels([{ value: 914.5 }, { value: 915 }]), ['914.5', '915.0']);
+  assert.deepEqual(lakeValueTickLabels([]), []);
 });
