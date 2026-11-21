@@ -83,6 +83,15 @@ as privacy: Sentry groups on the message, so an unredacted email mints one issue
 per user and buries the fault. `sentry-reporter.test.ts` and `redact.test.ts`
 guard it.
 
+**Some failures can only be seen here.** `ALERT_PUSH_POSSIBLE_DUPLICATE` is
+raised by the push delivery passes (river, gauge and dam, through
+`recordDeliveryLedger` in `src/lib/alerts/delivery-io.ts`) when Expo accepted
+pushes and neither the ticket write nor its fallback record landed. A later
+pass may then resend them; the drain write in the same pass usually prevents
+it, so a duplicate is possible, not certain. Both database records are
+missing, so no query can find these afterwards: search Sentry or the logs for
+the tag. The context carries the event source, counts and up to 20 event ids.
+
 ---
 
 ## 2. Next.js security upgrade — DONE

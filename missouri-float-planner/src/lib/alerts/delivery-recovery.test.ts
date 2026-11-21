@@ -8,7 +8,8 @@ import test from 'node:test';
 import { FakeOutboxDb } from './fake-outbox-db';
 import { drainRiverEvents } from './river-delivery';
 import { deliverGaugeAlerts } from './gauge-delivery';
-import { DeliveryReadError } from './delivery-io';
+import { DeliveryReadError, POSSIBLE_DUPLICATE_PUSH_TAG, recordDeliveryLedger } from './delivery-io';
+import { setErrorReporter } from '@/lib/logger';
 import { persistGaugeAlertPlan } from './gauge-alert-persist';
 import { loadLastTold } from './gauge-last-told';
 import { planGaugeAlerts, type GaugeAlertSubscription, type StationReading } from './gauge-threshold';
@@ -588,4 +589,69 @@ test('a one-time river rule waits for its first crossing to resolve before drain
   await run(db, t);
   assert.deepEqual(t.sent, ['ExponentPushToken[a]']);
   assert.equal(event(db, 'second').push_outcome, 'skipped');
+});
+
+// ── 6. An accepted push the database lost entirely is reported elsewhere ─────
+
+/** Capture what the logger hands its error reporter (Sentry or the webhook). */
+function reported(t: { after: (fn: () => void) => void }) {
+  const calls: Array<{ error: unknown; context?: Record<string, unknown> }> = [];
+  setErrorReporter((error, context) => calls.push({ error, context }));
+  t.after(() => setErrorReporter(null));
+  return {
+    duplicates: () => calls.filter(({ error }) =>
+      error instanceof Error && error.message.startsWith(`${POSSIBLE_DUPLICATE_PUSH_TAG}:`)),
+  };
+}
+
+const ticket = (eventId: string, user: string, status: 'sent' | 'error' = 'sent') => ({
+  event_id: eventId, device_token_id: `tok-${user}`, user_id: user, status, sent_at: NOW.toISOString(),
+});
+
+for (const column of ['river_event_id', 'gauge_event_id', 'dam_event_id'] as const) {
+  test(`${column}: accepted pushes with no ticket and no fallback record raise the possible-duplicate signal`, async (t) => {
+    const signal = reported(t);
+    const db = new FakeOutboxDb(NOW.toISOString())
+      .fail({ table: 'alert_push_deliveries', mode: 'upsert' })
+      .fail({ table: 'alert_push_unrecorded_recipients', mode: 'upsert' });
+    await recordDeliveryLedger(db as never, column, [ticket('evt-1', 'a'), ticket('evt-1', 'b'), ticket('evt-2', 'c', 'error')]);
+    const [only, ...rest] = signal.duplicates();
+    assert.equal(rest.length, 0, 'One signal per failed write, not per push');
+    assert.ok(only, 'The signal fired');
+    assert.match(String((only.error as Error).message), /may resend/, 'Worded as possible, not certain');
+    assert.equal(only.context?.tag, POSSIBLE_DUPLICATE_PUSH_TAG);
+    assert.equal(only.context?.eventSource, { river_event_id: 'river_condition', gauge_event_id: 'gauge_alert', dam_event_id: 'dam_generation' }[column]);
+    assert.equal(only.context?.recipients, 2);
+    assert.equal(only.context?.events, 1);
+    assert.equal(only.context?.eventIds, 'evt-1');
+  });
+}
+
+test('no possible-duplicate signal when the ticket retry or the fallback record lands, or nothing was accepted', async (t) => {
+  const signal = reported(t);
+  const retried = new FakeOutboxDb(NOW.toISOString()).fail({ table: 'alert_push_deliveries', mode: 'upsert', times: 1 });
+  await recordDeliveryLedger(retried as never, 'river_event_id', [ticket('evt-1', 'a')]);
+  const fallback = new FakeOutboxDb(NOW.toISOString()).fail({ table: 'alert_push_deliveries', mode: 'upsert' });
+  await recordDeliveryLedger(fallback as never, 'gauge_event_id', [ticket('evt-1', 'a')]);
+  assert.equal(fallback.rows('alert_push_unrecorded_recipients').length, 1);
+  const noneAccepted = new FakeOutboxDb(NOW.toISOString())
+    .fail({ table: 'alert_push_deliveries', mode: 'upsert' })
+    .fail({ table: 'alert_push_unrecorded_recipients', mode: 'upsert' });
+  await recordDeliveryLedger(noneAccepted as never, 'dam_event_id', [ticket('evt-1', 'a', 'error')]);
+  assert.equal(signal.duplicates().length, 0);
+});
+
+test('a river pass that loses both records raises the signal, and its own drain still prevents the resend', async (t) => {
+  const signal = reported(t);
+  const db = riverWorld()
+    .fail({ table: 'alert_push_deliveries', mode: 'upsert' })
+    .fail({ table: 'alert_push_unrecorded_recipients', mode: 'upsert' });
+  const sender = transport();
+  await run(db, sender);
+  assert.equal(signal.duplicates().length, 1);
+  assert.equal(signal.duplicates()[0].context?.eventSource, 'river_condition');
+  // Why the signal says "possible": the drain write landed, so this one is safe.
+  assert.ok(event(db).push_delivered_at);
+  await run(db, sender);
+  assert.equal(sender.sent.length, 3);
 });

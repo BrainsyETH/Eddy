@@ -141,6 +141,7 @@ src/lib/alerts/gating.test.ts
 src/lib/alerts/gauge-push-routing.test.ts
 src/lib/alerts/parent-follow.test.ts
 src/lib/alerts/gauge-threshold.test.ts
+src/lib/alerts/main-gauge.test.ts
 src/lib/alerts/river-alerts.test.ts
 src/lib/ameren/osage.test.ts
 src/lib/analytics.test.ts

@@ -48,7 +48,14 @@ function isMissingColumn(error: { code?: string } | null): boolean {
   return error?.code === '42703' || error?.code === 'PGRST204';
 }
 
-type EventColumn = 'river_event_id' | 'gauge_event_id';
+type EventColumn = 'river_event_id' | 'gauge_event_id' | 'dam_event_id';
+
+/** The ledger's event_source for each outbox, as the three passes write it. */
+const EVENT_SOURCE: Record<EventColumn, string> = {
+  river_event_id: 'river_condition',
+  gauge_event_id: 'gauge_alert',
+  dam_event_id: 'dam_generation',
+};
 interface TicketRow {
   event_id: string;
   user_id: string;
@@ -62,16 +69,20 @@ export async function priorPushRecipients(db: SupabaseClient, eventIds: string[]
   const [tickets, unrecorded] = await Promise.all([
     readAllIn<{ event_id: string; user_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
       db.from('alert_push_deliveries').select('event_id, user_id')
-        .eq('event_source', eventColumn === 'river_event_id' ? 'river_condition' : 'gauge_alert')
+        .eq('event_source', EVENT_SOURCE[eventColumn])
         .eq('status', 'sent').in('event_id', chunk)
         .order('event_id').order('device_token_id').range(from, to)),
     readAllIn<{ event_id: string; user_id: string }>('unrecorded recipients', eventIds, async (chunk, from, to) => {
       const { data, error } = await db.from('alert_push_unrecorded_recipients')
-        .select('river_event_id, gauge_event_id, user_id').in(eventColumn, chunk)
+        .select(`${eventColumn}, user_id`).in(eventColumn, chunk)
         .order(eventColumn).order('user_id').range(from, to);
       // The table is additive. Any other read error must leave the outbox pending.
       if (error?.code === 'PGRST205' || error?.code === '42P01') return { data: [], error: null };
-      return { data: data?.map(row => ({ event_id: row[eventColumn], user_id: row.user_id })) ?? [], error };
+      // So is its dam column (20261121131051). Before it exists no dam row can
+      // have been recorded, so there is nothing to miss.
+      if (eventColumn === 'dam_event_id' && isMissingColumn(error)) return { data: [], error: null };
+      const rows = (data ?? []) as unknown as Array<Record<string, string>>;
+      return { data: rows.map(row => ({ event_id: row[eventColumn], user_id: row.user_id })), error };
     }),
   ]);
   return [...tickets, ...unrecorded];
@@ -113,9 +124,45 @@ export async function recordDeliveryLedger(db: SupabaseClient, eventColumn: Even
     [eventColumn]: row.event_id, user_id: row.user_id, one_shot_rule_id: row.one_shot_rule_id, sent_at: row.sent_at,
   }));
   if (accepted.length) {
-    await checkedWrite('unrecorded recipient write', db.from('alert_push_unrecorded_recipients')
+    const recorded = await checkedWrite('unrecorded recipient write', db.from('alert_push_unrecorded_recipients')
       .upsert(accepted, { onConflict: `${eventColumn},user_id`, ignoreDuplicates: true }));
+    if (!recorded) reportPossibleDuplicate(eventColumn, accepted.map(row => row.user_id), rows);
   }
+}
+
+/**
+ * Greppable tag for the one delivery failure the database cannot show.
+ *
+ * Search logs and Sentry for it. Constant, and first in the error message, so
+ * Sentry groups every occurrence into one issue whatever the counts.
+ */
+export const POSSIBLE_DUPLICATE_PUSH_TAG = 'ALERT_PUSH_POSSIBLE_DUPLICATE';
+
+/**
+ * Expo accepted pushes, and neither the ticket write nor the fallback write
+ * landed. Nothing in the database now says those people were reached, so a
+ * later pass may send them the same alert again — possible, not certain: the
+ * drain write in this same pass usually still stops it, and a resend needs
+ * that to fail too. A database check cannot find this afterwards, because
+ * both records are missing; this signal goes out through the logger's error
+ * reporter (Sentry, or the webhook) instead.
+ *
+ * Counts and event ids only: no user ids or tokens leave the process here.
+ */
+function reportPossibleDuplicate(eventColumn: EventColumn, userIds: string[], rows: TicketRow[]): void {
+  const eventIds = [...new Set(rows.filter(row => row.status === 'sent').map(row => row.event_id))];
+  logger.error(
+    `[deliver-push] ${POSSIBLE_DUPLICATE_PUSH_TAG}: accepted pushes are unrecorded and may be sent again`,
+    new Error(`${POSSIBLE_DUPLICATE_PUSH_TAG}: Expo accepted pushes that neither the ledger nor the fallback record holds; a later pass may resend them`),
+    {
+      tag: POSSIBLE_DUPLICATE_PUSH_TAG,
+      eventSource: EVENT_SOURCE[eventColumn],
+      recipients: new Set(userIds).size,
+      events: eventIds.length,
+      // Enough to find them in the outbox, bounded so one bad pass stays one line.
+      eventIds: eventIds.slice(0, 20).join(','),
+    },
+  );
 }
 
 let warnedMissingOutcome = false;

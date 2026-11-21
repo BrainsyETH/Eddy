@@ -38,6 +38,13 @@ import {
 import { persistGaugeAlertPlan } from '@/lib/alerts/gauge-alert-persist';
 import { loadLastTold } from '@/lib/alerts/gauge-last-told';
 import { isRuleLive, parentIdsOf } from '@/lib/alerts/gating';
+import {
+  coveredByMainGauge,
+  loadMainGauges,
+  loadParentAlerts,
+  withoutCovered,
+  type ParentAlerts,
+} from '@/lib/alerts/main-gauge';
 import { linkFloodStageFt } from '@/lib/gauges/flood-stages';
 import { toNum } from '@/lib/utils/num';
 import { logger } from '@/lib/logger';
@@ -50,8 +57,6 @@ const LOCK_STALE_SECONDS = 90;
 
 /** PostgREST caps a page at 1,000 rows; paging is not optional above that. */
 const PAGE = 1000;
-/** Parent ids per `in` filter, bounded by the request line's length. */
-const PARENT_CHUNK = 200;
 
 const SUBSCRIPTION_COLUMNS =
   'id, user_id, gauge_station_id, river_id, mode, condition_kind, metric, comparator, ' +
@@ -97,7 +102,7 @@ async function loadSubscriptions(
 }
 
 /**
- * Which parent river alerts are paused.
+ * Which parent river alerts are paused, and which river each is for.
  *
  * A SEPARATE QUERY rather than an embed. The embed reads better and would fold
  * into the paged select above, but it would also make every page of this pass
@@ -108,37 +113,18 @@ async function loadSubscriptions(
  * common case.
  *
  * The PAUSED set, not the live one, so an id this cannot resolve is absent and
- * therefore ungating. See isRuleLive on why failing open is right here.
+ * therefore ungating. See isRuleLive on why failing open is right here. The
+ * read itself, and the main-gauge check that uses the rivers, live in
+ * lib/alerts/main-gauge.ts.
  */
-async function loadPausedParents(
+async function loadParents(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   subscriptions: GaugeAlertSubscription[],
-): Promise<Set<string>> {
+): Promise<ParentAlerts> {
   const ids = parentIdsOf(subscriptions);
-  const paused = new Set<string>();
-  if (ids.length === 0) return paused;
-
-  // Chunked against the URL-length ceiling PostgREST inherits from the request
-  // line: `in` becomes a query parameter, and a few hundred uuids is already a
-  // long one.
-  for (let from = 0; from < ids.length; from += PARENT_CHUNK) {
-    const { data, error } = await supabase
-      .from('alert_subscriptions')
-      .select('id')
-      .in('id', ids.slice(from, from + PARENT_CHUNK))
-      .eq('enabled', false);
-
-    // Logged, not thrown. A failure here must not take the whole pass down —
-    // every rule it would have gated is one the user asked for, and the worst
-    // outcome of proceeding is a notification somebody muted arriving anyway.
-    if (error) {
-      logger.error('[evaluate-gauge-alerts] could not read parent alerts', error);
-      return paused;
-    }
-    for (const row of data ?? []) paused.add(row.id as string);
-  }
-  return paused;
+  if (ids.length === 0) return { paused: new Set(), riverOf: new Map() };
+  return loadParentAlerts(supabase, ids);
 }
 
 /**
@@ -247,22 +233,46 @@ async function run(request: NextRequest) {
      * second concept to hold, and the freeze is a property of pausing rather
      * than of this mechanism — see the header of gating.ts.
      */
-    const pausedParents = await loadPausedParents(supabase, loaded);
-    const subscriptions = loaded.filter((s) => isRuleLive(s, pausedParents));
+    const parents = await loadParents(supabase, loaded);
+    const subscriptions = loaded.filter((s) => isRuleLive(s, parents.paused));
     const gated = loaded.length - subscriptions.length;
     if (subscriptions.length === 0) {
       return NextResponse.json({ ok: true, subscriptions: 0, gated, fired: 0 });
     }
 
     const stationIds = [...new Set(subscriptions.map((s) => s.gauge_station_id))];
-    const [readings, ladders, lastTold] = await Promise.all([
+    const liveParentRivers = [...new Set(
+      subscriptions.flatMap((s) => {
+        const river = s.parent_subscription_id ? parents.riverOf.get(s.parent_subscription_id) : undefined;
+        return river ? [river] : [];
+      }),
+    )];
+    const [readings, ladders, lastTold, mainGauges] = await Promise.all([
       loadLatestReadings(supabase, stationIds),
       loadLadders(supabase, subscriptions),
       // So the cooldown can tell a repeat from the water getting worse.
       loadLastTold(supabase, subscriptions),
+      // Skipped (empty) when nothing live is parented.
+      liveParentRivers.length > 0 ? loadMainGauges(supabase, liveParentRivers) : Promise.resolve(new Set<string>()),
     ]);
 
-    const plan = planGaugeAlerts({ subscriptions, readings, ladders, lastTold });
+    /**
+     * A gauge added to a river alert that is now that river's main gauge.
+     *
+     * The river alert already pushes for this gauge's changes, so this rule's
+     * push would be the same news twice — and the editor locks the main gauge's
+     * row, so the user could not remove it. It is still planned, so its state
+     * follows the water; only the push is withheld. See lib/alerts/main-gauge.ts.
+     */
+    const coveredIds = new Set(
+      subscriptions
+        .filter((s) => coveredByMainGauge(s, parents.riverOf, mainGauges))
+        .map((s) => s.id),
+    );
+    const plan = withoutCovered(
+      planGaugeAlerts({ subscriptions, readings, ladders, lastTold }),
+      coveredIds,
+    );
 
     // Outbox first, then state, and a fired rule's state only behind a written
     // event — the ordering argument is in lib/alerts/gauge-alert-persist.ts.
@@ -275,6 +285,8 @@ async function run(request: NextRequest) {
       // Reported so a "my alert stopped" can be answered from the logs rather
       // than from the database.
       gated,
+      // Fired rules withheld because the river alert covers their gauge.
+      coveredByRiverAlert: plan.covered,
       stations: stationIds.length,
       readings: readings.size,
       fired: plan.fired.length,

@@ -132,19 +132,20 @@ test('a dam with no known schedule this pass has nothing due', () => {
 test('the push is the dam and one sentence, with no countdown to go stale', () => {
   const { title, body } = buildDamGenerationNotification({ damName: 'Table Rock Dam', startAt: START_3PM });
   assert.equal(title, 'Table Rock Dam');
-  assert.equal(body, '3 PM Central: generation is posted to start at the dam.');
+  assert.equal(body, 'The posted schedule has generation starting at 3 PM Central at the dam.');
   // Nothing relative: a push sent at 2:00 can arrive at 2:25, or be read at 5.
   assert.doesNotMatch(body, /\bnow\b|from now|minutes|hour|ago|soon|shortly/i);
-  // And nothing that claims generation began.
-  assert.doesNotMatch(body, /has started|is running|generating|units|water (is )?(on|off)/i);
+  // And nothing that claims generation began, or is beginning as it is read.
+  assert.doesNotMatch(body, /has started|started|began|is running|generating|is starting|units|water (is )?(on|off)/i);
+  assert.match(body, /posted schedule/);
 });
 
 test('the time is the dam\u2019s, whatever the season', () => {
   // 3 PM CDT in July and 3 PM CST in January are different instants, one label.
   assert.equal(buildDamGenerationNotification({ damName: 'D', startAt: Date.parse('2026-01-15T21:00:00.000Z') }).body,
-    '3 PM Central: generation is posted to start at the dam.');
+    'The posted schedule has generation starting at 3 PM Central at the dam.');
   assert.equal(buildDamGenerationNotification({ damName: 'D', startAt: Date.parse('2026-07-25T05:00:00.000Z') }).body,
-    '12 AM Central: generation is posted to start at the dam.');
+    'The posted schedule has generation starting at 12 AM Central at the dam.');
 });
 
 test('a push expires with its send window, so an offline phone is not told late', () => {
@@ -230,7 +231,7 @@ test('one push an hour before and one at the posted time, each sent once across 
 
   assert.equal(t.messages[0].title, 'Table Rock Dam');
   // The same sentence an hour before and at the start: the clock time, no countdown.
-  assert.deepEqual(t.messages.map((m) => m.body), Array(2).fill('3 PM Central: generation is posted to start at the dam.'));
+  assert.deepEqual(t.messages.map((m) => m.body), Array(2).fill('The posted schedule has generation starting at 3 PM Central at the dam.'));
   // Each push dies with its own half-hour window.
   assert.deepEqual(t.messages.map((m) => m.ttl), [30 * 60, 30 * 60]);
   // One routing key, and no river or gauge for an older build to follow.
@@ -368,7 +369,7 @@ test('a failed send is retried on the next pass, inside the window', async () =>
   t.failing.clear();
   await run(db, '2026-07-25T19:05:00.000Z', t);
   assert.equal(t.messages.length, 1);
-  assert.equal(t.messages[0].body, '3 PM Central: generation is posted to start at the dam.');
+  assert.equal(t.messages[0].body, 'The posted schedule has generation starting at 3 PM Central at the dam.');
   assert.equal(events(db)[0].push_outcome, 'sent');
 });
 
@@ -394,4 +395,96 @@ test('a delivered notice whose drain write failed is not sent again', async () =
   await run(db, '2026-07-25T19:05:00.000Z', t);
   assert.equal(t.messages.length, 1, 'No second push');
   assert.equal(events(db)[0].push_outcome, 'sent');
+});
+
+// ── A ticket write that fails is retried, then recorded where the next pass looks ──
+
+test('a dam ledger write that fails once is retried, so the ticket still gets a receipt check', async () => {
+  const db = world({ notify_at_start: false }).fail({ table: 'alert_push_deliveries', mode: 'upsert', times: 1 });
+  const t = transport();
+  await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(t.messages.length, 1);
+  const ledger = db.rows('alert_push_deliveries') as Array<Record<string, unknown>>;
+  assert.equal(ledger.length, 1, 'Written on the retry');
+  assert.equal(ledger[0].ticket_id, 'ticket-1');
+  assert.equal(ledger[0].event_source, 'dam_generation');
+  assert.equal(ledger[0].sent_at, '2026-07-25T19:00:00.000Z');
+  assert.equal(db.rows('alert_push_unrecorded_recipients').length, 0);
+});
+
+test('a dam push whose ticket and drain writes both fail is recorded, and not sent again', async () => {
+  // The push left. Without the fallback record, the next pass found no ledger
+  // row and an undrained event, and sent it a second time.
+  const db = world({ notify_at_start: false })
+    .fail({ table: 'alert_push_deliveries', mode: 'upsert' })
+    .fail({ table: 'dam_generation_alert_events', mode: 'update', times: 1 });
+  const t = transport();
+  await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(t.messages.length, 1);
+  assert.equal(events(db)[0].push_delivered_at, undefined, 'Drain write failed');
+  const fallback = db.rows('alert_push_unrecorded_recipients') as Array<Record<string, unknown>>;
+  assert.deepEqual(fallback.map((r) => [r.dam_event_id, r.user_id]), [[events(db)[0].id, 'u1']]);
+
+  await run(db, '2026-07-25T19:05:00.000Z', t);
+  assert.equal(t.messages.length, 1, 'No second push');
+  assert.equal(events(db)[0].push_outcome, 'sent');
+});
+
+test('before the fallback column exists the dam pass still sends', async () => {
+  // Code deployed ahead of migration 20261121131051: the read finds no column.
+  const db = world({ notify_at_start: false }).fail({
+    table: 'alert_push_unrecorded_recipients', mode: 'select', code: '42703', message: 'column dam_event_id does not exist',
+  });
+  const t = transport();
+  const stats = await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.equal(stats.error, undefined);
+  assert.equal(t.messages.length, 1);
+  assert.equal(events(db)[0].push_outcome, 'sent');
+});
+
+test('any other failure reading the dam fallback record defers the pass before sending', async () => {
+  const db = world({ notify_at_start: false }).fail({ table: 'alert_push_unrecorded_recipients', mode: 'select' });
+  const t = transport();
+  const stats = await run(db, '2026-07-25T19:00:00.000Z', t);
+  assert.ok(stats.error);
+  assert.equal(t.messages.length, 0);
+});
+
+// ── Copy, by when the push is sent ───────────────────────────────────────────
+
+test('the push says what was posted whether it goes out an hour before, on time, or after a late sheet', async () => {
+  // Midnight Central in July is 05:00Z. The previous day's last hour is quiet,
+  // so hour ending 1 is a posted start.
+  const midnight = [day('2026-07-24', [], { retrievedAt: '2026-07-25T03:35:00.000Z' }), day('2026-07-25', [1, 2], { retrievedAt: '2026-07-25T03:35:00.000Z' })];
+  const posted = 'The posted schedule has generation starting at 12 AM Central at the dam.';
+
+  // An hour before (11 PM Central), and at the posted time.
+  const onTime = world({}, midnight);
+  const t = transport();
+  await run(onTime, '2026-07-25T04:00:00.000Z', t);
+  await run(onTime, '2026-07-25T05:00:00.000Z', t);
+  assert.deepEqual(t.messages.map((m) => m.body), [posted, posted]);
+
+  // A late weekday sheet: fetched at 12:10 AM, after the start it posts. The
+  // hour-before notice has missed its window and is never queued; the
+  // at-start notice goes out inside its window, after the posted time, and
+  // still only reports the sheet.
+  const late = world({}, [
+    day('2026-07-24', [], { retrievedAt: '2026-07-25T05:10:00.000Z' }),
+    day('2026-07-25', [1, 2], { retrievedAt: '2026-07-25T05:10:00.000Z' }),
+  ]);
+  const lateSend = transport();
+  await run(late, '2026-07-25T05:15:00.000Z', lateSend);
+  assert.deepEqual(lateSend.messages.map((m) => m.body), [posted]);
+  assert.deepEqual(events(late).map((e) => e.lead_minutes), [0]);
+});
+
+test('a late sheet without the day before does not invent a midnight start', async () => {
+  // Generation in hour ending 1 with no previous day may have carried over
+  // from the evening before. Unknown is not a start.
+  const db = world({}, [day('2026-07-25', [1, 2], { retrievedAt: '2026-07-25T05:10:00.000Z' })]);
+  const t = transport();
+  await run(db, '2026-07-25T05:15:00.000Z', t);
+  assert.equal(t.messages.length, 0);
+  assert.equal(events(db).length, 0);
 });
