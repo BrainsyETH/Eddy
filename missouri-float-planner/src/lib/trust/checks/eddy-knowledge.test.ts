@@ -26,6 +26,21 @@ test('a river with no knowledge section is reported', () => {
   assert.equal(findings[0].entityKey, 'gasconade');
 });
 
+test('a river activated without a section is reported, whichever river it is', () => {
+  // Active means rivers.active, which is what run() selects on. Big Sugar
+  // Creek and the Illinois River have dossiers and no section; the day either
+  // goes live without one, this fires.
+  const findings = deriveKnowledgeFindings({
+    activeRiverSlugs: ['big-sugar-creek', 'elk', 'illinois-river'],
+    knowledgeSlugs: ['elk', 'current'],
+    generalKnowledge: GENERAL,
+  });
+  assert.deepEqual(findings.map((f) => [f.ruleKey, f.entityKey]), [
+    ['knowledge_missing_section', 'big-sugar-creek'],
+    ['knowledge_missing_section', 'illinois-river'],
+  ]);
+});
+
 test('full coverage produces nothing', () => {
   const findings = deriveKnowledgeFindings({
     activeRiverSlugs: ['current', 'jacks-fork'],

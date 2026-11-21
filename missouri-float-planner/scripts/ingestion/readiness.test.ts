@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { unratedGaugePlan } from './unrated-gauges';
 import type { RiverReadiness } from './readiness';
 import type { GaugeCandidate, RiverSectionDossier } from './dossier';
-import { READINESS_CRITERIA, readinessProblems, tailwaterPilotProblems } from './readiness';
+import { knowledgeSectionProblems, READINESS_CRITERIA, readinessProblems, tailwaterPilotProblems } from './readiness';
 
 const reviews = Object.fromEntries(READINESS_CRITERIA.map(key => [key, {
   status: 'verified', evidence: ['https://example.org/source'], reviewedBy: 'test reviewer', reviewedAt: '2026-10-03', notes: 'test',
@@ -16,6 +16,21 @@ test('launch evidence must be reviewed, attributed, and present for every criter
   assert.deepEqual(readinessProblems(reviews), []);
   assert.deepEqual(readinessProblems({ ...reviews, hazards: { status: 'verified', evidence: [] } }), ['hazards: missing evidence']);
   assert.deepEqual(readinessProblems({ ...reviews, routing: { ...reviews.routing, reviewedBy: null } }), ['routing: missing reviewer/date']);
+});
+
+test('activation refuses a river with no knowledge section', () => {
+  // Big Sugar Creek and the Illinois River had dossiers and no section on
+  // 2026-11-20. The database's review cannot read the file, so the script holds it.
+  assert.deepEqual(knowledgeSectionProblems(['elk', 'big-sugar-creek', 'illinois-river'], ['elk', 'general-like']), [
+    'big-sugar-creek: no "## " section with {#big-sugar-creek} in EDDY_KNOWLEDGE.md',
+    'illinois-river: no "## " section with {#illinois-river} in EDDY_KNOWLEDGE.md',
+  ]);
+  assert.deepEqual(knowledgeSectionProblems(['elk'], ['elk']), []);
+  // The script asks before writing, and preview reports it as blocked too.
+  const script = readFileSync('scripts/ingestion/activate-rivers.ts', 'utf8');
+  assert.ok(script.indexOf('knowledgeSectionProblems(slugs, listKnowledgeRiverSlugs())') < script.indexOf("db.rpc('review_river_activation'"));
+  assert.match(script, /if \(apply && knowledge\.length\)/);
+  assert.match(script, /const blocked = knowledge\.length > 0 \|\|/);
 });
 
 test('a tailwater pilot review names its reviewer, evidence and published endpoints', () => {
